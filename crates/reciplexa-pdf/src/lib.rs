@@ -27,6 +27,24 @@ struct EmbeddedImage {
     rgb: Vec<u8>,
 }
 
+/// Decoded RGB8 raster for PDF embed and GUI preview.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RasterRgb {
+    pub width: u32,
+    pub height: u32,
+    pub rgb: Vec<u8>,
+}
+
+/// Load a PNG or JPEG from disk into RGB8 (paths as given; caller resolves relatives).
+pub fn load_raster_file(path: &Path) -> Result<RasterRgb, String> {
+    let img = load_raster_rgb(path)?;
+    Ok(RasterRgb {
+        width: img.width,
+        height: img.height,
+        rgb: img.rgb,
+    })
+}
+
 struct ImageStore {
     by_key: HashMap<String, usize>,
     images: Vec<EmbeddedImage>,

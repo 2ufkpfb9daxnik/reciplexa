@@ -127,6 +127,7 @@ fn main() -> ExitCode {
                 pan: egui::Vec2::ZERO,
                 selected: None,
                 pending_source_select: None,
+                textures: std::collections::HashMap::new(),
             }))
         }),
     ) {
@@ -148,6 +149,8 @@ struct PreviewApp {
     pan: egui::Vec2,
     selected: Option<usize>,
     pending_source_select: Option<(usize, usize)>,
+    /// Texture cache keyed by image path string from the `.rpx`.
+    textures: std::collections::HashMap<String, egui::TextureHandle>,
 }
 
 struct DragState {
@@ -462,7 +465,15 @@ impl eframe::App for PreviewApp {
             );
 
             for (i, shape) in shapes.iter().enumerate() {
-                paint_shape(&painter, rect, &layout, shape);
+                paint_shape(
+                    &painter,
+                    rect,
+                    &layout,
+                    shape,
+                    &mut self.textures,
+                    ui.ctx(),
+                    self.path.parent(),
+                );
                 if self.selected == Some(i) {
                     if let Some((x0, y0, x1, y1)) = PaperLayout::shape_bounds_mm(shape) {
                         let (ax, ay) = layout.mm_to_px(x0, y1);
@@ -541,6 +552,9 @@ fn paint_shape(
     rect: egui::Rect,
     layout: &PaperLayout,
     shape: &WorldShape,
+    textures: &mut std::collections::HashMap<String, egui::TextureHandle>,
+    ctx: &egui::Context,
+    base: Option<&std::path::Path>,
 ) {
     match shape {
         WorldShape::Circle(c) => {
@@ -630,41 +644,82 @@ fn paint_shape(
                 rect.min + egui::vec2(x0, y0),
                 rect.min + egui::vec2(x1, y1),
             );
-            let fill = egui::Color32::from_rgba_unmultiplied(
-                230,
-                230,
-                230,
-                (img.alpha * 255.0).round().clamp(0.0, 255.0) as u8,
-            );
-            painter.rect_filled(r, 0.0, fill);
-            painter.rect_stroke(
-                r,
-                0.0,
-                egui::Stroke::new(1.5, egui::Color32::from_gray(60)),
-                egui::StrokeKind::Outside,
-            );
-            painter.line_segment(
-                [r.left_top(), r.right_bottom()],
-                egui::Stroke::new(1.0, egui::Color32::from_gray(140)),
-            );
-            painter.line_segment(
-                [r.left_bottom(), r.right_top()],
-                egui::Stroke::new(1.0, egui::Color32::from_gray(140)),
-            );
-            let label = img
-                .path
-                .rsplit(['/', '\\'])
-                .next()
-                .unwrap_or(img.path.as_str());
-            painter.text(
-                r.left_top() + egui::vec2(4.0, 4.0),
-                egui::Align2::LEFT_TOP,
-                label,
-                egui::FontId::proportional(12.0),
-                egui::Color32::from_gray(40),
-            );
+            if let Some(tex) = ensure_texture(textures, ctx, &img.path, base) {
+                let mut mesh = egui::Mesh::with_texture(tex.id());
+                let tint = egui::Color32::from_rgba_unmultiplied(
+                    255,
+                    255,
+                    255,
+                    (img.alpha * 255.0).round().clamp(0.0, 255.0) as u8,
+                );
+                mesh.add_rect_with_uv(
+                    r,
+                    egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
+                    tint,
+                );
+                painter.add(egui::Shape::mesh(mesh));
+            } else {
+                // Fallback placeholder when the file is missing / unloadable.
+                painter.rect_filled(r, 0.0, egui::Color32::from_gray(230));
+                painter.rect_stroke(
+                    r,
+                    0.0,
+                    egui::Stroke::new(1.5, egui::Color32::from_gray(60)),
+                    egui::StrokeKind::Outside,
+                );
+                painter.line_segment(
+                    [r.left_top(), r.right_bottom()],
+                    egui::Stroke::new(1.0, egui::Color32::from_gray(140)),
+                );
+                painter.line_segment(
+                    [r.left_bottom(), r.right_top()],
+                    egui::Stroke::new(1.0, egui::Color32::from_gray(140)),
+                );
+                let label = img
+                    .path
+                    .rsplit(['/', '\\'])
+                    .next()
+                    .unwrap_or(img.path.as_str());
+                painter.text(
+                    r.left_top() + egui::vec2(4.0, 4.0),
+                    egui::Align2::LEFT_TOP,
+                    label,
+                    egui::FontId::proportional(12.0),
+                    egui::Color32::from_gray(40),
+                );
+            }
         }
     }
+}
+
+fn ensure_texture(
+    textures: &mut std::collections::HashMap<String, egui::TextureHandle>,
+    ctx: &egui::Context,
+    path: &str,
+    base: Option<&std::path::Path>,
+) -> Option<egui::TextureHandle> {
+    if let Some(tex) = textures.get(path) {
+        return Some(tex.clone());
+    }
+    let resolved = match base {
+        Some(b) => b.join(path),
+        None => PathBuf::from(path),
+    };
+    let raster = reciplexa_pdf::load_raster_file(&resolved).ok()?;
+    let mut rgba = Vec::with_capacity(raster.rgb.len() / 3 * 4);
+    for px in raster.rgb.chunks_exact(3) {
+        rgba.push(px[0]);
+        rgba.push(px[1]);
+        rgba.push(px[2]);
+        rgba.push(255);
+    }
+    let color_image = egui::ColorImage::from_rgba_unmultiplied(
+        [raster.width as usize, raster.height as usize],
+        &rgba,
+    );
+    let tex = ctx.load_texture(path.to_string(), color_image, egui::TextureOptions::LINEAR);
+    textures.insert(path.to_string(), tex.clone());
+    Some(tex)
 }
 
 fn color32(c: reciplexa_scene::Color, alpha: f64) -> egui::Color32 {
