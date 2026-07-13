@@ -1,0 +1,10 @@
+[package]
+name = "reciplexa-view"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Headless scene projection for preview and hit-testing (no GUI toolkit)"
+publish = false
+
+[dependencies]
+reciplexa-scene = { workspace = true }

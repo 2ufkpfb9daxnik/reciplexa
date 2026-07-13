@@ -1,0 +1,19 @@
+[package]
+name = "reciplexa-gui"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "egui paper preview for reciplexa (view-only in M6)"
+publish = false
+
+[[bin]]
+name = "reciplexa-gui"
+path = "src/main.rs"
+
+[dependencies]
+eframe = { workspace = true }
+egui = { workspace = true }
+reciplexa-lower = { workspace = true }
+reciplexa-scene = { workspace = true }
+reciplexa-types = { workspace = true }
+reciplexa-view = { workspace = true }

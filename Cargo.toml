@@ -6,7 +6,9 @@ members = [
     "crates/reciplexa-pdf",
     "crates/reciplexa-lower",
     "crates/reciplexa-types",
+    "crates/reciplexa-view",
     "crates/reciplexa",
+    "crates/reciplexa-gui",
 ]
 
 [workspace.package]
@@ -17,8 +19,11 @@ repository = "https://github.com/kageokaraito/reciplexa"
 
 [workspace.dependencies]
 rowan = "0.16"
+egui = "0.31"
+eframe = "0.31"
 reciplexa-syntax = { path = "crates/reciplexa-syntax" }
 reciplexa-scene = { path = "crates/reciplexa-scene" }
 reciplexa-pdf = { path = "crates/reciplexa-pdf" }
 reciplexa-lower = { path = "crates/reciplexa-lower" }
 reciplexa-types = { path = "crates/reciplexa-types" }
+reciplexa-view = { path = "crates/reciplexa-view" }
