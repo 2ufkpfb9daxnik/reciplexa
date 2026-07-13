@@ -1,0 +1,10 @@
+[package]
+name = "reciplexa-pdf"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Minimal PDF backend for reciplexa scenes (no heavy deps)"
+publish = false
+
+[dependencies]
+reciplexa-scene = { workspace = true }
