@@ -1,18 +1,21 @@
-//! Minimal CST → scene lowering for the M3 black-circle milestone.
+//! Minimal CST → scene lowering for pages, shapes, and Glisp-like transforms.
 //!
-//! Supported forms (Lisp mode only):
+//! Supported forms (Lisp mode):
 //!
 //! ```text
 //! (page a4
-//!   (circle <x-mm> <y-mm> <r-mm>))
+//!   (circle <x> <y> <r>)
+//!   (circle <x> <y> <r> red)
+//!   (circle <x> <y> <r> (rgb 0.1 0.2 0.3))
+//!   (translate <tx> <ty> <shape…>)
+//!   (rotate <deg> <shape…>)
+//!   (scale <s> <shape…>)
+//!   (scale <sx> <sy> <shape…>))
 //! ```
-//!
-//! Fill defaults to black. Macros/packages will replace this hard-wired
-//! vocabulary later; the seam is intentional.
 
 #![forbid(unsafe_code)]
 
-use reciplexa_scene::{Circle, Color, Document, Page, PaperSize, Shape};
+use reciplexa_scene::{Affine, Circle, Color, Document, Page, PaperSize, Shape};
 use reciplexa_syntax::{parse_source, SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken};
 
 /// Lowering / validation error (fail-fast: no partial scene for rendering).
@@ -84,17 +87,19 @@ fn lower_page(node: &SyntaxNode) -> Result<Page, LowerError> {
 
     let mut shapes = Vec::new();
     for item in items.iter().skip(2) {
-        match item {
-            Child::Node(n) => shapes.push(lower_shape(n)?),
-            Child::Token(t) => {
-                return Err(LowerError::new(format!(
-                    "page body expected a shape list, got token {:?}",
-                    t.kind()
-                )))
-            }
-        }
+        shapes.push(lower_shape_child(item)?);
     }
     Ok(Page { paper, shapes })
+}
+
+fn lower_shape_child(child: &Child) -> Result<Shape, LowerError> {
+    match child {
+        Child::Node(n) => lower_shape(n),
+        Child::Token(t) => Err(LowerError::new(format!(
+            "expected a shape list, got token {:?}",
+            t.kind()
+        ))),
+    }
 }
 
 fn lower_shape(node: &SyntaxNode) -> Result<Shape, LowerError> {
@@ -102,24 +107,33 @@ fn lower_shape(node: &SyntaxNode) -> Result<Shape, LowerError> {
     let head = ident_at(&items, 0, "shape")?;
     match head {
         "circle" => lower_circle(&items),
+        "translate" => lower_translate(&items),
+        "rotate" => lower_rotate(&items),
+        "scale" => lower_scale(&items),
         other => Err(LowerError::new(format!("unknown shape `{other}`"))),
     }
 }
 
 fn lower_circle(items: &[Child]) -> Result<Shape, LowerError> {
-    if items.len() != 4 {
+    // (circle x y r) | (circle x y r color)
+    if items.len() != 4 && items.len() != 5 {
         return Err(LowerError::new(
-            "`circle` expects exactly 3 numbers: x-mm y-mm radius-mm",
+            "`circle` expects (circle x y r) or (circle x y r color)",
         ));
     }
     let x = number_at(items, 1, "circle x")?;
     let y = number_at(items, 2, "circle y")?;
     let r = number_at(items, 3, "circle radius")?;
+    let fill = if items.len() == 5 {
+        lower_color(&items[4])?
+    } else {
+        Color::BLACK
+    };
     let circle = Circle {
         x_mm: x,
         y_mm: y,
         radius_mm: r,
-        fill: Color::BLACK,
+        fill,
     };
     if !circle.is_drawable() {
         return Err(LowerError::new(format!(
@@ -127,6 +141,101 @@ fn lower_circle(items: &[Child]) -> Result<Shape, LowerError> {
         )));
     }
     Ok(Shape::Circle(circle))
+}
+
+fn lower_color(child: &Child) -> Result<Color, LowerError> {
+    match child {
+        Child::Token(t) if t.kind() == SyntaxKind::Ident => Color::named(t.text())
+            .ok_or_else(|| LowerError::new(format!("unknown color `{}`", t.text()))),
+        Child::Node(n) => {
+            let items = list_items(n, "color")?;
+            let head = ident_at(&items, 0, "color")?;
+            if head != "rgb" {
+                return Err(LowerError::new(format!(
+                    "unknown color form `{head}` (expected rgb)"
+                )));
+            }
+            if items.len() != 4 {
+                return Err(LowerError::new("`rgb` expects three channels"));
+            }
+            let r = number_at(&items, 1, "rgb r")?;
+            let g = number_at(&items, 2, "rgb g")?;
+            let b = number_at(&items, 3, "rgb b")?;
+            let c = Color::new(r, g, b);
+            if !c.is_channel_valid() {
+                return Err(LowerError::new("rgb channels must be in 0..=1"));
+            }
+            Ok(c)
+        }
+        Child::Token(t) => Err(LowerError::new(format!(
+            "expected color ident or (rgb …), got {:?}",
+            t.kind()
+        ))),
+    }
+}
+
+fn lower_translate(items: &[Child]) -> Result<Shape, LowerError> {
+    // (translate tx ty shape…)
+    if items.len() < 4 {
+        return Err(LowerError::new(
+            "`translate` expects tx ty and at least one shape",
+        ));
+    }
+    let tx = number_at(items, 1, "translate x")?;
+    let ty = number_at(items, 2, "translate y")?;
+    let children = lower_shape_tail(&items[3..])?;
+    Ok(Shape::Group {
+        transform: Affine::translate(tx, ty),
+        children,
+    })
+}
+
+fn lower_rotate(items: &[Child]) -> Result<Shape, LowerError> {
+    // (rotate deg shape…)
+    if items.len() < 3 {
+        return Err(LowerError::new(
+            "`rotate` expects degrees and at least one shape",
+        ));
+    }
+    let deg = number_at(items, 1, "rotate degrees")?;
+    let children = lower_shape_tail(&items[2..])?;
+    Ok(Shape::Group {
+        transform: Affine::rotate_deg(deg),
+        children,
+    })
+}
+
+fn lower_scale(items: &[Child]) -> Result<Shape, LowerError> {
+    // (scale s shape…) | (scale sx sy shape…)
+    if items.len() < 3 {
+        return Err(LowerError::new(
+            "`scale` expects factor(s) and at least one shape",
+        ));
+    }
+    let first = number_at(items, 1, "scale")?;
+    let (transform, rest) = if items.len() >= 4
+        && matches!(&items[2], Child::Token(t) if t.kind() == SyntaxKind::Number)
+    {
+        let sy = number_at(items, 2, "scale y")?;
+        (Affine::scale(first, sy), &items[3..])
+    } else {
+        (Affine::scale_uniform(first), &items[2..])
+    };
+    if rest.is_empty() {
+        return Err(LowerError::new("`scale` needs at least one shape body"));
+    }
+    Ok(Shape::Group {
+        transform,
+        children: lower_shape_tail(rest)?,
+    })
+}
+
+fn lower_shape_tail(items: &[Child]) -> Result<Vec<Shape>, LowerError> {
+    let mut out = Vec::with_capacity(items.len());
+    for item in items {
+        out.push(lower_shape_child(item)?);
+    }
+    Ok(out)
 }
 
 #[derive(Debug)]
@@ -222,6 +331,14 @@ mod tests {
   (circle 105 148.5 40))
 "#;
 
+    const TRANSFORMED: &str = r#"
+(page a4
+  (translate 105 148.5
+    (rotate 30
+      (scale 1.5
+        (circle 0 0 20 red)))))
+"#;
+
     // --- validity ---
 
     #[test]
@@ -237,14 +354,63 @@ mod tests {
                 assert_eq!(c.radius_mm, 40.0);
                 assert_eq!(c.fill, Color::BLACK);
             }
+            _ => panic!("expected circle"),
         }
     }
 
     #[test]
-    fn end_to_end_source_to_pdf_bytes() {
-        let doc = lower_source(BLACK_CIRCLE).unwrap();
-        let pdf = document_to_pdf(&doc).unwrap();
+    fn lowers_nested_transforms_and_named_color() {
+        let doc = lower_source(TRANSFORMED).unwrap();
+        let outer = &doc.pages[0].shapes[0];
+        match outer {
+            Shape::Group {
+                transform,
+                children,
+            } => {
+                assert_eq!(*transform, Affine::translate(105.0, 148.5));
+                match &children[0] {
+                    Shape::Group { children, .. } => match &children[0] {
+                        Shape::Group { children, .. } => match &children[0] {
+                            Shape::Circle(c) => {
+                                assert_eq!(c.fill, Color::RED);
+                                assert_eq!(c.radius_mm, 20.0);
+                            }
+                            _ => panic!("expected circle"),
+                        },
+                        _ => panic!("expected scale group"),
+                    },
+                    _ => panic!("expected rotate group"),
+                }
+            }
+            _ => panic!("expected translate group"),
+        }
+    }
+
+    #[test]
+    fn lowers_rgb_and_nonuniform_scale() {
+        let src = "(page a4 (scale 2 3 (circle 0 0 5 (rgb 0.2 0.4 0.6))))";
+        let doc = lower_source(src).unwrap();
+        match &doc.pages[0].shapes[0] {
+            Shape::Group {
+                transform,
+                children,
+            } => {
+                assert_eq!(*transform, Affine::scale(2.0, 3.0));
+                match &children[0] {
+                    Shape::Circle(c) => assert_eq!(c.fill, Color::new(0.2, 0.4, 0.6)),
+                    _ => panic!("expected circle"),
+                }
+            }
+            _ => panic!("expected group"),
+        }
+    }
+
+    #[test]
+    fn end_to_end_transformed_source_to_pdf() {
+        let pdf = document_to_pdf(&lower_source(TRANSFORMED).unwrap()).unwrap();
         assert!(pdf.starts_with(b"%PDF-"));
+        let text = String::from_utf8_lossy(&pdf);
+        assert!(text.contains(" cm\n"));
     }
 
     #[test]
@@ -264,6 +430,7 @@ mod tests {
                 assert_eq!(c.y_mm, 2.0);
                 assert_eq!(c.radius_mm, 3.0);
             }
+            _ => panic!("expected circle"),
         }
     }
 
@@ -290,7 +457,7 @@ mod tests {
     #[test]
     fn wrong_circle_arity_fails() {
         assert!(lower_source("(page a4 (circle 1 2))").is_err());
-        assert!(lower_source("(page a4 (circle 1 2 3 4))").is_err());
+        assert!(lower_source("(page a4 (circle 1 2 3 4 5))").is_err());
     }
 
     #[test]
@@ -309,5 +476,19 @@ mod tests {
     fn non_page_head_fails() {
         let err = lower_source("(sheet a4)").unwrap_err();
         assert!(err.message.contains("expected head `page`"));
+    }
+
+    #[test]
+    fn unknown_color_and_bad_rgb_fail() {
+        assert!(lower_source("(page a4 (circle 0 0 1 puce))").is_err());
+        assert!(lower_source("(page a4 (circle 0 0 1 (rgb 2 0 0)))").is_err());
+        assert!(lower_source("(page a4 (circle 0 0 1 (rgb 0 0)))").is_err());
+    }
+
+    #[test]
+    fn transform_without_body_fails() {
+        assert!(lower_source("(page a4 (translate 1 2))").is_err());
+        assert!(lower_source("(page a4 (rotate 90))").is_err());
+        assert!(lower_source("(page a4 (scale 2))").is_err());
     }
 }

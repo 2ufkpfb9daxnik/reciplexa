@@ -6,7 +6,7 @@
 
 #![forbid(unsafe_code)]
 
-use reciplexa_scene::{Color, Document, Page, Shape};
+use reciplexa_scene::{Affine, Color, Document, Page, Shape};
 
 /// Errors while building a PDF.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -51,18 +51,53 @@ pub fn write_document(doc: &Document, mut w: impl std::io::Write) -> Result<(), 
 fn render_page_content(page: &Page, index: usize) -> Result<String, PdfError> {
     let mut ops = String::new();
     for (si, shape) in page.shapes.iter().enumerate() {
-        match shape {
-            Shape::Circle(c) => {
-                if !c.is_drawable() {
-                    return Err(PdfError::InvalidShape(format!(
-                        "page {index} shape {si}: circle not drawable"
-                    )));
-                }
-                ops.push_str(&circle_path_ops(c.x_mm, c.y_mm, c.radius_mm, c.fill));
-            }
-        }
+        ops.push_str(&render_shape(shape, &format!("page {index} shape {si}"))?);
     }
     Ok(ops)
+}
+
+fn render_shape(shape: &Shape, ctx: &str) -> Result<String, PdfError> {
+    match shape {
+        Shape::Circle(c) => {
+            if !c.is_drawable() {
+                return Err(PdfError::InvalidShape(format!(
+                    "{ctx}: circle not drawable"
+                )));
+            }
+            Ok(circle_path_ops(c.x_mm, c.y_mm, c.radius_mm, c.fill))
+        }
+        Shape::Group {
+            transform,
+            children,
+        } => {
+            if !transform.is_finite() {
+                return Err(PdfError::InvalidShape(format!(
+                    "{ctx}: non-finite transform"
+                )));
+            }
+            let mut ops = String::from("q\n");
+            ops.push_str(&affine_cm_ops(*transform));
+            for (i, child) in children.iter().enumerate() {
+                ops.push_str(&render_shape(child, &format!("{ctx}/{i}"))?);
+            }
+            ops.push_str("Q\n");
+            Ok(ops)
+        }
+    }
+}
+
+/// Emit a `cm` operator. Linear parts stay unitless; translation mm → pt.
+fn affine_cm_ops(t: Affine) -> String {
+    let s = 72.0 / 25.4;
+    format!(
+        "{:.6} {:.6} {:.6} {:.6} {:.6} {:.6} cm\n",
+        t.a,
+        t.b,
+        t.c,
+        t.d,
+        t.e * s,
+        t.f * s
+    )
 }
 
 fn circle_path_ops(x_mm: f64, y_mm: f64, r_mm: f64, fill: Color) -> String {
@@ -189,7 +224,7 @@ fn assemble_pdf(page_sizes: &[(f64, f64)], contents: &[String]) -> Vec<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use reciplexa_scene::{Circle, Color, Document, Page, PaperSize, Shape};
+    use reciplexa_scene::{Affine, Circle, Color, Document, Page, PaperSize, Shape};
 
     fn sample_doc() -> Document {
         Document::single_page(Page {
@@ -279,6 +314,48 @@ mod tests {
         assert!(matches!(
             document_to_pdf(&doc),
             Err(PdfError::InvalidPage(_))
+        ));
+    }
+
+    #[test]
+    fn transformed_colored_circle_emits_cm_and_non_black_fill() {
+        let doc = Document::single_page(Page {
+            paper: PaperSize::a4(),
+            shapes: vec![Shape::Group {
+                transform: Affine::translate(105.0, 148.5)
+                    .then(Affine::rotate_deg(30.0))
+                    .then(Affine::scale_uniform(1.5)),
+                children: vec![Shape::Circle(Circle {
+                    x_mm: 0.0,
+                    y_mm: 0.0,
+                    radius_mm: 20.0,
+                    fill: Color::RED,
+                })],
+            }],
+        });
+        let bytes = document_to_pdf(&doc).unwrap();
+        let text = String::from_utf8_lossy(&bytes);
+        assert!(text.contains(" cm\n"));
+        assert!(text.contains("q\n"));
+        assert!(text.contains("Q\n"));
+        assert!(text.contains("1.0000 0.0000 0.0000 rg"));
+    }
+
+    #[test]
+    fn non_finite_transform_errors() {
+        let doc = Document::single_page(Page {
+            paper: PaperSize::a4(),
+            shapes: vec![Shape::Group {
+                transform: Affine {
+                    a: f64::INFINITY,
+                    ..Affine::identity()
+                },
+                children: vec![],
+            }],
+        });
+        assert!(matches!(
+            document_to_pdf(&doc),
+            Err(PdfError::InvalidShape(_))
         ));
     }
 }
