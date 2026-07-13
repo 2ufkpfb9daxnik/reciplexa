@@ -5,6 +5,10 @@
 
 #![forbid(unsafe_code)]
 
+mod affine;
+
+pub use affine::Affine;
+
 /// sRGB color channels in `0.0 ..= 1.0`.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Color {
@@ -19,9 +23,40 @@ impl Color {
         g: 0.0,
         b: 0.0,
     };
+    pub const WHITE: Self = Self {
+        r: 1.0,
+        g: 1.0,
+        b: 1.0,
+    };
+    pub const RED: Self = Self {
+        r: 1.0,
+        g: 0.0,
+        b: 0.0,
+    };
+    pub const GREEN: Self = Self {
+        r: 0.0,
+        g: 1.0,
+        b: 0.0,
+    };
+    pub const BLUE: Self = Self {
+        r: 0.0,
+        g: 0.0,
+        b: 1.0,
+    };
 
     pub const fn new(r: f64, g: f64, b: f64) -> Self {
         Self { r, g, b }
+    }
+
+    pub fn named(name: &str) -> Option<Self> {
+        Some(match name {
+            "black" => Self::BLACK,
+            "white" => Self::WHITE,
+            "red" => Self::RED,
+            "green" => Self::GREEN,
+            "blue" => Self::BLUE,
+            _ => return None,
+        })
     }
 
     pub fn is_channel_valid(self) -> bool {
@@ -54,10 +89,9 @@ impl PaperSize {
     }
 }
 
-/// Axis-aligned filled circle. Position is the center in page millimeters.
+/// Axis-aligned filled circle in **local** millimeters (before parent transforms).
 ///
-/// Coordinate origin is the **bottom-left** of the page (PDF space), so GUI
-/// and PDF backends share one convention from day one.
+/// Page origin is the **bottom-left** (PDF space).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Circle {
     pub x_mm: f64,
@@ -72,9 +106,15 @@ impl Circle {
     }
 }
 
+/// Drawable node. [`Shape::Group`] applies an affine to nested children—
+/// the Glisp-style stack of translate / rotate / scale.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Shape {
     Circle(Circle),
+    Group {
+        transform: Affine,
+        children: Vec<Shape>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -124,6 +164,31 @@ mod tests {
         assert_eq!(doc.pages.len(), 1);
     }
 
+    #[test]
+    fn named_colors_resolve() {
+        assert_eq!(Color::named("red"), Some(Color::RED));
+        assert_eq!(Color::named("black"), Some(Color::BLACK));
+    }
+
+    #[test]
+    fn transformed_group_holds_children() {
+        let g = Shape::Group {
+            transform: Affine::translate(10.0, 20.0)
+                .then(Affine::rotate_deg(15.0))
+                .then(Affine::scale_uniform(2.0)),
+            children: vec![Shape::Circle(Circle {
+                x_mm: 0.0,
+                y_mm: 0.0,
+                radius_mm: 5.0,
+                fill: Color::BLUE,
+            })],
+        };
+        match g {
+            Shape::Group { children, .. } => assert_eq!(children.len(), 1),
+            _ => panic!("expected group"),
+        }
+    }
+
     // --- defect ---
 
     #[test]
@@ -152,5 +217,11 @@ mod tests {
             height_mm: 10.0
         }
         .is_positive());
+    }
+
+    #[test]
+    fn unknown_named_color_is_none() {
+        assert_eq!(Color::named("puce"), None);
+        assert_eq!(Color::named(""), None);
     }
 }
