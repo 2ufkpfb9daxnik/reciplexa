@@ -301,7 +301,10 @@ impl PreviewApp {
 
     fn apply_layer_duplicate(&mut self, index: usize) {
         match duplicate_layer_page(&self.source, self.page_index, index) {
-            Ok(new_src) => {
+            Ok(dup) => {
+                // Offset the copy so it is not stacked invisibly on the original.
+                let new_src = nudge_layer_page(&dup, self.page_index, index + 1, 5.0, -5.0)
+                    .unwrap_or(dup);
                 self.set_source_with_undo(new_src);
                 self.drag = None;
                 let new_sel = index + 1;
