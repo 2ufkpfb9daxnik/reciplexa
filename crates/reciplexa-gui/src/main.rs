@@ -9,9 +9,10 @@ use std::sync::Arc;
 use eframe::egui;
 use eframe::egui::text::{CCursor, CCursorRange};
 use reciplexa_lower::{
-    collect_layers_page, collect_size_targets_page, delete_layer_page, duplicate_layer_page,
-    layer_opacity, layer_rotation_deg, lower_source, nudge_layer_page, reorder_layer_page,
-    scale_size_target, set_layer_opacity, set_layer_rotation_deg, LayerInfo, SizeTarget,
+    collect_layer_props, collect_layers_page, collect_size_targets_page, delete_layer_page,
+    duplicate_layer_page, layer_rotation_deg, lower_source, nudge_layer_page, reorder_layer_page,
+    scale_size_target, set_layer_prop, set_layer_rotation_deg, LayerInfo, PropEditContext,
+    PropGroup, PropValue, SizeTarget,
 };
 use reciplexa_macro::expand_source;
 use reciplexa_pdf::write_document_with_base;
@@ -162,7 +163,8 @@ fn main() -> ExitCode {
                 undo_stack: Vec::new(),
                 redo_stack: Vec::new(),
                 typing_undo_open: false,
-                opacity_undo_open: false,
+                props_open: false,
+                props_undo_open: false,
             }))
         }),
     ) {
@@ -192,8 +194,10 @@ struct PreviewApp {
     redo_stack: Vec<String>,
     /// Coalesce TextEdit keystrokes into one undo step while focused.
     typing_undo_open: bool,
-    /// Coalesce opacity slider drags into one undo step.
-    opacity_undo_open: bool,
+    /// Properties panel (named args for the selection). Not the attribute-button suite.
+    props_open: bool,
+    /// Coalesce property slider drags into one undo step.
+    props_undo_open: bool,
 }
 
 struct DragState {
@@ -262,8 +266,148 @@ impl PreviewApp {
 
     fn select_layer(&mut self, index: usize, layers: &[LayerInfo]) {
         self.selected = Some(index);
+        self.props_open = true;
         if let Some(layer) = layers.get(index) {
             self.pending_source_select = Some((layer.byte_start, layer.byte_end));
+        }
+    }
+
+    fn apply_prop_edit(
+        &mut self,
+        flat: usize,
+        id: &str,
+        value: PropValue,
+        prop_ctx: PropEditContext,
+    ) {
+        match set_layer_prop(
+            &self.source,
+            self.page_index,
+            flat,
+            id,
+            &value,
+            &prop_ctx,
+        ) {
+            Ok(new_src) => {
+                if !self.props_undo_open {
+                    self.push_undo();
+                    self.props_undo_open = true;
+                }
+                self.source = new_src;
+                self.error = pipeline_doc(&self.source).err();
+            }
+            Err(e) => self.error = Some(e.message),
+        }
+    }
+
+    fn show_properties_window(&mut self, ctx: &egui::Context) {
+        if !self.props_open {
+            return;
+        }
+        let Some(sel) = self.selected else {
+            return;
+        };
+        let Ok(doc) = pipeline_doc(&self.source) else {
+            return;
+        };
+        let Some(page) = doc.pages.get(self.page_index) else {
+            return;
+        };
+        let Some((_, shapes)) = flatten_page(&doc, self.page_index) else {
+            return;
+        };
+        let Some(aabb) = shapes.get(sel).and_then(PaperLayout::shape_bounds_mm) else {
+            return;
+        };
+        let prop_ctx = PropEditContext {
+            aabb_mm: aabb,
+            paper_w_mm: page.paper.width_mm,
+            paper_h_mm: page.paper.height_mm,
+        };
+        let props =
+            collect_layer_props(&self.source, self.page_index, sel, &prop_ctx).unwrap_or_default();
+
+        let mut open = self.props_open;
+        let mut edit: Option<(String, PropValue)> = None;
+        let mut any_slider_down = false;
+
+        egui::Window::new("Properties")
+            .id(egui::Id::new("selection_properties"))
+            .open(&mut open)
+            .anchor(egui::Align2::RIGHT_BOTTOM, [-12.0, -12.0])
+            .default_width(280.0)
+            .resizable(true)
+            .collapsible(true)
+            .show(ctx, |ui| {
+                ui.label("Named args for the selection (rewrites source).");
+                ui.weak("Attribute buttons come later via macros.");
+                ui.separator();
+                for group in [
+                    PropGroup::Layout,
+                    PropGroup::Transform,
+                    PropGroup::Fill,
+                    PropGroup::Stroke,
+                    PropGroup::Content,
+                    PropGroup::Geometry,
+                ] {
+                    let fields: Vec<_> = props.iter().filter(|p| p.group == group).collect();
+                    if fields.is_empty() {
+                        continue;
+                    }
+                    let framed = matches!(group, PropGroup::Fill | PropGroup::Stroke);
+                    let mut paint_group = |ui: &mut egui::Ui| {
+                        ui.label(egui::RichText::new(group.title()).strong());
+                        for field in &fields {
+                            match &field.value {
+                                PropValue::Number(v) => {
+                                    let mut n = *v;
+                                    let resp = if let Some((lo, hi)) = field.slider {
+                                        ui.add(
+                                            egui::Slider::new(&mut n, lo..=hi).text(&field.label),
+                                        )
+                                    } else {
+                                        ui.horizontal(|ui| {
+                                            ui.label(&field.label);
+                                            ui.add(egui::DragValue::new(&mut n).speed(0.1))
+                                        })
+                                        .inner
+                                    };
+                                    if resp.is_pointer_button_down_on() {
+                                        any_slider_down = true;
+                                    }
+                                    if resp.changed() {
+                                        edit = Some((field.id.clone(), PropValue::Number(n)));
+                                    }
+                                }
+                                PropValue::Text(t) => {
+                                    let mut s = t.clone();
+                                    ui.horizontal(|ui| {
+                                        ui.label(&field.label);
+                                        let resp = ui.add(
+                                            egui::TextEdit::singleline(&mut s).desired_width(160.0),
+                                        );
+                                        if resp.changed() {
+                                            edit = Some((field.id.clone(), PropValue::Text(s)));
+                                        }
+                                    });
+                                }
+                            }
+                        }
+                    };
+                    if framed {
+                        egui::Frame::group(ui.style()).show(ui, &mut paint_group);
+                    } else {
+                        paint_group(ui);
+                    }
+                    ui.add_space(4.0);
+                }
+            });
+
+        self.props_open = open;
+        if let Some((id, value)) = edit {
+            self.apply_prop_edit(sel, &id, value, prop_ctx);
+        }
+        if !any_slider_down {
+            self.props_undo_open = false;
         }
     }
 
@@ -602,23 +746,18 @@ impl eframe::App for PreviewApp {
                 if let Some(sel) = self.selected {
                     ui.separator();
                     ui.label(format!("Selected layer {}", sel + 1));
-                    let mut alpha = layer_opacity(&self.source, self.page_index, sel).unwrap_or(1.0);
-                    let slider = ui.add(egui::Slider::new(&mut alpha, 0.0..=1.0).text("Opacity"));
-                    if slider.changed() {
-                        match set_layer_opacity(&self.source, self.page_index, sel, alpha) {
-                            Ok(new_src) => {
-                                if !self.opacity_undo_open {
-                                    self.push_undo();
-                                    self.opacity_undo_open = true;
-                                }
-                                self.source = new_src;
-                                self.error = pipeline_doc(&self.source).err();
-                            }
-                            Err(e) => self.error = Some(e.message),
-                        }
-                    }
-                    if !slider.is_pointer_button_down_on() {
-                        self.opacity_undo_open = false;
+                    if ui
+                        .button(if self.props_open {
+                            "Hide properties"
+                        } else {
+                            "Properties…"
+                        })
+                        .on_hover_text(
+                            "Named arguments for the selection (size, position, color, text…). Not the attribute-button suite.",
+                        )
+                        .clicked()
+                    {
+                        self.props_open = !self.props_open;
                     }
                     if ui
                         .button("Duplicate")
@@ -635,9 +774,12 @@ impl eframe::App for PreviewApp {
                         self.apply_layer_delete(sel);
                     }
                 } else {
-                    self.opacity_undo_open = false;
+                    self.props_undo_open = false;
                 }
             });
+
+        // Selection properties panel (bottom-right). Edits rewrite .rpx.
+        self.show_properties_window(ctx);
 
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("Paper preview");

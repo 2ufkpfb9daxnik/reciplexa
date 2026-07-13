@@ -17,8 +17,12 @@
 
 #![forbid(unsafe_code)]
 
+mod props;
 mod sync;
 
+pub use props::{
+    collect_layer_props, set_layer_prop, PropEditContext, PropField, PropGroup, PropValue,
+};
 pub use sync::{
     collect_drag_targets, collect_drag_targets_page, collect_layers_page,
     collect_size_targets_page, delete_layer_page, duplicate_layer_page, layer_opacity,
