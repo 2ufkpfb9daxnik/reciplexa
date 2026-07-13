@@ -8,5 +8,6 @@ publish = false
 
 [dependencies]
 reciplexa-syntax = { workspace = true }
+reciplexa-effect = { workspace = true }
 
 [dev-dependencies]

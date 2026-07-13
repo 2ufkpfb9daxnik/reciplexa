@@ -5,6 +5,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
+use reciplexa_effect::{collect_performs, run_perform, EffectError, EffectHandler, Value};
 use reciplexa_lower::lower_source;
 use reciplexa_macro::expand_source;
 use reciplexa_pdf::write_document;
@@ -30,11 +31,35 @@ fn main() -> ExitCode {
     }
 }
 
+struct CliHandler;
+
+impl EffectHandler for CliHandler {
+    fn on_log(&mut self, message: &str) -> Result<Value, EffectError> {
+        eprintln!("[perform log] {message}");
+        Ok(Value::Unit)
+    }
+
+    fn on_random(&mut self) -> Result<Value, EffectError> {
+        // Deterministic stub until a real RNG effect is wired.
+        Ok(Value::Number(0.0))
+    }
+
+    fn on_write_path(&mut self, path: &str) -> Result<Value, EffectError> {
+        eprintln!("[perform write-path] {path}");
+        Ok(Value::Unit)
+    }
+}
+
 fn render(input: &str, output: &str) -> Result<(), String> {
     let src = fs::read_to_string(input).map_err(|e| format!("read {input}: {e}"))?;
     let expanded = expand_source(&src).map_err(|e| format!("macro: {}", e.message))?;
     typecheck_source(&expanded)
         .map_err(|e| format!("type: {} @{}..{}", e.message, e.start, e.end))?;
+    let performs = collect_performs(&expanded).map_err(|e| format!("effect: {}", e.message))?;
+    let mut handler = CliHandler;
+    for perf in &performs {
+        run_perform(&mut handler, perf).map_err(|e| format!("effect: {}", e.message))?;
+    }
     let doc = lower_source(&expanded).map_err(|e| e.message)?;
     let path = PathBuf::from(output);
     if let Some(parent) = path.parent() {
@@ -75,6 +100,7 @@ mod tests {
             "polyline.rpx",
             "two_pages.rpx",
             "image_placeholder.rpx",
+            "with_src_log.rpx",
         ] {
             let input = repo.join("examples").join(name);
             let output = repo.join("target").join(format!("test-{name}.pdf"));

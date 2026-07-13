@@ -1,15 +1,15 @@
-//! Minimal structural type checker for the M3/M4 surface vocabulary.
+//! Minimal structural type checker for the M3–M9 surface vocabulary.
 //!
 //! This is intentionally a **slice** of the eventual type system: fixed
-//! builtin signatures, no polymorphism, no effect rows yet. Inference here
-//! means synthesizing result types of known forms from checked arguments.
+//! builtin signatures, no polymorphism, thin effect rows via `perform`.
 //! Fail-fast: the first error aborts (SATySFi-style for this milestone).
 
 #![forbid(unsafe_code)]
 
+use reciplexa_effect::EffectOp;
 use reciplexa_syntax::{parse_source, SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken};
 
-/// Types inhabited by M4 surface values.
+/// Types inhabited by the current surface vocabulary.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Type {
     Number,
@@ -19,8 +19,12 @@ pub enum Type {
     Page,
     /// Scribble `(doc …)` block (body not deeply checked yet).
     Doc,
+    /// Lisp `(src …)` block for logic / effects (not drawn).
+    Src,
     String,
-    /// Top-level file: one or more pages/docs.
+    /// Result of `(perform …)` and similar side-effecting forms.
+    Unit,
+    /// Top-level file: pages / docs / src blocks.
     Document,
 }
 
@@ -70,10 +74,10 @@ pub fn typecheck_syntax(root: &SyntaxNode) -> Result<Type, TypeError> {
     for form in &forms {
         let ty = check_form(form)?;
         match ty {
-            Type::Page | Type::Doc => {}
+            Type::Page | Type::Doc | Type::Src => {}
             other => {
                 return Err(TypeError::at(
-                    format!("top-level form must be page or doc, got {other:?}"),
+                    format!("top-level form must be page, doc, or src, got {other:?}"),
                     form.text_range().start().into(),
                     form.text_range().end().into(),
                 ));
@@ -100,6 +104,13 @@ fn check_form(node: &SyntaxNode) -> Result<Type, TypeError> {
             // M8: accept scribble docs without typing TextChunk/@ bodies yet.
             Ok(Type::Doc)
         }
+        "src" => {
+            for a in &args {
+                expect_ty(check_src_child(a)?, Type::Unit, node)?;
+            }
+            Ok(Type::Src)
+        }
+        "perform" => check_perform(&args, node, span),
         "circle" => {
             // (circle Num Num Num) | (circle Num Num Num Color)
             if args.len() != 3 && args.len() != 4 {
@@ -295,6 +306,84 @@ fn check_form(node: &SyntaxNode) -> Result<Type, TypeError> {
             span.0,
             span.1,
         )),
+    }
+}
+
+fn check_perform(
+    args: &[Child],
+    node: &SyntaxNode,
+    span: (usize, usize),
+) -> Result<Type, TypeError> {
+    if args.is_empty() {
+        return Err(TypeError::at(
+            "`perform` needs an effect op name",
+            span.0,
+            span.1,
+        ));
+    }
+    let op_name = match &args[0] {
+        Child::Token(t) if t.kind() == SyntaxKind::Ident => t.text().to_string(),
+        _ => {
+            return Err(TypeError::at(
+                "`perform` op must be an identifier",
+                span.0,
+                span.1,
+            ));
+        }
+    };
+    let Some(op) = EffectOp::parse(&op_name) else {
+        return Err(TypeError::at(
+            format!("unknown effect op `{op_name}`"),
+            span.0,
+            span.1,
+        ));
+    };
+    match op {
+        EffectOp::Log | EffectOp::WritePath => {
+            if args.len() != 2 {
+                return Err(TypeError::at(
+                    format!("`perform {op_name}` has type (String) -> Unit"),
+                    span.0,
+                    span.1,
+                ));
+            }
+            expect_ty(check_child(&args[1])?, Type::String, node)?;
+        }
+        EffectOp::Random => {
+            if args.len() != 1 {
+                return Err(TypeError::at(
+                    "`perform random` has type () -> Number (payload forbidden)",
+                    span.0,
+                    span.1,
+                ));
+            }
+            // Typed as Unit for src bodies for now; Number result comes with an evaluator.
+        }
+    }
+    Ok(Type::Unit)
+}
+
+fn check_src_child(child: &Child) -> Result<Type, TypeError> {
+    match child {
+        Child::Node(n) => {
+            let (head, args, span) = split_list(n)?;
+            match head.as_str() {
+                "perform" => check_perform(&args, n, span),
+                other => Err(TypeError::at(
+                    format!("unsupported form in `src`: `{other}` (only `perform` for now)"),
+                    span.0,
+                    span.1,
+                )),
+            }
+        }
+        Child::Token(t) => {
+            let range = t.text_range();
+            Err(TypeError::at(
+                "src body must be list forms",
+                range.start().into(),
+                range.end().into(),
+            ))
+        }
     }
 }
 
@@ -532,6 +621,17 @@ mod tests {
         );
     }
 
+    #[test]
+    fn src_with_perform_typechecks() {
+        let src = r#"
+(src
+  (perform log "building")
+  (perform random))
+(page a4 (circle 1 2 3))
+"#;
+        assert_eq!(typecheck_source(src).unwrap(), Type::Document);
+    }
+
     // --- defect ---
 
     #[test]
@@ -550,6 +650,13 @@ mod tests {
     fn unknown_ident_fails() {
         let err = typecheck_source("(page a4 (circle 0 0 1 puce))").unwrap_err();
         assert!(err.message.contains("unbound identifier"));
+    }
+
+    #[test]
+    fn unknown_effect_op_fails() {
+        let err =
+            typecheck_source("(src (perform draw \"x\"))\n(page a4 (circle 1 2 3))").unwrap_err();
+        assert!(err.message.contains("unknown effect op"));
     }
 
     #[test]

@@ -67,9 +67,31 @@ pub fn lower_syntax(root: &SyntaxNode) -> Result<Document, LowerError> {
         return Err(LowerError::new("empty source: expected a (page …) form"));
     }
 
-    let mut pages = Vec::with_capacity(forms.len());
+    let mut pages = Vec::new();
     for form in forms {
-        pages.push(lower_page(&form)?);
+        let items = match list_items(&form, "top-level") {
+            Ok(i) => i,
+            Err(_) => continue,
+        };
+        let Ok(head) = ident_at(&items, 0, "top-level") else {
+            continue;
+        };
+        match head {
+            "page" => pages.push(lower_page(&form)?),
+            "doc" | "src" => {
+                // Not drawn: Scribble docs and effect/logic blocks are skipped here.
+            }
+            other => {
+                return Err(LowerError::new(format!(
+                    "expected head `page`, `doc`, or `src`, found `{other}`"
+                )));
+            }
+        }
+    }
+    if pages.is_empty() {
+        return Err(LowerError::new(
+            "no (page …) forms to lower (doc/src alone cannot produce a scene)",
+        ));
     }
     Ok(Document { pages })
 }
@@ -932,6 +954,23 @@ mod tests {
     fn non_page_head_fails() {
         let err = lower_source("(sheet a4)").unwrap_err();
         assert!(err.message.contains("expected head `page`"));
+    }
+
+    #[test]
+    fn src_and_doc_skipped_while_pages_lower() {
+        let src = r#"
+(src (perform log "hi"))
+(doc ignored)
+(page a4 (circle 1 2 3))
+"#;
+        let doc = lower_source(src).unwrap();
+        assert_eq!(doc.pages.len(), 1);
+    }
+
+    #[test]
+    fn src_only_fails_lower() {
+        let err = lower_source("(src (perform log \"x\"))").unwrap_err();
+        assert!(err.message.contains("no (page"));
     }
 
     #[test]

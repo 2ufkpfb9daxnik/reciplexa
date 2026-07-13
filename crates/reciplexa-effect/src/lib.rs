@@ -9,6 +9,8 @@
 
 use std::fmt;
 
+use reciplexa_syntax::SyntaxNode;
+
 /// Named effect operations the language will eventually expose.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum EffectOp {
@@ -83,6 +85,119 @@ pub fn run_perform(handler: &mut dyn EffectHandler, perf: &Perform) -> Result<Va
         EffectOp::Random => handler.on_random(),
         EffectOp::WritePath => handler.on_write_path(&perf.payload),
     }
+}
+
+/// Collect `(perform …)` forms nested under top-level `(src …)` blocks.
+pub fn collect_performs(input: &str) -> Result<Vec<Perform>, EffectError> {
+    use reciplexa_syntax::parse_source;
+
+    let parse = parse_source(input);
+    if !parse.errors.is_empty() {
+        return Err(EffectError::new(format!(
+            "parse error: {}",
+            parse.errors[0].message
+        )));
+    }
+    let mut out = Vec::new();
+    for form in parse.root.children() {
+        if !is_list_headed(&form, "src") {
+            continue;
+        }
+        collect_performs_in_list(&form, &mut out)?;
+    }
+    Ok(out)
+}
+
+fn is_list_headed(node: &SyntaxNode, name: &str) -> bool {
+    use reciplexa_syntax::{SyntaxElement, SyntaxKind};
+    if node.kind() != SyntaxKind::List {
+        return false;
+    }
+    for el in node.children_with_tokens() {
+        if let SyntaxElement::Token(t) = el {
+            if t.kind().is_trivia() || t.kind() == SyntaxKind::LParen {
+                continue;
+            }
+            return t.kind() == SyntaxKind::Ident && t.text() == name;
+        }
+    }
+    false
+}
+
+fn collect_performs_in_list(node: &SyntaxNode, out: &mut Vec<Perform>) -> Result<(), EffectError> {
+    use reciplexa_syntax::{SyntaxElement, SyntaxKind};
+
+    for child in node.children() {
+        if child.kind() != SyntaxKind::List {
+            continue;
+        }
+        let mut atoms = Vec::new();
+        for el in child.children_with_tokens() {
+            match el {
+                SyntaxElement::Token(t) => {
+                    if t.kind().is_trivia()
+                        || matches!(t.kind(), SyntaxKind::LParen | SyntaxKind::RParen)
+                    {
+                        continue;
+                    }
+                    atoms.push(t);
+                }
+                SyntaxElement::Node(_) => {}
+            }
+        }
+        if atoms.is_empty() || atoms[0].kind() != SyntaxKind::Ident {
+            continue;
+        }
+        if atoms[0].text() != "perform" {
+            continue;
+        }
+        if atoms.len() < 2 || atoms[1].kind() != SyntaxKind::Ident {
+            return Err(EffectError::new("perform needs an op identifier"));
+        }
+        let op_name = atoms[1].text();
+        let Some(op) = EffectOp::parse(op_name) else {
+            return Err(EffectError::new(format!("unknown effect op `{op_name}`")));
+        };
+        let payload = match op {
+            EffectOp::Random => String::new(),
+            EffectOp::Log | EffectOp::WritePath => {
+                if atoms.len() < 3 || atoms[2].kind() != SyntaxKind::String {
+                    return Err(EffectError::new(format!(
+                        "perform {op_name} needs a string payload"
+                    )));
+                }
+                let raw = atoms[2].text();
+                if raw.len() >= 2 && raw.starts_with('"') && raw.ends_with('"') {
+                    unescape_string(&raw[1..raw.len() - 1])
+                } else {
+                    return Err(EffectError::new("malformed string payload"));
+                }
+            }
+        };
+        out.push(Perform { op, payload });
+    }
+    Ok(())
+}
+
+fn unescape_string(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut chars = s.chars();
+    while let Some(c) = chars.next() {
+        if c == '\\' {
+            match chars.next() {
+                Some('n') => out.push('\n'),
+                Some('t') => out.push('\t'),
+                Some('r') => out.push('\r'),
+                Some('\\') => out.push('\\'),
+                Some('"') => out.push('"'),
+                Some(other) => out.push(other),
+                None => out.push('\\'),
+            }
+        } else {
+            out.push(c);
+        }
+    }
+    out
 }
 
 /// Default handler used in unit tests: logs are collected, random is fixed.
@@ -183,5 +298,20 @@ mod tests {
     fn unknown_op_name_is_none() {
         assert_eq!(EffectOp::parse("draw"), None);
         assert_eq!(EffectOp::parse(""), None);
+    }
+
+    #[test]
+    fn collects_performs_from_src_blocks() {
+        let src = r#"
+(src
+  (perform log "hello")
+  (perform write-path "out.pdf"))
+(page a4 (circle 1 2 3))
+"#;
+        let ps = collect_performs(src).unwrap();
+        assert_eq!(ps.len(), 2);
+        assert_eq!(ps[0].op, EffectOp::Log);
+        assert_eq!(ps[0].payload, "hello");
+        assert_eq!(ps[1].op, EffectOp::WritePath);
     }
 }

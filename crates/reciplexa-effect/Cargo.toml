@@ -7,3 +7,4 @@ description = "Algebraic effect labels and handler skeleton (M9 entry)"
 publish = false
 
 [dependencies]
+reciplexa-syntax = { workspace = true }
