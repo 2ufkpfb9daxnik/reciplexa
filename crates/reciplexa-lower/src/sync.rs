@@ -516,6 +516,79 @@ fn find_list_covering(root: &SyntaxNode, start: usize, end: usize) -> Option<Syn
     })
 }
 
+/// Opacity on the layer root `(opacity α …)`, or 1.0 if absent.
+pub fn layer_opacity(
+    src: &str,
+    page_index: usize,
+    flat_index: usize,
+) -> Result<f64, SyncError> {
+    let layers = collect_layers_page(src, page_index)?;
+    let layer = layers
+        .get(flat_index)
+        .ok_or_else(|| SyncError::new("layer index out of range"))?;
+    let root = parse_root(src)?;
+    let node = find_list_covering(&root, layer.root_start, layer.root_end)
+        .ok_or_else(|| SyncError::new("layer root not found"))?;
+    let items = list_atoms(&node);
+    if !matches!(
+        items.first(),
+        Some(Child::Token(t)) if t.kind() == SyntaxKind::Ident && t.text() == "opacity"
+    ) {
+        return Ok(1.0);
+    }
+    match items.get(1) {
+        Some(Child::Token(t)) if t.kind() == SyntaxKind::Number => {
+            let a: f64 = t
+                .text()
+                .parse()
+                .map_err(|_| SyncError::new("bad opacity number"))?;
+            Ok(a.clamp(0.0, 1.0))
+        }
+        _ => Err(SyncError::new("opacity form missing alpha")),
+    }
+}
+
+/// Set absolute opacity on the layer root (wraps with `(opacity …)` if needed).
+pub fn set_layer_opacity(
+    src: &str,
+    page_index: usize,
+    flat_index: usize,
+    alpha: f64,
+) -> Result<String, SyncError> {
+    if !alpha.is_finite() {
+        return Err(SyncError::new("opacity must be finite"));
+    }
+    let alpha = alpha.clamp(0.0, 1.0);
+    let layers = collect_layers_page(src, page_index)?;
+    let layer = layers
+        .get(flat_index)
+        .ok_or_else(|| SyncError::new("layer index out of range"))?;
+    let root = parse_root(src)?;
+    let node = find_list_covering(&root, layer.root_start, layer.root_end)
+        .ok_or_else(|| SyncError::new("layer root not found"))?;
+    let items = list_atoms(&node);
+    if matches!(
+        items.first(),
+        Some(Child::Token(t)) if t.kind() == SyntaxKind::Ident && t.text() == "opacity"
+    ) {
+        let tok = match items.get(1) {
+            Some(Child::Token(t)) if t.kind() == SyntaxKind::Number => t.clone(),
+            _ => return Err(SyncError::new("opacity form missing alpha")),
+        };
+        let (_, out) = replace_token_text(&tok, &format_drag_number(alpha));
+        return Ok(out);
+    }
+    let start = layer.root_start;
+    let end = layer.root_end;
+    let inner = &src[start..end];
+    let wrapped = format!("(opacity {} {})", format_drag_number(alpha), inner);
+    let mut out = String::with_capacity(src.len() + wrapped.len() - inner.len());
+    out.push_str(&src[..start]);
+    out.push_str(&wrapped);
+    out.push_str(&src[end..]);
+    Ok(out)
+}
+
 #[derive(Default)]
 struct Counters {
     translate: usize,
@@ -1311,5 +1384,25 @@ mod tests {
         assert_eq!(t, vec![DragTarget::Translate(0)]);
         let out = nudge_drag_target(src, DragTarget::Translate(0), 1.0, 2.0).unwrap();
         assert!(out.contains("(translate 11 22 (rotate 30 (translate -10 -20"));
+    }
+
+    #[test]
+    fn set_opacity_wraps_then_edits() {
+        let src = "(page a4 (circle 1 2 3))";
+        assert_eq!(layer_opacity(src, 0, 0).unwrap(), 1.0);
+        let out = set_layer_opacity(src, 0, 0, 0.4).unwrap();
+        assert!(out.contains("(opacity 0.4 (circle 1 2 3))"));
+        assert_eq!(layer_opacity(&out, 0, 0).unwrap(), 0.4);
+        let out2 = set_layer_opacity(&out, 0, 0, 0.75).unwrap();
+        assert!(out2.contains("(opacity 0.75 (circle 1 2 3))"));
+    }
+
+    #[test]
+    fn opacity_clamps_to_unit_interval() {
+        let src = "(page a4 (circle 1 2 3))";
+        let out = set_layer_opacity(src, 0, 0, 2.0).unwrap();
+        assert!(out.contains("(opacity 1 (circle 1 2 3))"));
+        let out = set_layer_opacity(src, 0, 0, -0.5).unwrap();
+        assert!(out.contains("(opacity 0 (circle 1 2 3))"));
     }
 }

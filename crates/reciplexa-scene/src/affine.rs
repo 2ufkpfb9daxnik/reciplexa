@@ -85,6 +85,11 @@ impl Affine {
         )
     }
 
+    /// Counter-clockwise rotation of the +X axis under this linear map (degrees).
+    pub fn rotation_deg(self) -> f64 {
+        self.b.atan2(self.a).to_degrees()
+    }
+
     pub fn is_finite(self) -> bool {
         [self.a, self.b, self.c, self.d, self.e, self.f]
             .into_iter()
@@ -117,6 +122,7 @@ mod tests {
         let (x, y) = m.transform_point(1.0, 0.0);
         assert!(x.abs() < 1e-10);
         assert!((y - 1.0).abs() < 1e-10);
+        assert!((m.rotation_deg() - 90.0).abs() < 1e-9);
     }
 
     // --- defect ---

@@ -36,6 +36,8 @@ pub struct WorldText {
     pub x_mm: f64,
     pub y_mm: f64,
     pub size_mm: f64,
+    /// Counter-clockwise degrees from parent affine (page space).
+    pub rotation_deg: f64,
     pub content: String,
     pub fill: Color,
     pub alpha: f64,
@@ -51,14 +53,12 @@ pub struct WorldPath {
     pub alpha: f64,
 }
 
-/// Image placeholder rectangle in page millimeters.
+/// Image quad in page millimeters (corners after affine).
 #[derive(Debug, Clone, PartialEq)]
 pub struct WorldImage {
     pub path: String,
-    pub x_mm: f64,
-    pub y_mm: f64,
-    pub width_mm: f64,
-    pub height_mm: f64,
+    /// Bottom-left, bottom-right, top-right, top-left in page mm.
+    pub corners_mm: [(f64, f64); 4],
     pub alpha: f64,
 }
 
@@ -176,6 +176,7 @@ fn flatten_shape(shape: &Shape, parent: Affine, alpha: f64, out: &mut Vec<WorldS
                 x_mm: x,
                 y_mm: y,
                 size_mm: t.size_mm * scale,
+                rotation_deg: parent.rotation_deg(),
                 content: t.content.clone(),
                 fill: t.fill,
                 alpha,
@@ -222,14 +223,21 @@ fn flatten_shape(shape: &Shape, parent: Affine, alpha: f64, out: &mut Vec<WorldS
             }));
         }
         Shape::Image(img) => {
-            let (x, y) = parent.transform_point(img.x_mm, img.y_mm);
-            let scale = linear_scale(parent);
+            let corners = [
+                (img.x_mm, img.y_mm),
+                (img.x_mm + img.width_mm, img.y_mm),
+                (img.x_mm + img.width_mm, img.y_mm + img.height_mm),
+                (img.x_mm, img.y_mm + img.height_mm),
+            ];
+            let corners_mm = [
+                parent.transform_point(corners[0].0, corners[0].1),
+                parent.transform_point(corners[1].0, corners[1].1),
+                parent.transform_point(corners[2].0, corners[2].1),
+                parent.transform_point(corners[3].0, corners[3].1),
+            ];
             out.push(WorldShape::Image(WorldImage {
                 path: img.path.clone(),
-                x_mm: x,
-                y_mm: y,
-                width_mm: img.width_mm * scale,
-                height_mm: img.height_mm * scale,
+                corners_mm,
                 alpha,
             }));
         }
@@ -313,18 +321,8 @@ impl PaperLayout {
             }
             WorldShape::Polygon(p) => bounds_of_points(&p.points_mm),
             WorldShape::Path(p) => bounds_of_points(&p.points_mm),
-            WorldShape::Text(t) => {
-                let n = t.content.chars().count().max(1) as f64;
-                let w = n * t.size_mm * 0.95;
-                let h = t.size_mm * 1.35;
-                Some((t.x_mm, t.y_mm, t.x_mm + w, t.y_mm + h))
-            }
-            WorldShape::Image(img) => Some((
-                img.x_mm,
-                img.y_mm,
-                img.x_mm + img.width_mm,
-                img.y_mm + img.height_mm,
-            )),
+            WorldShape::Text(t) => bounds_of_points(&text_corners_mm(t)),
+            WorldShape::Image(img) => bounds_of_points(&img.corners_mm),
         }
     }
 
@@ -388,26 +386,43 @@ fn shape_contains(shape: &WorldShape, x: f64, y: f64) -> bool {
             }
         }
         WorldShape::Text(t) => {
-            // Generous pick box: glyph stem is thin; CJK uses full-width advance.
-            let n = t.content.chars().count().max(1) as f64;
-            let w = n * t.size_mm * 0.95;
-            let h = t.size_mm * 1.35;
             let pad = (t.size_mm * 0.6).max(2.5);
-            x >= t.x_mm - pad
-                && x <= t.x_mm + w + pad
-                && y >= t.y_mm - pad
-                && y <= t.y_mm + h + pad
+            let n = t.content.chars().count().max(1) as f64;
+            let w = n * t.size_mm * 0.95 + 2.0 * pad;
+            let h = t.size_mm * 1.35 + 2.0 * pad;
+            let locals = [(-pad, -pad), (w - pad, -pad), (w - pad, h - pad), (-pad, h - pad)];
+            let rad = t.rotation_deg.to_radians();
+            let (sine, cosine) = (rad.sin(), rad.cos());
+            let corners: Vec<(f64, f64)> = locals
+                .into_iter()
+                .map(|(lx, ly)| {
+                    let rx = lx * cosine - ly * sine;
+                    let ry = lx * sine + ly * cosine;
+                    (t.x_mm + rx, t.y_mm + ry)
+                })
+                .collect();
+            point_in_polygon(x, y, &corners)
         }
         WorldShape::Path(p) => {
             near_polyline(x, y, &p.points_mm, p.closed, p.width_mm.max(1.0) + 2.0)
         }
-        WorldShape::Image(img) => {
-            x >= img.x_mm
-                && x <= img.x_mm + img.width_mm
-                && y >= img.y_mm
-                && y <= img.y_mm + img.height_mm
-        }
+        WorldShape::Image(img) => point_in_polygon(x, y, &img.corners_mm),
     }
+}
+
+/// Approximate glyph box corners in page mm (baseline-left origin, y up).
+pub fn text_corners_mm(t: &WorldText) -> [(f64, f64); 4] {
+    let n = t.content.chars().count().max(1) as f64;
+    let w = n * t.size_mm * 0.95;
+    let h = t.size_mm * 1.35;
+    let locals = [(0.0, 0.0), (w, 0.0), (w, h), (0.0, h)];
+    let rad = t.rotation_deg.to_radians();
+    let (sine, cosine) = (rad.sin(), rad.cos());
+    locals.map(|(lx, ly)| {
+        let rx = lx * cosine - ly * sine;
+        let ry = lx * sine + ly * cosine;
+        (t.x_mm + rx, t.y_mm + ry)
+    })
 }
 
 fn bounds_of_points(pts: &[(f64, f64)]) -> Option<(f64, f64, f64, f64)> {
@@ -481,7 +496,9 @@ fn point_in_polygon(x: f64, y: f64, pts: &[(f64, f64)]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use reciplexa_scene::{Circle, Color, Document, Ellipse, Page, PaperSize, Rect, Shape, Text};
+    use reciplexa_scene::{
+        Circle, Color, Document, Ellipse, Image, Page, PaperSize, Rect, Shape, Text,
+    };
 
     // --- validity ---
 
@@ -541,10 +558,64 @@ mod tests {
             Affine::identity(),
         );
         match &shapes[0] {
-            WorldShape::Text(t) => assert_eq!(t.content, "Hi"),
+            WorldShape::Text(t) => {
+                assert_eq!(t.content, "Hi");
+                assert_eq!(t.rotation_deg, 0.0);
+            }
             _ => panic!("expected text"),
         }
         assert_eq!(hit_test_shapes(&shapes, 11.0, 22.0), Some(0));
+    }
+
+    #[test]
+    fn text_carries_parent_rotation() {
+        let shapes = flatten_shapes(
+            &[Shape::Group {
+                transform: Affine::rotate_deg(30.0),
+                children: vec![Shape::Text(Text {
+                    x_mm: 0.0,
+                    y_mm: 0.0,
+                    size_mm: 5.0,
+                    content: "A".into(),
+                    fill: Color::BLACK,
+                })],
+            }],
+            Affine::identity(),
+        );
+        match &shapes[0] {
+            WorldShape::Text(t) => assert!((t.rotation_deg - 30.0).abs() < 1e-9),
+            _ => panic!("expected text"),
+        }
+    }
+
+    #[test]
+    fn image_corners_follow_rotation() {
+        let shapes = flatten_shapes(
+            &[Shape::Group {
+                transform: Affine::translate(-10.0, -20.0)
+                    .then(Affine::rotate_deg(90.0))
+                    .then(Affine::translate(10.0, 20.0)),
+                children: vec![Shape::Image(Image {
+                    path: "x.png".into(),
+                    x_mm: 10.0,
+                    y_mm: 20.0,
+                    width_mm: 4.0,
+                    height_mm: 2.0,
+                })],
+            }],
+            Affine::identity(),
+        );
+        match &shapes[0] {
+            WorldShape::Image(img) => {
+                // BL stays at pivot (10,20)
+                assert!((img.corners_mm[0].0 - 10.0).abs() < 1e-9);
+                assert!((img.corners_mm[0].1 - 20.0).abs() < 1e-9);
+                // BR (14,20) → relative (4,0) → after 90° CCW (0,4) → (10,24)
+                assert!((img.corners_mm[1].0 - 10.0).abs() < 1e-9);
+                assert!((img.corners_mm[1].1 - 24.0).abs() < 1e-9);
+            }
+            _ => panic!("expected image"),
+        }
     }
 
     #[test]

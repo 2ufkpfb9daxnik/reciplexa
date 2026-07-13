@@ -9,9 +9,9 @@ use std::sync::Arc;
 use eframe::egui;
 use eframe::egui::text::{CCursor, CCursorRange};
 use reciplexa_lower::{
-    collect_drag_targets_page, collect_layers_page, collect_size_targets_page, layer_rotation_deg,
-    lower_source, nudge_drag_target, reorder_layer_page, scale_size_target, set_layer_rotation_deg,
-    DragTarget, LayerInfo, SizeTarget,
+    collect_drag_targets_page, collect_layers_page, collect_size_targets_page, layer_opacity,
+    layer_rotation_deg, lower_source, nudge_drag_target, reorder_layer_page, scale_size_target,
+    set_layer_opacity, set_layer_rotation_deg, DragTarget, LayerInfo, SizeTarget,
 };
 use reciplexa_macro::expand_source;
 use reciplexa_pdf::write_document_with_base;
@@ -162,6 +162,7 @@ fn main() -> ExitCode {
                 undo_stack: Vec::new(),
                 redo_stack: Vec::new(),
                 typing_undo_open: false,
+                opacity_undo_open: false,
             }))
         }),
     ) {
@@ -191,6 +192,8 @@ struct PreviewApp {
     redo_stack: Vec<String>,
     /// Coalesce TextEdit keystrokes into one undo step while focused.
     typing_undo_open: bool,
+    /// Coalesce opacity slider drags into one undo step.
+    opacity_undo_open: bool,
 }
 
 struct DragState {
@@ -556,6 +559,30 @@ impl eframe::App for PreviewApp {
                 });
                 if let Some((from, to)) = reorder {
                     self.apply_layer_reorder(from, to);
+                }
+                if let Some(sel) = self.selected {
+                    ui.separator();
+                    ui.label(format!("Selected layer {}", sel + 1));
+                    let mut alpha = layer_opacity(&self.source, self.page_index, sel).unwrap_or(1.0);
+                    let slider = ui.add(egui::Slider::new(&mut alpha, 0.0..=1.0).text("Opacity"));
+                    if slider.changed() {
+                        match set_layer_opacity(&self.source, self.page_index, sel, alpha) {
+                            Ok(new_src) => {
+                                if !self.opacity_undo_open {
+                                    self.push_undo();
+                                    self.opacity_undo_open = true;
+                                }
+                                self.source = new_src;
+                                self.error = pipeline_doc(&self.source).err();
+                            }
+                            Err(e) => self.error = Some(e.message),
+                        }
+                    }
+                    if !slider.is_pointer_button_down_on() {
+                        self.opacity_undo_open = false;
+                    }
+                } else {
+                    self.opacity_undo_open = false;
                 }
             });
 
@@ -1059,15 +1086,26 @@ fn paint_shape(
             }
         }
         WorldShape::Text(t) => {
-            let (x, y) = layout.mm_to_px(t.x_mm, t.y_mm + t.size_mm);
-            // No pixel floor: text must shrink with zoom / shape scale like other geometry.
             let font_px = layout.radius_mm_to_px(t.size_mm).max(0.5);
-            painter.text(
-                rect.min + egui::vec2(x, y),
-                egui::Align2::LEFT_BOTTOM,
-                &t.content,
+            let color = color32(t.fill, t.alpha);
+            let galley = painter.layout_no_wrap(
+                t.content.clone(),
                 egui::FontId::proportional(font_px),
-                color32(t.fill, t.alpha),
+                color,
+            );
+            // Baseline in screen pixels (page Y-up → screen Y-down).
+            let (bx, by) = layout.mm_to_px(t.x_mm, t.y_mm);
+            let baseline = rect.min + egui::vec2(bx, by);
+            // Page CCW angle appears as clockwise in Y-down screen space.
+            let angle = t.rotation_deg.to_radians() as f32;
+            let h = galley.size().y;
+            // Unrotated top-left is above the baseline; rotate that offset around baseline.
+            let tl_rel = egui::vec2(0.0, -h);
+            let (s, c) = (angle.sin(), angle.cos());
+            let top_left = baseline
+                + egui::vec2(tl_rel.x * c + tl_rel.y * s, -tl_rel.x * s + tl_rel.y * c);
+            painter.add(
+                egui::epaint::TextShape::new(top_left, galley, color).with_angle(angle),
             );
         }
         WorldShape::Path(p) => {
@@ -1090,54 +1128,45 @@ fn paint_shape(
             }
         }
         WorldShape::Image(img) => {
-            let (x0, y0) = layout.mm_to_px(img.x_mm, img.y_mm + img.height_mm);
-            let (x1, y1) = layout.mm_to_px(img.x_mm + img.width_mm, img.y_mm);
-            let r = egui::Rect::from_min_max(
-                rect.min + egui::vec2(x0, y0),
-                rect.min + egui::vec2(x1, y1),
-            );
+            let mut screen = [egui::pos2(0.0, 0.0); 4];
+            for (i, &(x_mm, y_mm)) in img.corners_mm.iter().enumerate() {
+                let (x, y) = layout.mm_to_px(x_mm, y_mm);
+                screen[i] = rect.min + egui::vec2(x, y);
+            }
+            // corners: BL, BR, TR, TL — UVs match image space (V grows down).
+            let uvs = [
+                egui::pos2(0.0, 1.0),
+                egui::pos2(1.0, 1.0),
+                egui::pos2(1.0, 0.0),
+                egui::pos2(0.0, 0.0),
+            ];
             if let Some(tex) = ensure_texture(textures, ctx, &img.path, base) {
-                let mut mesh = egui::Mesh::with_texture(tex.id());
                 let tint = egui::Color32::from_rgba_unmultiplied(
                     255,
                     255,
                     255,
                     (img.alpha * 255.0).round().clamp(0.0, 255.0) as u8,
                 );
-                mesh.add_rect_with_uv(
-                    r,
-                    egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
-                    tint,
-                );
+                let mut mesh = egui::Mesh::with_texture(tex.id());
+                let i0 = mesh.vertices.len() as u32;
+                for i in 0..4 {
+                    mesh.vertices.push(egui::epaint::Vertex {
+                        pos: screen[i],
+                        uv: uvs[i],
+                        color: tint,
+                    });
+                }
+                mesh.indices
+                    .extend_from_slice(&[i0, i0 + 1, i0 + 2, i0, i0 + 2, i0 + 3]);
                 painter.add(egui::Shape::mesh(mesh));
             } else {
-                // Fallback placeholder when the file is missing / unloadable.
-                painter.rect_filled(r, 0.0, egui::Color32::from_gray(230));
-                painter.rect_stroke(
-                    r,
-                    0.0,
-                    egui::Stroke::new(1.5, egui::Color32::from_gray(60)),
-                    egui::StrokeKind::Outside,
-                );
+                let stroke = egui::Stroke::new(1.5, egui::Color32::from_gray(60));
+                for i in 0..4 {
+                    painter.line_segment([screen[i], screen[(i + 1) % 4]], stroke);
+                }
                 painter.line_segment(
-                    [r.left_top(), r.right_bottom()],
+                    [screen[0], screen[2]],
                     egui::Stroke::new(1.0, egui::Color32::from_gray(140)),
-                );
-                painter.line_segment(
-                    [r.left_bottom(), r.right_top()],
-                    egui::Stroke::new(1.0, egui::Color32::from_gray(140)),
-                );
-                let label = img
-                    .path
-                    .rsplit(['/', '\\'])
-                    .next()
-                    .unwrap_or(img.path.as_str());
-                painter.text(
-                    r.left_top() + egui::vec2(4.0, 4.0),
-                    egui::Align2::LEFT_TOP,
-                    label,
-                    egui::FontId::proportional(12.0),
-                    egui::Color32::from_gray(40),
                 );
             }
         }
