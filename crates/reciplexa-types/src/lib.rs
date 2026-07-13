@@ -92,10 +92,34 @@ fn check_form(node: &SyntaxNode) -> Result<Type, TypeError> {
     match head.as_str() {
         "page" => {
             if args.is_empty() {
-                return Err(TypeError::at("`page` needs a paper size", span.0, span.1));
+                return Err(TypeError::at(
+                    "`page` needs a paper size (`a4` / `letter`) or width/height in mm",
+                    span.0,
+                    span.1,
+                ));
             }
-            expect_ty(check_child(&args[0])?, Type::Paper, node)?;
-            for a in args.iter().skip(1) {
+            let shape_start = match check_child(&args[0])? {
+                Type::Paper => 1,
+                Type::Number => {
+                    if args.len() < 2 {
+                        return Err(TypeError::at(
+                            "`page` numeric paper needs (page width-mm height-mm …)",
+                            span.0,
+                            span.1,
+                        ));
+                    }
+                    expect_ty(check_child(&args[1])?, Type::Number, node)?;
+                    2
+                }
+                other => {
+                    return Err(TypeError::at(
+                        format!("`page` paper must be Paper or Num, got {other:?}"),
+                        span.0,
+                        span.1,
+                    ));
+                }
+            };
+            for a in args.iter().skip(shape_start) {
                 expect_ty(check_child(a)?, Type::Shape, node)?;
             }
             Ok(Type::Page)
@@ -608,6 +632,12 @@ mod tests {
     #[test]
     fn letter_and_opacity_typecheck() {
         let src = "(page letter (opacity 0.5 (circle 1 2 3 red)))";
+        assert_eq!(typecheck_source(src).unwrap(), Type::Document);
+    }
+
+    #[test]
+    fn numeric_paper_typecheck() {
+        let src = "(page 210 297 (circle 1 2 3))";
         assert_eq!(typecheck_source(src).unwrap(), Type::Document);
     }
 

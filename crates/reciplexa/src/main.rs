@@ -106,6 +106,8 @@ mod tests {
             "image_placeholder.rpx",
             "with_src_log.rpx",
             "polygon.rpx",
+            "japanese_report_stub.rpx",
+            "letter_opacity.rpx",
         ] {
             let input = repo.join("examples").join(name);
             let output = repo.join("target").join(format!("test-{name}.pdf"));

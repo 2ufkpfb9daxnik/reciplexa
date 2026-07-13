@@ -1,0 +1,8 @@
+; Numeric paper (core) + Japanese text as glyph outlines in PDF
+; GUI loads NotoSansJP from Windows Fonts for preview
+(page 210 297
+  (text 25 260 8 "レポート草稿" black)
+  (text 25 245 4 "shapes + images + text (JLReq package later)" black)
+  (circle 105 140 35 blue)
+  (opacity 0.4
+    (rect 40 40 80 50 red)))

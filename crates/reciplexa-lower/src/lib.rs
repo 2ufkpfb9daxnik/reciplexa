@@ -106,8 +106,38 @@ fn lower_page(node: &SyntaxNode) -> Result<Page, LowerError> {
     }
     if items.len() < 2 {
         return Err(LowerError::new(
-            "`page` requires a paper size, e.g. (page a4 …)",
+            "`page` requires paper: (page a4 …), (page letter …), or (page width-mm height-mm …)",
         ));
+    }
+
+    let (paper, shape_start) = lower_paper_spec(&items)?;
+
+    let mut shapes = Vec::new();
+    for item in items.iter().skip(shape_start) {
+        shapes.push(lower_shape_child(item)?);
+    }
+    Ok(Page { paper, shapes })
+}
+
+fn lower_paper_spec(items: &[Child]) -> Result<(PaperSize, usize), LowerError> {
+    // (page a4 …) | (page letter …) | (page w h …)
+    // Named sizes are temporary sugar; macros can expand to numeric sizes later.
+    if matches!(&items[1], Child::Token(t) if t.kind() == SyntaxKind::Number) {
+        if items.len() < 3 {
+            return Err(LowerError::new(
+                "`page` numeric paper needs width and height in mm",
+            ));
+        }
+        let width_mm = number_at(items, 1, "page width")?;
+        let height_mm = number_at(items, 2, "page height")?;
+        let paper = PaperSize {
+            width_mm,
+            height_mm,
+        };
+        if !paper.is_positive() {
+            return Err(LowerError::new("paper size must be positive"));
+        }
+        return Ok((paper, 3));
     }
 
     let paper = match atom_ident(&items[1])? {
@@ -115,16 +145,11 @@ fn lower_page(node: &SyntaxNode) -> Result<Page, LowerError> {
         "letter" => PaperSize::letter(),
         other => {
             return Err(LowerError::new(format!(
-                "unknown paper size `{other}` (supported: `a4`, `letter`)"
+                "unknown paper size `{other}` (use `a4`, `letter`, or numeric mm)"
             )))
         }
     };
-
-    let mut shapes = Vec::new();
-    for item in items.iter().skip(2) {
-        shapes.push(lower_shape_child(item)?);
-    }
-    Ok(Page { paper, shapes })
+    Ok((paper, 2))
 }
 
 fn lower_shape_child(child: &Child) -> Result<Shape, LowerError> {
@@ -982,6 +1007,18 @@ mod tests {
         let text = String::from_utf8_lossy(&pdf);
         assert!(text.contains("/ExtGState"));
         assert!(text.contains("/GS45"));
+    }
+
+    #[test]
+    fn lowers_numeric_paper_size() {
+        let doc = lower_source("(page 100 150 (circle 10 20 5))").unwrap();
+        assert_eq!(
+            doc.pages[0].paper,
+            PaperSize {
+                width_mm: 100.0,
+                height_mm: 150.0
+            }
+        );
     }
 
     // --- defect ---

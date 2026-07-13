@@ -4,6 +4,7 @@ use std::env;
 use std::fs;
 use std::path::PathBuf;
 use std::process::ExitCode;
+use std::sync::Arc;
 
 use eframe::egui;
 use reciplexa_lower::{collect_drag_targets_page, lower_source, nudge_drag_target, DragTarget};
@@ -17,6 +18,41 @@ fn pipeline_doc(src: &str) -> Result<reciplexa_scene::Document, String> {
     typecheck_source(&expanded)
         .map_err(|e| format!("type: {} @{}..{}", e.message, e.start, e.end))?;
     lower_source(&expanded).map_err(|e| e.message)
+}
+
+fn install_cjk_fonts(ctx: &egui::Context) {
+    let windir = PathBuf::from(env::var_os("WINDIR").unwrap_or_else(|| r"C:\Windows".into()));
+    let fonts_dir = windir.join("Fonts");
+    let candidates = [
+        fonts_dir.join("NotoSansJP-VF.ttf"),
+        fonts_dir.join("NotoSansJP-VariableFont_wght.ttf"),
+        fonts_dir.join("NotoSans-Regular.ttf"),
+    ];
+    let Some(path) = candidates.into_iter().find(|p| p.is_file()) else {
+        eprintln!("warn: no CJK-capable TTF found for GUI preview");
+        return;
+    };
+    let Ok(bytes) = fs::read(&path) else {
+        eprintln!("warn: could not read font {}", path.display());
+        return;
+    };
+    let mut fonts = egui::FontDefinitions::default();
+    fonts.font_data.insert(
+        "reciplexa_cjk".into(),
+        Arc::new(egui::FontData::from_owned(bytes)),
+    );
+    fonts
+        .families
+        .entry(egui::FontFamily::Proportional)
+        .or_default()
+        .insert(0, "reciplexa_cjk".into());
+    fonts
+        .families
+        .entry(egui::FontFamily::Monospace)
+        .or_default()
+        .push("reciplexa_cjk".into());
+    ctx.set_fonts(fonts);
+    eprintln!("gui font: {}", path.display());
 }
 
 fn main() -> ExitCode {
@@ -36,16 +72,16 @@ fn main() -> ExitCode {
         }
     };
     // Expand macros into the edit buffer so drag byte-offsets stay valid.
-    let src = match expand_source(&src) {
-        Ok(s) => s,
-        Err(e) => {
-            eprintln!("error: macro: {}", e.message);
-            return ExitCode::FAILURE;
-        }
+    // Allow opening with type/parse errors so the user can keep editing.
+    let (src, mut initial_error) = match expand_source(&src) {
+        Ok(s) => (s, None),
+        Err(e) => (src, Some(format!("macro: {}", e.message))),
     };
-    if let Err(e) = pipeline_doc(&src) {
-        eprintln!("error: {e}");
-        return ExitCode::FAILURE;
+    if initial_error.is_none() {
+        initial_error = pipeline_doc(&src).err();
+    }
+    if let Some(ref e) = initial_error {
+        eprintln!("warn: opening with error (edit to fix): {e}");
     }
 
     let title = format!("reciplexa — {}", path.display());
@@ -59,11 +95,12 @@ fn main() -> ExitCode {
     match eframe::run_native(
         "reciplexa",
         native_options,
-        Box::new(move |_cc| {
+        Box::new(move |cc| {
+            install_cjk_fonts(&cc.egui_ctx);
             Ok(Box::new(PreviewApp {
                 path,
                 source: src,
-                error: None,
+                error: initial_error,
                 drag: None,
                 page_index: 0,
             }))
@@ -153,18 +190,25 @@ impl eframe::App for PreviewApp {
                         }
                     }
                 });
-                if let Some(err) = &self.error {
-                    ui.colored_label(egui::Color32::RED, err);
-                }
                 ui.add_space(4.0);
+                // Editor first + stable Id: type errors below must not shift layout
+                // above the caret (that was stealing focus mid-keystroke).
                 let editor = egui::TextEdit::multiline(&mut self.source)
+                    .id(egui::Id::new("rpx_source_editor"))
                     .code_editor()
                     .desired_width(f32::INFINITY)
-                    .desired_rows(40);
-                let response = ui.add_sized(ui.available_size(), editor);
+                    .desired_rows(36);
+                let response = ui.add_sized(
+                    egui::vec2(ui.available_width(), (ui.available_height() - 48.0).max(120.0)),
+                    editor,
+                );
                 if response.changed() {
                     self.drag = None;
                     self.error = pipeline_doc(&self.source).err();
+                }
+                if let Some(err) = &self.error {
+                    ui.add_space(4.0);
+                    ui.colored_label(egui::Color32::RED, err);
                 }
             });
 
@@ -176,6 +220,7 @@ impl eframe::App for PreviewApp {
                 Ok(d) => d,
                 Err(e) => {
                     ui.colored_label(egui::Color32::RED, e);
+                    ui.label("Keep typing in the source pane — the caret stays there.");
                     return;
                 }
             };

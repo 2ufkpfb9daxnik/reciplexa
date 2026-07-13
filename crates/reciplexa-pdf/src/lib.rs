@@ -1,8 +1,9 @@
 //! Minimal PDF emitter for [`reciplexa_scene::Document`].
 //!
-//! Hand-rolled PDF-1.4: filled circles/rects, stroked lines, Helvetica text
-//! (ASCII / WinAnsi), and embedded RGB PNG images. Japanese text needs a later
-//! font package (JLReq).
+//! Hand-rolled PDF-1.4: shapes, Helvetica ASCII text, system-font glyph outlines
+//! for non-ASCII (CJK), and embedded PNG/JPEG images. Named paper sizes are
+//! temporary sugar; numeric `(page w h …)` is the core. JLReq typesetting stays
+//! a later package.
 
 #![forbid(unsafe_code)]
 
@@ -46,7 +47,7 @@ impl ImageStore {
             return Ok(id);
         }
         let resolved = resolve_image_path(path, self.base.as_deref());
-        let img = load_png_rgb(&resolved).map_err(|e| {
+        let img = load_raster_rgb(&resolved).map_err(|e| {
             PdfError::InvalidShape(format!("image `{path}` ({}): {e}", resolved.display()))
         })?;
         let id = self.images.len();
@@ -124,9 +125,75 @@ fn resolve_image_path(path: &str, base: Option<&Path>) -> PathBuf {
     }
 }
 
-fn load_png_rgb(path: &Path) -> Result<EmbeddedImage, String> {
-    let file = std::fs::File::open(path).map_err(|e| e.to_string())?;
-    let decoder = png::Decoder::new(file);
+fn load_raster_rgb(path: &Path) -> Result<EmbeddedImage, String> {
+    let bytes = std::fs::read(path).map_err(|e| e.to_string())?;
+    if bytes.len() >= 3 && bytes[0] == 0xff && bytes[1] == 0xd8 && bytes[2] == 0xff {
+        return load_jpeg_rgb(&bytes);
+    }
+    if bytes.len() >= 8 && &bytes[0..8] == b"\x89PNG\r\n\x1a\n" {
+        return load_png_rgb_bytes(&bytes);
+    }
+    // Fall back by extension when magic is ambiguous.
+    match path
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|e| e.to_ascii_lowercase())
+        .as_deref()
+    {
+        Some("jpg") | Some("jpeg") => load_jpeg_rgb(&bytes),
+        Some("png") => load_png_rgb_bytes(&bytes),
+        _ => Err(
+            "unsupported image format (need PNG or JPEG; sniff magic or use .png/.jpg)".into(),
+        ),
+    }
+}
+
+fn load_jpeg_rgb(bytes: &[u8]) -> Result<EmbeddedImage, String> {
+    let mut decoder = jpeg_decoder::Decoder::new(std::io::Cursor::new(bytes));
+    let pixels = decoder.decode().map_err(|e| e.to_string())?;
+    let info = decoder.info().ok_or_else(|| "JPEG missing header info".to_string())?;
+    let width = u32::from(info.width);
+    let height = u32::from(info.height);
+    let rgb = match info.pixel_format {
+        jpeg_decoder::PixelFormat::RGB24 => pixels,
+        jpeg_decoder::PixelFormat::L8 => {
+            let mut out = Vec::with_capacity(pixels.len() * 3);
+            for g in pixels {
+                out.push(g);
+                out.push(g);
+                out.push(g);
+            }
+            out
+        }
+        jpeg_decoder::PixelFormat::CMYK32 => {
+            // Approximate CMYK → RGB for embedded photos.
+            let mut out = Vec::with_capacity((pixels.len() / 4) * 3);
+            for px in pixels.chunks_exact(4) {
+                let (c, m, y, k) = (
+                    f32::from(px[0]) / 255.0,
+                    f32::from(px[1]) / 255.0,
+                    f32::from(px[2]) / 255.0,
+                    f32::from(px[3]) / 255.0,
+                );
+                out.push(((1.0 - c) * (1.0 - k) * 255.0).round() as u8);
+                out.push(((1.0 - m) * (1.0 - k) * 255.0).round() as u8);
+                out.push(((1.0 - y) * (1.0 - k) * 255.0).round() as u8);
+            }
+            out
+        }
+        other => return Err(format!("unsupported JPEG pixel format {other:?}")),
+    };
+    if rgb.len() != (width as usize) * (height as usize) * 3 {
+        return Err(format!(
+            "JPEG size mismatch: got {} bytes for {width}x{height} RGB",
+            rgb.len()
+        ));
+    }
+    Ok(EmbeddedImage { width, height, rgb })
+}
+
+fn load_png_rgb_bytes(bytes: &[u8]) -> Result<EmbeddedImage, String> {
+    let decoder = png::Decoder::new(std::io::Cursor::new(bytes));
     let mut reader = decoder.read_info().map_err(|e| e.to_string())?;
     let mut buf = vec![0; reader.output_buffer_size()];
     let info = reader.next_frame(&mut buf).map_err(|e| e.to_string())?;
@@ -557,26 +624,27 @@ fn text_ops(
     content: &str,
     fill: Color,
 ) -> Result<String, PdfError> {
-    let escaped = pdf_escape_text(content)?;
-    let size_pt = mm_to_pt(size_mm);
-    Ok(format!(
-        "BT\n/F1 {size:.4} Tf\n{r:.4} {g:.4} {b:.4} rg\n{x:.4} {y:.4} Td\n({escaped}) Tj\nET\n",
-        size = size_pt,
-        r = fill.r,
-        g = fill.g,
-        b = fill.b,
-        x = mm_to_pt(x_mm),
-        y = mm_to_pt(y_mm),
-    ))
-}
-
-fn pdf_escape_text(s: &str) -> Result<String, PdfError> {
-    // Helvetica built-in is WinAnsi; reject non-ASCII until a CJK font package exists.
-    if !s.is_ascii() {
-        return Err(PdfError::InvalidShape(
-            "text contains non-ASCII; CJK fonts are not wired yet (see JLReq plan)".into(),
+    if content.is_empty() {
+        return Ok(String::new());
+    }
+    if content.is_ascii() {
+        let escaped = pdf_escape_ascii(content)?;
+        let size_pt = mm_to_pt(size_mm);
+        return Ok(format!(
+            "BT\n/F1 {size:.4} Tf\n{r:.4} {g:.4} {b:.4} rg\n{x:.4} {y:.4} Td\n({escaped}) Tj\nET\n",
+            size = size_pt,
+            r = fill.r,
+            g = fill.g,
+            b = fill.b,
+            x = mm_to_pt(x_mm),
+            y = mm_to_pt(y_mm),
         ));
     }
+    // Non-ASCII: draw glyph outlines from a system CJK font (no CID embed yet).
+    outline_text_ops(x_mm, y_mm, size_mm, content, fill)
+}
+
+fn pdf_escape_ascii(s: &str) -> Result<String, PdfError> {
     let mut out = String::with_capacity(s.len());
     for c in s.chars() {
         match c {
@@ -596,6 +664,147 @@ fn pdf_escape_text(s: &str) -> Result<String, PdfError> {
         }
     }
     Ok(out)
+}
+
+fn system_cjk_font_path() -> Option<PathBuf> {
+    let windir = std::env::var_os("WINDIR").unwrap_or_else(|| r"C:\Windows".into());
+    let fonts = PathBuf::from(windir).join("Fonts");
+    for name in [
+        "NotoSansJP-VF.ttf",
+        "NotoSansJP-VariableFont_wght.ttf",
+        "NotoSans-Regular.ttf",
+    ] {
+        let p = fonts.join(name);
+        if p.is_file() {
+            return Some(p);
+        }
+    }
+    None
+}
+
+fn outline_text_ops(
+    x_mm: f64,
+    y_mm: f64,
+    size_mm: f64,
+    content: &str,
+    fill: Color,
+) -> Result<String, PdfError> {
+    let path = system_cjk_font_path().ok_or_else(|| {
+        PdfError::InvalidShape(
+            "non-ASCII text needs a system CJK font (expected NotoSansJP under %WINDIR%\\Fonts)"
+                .into(),
+        )
+    })?;
+    let data = std::fs::read(&path).map_err(|e| {
+        PdfError::InvalidShape(format!("read font {}: {e}", path.display()))
+    })?;
+    let face = ttf_parser::Face::parse(&data, 0).map_err(|e| {
+        PdfError::InvalidShape(format!("parse font {}: {e}", path.display()))
+    })?;
+    let units = f64::from(face.units_per_em());
+    if units <= 0.0 {
+        return Err(PdfError::InvalidShape("font units_per_em is zero".into()));
+    }
+    let size_pt = mm_to_pt(size_mm);
+    let scale = size_pt / units;
+    let mut x = mm_to_pt(x_mm);
+    let y = mm_to_pt(y_mm);
+    let mut ops = format!("{r:.4} {g:.4} {b:.4} rg\n", r = fill.r, g = fill.g, b = fill.b);
+    for ch in content.chars() {
+        if ch == '\n' || ch == '\r' {
+            continue;
+        }
+        let Some(gid) = face.glyph_index(ch) else {
+            return Err(PdfError::InvalidShape(format!(
+                "font missing glyph for U+{:04X}",
+                ch as u32
+            )));
+        };
+        let mut builder = PdfOutline {
+            scale,
+            origin_x: x,
+            origin_y: y,
+            last_x: 0.0,
+            last_y: 0.0,
+            ops: String::new(),
+        };
+        if face.outline_glyph(gid, &mut builder).is_none() {
+            // Space / mark with no outline — still advance.
+        } else {
+            ops.push_str(&builder.ops);
+            ops.push_str("f\n");
+        }
+        let adv = face
+            .glyph_hor_advance(gid)
+            .map(f64::from)
+            .unwrap_or(units * 0.5);
+        x += adv * scale;
+    }
+    Ok(ops)
+}
+
+struct PdfOutline {
+    scale: f64,
+    origin_x: f64,
+    origin_y: f64,
+    last_x: f32,
+    last_y: f32,
+    ops: String,
+}
+
+impl PdfOutline {
+    fn map(&self, px: f32, py: f32) -> (f64, f64) {
+        (
+            self.origin_x + f64::from(px) * self.scale,
+            self.origin_y + f64::from(py) * self.scale,
+        )
+    }
+}
+
+impl ttf_parser::OutlineBuilder for PdfOutline {
+    fn move_to(&mut self, x: f32, y: f32) {
+        self.last_x = x;
+        self.last_y = y;
+        let (x, y) = self.map(x, y);
+        self.ops.push_str(&format!("{x:.4} {y:.4} m\n"));
+    }
+
+    fn line_to(&mut self, x: f32, y: f32) {
+        self.last_x = x;
+        self.last_y = y;
+        let (x, y) = self.map(x, y);
+        self.ops.push_str(&format!("{x:.4} {y:.4} l\n"));
+    }
+
+    fn quad_to(&mut self, x1: f32, y1: f32, x: f32, y: f32) {
+        let lx = self.last_x;
+        let ly = self.last_y;
+        let cx1 = lx + (2.0 / 3.0) * (x1 - lx);
+        let cy1 = ly + (2.0 / 3.0) * (y1 - ly);
+        let cx2 = x + (2.0 / 3.0) * (x1 - x);
+        let cy2 = y + (2.0 / 3.0) * (y1 - y);
+        self.last_x = x;
+        self.last_y = y;
+        let (x1, y1) = self.map(cx1, cy1);
+        let (x2, y2) = self.map(cx2, cy2);
+        let (x, y) = self.map(x, y);
+        self.ops
+            .push_str(&format!("{x1:.4} {y1:.4} {x2:.4} {y2:.4} {x:.4} {y:.4} c\n"));
+    }
+
+    fn curve_to(&mut self, x1: f32, y1: f32, x2: f32, y2: f32, x: f32, y: f32) {
+        self.last_x = x;
+        self.last_y = y;
+        let (x1, y1) = self.map(x1, y1);
+        let (x2, y2) = self.map(x2, y2);
+        let (x, y) = self.map(x, y);
+        self.ops
+            .push_str(&format!("{x1:.4} {y1:.4} {x2:.4} {y2:.4} {x:.4} {y:.4} c\n"));
+    }
+
+    fn close(&mut self) {
+        self.ops.push_str("h\n");
+    }
 }
 
 fn affine_cm_ops(t: Affine) -> String {
@@ -809,7 +1018,7 @@ mod tests {
     }
 
     #[test]
-    fn non_ascii_text_rejected() {
+    fn non_ascii_text_uses_outline_glyphs_when_font_present() {
         let doc = Document::single_page(Page {
             paper: PaperSize::a4(),
             shapes: vec![Shape::Text(Text {
@@ -820,10 +1029,17 @@ mod tests {
                 fill: Color::BLACK,
             })],
         });
-        assert!(matches!(
-            document_to_pdf(&doc),
-            Err(PdfError::InvalidShape(_))
-        ));
+        if system_cjk_font_path().is_none() {
+            let err = document_to_pdf(&doc).unwrap_err();
+            assert!(matches!(err, PdfError::InvalidShape(_)));
+            return;
+        }
+        let bytes = document_to_pdf(&doc).unwrap();
+        let text = String::from_utf8_lossy(&bytes);
+        // Outline path fill, not Helvetica Tj.
+        assert!(!text.contains("(日本語)"));
+        assert!(text.contains(" m\n") || text.contains(" c\n"));
+        assert!(text.contains("\nf\n") || text.contains(" f\n"));
     }
 
     #[test]
@@ -956,5 +1172,26 @@ mod tests {
         let bytes = document_to_pdf_with_base(&doc, Some(&examples)).unwrap();
         assert!(String::from_utf8_lossy(&bytes).contains("/Subtype /Image"));
         let _ = std::io::sink().write(&bytes);
+    }
+
+    #[test]
+    fn fixture_demo_jpeg_embeds() {
+        let repo = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let examples = repo.join("examples");
+        let doc = Document::single_page(Page {
+            paper: PaperSize {
+                width_mm: 210.0,
+                height_mm: 297.0,
+            },
+            shapes: vec![Shape::Image(Image {
+                path: "figures/demo.jpg".into(),
+                x_mm: 20.0,
+                y_mm: 20.0,
+                width_mm: 60.0,
+                height_mm: 60.0,
+            })],
+        });
+        let bytes = document_to_pdf_with_base(&doc, Some(&examples)).unwrap();
+        assert!(String::from_utf8_lossy(&bytes).contains("/Subtype /Image"));
     }
 }
