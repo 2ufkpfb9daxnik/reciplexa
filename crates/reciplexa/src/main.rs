@@ -8,7 +8,7 @@ use std::process::ExitCode;
 use reciplexa_effect::{collect_performs, run_perform, EffectError, EffectHandler, Value};
 use reciplexa_lower::lower_source;
 use reciplexa_macro::expand_source;
-use reciplexa_pdf::write_document;
+use reciplexa_pdf::write_document_with_base;
 use reciplexa_types::typecheck_source;
 
 fn main() -> ExitCode {
@@ -68,7 +68,11 @@ fn render(input: &str, output: &str) -> Result<(), String> {
         }
     }
     let file = fs::File::create(&path).map_err(|e| format!("create {output}: {e}"))?;
-    write_document(&doc, file).map_err(|e| format!("pdf: {e:?}"))?;
+    let base = PathBuf::from(input)
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .map(|p| p.to_path_buf());
+    write_document_with_base(&doc, base.as_deref(), file).map_err(|e| format!("pdf: {e:?}"))?;
     Ok(())
 }
 

@@ -8,3 +8,4 @@ publish = false
 
 [dependencies]
 reciplexa-scene = { workspace = true }
+png = "0.17"

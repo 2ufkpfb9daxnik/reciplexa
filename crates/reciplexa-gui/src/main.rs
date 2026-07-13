@@ -8,7 +8,7 @@ use std::process::ExitCode;
 use eframe::egui;
 use reciplexa_lower::{collect_drag_targets_page, lower_source, nudge_drag_target, DragTarget};
 use reciplexa_macro::expand_source;
-use reciplexa_pdf::write_document;
+use reciplexa_pdf::write_document_with_base;
 use reciplexa_types::typecheck_source;
 use reciplexa_view::{flatten_page, hit_test_shapes, PaperLayout, WorldShape};
 
@@ -129,10 +129,12 @@ impl eframe::App for PreviewApp {
                         match pipeline_doc(&self.source) {
                             Ok(doc) => {
                                 let pdf_path = self.path.with_extension("pdf");
+                                let base = self.path.parent();
                                 match fs::File::create(&pdf_path)
                                     .map_err(|e| e.to_string())
                                     .and_then(|f| {
-                                        write_document(&doc, f).map_err(|e| format!("{e:?}"))
+                                        write_document_with_base(&doc, base, f)
+                                            .map_err(|e| format!("{e:?}"))
                                     }) {
                                     Ok(()) => self.error = None,
                                     Err(e) => self.error = Some(format!("pdf: {e}")),

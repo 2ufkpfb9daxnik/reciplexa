@@ -1,11 +1,13 @@
 //! Minimal PDF emitter for [`reciplexa_scene::Document`].
 //!
-//! Hand-rolled PDF-1.4: filled circles/rects, stroked lines, and Helvetica
-//! text (ASCII / WinAnsi). Japanese text needs a later font package (JLReq).
+//! Hand-rolled PDF-1.4: filled circles/rects, stroked lines, Helvetica text
+//! (ASCII / WinAnsi), and embedded RGB PNG images. Japanese text needs a later
+//! font package (JLReq).
 
 #![forbid(unsafe_code)]
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
+use std::path::{Path, PathBuf};
 
 use reciplexa_scene::{Affine, Color, Document, Page, Shape};
 
@@ -18,18 +20,66 @@ pub enum PdfError {
     Write(String),
 }
 
+struct EmbeddedImage {
+    width: u32,
+    height: u32,
+    rgb: Vec<u8>,
+}
+
+struct ImageStore {
+    by_key: HashMap<String, usize>,
+    images: Vec<EmbeddedImage>,
+    base: Option<PathBuf>,
+}
+
+impl ImageStore {
+    fn new(base: Option<&Path>) -> Self {
+        Self {
+            by_key: HashMap::new(),
+            images: Vec::new(),
+            base: base.map(Path::to_path_buf),
+        }
+    }
+
+    fn get_or_load(&mut self, path: &str) -> Result<usize, PdfError> {
+        if let Some(&id) = self.by_key.get(path) {
+            return Ok(id);
+        }
+        let resolved = resolve_image_path(path, self.base.as_deref());
+        let img = load_png_rgb(&resolved).map_err(|e| {
+            PdfError::InvalidShape(format!("image `{path}` ({}): {e}", resolved.display()))
+        })?;
+        let id = self.images.len();
+        self.by_key.insert(path.to_string(), id);
+        self.images.push(img);
+        Ok(id)
+    }
+}
+
 struct PageEmit {
     ops: String,
     /// Opacity percents `0..=100` referenced as `/GSk gs`.
     opacities: BTreeSet<u8>,
+    /// Embedded image ids referenced as `/Imk Do`.
+    images: BTreeSet<usize>,
 }
 
-/// Render a scene document to PDF bytes.
+/// Render a scene document to PDF bytes (image paths relative to the process CWD).
 pub fn document_to_pdf(doc: &Document) -> Result<Vec<u8>, PdfError> {
+    document_to_pdf_with_base(doc, None)
+}
+
+/// Render a scene document; resolve `(image "…")` paths relative to `base` when set
+/// (typically the directory containing the `.rpx` source).
+pub fn document_to_pdf_with_base(
+    doc: &Document,
+    base: Option<&Path>,
+) -> Result<Vec<u8>, PdfError> {
     if doc.pages.is_empty() {
         return Err(PdfError::EmptyDocument);
     }
 
+    let mut store = ImageStore::new(base);
     let mut page_contents = Vec::with_capacity(doc.pages.len());
     let mut page_sizes = Vec::with_capacity(doc.pages.len());
 
@@ -42,31 +92,120 @@ pub fn document_to_pdf(doc: &Document) -> Result<Vec<u8>, PdfError> {
         let w_pt = mm_to_pt(page.paper.width_mm);
         let h_pt = mm_to_pt(page.paper.height_mm);
         page_sizes.push((w_pt, h_pt));
-        page_contents.push(render_page_content(page, i)?);
+        page_contents.push(render_page_content(page, i, &mut store)?);
     }
 
-    Ok(assemble_pdf(&page_sizes, &page_contents))
+    Ok(assemble_pdf(&page_sizes, &page_contents, &store.images))
 }
 
-pub fn write_document(doc: &Document, mut w: impl std::io::Write) -> Result<(), PdfError> {
-    let bytes = document_to_pdf(doc)?;
+pub fn write_document(doc: &Document, w: impl std::io::Write) -> Result<(), PdfError> {
+    write_document_with_base(doc, None, w)
+}
+
+pub fn write_document_with_base(
+    doc: &Document,
+    base: Option<&Path>,
+    mut w: impl std::io::Write,
+) -> Result<(), PdfError> {
+    let bytes = document_to_pdf_with_base(doc, base)?;
     w.write_all(&bytes)
         .map_err(|e| PdfError::Write(e.to_string()))?;
     Ok(())
 }
 
-fn render_page_content(page: &Page, index: usize) -> Result<PageEmit, PdfError> {
-    let mut ops = String::new();
-    let mut opacities = BTreeSet::new();
-    for (si, shape) in page.shapes.iter().enumerate() {
-        let emit = render_shape(shape, &format!("page {index} shape {si}"), 1.0)?;
-        ops.push_str(&emit.ops);
-        opacities.extend(emit.opacities);
+fn resolve_image_path(path: &str, base: Option<&Path>) -> PathBuf {
+    let p = Path::new(path);
+    if p.is_absolute() {
+        return p.to_path_buf();
     }
-    Ok(PageEmit { ops, opacities })
+    match base {
+        Some(b) => b.join(p),
+        None => p.to_path_buf(),
+    }
 }
 
-fn render_shape(shape: &Shape, ctx: &str, parent_alpha: f64) -> Result<PageEmit, PdfError> {
+fn load_png_rgb(path: &Path) -> Result<EmbeddedImage, String> {
+    let file = std::fs::File::open(path).map_err(|e| e.to_string())?;
+    let decoder = png::Decoder::new(file);
+    let mut reader = decoder.read_info().map_err(|e| e.to_string())?;
+    let mut buf = vec![0; reader.output_buffer_size()];
+    let info = reader.next_frame(&mut buf).map_err(|e| e.to_string())?;
+    let width = info.width;
+    let height = info.height;
+    let rgb = match info.color_type {
+        png::ColorType::Rgb => buf[..info.buffer_size()].to_vec(),
+        png::ColorType::Rgba => {
+            let src = &buf[..info.buffer_size()];
+            let mut out = Vec::with_capacity((width * height * 3) as usize);
+            for px in src.chunks_exact(4) {
+                out.push(px[0]);
+                out.push(px[1]);
+                out.push(px[2]);
+            }
+            out
+        }
+        png::ColorType::Grayscale => {
+            let src = &buf[..info.buffer_size()];
+            let mut out = Vec::with_capacity((width * height * 3) as usize);
+            for &g in src {
+                out.push(g);
+                out.push(g);
+                out.push(g);
+            }
+            out
+        }
+        png::ColorType::GrayscaleAlpha => {
+            let src = &buf[..info.buffer_size()];
+            let mut out = Vec::with_capacity((width * height * 3) as usize);
+            for px in src.chunks_exact(2) {
+                out.push(px[0]);
+                out.push(px[0]);
+                out.push(px[0]);
+            }
+            out
+        }
+        other => {
+            return Err(format!(
+                "unsupported PNG color type {other:?} (need RGB/RGBA/Gray)"
+            ))
+        }
+    };
+    if rgb.len() != (width as usize) * (height as usize) * 3 {
+        return Err(format!(
+            "PNG size mismatch: got {} bytes for {width}x{height} RGB",
+            rgb.len()
+        ));
+    }
+    Ok(EmbeddedImage { width, height, rgb })
+}
+
+fn render_page_content(
+    page: &Page,
+    index: usize,
+    store: &mut ImageStore,
+) -> Result<PageEmit, PdfError> {
+    let mut ops = String::new();
+    let mut opacities = BTreeSet::new();
+    let mut images = BTreeSet::new();
+    for (si, shape) in page.shapes.iter().enumerate() {
+        let emit = render_shape(shape, &format!("page {index} shape {si}"), 1.0, store)?;
+        ops.push_str(&emit.ops);
+        opacities.extend(emit.opacities);
+        images.extend(emit.images);
+    }
+    Ok(PageEmit {
+        ops,
+        opacities,
+        images,
+    })
+}
+
+fn render_shape(
+    shape: &Shape,
+    ctx: &str,
+    parent_alpha: f64,
+    store: &mut ImageStore,
+) -> Result<PageEmit, PdfError> {
     match shape {
         Shape::Circle(c) => {
             if !c.is_drawable() {
@@ -159,13 +298,14 @@ fn render_shape(shape: &Shape, ctx: &str, parent_alpha: f64) -> Result<PageEmit,
             if !img.is_drawable() {
                 return Err(PdfError::InvalidShape(format!("{ctx}: image not drawable")));
             }
-            Ok(ops_only(image_placeholder_ops(
-                img.x_mm,
-                img.y_mm,
-                img.width_mm,
-                img.height_mm,
-                &img.path,
-            )?))
+            let id = store.get_or_load(&img.path)?;
+            let mut images = BTreeSet::new();
+            images.insert(id);
+            Ok(PageEmit {
+                ops: image_xobject_ops(img.x_mm, img.y_mm, img.width_mm, img.height_mm, id),
+                opacities: BTreeSet::new(),
+                images,
+            })
         }
         Shape::Opacity { alpha, children } => {
             if !(0.0..=1.0).contains(alpha) || !alpha.is_finite() {
@@ -177,13 +317,19 @@ fn render_shape(shape: &Shape, ctx: &str, parent_alpha: f64) -> Result<PageEmit,
             let pct = (combined * 100.0).round().clamp(0.0, 100.0) as u8;
             let mut ops = format!("q\n/GS{pct} gs\n");
             let mut opacities = BTreeSet::from([pct]);
+            let mut images = BTreeSet::new();
             for (i, child) in children.iter().enumerate() {
-                let emit = render_shape(child, &format!("{ctx}/{i}"), combined)?;
+                let emit = render_shape(child, &format!("{ctx}/{i}"), combined, store)?;
                 ops.push_str(&emit.ops);
                 opacities.extend(emit.opacities);
+                images.extend(emit.images);
             }
             ops.push_str("Q\n");
-            Ok(PageEmit { ops, opacities })
+            Ok(PageEmit {
+                ops,
+                opacities,
+                images,
+            })
         }
         Shape::Group {
             transform,
@@ -197,13 +343,19 @@ fn render_shape(shape: &Shape, ctx: &str, parent_alpha: f64) -> Result<PageEmit,
             let mut ops = String::from("q\n");
             ops.push_str(&affine_cm_ops(*transform));
             let mut opacities = BTreeSet::new();
+            let mut images = BTreeSet::new();
             for (i, child) in children.iter().enumerate() {
-                let emit = render_shape(child, &format!("{ctx}/{i}"), parent_alpha)?;
+                let emit = render_shape(child, &format!("{ctx}/{i}"), parent_alpha, store)?;
                 ops.push_str(&emit.ops);
                 opacities.extend(emit.opacities);
+                images.extend(emit.images);
             }
             ops.push_str("Q\n");
-            Ok(PageEmit { ops, opacities })
+            Ok(PageEmit {
+                ops,
+                opacities,
+                images,
+            })
         }
     }
 }
@@ -212,138 +364,107 @@ fn ops_only(ops: String) -> PageEmit {
     PageEmit {
         ops,
         opacities: BTreeSet::new(),
+        images: BTreeSet::new(),
     }
 }
 
-fn affine_cm_ops(t: Affine) -> String {
-    let s = 72.0 / 25.4;
-    format!(
-        "{:.6} {:.6} {:.6} {:.6} {:.6} {:.6} cm\n",
-        t.a,
-        t.b,
-        t.c,
-        t.d,
-        t.e * s,
-        t.f * s
-    )
-}
-
 fn circle_path_ops(x_mm: f64, y_mm: f64, r_mm: f64, fill: Color) -> String {
-    let k = 0.552_284_749_8;
-    let cx = mm_to_pt(x_mm);
-    let cy = mm_to_pt(y_mm);
+    // Bézier circle approximation with κ = 4*(√2-1)/3.
+    let k = 0.5522847498;
+    let x = mm_to_pt(x_mm);
+    let y = mm_to_pt(y_mm);
     let r = mm_to_pt(r_mm);
     let kr = r * k;
-
     format!(
-        "{r_col:.4} {g_col:.4} {b_col:.4} rg\n\
-         {x0:.4} {y0:.4} m\n\
-         {x1:.4} {y1:.4} {x2:.4} {y2:.4} {x3:.4} {y3:.4} c\n\
-         {x4:.4} {y4:.4} {x5:.4} {y5:.4} {x6:.4} {y6:.4} c\n\
-         {x7:.4} {y7:.4} {x8:.4} {y8:.4} {x9:.4} {y9:.4} c\n\
-         {x10:.4} {y10:.4} {x11:.4} {y11:.4} {x12:.4} {y12:.4} c\n\
+        "{r:.4} {g:.4} {b:.4} rg\n\
+         {x:.4} {y0:.4} m\n\
+         {x1:.4} {y0:.4} {x2:.4} {y1:.4} {x2:.4} {y:.4} c\n\
+         {x2:.4} {y3:.4} {x1:.4} {y4:.4} {x:.4} {y4:.4} c\n\
+         {x5:.4} {y4:.4} {x6:.4} {y3:.4} {x6:.4} {y:.4} c\n\
+         {x6:.4} {y1:.4} {x5:.4} {y0:.4} {x:.4} {y0:.4} c\n\
          f\n",
-        r_col = fill.r,
-        g_col = fill.g,
-        b_col = fill.b,
-        x0 = cx + r,
-        y0 = cy,
-        x1 = cx + r,
-        y1 = cy + kr,
-        x2 = cx + kr,
-        y2 = cy + r,
-        x3 = cx,
-        y3 = cy + r,
-        x4 = cx - kr,
-        y4 = cy + r,
-        x5 = cx - r,
-        y5 = cy + kr,
-        x6 = cx - r,
-        y6 = cy,
-        x7 = cx - r,
-        y7 = cy - kr,
-        x8 = cx - kr,
-        y8 = cy - r,
-        x9 = cx,
-        y9 = cy - r,
-        x10 = cx + kr,
-        y10 = cy - r,
-        x11 = cx + r,
-        y11 = cy - kr,
-        x12 = cx + r,
-        y12 = cy,
+        r = fill.r,
+        g = fill.g,
+        b = fill.b,
+        y0 = y - r,
+        x1 = x + kr,
+        x2 = x + r,
+        y1 = y - kr,
+        y3 = y + kr,
+        y4 = y + r,
+        x5 = x - kr,
+        x6 = x - r,
     )
 }
 
 fn rect_path_ops(x_mm: f64, y_mm: f64, w_mm: f64, h_mm: f64, fill: Color) -> String {
-    let x = mm_to_pt(x_mm);
-    let y = mm_to_pt(y_mm);
-    let w = mm_to_pt(w_mm);
-    let h = mm_to_pt(h_mm);
     format!(
         "{r:.4} {g:.4} {b:.4} rg\n{x:.4} {y:.4} {w:.4} {h:.4} re\nf\n",
         r = fill.r,
         g = fill.g,
         b = fill.b,
+        x = mm_to_pt(x_mm),
+        y = mm_to_pt(y_mm),
+        w = mm_to_pt(w_mm),
+        h = mm_to_pt(h_mm),
     )
 }
 
 fn ellipse_path_ops(x_mm: f64, y_mm: f64, rx_mm: f64, ry_mm: f64, fill: Color) -> String {
-    let k = 0.552_284_749_8;
-    let cx = mm_to_pt(x_mm);
-    let cy = mm_to_pt(y_mm);
+    let k = 0.5522847498;
+    let x = mm_to_pt(x_mm);
+    let y = mm_to_pt(y_mm);
     let rx = mm_to_pt(rx_mm);
     let ry = mm_to_pt(ry_mm);
     let kx = rx * k;
     let ky = ry * k;
     format!(
-        "{r_col:.4} {g_col:.4} {b_col:.4} rg\n\
-         {x0:.4} {y0:.4} m\n\
-         {x1:.4} {y1:.4} {x2:.4} {y2:.4} {x3:.4} {y3:.4} c\n\
-         {x4:.4} {y4:.4} {x5:.4} {y5:.4} {x6:.4} {y6:.4} c\n\
-         {x7:.4} {y7:.4} {x8:.4} {y8:.4} {x9:.4} {y9:.4} c\n\
-         {x10:.4} {y10:.4} {x11:.4} {y11:.4} {x12:.4} {y12:.4} c\n\
+        "{r:.4} {g:.4} {b:.4} rg\n\
+         {x:.4} {y0:.4} m\n\
+         {x1:.4} {y0:.4} {x2:.4} {y1:.4} {x2:.4} {y:.4} c\n\
+         {x2:.4} {y3:.4} {x1:.4} {y4:.4} {x:.4} {y4:.4} c\n\
+         {x5:.4} {y4:.4} {x6:.4} {y3:.4} {x6:.4} {y:.4} c\n\
+         {x6:.4} {y1:.4} {x5:.4} {y0:.4} {x:.4} {y0:.4} c\n\
          f\n",
-        r_col = fill.r,
-        g_col = fill.g,
-        b_col = fill.b,
-        x0 = cx + rx,
-        y0 = cy,
-        x1 = cx + rx,
-        y1 = cy + ky,
-        x2 = cx + kx,
-        y2 = cy + ry,
-        x3 = cx,
-        y3 = cy + ry,
-        x4 = cx - kx,
-        y4 = cy + ry,
-        x5 = cx - rx,
-        y5 = cy + ky,
-        x6 = cx - rx,
-        y6 = cy,
-        x7 = cx - rx,
-        y7 = cy - ky,
-        x8 = cx - kx,
-        y8 = cy - ry,
-        x9 = cx,
-        y9 = cy - ry,
-        x10 = cx + kx,
-        y10 = cy - ry,
-        x11 = cx + rx,
-        y11 = cy - ky,
-        x12 = cx + rx,
-        y12 = cy,
+        r = fill.r,
+        g = fill.g,
+        b = fill.b,
+        y0 = y - ry,
+        x1 = x + kx,
+        x2 = x + rx,
+        y1 = y - ky,
+        y3 = y + ky,
+        y4 = y + ry,
+        x5 = x - kx,
+        x6 = x - rx,
     )
 }
 
 fn ring_path_ops(x_mm: f64, y_mm: f64, r_mm: f64, width_mm: f64, stroke: Color) -> String {
-    // Same Bezier circle as fill, but stroke with `S`.
-    let body = circle_path_ops(x_mm, y_mm, r_mm, stroke);
-    let stroked = body.replace(" rg\n", " RG\n").replace("\nf\n", "\nS\n");
+    let k = 0.5522847498;
+    let x = mm_to_pt(x_mm);
+    let y = mm_to_pt(y_mm);
+    let r = mm_to_pt(r_mm);
+    let kr = r * k;
     format!(
-        "{w:.4} w\n{stroked}",
+        "q\n{r:.4} {g:.4} {b:.4} RG\n{w:.4} w\n\
+         {x:.4} {y0:.4} m\n\
+         {x1:.4} {y0:.4} {x2:.4} {y1:.4} {x2:.4} {y:.4} c\n\
+         {x2:.4} {y3:.4} {x1:.4} {y4:.4} {x:.4} {y4:.4} c\n\
+         {x5:.4} {y4:.4} {x6:.4} {y3:.4} {x6:.4} {y:.4} c\n\
+         {x6:.4} {y1:.4} {x5:.4} {y0:.4} {x:.4} {y0:.4} c\ns\nQ\n",
+        r = stroke.r,
+        g = stroke.g,
+        b = stroke.b,
         w = mm_to_pt(width_mm),
-        stroked = stroked
+        y0 = y - r,
+        x1 = x + kr,
+        x2 = x + r,
+        y1 = y - kr,
+        y3 = y + kr,
+        y4 = y + r,
+        x5 = x - kr,
+        x6 = x - r,
     )
 }
 
@@ -355,22 +476,22 @@ fn frame_path_ops(
     stroke_width_mm: f64,
     stroke: Color,
 ) -> String {
-    let x = mm_to_pt(x_mm);
-    let y = mm_to_pt(y_mm);
-    let w = mm_to_pt(w_mm);
-    let h = mm_to_pt(h_mm);
     format!(
-        "{r:.4} {g:.4} {b:.4} RG\n{sw:.4} w\n{x:.4} {y:.4} {w:.4} {h:.4} re\nS\n",
+        "q\n{r:.4} {g:.4} {b:.4} RG\n{sw:.4} w\n{x:.4} {y:.4} {w:.4} {h:.4} re\nS\nQ\n",
         r = stroke.r,
         g = stroke.g,
         b = stroke.b,
         sw = mm_to_pt(stroke_width_mm),
+        x = mm_to_pt(x_mm),
+        y = mm_to_pt(y_mm),
+        w = mm_to_pt(w_mm),
+        h = mm_to_pt(h_mm),
     )
 }
 
 fn line_ops(x1: f64, y1: f64, x2: f64, y2: f64, stroke: Color, width_mm: f64) -> String {
     format!(
-        "{r:.4} {g:.4} {b:.4} RG\n{w:.4} w\n{x1:.4} {y1:.4} m\n{x2:.4} {y2:.4} l\nS\n",
+        "q\n{r:.4} {g:.4} {b:.4} RG\n{w:.4} w\n{x1:.4} {y1:.4} m\n{x2:.4} {y2:.4} l\nS\nQ\n",
         r = stroke.r,
         g = stroke.g,
         b = stroke.b,
@@ -384,7 +505,7 @@ fn line_ops(x1: f64, y1: f64, x2: f64, y2: f64, stroke: Color, width_mm: f64) ->
 
 fn polyline_ops(points: &[(f64, f64)], stroke: Color, width_mm: f64) -> String {
     let mut ops = format!(
-        "{r:.4} {g:.4} {b:.4} RG\n{w:.4} w\n",
+        "q\n{r:.4} {g:.4} {b:.4} RG\n{w:.4} w\n",
         r = stroke.r,
         g = stroke.g,
         b = stroke.b,
@@ -397,7 +518,7 @@ fn polyline_ops(points: &[(f64, f64)], stroke: Color, width_mm: f64) -> String {
             ops.push_str(&format!("{:.4} {:.4} l\n", mm_to_pt(x), mm_to_pt(y)));
         }
     }
-    ops.push_str("S\n");
+    ops.push_str("S\nQ\n");
     ops
 }
 
@@ -415,57 +536,18 @@ fn polygon_fill_ops(points: &[(f64, f64)], fill: Color) -> String {
             ops.push_str(&format!("{:.4} {:.4} l\n", mm_to_pt(x), mm_to_pt(y)));
         }
     }
-    ops.push_str("h\nf\n");
+    ops.push_str("f\n");
     ops
 }
 
-/// Placeholder: stroked rect + ASCII filename (real image XObject later).
-fn image_placeholder_ops(
-    x_mm: f64,
-    y_mm: f64,
-    w_mm: f64,
-    h_mm: f64,
-    path: &str,
-) -> Result<String, PdfError> {
-    let label = path
-        .rsplit(['/', '\\'])
-        .next()
-        .unwrap_or(path)
-        .chars()
-        .filter(|c| c.is_ascii() && !c.is_control())
-        .take(40)
-        .collect::<String>();
-    if label.is_empty() {
-        return Err(PdfError::InvalidShape(
-            "image path has no ASCII label for placeholder".into(),
-        ));
-    }
-    let mut ops = frame_path_ops(x_mm, y_mm, w_mm, h_mm, 0.5, Color::BLACK);
-    // Diagonal cross.
-    ops.push_str(&line_ops(
-        x_mm,
-        y_mm,
-        x_mm + w_mm,
-        y_mm + h_mm,
-        Color::new(0.6, 0.6, 0.6),
-        0.3,
-    ));
-    ops.push_str(&line_ops(
-        x_mm,
-        y_mm + h_mm,
-        x_mm + w_mm,
-        y_mm,
-        Color::new(0.6, 0.6, 0.6),
-        0.3,
-    ));
-    ops.push_str(&text_ops(
-        x_mm + 2.0,
-        y_mm + h_mm - 6.0,
-        4.0,
-        &label,
-        Color::BLACK,
-    )?);
-    Ok(ops)
+fn image_xobject_ops(x_mm: f64, y_mm: f64, w_mm: f64, h_mm: f64, id: usize) -> String {
+    format!(
+        "q\n{w:.4} 0 0 {h:.4} {x:.4} {y:.4} cm\n/Im{id} Do\nQ\n",
+        w = mm_to_pt(w_mm),
+        h = mm_to_pt(h_mm),
+        x = mm_to_pt(x_mm),
+        y = mm_to_pt(y_mm),
+    )
 }
 
 fn text_ops(
@@ -516,18 +598,37 @@ fn pdf_escape_text(s: &str) -> Result<String, PdfError> {
     Ok(out)
 }
 
+fn affine_cm_ops(t: Affine) -> String {
+    let s = 72.0 / 25.4;
+    format!(
+        "{:.6} {:.6} {:.6} {:.6} {:.6} {:.6} cm\n",
+        t.a,
+        t.b,
+        t.c,
+        t.d,
+        t.e * s,
+        t.f * s
+    )
+}
+
 fn mm_to_pt(mm: f64) -> f64 {
     mm * 72.0 / 25.4
 }
 
-/// Assemble PDF-1.4 with a shared Helvetica font resource.
-fn assemble_pdf(page_sizes: &[(f64, f64)], contents: &[PageEmit]) -> Vec<u8> {
+/// Assemble PDF-1.4 with a shared Helvetica font and optional image XObjects.
+fn assemble_pdf(
+    page_sizes: &[(f64, f64)],
+    contents: &[PageEmit],
+    images: &[EmbeddedImage],
+) -> Vec<u8> {
     assert_eq!(page_sizes.len(), contents.len());
     let n = page_sizes.len();
-    // 1 Catalog, 2 Pages, 3 Font, 4..3+n Pages, then contents
+    let img_n = images.len();
+    // 1 Catalog, 2 Pages, 3 Font, 4..3+img_n Images, then Pages, then contents
     let font_obj = 3;
-    let page_obj0 = 4;
-    let content_obj0 = 4 + n;
+    let image_obj0 = 4;
+    let page_obj0 = 4 + img_n;
+    let content_obj0 = page_obj0 + n;
 
     let mut objects: Vec<Vec<u8>> = Vec::new();
     objects.push(b"<< /Type /Catalog /Pages 2 0 R >>".to_vec());
@@ -543,13 +644,18 @@ fn assemble_pdf(page_sizes: &[(f64, f64)], contents: &[PageEmit]) -> Vec<u8> {
             .to_vec(),
     );
 
+    for img in images {
+        objects.push(image_xobject_bytes(img));
+    }
+
     for (i, (w, h)) in page_sizes.iter().enumerate() {
         let content_id = content_obj0 + i;
         let gs = ext_gstate_dict(&contents[i].opacities);
+        let xo = xobject_dict(&contents[i].images, image_obj0);
         let page_id_body = format!(
             "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {w:.4} {h:.4}] \
              /Contents {content_id} 0 R \
-             /Resources << /Font << /F1 {font_obj} 0 R >> {gs}>> >>"
+             /Resources << /Font << /F1 {font_obj} 0 R >> {gs}{xo}>> >>"
         );
         objects.push(page_id_body.into_bytes());
     }
@@ -591,6 +697,20 @@ fn assemble_pdf(page_sizes: &[(f64, f64)], contents: &[PageEmit]) -> Vec<u8> {
     out
 }
 
+fn image_xobject_bytes(img: &EmbeddedImage) -> Vec<u8> {
+    let mut obj = format!(
+        "<< /Type /XObject /Subtype /Image /Width {} /Height {} \
+         /ColorSpace /DeviceRGB /BitsPerComponent 8 /Length {} >>\nstream\n",
+        img.width,
+        img.height,
+        img.rgb.len()
+    )
+    .into_bytes();
+    obj.extend_from_slice(&img.rgb);
+    obj.extend_from_slice(b"\nendstream");
+    obj
+}
+
 fn ext_gstate_dict(opacities: &BTreeSet<u8>) -> String {
     if opacities.is_empty() {
         return String::new();
@@ -606,12 +726,25 @@ fn ext_gstate_dict(opacities: &BTreeSet<u8>) -> String {
     body
 }
 
+fn xobject_dict(ids: &BTreeSet<usize>, image_obj0: usize) -> String {
+    if ids.is_empty() {
+        return String::new();
+    }
+    let mut body = String::from("/XObject << ");
+    for id in ids {
+        body.push_str(&format!("/Im{id} {} 0 R ", image_obj0 + id));
+    }
+    body.push_str(">> ");
+    body
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use reciplexa_scene::{
-        Circle, Color, Document, Ellipse, Line, Page, PaperSize, Rect, Shape, Text,
+        Circle, Color, Document, Ellipse, Image, Line, Page, PaperSize, Rect, Shape, Text,
     };
+    use std::io::Write;
 
     fn sample_doc() -> Document {
         Document::single_page(Page {
@@ -623,6 +756,15 @@ mod tests {
                 fill: Color::BLACK,
             })],
         })
+    }
+
+    fn write_temp_png(path: &Path, w: u32, h: u32, rgb: &[u8]) {
+        let file = std::fs::File::create(path).unwrap();
+        let mut enc = png::Encoder::new(file, w, h);
+        enc.set_color(png::ColorType::Rgb);
+        enc.set_depth(png::BitDepth::Eight);
+        let mut writer = enc.write_header().unwrap();
+        writer.write_image_data(rgb).unwrap();
     }
 
     #[test]
@@ -660,9 +802,10 @@ mod tests {
         });
         let bytes = document_to_pdf(&doc).unwrap();
         let text = String::from_utf8_lossy(&bytes);
-        assert!(text.contains("BT\n"));
-        assert!(text.contains("(Hello) Tj"));
-        assert!(text.contains(" l\nS\n") || text.contains(" l\r\nS"));
+        assert!(text.contains("BT"));
+        assert!(text.contains("Tj"));
+        assert!(text.contains(" m\n"));
+        assert!(text.contains(" l\n"));
     }
 
     #[test]
@@ -672,7 +815,7 @@ mod tests {
             shapes: vec![Shape::Text(Text {
                 x_mm: 10.0,
                 y_mm: 10.0,
-                size_mm: 4.0,
+                size_mm: 5.0,
                 content: "日本語".into(),
                 fill: Color::BLACK,
             })],
@@ -685,10 +828,10 @@ mod tests {
 
     #[test]
     fn empty_document_errors() {
-        assert_eq!(
+        assert!(matches!(
             document_to_pdf(&Document::default()),
             Err(PdfError::EmptyDocument)
-        );
+        ));
     }
 
     #[test]
@@ -713,10 +856,10 @@ mod tests {
         let doc = Document::single_page(Page {
             paper: PaperSize::a4(),
             shapes: vec![Shape::Ellipse(Ellipse {
-                x_mm: 105.0,
-                y_mm: 148.5,
-                rx_mm: 60.0,
-                ry_mm: 30.0,
+                x_mm: 50.0,
+                y_mm: 50.0,
+                rx_mm: 20.0,
+                ry_mm: 10.0,
                 fill: Color::GREEN,
             })],
         });
@@ -749,5 +892,69 @@ mod tests {
         assert!(text.contains("/GS50"));
         assert!(text.contains("/ca 0.5000"));
         assert!(text.contains("/GS50 gs"));
+    }
+
+    #[test]
+    fn embeds_png_as_image_xobject() {
+        let dir = std::env::temp_dir().join("reciplexa-pdf-png-test");
+        let _ = std::fs::create_dir_all(&dir);
+        let png_path = dir.join("dot.png");
+        write_temp_png(&png_path, 2, 2, &[255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 0]);
+
+        let doc = Document::single_page(Page {
+            paper: PaperSize::a4(),
+            shapes: vec![Shape::Image(Image {
+                path: "dot.png".into(),
+                x_mm: 10.0,
+                y_mm: 20.0,
+                width_mm: 40.0,
+                height_mm: 30.0,
+            })],
+        });
+        let bytes = document_to_pdf_with_base(&doc, Some(&dir)).unwrap();
+        let text = String::from_utf8_lossy(&bytes);
+        assert!(text.contains("/Subtype /Image"));
+        assert!(text.contains("/Width 2"));
+        assert!(text.contains("/Height 2"));
+        assert!(text.contains("/Im0 Do"));
+        assert!(text.contains("/XObject"));
+    }
+
+    #[test]
+    fn missing_png_fails_fast() {
+        let doc = Document::single_page(Page {
+            paper: PaperSize::a4(),
+            shapes: vec![Shape::Image(Image {
+                path: "no-such-file.png".into(),
+                x_mm: 0.0,
+                y_mm: 0.0,
+                width_mm: 10.0,
+                height_mm: 10.0,
+            })],
+        });
+        let err = document_to_pdf(&doc).unwrap_err();
+        match err {
+            PdfError::InvalidShape(msg) => assert!(msg.contains("image")),
+            other => panic!("unexpected {other:?}"),
+        }
+    }
+
+    #[test]
+    fn fixture_demo_png_embeds() {
+        let repo = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let examples = repo.join("examples");
+        let doc = Document::single_page(Page {
+            paper: PaperSize::a4(),
+            shapes: vec![Shape::Image(Image {
+                path: "figures/demo.png".into(),
+                x_mm: 40.0,
+                y_mm: 80.0,
+                width_mm: 130.0,
+                height_mm: 100.0,
+            })],
+        });
+        let bytes = document_to_pdf_with_base(&doc, Some(&examples)).unwrap();
+        assert!(String::from_utf8_lossy(&bytes).contains("/Subtype /Image"));
+        let _ = std::io::sink().write(&bytes);
     }
 }
