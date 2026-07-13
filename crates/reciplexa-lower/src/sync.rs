@@ -187,6 +187,42 @@ pub fn delete_layer_page(
     Ok(out)
 }
 
+/// Duplicate flattened layer `flat_index` (inserts a copy after it in source order).
+pub fn duplicate_layer_page(
+    src: &str,
+    page_index: usize,
+    flat_index: usize,
+) -> Result<String, SyncError> {
+    let layers = collect_layers_page(src, page_index)?;
+    let layer = layers
+        .get(flat_index)
+        .ok_or_else(|| SyncError::new("layer index out of range"))?;
+    let root = (layer.root_start, layer.root_end);
+    let shared = layers
+        .iter()
+        .filter(|l| (l.root_start, l.root_end) == root)
+        .count();
+    let (span_start, span_end) = if shared <= 1 {
+        (root.0, root.1)
+    } else {
+        (layer.byte_start, layer.byte_end)
+    };
+    let snippet = &src[span_start..span_end];
+    // Insert after the form, preserving a leading newline when the original had one.
+    let insert_at = extent_with_leading_ws(src, span_start, span_end).1;
+    let pad = if src[..span_start].ends_with('\n') || snippet.contains('\n') {
+        "\n  "
+    } else {
+        " "
+    };
+    let mut out = String::with_capacity(src.len() + snippet.len() + pad.len());
+    out.push_str(&src[..insert_at]);
+    out.push_str(pad);
+    out.push_str(snippet);
+    out.push_str(&src[insert_at..]);
+    Ok(out)
+}
+
 fn reorder_page_roots(
     src: &str,
     page_index: usize,
@@ -1599,5 +1635,16 @@ mod tests {
         assert!(out.contains("(translate 0 0"));
         assert!(!out.contains("circle"));
         assert!(out.contains("(rect 0 0 1 1)"));
+    }
+
+    #[test]
+    fn duplicate_top_level_layer() {
+        let src = "(page a4 (circle 1 2 3) (rect 0 0 1 1))";
+        let out = duplicate_layer_page(src, 0, 0).unwrap();
+        let layers = collect_layers_page(&out, 0).unwrap();
+        assert_eq!(layers.len(), 3);
+        assert_eq!(layers[0].kind, "circle");
+        assert_eq!(layers[1].kind, "circle");
+        assert_eq!(layers[2].kind, "rect");
     }
 }

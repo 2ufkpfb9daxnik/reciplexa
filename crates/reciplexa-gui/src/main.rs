@@ -10,8 +10,9 @@ use eframe::egui;
 use eframe::egui::text::{CCursor, CCursorRange};
 use reciplexa_lower::{
     collect_drag_targets_page, collect_layers_page, collect_size_targets_page, delete_layer_page,
-    layer_opacity, layer_rotation_deg, lower_source, nudge_drag_target, reorder_layer_page,
-    scale_size_target, set_layer_opacity, set_layer_rotation_deg, DragTarget, LayerInfo, SizeTarget,
+    duplicate_layer_page, layer_opacity, layer_rotation_deg, lower_source, nudge_drag_target,
+    reorder_layer_page, scale_size_target, set_layer_opacity, set_layer_rotation_deg, DragTarget,
+    LayerInfo, SizeTarget,
 };
 use reciplexa_macro::expand_source;
 use reciplexa_pdf::write_document_with_base;
@@ -297,6 +298,24 @@ impl PreviewApp {
             Err(e) => self.error = Some(e.message),
         }
     }
+
+    fn apply_layer_duplicate(&mut self, index: usize) {
+        match duplicate_layer_page(&self.source, self.page_index, index) {
+            Ok(new_src) => {
+                self.set_source_with_undo(new_src);
+                self.drag = None;
+                let new_sel = index + 1;
+                self.selected = Some(new_sel);
+                self.error = pipeline_doc(&self.source).err();
+                if let Ok(layers) = collect_layers_page(&self.source, self.page_index) {
+                    if let Some(layer) = layers.get(new_sel) {
+                        self.pending_source_select = Some((layer.byte_start, layer.byte_end));
+                    }
+                }
+            }
+            Err(e) => self.error = Some(e.message),
+        }
+    }
 }
 
 impl eframe::App for PreviewApp {
@@ -361,6 +380,9 @@ impl eframe::App for PreviewApp {
                     i.key_pressed(egui::Key::Delete) || i.key_pressed(egui::Key::Backspace)
                 }) {
                     self.apply_layer_delete(sel);
+                }
+                if ctx.input(|i| i.modifiers.command && i.key_pressed(egui::Key::D)) {
+                    self.apply_layer_duplicate(sel);
                 }
             }
         }
@@ -597,6 +619,13 @@ impl eframe::App for PreviewApp {
                     }
                     if !slider.is_pointer_button_down_on() {
                         self.opacity_undo_open = false;
+                    }
+                    if ui
+                        .button("Duplicate")
+                        .on_hover_text("Copy in .rpx (Ctrl+D)")
+                        .clicked()
+                    {
+                        self.apply_layer_duplicate(sel);
                     }
                     if ui
                         .button("Delete layer")
