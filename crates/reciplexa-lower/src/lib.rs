@@ -25,8 +25,8 @@ pub use sync::{
 };
 
 use reciplexa_scene::{
-    Affine, Circle, Color, Document, Ellipse, Frame, Image, Line, Page, PaperSize, Polyline, Rect,
-    Ring, Shape, Text,
+    Affine, Circle, Color, Document, Ellipse, Frame, Image, Line, Page, PaperSize, Polygon,
+    Polyline, Rect, Ring, Shape, Text,
 };
 use reciplexa_syntax::{parse_source, SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken};
 
@@ -148,6 +148,7 @@ fn lower_shape(node: &SyntaxNode) -> Result<Shape, LowerError> {
         "text" => lower_text(&items),
         "line" => lower_line(&items),
         "polyline" => lower_polyline(&items),
+        "polygon" => lower_polygon(&items),
         "image" => lower_image(&items),
         "group" => lower_group(&items),
         "translate" => lower_translate(&items),
@@ -413,6 +414,38 @@ fn lower_polyline(items: &[Child]) -> Result<Shape, LowerError> {
         return Err(LowerError::new("polyline is not drawable"));
     }
     Ok(Shape::Polyline(poly))
+}
+
+fn lower_polygon(items: &[Child]) -> Result<Shape, LowerError> {
+    // (polygon x1 y1 x2 y2 x3 y3 … [color])
+    if items.len() < 7 {
+        return Err(LowerError::new(
+            "`polygon` expects at least three points (x y)×3",
+        ));
+    }
+    let mut end = items.len();
+    let mut fill = Color::BLACK;
+    if end >= 2 && is_color_child(&items[end - 1]) {
+        fill = lower_color(&items[end - 1])?;
+        end -= 1;
+    }
+    let coords = &items[1..end];
+    if coords.len() < 6 || coords.len() % 2 != 0 {
+        return Err(LowerError::new(
+            "`polygon` needs an even number of coordinates (≥6)",
+        ));
+    }
+    let mut points_mm = Vec::with_capacity(coords.len() / 2);
+    for i in (0..coords.len()).step_by(2) {
+        let x = number_at_slice(coords, i, "polygon x")?;
+        let y = number_at_slice(coords, i + 1, "polygon y")?;
+        points_mm.push((x, y));
+    }
+    let poly = Polygon { points_mm, fill };
+    if !poly.is_drawable() {
+        return Err(LowerError::new("polygon is not drawable"));
+    }
+    Ok(Shape::Polygon(poly))
 }
 
 fn lower_image(items: &[Child]) -> Result<Shape, LowerError> {

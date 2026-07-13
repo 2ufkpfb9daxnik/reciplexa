@@ -42,6 +42,8 @@ pub enum DragTarget {
     LineXy(usize),
     /// N-th `(polyline …)` — nudges every vertex by the same delta.
     PolylineXy(usize),
+    /// N-th `(polygon …)` — nudges every vertex by the same delta.
+    PolygonXy(usize),
     /// N-th `(image …)` origin when not under a translate binding.
     ImageXy(usize),
 }
@@ -95,6 +97,7 @@ pub fn nudge_drag_target(
         DragTarget::TextXy(i) => nudge_nth_pair(src, "text", i, 1, 2, dx, dy),
         DragTarget::LineXy(i) => nudge_line(src, i, dx, dy),
         DragTarget::PolylineXy(i) => nudge_polyline(src, i, dx, dy),
+        DragTarget::PolygonXy(i) => nudge_polygon(src, i, dx, dy),
         DragTarget::ImageXy(i) => nudge_nth_pair(src, "image", i, 2, 3, dx, dy),
     }
 }
@@ -115,6 +118,7 @@ struct Counters {
     text: usize,
     line: usize,
     polyline: usize,
+    polygon: usize,
     image: usize,
 }
 
@@ -227,6 +231,14 @@ fn collect_from_shape(
                 None => DragTarget::PolylineXy(idx),
             });
         }
+        "polygon" => {
+            let idx = counters.polygon;
+            counters.polygon += 1;
+            out.push(match inherited_translate {
+                Some(t) => DragTarget::Translate(t),
+                None => DragTarget::PolygonXy(idx),
+            });
+        }
         "image" => {
             let idx = counters.image;
             counters.image += 1;
@@ -277,10 +289,9 @@ fn nudge_line(src: &str, index: usize, dx: f64, dy: f64) -> Result<String, SyncE
 
 fn nudge_polyline(src: &str, index: usize, dx: f64, dy: f64) -> Result<String, SyncError> {
     let root = parse_root(src)?;
-    let n_coords = count_polyline_coords(&root, index)
+    let n_coords = count_leading_number_coords(&root, "polyline", index)
         .ok_or_else(|| SyncError::new(format!("no `polyline` #{index}")))?;
     let mut out = src.to_string();
-    // Nudge (x,y) pairs at slots 1,2, 3,4, …
     let pairs = n_coords / 2;
     for p in 0..pairs {
         let x_slot = 1 + p * 2;
@@ -290,7 +301,21 @@ fn nudge_polyline(src: &str, index: usize, dx: f64, dy: f64) -> Result<String, S
     Ok(out)
 }
 
-fn count_polyline_coords(root: &SyntaxNode, index: usize) -> Option<usize> {
+fn nudge_polygon(src: &str, index: usize, dx: f64, dy: f64) -> Result<String, SyncError> {
+    let root = parse_root(src)?;
+    let n_coords = count_leading_number_coords(&root, "polygon", index)
+        .ok_or_else(|| SyncError::new(format!("no `polygon` #{index}")))?;
+    let mut out = src.to_string();
+    let pairs = n_coords / 2;
+    for p in 0..pairs {
+        let x_slot = 1 + p * 2;
+        let y_slot = x_slot + 1;
+        out = nudge_nth_pair(&out, "polygon", index, x_slot, y_slot, dx, dy)?;
+    }
+    Ok(out)
+}
+
+fn count_leading_number_coords(root: &SyntaxNode, head: &str, index: usize) -> Option<usize> {
     let mut seen = 0usize;
     for node in root.descendants() {
         if node.kind() != SyntaxKind::List {
@@ -300,11 +325,10 @@ fn count_polyline_coords(root: &SyntaxNode, index: usize) -> Option<usize> {
         let Some(Child::Token(h)) = items.first() else {
             continue;
         };
-        if h.kind() != SyntaxKind::Ident || h.text() != "polyline" {
+        if h.kind() != SyntaxKind::Ident || h.text() != head {
             continue;
         }
         if seen == index {
-            // Count leading numbers after head until a non-number.
             let mut n = 0usize;
             for item in items.iter().skip(1) {
                 match item {
@@ -312,8 +336,6 @@ fn count_polyline_coords(root: &SyntaxNode, index: usize) -> Option<usize> {
                     _ => break,
                 }
             }
-            // If trailing color+width, numbers already stopped at color.
-            // If no color but trailing width alone is rare for polyline (needs color before width).
             return Some(n);
         }
         seen += 1;

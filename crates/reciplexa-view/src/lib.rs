@@ -194,6 +194,18 @@ fn flatten_shape(shape: &Shape, parent: Affine, out: &mut Vec<WorldShape>) {
                 closed: false,
             }));
         }
+        Shape::Polygon(p) => {
+            let points_mm = p
+                .points_mm
+                .iter()
+                .map(|&(x, y)| parent.transform_point(x, y))
+                .collect();
+            out.push(WorldShape::Polygon(WorldPolygon {
+                points_mm,
+                color: p.fill,
+                stroke_width_mm: None,
+            }));
+        }
         Shape::Image(img) => {
             let (x, y) = parent.transform_point(img.x_mm, img.y_mm);
             let scale = linear_scale(parent);

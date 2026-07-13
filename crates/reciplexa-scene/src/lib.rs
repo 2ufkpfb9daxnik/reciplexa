@@ -251,6 +251,19 @@ impl Image {
     }
 }
 
+/// Filled polygon in local millimeters (≥3 vertices).
+#[derive(Debug, Clone, PartialEq)]
+pub struct Polygon {
+    pub points_mm: Vec<(f64, f64)>,
+    pub fill: Color,
+}
+
+impl Polygon {
+    pub fn is_drawable(&self) -> bool {
+        self.points_mm.len() >= 3 && self.fill.is_channel_valid()
+    }
+}
+
 /// Drawable node. [`Shape::Group`] applies an affine to nested children—
 /// the Glisp-style stack of translate / rotate / scale.
 #[derive(Debug, Clone, PartialEq)]
@@ -263,6 +276,7 @@ pub enum Shape {
     Text(Text),
     Line(Line),
     Polyline(Polyline),
+    Polygon(Polygon),
     Image(Image),
     Group {
         transform: Affine,

@@ -132,6 +132,14 @@ fn render_shape(shape: &Shape, ctx: &str) -> Result<String, PdfError> {
             }
             Ok(polyline_ops(&p.points_mm, p.stroke, p.width_mm))
         }
+        Shape::Polygon(p) => {
+            if !p.is_drawable() {
+                return Err(PdfError::InvalidShape(format!(
+                    "{ctx}: polygon not drawable"
+                )));
+            }
+            Ok(polygon_fill_ops(&p.points_mm, p.fill))
+        }
         Shape::Image(img) => {
             if !img.is_drawable() {
                 return Err(PdfError::InvalidShape(format!("{ctx}: image not drawable")));
@@ -347,6 +355,24 @@ fn polyline_ops(points: &[(f64, f64)], stroke: Color, width_mm: f64) -> String {
         }
     }
     ops.push_str("S\n");
+    ops
+}
+
+fn polygon_fill_ops(points: &[(f64, f64)], fill: Color) -> String {
+    let mut ops = format!(
+        "{r:.4} {g:.4} {b:.4} rg\n",
+        r = fill.r,
+        g = fill.g,
+        b = fill.b,
+    );
+    for (i, &(x, y)) in points.iter().enumerate() {
+        if i == 0 {
+            ops.push_str(&format!("{:.4} {:.4} m\n", mm_to_pt(x), mm_to_pt(y)));
+        } else {
+            ops.push_str(&format!("{:.4} {:.4} l\n", mm_to_pt(x), mm_to_pt(y)));
+        }
+    }
+    ops.push_str("h\nf\n");
     ops
 }
 

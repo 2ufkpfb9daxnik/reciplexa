@@ -1,0 +1,4 @@
+; Filled triangle
+(page a4
+  (polygon 40 60 170 60 105 200 (rgb 0.2 0.55 0.35))
+  (text 55 250 6 "polygon" black))

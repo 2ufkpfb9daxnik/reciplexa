@@ -231,6 +231,7 @@ fn check_form(node: &SyntaxNode) -> Result<Type, TypeError> {
             Ok(Type::Shape)
         }
         "polyline" => check_polyline(&args, node, span),
+        "polygon" => check_polygon(&args, node, span),
         "image" => {
             if args.len() != 5 {
                 return Err(TypeError::at(
@@ -415,6 +416,37 @@ fn check_polyline(
     if coords.len() < 4 || coords.len() % 2 != 0 {
         return Err(TypeError::at(
             "`polyline` needs an even number of Num coordinates (≥4)",
+            span.0,
+            span.1,
+        ));
+    }
+    for a in coords {
+        expect_ty(check_child(a)?, Type::Number, node)?;
+    }
+    Ok(Type::Shape)
+}
+
+fn check_polygon(
+    args: &[Child],
+    node: &SyntaxNode,
+    span: (usize, usize),
+) -> Result<Type, TypeError> {
+    if args.len() < 6 {
+        return Err(TypeError::at(
+            "`polygon` needs ≥3 points (Num×even) [Color]",
+            span.0,
+            span.1,
+        ));
+    }
+    let mut end = args.len();
+    if end >= 1 && matches!(check_child(&args[end - 1]), Ok(Type::Color)) {
+        expect_ty(check_child(&args[end - 1])?, Type::Color, node)?;
+        end -= 1;
+    }
+    let coords = &args[..end];
+    if coords.len() < 6 || coords.len() % 2 != 0 {
+        return Err(TypeError::at(
+            "`polygon` needs an even number of Num coordinates (≥6)",
             span.0,
             span.1,
         ));
