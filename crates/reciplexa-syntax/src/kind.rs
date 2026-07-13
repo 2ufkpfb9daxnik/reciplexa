@@ -47,8 +47,10 @@ pub enum SyntaxKind {
     List,
     /// `[ … ]` list form (data / args).
     BracketList,
-    /// `{ … }` group (Scribble bodies later; allowed in Lisp for symmetry).
+    /// `{ … }` group (Scribble bodies; also allowed in Lisp for symmetry).
     BraceList,
+    /// `@` escape: `@ident`, `@ident{…}`, or `@(...)`.
+    AtExpr,
     /// Wrapper around a skipped/unexpected span when fail-fast collection runs.
     ErrorNode,
 
@@ -84,6 +86,7 @@ impl SyntaxKind {
             x if x == Self::List as u16 => Self::List,
             x if x == Self::BracketList as u16 => Self::BracketList,
             x if x == Self::BraceList as u16 => Self::BraceList,
+            x if x == Self::AtExpr as u16 => Self::AtExpr,
             x if x == Self::ErrorNode as u16 => Self::ErrorNode,
             _ => Self::Error,
         }
@@ -104,6 +107,7 @@ impl SyntaxKind {
                 | Self::List
                 | Self::BracketList
                 | Self::BraceList
+                | Self::AtExpr
                 | Self::ErrorNode
                 | Self::__Last
         )
@@ -165,6 +169,7 @@ mod tests {
             SyntaxKind::List,
             SyntaxKind::BracketList,
             SyntaxKind::BraceList,
+            SyntaxKind::AtExpr,
             SyntaxKind::ErrorNode,
         ];
         for kind in kinds {
@@ -177,6 +182,7 @@ mod tests {
     fn composite_kinds_are_not_tokens() {
         assert!(!SyntaxKind::SourceFile.is_token());
         assert!(!SyntaxKind::List.is_token());
+        assert!(!SyntaxKind::AtExpr.is_token());
         assert!(SyntaxKind::Ident.is_token());
         assert!(SyntaxKind::Whitespace.is_token());
     }

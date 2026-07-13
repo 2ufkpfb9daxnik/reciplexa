@@ -1,0 +1,4 @@
+; M8: Scribble doc with @-escape (parse/round-trip; not lowered to PDF yet)
+(doc
+Hello, @em{世界}.
+)

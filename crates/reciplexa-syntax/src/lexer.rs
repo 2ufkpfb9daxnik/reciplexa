@@ -83,6 +83,15 @@ impl<'a> Lexer<'a> {
         &self.mode_stack
     }
 
+    /// Rewind the read head to a byte offset (must be a char boundary).
+    ///
+    /// Used when the parser switches lexer modes: the one-token lookahead was
+    /// produced under the old mode and must be re-lexed under the new one.
+    pub fn rewind_to(&mut self, byte_pos: usize) {
+        debug_assert!(self.input.is_char_boundary(byte_pos));
+        self.pos = byte_pos.min(self.input.len());
+    }
+
     pub fn push_mode(&mut self, mode: LexerMode) {
         self.mode_stack.push(mode);
     }
@@ -200,9 +209,20 @@ impl<'a> Lexer<'a> {
         let start = self.pos;
         let ch = self.peek_char().expect("caller checked EOF");
 
-        if ch == '@' {
+        // Delimiters stay visible so `(doc …)` can close and `@foo{…}` can nest.
+        let punct = match ch {
+            '@' => Some(SyntaxKind::At),
+            '(' => Some(SyntaxKind::LParen),
+            ')' => Some(SyntaxKind::RParen),
+            '{' => Some(SyntaxKind::LBrace),
+            '}' => Some(SyntaxKind::RBrace),
+            '[' => Some(SyntaxKind::LBracket),
+            ']' => Some(SyntaxKind::RBracket),
+            _ => None,
+        };
+        if let Some(kind) = punct {
             self.advance_char();
-            return self.finish(SyntaxKind::At, start);
+            return self.finish(kind, start);
         }
 
         if ch == '\n' {
@@ -217,11 +237,10 @@ impl<'a> Lexer<'a> {
             return self.finish(SyntaxKind::Newline, start);
         }
 
-        // TextChunk runs until `@`, newline, or EOF. Newlines stay separate
-        // so round-tripping can preserve exact line structure.
+        // TextChunk runs until a delimiter, newline, or EOF.
         self.advance_char();
         while let Some(c) = self.peek_char() {
-            if c == '@' || c == '\n' || c == '\r' {
+            if matches!(c, '@' | '(' | ')' | '{' | '}' | '[' | ']' | '\n' | '\r') {
                 break;
             }
             self.advance_char();
@@ -475,6 +494,19 @@ mod tests {
     }
 
     // --- validity: scribble ---
+
+    #[test]
+    fn scribble_emits_closing_paren_as_delimiter() {
+        let mut lex = Lexer::new("hi)");
+        lex.push_mode(LexerMode::Scribble);
+        assert_eq!(
+            lex.tokenize_all()
+                .into_iter()
+                .map(|t| t.kind)
+                .collect::<Vec<_>>(),
+            vec![SyntaxKind::TextChunk, SyntaxKind::RParen]
+        );
+    }
 
     #[test]
     fn scribble_emits_text_chunks_and_at() {

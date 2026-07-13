@@ -4,11 +4,15 @@
 //! delimiters into a “best effort” document for rendering: errors are
 //! collected and [`Parse::into_result`] refuses success when any exist
 //! (SATySFi-style fail-fast at the API boundary).
+//!
+//! Mode switching: after the head of `(doc …)` the parser pushes
+//! [`LexerMode::Scribble`] and re-lexes lookahead. `@` escapes push Lisp
+//! for one form (and an optional `{…}` Scribble body).
 
 use rowan::GreenNodeBuilder;
 
 use crate::kind::{SyntaxKind, SyntaxNode};
-use crate::lexer::{Lexer, Token};
+use crate::lexer::{Lexer, LexerMode, Token};
 
 /// A single parse diagnostic with a byte span into the source.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -92,9 +96,7 @@ impl<'a> Parser<'a> {
             return;
         };
         match tok.kind {
-            SyntaxKind::LParen => {
-                self.parse_delimited(SyntaxKind::List, SyntaxKind::LParen, SyntaxKind::RParen)
-            }
+            SyntaxKind::LParen => self.parse_paren_list(),
             SyntaxKind::LBracket => self.parse_delimited(
                 SyntaxKind::BracketList,
                 SyntaxKind::LBracket,
@@ -105,10 +107,10 @@ impl<'a> Parser<'a> {
                 SyntaxKind::LBrace,
                 SyntaxKind::RBrace,
             ),
+            SyntaxKind::At => self.parse_at_expr(),
             SyntaxKind::Ident
             | SyntaxKind::Number
             | SyntaxKind::String
-            | SyntaxKind::At
             | SyntaxKind::TextChunk
             | SyntaxKind::Error => {
                 self.bump();
@@ -124,7 +126,6 @@ impl<'a> Parser<'a> {
                 self.builder.finish_node();
             }
             other if other.is_trivia() => {
-                // Leading trivia is eaten by callers; stray trivia is still kept.
                 self.bump();
             }
             other => {
@@ -136,15 +137,55 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_delimited(&mut self, node: SyntaxKind, open: SyntaxKind, close: SyntaxKind) {
-        self.builder.start_node(node.into());
-        debug_assert_eq!(self.current.as_ref().map(|t| t.kind), Some(open));
-        self.bump(); // open
+    fn parse_paren_list(&mut self) {
+        self.builder.start_node(SyntaxKind::List.into());
+        debug_assert_eq!(
+            self.current.as_ref().map(|t| t.kind),
+            Some(SyntaxKind::LParen)
+        );
+        self.bump(); // (
+        self.eat_trivia();
+
+        let head = self
+            .current
+            .as_ref()
+            .filter(|t| t.kind == SyntaxKind::Ident)
+            .map(|t| t.text(self.input).to_string());
+
+        match head.as_deref() {
+            Some("doc") => {
+                self.bump(); // doc
+                self.push_mode_relex(LexerMode::Scribble);
+                self.parse_scribble_until(SyntaxKind::RParen);
+                self.pop_mode_relex();
+                if self
+                    .current
+                    .as_ref()
+                    .is_some_and(|t| t.kind == SyntaxKind::RParen)
+                {
+                    self.bump();
+                } else {
+                    self.push_error("unclosed `(doc`".into(), self.input.len(), self.input.len());
+                }
+            }
+            Some("src") => {
+                self.bump(); // src
+                             // Body stays in Lisp (default). Same as a normal list.
+                self.parse_lisp_list_tail(SyntaxKind::RParen);
+            }
+            _ => {
+                self.parse_lisp_list_tail(SyntaxKind::RParen);
+            }
+        }
+        self.builder.finish_node();
+    }
+
+    fn parse_lisp_list_tail(&mut self, close: SyntaxKind) {
         loop {
             self.eat_trivia();
             let Some(tok) = self.current.clone() else {
                 self.push_error(
-                    format!("unclosed `{open:?}`"),
+                    format!("unclosed list (expected `{close:?}`)"),
                     self.input.len(),
                     self.input.len(),
                 );
@@ -170,7 +211,156 @@ impl<'a> Parser<'a> {
             }
             self.parse_form();
         }
+    }
+
+    fn parse_delimited(&mut self, node: SyntaxKind, open: SyntaxKind, close: SyntaxKind) {
+        self.builder.start_node(node.into());
+        debug_assert_eq!(self.current.as_ref().map(|t| t.kind), Some(open));
+        self.bump(); // open
+        self.parse_lisp_list_tail(close);
         self.builder.finish_node();
+    }
+
+    /// Scribble body until `close` (not consumed). Newlines are kept as tokens.
+    fn parse_scribble_until(&mut self, close: SyntaxKind) {
+        loop {
+            let Some(tok) = self.current.clone() else {
+                break;
+            };
+            if tok.kind == close {
+                break;
+            }
+            match tok.kind {
+                SyntaxKind::At => self.parse_at_expr(),
+                SyntaxKind::TextChunk | SyntaxKind::Newline | SyntaxKind::Error => {
+                    self.bump();
+                }
+                SyntaxKind::LBrace => {
+                    // Nested brace group in scribble (rare at top level of doc).
+                    self.parse_scribble_brace();
+                }
+                SyntaxKind::LParen | SyntaxKind::LBracket => {
+                    // Raw delimiters in text are unusual; keep as error nodes.
+                    self.push_error(
+                        format!("unexpected `{}` in scribble text", tok.text(self.input)),
+                        tok.start,
+                        tok.end,
+                    );
+                    self.builder.start_node(SyntaxKind::ErrorNode.into());
+                    self.bump();
+                    self.builder.finish_node();
+                }
+                SyntaxKind::RBrace | SyntaxKind::RBracket => {
+                    self.push_error(
+                        format!("unexpected `{}` in scribble text", tok.text(self.input)),
+                        tok.start,
+                        tok.end,
+                    );
+                    self.builder.start_node(SyntaxKind::ErrorNode.into());
+                    self.bump();
+                    self.builder.finish_node();
+                    break;
+                }
+                other if other.is_trivia() => self.bump(),
+                other => {
+                    self.push_error(
+                        format!("unexpected token `{other:?}` in scribble"),
+                        tok.start,
+                        tok.end,
+                    );
+                    self.builder.start_node(SyntaxKind::ErrorNode.into());
+                    self.bump();
+                    self.builder.finish_node();
+                }
+            }
+        }
+    }
+
+    fn parse_at_expr(&mut self) {
+        self.builder.start_node(SyntaxKind::AtExpr.into());
+        debug_assert_eq!(self.current.as_ref().map(|t| t.kind), Some(SyntaxKind::At));
+        self.bump(); // @
+        self.push_mode_relex(LexerMode::Lisp);
+        self.eat_trivia();
+        // One Lisp form: usually Ident or List.
+        if self.current.is_some() {
+            self.parse_form();
+        } else {
+            self.push_error(
+                "expected form after `@`".into(),
+                self.input.len(),
+                self.input.len(),
+            );
+        }
+        // Optional Scribble brace body: @foo{…}
+        if self
+            .current
+            .as_ref()
+            .is_some_and(|t| t.kind == SyntaxKind::LBrace)
+        {
+            // Brace opens in Lisp mode; body should be Scribble.
+            self.builder.start_node(SyntaxKind::BraceList.into());
+            self.bump(); // {
+            self.push_mode_relex(LexerMode::Scribble);
+            self.parse_scribble_until(SyntaxKind::RBrace);
+            self.pop_mode_relex();
+            if self
+                .current
+                .as_ref()
+                .is_some_and(|t| t.kind == SyntaxKind::RBrace)
+            {
+                self.bump();
+            } else {
+                self.push_error(
+                    "unclosed `{` in @-expr".into(),
+                    self.input.len(),
+                    self.input.len(),
+                );
+            }
+            self.builder.finish_node();
+        }
+        self.pop_mode_relex();
+        self.builder.finish_node();
+    }
+
+    fn parse_scribble_brace(&mut self) {
+        self.builder.start_node(SyntaxKind::BraceList.into());
+        self.bump(); // {
+        self.parse_scribble_until(SyntaxKind::RBrace);
+        if self
+            .current
+            .as_ref()
+            .is_some_and(|t| t.kind == SyntaxKind::RBrace)
+        {
+            self.bump();
+        } else {
+            self.push_error("unclosed `{`".into(), self.input.len(), self.input.len());
+        }
+        self.builder.finish_node();
+    }
+
+    fn push_mode_relex(&mut self, mode: LexerMode) {
+        let restart = self
+            .current
+            .as_ref()
+            .map(|t| t.start)
+            .unwrap_or_else(|| self.lexer.pos());
+        self.lexer.push_mode(mode);
+        self.lexer.rewind_to(restart);
+        self.current = self.lexer.bump_token();
+    }
+
+    fn pop_mode_relex(&mut self) {
+        let restart = self
+            .current
+            .as_ref()
+            .map(|t| t.start)
+            .unwrap_or_else(|| self.lexer.pos());
+        if self.lexer.pop_mode().is_none() {
+            self.push_error("internal: mode stack underflow".into(), restart, restart);
+        }
+        self.lexer.rewind_to(restart);
+        self.current = self.lexer.bump_token();
     }
 
     fn bump(&mut self) {
@@ -268,6 +458,42 @@ mod tests {
         assert_eq!(unparse(&parse_ok(src)), src);
     }
 
+    #[test]
+    fn doc_scribble_roundtrip_with_text_and_at() {
+        let src = "(doc Hello @em{世界}.)";
+        let root = parse_ok(src);
+        assert_eq!(unparse(&root), src);
+        assert!(root.descendants().any(|n| n.kind() == SyntaxKind::AtExpr));
+        assert!(root.descendants_with_tokens().any(|el| el
+            .into_token()
+            .is_some_and(|t| t.kind() == SyntaxKind::TextChunk)));
+    }
+
+    #[test]
+    fn doc_with_newlines_roundtrip() {
+        let src = "(doc\nline1\nline2\n)";
+        assert_eq!(unparse(&parse_ok(src)), src);
+    }
+
+    #[test]
+    fn src_block_stays_lisp() {
+        let src = "(src (define x 1))";
+        let root = parse_ok(src);
+        assert_eq!(unparse(&root), src);
+        assert_eq!(
+            root.descendants()
+                .filter(|n| n.kind() == SyntaxKind::List)
+                .count(),
+            2
+        );
+    }
+
+    #[test]
+    fn at_ident_without_brace() {
+        let src = "(doc see @ref)";
+        assert_eq!(unparse(&parse_ok(src)), src);
+    }
+
     // --- defect ---
 
     #[test]
@@ -302,5 +528,23 @@ mod tests {
     fn crlf_roundtrip() {
         let src = "(a)\r\n(b)\r\n";
         assert_eq!(unparse(&parse_ok(src)), src);
+    }
+
+    #[test]
+    fn unclosed_doc_is_error() {
+        let parse = parse_source("(doc hello");
+        assert!(parse.has_errors());
+    }
+
+    #[test]
+    fn unclosed_at_brace_is_error() {
+        let parse = parse_source("(doc @em{hi)");
+        assert!(parse.has_errors());
+    }
+
+    #[test]
+    fn at_then_immediate_close_is_error() {
+        let parse = parse_source("(doc @)");
+        assert!(parse.has_errors());
     }
 }
