@@ -6,9 +6,7 @@
 
 #![forbid(unsafe_code)]
 
-use reciplexa_syntax::{
-    parse_source, SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken,
-};
+use reciplexa_syntax::{parse_source, SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ExpandError {
@@ -90,9 +88,7 @@ fn find_color_byte(root: &SyntaxNode) -> Option<(usize, usize, f64, f64, f64)> {
         let r = number_val(&items[1])?;
         let g = number_val(&items[2])?;
         let b = number_val(&items[3])?;
-        if !(0.0..=255.0).contains(&r)
-            || !(0.0..=255.0).contains(&g)
-            || !(0.0..=255.0).contains(&b)
+        if !(0.0..=255.0).contains(&r) || !(0.0..=255.0).contains(&g) || !(0.0..=255.0).contains(&b)
         {
             continue;
         }

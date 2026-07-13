@@ -124,6 +124,24 @@ impl Rect {
     }
 }
 
+/// Axis-aligned filled ellipse in **local** millimeters.
+///
+/// `(x_mm, y_mm)` is the center; `rx_mm` / `ry_mm` are radii.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Ellipse {
+    pub x_mm: f64,
+    pub y_mm: f64,
+    pub rx_mm: f64,
+    pub ry_mm: f64,
+    pub fill: Color,
+}
+
+impl Ellipse {
+    pub fn is_drawable(self) -> bool {
+        self.rx_mm > 0.0 && self.ry_mm > 0.0 && self.fill.is_channel_valid()
+    }
+}
+
 /// Filled text baseline position in local millimeters.
 ///
 /// `size_mm` is the em-box height used for PDF `Tf` (converted to points).
@@ -168,6 +186,7 @@ impl Line {
 pub enum Shape {
     Circle(Circle),
     Rect(Rect),
+    Ellipse(Ellipse),
     Text(Text),
     Line(Line),
     Group {
@@ -289,11 +308,7 @@ mod tests {
             width_mm: 0.5,
         };
         assert!(l.is_drawable());
-        assert!(!Line {
-            x2_mm: 0.0,
-            ..l
-        }
-        .is_drawable());
+        assert!(!Line { x2_mm: 0.0, ..l }.is_drawable());
     }
 
     // --- defect ---

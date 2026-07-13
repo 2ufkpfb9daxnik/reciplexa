@@ -1,0 +1,4 @@
+; Filled ellipse on A4
+(page a4
+  (ellipse 105 148.5 70 40 (rgb 0.15 0.45 0.7))
+  (text 70 220 6 "ellipse" black))

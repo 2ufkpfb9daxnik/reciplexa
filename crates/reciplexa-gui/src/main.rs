@@ -1,4 +1,4 @@
-//! Paper preview with drag → CST sync via per-shape bindings.
+//! Paper preview with drag → CST sync, plus a live `.rpx` source pane.
 
 use std::env;
 use std::fs;
@@ -50,7 +50,7 @@ fn main() -> ExitCode {
     let title = format!("reciplexa — {}", path.display());
     let native_options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_inner_size([900.0, 1100.0])
+            .with_inner_size([1280.0, 900.0])
             .with_title(title),
         ..Default::default()
     };
@@ -95,20 +95,50 @@ impl PreviewApp {
 
 impl eframe::App for PreviewApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        egui::SidePanel::left("source_panel")
+            .resizable(true)
+            .default_width(420.0)
+            .show(ctx, |ui| {
+                ui.heading(".rpx source");
+                ui.label("Edits reproject live; drag on the paper rewrites numbers here.");
+                ui.horizontal(|ui| {
+                    if ui.button("Save .rpx").clicked() {
+                        if let Err(e) = fs::write(&self.path, &self.source) {
+                            self.error = Some(format!("save: {e}"));
+                        } else {
+                            self.error = None;
+                        }
+                    }
+                    if ui.button("Re-expand macros").clicked() {
+                        match expand_source(&self.source) {
+                            Ok(s) => {
+                                self.source = s;
+                                self.error = None;
+                            }
+                            Err(e) => self.error = Some(format!("macro: {}", e.message)),
+                        }
+                    }
+                });
+                if let Some(err) = &self.error {
+                    ui.colored_label(egui::Color32::RED, err);
+                }
+                ui.add_space(4.0);
+                let editor = egui::TextEdit::multiline(&mut self.source)
+                    .code_editor()
+                    .desired_width(f32::INFINITY)
+                    .desired_rows(40);
+                let response = ui.add_sized(ui.available_size(), editor);
+                if response.changed() {
+                    self.drag = None;
+                    self.error = pipeline_doc(&self.source).err();
+                }
+            });
+
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("Paper preview — drag shapes");
-            ui.label("Drag updates the bound translate / circle / rect numbers in the .rpx.");
-            if ui.button("Save .rpx").clicked() {
-                if let Err(e) = fs::write(&self.path, &self.source) {
-                    self.error = Some(format!("save: {e}"));
-                } else {
-                    self.error = None;
-                }
-            }
-            if let Some(err) = &self.error {
-                ui.colored_label(egui::Color32::RED, err);
-            }
-            ui.add_space(8.0);
+            ui.label(
+                "Drag updates bound translate / circle / rect / ellipse / text / line leaves.",
+            );
 
             let doc = match pipeline_doc(&self.source) {
                 Ok(d) => d,

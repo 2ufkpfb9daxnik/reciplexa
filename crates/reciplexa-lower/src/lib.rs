@@ -23,7 +23,9 @@ pub use sync::{
     collect_drag_targets, nudge_drag_target, nudge_first_translate, DragTarget, SyncError,
 };
 
-use reciplexa_scene::{Affine, Circle, Color, Document, Page, PaperSize, Rect, Shape, Text, Line};
+use reciplexa_scene::{
+    Affine, Circle, Color, Document, Ellipse, Line, Page, PaperSize, Rect, Shape, Text,
+};
 use reciplexa_syntax::{parse_source, SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken};
 
 /// Lowering / validation error (fail-fast: no partial scene for rendering).
@@ -116,6 +118,7 @@ fn lower_shape(node: &SyntaxNode) -> Result<Shape, LowerError> {
     match head {
         "circle" => lower_circle(&items),
         "rect" => lower_rect(&items),
+        "ellipse" => lower_ellipse(&items),
         "text" => lower_text(&items),
         "line" => lower_line(&items),
         "translate" => lower_translate(&items),
@@ -183,6 +186,37 @@ fn lower_rect(items: &[Child]) -> Result<Shape, LowerError> {
         )));
     }
     Ok(Shape::Rect(rect))
+}
+
+fn lower_ellipse(items: &[Child]) -> Result<Shape, LowerError> {
+    // (ellipse x y rx ry) | (ellipse x y rx ry color)
+    if items.len() != 5 && items.len() != 6 {
+        return Err(LowerError::new(
+            "`ellipse` expects (ellipse x y rx ry) or with a trailing color",
+        ));
+    }
+    let x = number_at(items, 1, "ellipse x")?;
+    let y = number_at(items, 2, "ellipse y")?;
+    let rx = number_at(items, 3, "ellipse rx")?;
+    let ry = number_at(items, 4, "ellipse ry")?;
+    let fill = if items.len() == 6 {
+        lower_color(&items[5])?
+    } else {
+        Color::BLACK
+    };
+    let ellipse = Ellipse {
+        x_mm: x,
+        y_mm: y,
+        rx_mm: rx,
+        ry_mm: ry,
+        fill,
+    };
+    if !ellipse.is_drawable() {
+        return Err(LowerError::new(format!(
+            "ellipse is not drawable (rx={rx}, ry={ry})"
+        )));
+    }
+    Ok(Shape::Ellipse(ellipse))
 }
 
 fn lower_text(items: &[Child]) -> Result<Shape, LowerError> {
@@ -624,6 +658,19 @@ mod tests {
         }
         let pdf = document_to_pdf(&doc).unwrap();
         assert!(String::from_utf8_lossy(&pdf).contains("(Hello) Tj"));
+    }
+
+    #[test]
+    fn lowers_ellipse() {
+        let doc = lower_source("(page a4 (ellipse 105 148.5 60 30 green))").unwrap();
+        match &doc.pages[0].shapes[0] {
+            Shape::Ellipse(e) => {
+                assert_eq!(e.rx_mm, 60.0);
+                assert_eq!(e.ry_mm, 30.0);
+                assert_eq!(e.fill, Color::GREEN);
+            }
+            _ => panic!("expected ellipse"),
+        }
     }
 
     // --- defect ---

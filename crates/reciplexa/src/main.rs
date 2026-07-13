@@ -62,4 +62,16 @@ mod tests {
         let bytes = fs::read(&output).unwrap();
         assert!(bytes.starts_with(b"%PDF-"));
     }
+
+    #[test]
+    fn renders_text_line_and_macro_examples() {
+        let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let repo = manifest_dir.join("../..");
+        for name in ["text_and_line.rpx", "color_byte.rpx", "ellipse.rpx"] {
+            let input = repo.join("examples").join(name);
+            let output = repo.join("target").join(format!("test-{name}.pdf"));
+            render(input.to_str().unwrap(), output.to_str().unwrap())
+                .unwrap_or_else(|e| panic!("{name}: {e}"));
+        }
+    }
 }

@@ -134,6 +134,22 @@ fn check_form(node: &SyntaxNode) -> Result<Type, TypeError> {
             }
             Ok(Type::Shape)
         }
+        "ellipse" => {
+            if args.len() != 4 && args.len() != 5 {
+                return Err(TypeError::at(
+                    "`ellipse` has type (Num×4 [Color]) -> Shape",
+                    span.0,
+                    span.1,
+                ));
+            }
+            for a in args.iter().take(4) {
+                expect_ty(check_child(a)?, Type::Number, node)?;
+            }
+            if args.len() == 5 {
+                expect_ty(check_child(&args[4])?, Type::Color, node)?;
+            }
+            Ok(Type::Shape)
+        }
         "text" => {
             // (text Num Num Num String) | (+ Color)
             if args.len() != 4 && args.len() != 5 {
@@ -394,6 +410,14 @@ mod tests {
     fn text_and_line_typecheck() {
         let src = r#"(page a4 (text 1 2 3 "Hi" red) (line 0 0 10 10 blue 0.5))"#;
         assert_eq!(typecheck_source(src).unwrap(), Type::Document);
+    }
+
+    #[test]
+    fn ellipse_typecheck() {
+        assert_eq!(
+            typecheck_source("(page a4 (ellipse 1 2 3 4 red))").unwrap(),
+            Type::Document
+        );
     }
 
     // --- defect ---

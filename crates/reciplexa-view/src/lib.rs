@@ -71,18 +71,28 @@ fn flatten_shape(shape: &Shape, parent: Affine, out: &mut Vec<WorldShape>) {
                 fill: r.fill,
             }));
         }
+        Shape::Ellipse(e) => {
+            // Approximate for preview / hit-test; PDF draws true curves.
+            const N: usize = 32;
+            let mut points_mm = Vec::with_capacity(N);
+            for i in 0..N {
+                let t = std::f64::consts::TAU * (i as f64) / (N as f64);
+                let lx = e.x_mm + e.rx_mm * t.cos();
+                let ly = e.y_mm + e.ry_mm * t.sin();
+                points_mm.push(parent.transform_point(lx, ly));
+            }
+            out.push(WorldShape::Polygon(WorldPolygon {
+                points_mm,
+                fill: e.fill,
+            }));
+        }
         Shape::Text(t) => {
             let (x, y) = parent.transform_point(t.x_mm, t.y_mm);
             let scale = linear_scale(parent);
             let w = t.content.len() as f64 * t.size_mm * 0.5 * scale;
             let h = t.size_mm * scale;
             out.push(WorldShape::Polygon(WorldPolygon {
-                points_mm: vec![
-                    (x, y),
-                    (x + w, y),
-                    (x + w, y + h),
-                    (x, y + h),
-                ],
+                points_mm: vec![(x, y), (x + w, y), (x + w, y + h), (x, y + h)],
                 fill: t.fill,
             }));
         }
@@ -219,7 +229,7 @@ fn point_in_polygon(x: f64, y: f64, pts: &[(f64, f64)]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use reciplexa_scene::{Circle, Color, Document, Page, PaperSize, Rect, Shape};
+    use reciplexa_scene::{Circle, Color, Document, Ellipse, Page, PaperSize, Rect, Shape};
 
     // --- validity ---
 
@@ -345,6 +355,26 @@ mod tests {
         );
         assert_eq!(hit_test_shapes(&shapes, 5.0, 5.0), Some(0));
         assert_eq!(hit_test_shapes(&shapes, 20.0, 5.0), None);
+    }
+
+    #[test]
+    fn ellipse_flattens_and_hits_center() {
+        let shapes = flatten_shapes(
+            &[Shape::Ellipse(Ellipse {
+                x_mm: 0.0,
+                y_mm: 0.0,
+                rx_mm: 10.0,
+                ry_mm: 5.0,
+                fill: Color::BLUE,
+            })],
+            Affine::identity(),
+        );
+        match &shapes[0] {
+            WorldShape::Polygon(p) => assert!(p.points_mm.len() >= 8),
+            _ => panic!("expected polygon"),
+        }
+        assert_eq!(hit_test_shapes(&shapes, 0.0, 0.0), Some(0));
+        assert_eq!(hit_test_shapes(&shapes, 20.0, 0.0), None);
     }
 
     // --- defect ---

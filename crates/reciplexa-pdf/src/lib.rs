@@ -77,6 +77,14 @@ fn render_shape(shape: &Shape, ctx: &str) -> Result<String, PdfError> {
                 r.fill,
             ))
         }
+        Shape::Ellipse(e) => {
+            if !e.is_drawable() {
+                return Err(PdfError::InvalidShape(format!(
+                    "{ctx}: ellipse not drawable"
+                )));
+            }
+            Ok(ellipse_path_ops(e.x_mm, e.y_mm, e.rx_mm, e.ry_mm, e.fill))
+        }
         Shape::Text(t) => {
             if !t.is_drawable() {
                 return Err(PdfError::InvalidShape(format!("{ctx}: text not drawable")));
@@ -88,12 +96,7 @@ fn render_shape(shape: &Shape, ctx: &str) -> Result<String, PdfError> {
                 return Err(PdfError::InvalidShape(format!("{ctx}: line not drawable")));
             }
             Ok(line_ops(
-                l.x1_mm,
-                l.y1_mm,
-                l.x2_mm,
-                l.y2_mm,
-                l.stroke,
-                l.width_mm,
+                l.x1_mm, l.y1_mm, l.x2_mm, l.y2_mm, l.stroke, l.width_mm,
             ))
         }
         Shape::Group {
@@ -186,6 +189,54 @@ fn rect_path_ops(x_mm: f64, y_mm: f64, w_mm: f64, h_mm: f64, fill: Color) -> Str
         r = fill.r,
         g = fill.g,
         b = fill.b,
+    )
+}
+
+fn ellipse_path_ops(x_mm: f64, y_mm: f64, rx_mm: f64, ry_mm: f64, fill: Color) -> String {
+    let k = 0.552_284_749_8;
+    let cx = mm_to_pt(x_mm);
+    let cy = mm_to_pt(y_mm);
+    let rx = mm_to_pt(rx_mm);
+    let ry = mm_to_pt(ry_mm);
+    let kx = rx * k;
+    let ky = ry * k;
+    format!(
+        "{r_col:.4} {g_col:.4} {b_col:.4} rg\n\
+         {x0:.4} {y0:.4} m\n\
+         {x1:.4} {y1:.4} {x2:.4} {y2:.4} {x3:.4} {y3:.4} c\n\
+         {x4:.4} {y4:.4} {x5:.4} {y5:.4} {x6:.4} {y6:.4} c\n\
+         {x7:.4} {y7:.4} {x8:.4} {y8:.4} {x9:.4} {y9:.4} c\n\
+         {x10:.4} {y10:.4} {x11:.4} {y11:.4} {x12:.4} {y12:.4} c\n\
+         f\n",
+        r_col = fill.r,
+        g_col = fill.g,
+        b_col = fill.b,
+        x0 = cx + rx,
+        y0 = cy,
+        x1 = cx + rx,
+        y1 = cy + ky,
+        x2 = cx + kx,
+        y2 = cy + ry,
+        x3 = cx,
+        y3 = cy + ry,
+        x4 = cx - kx,
+        y4 = cy + ry,
+        x5 = cx - rx,
+        y5 = cy + ky,
+        x6 = cx - rx,
+        y6 = cy,
+        x7 = cx - rx,
+        y7 = cy - ky,
+        x8 = cx - kx,
+        y8 = cy - ry,
+        x9 = cx,
+        y9 = cy - ry,
+        x10 = cx + kx,
+        y10 = cy - ry,
+        x11 = cx + rx,
+        y11 = cy - ky,
+        x12 = cx + rx,
+        y12 = cy,
     )
 }
 
@@ -329,7 +380,7 @@ fn assemble_pdf(page_sizes: &[(f64, f64)], contents: &[String]) -> Vec<u8> {
 mod tests {
     use super::*;
     use reciplexa_scene::{
-        Circle, Color, Document, Line, Page, PaperSize, Rect, Shape, Text,
+        Circle, Color, Document, Ellipse, Line, Page, PaperSize, Rect, Shape, Text,
     };
 
     fn sample_doc() -> Document {
@@ -425,5 +476,23 @@ mod tests {
         let bytes = document_to_pdf(&doc).unwrap();
         let text = String::from_utf8_lossy(&bytes);
         assert!(text.contains(" re\n"));
+    }
+
+    #[test]
+    fn ellipse_pdf_contains_curve_ops() {
+        let doc = Document::single_page(Page {
+            paper: PaperSize::a4(),
+            shapes: vec![Shape::Ellipse(Ellipse {
+                x_mm: 105.0,
+                y_mm: 148.5,
+                rx_mm: 60.0,
+                ry_mm: 30.0,
+                fill: Color::GREEN,
+            })],
+        });
+        let bytes = document_to_pdf(&doc).unwrap();
+        let text = String::from_utf8_lossy(&bytes);
+        assert!(text.contains(" c\n"));
+        assert!(text.contains("\nf\n") || text.ends_with("f\n"));
     }
 }
