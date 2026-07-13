@@ -41,6 +41,17 @@ pub enum SyntaxKind {
     // --- error recovery leaf ---
     Error,
 
+    // --- composite nodes (parser) ---
+    SourceFile,
+    /// `( … )` list form.
+    List,
+    /// `[ … ]` list form (data / args).
+    BracketList,
+    /// `{ … }` group (Scribble bodies later; allowed in Lisp for symmetry).
+    BraceList,
+    /// Wrapper around a skipped/unexpected span when fail-fast collection runs.
+    ErrorNode,
+
     // --- sentinel: must stay last for raw-tag bounds checks in tests ---
     #[doc(hidden)]
     __Last,
@@ -69,6 +80,11 @@ impl SyntaxKind {
             x if x == Self::Newline as u16 => Self::Newline,
             x if x == Self::Comment as u16 => Self::Comment,
             x if x == Self::Error as u16 => Self::Error,
+            x if x == Self::SourceFile as u16 => Self::SourceFile,
+            x if x == Self::List as u16 => Self::List,
+            x if x == Self::BracketList as u16 => Self::BracketList,
+            x if x == Self::BraceList as u16 => Self::BraceList,
+            x if x == Self::ErrorNode as u16 => Self::ErrorNode,
             _ => Self::Error,
         }
     }
@@ -79,6 +95,18 @@ impl SyntaxKind {
 
     pub const fn is_trivia(self) -> bool {
         matches!(self, Self::Whitespace | Self::Newline | Self::Comment)
+    }
+
+    pub const fn is_token(self) -> bool {
+        !matches!(
+            self,
+            Self::SourceFile
+                | Self::List
+                | Self::BracketList
+                | Self::BraceList
+                | Self::ErrorNode
+                | Self::__Last
+        )
     }
 }
 
@@ -133,11 +161,24 @@ mod tests {
             SyntaxKind::Newline,
             SyntaxKind::Comment,
             SyntaxKind::Error,
+            SyntaxKind::SourceFile,
+            SyntaxKind::List,
+            SyntaxKind::BracketList,
+            SyntaxKind::BraceList,
+            SyntaxKind::ErrorNode,
         ];
         for kind in kinds {
             let raw = SyntaxLanguage::kind_to_raw(kind);
             assert_eq!(SyntaxLanguage::kind_from_raw(raw), kind);
         }
+    }
+
+    #[test]
+    fn composite_kinds_are_not_tokens() {
+        assert!(!SyntaxKind::SourceFile.is_token());
+        assert!(!SyntaxKind::List.is_token());
+        assert!(SyntaxKind::Ident.is_token());
+        assert!(SyntaxKind::Whitespace.is_token());
     }
 
     #[test]
@@ -154,7 +195,8 @@ mod tests {
     fn discriminants_are_dense_from_zero() {
         // Dense tags keep rowan maps small and make accidental gaps obvious.
         assert_eq!(SyntaxKind::LParen as u16, 0);
-        assert_eq!(SyntaxKind::Error as u16 + 1, SyntaxKind::__Last as u16);
+        assert_eq!(SyntaxKind::ErrorNode as u16 + 1, SyntaxKind::__Last as u16);
+        assert!(SyntaxKind::SourceFile as u16 > SyntaxKind::Error as u16);
     }
 
     // --- defect ---
