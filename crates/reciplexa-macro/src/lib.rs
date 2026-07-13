@@ -62,6 +62,9 @@ fn find_next_rewrite(root: &SyntaxNode) -> Option<(usize, usize, String)> {
     if let Some((start, end, replacement)) = find_vline(root) {
         return Some((start, end, replacement));
     }
+    if let Some((start, end, replacement)) = find_rule(root) {
+        return Some((start, end, replacement));
+    }
     None
 }
 
@@ -165,6 +168,35 @@ fn find_axis_line(
     None
 }
 
+/// `(rule y [color [width]])` → full-width A4 horizontal rule with 20mm side margins.
+fn find_rule(root: &SyntaxNode) -> Option<(usize, usize, String)> {
+    for node in root.descendants() {
+        if node.kind() != SyntaxKind::List {
+            continue;
+        }
+        let items = list_atoms(&node);
+        let Some(Child::Token(head)) = items.first() else {
+            continue;
+        };
+        if head.kind() != SyntaxKind::Ident || head.text() != "rule" {
+            continue;
+        }
+        if items.len() < 2 {
+            continue;
+        }
+        let y = atom_text(&items[1])?;
+        let mut repl = format!("(hline 20 190 {y}");
+        for item in items.iter().skip(2) {
+            repl.push(' ');
+            repl.push_str(&atom_text(item)?);
+        }
+        repl.push(')');
+        let range = node.text_range();
+        return Some((range.start().into(), range.end().into(), repl));
+    }
+    None
+}
+
 fn atom_text(child: &Child) -> Option<String> {
     match child {
         Child::Token(t) => Some(t.text().to_string()),
@@ -255,6 +287,17 @@ mod tests {
         let out = expand_source(src).unwrap();
         assert!(out.contains("(line 50 10 50 100 blue)"));
         assert!(!out.contains("vline"));
+    }
+
+    #[test]
+    fn expands_rule_to_hline() {
+        let src = "(page a4 (rule 200 (gray 0.3) 0.5))";
+        let out = expand_source(src).unwrap();
+        // gray expands first, then rule → hline → line
+        assert!(out.contains("(line 20 "));
+        assert!(out.contains(" 190 "));
+        assert!(!out.contains("rule"));
+        assert!(!out.contains("hline"));
     }
 
     #[test]

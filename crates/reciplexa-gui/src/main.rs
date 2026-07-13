@@ -578,11 +578,20 @@ impl PreviewApp {
                                 }
                                 PropValue::Text(t) => {
                                     let mut s = t.clone();
-                                    ui.horizontal(|ui| {
+                                    ui.vertical(|ui| {
                                         ui.label(&field.label);
-                                        let resp = ui.add(
-                                            egui::TextEdit::singleline(&mut s).desired_width(160.0),
-                                        );
+                                        let resp = if field.id == "content.text" {
+                                            ui.add(
+                                                egui::TextEdit::multiline(&mut s)
+                                                    .desired_width(220.0)
+                                                    .desired_rows(3),
+                                            )
+                                        } else {
+                                            ui.add(
+                                                egui::TextEdit::singleline(&mut s)
+                                                    .desired_width(160.0),
+                                            )
+                                        };
                                         if resp.changed() {
                                             edit = Some((field.id.clone(), PropValue::Text(s)));
                                         }
@@ -970,6 +979,16 @@ impl eframe::App for PreviewApp {
                 if ctx.input(|i| i.modifiers.command && i.key_pressed(egui::Key::D)) {
                     self.apply_layer_duplicate(sel);
                 }
+            }
+            if ctx.input(|i| {
+                i.modifiers.command && !i.modifiers.shift && i.key_pressed(egui::Key::CloseBracket)
+            }) {
+                self.bring_selection_to_front();
+            }
+            if ctx.input(|i| {
+                i.modifiers.command && !i.modifiers.shift && i.key_pressed(egui::Key::OpenBracket)
+            }) {
+                self.send_selection_to_back();
             }
         }
 
