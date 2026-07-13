@@ -1,0 +1,10 @@
+[package]
+name = "reciplexa-macro"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Surface macro expansion for reciplexa (.rpx)"
+publish = false
+
+[dependencies]
+reciplexa-syntax = { workspace = true }

@@ -12,5 +12,6 @@ path = "src/main.rs"
 
 [dependencies]
 reciplexa-lower = { workspace = true }
+reciplexa-macro = { workspace = true }
 reciplexa-pdf = { workspace = true }
 reciplexa-types = { workspace = true }

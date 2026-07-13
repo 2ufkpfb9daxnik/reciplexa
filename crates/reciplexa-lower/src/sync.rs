@@ -30,6 +30,10 @@ pub enum DragTarget {
     CircleXy(usize),
     /// N-th `(rect x y …)` origin when not under a translate binding.
     RectXy(usize),
+    /// N-th `(text x y …)` baseline when not under a translate binding.
+    TextXy(usize),
+    /// N-th `(line …)` — nudges both endpoints by the same delta.
+    LineXy(usize),
 }
 
 /// Collect one [`DragTarget`] per flattened drawable, in flatten order.
@@ -62,6 +66,8 @@ pub fn nudge_drag_target(
         DragTarget::Translate(i) => nudge_nth_pair(src, "translate", i, 1, 2, dx, dy),
         DragTarget::CircleXy(i) => nudge_nth_pair(src, "circle", i, 1, 2, dx, dy),
         DragTarget::RectXy(i) => nudge_nth_pair(src, "rect", i, 1, 2, dx, dy),
+        DragTarget::TextXy(i) => nudge_nth_pair(src, "text", i, 1, 2, dx, dy),
+        DragTarget::LineXy(i) => nudge_line(src, i, dx, dy),
     }
 }
 
@@ -75,6 +81,8 @@ struct Counters {
     translate: usize,
     circle: usize,
     rect: usize,
+    text: usize,
+    line: usize,
 }
 
 fn collect_from_shape(
@@ -136,6 +144,22 @@ fn collect_from_shape(
                 None => DragTarget::RectXy(idx),
             });
         }
+        "text" => {
+            let idx = counters.text;
+            counters.text += 1;
+            out.push(match inherited_translate {
+                Some(t) => DragTarget::Translate(t),
+                None => DragTarget::TextXy(idx),
+            });
+        }
+        "line" => {
+            let idx = counters.line;
+            counters.line += 1;
+            out.push(match inherited_translate {
+                Some(t) => DragTarget::Translate(t),
+                None => DragTarget::LineXy(idx),
+            });
+        }
         _ => {}
     }
 }
@@ -168,6 +192,12 @@ fn nudge_nth_pair(
         .ok_or_else(|| SyncError::new(format!("`{head}` #{index} lost after x patch")))?;
     let (_, after_y) = replace_token_text(&y_tok2, &format_drag_number(y + dy));
     Ok(after_y)
+}
+
+fn nudge_line(src: &str, index: usize, dx: f64, dy: f64) -> Result<String, SyncError> {
+    // Move both endpoints: slots 1,2 then 3,4.
+    let after = nudge_nth_pair(src, "line", index, 1, 2, dx, dy)?;
+    nudge_nth_pair(&after, "line", index, 3, 4, dx, dy)
 }
 
 fn find_nth_number_pair(
@@ -291,6 +321,17 @@ mod tests {
         let out = nudge_drag_target(src, DragTarget::Translate(1), 1.0, 1.0).unwrap();
         assert!(out.contains("(translate 1 2"));
         assert!(out.contains("(translate 9 10"));
+    }
+
+    #[test]
+    fn text_and_line_bindings_nudge() {
+        let src = r#"(page a4 (text 1 2 3 "Hi") (line 10 20 30 40))"#;
+        let t = collect_drag_targets(src).unwrap();
+        assert_eq!(t, vec![DragTarget::TextXy(0), DragTarget::LineXy(0)]);
+        let out = nudge_drag_target(src, DragTarget::TextXy(0), 1.0, 1.0).unwrap();
+        assert!(out.contains(r#"(text 2 3 3 "Hi")"#));
+        let out = nudge_drag_target(src, DragTarget::LineXy(0), 1.0, 1.0).unwrap();
+        assert!(out.contains("(line 11 21 31 41)"));
     }
 
     // --- defect ---

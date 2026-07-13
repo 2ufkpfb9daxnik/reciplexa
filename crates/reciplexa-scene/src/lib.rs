@@ -124,12 +124,52 @@ impl Rect {
     }
 }
 
+/// Filled text baseline position in local millimeters.
+///
+/// `size_mm` is the em-box height used for PDF `Tf` (converted to points).
+/// Content is currently limited to PDF WinAnsi/ASCII at the emitter.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Text {
+    pub x_mm: f64,
+    pub y_mm: f64,
+    pub size_mm: f64,
+    pub content: String,
+    pub fill: Color,
+}
+
+impl Text {
+    pub fn is_drawable(&self) -> bool {
+        self.size_mm > 0.0 && !self.content.is_empty() && self.fill.is_channel_valid()
+    }
+}
+
+/// Stroked line segment in local millimeters.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Line {
+    pub x1_mm: f64,
+    pub y1_mm: f64,
+    pub x2_mm: f64,
+    pub y2_mm: f64,
+    pub stroke: Color,
+    pub width_mm: f64,
+}
+
+impl Line {
+    pub fn is_drawable(self) -> bool {
+        self.width_mm > 0.0
+            && self.stroke.is_channel_valid()
+            && (self.x1_mm != self.x2_mm || self.y1_mm != self.y2_mm)
+    }
+}
+
 /// Drawable node. [`Shape::Group`] applies an affine to nested children—
 /// the Glisp-style stack of translate / rotate / scale.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Shape {
     Circle(Circle),
     Rect(Rect),
+    Text(Text),
+    Line(Line),
     Group {
         transform: Affine,
         children: Vec<Shape>,
@@ -223,6 +263,37 @@ mod tests {
             ..ok
         };
         assert!(!bad.is_drawable());
+    }
+
+    #[test]
+    fn text_and_line_drawable_rules() {
+        let t = Text {
+            x_mm: 0.0,
+            y_mm: 0.0,
+            size_mm: 4.0,
+            content: "a".into(),
+            fill: Color::BLACK,
+        };
+        assert!(t.is_drawable());
+        assert!(!Text {
+            content: String::new(),
+            ..t.clone()
+        }
+        .is_drawable());
+        let l = Line {
+            x1_mm: 0.0,
+            y1_mm: 0.0,
+            x2_mm: 1.0,
+            y2_mm: 0.0,
+            stroke: Color::BLACK,
+            width_mm: 0.5,
+        };
+        assert!(l.is_drawable());
+        assert!(!Line {
+            x2_mm: 0.0,
+            ..l
+        }
+        .is_drawable());
     }
 
     // --- defect ---

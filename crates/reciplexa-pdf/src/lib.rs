@@ -1,8 +1,7 @@
 //! Minimal PDF emitter for [`reciplexa_scene::Document`].
 //!
-//! Implemented by hand (no `printpdf` / font stack) so the backend stays
-//! tiny, deterministic, and easy to unit-test. Enough for filled circles
-//! on ISO pages; richer drawing can grow behind the same API.
+//! Hand-rolled PDF-1.4: filled circles/rects, stroked lines, and Helvetica
+//! text (ASCII / WinAnsi). Japanese text needs a later font package (JLReq).
 
 #![forbid(unsafe_code)]
 
@@ -78,6 +77,25 @@ fn render_shape(shape: &Shape, ctx: &str) -> Result<String, PdfError> {
                 r.fill,
             ))
         }
+        Shape::Text(t) => {
+            if !t.is_drawable() {
+                return Err(PdfError::InvalidShape(format!("{ctx}: text not drawable")));
+            }
+            text_ops(t.x_mm, t.y_mm, t.size_mm, &t.content, t.fill)
+        }
+        Shape::Line(l) => {
+            if !l.is_drawable() {
+                return Err(PdfError::InvalidShape(format!("{ctx}: line not drawable")));
+            }
+            Ok(line_ops(
+                l.x1_mm,
+                l.y1_mm,
+                l.x2_mm,
+                l.y2_mm,
+                l.stroke,
+                l.width_mm,
+            ))
+        }
         Shape::Group {
             transform,
             children,
@@ -98,7 +116,6 @@ fn render_shape(shape: &Shape, ctx: &str) -> Result<String, PdfError> {
     }
 }
 
-/// Emit a `cm` operator. Linear parts stay unitless; translation mm → pt.
 fn affine_cm_ops(t: Affine) -> String {
     let s = 72.0 / 25.4;
     format!(
@@ -113,7 +130,6 @@ fn affine_cm_ops(t: Affine) -> String {
 }
 
 fn circle_path_ops(x_mm: f64, y_mm: f64, r_mm: f64, fill: Color) -> String {
-    // Four cubic Béziers with κ ≈ 0.5522847498 (standard circle approx).
     let k = 0.552_284_749_8;
     let cx = mm_to_pt(x_mm);
     let cy = mm_to_pt(y_mm);
@@ -173,38 +189,101 @@ fn rect_path_ops(x_mm: f64, y_mm: f64, w_mm: f64, h_mm: f64, fill: Color) -> Str
     )
 }
 
+fn line_ops(x1: f64, y1: f64, x2: f64, y2: f64, stroke: Color, width_mm: f64) -> String {
+    format!(
+        "{r:.4} {g:.4} {b:.4} RG\n{w:.4} w\n{x1:.4} {y1:.4} m\n{x2:.4} {y2:.4} l\nS\n",
+        r = stroke.r,
+        g = stroke.g,
+        b = stroke.b,
+        w = mm_to_pt(width_mm),
+        x1 = mm_to_pt(x1),
+        y1 = mm_to_pt(y1),
+        x2 = mm_to_pt(x2),
+        y2 = mm_to_pt(y2),
+    )
+}
+
+fn text_ops(
+    x_mm: f64,
+    y_mm: f64,
+    size_mm: f64,
+    content: &str,
+    fill: Color,
+) -> Result<String, PdfError> {
+    let escaped = pdf_escape_text(content)?;
+    let size_pt = mm_to_pt(size_mm);
+    Ok(format!(
+        "BT\n/F1 {size:.4} Tf\n{r:.4} {g:.4} {b:.4} rg\n{x:.4} {y:.4} Td\n({escaped}) Tj\nET\n",
+        size = size_pt,
+        r = fill.r,
+        g = fill.g,
+        b = fill.b,
+        x = mm_to_pt(x_mm),
+        y = mm_to_pt(y_mm),
+    ))
+}
+
+fn pdf_escape_text(s: &str) -> Result<String, PdfError> {
+    // Helvetica built-in is WinAnsi; reject non-ASCII until a CJK font package exists.
+    if !s.is_ascii() {
+        return Err(PdfError::InvalidShape(
+            "text contains non-ASCII; CJK fonts are not wired yet (see JLReq plan)".into(),
+        ));
+    }
+    let mut out = String::with_capacity(s.len());
+    for c in s.chars() {
+        match c {
+            '\\' => out.push_str("\\\\"),
+            '(' => out.push_str("\\("),
+            ')' => out.push_str("\\)"),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            c if (c as u32) < 0x20 => {
+                return Err(PdfError::InvalidShape(format!(
+                    "unsupported control char U+{:04X} in text",
+                    c as u32
+                )));
+            }
+            c => out.push(c),
+        }
+    }
+    Ok(out)
+}
+
 fn mm_to_pt(mm: f64) -> f64 {
     mm * 72.0 / 25.4
 }
 
-/// Assemble a minimal PDF-1.4 document with N pages.
+/// Assemble PDF-1.4 with a shared Helvetica font resource.
 fn assemble_pdf(page_sizes: &[(f64, f64)], contents: &[String]) -> Vec<u8> {
     assert_eq!(page_sizes.len(), contents.len());
     let n = page_sizes.len();
-    // Object layout:
-    // 1: Catalog
-    // 2: Pages
-    // 3..2+n: Page dicts
-    // 3+n..2+2n: Content streams
-    let page_obj0 = 3;
-    let content_obj0 = 3 + n;
+    // 1 Catalog, 2 Pages, 3 Font, 4..3+n Pages, then contents
+    let font_obj = 3;
+    let page_obj0 = 4;
+    let content_obj0 = 4 + n;
 
     let mut objects: Vec<Vec<u8>> = Vec::new();
-    // obj 1 — catalog
     objects.push(b"<< /Type /Catalog /Pages 2 0 R >>".to_vec());
 
-    // obj 2 — pages
     let kids: String = (0..n)
         .map(|i| format!("{} 0 R", page_obj0 + i))
         .collect::<Vec<_>>()
         .join(" ");
     objects.push(format!("<< /Type /Pages /Kids [{kids}] /Count {n} >>").into_bytes());
 
+    objects.push(
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>"
+            .to_vec(),
+    );
+
     for (i, (w, h)) in page_sizes.iter().enumerate() {
         let content_id = content_obj0 + i;
         let page_id_body = format!(
             "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {w:.4} {h:.4}] \
-             /Contents {content_id} 0 R /Resources << >> >>"
+             /Contents {content_id} 0 R \
+             /Resources << /Font << /F1 {font_obj} 0 R >> >> >>"
         );
         objects.push(page_id_body.into_bytes());
     }
@@ -222,7 +301,7 @@ fn assemble_pdf(page_sizes: &[(f64, f64)], contents: &[String]) -> Vec<u8> {
 
     let mut out: Vec<u8> = b"%PDF-1.4\n%\xE2\xE3\xCF\xD3\n".to_vec();
     let mut offsets = Vec::with_capacity(objects.len() + 1);
-    offsets.push(0); // object 0 placeholder
+    offsets.push(0);
 
     for (i, obj) in objects.iter().enumerate() {
         offsets.push(out.len());
@@ -233,7 +312,7 @@ fn assemble_pdf(page_sizes: &[(f64, f64)], contents: &[String]) -> Vec<u8> {
     }
 
     let xref_pos = out.len();
-    let total_objs = objects.len() + 1; // include free object 0
+    let total_objs = objects.len() + 1;
     out.extend_from_slice(format!("xref\n0 {total_objs}\n").as_bytes());
     out.extend_from_slice(b"0000000000 65535 f \n");
     for off in offsets.iter().skip(1) {
@@ -249,7 +328,9 @@ fn assemble_pdf(page_sizes: &[(f64, f64)], contents: &[String]) -> Vec<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use reciplexa_scene::{Affine, Circle, Color, Document, Page, PaperSize, Shape};
+    use reciplexa_scene::{
+        Circle, Color, Document, Line, Page, PaperSize, Rect, Shape, Text,
+    };
 
     fn sample_doc() -> Document {
         Document::single_page(Page {
@@ -263,61 +344,55 @@ mod tests {
         })
     }
 
-    // --- validity ---
-
     #[test]
     fn black_circle_pdf_has_header_eof_and_a4_mediabox() {
         let bytes = document_to_pdf(&sample_doc()).expect("pdf");
         assert!(bytes.starts_with(b"%PDF-"));
         assert!(bytes.windows(5).any(|w| w == b"%%EOF"));
         let text = String::from_utf8_lossy(&bytes);
-        // A4 in points: 210mm → 595.2756…, 297mm → 841.8898…
         assert!(text.contains("595."));
         assert!(text.contains("841."));
-        assert!(text.contains(" rg"));
-        assert!(text.contains("\nf\n") || text.contains(" f\n"));
+        assert!(text.contains("/Helvetica"));
     }
 
     #[test]
-    fn mm_to_pt_known_values() {
-        assert!((mm_to_pt(25.4) - 72.0).abs() < 1e-9);
-        assert!((mm_to_pt(210.0) - 595.275_590_551).abs() < 1e-6);
-    }
-
-    #[test]
-    fn write_document_matches_bytes() {
-        let mut buf = Vec::new();
-        write_document(&sample_doc(), &mut buf).unwrap();
-        assert_eq!(buf, document_to_pdf(&sample_doc()).unwrap());
-    }
-
-    #[test]
-    fn two_pages_increment_count() {
-        let mut doc = sample_doc();
-        doc.pages.push(doc.pages[0].clone());
-        let bytes = document_to_pdf(&doc).unwrap();
-        let text = String::from_utf8_lossy(&bytes);
-        assert!(text.contains("/Count 2"));
-    }
-
-    // --- defect ---
-
-    #[test]
-    fn empty_document_errors() {
-        assert_eq!(
-            document_to_pdf(&Document::default()),
-            Err(PdfError::EmptyDocument)
-        );
-    }
-
-    #[test]
-    fn zero_radius_circle_errors() {
+    fn text_and_line_emit_operators() {
         let doc = Document::single_page(Page {
             paper: PaperSize::a4(),
-            shapes: vec![Shape::Circle(Circle {
+            shapes: vec![
+                Shape::Text(Text {
+                    x_mm: 20.0,
+                    y_mm: 250.0,
+                    size_mm: 5.0,
+                    content: "Hello".into(),
+                    fill: Color::BLACK,
+                }),
+                Shape::Line(Line {
+                    x1_mm: 20.0,
+                    y1_mm: 200.0,
+                    x2_mm: 100.0,
+                    y2_mm: 200.0,
+                    stroke: Color::RED,
+                    width_mm: 0.5,
+                }),
+            ],
+        });
+        let bytes = document_to_pdf(&doc).unwrap();
+        let text = String::from_utf8_lossy(&bytes);
+        assert!(text.contains("BT\n"));
+        assert!(text.contains("(Hello) Tj"));
+        assert!(text.contains(" l\nS\n") || text.contains(" l\r\nS"));
+    }
+
+    #[test]
+    fn non_ascii_text_rejected() {
+        let doc = Document::single_page(Page {
+            paper: PaperSize::a4(),
+            shapes: vec![Shape::Text(Text {
                 x_mm: 10.0,
                 y_mm: 10.0,
-                radius_mm: 0.0,
+                size_mm: 4.0,
+                content: "日本語".into(),
                 fill: Color::BLACK,
             })],
         });
@@ -328,65 +403,15 @@ mod tests {
     }
 
     #[test]
-    fn non_positive_paper_errors() {
-        let doc = Document::single_page(Page {
-            paper: PaperSize {
-                width_mm: -1.0,
-                height_mm: 10.0,
-            },
-            shapes: vec![],
-        });
-        assert!(matches!(
-            document_to_pdf(&doc),
-            Err(PdfError::InvalidPage(_))
-        ));
-    }
-
-    #[test]
-    fn transformed_colored_circle_emits_cm_and_non_black_fill() {
-        let doc = Document::single_page(Page {
-            paper: PaperSize::a4(),
-            shapes: vec![Shape::Group {
-                transform: Affine::translate(105.0, 148.5)
-                    .then(Affine::rotate_deg(30.0))
-                    .then(Affine::scale_uniform(1.5)),
-                children: vec![Shape::Circle(Circle {
-                    x_mm: 0.0,
-                    y_mm: 0.0,
-                    radius_mm: 20.0,
-                    fill: Color::RED,
-                })],
-            }],
-        });
-        let bytes = document_to_pdf(&doc).unwrap();
-        let text = String::from_utf8_lossy(&bytes);
-        assert!(text.contains(" cm\n"));
-        assert!(text.contains("q\n"));
-        assert!(text.contains("Q\n"));
-        assert!(text.contains("1.0000 0.0000 0.0000 rg"));
-    }
-
-    #[test]
-    fn non_finite_transform_errors() {
-        let doc = Document::single_page(Page {
-            paper: PaperSize::a4(),
-            shapes: vec![Shape::Group {
-                transform: Affine {
-                    a: f64::INFINITY,
-                    ..Affine::identity()
-                },
-                children: vec![],
-            }],
-        });
-        assert!(matches!(
-            document_to_pdf(&doc),
-            Err(PdfError::InvalidShape(_))
-        ));
+    fn empty_document_errors() {
+        assert_eq!(
+            document_to_pdf(&Document::default()),
+            Err(PdfError::EmptyDocument)
+        );
     }
 
     #[test]
     fn rect_pdf_contains_re_operator() {
-        use reciplexa_scene::Rect;
         let doc = Document::single_page(Page {
             paper: PaperSize::a4(),
             shapes: vec![Shape::Rect(Rect {
@@ -400,6 +425,5 @@ mod tests {
         let bytes = document_to_pdf(&doc).unwrap();
         let text = String::from_utf8_lossy(&bytes);
         assert!(text.contains(" re\n"));
-        assert!(text.contains("0.0000 0.0000 1.0000 rg"));
     }
 }

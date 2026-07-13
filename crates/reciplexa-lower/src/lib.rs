@@ -10,7 +10,9 @@
 //!   (translate <tx> <ty> <shape…>)
 //!   (rotate <deg> <shape…>)
 //!   (scale <s> <shape…>)
-//!   (scale <sx> <sy> <shape…>))
+//!   (scale <sx> <sy> <shape…>)
+//!   (text <x> <y> <size-mm> "…")
+//!   (line <x1> <y1> <x2> <y2> [color [width-mm]]))
 //! ```
 
 #![forbid(unsafe_code)]
@@ -21,7 +23,7 @@ pub use sync::{
     collect_drag_targets, nudge_drag_target, nudge_first_translate, DragTarget, SyncError,
 };
 
-use reciplexa_scene::{Affine, Circle, Color, Document, Page, PaperSize, Rect, Shape};
+use reciplexa_scene::{Affine, Circle, Color, Document, Page, PaperSize, Rect, Shape, Text, Line};
 use reciplexa_syntax::{parse_source, SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken};
 
 /// Lowering / validation error (fail-fast: no partial scene for rendering).
@@ -114,6 +116,8 @@ fn lower_shape(node: &SyntaxNode) -> Result<Shape, LowerError> {
     match head {
         "circle" => lower_circle(&items),
         "rect" => lower_rect(&items),
+        "text" => lower_text(&items),
+        "line" => lower_line(&items),
         "translate" => lower_translate(&items),
         "rotate" => lower_rotate(&items),
         "scale" => lower_scale(&items),
@@ -179,6 +183,113 @@ fn lower_rect(items: &[Child]) -> Result<Shape, LowerError> {
         )));
     }
     Ok(Shape::Rect(rect))
+}
+
+fn lower_text(items: &[Child]) -> Result<Shape, LowerError> {
+    // (text x y size "content") | (text x y size "content" color)
+    if items.len() != 5 && items.len() != 6 {
+        return Err(LowerError::new(
+            "`text` expects (text x y size-mm \"…\") or with a trailing color",
+        ));
+    }
+    let x = number_at(items, 1, "text x")?;
+    let y = number_at(items, 2, "text y")?;
+    let size = number_at(items, 3, "text size")?;
+    let content = string_at(items, 4, "text content")?;
+    let fill = if items.len() == 6 {
+        lower_color(&items[5])?
+    } else {
+        Color::BLACK
+    };
+    let text = Text {
+        x_mm: x,
+        y_mm: y,
+        size_mm: size,
+        content,
+        fill,
+    };
+    if !text.is_drawable() {
+        return Err(LowerError::new("text is not drawable"));
+    }
+    Ok(Shape::Text(text))
+}
+
+fn lower_line(items: &[Child]) -> Result<Shape, LowerError> {
+    // (line x1 y1 x2 y2) | (line x1 y1 x2 y2 color) | (line x1 y1 x2 y2 color width)
+    if items.len() < 5 || items.len() > 7 {
+        return Err(LowerError::new(
+            "`line` expects (line x1 y1 x2 y2 [color [width-mm]])",
+        ));
+    }
+    let x1 = number_at(items, 1, "line x1")?;
+    let y1 = number_at(items, 2, "line y1")?;
+    let x2 = number_at(items, 3, "line x2")?;
+    let y2 = number_at(items, 4, "line y2")?;
+    let mut stroke = Color::BLACK;
+    let mut width = 0.5;
+    if items.len() >= 6 {
+        stroke = lower_color(&items[5])?;
+    }
+    if items.len() == 7 {
+        width = number_at(items, 6, "line width")?;
+    }
+    let line = Line {
+        x1_mm: x1,
+        y1_mm: y1,
+        x2_mm: x2,
+        y2_mm: y2,
+        stroke,
+        width_mm: width,
+    };
+    if !line.is_drawable() {
+        return Err(LowerError::new("line is not drawable"));
+    }
+    Ok(Shape::Line(line))
+}
+
+fn string_at(items: &[Child], index: usize, ctx: &str) -> Result<String, LowerError> {
+    let Some(child) = items.get(index) else {
+        return Err(LowerError::new(format!("{ctx}: missing string")));
+    };
+    match child {
+        Child::Token(t) if t.kind() == SyntaxKind::String => {
+            let raw = t.text();
+            if raw.len() >= 2 && raw.starts_with('"') && raw.ends_with('"') {
+                Ok(unescape_string(&raw[1..raw.len() - 1]))
+            } else {
+                Err(LowerError::new(format!("{ctx}: malformed string token")))
+            }
+        }
+        Child::Token(t) => Err(LowerError::new(format!(
+            "{ctx}: expected String, got {:?}",
+            t.kind()
+        ))),
+        Child::Node(n) => Err(LowerError::new(format!(
+            "{ctx}: expected String, got node {:?}",
+            n.kind()
+        ))),
+    }
+}
+
+fn unescape_string(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut chars = s.chars();
+    while let Some(c) = chars.next() {
+        if c == '\\' {
+            match chars.next() {
+                Some('n') => out.push('\n'),
+                Some('t') => out.push('\t'),
+                Some('r') => out.push('\r'),
+                Some('\\') => out.push('\\'),
+                Some('"') => out.push('"'),
+                Some(other) => out.push(other),
+                None => out.push('\\'),
+            }
+        } else {
+            out.push(c);
+        }
+    }
+    out
 }
 
 fn lower_color(child: &Child) -> Result<Color, LowerError> {
@@ -488,6 +599,31 @@ mod tests {
     #[test]
     fn bad_rect_arity_fails() {
         assert!(lower_source("(page a4 (rect 1 2 3))").is_err());
+    }
+
+    #[test]
+    fn lowers_text_and_line() {
+        let src = r#"(page a4
+  (text 20 250 5 "Hello" blue)
+  (line 20 200 100 200 red 1))"#;
+        let doc = lower_source(src).unwrap();
+        match &doc.pages[0].shapes[0] {
+            Shape::Text(t) => {
+                assert_eq!(t.content, "Hello");
+                assert_eq!(t.fill, Color::BLUE);
+            }
+            _ => panic!("expected text"),
+        }
+        match &doc.pages[0].shapes[1] {
+            Shape::Line(l) => {
+                assert_eq!(l.x2_mm, 100.0);
+                assert_eq!(l.stroke, Color::RED);
+                assert_eq!(l.width_mm, 1.0);
+            }
+            _ => panic!("expected line"),
+        }
+        let pdf = document_to_pdf(&doc).unwrap();
+        assert!(String::from_utf8_lossy(&pdf).contains("(Hello) Tj"));
     }
 
     // --- defect ---

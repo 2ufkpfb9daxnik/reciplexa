@@ -7,8 +7,16 @@ use std::process::ExitCode;
 
 use eframe::egui;
 use reciplexa_lower::{collect_drag_targets, lower_source, nudge_drag_target, DragTarget};
+use reciplexa_macro::expand_source;
 use reciplexa_types::typecheck_source;
 use reciplexa_view::{flatten_first_page, hit_test_shapes, PaperLayout, WorldShape};
+
+fn pipeline_doc(src: &str) -> Result<reciplexa_scene::Document, String> {
+    let expanded = expand_source(src).map_err(|e| format!("macro: {}", e.message))?;
+    typecheck_source(&expanded)
+        .map_err(|e| format!("type: {} @{}..{}", e.message, e.start, e.end))?;
+    lower_source(&expanded).map_err(|e| e.message)
+}
 
 fn main() -> ExitCode {
     let path = match env::args().nth(1) {
@@ -26,12 +34,16 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    if let Err(e) = typecheck_source(&src) {
-        eprintln!("error: type: {} @{}..{}", e.message, e.start, e.end);
-        return ExitCode::FAILURE;
-    }
-    if let Err(e) = lower_source(&src) {
-        eprintln!("error: {}", e.message);
+    // Expand macros into the edit buffer so drag byte-offsets stay valid.
+    let src = match expand_source(&src) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("error: macro: {}", e.message);
+            return ExitCode::FAILURE;
+        }
+    };
+    if let Err(e) = pipeline_doc(&src) {
+        eprintln!("error: {e}");
         return ExitCode::FAILURE;
     }
 
@@ -77,7 +89,7 @@ struct DragState {
 
 impl PreviewApp {
     fn reload_ok(&self) -> bool {
-        typecheck_source(&self.source).is_ok() && lower_source(&self.source).is_ok()
+        pipeline_doc(&self.source).is_ok()
     }
 }
 
@@ -98,10 +110,10 @@ impl eframe::App for PreviewApp {
             }
             ui.add_space(8.0);
 
-            let doc = match lower_source(&self.source) {
+            let doc = match pipeline_doc(&self.source) {
                 Ok(d) => d,
                 Err(e) => {
-                    ui.colored_label(egui::Color32::RED, &e.message);
+                    ui.colored_label(egui::Color32::RED, e);
                     return;
                 }
             };

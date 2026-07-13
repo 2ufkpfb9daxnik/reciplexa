@@ -2469,6 +2469,7 @@ name = "reciplexa"
 version = "0.1.0"
 dependencies = [
  "reciplexa-lower",
+ "reciplexa-macro",
  "reciplexa-pdf",
  "reciplexa-types",
 ]
@@ -2480,6 +2481,7 @@ dependencies = [
  "eframe",
  "egui",
  "reciplexa-lower",
+ "reciplexa-macro",
  "reciplexa-scene",
  "reciplexa-types",
  "reciplexa-view",
@@ -2491,6 +2493,13 @@ version = "0.1.0"
 dependencies = [
  "reciplexa-pdf",
  "reciplexa-scene",
+ "reciplexa-syntax",
+]
+
+[[package]]
+name = "reciplexa-macro"
+version = "0.1.0"
+dependencies = [
  "reciplexa-syntax",
 ]
 

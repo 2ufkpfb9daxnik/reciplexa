@@ -71,6 +71,40 @@ fn flatten_shape(shape: &Shape, parent: Affine, out: &mut Vec<WorldShape>) {
                 fill: r.fill,
             }));
         }
+        Shape::Text(t) => {
+            let (x, y) = parent.transform_point(t.x_mm, t.y_mm);
+            let scale = linear_scale(parent);
+            let w = t.content.len() as f64 * t.size_mm * 0.5 * scale;
+            let h = t.size_mm * scale;
+            out.push(WorldShape::Polygon(WorldPolygon {
+                points_mm: vec![
+                    (x, y),
+                    (x + w, y),
+                    (x + w, y + h),
+                    (x, y + h),
+                ],
+                fill: t.fill,
+            }));
+        }
+        Shape::Line(l) => {
+            let (x1, y1) = parent.transform_point(l.x1_mm, l.y1_mm);
+            let (x2, y2) = parent.transform_point(l.x2_mm, l.y2_mm);
+            // Fat segment as a thin quad for hit-testing / preview stroke proxy.
+            let dx = x2 - x1;
+            let dy = y2 - y1;
+            let len = (dx * dx + dy * dy).sqrt().max(1e-9);
+            let px = -dy / len * (l.width_mm.max(0.5) * 0.5);
+            let py = dx / len * (l.width_mm.max(0.5) * 0.5);
+            out.push(WorldShape::Polygon(WorldPolygon {
+                points_mm: vec![
+                    (x1 + px, y1 + py),
+                    (x2 + px, y2 + py),
+                    (x2 - px, y2 - py),
+                    (x1 - px, y1 - py),
+                ],
+                fill: l.stroke,
+            }));
+        }
         Shape::Group {
             transform,
             children,

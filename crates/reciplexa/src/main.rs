@@ -6,6 +6,7 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 
 use reciplexa_lower::lower_source;
+use reciplexa_macro::expand_source;
 use reciplexa_pdf::write_document;
 use reciplexa_types::typecheck_source;
 
@@ -31,8 +32,10 @@ fn main() -> ExitCode {
 
 fn render(input: &str, output: &str) -> Result<(), String> {
     let src = fs::read_to_string(input).map_err(|e| format!("read {input}: {e}"))?;
-    typecheck_source(&src).map_err(|e| format!("type: {} @{}..{}", e.message, e.start, e.end))?;
-    let doc = lower_source(&src).map_err(|e| e.message)?;
+    let expanded = expand_source(&src).map_err(|e| format!("macro: {}", e.message))?;
+    typecheck_source(&expanded)
+        .map_err(|e| format!("type: {} @{}..{}", e.message, e.start, e.end))?;
+    let doc = lower_source(&expanded).map_err(|e| e.message)?;
     let path = PathBuf::from(output);
     if let Some(parent) = path.parent() {
         if !parent.as_os_str().is_empty() {
