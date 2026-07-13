@@ -112,6 +112,19 @@ impl eframe::App for PreviewApp {
                             self.error = None;
                         }
                     }
+                    if ui.button("Reload disk").clicked() {
+                        match fs::read_to_string(&self.path) {
+                            Ok(raw) => match expand_source(&raw) {
+                                Ok(s) => {
+                                    self.source = s;
+                                    self.drag = None;
+                                    self.error = pipeline_doc(&self.source).err();
+                                }
+                                Err(e) => self.error = Some(format!("macro: {}", e.message)),
+                            },
+                            Err(e) => self.error = Some(format!("reload: {e}")),
+                        }
+                    }
                     if ui.button("Export PDF").clicked() {
                         match pipeline_doc(&self.source) {
                             Ok(doc) => {
