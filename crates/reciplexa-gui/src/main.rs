@@ -59,6 +59,35 @@ fn install_cjk_fonts(ctx: &egui::Context) {
     eprintln!("gui font: {}", path.display());
 }
 
+fn suppress_ime_confirm_newline(ctx: &egui::Context, hold_frames: &mut u8) {
+    // egui 0.31: IME 確定の Enter が同じフレームで改行として漏れることがある。
+    // Commit があるフレームとその直後は Enter / "\n" を落とす。
+    ctx.input_mut(|input| {
+        let has_ime = input
+            .events
+            .iter()
+            .any(|e| matches!(e, egui::Event::Ime(_)));
+        let has_commit = input.events.iter().any(|e| {
+            matches!(e, egui::Event::Ime(egui::ImeEvent::Commit(_)))
+        });
+        if has_commit {
+            *hold_frames = (*hold_frames).max(2);
+        }
+        if has_ime || *hold_frames > 0 {
+            input.events.retain(|e| {
+                let is_enter =
+                    matches!(e, egui::Event::Key { key: egui::Key::Enter, .. });
+                let is_newline =
+                    matches!(e, egui::Event::Text(t) if t == "\n" || t == "\r\n");
+                !(is_enter || is_newline)
+            });
+        }
+    });
+    if *hold_frames > 0 {
+        *hold_frames -= 1;
+    }
+}
+
 fn byte_to_char_index(s: &str, byte: usize) -> usize {
     let byte = byte.min(s.len());
     s[..byte].chars().count()
@@ -128,6 +157,10 @@ fn main() -> ExitCode {
                 selected: None,
                 pending_source_select: None,
                 textures: std::collections::HashMap::new(),
+                ime_enter_hold: 0,
+                undo_stack: Vec::new(),
+                redo_stack: Vec::new(),
+                typing_undo_open: false,
             }))
         }),
     ) {
@@ -151,16 +184,56 @@ struct PreviewApp {
     pending_source_select: Option<(usize, usize)>,
     /// Texture cache keyed by image path string from the `.rpx`.
     textures: std::collections::HashMap<String, egui::TextureHandle>,
+    /// Frames to keep suppressing Enter after IME Commit.
+    ime_enter_hold: u8,
+    undo_stack: Vec<String>,
+    redo_stack: Vec<String>,
+    /// Coalesce TextEdit keystrokes into one undo step while focused.
+    typing_undo_open: bool,
 }
 
 struct DragState {
     last_mm: (f64, f64),
     target: DragTarget,
+    undo_pushed: bool,
 }
 
 impl PreviewApp {
     fn reload_ok(&self) -> bool {
         pipeline_doc(&self.source).is_ok()
+    }
+
+    fn push_undo(&mut self) {
+        self.undo_stack.push(self.source.clone());
+        if self.undo_stack.len() > 100 {
+            self.undo_stack.remove(0);
+        }
+        self.redo_stack.clear();
+    }
+
+    fn undo(&mut self) {
+        if let Some(prev) = self.undo_stack.pop() {
+            self.redo_stack.push(self.source.clone());
+            self.source = prev;
+            self.drag = None;
+            self.error = pipeline_doc(&self.source).err();
+        }
+    }
+
+    fn redo(&mut self) {
+        if let Some(next) = self.redo_stack.pop() {
+            self.undo_stack.push(self.source.clone());
+            self.source = next;
+            self.drag = None;
+            self.error = pipeline_doc(&self.source).err();
+        }
+    }
+
+    fn set_source_with_undo(&mut self, new_src: String) {
+        if new_src != self.source {
+            self.push_undo();
+            self.source = new_src;
+        }
     }
 
     fn select_layer(&mut self, index: usize, layers: &[LayerInfo]) {
@@ -176,7 +249,7 @@ impl PreviewApp {
         }
         match reorder_layer_page(&self.source, self.page_index, from, to) {
             Ok(new_src) => {
-                self.source = new_src;
+                self.set_source_with_undo(new_src);
                 self.drag = None;
                 self.selected = Some(to);
                 self.error = pipeline_doc(&self.source).err();
@@ -193,6 +266,20 @@ impl PreviewApp {
 
 impl eframe::App for PreviewApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        suppress_ime_confirm_newline(ctx, &mut self.ime_enter_hold);
+
+        // Ctrl+Z / Ctrl+Y for source undo/redo (IME mistakes, layer moves, etc.).
+        if ctx.input(|i| i.modifiers.command && i.key_pressed(egui::Key::Z) && !i.modifiers.shift)
+        {
+            self.undo();
+        }
+        if ctx.input(|i| {
+            (i.modifiers.command && i.key_pressed(egui::Key::Y))
+                || (i.modifiers.command && i.modifiers.shift && i.key_pressed(egui::Key::Z))
+        }) {
+            self.redo();
+        }
+
         if let Some((start, end)) = self.pending_source_select.take() {
             highlight_source_range(ctx, &self.source, start, end);
         }
@@ -254,6 +341,7 @@ impl eframe::App for PreviewApp {
                     }
                 });
                 ui.add_space(4.0);
+                let pre_edit = self.source.clone();
                 let editor = egui::TextEdit::multiline(&mut self.source)
                     .id(egui::Id::new("rpx_source_editor"))
                     .code_editor()
@@ -264,8 +352,19 @@ impl eframe::App for PreviewApp {
                     editor,
                 );
                 if response.changed() {
+                    if !self.typing_undo_open {
+                        self.undo_stack.push(pre_edit);
+                        if self.undo_stack.len() > 100 {
+                            self.undo_stack.remove(0);
+                        }
+                        self.redo_stack.clear();
+                        self.typing_undo_open = true;
+                    }
                     self.drag = None;
                     self.error = pipeline_doc(&self.source).err();
+                }
+                if !response.has_focus() {
+                    self.typing_undo_open = false;
                 }
                 if let Some(err) = &self.error {
                     ui.add_space(4.0);
@@ -507,6 +606,7 @@ impl eframe::App for PreviewApp {
                             self.drag = Some(DragState {
                                 last_mm: (mx, my),
                                 target,
+                                undo_pushed: false,
                             });
                         }
                     }
@@ -520,6 +620,11 @@ impl eframe::App for PreviewApp {
                             match nudge_drag_target(&self.source, drag.target, dx, dy) {
                                 Ok(new_src) => {
                                     let target = drag.target;
+                                    let mut undo_pushed = drag.undo_pushed;
+                                    if !undo_pushed {
+                                        self.push_undo();
+                                        undo_pushed = true;
+                                    }
                                     self.source = new_src;
                                     self.error = if self.reload_ok() {
                                         None
@@ -529,6 +634,7 @@ impl eframe::App for PreviewApp {
                                     self.drag = Some(DragState {
                                         last_mm: (mx, my),
                                         target,
+                                        undo_pushed,
                                     });
                                 }
                                 Err(e) => self.error = Some(e.message),
