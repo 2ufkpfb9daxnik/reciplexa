@@ -15,6 +15,34 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e5274423e17b7c9fc20b6e7e208532f9b19825d82dfd615708b70edd83df41f1"
 
 [[package]]
+name = "reciplexa"
+version = "0.1.0"
+dependencies = [
+ "reciplexa-lower",
+ "reciplexa-pdf",
+]
+
+[[package]]
+name = "reciplexa-lower"
+version = "0.1.0"
+dependencies = [
+ "reciplexa-pdf",
+ "reciplexa-scene",
+ "reciplexa-syntax",
+]
+
+[[package]]
+name = "reciplexa-pdf"
+version = "0.1.0"
+dependencies = [
+ "reciplexa-scene",
+]
+
+[[package]]
+name = "reciplexa-scene"
+version = "0.1.0"
+
+[[package]]
 name = "reciplexa-syntax"
 version = "0.1.0"
 dependencies = [

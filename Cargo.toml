@@ -2,6 +2,10 @@
 resolver = "2"
 members = [
     "crates/reciplexa-syntax",
+    "crates/reciplexa-scene",
+    "crates/reciplexa-pdf",
+    "crates/reciplexa-lower",
+    "crates/reciplexa",
 ]
 
 [workspace.package]
@@ -13,3 +17,6 @@ repository = "https://github.com/kageokaraito/reciplexa"
 [workspace.dependencies]
 rowan = "0.16"
 reciplexa-syntax = { path = "crates/reciplexa-syntax" }
+reciplexa-scene = { path = "crates/reciplexa-scene" }
+reciplexa-pdf = { path = "crates/reciplexa-pdf" }
+reciplexa-lower = { path = "crates/reciplexa-lower" }

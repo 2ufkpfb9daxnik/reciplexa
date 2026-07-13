@@ -1,0 +1,9 @@
+[package]
+name = "reciplexa-scene"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "GUI/PDF-agnostic page and shape scene graph for reciplexa"
+publish = false
+
+[dependencies]
