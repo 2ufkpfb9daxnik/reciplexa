@@ -32,20 +32,31 @@ pub fn expand_source(input: &str) -> Result<String, ExpandError> {
                 parse.errors[0].message
             )));
         }
-        match find_color_byte(&parse.root) {
-            Some((start, end, r, g, b)) => {
-                let replacement = format!(
-                    "(rgb {} {} {})",
-                    format_frac(r / 255.0),
-                    format_frac(g / 255.0),
-                    format_frac(b / 255.0)
-                );
+        match find_next_rewrite(&parse.root) {
+            Some((start, end, replacement)) => {
                 src = splice(&src, start, end, &replacement);
             }
             None => return Ok(src),
         }
     }
     Err(ExpandError::new("macro expansion did not converge"))
+}
+
+fn find_next_rewrite(root: &SyntaxNode) -> Option<(usize, usize, String)> {
+    if let Some((start, end, r, g, b)) = find_color_byte(root) {
+        let replacement = format!(
+            "(rgb {} {} {})",
+            format_frac(r / 255.0),
+            format_frac(g / 255.0),
+            format_frac(b / 255.0)
+        );
+        return Some((start, end, replacement));
+    }
+    if let Some((start, end, g)) = find_gray(root) {
+        let c = format_frac(g);
+        return Some((start, end, format!("(rgb {c} {c} {c})")));
+    }
+    None
 }
 
 fn format_frac(v: f64) -> String {
@@ -98,6 +109,31 @@ fn find_color_byte(root: &SyntaxNode) -> Option<(usize, usize, f64, f64, f64)> {
     None
 }
 
+fn find_gray(root: &SyntaxNode) -> Option<(usize, usize, f64)> {
+    for node in root.descendants() {
+        if node.kind() != SyntaxKind::List {
+            continue;
+        }
+        let items = list_atoms(&node);
+        let Some(Child::Token(head)) = items.first() else {
+            continue;
+        };
+        if head.kind() != SyntaxKind::Ident || head.text() != "gray" {
+            continue;
+        }
+        if items.len() != 2 {
+            continue;
+        }
+        let g = number_val(&items[1])?;
+        if !(0.0..=1.0).contains(&g) {
+            continue;
+        }
+        let range = node.text_range();
+        return Some((range.start().into(), range.end().into(), g));
+    }
+    None
+}
+
 fn number_val(child: &Child) -> Option<f64> {
     match child {
         Child::Token(t) if t.kind() == SyntaxKind::Number => t.text().parse().ok(),
@@ -141,6 +177,14 @@ mod tests {
         assert!(!out.contains("color-byte"));
         // Surrounding form preserved.
         assert!(out.contains("(page a4 (circle 1 2 3 "));
+    }
+
+    #[test]
+    fn expands_gray_to_rgb() {
+        let src = "(page a4 (circle 1 2 3 (gray 0.25)))";
+        let out = expand_source(src).unwrap();
+        assert!(out.contains("(rgb 0.25 0.25 0.25)"));
+        assert!(!out.contains("gray"));
     }
 
     #[test]

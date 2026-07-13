@@ -470,6 +470,23 @@ pub fn set_layers_fill_rgb(
     Ok(out)
 }
 
+/// Set the same opacity on every listed flatten index.
+pub fn set_layers_opacity(
+    src: &str,
+    page_index: usize,
+    indices: &[usize],
+    alpha: f64,
+) -> Result<String, SyncError> {
+    let mut out = src.to_string();
+    let mut sorted = indices.to_vec();
+    sorted.sort_unstable();
+    sorted.dedup();
+    for &i in sorted.iter().rev() {
+        out = set_layer_opacity(&out, page_index, i, alpha)?;
+    }
+    Ok(out)
+}
+
 fn geom_slot(kind: &str, id: &str) -> Option<usize> {
     match (kind, id) {
         ("circle" | "ring" | "ellipse" | "rect" | "frame" | "text", "geom.x") => Some(1),
@@ -977,5 +994,12 @@ mod tests {
         let src = "(page a4 (circle 0 0 5))";
         let out = set_layer_fill_rgb(src, 0, 0, 0.4, 0.5, 0.6).unwrap();
         assert!(out.contains("(circle 0 0 5 (rgb 0.4 0.5 0.6))"));
+    }
+
+    #[test]
+    fn batch_opacity_wraps_each_layer() {
+        let src = "(page a4 (circle 0 0 5) (circle 20 20 5))";
+        let out = set_layers_opacity(src, 0, &[0, 1], 0.5).unwrap();
+        assert_eq!(out.matches("(opacity 0.5").count(), 2);
     }
 }

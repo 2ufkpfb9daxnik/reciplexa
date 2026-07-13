@@ -11,8 +11,8 @@ use eframe::egui::text::{CCursor, CCursorRange};
 use reciplexa_lower::{
     collect_layer_props, collect_layers_page, collect_size_targets_page, delete_layer_page,
     duplicate_layer_page, layer_rotation_deg, lower_source, nudge_layer_page, reorder_layer_page,
-    scale_size_target, set_layer_prop, set_layer_rotation_deg, set_layers_fill_rgb, LayerInfo,
-    PropEditContext, PropGroup, PropValue, SizeTarget,
+    scale_size_target, set_layer_prop, set_layer_rotation_deg, set_layers_fill_rgb,
+    set_layers_opacity, LayerInfo, PropEditContext, PropGroup, PropValue, SizeTarget,
 };
 use reciplexa_macro::expand_source;
 use reciplexa_pdf::write_document_with_base;
@@ -168,6 +168,7 @@ fn main() -> ExitCode {
                 props_open: false,
                 props_undo_open: false,
                 batch_fill: [0.2, 0.2, 0.2],
+                batch_opacity: 1.0,
             }))
         }),
     ) {
@@ -203,6 +204,8 @@ struct PreviewApp {
     props_undo_open: bool,
     /// Shared fill when multiple shapes are selected (marquee batch).
     batch_fill: [f64; 3],
+    /// Shared opacity for multi-select batch apply.
+    batch_opacity: f64,
 }
 
 #[derive(Clone)]
@@ -340,11 +343,12 @@ impl PreviewApp {
             return;
         }
 
-        // Multi-select: batch fill only (range ops first slice).
+        // Multi-select: batch fill / opacity (range ops).
         if self.selected.len() > 1 {
             let indices = self.selected.clone();
             let mut open = self.props_open;
             let mut apply_fill = false;
+            let mut apply_opacity = false;
             egui::Window::new(format!("Properties ({} selected)", indices.len()))
                 .id(egui::Id::new("selection_properties_multi"))
                 .open(&mut open)
@@ -367,16 +371,42 @@ impl PreviewApp {
                             (g * 255.0) as u8,
                             (b * 255.0) as u8,
                         );
-                        ui.colored_label(swatch, "■■■ preview");
+                        let (sw_resp, sw_painter) = ui.allocate_painter(
+                            egui::vec2(ui.available_width(), 18.0),
+                            egui::Sense::hover(),
+                        );
+                        sw_painter.rect_filled(sw_resp.rect, 2.0, swatch);
                         if ui.button("Apply fill to selection").clicked() {
                             apply_fill = true;
                         }
                     });
+                    ui.add_space(6.0);
+                    ui.label(egui::RichText::new("Opacity (all)").strong());
+                    ui.add(
+                        egui::Slider::new(&mut self.batch_opacity, 0.0..=1.0).text("opacity"),
+                    );
+                    if ui.button("Apply opacity to selection").clicked() {
+                        apply_opacity = true;
+                    }
                 });
             self.props_open = open;
             if apply_fill {
                 let [r, g, b] = self.batch_fill;
                 match set_layers_fill_rgb(&self.source, self.page_index, &indices, r, g, b) {
+                    Ok(new_src) => {
+                        self.set_source_with_undo(new_src);
+                        self.error = pipeline_doc(&self.source).err();
+                    }
+                    Err(e) => self.error = Some(e.message),
+                }
+            }
+            if apply_opacity {
+                match set_layers_opacity(
+                    &self.source,
+                    self.page_index,
+                    &indices,
+                    self.batch_opacity,
+                ) {
                     Ok(new_src) => {
                         self.set_source_with_undo(new_src);
                         self.error = pipeline_doc(&self.source).err();
@@ -440,6 +470,36 @@ impl PreviewApp {
                     let framed = matches!(group, PropGroup::Fill | PropGroup::Stroke);
                     let mut paint_group = |ui: &mut egui::Ui| {
                         ui.label(egui::RichText::new(group.title()).strong());
+                        if matches!(group, PropGroup::Fill | PropGroup::Stroke) {
+                            let prefix = if group == PropGroup::Fill {
+                                "fill."
+                            } else {
+                                "stroke."
+                            };
+                            let mut rgb = [0.0_f64; 3];
+                            let mut got = 0usize;
+                            for (i, ch) in ["r", "g", "b"].iter().enumerate() {
+                                let id = format!("{prefix}{ch}");
+                                if let Some(PropValue::Number(v)) =
+                                    fields.iter().find(|f| f.id == id).map(|f| &f.value)
+                                {
+                                    rgb[i] = *v;
+                                    got += 1;
+                                }
+                            }
+                            if got == 3 {
+                                let swatch = egui::Color32::from_rgb(
+                                    (rgb[0] * 255.0) as u8,
+                                    (rgb[1] * 255.0) as u8,
+                                    (rgb[2] * 255.0) as u8,
+                                );
+                                let (sw_resp, sw_painter) = ui.allocate_painter(
+                                    egui::vec2(ui.available_width().min(120.0), 16.0),
+                                    egui::Sense::hover(),
+                                );
+                                sw_painter.rect_filled(sw_resp.rect, 2.0, swatch);
+                            }
+                        }
                         for field in &fields {
                             match &field.value {
                                 PropValue::Number(v) => {
