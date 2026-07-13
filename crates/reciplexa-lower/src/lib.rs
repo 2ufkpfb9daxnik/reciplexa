@@ -17,7 +17,9 @@
 
 mod sync;
 
-pub use sync::{nudge_first_translate, SyncError};
+pub use sync::{
+    collect_drag_targets, nudge_drag_target, nudge_first_translate, DragTarget, SyncError,
+};
 
 use reciplexa_scene::{Affine, Circle, Color, Document, Page, PaperSize, Rect, Shape};
 use reciplexa_syntax::{parse_source, SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken};

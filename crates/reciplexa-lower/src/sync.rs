@@ -1,4 +1,7 @@
 //! Map GUI nudges back onto CST numeric leaves (Glisp-style).
+//!
+//! Bindings are collected in the same preorder as [`reciplexa_view`] flattening
+//! so hit-test indices line up with editable leaves.
 
 use reciplexa_syntax::{
     format_drag_number, parse_source, replace_token_text, SyntaxElement, SyntaxKind, SyntaxNode,
@@ -18,66 +21,206 @@ impl SyncError {
     }
 }
 
-/// Nudge the first `(translate tx ty …)` form's translation by `(dx, dy)` mm.
-///
-/// Returns the new source text with trivia preserved. This is the M7 vertical
-/// slice: enough to prove GUI → CST → re-preview without a full binding table.
-pub fn nudge_first_translate(src: &str, dx: f64, dy: f64) -> Result<String, SyncError> {
-    let parse = parse_source(src);
-    let root = parse
-        .into_result()
-        .map_err(|e| SyncError::new(format!("parse error: {}", e[0].message)))?;
-    let (tx_tok, ty_tok) = find_first_translate_numbers(&root)
-        .ok_or_else(|| SyncError::new("no (translate tx ty …) form found"))?;
-
-    let tx: f64 = tx_tok
-        .text()
-        .parse()
-        .map_err(|_| SyncError::new("bad tx number"))?;
-    let ty: f64 = ty_tok
-        .text()
-        .parse()
-        .map_err(|_| SyncError::new("bad ty number"))?;
-
-    let (_, after_tx) = replace_token_text(&tx_tok, &format_drag_number(tx + dx));
-    // Ranges shift after first replace — re-find ty in the new tree.
-    let root2 = parse_source(&after_tx)
-        .into_result()
-        .map_err(|e| SyncError::new(format!("reparse: {}", e[0].message)))?;
-    let (_, ty_tok2) = find_first_translate_numbers(&root2)
-        .ok_or_else(|| SyncError::new("translate lost after tx patch"))?;
-    let (_, after_ty) = replace_token_text(&ty_tok2, &format_drag_number(ty + dy));
-    Ok(after_ty)
+/// How a flattened world shape maps back to editable CST numbers.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DragTarget {
+    /// N-th `(translate tx ty …)` in preorder (0-based).
+    Translate(usize),
+    /// N-th `(circle x y …)` center when not under a translate binding.
+    CircleXy(usize),
+    /// N-th `(rect x y …)` origin when not under a translate binding.
+    RectXy(usize),
 }
 
-fn find_first_translate_numbers(root: &SyntaxNode) -> Option<(SyntaxToken, SyntaxToken)> {
+/// Collect one [`DragTarget`] per flattened drawable, in flatten order.
+pub fn collect_drag_targets(src: &str) -> Result<Vec<DragTarget>, SyncError> {
+    let root = parse_root(src)?;
+    let mut out = Vec::new();
+    let mut counters = Counters::default();
+    for form in root.children() {
+        if !is_list_headed(&form, "page") {
+            continue;
+        }
+        let items = list_atoms(&form);
+        for item in items.iter().skip(2) {
+            if let Child::Node(n) = item {
+                collect_from_shape(n, None, &mut counters, &mut out);
+            }
+        }
+    }
+    Ok(out)
+}
+
+/// Nudge the numbers described by `target` by `(dx, dy)` mm.
+pub fn nudge_drag_target(
+    src: &str,
+    target: DragTarget,
+    dx: f64,
+    dy: f64,
+) -> Result<String, SyncError> {
+    match target {
+        DragTarget::Translate(i) => nudge_nth_pair(src, "translate", i, 1, 2, dx, dy),
+        DragTarget::CircleXy(i) => nudge_nth_pair(src, "circle", i, 1, 2, dx, dy),
+        DragTarget::RectXy(i) => nudge_nth_pair(src, "rect", i, 1, 2, dx, dy),
+    }
+}
+
+/// Compatibility wrapper: nudge the first translate in the file.
+pub fn nudge_first_translate(src: &str, dx: f64, dy: f64) -> Result<String, SyncError> {
+    nudge_drag_target(src, DragTarget::Translate(0), dx, dy)
+}
+
+#[derive(Default)]
+struct Counters {
+    translate: usize,
+    circle: usize,
+    rect: usize,
+}
+
+fn collect_from_shape(
+    node: &SyntaxNode,
+    inherited_translate: Option<usize>,
+    counters: &mut Counters,
+    out: &mut Vec<DragTarget>,
+) {
+    let items = list_atoms(node);
+    let Some(Child::Token(head)) = items.first() else {
+        return;
+    };
+    if head.kind() != SyntaxKind::Ident {
+        return;
+    }
+    match head.text() {
+        "translate" => {
+            let idx = counters.translate;
+            counters.translate += 1;
+            for item in items.iter().skip(3) {
+                if let Child::Node(n) = item {
+                    collect_from_shape(n, Some(idx), counters, out);
+                }
+            }
+        }
+        "rotate" | "scale" => {
+            let skip = if head.text() == "scale" {
+                // (scale s …) or (scale sx sy …)
+                if items.len() >= 4
+                    && matches!(&items[1], Child::Token(t) if t.kind() == SyntaxKind::Number)
+                    && matches!(&items[2], Child::Token(t) if t.kind() == SyntaxKind::Number)
+                {
+                    3
+                } else {
+                    2
+                }
+            } else {
+                2
+            };
+            for item in items.iter().skip(skip) {
+                if let Child::Node(n) = item {
+                    collect_from_shape(n, inherited_translate, counters, out);
+                }
+            }
+        }
+        "circle" => {
+            let idx = counters.circle;
+            counters.circle += 1;
+            out.push(match inherited_translate {
+                Some(t) => DragTarget::Translate(t),
+                None => DragTarget::CircleXy(idx),
+            });
+        }
+        "rect" => {
+            let idx = counters.rect;
+            counters.rect += 1;
+            out.push(match inherited_translate {
+                Some(t) => DragTarget::Translate(t),
+                None => DragTarget::RectXy(idx),
+            });
+        }
+        _ => {}
+    }
+}
+
+fn nudge_nth_pair(
+    src: &str,
+    head: &str,
+    index: usize,
+    x_slot: usize,
+    y_slot: usize,
+    dx: f64,
+    dy: f64,
+) -> Result<String, SyncError> {
+    let root = parse_root(src)?;
+    let (x_tok, y_tok) = find_nth_number_pair(&root, head, index, x_slot, y_slot)
+        .ok_or_else(|| SyncError::new(format!("no `{head}` #{index} with numeric x/y")))?;
+
+    let x: f64 = x_tok
+        .text()
+        .parse()
+        .map_err(|_| SyncError::new("bad x number"))?;
+    let y: f64 = y_tok
+        .text()
+        .parse()
+        .map_err(|_| SyncError::new("bad y number"))?;
+
+    let (_, after_x) = replace_token_text(&x_tok, &format_drag_number(x + dx));
+    let root2 = parse_root(&after_x)?;
+    let (_, y_tok2) = find_nth_number_pair(&root2, head, index, x_slot, y_slot)
+        .ok_or_else(|| SyncError::new(format!("`{head}` #{index} lost after x patch")))?;
+    let (_, after_y) = replace_token_text(&y_tok2, &format_drag_number(y + dy));
+    Ok(after_y)
+}
+
+fn find_nth_number_pair(
+    root: &SyntaxNode,
+    head: &str,
+    index: usize,
+    x_slot: usize,
+    y_slot: usize,
+) -> Option<(SyntaxToken, SyntaxToken)> {
+    let mut seen = 0usize;
     for node in root.descendants() {
         if node.kind() != SyntaxKind::List {
             continue;
         }
         let items = list_atoms(&node);
-        if items.len() >= 3 {
-            if let Child::Token(head) = &items[0] {
-                if head.kind() == SyntaxKind::Ident && head.text() == "translate" {
-                    let tx = match &items[1] {
-                        Child::Token(t) if t.kind() == SyntaxKind::Number => t.clone(),
-                        _ => continue,
-                    };
-                    let ty = match &items[2] {
-                        Child::Token(t) if t.kind() == SyntaxKind::Number => t.clone(),
-                        _ => continue,
-                    };
-                    return Some((tx, ty));
-                }
-            }
+        let Some(Child::Token(h)) = items.first() else {
+            continue;
+        };
+        if h.kind() != SyntaxKind::Ident || h.text() != head {
+            continue;
         }
+        if seen == index {
+            let x = match items.get(x_slot) {
+                Some(Child::Token(t)) if t.kind() == SyntaxKind::Number => t.clone(),
+                _ => return None,
+            };
+            let y = match items.get(y_slot) {
+                Some(Child::Token(t)) if t.kind() == SyntaxKind::Number => t.clone(),
+                _ => return None,
+            };
+            return Some((x, y));
+        }
+        seen += 1;
     }
     None
 }
 
+fn parse_root(src: &str) -> Result<SyntaxNode, SyncError> {
+    parse_source(src)
+        .into_result()
+        .map_err(|e| SyncError::new(format!("parse error: {}", e[0].message)))
+}
+
+fn is_list_headed(node: &SyntaxNode, name: &str) -> bool {
+    if node.kind() != SyntaxKind::List {
+        return false;
+    }
+    let items = list_atoms(node);
+    matches!(items.first(), Some(Child::Token(t)) if t.kind() == SyntaxKind::Ident && t.text() == name)
+}
+
 enum Child {
     Token(SyntaxToken),
-    #[allow(dead_code)]
     Node(SyntaxNode),
 }
 
@@ -115,16 +258,57 @@ mod tests {
         assert!(out.contains("\n    (circle 0 0 20)))\n"));
     }
 
+    #[test]
+    fn bindings_prefer_enclosing_translate() {
+        let src = r#"
+(page a4
+  (rect 1 2 3 4)
+  (translate 10 20 (circle 0 0 5))
+  (circle 30 40 5))
+"#;
+        let t = collect_drag_targets(src).unwrap();
+        assert_eq!(
+            t,
+            vec![
+                DragTarget::RectXy(0),
+                DragTarget::Translate(0),
+                DragTarget::CircleXy(1), // second circle form in file
+            ]
+        );
+    }
+
+    #[test]
+    fn nudge_second_circle_center() {
+        let src = "(page a4 (circle 1 2 3) (circle 10 20 5))";
+        let out = nudge_drag_target(src, DragTarget::CircleXy(1), 1.0, 1.0).unwrap();
+        assert!(out.contains("(circle 1 2 3)"));
+        assert!(out.contains("(circle 11 21 5)"));
+    }
+
+    #[test]
+    fn two_translates_nudge_independently() {
+        let src = "(page a4 (translate 1 2 (circle 0 0 1)) (translate 8 9 (circle 0 0 1)))";
+        let out = nudge_drag_target(src, DragTarget::Translate(1), 1.0, 1.0).unwrap();
+        assert!(out.contains("(translate 1 2"));
+        assert!(out.contains("(translate 9 10"));
+    }
+
     // --- defect ---
 
     #[test]
     fn no_translate_errors() {
         let err = nudge_first_translate("(page a4 (circle 1 2 3))", 1.0, 1.0).unwrap_err();
-        assert!(err.message.contains("no (translate"));
+        assert!(err.message.contains("translate"));
     }
 
     #[test]
     fn parse_error_surfaces() {
         assert!(nudge_first_translate("(translate 1", 1.0, 1.0).is_err());
+    }
+
+    #[test]
+    fn out_of_range_target_errors() {
+        let src = "(page a4 (circle 1 2 3))";
+        assert!(nudge_drag_target(src, DragTarget::CircleXy(3), 1.0, 0.0).is_err());
     }
 }

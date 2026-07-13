@@ -1,4 +1,4 @@
-//! M7: paper preview with drag → CST translate sync.
+//! Paper preview with drag → CST sync via per-shape bindings.
 
 use std::env;
 use std::fs;
@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 
 use eframe::egui;
-use reciplexa_lower::{lower_source, nudge_first_translate};
+use reciplexa_lower::{collect_drag_targets, lower_source, nudge_drag_target, DragTarget};
 use reciplexa_types::typecheck_source;
 use reciplexa_view::{flatten_first_page, hit_test_shapes, PaperLayout, WorldShape};
 
@@ -72,6 +72,7 @@ struct PreviewApp {
 
 struct DragState {
     last_mm: (f64, f64),
+    target: DragTarget,
 }
 
 impl PreviewApp {
@@ -83,10 +84,8 @@ impl PreviewApp {
 impl eframe::App for PreviewApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading("Paper preview (M7 — drag translate)");
-            ui.label(
-                "Drag the circle to nudge the first (translate …) in the .rpx (CST-preserving).",
-            );
+            ui.heading("Paper preview — drag shapes");
+            ui.label("Drag updates the bound translate / circle / rect numbers in the .rpx.");
             if ui.button("Save .rpx").clicked() {
                 if let Err(e) = fs::write(&self.path, &self.source) {
                     self.error = Some(format!("save: {e}"));
@@ -106,10 +105,27 @@ impl eframe::App for PreviewApp {
                     return;
                 }
             };
+            let bindings = match collect_drag_targets(&self.source) {
+                Ok(b) => b,
+                Err(e) => {
+                    ui.colored_label(egui::Color32::RED, &e.message);
+                    return;
+                }
+            };
             let Some((page, shapes)) = flatten_first_page(&doc) else {
                 ui.colored_label(egui::Color32::RED, "Document has no pages.");
                 return;
             };
+            if bindings.len() != shapes.len() {
+                ui.colored_label(
+                    egui::Color32::YELLOW,
+                    format!(
+                        "binding/shape count mismatch: {} vs {}",
+                        bindings.len(),
+                        shapes.len()
+                    ),
+                );
+            }
 
             let avail = ui.available_size();
             let (response, painter) = ui.allocate_painter(avail, egui::Sense::click_and_drag());
@@ -164,8 +180,15 @@ impl eframe::App for PreviewApp {
                 let local = pos - rect.min;
                 let (mx, my) = layout.px_to_mm(local.x, local.y);
 
-                if response.drag_started() && hit_test_shapes(&shapes, mx, my).is_some() {
-                    self.drag = Some(DragState { last_mm: (mx, my) });
+                if response.drag_started() {
+                    if let Some(i) = hit_test_shapes(&shapes, mx, my) {
+                        if let Some(target) = bindings.get(i).copied() {
+                            self.drag = Some(DragState {
+                                last_mm: (mx, my),
+                                target,
+                            });
+                        }
+                    }
                 }
 
                 if response.dragged() {
@@ -173,15 +196,19 @@ impl eframe::App for PreviewApp {
                         let dx = mx - drag.last_mm.0;
                         let dy = my - drag.last_mm.1;
                         if dx.abs() > 1e-9 || dy.abs() > 1e-9 {
-                            match nudge_first_translate(&self.source, dx, dy) {
+                            match nudge_drag_target(&self.source, drag.target, dx, dy) {
                                 Ok(new_src) => {
+                                    let target = drag.target;
                                     self.source = new_src;
                                     self.error = if self.reload_ok() {
                                         None
                                     } else {
                                         Some("edit produced invalid program".into())
                                     };
-                                    self.drag = Some(DragState { last_mm: (mx, my) });
+                                    self.drag = Some(DragState {
+                                        last_mm: (mx, my),
+                                        target,
+                                    });
                                 }
                                 Err(e) => self.error = Some(e.message),
                             }

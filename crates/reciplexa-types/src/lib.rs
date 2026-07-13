@@ -17,7 +17,9 @@ pub enum Type {
     Shape,
     Paper,
     Page,
-    /// Top-level file: one or more pages.
+    /// Scribble `(doc …)` block (body not deeply checked yet).
+    Doc,
+    /// Top-level file: one or more pages/docs.
     Document,
 }
 
@@ -65,7 +67,17 @@ pub fn typecheck_syntax(root: &SyntaxNode) -> Result<Type, TypeError> {
         return Err(TypeError::at("empty document", 0, 0));
     }
     for form in &forms {
-        expect_ty(check_form(form)?, Type::Page, form)?;
+        let ty = check_form(form)?;
+        match ty {
+            Type::Page | Type::Doc => {}
+            other => {
+                return Err(TypeError::at(
+                    format!("top-level form must be page or doc, got {other:?}"),
+                    form.text_range().start().into(),
+                    form.text_range().end().into(),
+                ));
+            }
+        }
     }
     Ok(Type::Document)
 }
@@ -82,6 +94,10 @@ fn check_form(node: &SyntaxNode) -> Result<Type, TypeError> {
                 expect_ty(check_child(a)?, Type::Shape, node)?;
             }
             Ok(Type::Page)
+        }
+        "doc" => {
+            // M8: accept scribble docs without typing TextChunk/@ bodies yet.
+            Ok(Type::Doc)
         }
         "circle" => {
             // (circle Num Num Num) | (circle Num Num Num Color)
@@ -317,6 +333,22 @@ mod tests {
     fn rgb_and_nonuniform_scale_typecheck() {
         let src = "(page a4 (scale 2 3 (circle 0 0 5 (rgb 0.2 0.4 0.6))))";
         assert_eq!(typecheck_source(src).unwrap(), Type::Document);
+    }
+
+    #[test]
+    fn doc_block_typechecks_as_document() {
+        assert_eq!(
+            typecheck_source("(doc Hello @em{x})").unwrap(),
+            Type::Document
+        );
+    }
+
+    #[test]
+    fn mixed_page_and_doc_typecheck() {
+        assert_eq!(
+            typecheck_source("(page a4 (circle 1 2 3))\n(doc hi)").unwrap(),
+            Type::Document
+        );
     }
 
     // --- defect ---
