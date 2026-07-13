@@ -495,6 +495,8 @@ impl PreviewApp {
         let mut open = self.props_open;
         let mut edit: Option<(String, PropValue)> = None;
         let mut any_slider_down = false;
+        let mut bring_front = false;
+        let mut send_back = false;
 
         egui::Window::new("Properties")
             .id(egui::Id::new("selection_properties"))
@@ -596,6 +598,15 @@ impl PreviewApp {
                     }
                     ui.add_space(4.0);
                 }
+                ui.separator();
+                ui.horizontal(|ui| {
+                    if ui.button("Bring to front").clicked() {
+                        bring_front = true;
+                    }
+                    if ui.button("Send to back").clicked() {
+                        send_back = true;
+                    }
+                });
             });
 
         self.props_open = open;
@@ -604,6 +615,12 @@ impl PreviewApp {
         }
         if !any_slider_down {
             self.props_undo_open = false;
+        }
+        if bring_front {
+            self.bring_selection_to_front();
+        }
+        if send_back {
+            self.send_selection_to_back();
         }
     }
 
