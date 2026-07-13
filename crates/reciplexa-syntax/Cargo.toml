@@ -1,0 +1,12 @@
+[package]
+name = "reciplexa-syntax"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Lossless syntax: lexer, parser, and rowan CST for reciplexa"
+publish = false
+
+[dependencies]
+rowan = { workspace = true }
+
+[dev-dependencies]
