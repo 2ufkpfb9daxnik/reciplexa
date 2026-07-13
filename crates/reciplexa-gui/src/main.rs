@@ -9,8 +9,9 @@ use std::sync::Arc;
 use eframe::egui;
 use eframe::egui::text::{CCursor, CCursorRange};
 use reciplexa_lower::{
-    collect_drag_targets_page, collect_layers_page, collect_size_targets_page, lower_source,
-    nudge_drag_target, reorder_layer_page, scale_size_target, DragTarget, LayerInfo, SizeTarget,
+    collect_drag_targets_page, collect_layers_page, collect_size_targets_page, layer_rotation_deg,
+    lower_source, nudge_drag_target, reorder_layer_page, scale_size_target, set_layer_rotation_deg,
+    DragTarget, LayerInfo, SizeTarget,
 };
 use reciplexa_macro::expand_source;
 use reciplexa_pdf::write_document_with_base;
@@ -207,6 +208,13 @@ enum DragKind {
         base_src: String,
         center_mm: (f64, f64),
         start_dist: f64,
+    },
+    Rotate {
+        flat_index: usize,
+        base_src: String,
+        center_mm: (f64, f64),
+        start_angle_rad: f64,
+        base_deg: f64,
     },
 }
 
@@ -463,7 +471,7 @@ impl eframe::App for PreviewApp {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("Paper preview");
-            ui.label("Scroll = zoom · Middle-drag / Alt-drag = pan · Drag shapes · Corner handles = scale.");
+            ui.label("Scroll = zoom · Middle/Alt-drag = pan · Drag = move · Corners = scale · Top knob = rotate.");
 
             let doc = match pipeline_doc(&self.source) {
                 Ok(d) => d,
@@ -625,18 +633,34 @@ impl eframe::App for PreviewApp {
 
                 if !skip_shape_drag && response.drag_started() {
                     let mut started = false;
-                    // Prefer scale handles on the current selection.
+                    // Prefer transform handles on the current selection.
                     if let Some(sel) = self.selected {
                         if let Some(shape) = shapes.get(sel) {
                             if let Some(bounds) = PaperLayout::shape_bounds_mm(shape) {
-                                if hit_scale_handle(&layout, bounds, local_pos)
+                                let (x0, y0, x1, y1) = bounds;
+                                let cx = (x0 + x1) * 0.5;
+                                let cy = (y0 + y1) * 0.5;
+                                if hit_rotate_handle(&layout, bounds, local_pos) {
+                                    let start_angle_rad = (my - cy).atan2(mx - cx);
+                                    let base_deg =
+                                        layer_rotation_deg(&self.source, self.page_index, sel)
+                                            .unwrap_or(0.0);
+                                    self.drag = Some(DragState {
+                                        kind: DragKind::Rotate {
+                                            flat_index: sel,
+                                            base_src: self.source.clone(),
+                                            center_mm: (cx, cy),
+                                            start_angle_rad,
+                                            base_deg,
+                                        },
+                                        undo_pushed: false,
+                                    });
+                                    started = true;
+                                } else if hit_scale_handle(&layout, bounds, local_pos)
                                     && size_bindings
                                         .get(sel)
                                         .is_some_and(|t| *t != SizeTarget::Unsupported)
                                 {
-                                    let (x0, y0, x1, y1) = bounds;
-                                    let cx = (x0 + x1) * 0.5;
-                                    let cy = (y0 + y1) * 0.5;
                                     let start_dist = ((mx - cx).hypot(my - cy)).max(1e-6);
                                     if let Some(size) = size_bindings.get(sel).copied() {
                                         self.drag = Some(DragState {
@@ -736,6 +760,47 @@ impl eframe::App for PreviewApp {
                                     Err(e) => self.error = Some(e.message),
                                 }
                             }
+                            DragKind::Rotate {
+                                flat_index,
+                                base_src,
+                                center_mm,
+                                start_angle_rad,
+                                base_deg,
+                            } => {
+                                let angle = (my - center_mm.1).atan2(mx - center_mm.0);
+                                let delta_deg =
+                                    (angle - start_angle_rad).to_degrees();
+                                let deg = base_deg + delta_deg;
+                                match set_layer_rotation_deg(
+                                    base_src,
+                                    self.page_index,
+                                    *flat_index,
+                                    deg,
+                                ) {
+                                    Ok(new_src) => {
+                                        let kind = DragKind::Rotate {
+                                            flat_index: *flat_index,
+                                            base_src: base_src.clone(),
+                                            center_mm: *center_mm,
+                                            start_angle_rad: *start_angle_rad,
+                                            base_deg: *base_deg,
+                                        };
+                                        let mut undo_pushed = drag.undo_pushed;
+                                        if !undo_pushed {
+                                            self.push_undo();
+                                            undo_pushed = true;
+                                        }
+                                        self.source = new_src;
+                                        self.error = if self.reload_ok() {
+                                            None
+                                        } else {
+                                            Some("edit produced invalid program".into())
+                                        };
+                                        self.drag = Some(DragState { kind, undo_pushed });
+                                    }
+                                    Err(e) => self.error = Some(e.message),
+                                }
+                            }
                         }
                     }
                 }
@@ -786,6 +851,32 @@ fn paint_selection_frame(
             egui::StrokeKind::Outside,
         );
     }
+    // Rotate knob: above the top-center of the selection frame.
+    let knob = rotate_handle_pos(frame);
+    painter.line_segment(
+        [egui::pos2(frame.center().x, frame.top()), knob],
+        egui::Stroke::new(1.5, egui::Color32::from_rgb(30, 120, 220)),
+    );
+    painter.circle_filled(knob, 5.0, egui::Color32::WHITE);
+    painter.circle_stroke(
+        knob,
+        5.0,
+        egui::Stroke::new(1.5, egui::Color32::from_rgb(30, 120, 220)),
+    );
+}
+
+fn selection_frame_local(layout: &PaperLayout, bounds: (f64, f64, f64, f64)) -> egui::Rect {
+    let (x0, y0, x1, y1) = bounds;
+    let (ax, ay) = layout.mm_to_px(x0, y1);
+    let (bx, by) = layout.mm_to_px(x1, y0);
+    egui::Rect::from_min_max(
+        egui::pos2(ax.min(bx) - 3.0, ay.min(by) - 3.0),
+        egui::pos2(ax.max(bx) + 3.0, ay.max(by) + 3.0),
+    )
+}
+
+fn rotate_handle_pos(frame: egui::Rect) -> egui::Pos2 {
+    egui::pos2(frame.center().x, frame.top() - 22.0)
 }
 
 fn hit_scale_handle(
@@ -793,13 +884,7 @@ fn hit_scale_handle(
     bounds: (f64, f64, f64, f64),
     local_px: egui::Pos2,
 ) -> bool {
-    let (x0, y0, x1, y1) = bounds;
-    let (ax, ay) = layout.mm_to_px(x0, y1);
-    let (bx, by) = layout.mm_to_px(x1, y0);
-    let frame = egui::Rect::from_min_max(
-        egui::pos2(ax.min(bx) - 3.0, ay.min(by) - 3.0),
-        egui::pos2(ax.max(bx) + 3.0, ay.max(by) + 3.0),
-    );
+    let frame = selection_frame_local(layout, bounds);
     let corners = [
         frame.left_top(),
         frame.right_top(),
@@ -810,6 +895,16 @@ fn hit_scale_handle(
     corners
         .iter()
         .any(|c| local_px.distance_sq(*c) <= hit_r2)
+}
+
+fn hit_rotate_handle(
+    layout: &PaperLayout,
+    bounds: (f64, f64, f64, f64),
+    local_px: egui::Pos2,
+) -> bool {
+    let frame = selection_frame_local(layout, bounds);
+    let knob = rotate_handle_pos(frame);
+    local_px.distance_sq(knob) <= 12.0_f32 * 12.0
 }
 
 fn paint_shape(

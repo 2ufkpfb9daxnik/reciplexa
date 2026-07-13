@@ -351,6 +351,85 @@ pub fn scale_size_target(
     }
 }
 
+/// Degrees on the page-level root `(rotate …)` wrapping this flatten index, or 0.
+pub fn layer_rotation_deg(
+    src: &str,
+    page_index: usize,
+    flat_index: usize,
+) -> Result<f64, SyncError> {
+    let layers = collect_layers_page(src, page_index)?;
+    let layer = layers
+        .get(flat_index)
+        .ok_or_else(|| SyncError::new("layer index out of range"))?;
+    let root = parse_root(src)?;
+    let node = find_list_covering(&root, layer.root_start, layer.root_end)
+        .ok_or_else(|| SyncError::new("layer root not found"))?;
+    let items = list_atoms(&node);
+    if !matches!(
+        items.first(),
+        Some(Child::Token(t)) if t.kind() == SyntaxKind::Ident && t.text() == "rotate"
+    ) {
+        return Ok(0.0);
+    }
+    match items.get(1) {
+        Some(Child::Token(t)) if t.kind() == SyntaxKind::Number => t
+            .text()
+            .parse()
+            .map_err(|_| SyncError::new("bad rotate degrees")),
+        _ => Err(SyncError::new("rotate form missing degrees")),
+    }
+}
+
+/// Set absolute rotation degrees on the layer root (wraps with `(rotate …)` if needed).
+pub fn set_layer_rotation_deg(
+    src: &str,
+    page_index: usize,
+    flat_index: usize,
+    degrees: f64,
+) -> Result<String, SyncError> {
+    if !degrees.is_finite() {
+        return Err(SyncError::new("rotation degrees must be finite"));
+    }
+    let layers = collect_layers_page(src, page_index)?;
+    let layer = layers
+        .get(flat_index)
+        .ok_or_else(|| SyncError::new("layer index out of range"))?;
+    let root = parse_root(src)?;
+    let node = find_list_covering(&root, layer.root_start, layer.root_end)
+        .ok_or_else(|| SyncError::new("layer root not found"))?;
+    let items = list_atoms(&node);
+    if matches!(
+        items.first(),
+        Some(Child::Token(t)) if t.kind() == SyntaxKind::Ident && t.text() == "rotate"
+    ) {
+        let tok = match items.get(1) {
+            Some(Child::Token(t)) if t.kind() == SyntaxKind::Number => t.clone(),
+            _ => return Err(SyncError::new("rotate form missing degrees")),
+        };
+        let (_, out) = replace_token_text(&tok, &format_drag_number(degrees));
+        return Ok(out);
+    }
+    let start = layer.root_start;
+    let end = layer.root_end;
+    let inner = &src[start..end];
+    let wrapped = format!("(rotate {} {})", format_drag_number(degrees), inner);
+    let mut out = String::with_capacity(src.len() + wrapped.len() - inner.len());
+    out.push_str(&src[..start]);
+    out.push_str(&wrapped);
+    out.push_str(&src[end..]);
+    Ok(out)
+}
+
+fn find_list_covering(root: &SyntaxNode, start: usize, end: usize) -> Option<SyntaxNode> {
+    root.descendants().find(|n| {
+        if n.kind() != SyntaxKind::List {
+            return false;
+        }
+        let r = n.text_range();
+        usize::from(r.start()) == start && usize::from(r.end()) == end
+    })
+}
+
 #[derive(Default)]
 struct Counters {
     translate: usize,
@@ -1096,5 +1175,23 @@ mod tests {
         let src = "(page a4 (circle 1 2 3))";
         assert!(scale_size_target(src, SizeTarget::CircleR(0), 0.0).is_err());
         assert!(scale_size_target(src, SizeTarget::CircleR(0), -1.0).is_err());
+    }
+
+    #[test]
+    fn set_rotation_wraps_then_edits() {
+        let src = "(page a4 (circle 10 20 5))";
+        assert_eq!(layer_rotation_deg(src, 0, 0).unwrap(), 0.0);
+        let out = set_layer_rotation_deg(src, 0, 0, 30.0).unwrap();
+        assert!(out.contains("(rotate 30 (circle 10 20 5))"));
+        assert_eq!(layer_rotation_deg(&out, 0, 0).unwrap(), 30.0);
+        let out2 = set_layer_rotation_deg(&out, 0, 0, -15.0).unwrap();
+        assert!(out2.contains("(rotate -15 (circle 10 20 5))"));
+    }
+
+    #[test]
+    fn set_rotation_on_existing_rotate_root() {
+        let src = "(page a4 (rotate 10 (translate 1 2 (circle 0 0 3))))";
+        let out = set_layer_rotation_deg(src, 0, 0, 45.0).unwrap();
+        assert!(out.contains("(rotate 45 (translate 1 2 (circle 0 0 3))))"));
     }
 }
