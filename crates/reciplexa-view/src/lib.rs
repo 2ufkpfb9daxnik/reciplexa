@@ -573,6 +573,41 @@ mod tests {
     }
 
     #[test]
+    fn rotate_about_object_center_keeps_circle_center() {
+        // GUI writes (translate c (rotate deg (translate -c shape))).
+        let cx = 10.0;
+        let cy = 20.0;
+        let shapes = vec![Shape::Group {
+            transform: Affine::translate(cx, cy),
+            children: vec![Shape::Group {
+                transform: Affine::rotate_deg(90.0),
+                children: vec![Shape::Group {
+                    transform: Affine::translate(-cx, -cy),
+                    children: vec![Shape::Circle(Circle {
+                        x_mm: cx,
+                        y_mm: cy,
+                        radius_mm: 5.0,
+                        fill: Color::BLACK,
+                    })],
+                }],
+            }],
+        }];
+        let out = flatten_shapes(&shapes, Affine::identity());
+        match &out[0] {
+            WorldShape::Circle(c) => {
+                assert!(
+                    (c.x_mm - cx).abs() < 1e-9 && (c.y_mm - cy).abs() < 1e-9,
+                    "center drifted to ({}, {})",
+                    c.x_mm,
+                    c.y_mm
+                );
+                assert!((c.radius_mm - 5.0).abs() < 1e-9);
+            }
+            _ => panic!("expected circle"),
+        }
+    }
+
+    #[test]
     fn paper_layout_flips_y_and_maps_corners() {
         let layout = PaperLayout::fit(210.0, 297.0, 0.0, 210.0, 297.0);
         let (x0, y0) = layout.mm_to_px(0.0, 297.0);

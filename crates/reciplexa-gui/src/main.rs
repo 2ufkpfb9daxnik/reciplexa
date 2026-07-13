@@ -299,6 +299,51 @@ impl eframe::App for PreviewApp {
         }) {
             self.redo();
         }
+        if ctx.input(|i| i.modifiers.command && i.key_pressed(egui::Key::S)) {
+            if let Err(e) = fs::write(&self.path, &self.source) {
+                self.error = Some(format!("save: {e}"));
+            } else {
+                self.error = None;
+            }
+        }
+
+        // Arrow keys nudge the selection when the source editor is not focused.
+        let source_focused = ctx.memory(|m| m.has_focus(egui::Id::new("rpx_source_editor")));
+        if !source_focused {
+            if let Some(sel) = self.selected {
+                let step = if ctx.input(|i| i.modifiers.shift) {
+                    5.0
+                } else {
+                    1.0
+                };
+                let mut delta = (0.0_f64, 0.0_f64);
+                if ctx.input(|i| i.key_pressed(egui::Key::ArrowLeft)) {
+                    delta.0 -= step;
+                }
+                if ctx.input(|i| i.key_pressed(egui::Key::ArrowRight)) {
+                    delta.0 += step;
+                }
+                if ctx.input(|i| i.key_pressed(egui::Key::ArrowDown)) {
+                    delta.1 -= step;
+                }
+                if ctx.input(|i| i.key_pressed(egui::Key::ArrowUp)) {
+                    delta.1 += step;
+                }
+                if delta != (0.0, 0.0) {
+                    if let Ok(bindings) = collect_drag_targets_page(&self.source, self.page_index) {
+                        if let Some(target) = bindings.get(sel).copied() {
+                            match nudge_drag_target(&self.source, target, delta.0, delta.1) {
+                                Ok(new_src) => {
+                                    self.set_source_with_undo(new_src);
+                                    self.error = pipeline_doc(&self.source).err();
+                                }
+                                Err(e) => self.error = Some(e.message),
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
         if let Some((start, end)) = self.pending_source_select.take() {
             highlight_source_range(ctx, &self.source, start, end);
@@ -309,7 +354,7 @@ impl eframe::App for PreviewApp {
             .default_width(400.0)
             .show(ctx, |ui| {
                 ui.heading(".rpx source");
-                ui.label("Edits reproject live; drag on the paper rewrites numbers here.");
+                ui.label("Edits reproject live; drag on the paper rewrites numbers here. Ctrl+S saves.");
                 ui.horizontal(|ui| {
                     if ui.button("Save .rpx").clicked() {
                         if let Err(e) = fs::write(&self.path, &self.source) {
@@ -516,7 +561,7 @@ impl eframe::App for PreviewApp {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("Paper preview");
-            ui.label("Scroll = zoom · Middle/Alt-drag = pan · Drag = move · Corners = scale · Top knob = rotate.");
+            ui.label("Scroll = zoom · Middle/Alt-drag = pan · Drag = move · Corners = scale · Top knob = rotate · Arrows = nudge.");
 
             let doc = match pipeline_doc(&self.source) {
                 Ok(d) => d,
