@@ -382,6 +382,94 @@ fn set_paint_prop(
     }
 }
 
+/// Set fill RGB on one layer (edits existing color or inserts `(rgb …)`).
+pub fn set_layer_fill_rgb(
+    src: &str,
+    page_index: usize,
+    flat_index: usize,
+    r: f64,
+    g: f64,
+    b: f64,
+) -> Result<String, SyncError> {
+    for c in [r, g, b] {
+        if !(0.0..=1.0).contains(&c) || !c.is_finite() {
+            return Err(SyncError::new("fill rgb channels must be in 0..=1"));
+        }
+    }
+    let layers = collect_layers_page(src, page_index)?;
+    let layer = layers
+        .get(flat_index)
+        .ok_or_else(|| SyncError::new("layer index out of range"))?;
+    let root = parse_root(src)?;
+    let paint = find_list_covering(&root, layer.byte_start, layer.byte_end)
+        .ok_or_else(|| SyncError::new("paint form not found"))?;
+    let items = list_atoms(&paint);
+    if trailing_color(&items).is_some() {
+        let ctx = PropEditContext {
+            aabb_mm: (0.0, 0.0, 1.0, 1.0),
+            paper_w_mm: 210.0,
+            paper_h_mm: 297.0,
+        };
+        let mut out =
+            set_layer_prop(src, page_index, flat_index, "fill.r", &PropValue::Number(r), &ctx)?;
+        out = set_layer_prop(
+            &out,
+            page_index,
+            flat_index,
+            "fill.g",
+            &PropValue::Number(g),
+            &ctx,
+        )?;
+        out = set_layer_prop(
+            &out,
+            page_index,
+            flat_index,
+            "fill.b",
+            &PropValue::Number(b),
+            &ctx,
+        )?;
+        return Ok(out);
+    }
+    // Insert (rgb …) before the closing paren of the paint form.
+    let range = paint.text_range();
+    let end = usize::from(range.end());
+    if end == 0 || !src[..end].ends_with(')') {
+        return Err(SyncError::new("paint form missing closing paren"));
+    }
+    let insert_at = end - 1;
+    let rgb = format!(
+        " (rgb {} {} {})",
+        format_drag_number(r),
+        format_drag_number(g),
+        format_drag_number(b)
+    );
+    let mut out = String::with_capacity(src.len() + rgb.len());
+    out.push_str(&src[..insert_at]);
+    out.push_str(&rgb);
+    out.push_str(&src[insert_at..]);
+    Ok(out)
+}
+
+/// Set the same fill RGB on every listed flatten index (batch / marquee ops).
+pub fn set_layers_fill_rgb(
+    src: &str,
+    page_index: usize,
+    indices: &[usize],
+    r: f64,
+    g: f64,
+    b: f64,
+) -> Result<String, SyncError> {
+    let mut out = src.to_string();
+    // Apply high indices first so earlier byte ranges stay stable.
+    let mut sorted = indices.to_vec();
+    sorted.sort_unstable();
+    sorted.dedup();
+    for &i in sorted.iter().rev() {
+        out = set_layer_fill_rgb(&out, page_index, i, r, g, b)?;
+    }
+    Ok(out)
+}
+
 fn geom_slot(kind: &str, id: &str) -> Option<usize> {
     match (kind, id) {
         ("circle" | "ring" | "ellipse" | "rect" | "frame" | "text", "geom.x") => Some(1),
@@ -873,5 +961,21 @@ mod tests {
         )
         .unwrap();
         assert!(out.contains("(rgb 0.5 0 0)") || out.contains("(rgb 0.5 0.0 0.0)"));
+    }
+
+    #[test]
+    fn batch_fill_rewrites_all_targets() {
+        let src = "(page a4 (circle 0 0 5 red) (circle 20 20 5 (rgb 0 1 0)))";
+        let out = set_layers_fill_rgb(src, 0, &[0, 1], 0.1, 0.2, 0.3).unwrap();
+        assert!(out.contains("(rgb 0.1 0.2 0.3)"));
+        assert!(!out.contains(" red)"));
+        assert!(!out.contains("(rgb 0 1 0)"));
+    }
+
+    #[test]
+    fn insert_fill_when_missing() {
+        let src = "(page a4 (circle 0 0 5))";
+        let out = set_layer_fill_rgb(src, 0, 0, 0.4, 0.5, 0.6).unwrap();
+        assert!(out.contains("(circle 0 0 5 (rgb 0.4 0.5 0.6))"));
     }
 }

@@ -11,13 +11,15 @@ use eframe::egui::text::{CCursor, CCursorRange};
 use reciplexa_lower::{
     collect_layer_props, collect_layers_page, collect_size_targets_page, delete_layer_page,
     duplicate_layer_page, layer_rotation_deg, lower_source, nudge_layer_page, reorder_layer_page,
-    scale_size_target, set_layer_prop, set_layer_rotation_deg, LayerInfo, PropEditContext,
-    PropGroup, PropValue, SizeTarget,
+    scale_size_target, set_layer_prop, set_layer_rotation_deg, set_layers_fill_rgb, LayerInfo,
+    PropEditContext, PropGroup, PropValue, SizeTarget,
 };
 use reciplexa_macro::expand_source;
 use reciplexa_pdf::write_document_with_base;
 use reciplexa_types::typecheck_source;
-use reciplexa_view::{flatten_page, hit_test_shapes, PaperLayout, WorldShape};
+use reciplexa_view::{
+    flatten_page, hit_test_shapes, shapes_intersecting_aabb, PaperLayout, WorldShape,
+};
 
 fn pipeline_doc(src: &str) -> Result<reciplexa_scene::Document, String> {
     let expanded = expand_source(src).map_err(|e| format!("macro: {}", e.message))?;
@@ -156,7 +158,7 @@ fn main() -> ExitCode {
                 page_index: 0,
                 zoom: 1.0,
                 pan: egui::Vec2::ZERO,
-                selected: None,
+                selected: Vec::new(),
                 pending_source_select: None,
                 textures: std::collections::HashMap::new(),
                 ime_enter_hold: 0,
@@ -165,6 +167,7 @@ fn main() -> ExitCode {
                 typing_undo_open: false,
                 props_open: false,
                 props_undo_open: false,
+                batch_fill: [0.2, 0.2, 0.2],
             }))
         }),
     ) {
@@ -184,7 +187,7 @@ struct PreviewApp {
     page_index: usize,
     zoom: f32,
     pan: egui::Vec2,
-    selected: Option<usize>,
+    selected: Vec<usize>,
     pending_source_select: Option<(usize, usize)>,
     /// Texture cache keyed by image path string from the `.rpx`.
     textures: std::collections::HashMap<String, egui::TextureHandle>,
@@ -198,18 +201,23 @@ struct PreviewApp {
     props_open: bool,
     /// Coalesce property slider drags into one undo step.
     props_undo_open: bool,
+    /// Shared fill when multiple shapes are selected (marquee batch).
+    batch_fill: [f64; 3],
 }
 
+#[derive(Clone)]
 struct DragState {
     kind: DragKind,
     undo_pushed: bool,
 }
 
+#[derive(Clone)]
 enum DragKind {
     /// World-axis translation of the layer root (never touches rotate/scale).
     Move {
         last_mm: (f64, f64),
-        flat_index: usize,
+        /// All layers moved together (multi-select).
+        flat_indices: Vec<usize>,
     },
     Scale {
         size: SizeTarget,
@@ -223,6 +231,11 @@ enum DragKind {
         center_mm: (f64, f64),
         start_angle_rad: f64,
         base_deg: f64,
+    },
+    /// Drag on empty paper to range-select intersecting shapes.
+    Marquee {
+        start_mm: (f64, f64),
+        current_mm: (f64, f64),
     },
 }
 
@@ -265,11 +278,34 @@ impl PreviewApp {
     }
 
     fn select_layer(&mut self, index: usize, layers: &[LayerInfo]) {
-        self.selected = Some(index);
+        self.selected = vec![index];
         self.props_open = true;
         if let Some(layer) = layers.get(index) {
             self.pending_source_select = Some((layer.byte_start, layer.byte_end));
         }
+    }
+
+    fn toggle_layer_in_selection(&mut self, index: usize, layers: &[LayerInfo]) {
+        if let Some(pos) = self.selected.iter().position(|&i| i == index) {
+            self.selected.remove(pos);
+        } else {
+            self.selected.push(index);
+        }
+        self.props_open = !self.selected.is_empty();
+        if let Some(&last) = self.selected.last() {
+            if let Some(layer) = layers.get(last) {
+                self.pending_source_select = Some((layer.byte_start, layer.byte_end));
+            }
+        }
+    }
+
+    fn clear_selection(&mut self) {
+        self.selected.clear();
+        self.props_undo_open = false;
+    }
+
+    fn primary_selected(&self) -> Option<usize> {
+        self.selected.last().copied()
     }
 
     fn apply_prop_edit(
@@ -300,10 +336,58 @@ impl PreviewApp {
     }
 
     fn show_properties_window(&mut self, ctx: &egui::Context) {
-        if !self.props_open {
+        if !self.props_open || self.selected.is_empty() {
             return;
         }
-        let Some(sel) = self.selected else {
+
+        // Multi-select: batch fill only (range ops first slice).
+        if self.selected.len() > 1 {
+            let indices = self.selected.clone();
+            let mut open = self.props_open;
+            let mut apply_fill = false;
+            egui::Window::new(format!("Properties ({} selected)", indices.len()))
+                .id(egui::Id::new("selection_properties_multi"))
+                .open(&mut open)
+                .anchor(egui::Align2::RIGHT_BOTTOM, [-12.0, -12.0])
+                .default_width(280.0)
+                .show(ctx, |ui| {
+                    ui.label("Batch ops on the marquee / multi-selection.");
+                    ui.weak("Full per-object args appear for a single selection.");
+                    ui.separator();
+                    egui::Frame::group(ui.style()).show(ui, |ui| {
+                        ui.label(egui::RichText::new("Fill color (all)").strong());
+                        for (i, lab) in ["fill.r", "fill.g", "fill.b"].iter().enumerate() {
+                            ui.add(
+                                egui::Slider::new(&mut self.batch_fill[i], 0.0..=1.0).text(*lab),
+                            );
+                        }
+                        let [r, g, b] = self.batch_fill;
+                        let swatch = egui::Color32::from_rgb(
+                            (r * 255.0) as u8,
+                            (g * 255.0) as u8,
+                            (b * 255.0) as u8,
+                        );
+                        ui.colored_label(swatch, "■■■ preview");
+                        if ui.button("Apply fill to selection").clicked() {
+                            apply_fill = true;
+                        }
+                    });
+                });
+            self.props_open = open;
+            if apply_fill {
+                let [r, g, b] = self.batch_fill;
+                match set_layers_fill_rgb(&self.source, self.page_index, &indices, r, g, b) {
+                    Ok(new_src) => {
+                        self.set_source_with_undo(new_src);
+                        self.error = pipeline_doc(&self.source).err();
+                    }
+                    Err(e) => self.error = Some(e.message),
+                }
+            }
+            return;
+        }
+
+        let Some(sel) = self.primary_selected() else {
             return;
         };
         let Ok(doc) = pipeline_doc(&self.source) else {
@@ -419,25 +503,13 @@ impl PreviewApp {
             Ok(new_src) => {
                 self.set_source_with_undo(new_src);
                 self.drag = None;
-                self.selected = Some(to);
+                self.selected = vec![to];
                 self.error = pipeline_doc(&self.source).err();
                 if let Ok(layers) = collect_layers_page(&self.source, self.page_index) {
                     if let Some(layer) = layers.get(to) {
                         self.pending_source_select = Some((layer.byte_start, layer.byte_end));
                     }
                 }
-            }
-            Err(e) => self.error = Some(e.message),
-        }
-    }
-
-    fn apply_layer_delete(&mut self, index: usize) {
-        match delete_layer_page(&self.source, self.page_index, index) {
-            Ok(new_src) => {
-                self.set_source_with_undo(new_src);
-                self.drag = None;
-                self.selected = None;
-                self.error = pipeline_doc(&self.source).err();
             }
             Err(e) => self.error = Some(e.message),
         }
@@ -452,7 +524,7 @@ impl PreviewApp {
                 self.set_source_with_undo(new_src);
                 self.drag = None;
                 let new_sel = index + 1;
-                self.selected = Some(new_sel);
+                self.selected = vec![new_sel];
                 self.error = pipeline_doc(&self.source).err();
                 if let Ok(layers) = collect_layers_page(&self.source, self.page_index) {
                     if let Some(layer) = layers.get(new_sel) {
@@ -462,6 +534,29 @@ impl PreviewApp {
             }
             Err(e) => self.error = Some(e.message),
         }
+    }
+
+    fn delete_selection(&mut self) {
+        let mut indices = self.selected.clone();
+        if indices.is_empty() {
+            return;
+        }
+        indices.sort_unstable();
+        indices.dedup();
+        self.push_undo();
+        // Delete high indices first so lower indices stay valid.
+        for &i in indices.iter().rev() {
+            match delete_layer_page(&self.source, self.page_index, i) {
+                Ok(new_src) => self.source = new_src,
+                Err(e) => {
+                    self.error = Some(e.message);
+                    return;
+                }
+            }
+        }
+        self.clear_selection();
+        self.drag = None;
+        self.error = pipeline_doc(&self.source).err();
     }
 }
 
@@ -490,41 +585,48 @@ impl eframe::App for PreviewApp {
 
         // Arrow keys nudge the selection when the source editor is not focused.
         let source_focused = ctx.memory(|m| m.has_focus(egui::Id::new("rpx_source_editor")));
-        if !source_focused {
-            if let Some(sel) = self.selected {
-                let step = if ctx.input(|i| i.modifiers.shift) {
-                    5.0
-                } else {
-                    1.0
-                };
-                let mut delta = (0.0_f64, 0.0_f64);
-                if ctx.input(|i| i.key_pressed(egui::Key::ArrowLeft)) {
-                    delta.0 -= step;
-                }
-                if ctx.input(|i| i.key_pressed(egui::Key::ArrowRight)) {
-                    delta.0 += step;
-                }
-                if ctx.input(|i| i.key_pressed(egui::Key::ArrowDown)) {
-                    delta.1 -= step;
-                }
-                if ctx.input(|i| i.key_pressed(egui::Key::ArrowUp)) {
-                    delta.1 += step;
-                }
-                if delta != (0.0, 0.0) {
-                    match nudge_layer_page(&self.source, self.page_index, sel, delta.0, delta.1)
-                    {
-                        Ok(new_src) => {
-                            self.set_source_with_undo(new_src);
-                            self.error = pipeline_doc(&self.source).err();
+        if !source_focused && !self.selected.is_empty() {
+            let step = if ctx.input(|i| i.modifiers.shift) {
+                5.0
+            } else {
+                1.0
+            };
+            let mut delta = (0.0_f64, 0.0_f64);
+            if ctx.input(|i| i.key_pressed(egui::Key::ArrowLeft)) {
+                delta.0 -= step;
+            }
+            if ctx.input(|i| i.key_pressed(egui::Key::ArrowRight)) {
+                delta.0 += step;
+            }
+            if ctx.input(|i| i.key_pressed(egui::Key::ArrowDown)) {
+                delta.1 -= step;
+            }
+            if ctx.input(|i| i.key_pressed(egui::Key::ArrowUp)) {
+                delta.1 += step;
+            }
+            if delta != (0.0, 0.0) {
+                let mut indices = self.selected.clone();
+                indices.sort_unstable();
+                self.push_undo();
+                let mut src = self.source.clone();
+                for &sel in &indices {
+                    match nudge_layer_page(&src, self.page_index, sel, delta.0, delta.1) {
+                        Ok(new_src) => src = new_src,
+                        Err(e) => {
+                            self.error = Some(e.message);
+                            break;
                         }
-                        Err(e) => self.error = Some(e.message),
                     }
                 }
-                if ctx.input(|i| {
-                    i.key_pressed(egui::Key::Delete) || i.key_pressed(egui::Key::Backspace)
-                }) {
-                    self.apply_layer_delete(sel);
-                }
+                self.source = src;
+                self.error = pipeline_doc(&self.source).err();
+            }
+            if ctx.input(|i| {
+                i.key_pressed(egui::Key::Delete) || i.key_pressed(egui::Key::Backspace)
+            }) {
+                self.delete_selection();
+            }
+            if let Some(sel) = self.primary_selected() {
                 if ctx.input(|i| i.modifiers.command && i.key_pressed(egui::Key::D)) {
                     self.apply_layer_duplicate(sel);
                 }
@@ -555,7 +657,7 @@ impl eframe::App for PreviewApp {
                                 Ok(s) => {
                                     self.source = s;
                                     self.drag = None;
-                                    self.selected = None;
+                                    self.clear_selection();
                                     self.error = pipeline_doc(&self.source).err();
                                 }
                                 Err(e) => self.error = Some(format!("macro: {}", e.message)),
@@ -641,7 +743,7 @@ impl eframe::App for PreviewApp {
                         let Some(layer) = layers_for_panel.get(flat) else {
                             continue;
                         };
-                        let selected = self.selected == Some(flat);
+                        let selected = self.selected.contains(&flat);
                         let id = egui::Id::new(("layer_dnd", self.page_index, flat));
                         let text = format!("{}. {}", flat + 1, layer.label);
                         let being_dragged = ui.ctx().is_being_dragged(id);
@@ -743,9 +845,13 @@ impl eframe::App for PreviewApp {
                 if let Some((from, to)) = reorder {
                     self.apply_layer_reorder(from, to);
                 }
-                if let Some(sel) = self.selected {
+                if !self.selected.is_empty() {
                     ui.separator();
-                    ui.label(format!("Selected layer {}", sel + 1));
+                    if self.selected.len() == 1 {
+                        ui.label(format!("Selected layer {}", self.selected[0] + 1));
+                    } else {
+                        ui.label(format!("{} layers selected", self.selected.len()));
+                    }
                     if ui
                         .button(if self.props_open {
                             "Hide properties"
@@ -759,19 +865,21 @@ impl eframe::App for PreviewApp {
                     {
                         self.props_open = !self.props_open;
                     }
-                    if ui
-                        .button("Duplicate")
-                        .on_hover_text("Copy in .rpx (Ctrl+D)")
-                        .clicked()
-                    {
-                        self.apply_layer_duplicate(sel);
+                    if let Some(sel) = self.primary_selected() {
+                        if ui
+                            .button("Duplicate")
+                            .on_hover_text("Copy in .rpx (Ctrl+D)")
+                            .clicked()
+                        {
+                            self.apply_layer_duplicate(sel);
+                        }
                     }
                     if ui
-                        .button("Delete layer")
+                        .button("Delete")
                         .on_hover_text("Remove from .rpx (Delete key)")
                         .clicked()
                     {
-                        self.apply_layer_delete(sel);
+                        self.delete_selection();
                     }
                 } else {
                     self.props_undo_open = false;
@@ -783,7 +891,7 @@ impl eframe::App for PreviewApp {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("Paper preview");
-            ui.label("Scroll = zoom · Middle/Alt-drag = pan · Body-drag = move · Corner handles = scale · Top knob = rotate · Arrows = nudge · Delete = remove.");
+            ui.label("Scroll = zoom · Middle/Alt-drag = pan · Drag empty = marquee select · Shift-click = add/remove · Body-drag = move · Corner = scale · Top knob = rotate · Arrows = nudge · Delete = remove.");
 
             let doc = match pipeline_doc(&self.source) {
                 Ok(d) => d,
@@ -809,7 +917,7 @@ impl eframe::App for PreviewApp {
                 {
                     self.page_index -= 1;
                     self.drag = None;
-                    self.selected = None;
+                    self.clear_selection();
                 }
                 ui.label(format!("Page {} / {}", self.page_index + 1, page_count));
                 if ui
@@ -821,7 +929,7 @@ impl eframe::App for PreviewApp {
                 {
                     self.page_index += 1;
                     self.drag = None;
-                    self.selected = None;
+                    self.clear_selection();
                 }
                 ui.separator();
                 if ui.button("−").clicked() {
@@ -916,7 +1024,7 @@ impl eframe::App for PreviewApp {
                     ui.ctx(),
                     self.path.parent(),
                 );
-                if self.selected == Some(i) {
+                if self.selected.contains(&i) {
                     if let Some(bounds) = PaperLayout::shape_bounds_mm(shape) {
                         paint_selection_frame(&painter, rect, &layout, bounds);
                     }
@@ -935,9 +1043,9 @@ impl eframe::App for PreviewApp {
                 if !skip_shape_drag && response.drag_started() {
                     let mut started = false;
                     let hit_body = hit_test_shapes(&shapes, mx, my);
-                    // Handles only when already selected and not grabbing the fill
-                    // (body drag is always a pure world-axis move).
-                    if let Some(sel) = self.selected {
+                    let shift = ui.input(|i| i.modifiers.shift);
+                    // Handles only for primary selection when not grabbing the fill.
+                    if let Some(sel) = self.primary_selected() {
                         if hit_body != Some(sel) {
                             if let Some(shape) = shapes.get(sel) {
                                 if let Some(bounds) = PaperLayout::shape_bounds_mm(shape) {
@@ -989,11 +1097,30 @@ impl eframe::App for PreviewApp {
                     }
                     if !started {
                         if let Some(i) = hit_body {
-                            self.select_layer(i, &layers);
+                            if shift {
+                                self.toggle_layer_in_selection(i, &layers);
+                            } else if !self.selected.contains(&i) {
+                                self.select_layer(i, &layers);
+                            }
+                            let flat_indices = if self.selected.contains(&i) {
+                                self.selected.clone()
+                            } else {
+                                vec![i]
+                            };
                             self.drag = Some(DragState {
                                 kind: DragKind::Move {
                                     last_mm: (mx, my),
-                                    flat_index: i,
+                                    flat_indices,
+                                },
+                                undo_pushed: false,
+                            });
+                        } else if !shift {
+                            // Empty drag → marquee range select.
+                            self.clear_selection();
+                            self.drag = Some(DragState {
+                                kind: DragKind::Marquee {
+                                    start_mm: (mx, my),
+                                    current_mm: (mx, my),
                                 },
                                 undo_pushed: false,
                             });
@@ -1002,46 +1129,65 @@ impl eframe::App for PreviewApp {
                 }
 
                 if !skip_shape_drag && response.dragged() {
-                    if let Some(drag) = &self.drag {
-                        match &drag.kind {
+                    if let Some(drag) = self.drag.clone() {
+                        match drag.kind {
                             DragKind::Move {
                                 last_mm,
-                                flat_index,
+                                flat_indices,
                             } => {
                                 let dx = mx - last_mm.0;
                                 let dy = my - last_mm.1;
+                                let mut indices = flat_indices;
                                 if dx.abs() > 1e-9 || dy.abs() > 1e-9 {
-                                    match nudge_layer_page(
-                                        &self.source,
-                                        self.page_index,
-                                        *flat_index,
-                                        dx,
-                                        dy,
-                                    ) {
-                                        Ok(new_src) => {
-                                            let flat_index = *flat_index;
-                                            let mut undo_pushed = drag.undo_pushed;
-                                            if !undo_pushed {
-                                                self.push_undo();
-                                                undo_pushed = true;
+                                    let mut undo_pushed = drag.undo_pushed;
+                                    if !undo_pushed {
+                                        self.push_undo();
+                                        undo_pushed = true;
+                                    }
+                                    let mut src = self.source.clone();
+                                    indices.sort_unstable();
+                                    let mut ok = true;
+                                    for &idx in &indices {
+                                        match nudge_layer_page(
+                                            &src,
+                                            self.page_index,
+                                            idx,
+                                            dx,
+                                            dy,
+                                        ) {
+                                            Ok(new_src) => src = new_src,
+                                            Err(e) => {
+                                                self.error = Some(e.message);
+                                                ok = false;
+                                                break;
                                             }
-                                            self.source = new_src;
-                                            self.error = if self.reload_ok() {
-                                                None
-                                            } else {
-                                                Some("edit produced invalid program".into())
-                                            };
-                                            self.drag = Some(DragState {
-                                                kind: DragKind::Move {
-                                                    last_mm: (mx, my),
-                                                    flat_index,
-                                                },
-                                                undo_pushed,
-                                            });
                                         }
-                                        Err(e) => self.error = Some(e.message),
+                                    }
+                                    if ok {
+                                        self.source = src;
+                                        self.error = if self.reload_ok() {
+                                            None
+                                        } else {
+                                            Some("edit produced invalid program".into())
+                                        };
+                                        self.drag = Some(DragState {
+                                            kind: DragKind::Move {
+                                                last_mm: (mx, my),
+                                                flat_indices: indices,
+                                            },
+                                            undo_pushed,
+                                        });
                                     }
                                 }
+                            }
+                            DragKind::Marquee { start_mm, .. } => {
+                                self.drag = Some(DragState {
+                                    kind: DragKind::Marquee {
+                                        start_mm,
+                                        current_mm: (mx, my),
+                                    },
+                                    undo_pushed: false,
+                                });
                             }
                             DragKind::Scale {
                                 size,
@@ -1052,13 +1198,13 @@ impl eframe::App for PreviewApp {
                                 let dist =
                                     (mx - center_mm.0).hypot(my - center_mm.1).max(1e-6);
                                 let factor = (dist / start_dist).clamp(0.05, 20.0);
-                                match scale_size_target(base_src, *size, factor) {
+                                match scale_size_target(&base_src, size, factor) {
                                     Ok(new_src) => {
                                         let kind = DragKind::Scale {
-                                            size: *size,
-                                            base_src: base_src.clone(),
-                                            center_mm: *center_mm,
-                                            start_dist: *start_dist,
+                                            size,
+                                            base_src,
+                                            center_mm,
+                                            start_dist,
                                         };
                                         let mut undo_pushed = drag.undo_pushed;
                                         if !undo_pushed {
@@ -1088,19 +1234,19 @@ impl eframe::App for PreviewApp {
                                     (angle - start_angle_rad).to_degrees();
                                 let deg = base_deg + delta_deg;
                                 match set_layer_rotation_deg(
-                                    base_src,
+                                    &base_src,
                                     self.page_index,
-                                    *flat_index,
+                                    flat_index,
                                     deg,
-                                    *center_mm,
+                                    center_mm,
                                 ) {
                                     Ok(new_src) => {
                                         let kind = DragKind::Rotate {
-                                            flat_index: *flat_index,
-                                            base_src: base_src.clone(),
-                                            center_mm: *center_mm,
-                                            start_angle_rad: *start_angle_rad,
-                                            base_deg: *base_deg,
+                                            flat_index,
+                                            base_src,
+                                            center_mm,
+                                            start_angle_rad,
+                                            base_deg,
                                         };
                                         let mut undo_pushed = drag.undo_pushed;
                                         if !undo_pushed {
@@ -1122,11 +1268,79 @@ impl eframe::App for PreviewApp {
                     }
                 }
 
+                let mut suppress_click = false;
                 if response.drag_stopped() {
-                    self.drag = None;
+                    if let Some(DragState {
+                        kind:
+                            DragKind::Marquee {
+                                start_mm,
+                                current_mm,
+                            },
+                        ..
+                    }) = self.drag.take()
+                    {
+                        suppress_click = true;
+                        let aabb = (
+                            start_mm.0.min(current_mm.0),
+                            start_mm.1.min(current_mm.1),
+                            start_mm.0.max(current_mm.0),
+                            start_mm.1.max(current_mm.1),
+                        );
+                        let w = aabb.2 - aabb.0;
+                        let h = aabb.3 - aabb.1;
+                        if w > 0.5 || h > 0.5 {
+                            let hits = shapes_intersecting_aabb(&shapes, aabb);
+                            self.selected = hits;
+                            self.props_open = !self.selected.is_empty();
+                            if let Some(&last) = self.selected.last() {
+                                if let Some(layer) = layers.get(last) {
+                                    self.pending_source_select =
+                                        Some((layer.byte_start, layer.byte_end));
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if !skip_shape_drag && !suppress_click && response.clicked() {
+                    let shift = ui.input(|i| i.modifiers.shift);
+                    match hit_test_shapes(&shapes, mx, my) {
+                        Some(i) if shift => self.toggle_layer_in_selection(i, &layers),
+                        Some(i) => self.select_layer(i, &layers),
+                        None if !shift => self.clear_selection(),
+                        None => {}
+                    }
                 }
             } else if response.drag_stopped() {
                 self.drag = None;
+            }
+
+            // Draw active marquee rectangle.
+            if let Some(DragState {
+                kind: DragKind::Marquee {
+                    start_mm,
+                    current_mm,
+                },
+                ..
+            }) = &self.drag
+            {
+                let (ax, ay) = layout.mm_to_px(start_mm.0, start_mm.1);
+                let (bx, by) = layout.mm_to_px(current_mm.0, current_mm.1);
+                let mrect = egui::Rect::from_two_pos(
+                    rect.min + egui::vec2(ax, ay),
+                    rect.min + egui::vec2(bx, by),
+                );
+                painter.rect_filled(
+                    mrect,
+                    0.0,
+                    egui::Color32::from_rgba_unmultiplied(30, 120, 220, 40),
+                );
+                painter.rect_stroke(
+                    mrect,
+                    0.0,
+                    egui::Stroke::new(1.0, egui::Color32::from_rgb(30, 120, 220)),
+                    egui::StrokeKind::Outside,
+                );
             }
         });
     }

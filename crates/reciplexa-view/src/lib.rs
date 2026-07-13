@@ -358,6 +358,33 @@ pub fn hit_test_shapes(shapes: &[WorldShape], x_mm: f64, y_mm: f64) -> Option<us
         .find_map(|(i, s)| shape_contains(s, x_mm, y_mm).then_some(i))
 }
 
+/// Flatten indices whose AABB intersects `aabb_mm` `(min_x, min_y, max_x, max_y)`.
+pub fn shapes_intersecting_aabb(
+    shapes: &[WorldShape],
+    aabb_mm: (f64, f64, f64, f64),
+) -> Vec<usize> {
+    let (ax0, ay0, ax1, ay1) = normalize_aabb(aabb_mm);
+    shapes
+        .iter()
+        .enumerate()
+        .filter_map(|(i, s)| {
+            let (bx0, by0, bx1, by1) = PaperLayout::shape_bounds_mm(s)?;
+            aabb_intersects((ax0, ay0, ax1, ay1), (bx0, by0, bx1, by1)).then_some(i)
+        })
+        .collect()
+}
+
+fn normalize_aabb(a: (f64, f64, f64, f64)) -> (f64, f64, f64, f64) {
+    let (x0, y0, x1, y1) = a;
+    (x0.min(x1), y0.min(y1), x0.max(x1), y0.max(y1))
+}
+
+fn aabb_intersects(a: (f64, f64, f64, f64), b: (f64, f64, f64, f64)) -> bool {
+    let (ax0, ay0, ax1, ay1) = a;
+    let (bx0, by0, bx1, by1) = b;
+    ax0 <= bx1 && ax1 >= bx0 && ay0 <= by1 && ay1 >= by0
+}
+
 fn shape_contains(shape: &WorldShape, x: f64, y: f64) -> bool {
     match shape {
         WorldShape::Circle(c) => {
@@ -805,6 +832,31 @@ mod tests {
         let z = base.with_view(2.0, 0.0, 0.0);
         assert!((z.width_px - base.width_px * 2.0).abs() < 1e-3);
         assert!((z.height_px - base.height_px * 2.0).abs() < 1e-3);
+    }
+
+    #[test]
+    fn marquee_selects_intersecting_shapes() {
+        let shapes = flatten_shapes(
+            &[
+                Shape::Circle(Circle {
+                    x_mm: 10.0,
+                    y_mm: 10.0,
+                    radius_mm: 5.0,
+                    fill: Color::BLACK,
+                }),
+                Shape::Circle(Circle {
+                    x_mm: 100.0,
+                    y_mm: 100.0,
+                    radius_mm: 5.0,
+                    fill: Color::RED,
+                }),
+            ],
+            Affine::identity(),
+        );
+        let hit = shapes_intersecting_aabb(&shapes, (0.0, 0.0, 20.0, 20.0));
+        assert_eq!(hit, vec![0]);
+        let both = shapes_intersecting_aabb(&shapes, (0.0, 0.0, 120.0, 120.0));
+        assert_eq!(both, vec![0, 1]);
     }
 
     // --- defect ---
