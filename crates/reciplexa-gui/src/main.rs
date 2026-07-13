@@ -350,6 +350,7 @@ impl PreviewApp {
             let mut apply_fill = false;
             let mut apply_opacity = false;
             let mut align: Option<AlignEdge> = None;
+            let mut distribute: Option<bool> = None; // Some(true)=H, Some(false)=V
             egui::Window::new(format!("Properties ({} selected)", indices.len()))
                 .id(egui::Id::new("selection_properties_multi"))
                 .open(&mut open)
@@ -405,6 +406,17 @@ impl PreviewApp {
                             align = Some(AlignEdge::Bottom);
                         }
                     });
+                    if indices.len() >= 3 {
+                        ui.label(egui::RichText::new("Distribute").strong());
+                        ui.horizontal(|ui| {
+                            if ui.button("Horizontal").clicked() {
+                                distribute = Some(true);
+                            }
+                            if ui.button("Vertical").clicked() {
+                                distribute = Some(false);
+                            }
+                        });
+                    }
                 });
             self.props_open = open;
             if apply_fill {
@@ -433,6 +445,9 @@ impl PreviewApp {
             }
             if let Some(edge) = align {
                 self.align_selection(edge);
+            }
+            if let Some(horizontal) = distribute {
+                self.distribute_selection(horizontal);
             }
             return;
         }
@@ -683,6 +698,59 @@ impl PreviewApp {
             if dx.abs() < 1e-12 && dy.abs() < 1e-12 {
                 continue;
             }
+            match nudge_layer_page(&src, self.page_index, i, dx, dy) {
+                Ok(new_src) => src = new_src,
+                Err(e) => {
+                    self.error = Some(e.message);
+                    return;
+                }
+            }
+        }
+        self.source = src;
+        self.error = pipeline_doc(&self.source).err();
+    }
+
+    fn distribute_selection(&mut self, horizontal: bool) {
+        let Ok(doc) = pipeline_doc(&self.source) else {
+            return;
+        };
+        let Some((_, shapes)) = flatten_page(&doc, self.page_index) else {
+            return;
+        };
+        let mut items: Vec<(usize, f64)> = self
+            .selected
+            .iter()
+            .filter_map(|&i| {
+                let b = shapes.get(i).and_then(PaperLayout::shape_bounds_mm)?;
+                let center = if horizontal {
+                    (b.0 + b.2) * 0.5
+                } else {
+                    (b.1 + b.3) * 0.5
+                };
+                Some((i, center))
+            })
+            .collect();
+        if items.len() < 3 {
+            return;
+        }
+        items.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
+        let first = items[0].1;
+        let last = items[items.len() - 1].1;
+        let n = items.len();
+        let step = (last - first) / (n - 1) as f64;
+        self.push_undo();
+        let mut src = self.source.clone();
+        for (k, &(i, center)) in items.iter().enumerate() {
+            let want = first + step * k as f64;
+            let delta = want - center;
+            if delta.abs() < 1e-12 {
+                continue;
+            }
+            let (dx, dy) = if horizontal {
+                (delta, 0.0)
+            } else {
+                (0.0, delta)
+            };
             match nudge_layer_page(&src, self.page_index, i, dx, dy) {
                 Ok(new_src) => src = new_src,
                 Err(e) => {
