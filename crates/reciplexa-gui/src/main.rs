@@ -645,7 +645,19 @@ impl eframe::App for PreviewApp {
 
         // Arrow keys nudge the selection when the source editor is not focused.
         let source_focused = ctx.memory(|m| m.has_focus(egui::Id::new("rpx_source_editor")));
+        if !source_focused
+            && ctx.input(|i| i.modifiers.command && i.key_pressed(egui::Key::A))
+        {
+            if let Ok(layers) = collect_layers_page(&self.source, self.page_index) {
+                self.selected = (0..layers.len()).collect();
+                self.props_open = !self.selected.is_empty();
+            }
+        }
         if !source_focused && !self.selected.is_empty() {
+            if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
+                self.clear_selection();
+                self.props_open = false;
+            }
             let step = if ctx.input(|i| i.modifiers.shift) {
                 5.0
             } else {
@@ -951,7 +963,7 @@ impl eframe::App for PreviewApp {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("Paper preview");
-            ui.label("Scroll = zoom · Middle/Alt-drag = pan · Drag empty = marquee select · Shift-click = add/remove · Body-drag = move · Corner = scale · Top knob = rotate · Arrows = nudge · Delete = remove.");
+            ui.label("Scroll = zoom · Middle/Alt-drag = pan · Drag empty = marquee · Shift-click = add/remove · Ctrl+A = select all · Esc = clear · Body-drag = move · Corner = scale · Top knob = rotate · Arrows = nudge · Delete = remove.");
 
             let doc = match pipeline_doc(&self.source) {
                 Ok(d) => d,

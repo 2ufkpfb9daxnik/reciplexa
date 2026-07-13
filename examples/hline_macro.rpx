@@ -1,0 +1,4 @@
+; (hline x1 x2 y [color [width]]) expands to a horizontal (line …)
+(page a4
+  (hline 30 180 200 (gray 0.4) 0.8)
+  (text 30 210 5 "section rule" (gray 0.2)))

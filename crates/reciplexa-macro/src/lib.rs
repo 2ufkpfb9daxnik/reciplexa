@@ -56,6 +56,9 @@ fn find_next_rewrite(root: &SyntaxNode) -> Option<(usize, usize, String)> {
         let c = format_frac(g);
         return Some((start, end, format!("(rgb {c} {c} {c})")));
     }
+    if let Some((start, end, replacement)) = find_hline(root) {
+        return Some((start, end, replacement));
+    }
     None
 }
 
@@ -109,6 +112,44 @@ fn find_color_byte(root: &SyntaxNode) -> Option<(usize, usize, f64, f64, f64)> {
     None
 }
 
+fn find_hline(root: &SyntaxNode) -> Option<(usize, usize, String)> {
+    // (hline x1 x2 y [color [width]]) → (line x1 y x2 y …)
+    for node in root.descendants() {
+        if node.kind() != SyntaxKind::List {
+            continue;
+        }
+        let items = list_atoms(&node);
+        let Some(Child::Token(head)) = items.first() else {
+            continue;
+        };
+        if head.kind() != SyntaxKind::Ident || head.text() != "hline" {
+            continue;
+        }
+        if items.len() < 4 {
+            continue;
+        }
+        let x1 = atom_text(&items[1])?;
+        let x2 = atom_text(&items[2])?;
+        let y = atom_text(&items[3])?;
+        let mut repl = format!("(line {x1} {y} {x2} {y}");
+        for item in items.iter().skip(4) {
+            repl.push(' ');
+            repl.push_str(&atom_text(item)?);
+        }
+        repl.push(')');
+        let range = node.text_range();
+        return Some((range.start().into(), range.end().into(), repl));
+    }
+    None
+}
+
+fn atom_text(child: &Child) -> Option<String> {
+    match child {
+        Child::Token(t) => Some(t.text().to_string()),
+        Child::Node(n) => Some(n.to_string()),
+    }
+}
+
 fn find_gray(root: &SyntaxNode) -> Option<(usize, usize, f64)> {
     for node in root.descendants() {
         if node.kind() != SyntaxKind::List {
@@ -143,7 +184,6 @@ fn number_val(child: &Child) -> Option<f64> {
 
 enum Child {
     Token(SyntaxToken),
-    #[allow(dead_code)]
     Node(SyntaxNode),
 }
 
@@ -177,6 +217,14 @@ mod tests {
         assert!(!out.contains("color-byte"));
         // Surrounding form preserved.
         assert!(out.contains("(page a4 (circle 1 2 3 "));
+    }
+
+    #[test]
+    fn expands_hline_to_line() {
+        let src = "(page a4 (hline 10 100 50 red 1.5))";
+        let out = expand_source(src).unwrap();
+        assert!(out.contains("(line 10 50 100 50 red 1.5)"));
+        assert!(!out.contains("hline"));
     }
 
     #[test]
