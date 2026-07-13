@@ -400,7 +400,7 @@ impl eframe::App for PreviewApp {
             .default_width(240.0)
             .show(ctx, |ui| {
                 ui.heading("Layers");
-                ui.label("Drag any row to restack. Top = front (later in source).");
+                ui.label("Drag rows vertically to restack. Top = front (later in source).");
                 ui.separator();
                 let n = layers_for_panel.len();
                 let mut reorder: Option<(usize, usize)> = None;
@@ -413,17 +413,64 @@ impl eframe::App for PreviewApp {
                         let selected = self.selected == Some(flat);
                         let id = egui::Id::new(("layer_dnd", self.page_index, flat));
                         let text = format!("{}. {}", flat + 1, layer.label);
-                        let row = ui.dnd_drag_source(id, flat, |ui| {
-                            ui.horizontal(|ui| {
+                        let being_dragged = ui.ctx().is_being_dragged(id);
+
+                        let row_resp = ui
+                            .horizontal(|ui| {
                                 ui.weak("⠿");
-                                let _ = ui.selectable_label(selected, &text);
-                            });
-                        });
-                        let response = row
-                            .response
+                                let label = if being_dragged {
+                                    ui.weak(&text)
+                                } else {
+                                    ui.selectable_label(selected, &text)
+                                };
+                                let _ = label;
+                            })
+                            .response;
+                        let response = ui
+                            .interact(row_resp.rect, id, egui::Sense::click_and_drag())
                             .on_hover_cursor(egui::CursorIcon::Grab)
-                            .on_hover_text("Drag to change stacking order");
-                        if response.clicked() {
+                            .on_hover_text("Drag vertically to change stacking order");
+
+                        if response.dragged() {
+                            response.dnd_set_drag_payload(flat);
+                            // Ghost follows pointer Y only (stacking is 1D).
+                            if let Some(pointer) = ui.ctx().pointer_interact_pos() {
+                                let ghost = egui::Rect::from_min_size(
+                                    egui::pos2(
+                                        row_resp.rect.left(),
+                                        pointer.y - row_resp.rect.height() * 0.5,
+                                    ),
+                                    row_resp.rect.size(),
+                                );
+                                let painter = ui.ctx().layer_painter(egui::LayerId::new(
+                                    egui::Order::Tooltip,
+                                    id,
+                                ));
+                                painter.rect_filled(
+                                    ghost,
+                                    2.0,
+                                    egui::Color32::from_rgba_unmultiplied(30, 120, 220, 40),
+                                );
+                                painter.rect_stroke(
+                                    ghost,
+                                    2.0,
+                                    egui::Stroke::new(
+                                        1.0,
+                                        egui::Color32::from_rgb(30, 120, 220),
+                                    ),
+                                    egui::StrokeKind::Outside,
+                                );
+                                painter.text(
+                                    ghost.left_center() + egui::vec2(8.0, 0.0),
+                                    egui::Align2::LEFT_CENTER,
+                                    &text,
+                                    egui::FontId::proportional(13.0),
+                                    egui::Color32::from_rgb(20, 60, 120),
+                                );
+                            }
+                        }
+
+                        if response.clicked() && !response.dragged() {
                             self.select_layer(flat, &layers_for_panel);
                         }
                         // Drop onto a row → take that stacking slot (rewrites .rpx).
@@ -446,8 +493,6 @@ impl eframe::App for PreviewApp {
                                     ),
                                 );
                                 if let Some(from) = response.dnd_release_payload::<usize>() {
-                                    // Visual top = high flat. Upper half → just in front of
-                                    // this row; lower half → this row's slot.
                                     let to = if insert_above {
                                         (flat + 1).min(n.saturating_sub(1))
                                     } else {
@@ -776,6 +821,7 @@ impl eframe::App for PreviewApp {
                                     self.page_index,
                                     *flat_index,
                                     deg,
+                                    *center_mm,
                                 ) {
                                     Ok(new_src) => {
                                         let kind = DragKind::Rotate {
@@ -969,7 +1015,8 @@ fn paint_shape(
         }
         WorldShape::Text(t) => {
             let (x, y) = layout.mm_to_px(t.x_mm, t.y_mm + t.size_mm);
-            let font_px = layout.radius_mm_to_px(t.size_mm).max(8.0);
+            // No pixel floor: text must shrink with zoom / shape scale like other geometry.
+            let font_px = layout.radius_mm_to_px(t.size_mm).max(0.5);
             painter.text(
                 rect.min + egui::vec2(x, y),
                 egui::Align2::LEFT_BOTTOM,

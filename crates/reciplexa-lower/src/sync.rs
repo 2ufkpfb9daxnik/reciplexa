@@ -351,7 +351,7 @@ pub fn scale_size_target(
     }
 }
 
-/// Degrees on the page-level root `(rotate …)` wrapping this flatten index, or 0.
+/// Degrees on a center-pivoted `(rotate …)` for this flatten index, or 0.
 pub fn layer_rotation_deg(
     src: &str,
     page_index: usize,
@@ -364,31 +364,32 @@ pub fn layer_rotation_deg(
     let root = parse_root(src)?;
     let node = find_list_covering(&root, layer.root_start, layer.root_end)
         .ok_or_else(|| SyncError::new("layer root not found"))?;
-    let items = list_atoms(&node);
-    if !matches!(
-        items.first(),
-        Some(Child::Token(t)) if t.kind() == SyntaxKind::Ident && t.text() == "rotate"
-    ) {
-        return Ok(0.0);
-    }
-    match items.get(1) {
-        Some(Child::Token(t)) if t.kind() == SyntaxKind::Number => t
+    match find_rotate_degrees_token(&node) {
+        Some(tok) => tok
             .text()
             .parse()
             .map_err(|_| SyncError::new("bad rotate degrees")),
-        _ => Err(SyncError::new("rotate form missing degrees")),
+        None => Ok(0.0),
     }
 }
 
-/// Set absolute rotation degrees on the layer root (wraps with `(rotate …)` if needed).
+/// Set absolute rotation about `center_mm` (object center in page mm).
+///
+/// Rewrites the layer root to
+/// `(translate cx cy (rotate deg (translate -cx -cy …)))` so PDF/`cm` rotation
+/// (which is around the origin) pivots on the object instead of the page origin.
 pub fn set_layer_rotation_deg(
     src: &str,
     page_index: usize,
     flat_index: usize,
     degrees: f64,
+    center_mm: (f64, f64),
 ) -> Result<String, SyncError> {
     if !degrees.is_finite() {
         return Err(SyncError::new("rotation degrees must be finite"));
+    }
+    if !center_mm.0.is_finite() || !center_mm.1.is_finite() {
+        return Err(SyncError::new("rotation center must be finite"));
     }
     let layers = collect_layers_page(src, page_index)?;
     let layer = layers
@@ -397,27 +398,112 @@ pub fn set_layer_rotation_deg(
     let root = parse_root(src)?;
     let node = find_list_covering(&root, layer.root_start, layer.root_end)
         .ok_or_else(|| SyncError::new("layer root not found"))?;
-    let items = list_atoms(&node);
-    if matches!(
-        items.first(),
-        Some(Child::Token(t)) if t.kind() == SyntaxKind::Ident && t.text() == "rotate"
-    ) {
-        let tok = match items.get(1) {
-            Some(Child::Token(t)) if t.kind() == SyntaxKind::Number => t.clone(),
-            _ => return Err(SyncError::new("rotate form missing degrees")),
-        };
-        let (_, out) = replace_token_text(&tok, &format_drag_number(degrees));
-        return Ok(out);
+
+    // Already a center sandwich (or bare rotate we can still edit in place then
+    // upgrade): if we find a degrees token under a recognized pivot form, patch it.
+    if is_center_rotate_sandwich(&node) {
+        if let Some(tok) = find_rotate_degrees_token(&node) {
+            let (_, out) = replace_token_text(&tok, &format_drag_number(degrees));
+            return Ok(out);
+        }
     }
-    let start = layer.root_start;
-    let end = layer.root_end;
-    let inner = &src[start..end];
-    let wrapped = format!("(rotate {} {})", format_drag_number(degrees), inner);
-    let mut out = String::with_capacity(src.len() + wrapped.len() - inner.len());
+
+    // Bare `(rotate deg body)` or any other root → wrap about center.
+    // If bare rotate, peel it so we don't nest rotates.
+    let (start, end, inner) = if is_bare_rotate(&node) {
+        let items = list_atoms(&node);
+        let body = items.iter().skip(2).find_map(|c| match c {
+            Child::Node(n) => Some(n),
+            _ => None,
+        });
+        match body {
+            Some(n) => {
+                let r = n.text_range();
+                let s = usize::from(r.start());
+                let e = usize::from(r.end());
+                (layer.root_start, layer.root_end, src[s..e].to_string())
+            }
+            None => {
+                return Err(SyncError::new("rotate form missing body"));
+            }
+        }
+    } else {
+        (
+            layer.root_start,
+            layer.root_end,
+            src[layer.root_start..layer.root_end].to_string(),
+        )
+    };
+
+    let cx = format_drag_number(center_mm.0);
+    let cy = format_drag_number(center_mm.1);
+    let ncx = format_drag_number(-center_mm.0);
+    let ncy = format_drag_number(-center_mm.1);
+    let deg = format_drag_number(degrees);
+    let wrapped = format!("(translate {cx} {cy} (rotate {deg} (translate {ncx} {ncy} {inner})))");
+    let mut out = String::with_capacity(src.len() + wrapped.len());
     out.push_str(&src[..start]);
     out.push_str(&wrapped);
     out.push_str(&src[end..]);
     Ok(out)
+}
+
+fn is_bare_rotate(node: &SyntaxNode) -> bool {
+    let items = list_atoms(node);
+    matches!(
+        items.first(),
+        Some(Child::Token(t)) if t.kind() == SyntaxKind::Ident && t.text() == "rotate"
+    )
+}
+
+/// `(translate cx cy (rotate deg (translate …)))`
+fn is_center_rotate_sandwich(node: &SyntaxNode) -> bool {
+    let items = list_atoms(node);
+    if !matches!(
+        items.first(),
+        Some(Child::Token(t)) if t.kind() == SyntaxKind::Ident && t.text() == "translate"
+    ) {
+        return false;
+    }
+    let Some(Child::Node(rot)) = items.get(3) else {
+        return false;
+    };
+    let ritems = list_atoms(rot);
+    if !matches!(
+        ritems.first(),
+        Some(Child::Token(t)) if t.kind() == SyntaxKind::Ident && t.text() == "rotate"
+    ) {
+        return false;
+    }
+    matches!(ritems.get(2), Some(Child::Node(inner)) if {
+        let iitems = list_atoms(inner);
+        matches!(
+            iitems.first(),
+            Some(Child::Token(t)) if t.kind() == SyntaxKind::Ident && t.text() == "translate"
+        )
+    })
+}
+
+fn find_rotate_degrees_token(node: &SyntaxNode) -> Option<SyntaxToken> {
+    if is_center_rotate_sandwich(node) {
+        let items = list_atoms(node);
+        let Child::Node(rot) = items.get(3)? else {
+            return None;
+        };
+        let ritems = list_atoms(rot);
+        match ritems.get(1)? {
+            Child::Token(t) if t.kind() == SyntaxKind::Number => Some(t.clone()),
+            _ => None,
+        }
+    } else if is_bare_rotate(node) {
+        let items = list_atoms(node);
+        match items.get(1)? {
+            Child::Token(t) if t.kind() == SyntaxKind::Number => Some(t.clone()),
+            _ => None,
+        }
+    } else {
+        None
+    }
 }
 
 fn find_list_covering(root: &SyntaxNode, start: usize, end: usize) -> Option<SyntaxNode> {
@@ -462,9 +548,12 @@ fn collect_from_shape(
         "translate" => {
             let idx = counters.translate;
             counters.translate += 1;
+            // Prefer the outermost translate so center-pivot sandwiches
+            // `(translate c (rotate (translate -c …)))` still move as one unit.
+            let bind = inherited_translate.or(Some(idx));
             for item in items.iter().skip(3) {
                 if let Child::Node(n) = item {
-                    collect_from_shape(n, Some(idx), counters, out);
+                    collect_from_shape(n, bind, counters, out);
                 }
             }
         }
@@ -1178,20 +1267,49 @@ mod tests {
     }
 
     #[test]
-    fn set_rotation_wraps_then_edits() {
+    fn set_rotation_wraps_about_object_center() {
         let src = "(page a4 (circle 10 20 5))";
         assert_eq!(layer_rotation_deg(src, 0, 0).unwrap(), 0.0);
-        let out = set_layer_rotation_deg(src, 0, 0, 30.0).unwrap();
-        assert!(out.contains("(rotate 30 (circle 10 20 5))"));
+        let out = set_layer_rotation_deg(src, 0, 0, 30.0, (10.0, 20.0)).unwrap();
+        assert!(
+            out.contains("(translate 10 20 (rotate 30 (translate -10 -20 (circle 10 20 5))))"),
+            "unexpected rewrite: {out}"
+        );
         assert_eq!(layer_rotation_deg(&out, 0, 0).unwrap(), 30.0);
-        let out2 = set_layer_rotation_deg(&out, 0, 0, -15.0).unwrap();
-        assert!(out2.contains("(rotate -15 (circle 10 20 5))"));
+        let out2 = set_layer_rotation_deg(&out, 0, 0, -15.0, (10.0, 20.0)).unwrap();
+        assert!(
+            out2.contains("(rotate -15 "),
+            "unexpected rewrite: {out2}"
+        );
+        assert_eq!(layer_rotation_deg(&out2, 0, 0).unwrap(), -15.0);
+    }
+
+    #[test]
+    fn set_rotation_upgrades_bare_rotate_to_center_pivot() {
+        let src = "(page a4 (rotate 10 (circle 10 20 5)))";
+        let out = set_layer_rotation_deg(src, 0, 0, 45.0, (10.0, 20.0)).unwrap();
+        assert!(
+            out.contains("(translate 10 20 (rotate 45 (translate -10 -20 (circle 10 20 5))))"),
+            "unexpected rewrite: {out}"
+        );
+        assert!(!out.contains("(rotate 45 (circle"));
     }
 
     #[test]
     fn set_rotation_on_existing_rotate_root() {
-        let src = "(page a4 (rotate 10 (translate 1 2 (circle 0 0 3))))";
-        let out = set_layer_rotation_deg(src, 0, 0, 45.0).unwrap();
-        assert!(out.contains("(rotate 45 (translate 1 2 (circle 0 0 3))))"));
+        let src = "(page a4 (translate 1 2 (rotate 10 (translate -1 -2 (circle 0 0 3)))))";
+        let out = set_layer_rotation_deg(src, 0, 0, 45.0, (1.0, 2.0)).unwrap();
+        assert!(out.contains("(rotate 45 "));
+        assert_eq!(layer_rotation_deg(&out, 0, 0).unwrap(), 45.0);
+    }
+
+    #[test]
+    fn center_rotate_sandwich_drag_uses_outer_translate() {
+        let src =
+            "(page a4 (translate 10 20 (rotate 30 (translate -10 -20 (circle 10 20 5)))))";
+        let t = collect_drag_targets_page(src, 0).unwrap();
+        assert_eq!(t, vec![DragTarget::Translate(0)]);
+        let out = nudge_drag_target(src, DragTarget::Translate(0), 1.0, 2.0).unwrap();
+        assert!(out.contains("(translate 11 22 (rotate 30 (translate -10 -20"));
     }
 }
