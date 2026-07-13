@@ -351,6 +351,8 @@ impl PreviewApp {
             let mut apply_opacity = false;
             let mut align: Option<AlignEdge> = None;
             let mut distribute: Option<bool> = None; // Some(true)=H, Some(false)=V
+            let mut bring_front = false;
+            let mut send_back = false;
             egui::Window::new(format!("Properties ({} selected)", indices.len()))
                 .id(egui::Id::new("selection_properties_multi"))
                 .open(&mut open)
@@ -417,6 +419,15 @@ impl PreviewApp {
                             }
                         });
                     }
+                    ui.separator();
+                    ui.horizontal(|ui| {
+                        if ui.button("Bring to front").clicked() {
+                            bring_front = true;
+                        }
+                        if ui.button("Send to back").clicked() {
+                            send_back = true;
+                        }
+                    });
                 });
             self.props_open = open;
             if apply_fill {
@@ -446,8 +457,14 @@ impl PreviewApp {
             if let Some(edge) = align {
                 self.align_selection(edge);
             }
-            if let Some(horizontal) = distribute {
+                    if let Some(horizontal) = distribute {
                 self.distribute_selection(horizontal);
+            }
+            if bring_front {
+                self.bring_selection_to_front();
+            }
+            if send_back {
+                self.send_selection_to_back();
             }
             return;
         }
@@ -760,6 +777,88 @@ impl PreviewApp {
             }
         }
         self.source = src;
+        self.error = pipeline_doc(&self.source).err();
+    }
+
+    fn bring_selection_to_front(&mut self) {
+        let mut remaining = self.selected.clone();
+        remaining.sort_unstable();
+        remaining.dedup();
+        if remaining.is_empty() {
+            return;
+        }
+        let count = remaining.len();
+        self.push_undo();
+        let mut src = self.source.clone();
+        while let Some(&from) = remaining.first() {
+            let n = match collect_layers_page(&src, self.page_index) {
+                Ok(l) => l.len(),
+                Err(e) => {
+                    self.error = Some(e.message);
+                    return;
+                }
+            };
+            if from >= n {
+                break;
+            }
+            match reorder_layer_page(&src, self.page_index, from, n - 1) {
+                Ok(new_src) => src = new_src,
+                Err(e) => {
+                    self.error = Some(e.message);
+                    return;
+                }
+            }
+            remaining.remove(0);
+            for r in &mut remaining {
+                if *r > from {
+                    *r -= 1;
+                }
+            }
+        }
+        let n = collect_layers_page(&src, self.page_index)
+            .map(|l| l.len())
+            .unwrap_or(0);
+        self.source = src;
+        if n >= count {
+            self.selected = ((n - count)..n).collect();
+        }
+        self.error = pipeline_doc(&self.source).err();
+    }
+
+    fn send_selection_to_back(&mut self) {
+        let mut remaining = self.selected.clone();
+        remaining.sort_unstable();
+        remaining.dedup();
+        if remaining.is_empty() {
+            return;
+        }
+        let count = remaining.len();
+        self.push_undo();
+        let mut src = self.source.clone();
+        // Move highest first down to the growing back stack.
+        while let Some(&from) = remaining.last() {
+            let slot = remaining.len() - 1; // destination among back slots
+            if from != slot {
+                match reorder_layer_page(&src, self.page_index, from, slot) {
+                    Ok(new_src) => src = new_src,
+                    Err(e) => {
+                        self.error = Some(e.message);
+                        return;
+                    }
+                }
+                // Update remaining after moving from → slot (from > slot).
+                for r in &mut remaining {
+                    if *r == from {
+                        *r = slot;
+                    } else if *r >= slot && *r < from {
+                        *r += 1;
+                    }
+                }
+            }
+            remaining.pop();
+        }
+        self.source = src;
+        self.selected = (0..count).collect();
         self.error = pipeline_doc(&self.source).err();
     }
 }
