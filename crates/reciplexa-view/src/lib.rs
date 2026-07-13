@@ -291,6 +291,43 @@ impl PaperLayout {
         }
     }
 
+    /// Apply interactive zoom (about paper center) and pan in preview pixels.
+    pub fn with_view(mut self, zoom: f32, pan_x: f32, pan_y: f32) -> Self {
+        let zoom = zoom.clamp(0.2, 8.0);
+        let cx = self.origin_x_px + self.width_px * 0.5;
+        let cy = self.origin_y_px + self.height_px * 0.5;
+        self.width_px *= zoom;
+        self.height_px *= zoom;
+        self.origin_x_px = cx - self.width_px * 0.5 + pan_x;
+        self.origin_y_px = cy - self.height_px * 0.5 + pan_y;
+        self
+    }
+
+    /// Axis-aligned bounds of a flattened shape in page mm `(min_x, min_y, max_x, max_y)`.
+    pub fn shape_bounds_mm(shape: &WorldShape) -> Option<(f64, f64, f64, f64)> {
+        match shape {
+            WorldShape::Circle(c) => {
+                let pad = c.stroke_width_mm.unwrap_or(0.0) * 0.5;
+                let r = c.radius_mm + pad;
+                Some((c.x_mm - r, c.y_mm - r, c.x_mm + r, c.y_mm + r))
+            }
+            WorldShape::Polygon(p) => bounds_of_points(&p.points_mm),
+            WorldShape::Path(p) => bounds_of_points(&p.points_mm),
+            WorldShape::Text(t) => {
+                let n = t.content.chars().count().max(1) as f64;
+                let w = n * t.size_mm * 0.95;
+                let h = t.size_mm * 1.35;
+                Some((t.x_mm, t.y_mm, t.x_mm + w, t.y_mm + h))
+            }
+            WorldShape::Image(img) => Some((
+                img.x_mm,
+                img.y_mm,
+                img.x_mm + img.width_mm,
+                img.y_mm + img.height_mm,
+            )),
+        }
+    }
+
     pub fn mm_to_px(&self, x_mm: f64, y_mm: f64) -> (f32, f32) {
         let sx = self.width_px as f64 / self.page_width_mm;
         let sy = self.height_px as f64 / self.page_height_mm;
@@ -351,11 +388,19 @@ fn shape_contains(shape: &WorldShape, x: f64, y: f64) -> bool {
             }
         }
         WorldShape::Text(t) => {
-            let w = t.content.len() as f64 * t.size_mm * 0.55;
-            let h = t.size_mm;
-            x >= t.x_mm && x <= t.x_mm + w && y >= t.y_mm && y <= t.y_mm + h
+            // Generous pick box: glyph stem is thin; CJK uses full-width advance.
+            let n = t.content.chars().count().max(1) as f64;
+            let w = n * t.size_mm * 0.95;
+            let h = t.size_mm * 1.35;
+            let pad = (t.size_mm * 0.6).max(2.5);
+            x >= t.x_mm - pad
+                && x <= t.x_mm + w + pad
+                && y >= t.y_mm - pad
+                && y <= t.y_mm + h + pad
         }
-        WorldShape::Path(p) => near_polyline(x, y, &p.points_mm, p.closed, p.width_mm.max(1.0)),
+        WorldShape::Path(p) => {
+            near_polyline(x, y, &p.points_mm, p.closed, p.width_mm.max(1.0) + 2.0)
+        }
         WorldShape::Image(img) => {
             x >= img.x_mm
                 && x <= img.x_mm + img.width_mm
@@ -363,6 +408,21 @@ fn shape_contains(shape: &WorldShape, x: f64, y: f64) -> bool {
                 && y <= img.y_mm + img.height_mm
         }
     }
+}
+
+fn bounds_of_points(pts: &[(f64, f64)]) -> Option<(f64, f64, f64, f64)> {
+    let &(x0, y0) = pts.first()?;
+    let mut min_x = x0;
+    let mut min_y = y0;
+    let mut max_x = x0;
+    let mut max_y = y0;
+    for &(x, y) in pts.iter().skip(1) {
+        min_x = min_x.min(x);
+        min_y = min_y.min(y);
+        max_x = max_x.max(x);
+        max_y = max_y.max(y);
+    }
+    Some((min_x, min_y, max_x, max_y))
 }
 
 fn near_polyline(x: f64, y: f64, pts: &[(f64, f64)], closed: bool, tol: f64) -> bool {
@@ -614,6 +674,31 @@ mod tests {
             WorldShape::Circle(c) => assert!((c.alpha - 0.25).abs() < 1e-9),
             _ => panic!("expected circle"),
         }
+    }
+
+    #[test]
+    fn text_hit_uses_padded_box() {
+        let shapes = flatten_shapes(
+            &[Shape::Text(Text {
+                x_mm: 10.0,
+                y_mm: 20.0,
+                size_mm: 5.0,
+                content: "Hi".into(),
+                fill: Color::BLACK,
+            })],
+            Affine::identity(),
+        );
+        // Near the baseline but not on a thin glyph stem.
+        assert_eq!(hit_test_shapes(&shapes, 12.0, 22.0), Some(0));
+        assert_eq!(hit_test_shapes(&shapes, 100.0, 20.0), None);
+    }
+
+    #[test]
+    fn paper_layout_zoom_scales_size() {
+        let base = PaperLayout::fit(400.0, 400.0, 0.0, 210.0, 297.0);
+        let z = base.with_view(2.0, 0.0, 0.0);
+        assert!((z.width_px - base.width_px * 2.0).abs() < 1e-3);
+        assert!((z.height_px - base.height_px * 2.0).abs() < 1e-3);
     }
 
     // --- defect ---

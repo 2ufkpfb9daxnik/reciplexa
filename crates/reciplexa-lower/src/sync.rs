@@ -48,6 +48,16 @@ pub enum DragTarget {
     ImageXy(usize),
 }
 
+/// One flattened drawable for the GUI layer list (same order as hit-test indices).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LayerInfo {
+    pub kind: String,
+    pub label: String,
+    /// Byte range of the leaf shape list in the source (for editor highlight).
+    pub byte_start: usize,
+    pub byte_end: usize,
+}
+
 /// Collect one [`DragTarget`] per flattened drawable, in flatten order.
 pub fn collect_drag_targets(src: &str) -> Result<Vec<DragTarget>, SyncError> {
     collect_drag_targets_page(src, 0)
@@ -61,23 +71,56 @@ pub fn collect_drag_targets_page(
     let root = parse_root(src)?;
     let mut out = Vec::new();
     let mut counters = Counters::default();
+    let page = find_page(&root, page_index)?;
+    let items = list_atoms(&page);
+    let start = page_body_start(&items);
+    for item in items.iter().skip(start) {
+        if let Child::Node(n) = item {
+            collect_from_shape(n, None, &mut counters, &mut out);
+        }
+    }
+    Ok(out)
+}
+
+/// Collect layer labels + source spans for a page (flatten / hit-test order).
+pub fn collect_layers_page(src: &str, page_index: usize) -> Result<Vec<LayerInfo>, SyncError> {
+    let root = parse_root(src)?;
+    let mut out = Vec::new();
+    let page = find_page(&root, page_index)?;
+    let items = list_atoms(&page);
+    let start = page_body_start(&items);
+    for item in items.iter().skip(start) {
+        if let Child::Node(n) = item {
+            collect_layers_from_shape(n, &mut out);
+        }
+    }
+    Ok(out)
+}
+
+fn find_page(root: &SyntaxNode, page_index: usize) -> Result<SyntaxNode, SyncError> {
     let mut page_i = 0usize;
     for form in root.children() {
         if !is_list_headed(&form, "page") {
             continue;
         }
         if page_i == page_index {
-            let items = list_atoms(&form);
-            for item in items.iter().skip(2) {
-                if let Child::Node(n) = item {
-                    collect_from_shape(n, None, &mut counters, &mut out);
-                }
-            }
-            return Ok(out);
+            return Ok(form);
         }
         page_i += 1;
     }
     Err(SyncError::new(format!("no page #{page_index}")))
+}
+
+/// Index of the first shape child under `(page …)`.
+fn page_body_start(items: &[Child]) -> usize {
+    if items.len() >= 3
+        && matches!(&items[1], Child::Token(t) if t.kind() == SyntaxKind::Number)
+        && matches!(&items[2], Child::Token(t) if t.kind() == SyntaxKind::Number)
+    {
+        3
+    } else {
+        2
+    }
 }
 
 /// Nudge the numbers described by `target` by `(dx, dy)` mm.
@@ -249,6 +292,87 @@ fn collect_from_shape(
             });
         }
         _ => {}
+    }
+}
+
+fn collect_layers_from_shape(node: &SyntaxNode, out: &mut Vec<LayerInfo>) {
+    let items = list_atoms(node);
+    let Some(Child::Token(head)) = items.first() else {
+        return;
+    };
+    if head.kind() != SyntaxKind::Ident {
+        return;
+    }
+    let kind = head.text();
+    match kind {
+        "translate" => {
+            for item in items.iter().skip(3) {
+                if let Child::Node(n) = item {
+                    collect_layers_from_shape(n, out);
+                }
+            }
+        }
+        "rotate" | "scale" | "group" | "opacity" => {
+            let skip = if kind == "scale" {
+                if items.len() >= 4
+                    && matches!(&items[1], Child::Token(t) if t.kind() == SyntaxKind::Number)
+                    && matches!(&items[2], Child::Token(t) if t.kind() == SyntaxKind::Number)
+                {
+                    3
+                } else {
+                    2
+                }
+            } else if kind == "group" {
+                1
+            } else {
+                2
+            };
+            for item in items.iter().skip(skip) {
+                if let Child::Node(n) = item {
+                    collect_layers_from_shape(n, out);
+                }
+            }
+        }
+        "circle" | "rect" | "ellipse" | "ring" | "frame" | "text" | "line" | "polyline"
+        | "polygon" | "image" => {
+            let range = node.text_range();
+            out.push(LayerInfo {
+                kind: kind.to_string(),
+                label: layer_label(kind, &items),
+                byte_start: range.start().into(),
+                byte_end: range.end().into(),
+            });
+        }
+        _ => {}
+    }
+}
+
+fn layer_label(kind: &str, items: &[Child]) -> String {
+    match kind {
+        "text" => {
+            let snippet = items.iter().find_map(|c| match c {
+                Child::Token(t) if t.kind() == SyntaxKind::String => {
+                    let raw = t.text();
+                    let inner = raw.trim_matches('"');
+                    let short: String = inner.chars().take(24).collect();
+                    Some(format!("text \"{short}\""))
+                }
+                _ => None,
+            });
+            snippet.unwrap_or_else(|| "text".into())
+        }
+        "image" => {
+            let snippet = items.iter().find_map(|c| match c {
+                Child::Token(t) if t.kind() == SyntaxKind::String => {
+                    let raw = t.text().trim_matches('"');
+                    let name = raw.rsplit(['/', '\\']).next().unwrap_or(raw);
+                    Some(format!("image {name}"))
+                }
+                _ => None,
+            });
+            snippet.unwrap_or_else(|| "image".into())
+        }
+        other => other.to_string(),
     }
 }
 
@@ -489,6 +613,21 @@ mod tests {
         assert!(out.contains(r#"(text 2 3 3 "Hi")"#));
         let out = nudge_drag_target(src, DragTarget::LineXy(0), 1.0, 1.0).unwrap();
         assert!(out.contains("(line 11 21 31 41)"));
+    }
+
+    #[test]
+    fn layers_match_flatten_order_and_spans() {
+        let src = r#"(page 210 297 (circle 1 2 3) (text 4 5 6 "あ"))"#;
+        let layers = collect_layers_page(src, 0).unwrap();
+        assert_eq!(layers.len(), 2);
+        assert_eq!(layers[0].kind, "circle");
+        assert_eq!(layers[1].label, "text \"あ\"");
+        assert!(src[layers[0].byte_start..layers[0].byte_end].contains("circle"));
+        assert!(src[layers[1].byte_start..layers[1].byte_end].contains("text"));
+        assert_eq!(
+            collect_drag_targets_page(src, 0).unwrap().len(),
+            layers.len()
+        );
     }
 
     // --- defect ---
