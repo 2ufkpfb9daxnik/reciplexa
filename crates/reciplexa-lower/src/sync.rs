@@ -379,6 +379,137 @@ pub fn nudge_first_translate(src: &str, dx: f64, dy: f64) -> Result<String, Sync
     nudge_drag_target(src, DragTarget::Translate(0), dx, dy)
 }
 
+/// Translate flattened layer `flat_index` by `(dx, dy)` in **page / world mm**.
+///
+/// This never edits rotate/scale factors. If the layer root is not already a
+/// `(translate …)` (or center-rotate sandwich), it wraps the root so movement
+/// stays axis-aligned even when the leaf sits under a bare `(rotate …)`.
+pub fn nudge_layer_page(
+    src: &str,
+    page_index: usize,
+    flat_index: usize,
+    dx: f64,
+    dy: f64,
+) -> Result<String, SyncError> {
+    if dx == 0.0 && dy == 0.0 {
+        return Ok(src.to_string());
+    }
+    let layers = collect_layers_page(src, page_index)?;
+    let layer = layers
+        .get(flat_index)
+        .ok_or_else(|| SyncError::new("layer index out of range"))?;
+    let root = parse_root(src)?;
+    let node = find_list_covering(&root, layer.root_start, layer.root_end)
+        .ok_or_else(|| SyncError::new("layer root not found"))?;
+
+    if is_center_rotate_sandwich(&node) || is_headed(&node, "translate") {
+        return nudge_xy_slots_of_list(&node, 1, 2, dx, dy);
+    }
+
+    if is_headed(&node, "opacity") {
+        if let Some(child) = first_shape_child(&node) {
+            if is_center_rotate_sandwich(&child) || is_headed(&child, "translate") {
+                return nudge_xy_slots_of_list(&child, 1, 2, dx, dy);
+            }
+        }
+    }
+
+    wrap_span_with_translate(src, layer.root_start, layer.root_end, dx, dy)
+}
+
+fn is_headed(node: &SyntaxNode, name: &str) -> bool {
+    let items = list_atoms(node);
+    matches!(
+        items.first(),
+        Some(Child::Token(t)) if t.kind() == SyntaxKind::Ident && t.text() == name
+    )
+}
+
+fn first_shape_child(node: &SyntaxNode) -> Option<SyntaxNode> {
+    let items = list_atoms(node);
+    let skip = match items.first() {
+        Some(Child::Token(t)) if t.kind() == SyntaxKind::Ident => match t.text() {
+            "opacity" | "rotate" => 2,
+            "translate" => 3,
+            "scale" => transform_body_skip("scale", &items),
+            "group" => 1,
+            _ => return None,
+        },
+        _ => return None,
+    };
+    items.into_iter().skip(skip).find_map(|c| match c {
+        Child::Node(n) => Some(n),
+        _ => None,
+    })
+}
+
+fn nudge_xy_slots_of_list(
+    node: &SyntaxNode,
+    x_slot: usize,
+    y_slot: usize,
+    dx: f64,
+    dy: f64,
+) -> Result<String, SyncError> {
+    let items = list_atoms(node);
+    let x_tok = match items.get(x_slot) {
+        Some(Child::Token(t)) if t.kind() == SyntaxKind::Number => t.clone(),
+        _ => return Err(SyncError::new("translate missing numeric x")),
+    };
+    let y_tok = match items.get(y_slot) {
+        Some(Child::Token(t)) if t.kind() == SyntaxKind::Number => t.clone(),
+        _ => return Err(SyncError::new("translate missing numeric y")),
+    };
+    let x: f64 = x_tok
+        .text()
+        .parse()
+        .map_err(|_| SyncError::new("bad translate x"))?;
+    let y: f64 = y_tok
+        .text()
+        .parse()
+        .map_err(|_| SyncError::new("bad translate y"))?;
+    let (_, after_x) = replace_token_text(&x_tok, &format_drag_number(x + dx));
+    let root2 = parse_root(&after_x)?;
+    let start = usize::from(node.text_range().start());
+    let end = usize::from(node.text_range().end());
+    // Re-find the same list after the x patch (span may shift if digit count changes).
+    let node2 = find_list_covering(&root2, start, end)
+        .or_else(|| {
+            // Span length may have changed; search by approximate start.
+            root2.descendants().find(|n| {
+                n.kind() == SyntaxKind::List && usize::from(n.text_range().start()) == start
+            })
+        })
+        .ok_or_else(|| SyncError::new("translate form lost after x patch"))?;
+    let items2 = list_atoms(&node2);
+    let y_tok2 = match items2.get(y_slot) {
+        Some(Child::Token(t)) if t.kind() == SyntaxKind::Number => t.clone(),
+        _ => return Err(SyncError::new("translate missing numeric y after x patch")),
+    };
+    let (_, after_y) = replace_token_text(&y_tok2, &format_drag_number(y + dy));
+    Ok(after_y)
+}
+
+fn wrap_span_with_translate(
+    src: &str,
+    start: usize,
+    end: usize,
+    tx: f64,
+    ty: f64,
+) -> Result<String, SyncError> {
+    let inner = &src[start..end];
+    let wrapped = format!(
+        "(translate {} {} {})",
+        format_drag_number(tx),
+        format_drag_number(ty),
+        inner
+    );
+    let mut out = String::with_capacity(src.len() + wrapped.len() - inner.len());
+    out.push_str(&src[..start]);
+    out.push_str(&wrapped);
+    out.push_str(&src[end..]);
+    Ok(out)
+}
+
 /// Collect one [`SizeTarget`] per flattened drawable (same order as hit-test).
 pub fn collect_size_targets_page(
     src: &str,
@@ -480,8 +611,7 @@ pub fn set_layer_rotation_deg(
     let node = find_list_covering(&root, layer.root_start, layer.root_end)
         .ok_or_else(|| SyncError::new("layer root not found"))?;
 
-    // Already a center sandwich (or bare rotate we can still edit in place then
-    // upgrade): if we find a degrees token under a recognized pivot form, patch it.
+    // Already a center sandwich: patch degrees only (pivot stays put).
     if is_center_rotate_sandwich(&node) {
         if let Some(tok) = find_rotate_degrees_token(&node) {
             let (_, out) = replace_token_text(&tok, &format_drag_number(degrees));
@@ -489,31 +619,43 @@ pub fn set_layer_rotation_deg(
         }
     }
 
-    // Bare `(rotate deg body)` or any other root → wrap about center.
-    // If bare rotate, peel it so we don't nest rotates.
-    let (start, end, inner) = if is_bare_rotate(&node) {
-        let items = list_atoms(&node);
-        let body = items.iter().skip(2).find_map(|c| match c {
-            Child::Node(n) => Some(n),
-            _ => None,
-        });
-        match body {
-            Some(n) => {
-                let r = n.text_range();
-                let s = usize::from(r.start());
-                let e = usize::from(r.end());
-                (layer.root_start, layer.root_end, src[s..e].to_string())
-            }
-            None => {
-                return Err(SyncError::new("rotate form missing body"));
+    // Peel bare `(rotate …)` so we don't nest origin-pivoted rotates inside a
+    // center sandwich. Also peel `(translate (rotate …))` from world-move wraps.
+    let (start, end, inner) = {
+        let mut peel = node.clone();
+        if is_headed(&peel, "translate") {
+            if let Some(child) = first_shape_child(&peel) {
+                if is_bare_rotate(&child) {
+                    peel = child;
+                }
             }
         }
-    } else {
-        (
-            layer.root_start,
-            layer.root_end,
-            src[layer.root_start..layer.root_end].to_string(),
-        )
+        if is_bare_rotate(&peel) {
+            let items = list_atoms(&peel);
+            let body = items.iter().skip(2).find_map(|c| match c {
+                Child::Node(n) => Some(n),
+                _ => None,
+            });
+            match body {
+                Some(n) => {
+                    let r = n.text_range();
+                    (
+                        layer.root_start,
+                        layer.root_end,
+                        src[usize::from(r.start())..usize::from(r.end())].to_string(),
+                    )
+                }
+                None => {
+                    return Err(SyncError::new("rotate form missing body"));
+                }
+            }
+        } else {
+            (
+                layer.root_start,
+                layer.root_end,
+                src[layer.root_start..layer.root_end].to_string(),
+            )
+        }
     };
 
     let cx = format_drag_number(center_mm.0);
@@ -582,6 +724,10 @@ fn find_rotate_degrees_token(node: &SyntaxNode) -> Option<SyntaxToken> {
             Child::Token(t) if t.kind() == SyntaxKind::Number => Some(t.clone()),
             _ => None,
         }
+    } else if is_headed(node, "translate") {
+        // Move may wrap `(translate … (rotate …))` — still report that angle.
+        let child = first_shape_child(node)?;
+        find_rotate_degrees_token(&child)
     } else {
         None
     }
@@ -1646,5 +1792,43 @@ mod tests {
         assert_eq!(layers[0].kind, "circle");
         assert_eq!(layers[1].kind, "circle");
         assert_eq!(layers[2].kind, "rect");
+    }
+
+    #[test]
+    fn nudge_layer_wraps_bare_shape_with_translate() {
+        let src = "(page a4 (circle 10 20 5))";
+        let out = nudge_layer_page(src, 0, 0, 3.0, -1.0).unwrap();
+        assert!(
+            out.contains("(translate 3 -1 (circle 10 20 5))"),
+            "unexpected rewrite: {out}"
+        );
+        // Second nudge edits the translate only (world axes).
+        let out2 = nudge_layer_page(&out, 0, 0, 1.0, 1.0).unwrap();
+        assert!(
+            out2.contains("(translate 4 0 (circle 10 20 5))"),
+            "unexpected rewrite: {out2}"
+        );
+    }
+
+    #[test]
+    fn nudge_layer_under_bare_rotate_stays_world_axis() {
+        // Without wrap, nudging circle x/y would move along the rotated frame.
+        let src = "(page a4 (rotate 90 (circle 10 0 1)))";
+        let out = nudge_layer_page(src, 0, 0, 5.0, 0.0).unwrap();
+        assert!(
+            out.contains("(translate 5 0 (rotate 90 (circle 10 0 1)))"),
+            "unexpected rewrite: {out}"
+        );
+        // Angle remains visible to the rotate knob after the move wrap.
+        assert_eq!(layer_rotation_deg(&out, 0, 0).unwrap(), 90.0);
+    }
+
+    #[test]
+    fn nudge_layer_center_sandwich_moves_outer_only() {
+        let src =
+            "(page a4 (translate 10 20 (rotate 30 (translate -10 -20 (circle 10 20 5)))))";
+        let out = nudge_layer_page(src, 0, 0, 2.0, 3.0).unwrap();
+        assert!(out.contains("(translate 12 23 (rotate 30 (translate -10 -20"));
+        assert!(out.contains("(circle 10 20 5)"));
     }
 }

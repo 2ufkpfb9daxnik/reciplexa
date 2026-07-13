@@ -9,10 +9,9 @@ use std::sync::Arc;
 use eframe::egui;
 use eframe::egui::text::{CCursor, CCursorRange};
 use reciplexa_lower::{
-    collect_drag_targets_page, collect_layers_page, collect_size_targets_page, delete_layer_page,
-    duplicate_layer_page, layer_opacity, layer_rotation_deg, lower_source, nudge_drag_target,
-    reorder_layer_page, scale_size_target, set_layer_opacity, set_layer_rotation_deg, DragTarget,
-    LayerInfo, SizeTarget,
+    collect_layers_page, collect_size_targets_page, delete_layer_page, duplicate_layer_page,
+    layer_opacity, layer_rotation_deg, lower_source, nudge_layer_page, reorder_layer_page,
+    scale_size_target, set_layer_opacity, set_layer_rotation_deg, LayerInfo, SizeTarget,
 };
 use reciplexa_macro::expand_source;
 use reciplexa_pdf::write_document_with_base;
@@ -203,9 +202,10 @@ struct DragState {
 }
 
 enum DragKind {
+    /// World-axis translation of the layer root (never touches rotate/scale).
     Move {
         last_mm: (f64, f64),
-        target: DragTarget,
+        flat_index: usize,
     },
     Scale {
         size: SizeTarget,
@@ -364,16 +364,13 @@ impl eframe::App for PreviewApp {
                     delta.1 += step;
                 }
                 if delta != (0.0, 0.0) {
-                    if let Ok(bindings) = collect_drag_targets_page(&self.source, self.page_index) {
-                        if let Some(target) = bindings.get(sel).copied() {
-                            match nudge_drag_target(&self.source, target, delta.0, delta.1) {
-                                Ok(new_src) => {
-                                    self.set_source_with_undo(new_src);
-                                    self.error = pipeline_doc(&self.source).err();
-                                }
-                                Err(e) => self.error = Some(e.message),
-                            }
+                    match nudge_layer_page(&self.source, self.page_index, sel, delta.0, delta.1)
+                    {
+                        Ok(new_src) => {
+                            self.set_source_with_undo(new_src);
+                            self.error = pipeline_doc(&self.source).err();
                         }
+                        Err(e) => self.error = Some(e.message),
                     }
                 }
                 if ctx.input(|i| {
@@ -641,7 +638,7 @@ impl eframe::App for PreviewApp {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("Paper preview");
-            ui.label("Scroll = zoom · Middle/Alt-drag = pan · Drag = move · Corners = scale · Top knob = rotate · Arrows = nudge · Delete = remove.");
+            ui.label("Scroll = zoom · Middle/Alt-drag = pan · Body-drag = move · Corner handles = scale · Top knob = rotate · Arrows = nudge · Delete = remove.");
 
             let doc = match pipeline_doc(&self.source) {
                 Ok(d) => d,
@@ -695,13 +692,6 @@ impl eframe::App for PreviewApp {
                 }
             });
 
-            let bindings = match collect_drag_targets_page(&self.source, self.page_index) {
-                Ok(b) => b,
-                Err(e) => {
-                    ui.colored_label(egui::Color32::RED, &e.message);
-                    return;
-                }
-            };
             let size_bindings = match collect_size_targets_page(&self.source, self.page_index) {
                 Ok(b) => b,
                 Err(e) => {
@@ -720,15 +710,11 @@ impl eframe::App for PreviewApp {
                 ui.colored_label(egui::Color32::RED, "Page not found.");
                 return;
             };
-            if bindings.len() != shapes.len()
-                || layers.len() != shapes.len()
-                || size_bindings.len() != shapes.len()
-            {
+            if layers.len() != shapes.len() || size_bindings.len() != shapes.len() {
                 ui.colored_label(
                     egui::Color32::YELLOW,
                     format!(
-                        "binding/size/layer/shape mismatch: {} / {} / {} / {}",
-                        bindings.len(),
+                        "size/layer/shape mismatch: {} / {} / {}",
                         size_bindings.len(),
                         layers.len(),
                         shapes.len()
@@ -803,63 +789,69 @@ impl eframe::App for PreviewApp {
 
                 if !skip_shape_drag && response.drag_started() {
                     let mut started = false;
-                    // Prefer transform handles on the current selection.
+                    let hit_body = hit_test_shapes(&shapes, mx, my);
+                    // Handles only when already selected and not grabbing the fill
+                    // (body drag is always a pure world-axis move).
                     if let Some(sel) = self.selected {
-                        if let Some(shape) = shapes.get(sel) {
-                            if let Some(bounds) = PaperLayout::shape_bounds_mm(shape) {
-                                let (x0, y0, x1, y1) = bounds;
-                                let cx = (x0 + x1) * 0.5;
-                                let cy = (y0 + y1) * 0.5;
-                                if hit_rotate_handle(&layout, bounds, local_pos) {
-                                    let start_angle_rad = (my - cy).atan2(mx - cx);
-                                    let base_deg =
-                                        layer_rotation_deg(&self.source, self.page_index, sel)
-                                            .unwrap_or(0.0);
-                                    self.drag = Some(DragState {
-                                        kind: DragKind::Rotate {
-                                            flat_index: sel,
-                                            base_src: self.source.clone(),
-                                            center_mm: (cx, cy),
-                                            start_angle_rad,
-                                            base_deg,
-                                        },
-                                        undo_pushed: false,
-                                    });
-                                    started = true;
-                                } else if hit_scale_handle(&layout, bounds, local_pos)
-                                    && size_bindings
-                                        .get(sel)
-                                        .is_some_and(|t| *t != SizeTarget::Unsupported)
-                                {
-                                    let start_dist = ((mx - cx).hypot(my - cy)).max(1e-6);
-                                    if let Some(size) = size_bindings.get(sel).copied() {
+                        if hit_body != Some(sel) {
+                            if let Some(shape) = shapes.get(sel) {
+                                if let Some(bounds) = PaperLayout::shape_bounds_mm(shape) {
+                                    let (x0, y0, x1, y1) = bounds;
+                                    let cx = (x0 + x1) * 0.5;
+                                    let cy = (y0 + y1) * 0.5;
+                                    if hit_rotate_handle(&layout, bounds, local_pos) {
+                                        let start_angle_rad = (my - cy).atan2(mx - cx);
+                                        let base_deg = layer_rotation_deg(
+                                            &self.source,
+                                            self.page_index,
+                                            sel,
+                                        )
+                                        .unwrap_or(0.0);
                                         self.drag = Some(DragState {
-                                            kind: DragKind::Scale {
-                                                size,
+                                            kind: DragKind::Rotate {
+                                                flat_index: sel,
                                                 base_src: self.source.clone(),
                                                 center_mm: (cx, cy),
-                                                start_dist,
+                                                start_angle_rad,
+                                                base_deg,
                                             },
                                             undo_pushed: false,
                                         });
                                         started = true;
+                                    } else if hit_scale_handle(&layout, bounds, local_pos)
+                                        && size_bindings
+                                            .get(sel)
+                                            .is_some_and(|t| *t != SizeTarget::Unsupported)
+                                    {
+                                        let start_dist =
+                                            ((mx - cx).hypot(my - cy)).max(1e-6);
+                                        if let Some(size) = size_bindings.get(sel).copied() {
+                                            self.drag = Some(DragState {
+                                                kind: DragKind::Scale {
+                                                    size,
+                                                    base_src: self.source.clone(),
+                                                    center_mm: (cx, cy),
+                                                    start_dist,
+                                                },
+                                                undo_pushed: false,
+                                            });
+                                            started = true;
+                                        }
                                     }
                                 }
                             }
                         }
                     }
                     if !started {
-                        if let Some(i) = hit_test_shapes(&shapes, mx, my) {
+                        if let Some(i) = hit_body {
                             self.select_layer(i, &layers);
-                            if let Some(target) = bindings.get(i).copied() {
-                                self.drag = Some(DragState {
-                                    kind: DragKind::Move {
-                                        last_mm: (mx, my),
-                                        target,
-                                    },
-                                    undo_pushed: false,
-                                });
-                            }
+                            self.drag = Some(DragState {
+                                kind: DragKind::Move {
+                                    last_mm: (mx, my),
+                                    flat_index: i,
+                                },
+                                undo_pushed: false,
+                            });
                         }
                     }
                 }
@@ -867,13 +859,22 @@ impl eframe::App for PreviewApp {
                 if !skip_shape_drag && response.dragged() {
                     if let Some(drag) = &self.drag {
                         match &drag.kind {
-                            DragKind::Move { last_mm, target } => {
+                            DragKind::Move {
+                                last_mm,
+                                flat_index,
+                            } => {
                                 let dx = mx - last_mm.0;
                                 let dy = my - last_mm.1;
                                 if dx.abs() > 1e-9 || dy.abs() > 1e-9 {
-                                    match nudge_drag_target(&self.source, *target, dx, dy) {
+                                    match nudge_layer_page(
+                                        &self.source,
+                                        self.page_index,
+                                        *flat_index,
+                                        dx,
+                                        dy,
+                                    ) {
                                         Ok(new_src) => {
-                                            let target = *target;
+                                            let flat_index = *flat_index;
                                             let mut undo_pushed = drag.undo_pushed;
                                             if !undo_pushed {
                                                 self.push_undo();
@@ -888,7 +889,7 @@ impl eframe::App for PreviewApp {
                                             self.drag = Some(DragState {
                                                 kind: DragKind::Move {
                                                     last_mm: (mx, my),
-                                                    target,
+                                                    flat_index,
                                                 },
                                                 undo_pushed,
                                             });
