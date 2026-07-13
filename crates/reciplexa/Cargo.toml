@@ -1,0 +1,15 @@
+[package]
+name = "reciplexa"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "CLI entry for reciplexa (render .rpx to PDF for now)"
+publish = false
+
+[[bin]]
+name = "reciplexa"
+path = "src/main.rs"
+
+[dependencies]
+reciplexa-lower = { workspace = true }
+reciplexa-pdf = { workspace = true }
