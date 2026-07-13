@@ -302,6 +302,20 @@ fn check_form(node: &SyntaxNode) -> Result<Type, TypeError> {
             }
             Ok(Type::Shape)
         }
+        "opacity" => {
+            if args.len() < 2 {
+                return Err(TypeError::at(
+                    "`opacity` has type (Num Shape+) -> Shape",
+                    span.0,
+                    span.1,
+                ));
+            }
+            expect_ty(check_child(&args[0])?, Type::Number, node)?;
+            for a in args.iter().skip(1) {
+                expect_ty(check_child(a)?, Type::Shape, node)?;
+            }
+            Ok(Type::Shape)
+        }
         other => Err(TypeError::at(
             format!("unknown form `{other}`"),
             span.0,
@@ -504,7 +518,7 @@ fn check_token(t: &SyntaxToken) -> Result<Type, TypeError> {
         SyntaxKind::Number => Ok(Type::Number),
         SyntaxKind::String => Ok(Type::String),
         SyntaxKind::Ident => match t.text() {
-            "a4" => Ok(Type::Paper),
+            "a4" | "letter" => Ok(Type::Paper),
             "black" | "white" | "red" | "green" | "blue" => Ok(Type::Color),
             other => Err(TypeError::at(
                 format!("unbound identifier `{other}`"),
@@ -589,6 +603,12 @@ mod tests {
     fn black_circle_page_is_document() {
         let ty = typecheck_source("(page a4 (circle 105 148.5 40))").unwrap();
         assert_eq!(ty, Type::Document);
+    }
+
+    #[test]
+    fn letter_and_opacity_typecheck() {
+        let src = "(page letter (opacity 0.5 (circle 1 2 3 red)))";
+        assert_eq!(typecheck_source(src).unwrap(), Type::Document);
     }
 
     #[test]

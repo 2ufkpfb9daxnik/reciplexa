@@ -145,7 +145,7 @@ fn collect_from_shape(
                 }
             }
         }
-        "rotate" | "scale" | "group" => {
+        "rotate" | "scale" | "group" | "opacity" => {
             let skip = if head.text() == "scale" {
                 // (scale s …) or (scale sx sy …)
                 if items.len() >= 4
@@ -159,6 +159,7 @@ fn collect_from_shape(
             } else if head.text() == "group" {
                 1
             } else {
+                // rotate / opacity: (head num shape…)
                 2
             };
             for item in items.iter().skip(skip) {

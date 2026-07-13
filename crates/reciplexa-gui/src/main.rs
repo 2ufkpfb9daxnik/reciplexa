@@ -259,7 +259,7 @@ impl eframe::App for PreviewApp {
                         let center = rect.min + egui::vec2(x, y);
                         match c.stroke_width_mm {
                             None => {
-                                painter.circle_filled(center, r, color32(c.color));
+                                painter.circle_filled(center, r, color32(c.color, c.alpha));
                             }
                             Some(w) => {
                                 painter.circle_stroke(
@@ -267,7 +267,7 @@ impl eframe::App for PreviewApp {
                                     r,
                                     egui::Stroke::new(
                                         layout.radius_mm_to_px(w).max(1.0),
-                                        color32(c.color),
+                                        color32(c.color, c.alpha),
                                     ),
                                 );
                             }
@@ -286,14 +286,14 @@ impl eframe::App for PreviewApp {
                             None => {
                                 painter.add(egui::Shape::convex_polygon(
                                     points,
-                                    color32(p.color),
+                                    color32(p.color, p.alpha),
                                     egui::Stroke::NONE,
                                 ));
                             }
                             Some(w) => {
                                 let stroke = egui::Stroke::new(
                                     layout.radius_mm_to_px(w).max(1.0),
-                                    color32(p.color),
+                                    color32(p.color, p.alpha),
                                 );
                                 for i in 0..points.len() {
                                     let a = points[i];
@@ -311,7 +311,7 @@ impl eframe::App for PreviewApp {
                             egui::Align2::LEFT_BOTTOM,
                             &t.content,
                             egui::FontId::proportional(font_px),
-                            color32(t.fill),
+                            color32(t.fill, t.alpha),
                         );
                     }
                     WorldShape::Path(p) => {
@@ -320,7 +320,7 @@ impl eframe::App for PreviewApp {
                         }
                         let stroke = egui::Stroke::new(
                             layout.radius_mm_to_px(p.width_mm).max(1.0),
-                            color32(p.stroke),
+                            color32(p.stroke, p.alpha),
                         );
                         let mut pts = Vec::with_capacity(p.points_mm.len());
                         for &(x_mm, y_mm) in &p.points_mm {
@@ -340,7 +340,13 @@ impl eframe::App for PreviewApp {
                             rect.min + egui::vec2(x0, y0),
                             rect.min + egui::vec2(x1, y1),
                         );
-                        painter.rect_filled(r, 0.0, egui::Color32::from_gray(230));
+                        let fill = egui::Color32::from_rgba_unmultiplied(
+                            230,
+                            230,
+                            230,
+                            (img.alpha * 255.0).round().clamp(0.0, 255.0) as u8,
+                        );
+                        painter.rect_filled(r, 0.0, fill);
                         painter.rect_stroke(
                             r,
                             0.0,
@@ -421,10 +427,11 @@ impl eframe::App for PreviewApp {
     }
 }
 
-fn color32(c: reciplexa_scene::Color) -> egui::Color32 {
-    egui::Color32::from_rgb(
+fn color32(c: reciplexa_scene::Color, alpha: f64) -> egui::Color32 {
+    egui::Color32::from_rgba_unmultiplied(
         (c.r * 255.0).round().clamp(0.0, 255.0) as u8,
         (c.g * 255.0).round().clamp(0.0, 255.0) as u8,
         (c.b * 255.0).round().clamp(0.0, 255.0) as u8,
+        (alpha * 255.0).round().clamp(0.0, 255.0) as u8,
     )
 }

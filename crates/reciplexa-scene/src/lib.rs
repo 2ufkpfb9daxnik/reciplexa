@@ -69,6 +69,9 @@ impl Color {
 /// ISO A4 portrait size in millimeters.
 pub const A4_WIDTH_MM: f64 = 210.0;
 pub const A4_HEIGHT_MM: f64 = 297.0;
+/// US Letter portrait in millimeters (8.5 × 11 in).
+pub const LETTER_WIDTH_MM: f64 = 215.9;
+pub const LETTER_HEIGHT_MM: f64 = 279.4;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct PaperSize {
@@ -81,6 +84,13 @@ impl PaperSize {
         Self {
             width_mm: A4_WIDTH_MM,
             height_mm: A4_HEIGHT_MM,
+        }
+    }
+
+    pub const fn letter() -> Self {
+        Self {
+            width_mm: LETTER_WIDTH_MM,
+            height_mm: LETTER_HEIGHT_MM,
         }
     }
 
@@ -278,6 +288,11 @@ pub enum Shape {
     Polyline(Polyline),
     Polygon(Polygon),
     Image(Image),
+    /// Multiply alpha for nested drawables (`(opacity a shape…)`).
+    Opacity {
+        alpha: f64,
+        children: Vec<Shape>,
+    },
     Group {
         transform: Affine,
         children: Vec<Shape>,
@@ -313,6 +328,14 @@ mod tests {
         assert_eq!(a4.width_mm, 210.0);
         assert_eq!(a4.height_mm, 297.0);
         assert!(a4.is_positive());
+    }
+
+    #[test]
+    fn letter_constants_match_ansi() {
+        let letter = PaperSize::letter();
+        assert_eq!(letter.width_mm, LETTER_WIDTH_MM);
+        assert_eq!(letter.height_mm, LETTER_HEIGHT_MM);
+        assert!(letter.is_positive());
     }
 
     #[test]

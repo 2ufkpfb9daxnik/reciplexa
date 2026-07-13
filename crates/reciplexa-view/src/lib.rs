@@ -16,6 +16,8 @@ pub struct WorldCircle {
     pub color: Color,
     /// `None` = filled; `Some(w)` = stroked outline of width `w` mm.
     pub stroke_width_mm: Option<f64>,
+    /// Accumulated opacity from ancestor `(opacity …)` nodes (`0..=1`).
+    pub alpha: f64,
 }
 
 /// Convex polygon in page millimeters (rect corners after affine).
@@ -25,6 +27,7 @@ pub struct WorldPolygon {
     pub color: Color,
     /// `None` = filled; `Some(w)` = stroked outline of width `w` mm.
     pub stroke_width_mm: Option<f64>,
+    pub alpha: f64,
 }
 
 /// Text baseline in page millimeters.
@@ -35,6 +38,7 @@ pub struct WorldText {
     pub size_mm: f64,
     pub content: String,
     pub fill: Color,
+    pub alpha: f64,
 }
 
 /// Open or closed stroked path in page millimeters.
@@ -44,6 +48,7 @@ pub struct WorldPath {
     pub stroke: Color,
     pub width_mm: f64,
     pub closed: bool,
+    pub alpha: f64,
 }
 
 /// Image placeholder rectangle in page millimeters.
@@ -54,6 +59,7 @@ pub struct WorldImage {
     pub y_mm: f64,
     pub width_mm: f64,
     pub height_mm: f64,
+    pub alpha: f64,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -79,12 +85,12 @@ pub fn flatten_page(doc: &Document, index: usize) -> Option<(&Page, Vec<WorldSha
 pub fn flatten_shapes(shapes: &[Shape], parent: Affine) -> Vec<WorldShape> {
     let mut out = Vec::new();
     for shape in shapes {
-        flatten_shape(shape, parent, &mut out);
+        flatten_shape(shape, parent, 1.0, &mut out);
     }
     out
 }
 
-fn flatten_shape(shape: &Shape, parent: Affine, out: &mut Vec<WorldShape>) {
+fn flatten_shape(shape: &Shape, parent: Affine, alpha: f64, out: &mut Vec<WorldShape>) {
     match shape {
         Shape::Circle(c) => {
             let (x, y) = parent.transform_point(c.x_mm, c.y_mm);
@@ -95,6 +101,7 @@ fn flatten_shape(shape: &Shape, parent: Affine, out: &mut Vec<WorldShape>) {
                 radius_mm: c.radius_mm * scale,
                 color: c.fill,
                 stroke_width_mm: None,
+                alpha,
             }));
         }
         Shape::Rect(r) => {
@@ -112,6 +119,7 @@ fn flatten_shape(shape: &Shape, parent: Affine, out: &mut Vec<WorldShape>) {
                 points_mm,
                 color: r.fill,
                 stroke_width_mm: None,
+                alpha,
             }));
         }
         Shape::Ellipse(e) => {
@@ -127,6 +135,7 @@ fn flatten_shape(shape: &Shape, parent: Affine, out: &mut Vec<WorldShape>) {
                 points_mm,
                 color: e.fill,
                 stroke_width_mm: None,
+                alpha,
             }));
         }
         Shape::Ring(r) => {
@@ -138,6 +147,7 @@ fn flatten_shape(shape: &Shape, parent: Affine, out: &mut Vec<WorldShape>) {
                 radius_mm: r.radius_mm * scale,
                 color: r.stroke,
                 stroke_width_mm: Some(r.width_mm * scale),
+                alpha,
             }));
         }
         Shape::Frame(f) => {
@@ -156,6 +166,7 @@ fn flatten_shape(shape: &Shape, parent: Affine, out: &mut Vec<WorldShape>) {
                 points_mm,
                 color: f.stroke,
                 stroke_width_mm: Some(f.stroke_width_mm * scale),
+                alpha,
             }));
         }
         Shape::Text(t) => {
@@ -167,6 +178,7 @@ fn flatten_shape(shape: &Shape, parent: Affine, out: &mut Vec<WorldShape>) {
                 size_mm: t.size_mm * scale,
                 content: t.content.clone(),
                 fill: t.fill,
+                alpha,
             }));
         }
         Shape::Line(l) => {
@@ -178,6 +190,7 @@ fn flatten_shape(shape: &Shape, parent: Affine, out: &mut Vec<WorldShape>) {
                 stroke: l.stroke,
                 width_mm: l.width_mm * scale,
                 closed: false,
+                alpha,
             }));
         }
         Shape::Polyline(p) => {
@@ -192,6 +205,7 @@ fn flatten_shape(shape: &Shape, parent: Affine, out: &mut Vec<WorldShape>) {
                 stroke: p.stroke,
                 width_mm: p.width_mm * scale,
                 closed: false,
+                alpha,
             }));
         }
         Shape::Polygon(p) => {
@@ -204,6 +218,7 @@ fn flatten_shape(shape: &Shape, parent: Affine, out: &mut Vec<WorldShape>) {
                 points_mm,
                 color: p.fill,
                 stroke_width_mm: None,
+                alpha,
             }));
         }
         Shape::Image(img) => {
@@ -215,7 +230,17 @@ fn flatten_shape(shape: &Shape, parent: Affine, out: &mut Vec<WorldShape>) {
                 y_mm: y,
                 width_mm: img.width_mm * scale,
                 height_mm: img.height_mm * scale,
+                alpha,
             }));
+        }
+        Shape::Opacity {
+            alpha: child_alpha,
+            children,
+        } => {
+            let combined = alpha * (*child_alpha);
+            for child in children {
+                flatten_shape(child, parent, combined, out);
+            }
         }
         Shape::Group {
             transform,
@@ -223,7 +248,7 @@ fn flatten_shape(shape: &Shape, parent: Affine, out: &mut Vec<WorldShape>) {
         } => {
             let combined = transform.then(parent);
             for child in children {
-                flatten_shape(child, combined, out);
+                flatten_shape(child, combined, alpha, out);
             }
         }
     }
@@ -516,6 +541,7 @@ mod tests {
                 radius_mm: 10.0,
                 color: Color::BLACK,
                 stroke_width_mm: None,
+                alpha: 1.0,
             }),
             WorldShape::Circle(WorldCircle {
                 x_mm: 0.0,
@@ -523,6 +549,7 @@ mod tests {
                 radius_mm: 5.0,
                 color: Color::RED,
                 stroke_width_mm: None,
+                alpha: 1.0,
             }),
         ];
         assert_eq!(hit_test_shapes(&shapes, 0.0, 0.0), Some(1));
@@ -564,6 +591,29 @@ mod tests {
         }
         assert_eq!(hit_test_shapes(&shapes, 0.0, 0.0), Some(0));
         assert_eq!(hit_test_shapes(&shapes, 20.0, 0.0), None);
+    }
+
+    #[test]
+    fn opacity_multiplies_into_world_alpha() {
+        let shapes = flatten_shapes(
+            &[Shape::Opacity {
+                alpha: 0.5,
+                children: vec![Shape::Opacity {
+                    alpha: 0.5,
+                    children: vec![Shape::Circle(Circle {
+                        x_mm: 0.0,
+                        y_mm: 0.0,
+                        radius_mm: 10.0,
+                        fill: Color::RED,
+                    })],
+                }],
+            }],
+            Affine::identity(),
+        );
+        match &shapes[0] {
+            WorldShape::Circle(c) => assert!((c.alpha - 0.25).abs() < 1e-9),
+            _ => panic!("expected circle"),
+        }
     }
 
     // --- defect ---

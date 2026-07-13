@@ -112,9 +112,10 @@ fn lower_page(node: &SyntaxNode) -> Result<Page, LowerError> {
 
     let paper = match atom_ident(&items[1])? {
         "a4" => PaperSize::a4(),
+        "letter" => PaperSize::letter(),
         other => {
             return Err(LowerError::new(format!(
-                "unknown paper size `{other}` (only `a4` for now)"
+                "unknown paper size `{other}` (supported: `a4`, `letter`)"
             )))
         }
     };
@@ -150,6 +151,7 @@ fn lower_shape(node: &SyntaxNode) -> Result<Shape, LowerError> {
         "polyline" => lower_polyline(&items),
         "polygon" => lower_polygon(&items),
         "image" => lower_image(&items),
+        "opacity" => lower_opacity(&items),
         "group" => lower_group(&items),
         "translate" => lower_translate(&items),
         "rotate" => lower_rotate(&items),
@@ -591,6 +593,25 @@ fn lower_group(items: &[Child]) -> Result<Shape, LowerError> {
     })
 }
 
+fn lower_opacity(items: &[Child]) -> Result<Shape, LowerError> {
+    // (opacity a shape…)
+    if items.len() < 3 {
+        return Err(LowerError::new(
+            "`opacity` expects alpha and at least one shape",
+        ));
+    }
+    let alpha = number_at(items, 1, "opacity alpha")?;
+    if !(0.0..=1.0).contains(&alpha) || !alpha.is_finite() {
+        return Err(LowerError::new(
+            "`opacity` alpha must be a finite number in 0..=1",
+        ));
+    }
+    Ok(Shape::Opacity {
+        alpha,
+        children: lower_shape_tail(&items[2..])?,
+    })
+}
+
 fn lower_rotate(items: &[Child]) -> Result<Shape, LowerError> {
     // (rotate deg shape…)
     if items.len() < 3 {
@@ -945,6 +966,24 @@ mod tests {
         assert!(text.contains("/Count 2"));
     }
 
+    #[test]
+    fn lowers_letter_and_opacity() {
+        let src = include_str!("../../../examples/letter_opacity.rpx");
+        let doc = lower_source(src).unwrap();
+        assert_eq!(doc.pages[0].paper, PaperSize::letter());
+        match &doc.pages[0].shapes[1] {
+            Shape::Opacity { alpha, children } => {
+                assert_eq!(*alpha, 0.45);
+                assert_eq!(children.len(), 1);
+            }
+            _ => panic!("expected opacity"),
+        }
+        let pdf = document_to_pdf(&doc).unwrap();
+        let text = String::from_utf8_lossy(&pdf);
+        assert!(text.contains("/ExtGState"));
+        assert!(text.contains("/GS45"));
+    }
+
     // --- defect ---
 
     #[test]
@@ -979,7 +1018,7 @@ mod tests {
 
     #[test]
     fn unknown_paper_fails() {
-        let err = lower_source("(page letter (circle 1 2 3))").unwrap_err();
+        let err = lower_source("(page a3 (circle 1 2 3))").unwrap_err();
         assert!(err.message.contains("unknown paper"));
     }
 

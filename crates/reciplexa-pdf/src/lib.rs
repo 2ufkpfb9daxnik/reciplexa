@@ -5,6 +5,8 @@
 
 #![forbid(unsafe_code)]
 
+use std::collections::BTreeSet;
+
 use reciplexa_scene::{Affine, Color, Document, Page, Shape};
 
 /// Errors while building a PDF.
@@ -14,6 +16,12 @@ pub enum PdfError {
     InvalidPage(String),
     InvalidShape(String),
     Write(String),
+}
+
+struct PageEmit {
+    ops: String,
+    /// Opacity percents `0..=100` referenced as `/GSk gs`.
+    opacities: BTreeSet<u8>,
 }
 
 /// Render a scene document to PDF bytes.
@@ -47,15 +55,18 @@ pub fn write_document(doc: &Document, mut w: impl std::io::Write) -> Result<(), 
     Ok(())
 }
 
-fn render_page_content(page: &Page, index: usize) -> Result<String, PdfError> {
+fn render_page_content(page: &Page, index: usize) -> Result<PageEmit, PdfError> {
     let mut ops = String::new();
+    let mut opacities = BTreeSet::new();
     for (si, shape) in page.shapes.iter().enumerate() {
-        ops.push_str(&render_shape(shape, &format!("page {index} shape {si}"))?);
+        let emit = render_shape(shape, &format!("page {index} shape {si}"), 1.0)?;
+        ops.push_str(&emit.ops);
+        opacities.extend(emit.opacities);
     }
-    Ok(ops)
+    Ok(PageEmit { ops, opacities })
 }
 
-fn render_shape(shape: &Shape, ctx: &str) -> Result<String, PdfError> {
+fn render_shape(shape: &Shape, ctx: &str, parent_alpha: f64) -> Result<PageEmit, PdfError> {
     match shape {
         Shape::Circle(c) => {
             if !c.is_drawable() {
@@ -63,19 +74,19 @@ fn render_shape(shape: &Shape, ctx: &str) -> Result<String, PdfError> {
                     "{ctx}: circle not drawable"
                 )));
             }
-            Ok(circle_path_ops(c.x_mm, c.y_mm, c.radius_mm, c.fill))
+            Ok(ops_only(circle_path_ops(c.x_mm, c.y_mm, c.radius_mm, c.fill)))
         }
         Shape::Rect(r) => {
             if !r.is_drawable() {
                 return Err(PdfError::InvalidShape(format!("{ctx}: rect not drawable")));
             }
-            Ok(rect_path_ops(
+            Ok(ops_only(rect_path_ops(
                 r.x_mm,
                 r.y_mm,
                 r.width_mm,
                 r.height_mm,
                 r.fill,
-            ))
+            )))
         }
         Shape::Ellipse(e) => {
             if !e.is_drawable() {
@@ -83,46 +94,50 @@ fn render_shape(shape: &Shape, ctx: &str) -> Result<String, PdfError> {
                     "{ctx}: ellipse not drawable"
                 )));
             }
-            Ok(ellipse_path_ops(e.x_mm, e.y_mm, e.rx_mm, e.ry_mm, e.fill))
+            Ok(ops_only(ellipse_path_ops(
+                e.x_mm, e.y_mm, e.rx_mm, e.ry_mm, e.fill,
+            )))
         }
         Shape::Ring(r) => {
             if !r.is_drawable() {
                 return Err(PdfError::InvalidShape(format!("{ctx}: ring not drawable")));
             }
-            Ok(ring_path_ops(
+            Ok(ops_only(ring_path_ops(
                 r.x_mm,
                 r.y_mm,
                 r.radius_mm,
                 r.width_mm,
                 r.stroke,
-            ))
+            )))
         }
         Shape::Frame(f) => {
             if !f.is_drawable() {
                 return Err(PdfError::InvalidShape(format!("{ctx}: frame not drawable")));
             }
-            Ok(frame_path_ops(
+            Ok(ops_only(frame_path_ops(
                 f.x_mm,
                 f.y_mm,
                 f.width_mm,
                 f.height_mm,
                 f.stroke_width_mm,
                 f.stroke,
-            ))
+            )))
         }
         Shape::Text(t) => {
             if !t.is_drawable() {
                 return Err(PdfError::InvalidShape(format!("{ctx}: text not drawable")));
             }
-            text_ops(t.x_mm, t.y_mm, t.size_mm, &t.content, t.fill)
+            Ok(ops_only(text_ops(
+                t.x_mm, t.y_mm, t.size_mm, &t.content, t.fill,
+            )?))
         }
         Shape::Line(l) => {
             if !l.is_drawable() {
                 return Err(PdfError::InvalidShape(format!("{ctx}: line not drawable")));
             }
-            Ok(line_ops(
+            Ok(ops_only(line_ops(
                 l.x1_mm, l.y1_mm, l.x2_mm, l.y2_mm, l.stroke, l.width_mm,
-            ))
+            )))
         }
         Shape::Polyline(p) => {
             if !p.is_drawable() {
@@ -130,7 +145,7 @@ fn render_shape(shape: &Shape, ctx: &str) -> Result<String, PdfError> {
                     "{ctx}: polyline not drawable"
                 )));
             }
-            Ok(polyline_ops(&p.points_mm, p.stroke, p.width_mm))
+            Ok(ops_only(polyline_ops(&p.points_mm, p.stroke, p.width_mm)))
         }
         Shape::Polygon(p) => {
             if !p.is_drawable() {
@@ -138,19 +153,37 @@ fn render_shape(shape: &Shape, ctx: &str) -> Result<String, PdfError> {
                     "{ctx}: polygon not drawable"
                 )));
             }
-            Ok(polygon_fill_ops(&p.points_mm, p.fill))
+            Ok(ops_only(polygon_fill_ops(&p.points_mm, p.fill)))
         }
         Shape::Image(img) => {
             if !img.is_drawable() {
                 return Err(PdfError::InvalidShape(format!("{ctx}: image not drawable")));
             }
-            Ok(image_placeholder_ops(
+            Ok(ops_only(image_placeholder_ops(
                 img.x_mm,
                 img.y_mm,
                 img.width_mm,
                 img.height_mm,
                 &img.path,
-            )?)
+            )?))
+        }
+        Shape::Opacity { alpha, children } => {
+            if !(0.0..=1.0).contains(alpha) || !alpha.is_finite() {
+                return Err(PdfError::InvalidShape(format!(
+                    "{ctx}: opacity must be finite in 0..=1"
+                )));
+            }
+            let combined = parent_alpha * (*alpha);
+            let pct = (combined * 100.0).round().clamp(0.0, 100.0) as u8;
+            let mut ops = format!("q\n/GS{pct} gs\n");
+            let mut opacities = BTreeSet::from([pct]);
+            for (i, child) in children.iter().enumerate() {
+                let emit = render_shape(child, &format!("{ctx}/{i}"), combined)?;
+                ops.push_str(&emit.ops);
+                opacities.extend(emit.opacities);
+            }
+            ops.push_str("Q\n");
+            Ok(PageEmit { ops, opacities })
         }
         Shape::Group {
             transform,
@@ -163,12 +196,22 @@ fn render_shape(shape: &Shape, ctx: &str) -> Result<String, PdfError> {
             }
             let mut ops = String::from("q\n");
             ops.push_str(&affine_cm_ops(*transform));
+            let mut opacities = BTreeSet::new();
             for (i, child) in children.iter().enumerate() {
-                ops.push_str(&render_shape(child, &format!("{ctx}/{i}"))?);
+                let emit = render_shape(child, &format!("{ctx}/{i}"), parent_alpha)?;
+                ops.push_str(&emit.ops);
+                opacities.extend(emit.opacities);
             }
             ops.push_str("Q\n");
-            Ok(ops)
+            Ok(PageEmit { ops, opacities })
         }
+    }
+}
+
+fn ops_only(ops: String) -> PageEmit {
+    PageEmit {
+        ops,
+        opacities: BTreeSet::new(),
     }
 }
 
@@ -478,7 +521,7 @@ fn mm_to_pt(mm: f64) -> f64 {
 }
 
 /// Assemble PDF-1.4 with a shared Helvetica font resource.
-fn assemble_pdf(page_sizes: &[(f64, f64)], contents: &[String]) -> Vec<u8> {
+fn assemble_pdf(page_sizes: &[(f64, f64)], contents: &[PageEmit]) -> Vec<u8> {
     assert_eq!(page_sizes.len(), contents.len());
     let n = page_sizes.len();
     // 1 Catalog, 2 Pages, 3 Font, 4..3+n Pages, then contents
@@ -502,19 +545,20 @@ fn assemble_pdf(page_sizes: &[(f64, f64)], contents: &[String]) -> Vec<u8> {
 
     for (i, (w, h)) in page_sizes.iter().enumerate() {
         let content_id = content_obj0 + i;
+        let gs = ext_gstate_dict(&contents[i].opacities);
         let page_id_body = format!(
             "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {w:.4} {h:.4}] \
              /Contents {content_id} 0 R \
-             /Resources << /Font << /F1 {font_obj} 0 R >> >> >>"
+             /Resources << /Font << /F1 {font_obj} 0 R >> {gs}>> >>"
         );
         objects.push(page_id_body.into_bytes());
     }
 
     for content in contents {
-        let stream = content.as_bytes();
+        let stream = content.ops.as_bytes();
         let mut obj = format!("<< /Length {} >>\nstream\n", stream.len()).into_bytes();
         obj.extend_from_slice(stream);
-        if !content.ends_with('\n') {
+        if !content.ops.ends_with('\n') {
             obj.push(b'\n');
         }
         obj.extend_from_slice(b"endstream");
@@ -545,6 +589,21 @@ fn assemble_pdf(page_sizes: &[(f64, f64)], contents: &[String]) -> Vec<u8> {
             .as_bytes(),
     );
     out
+}
+
+fn ext_gstate_dict(opacities: &BTreeSet<u8>) -> String {
+    if opacities.is_empty() {
+        return String::new();
+    }
+    let mut body = String::from("/ExtGState << ");
+    for pct in opacities {
+        let a = f64::from(*pct) / 100.0;
+        body.push_str(&format!(
+            "/GS{pct} << /Type /ExtGState /ca {a:.4} /CA {a:.4} >> "
+        ));
+    }
+    body.push_str(">> ");
+    body
 }
 
 #[cfg(test)]
@@ -665,5 +724,30 @@ mod tests {
         let text = String::from_utf8_lossy(&bytes);
         assert!(text.contains(" c\n"));
         assert!(text.contains("\nf\n") || text.ends_with("f\n"));
+    }
+
+    #[test]
+    fn letter_page_mediabox_and_opacity_extgstate() {
+        let doc = Document::single_page(Page {
+            paper: PaperSize::letter(),
+            shapes: vec![Shape::Opacity {
+                alpha: 0.5,
+                children: vec![Shape::Circle(Circle {
+                    x_mm: 100.0,
+                    y_mm: 140.0,
+                    radius_mm: 30.0,
+                    fill: Color::RED,
+                })],
+            }],
+        });
+        let bytes = document_to_pdf(&doc).unwrap();
+        let text = String::from_utf8_lossy(&bytes);
+        // 215.9mm × 279.4mm → ~612 × 792 pt
+        assert!(text.contains("612."));
+        assert!(text.contains("792."));
+        assert!(text.contains("/ExtGState"));
+        assert!(text.contains("/GS50"));
+        assert!(text.contains("/ca 0.5000"));
+        assert!(text.contains("/GS50 gs"));
     }
 }
