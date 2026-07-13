@@ -9,8 +9,8 @@ use std::sync::Arc;
 use eframe::egui;
 use eframe::egui::text::{CCursor, CCursorRange};
 use reciplexa_lower::{
-    collect_drag_targets_page, collect_layers_page, lower_source, nudge_drag_target,
-    reorder_layer_page, DragTarget, LayerInfo,
+    collect_drag_targets_page, collect_layers_page, collect_size_targets_page, lower_source,
+    nudge_drag_target, reorder_layer_page, scale_size_target, DragTarget, LayerInfo, SizeTarget,
 };
 use reciplexa_macro::expand_source;
 use reciplexa_pdf::write_document_with_base;
@@ -193,9 +193,21 @@ struct PreviewApp {
 }
 
 struct DragState {
-    last_mm: (f64, f64),
-    target: DragTarget,
+    kind: DragKind,
     undo_pushed: bool,
+}
+
+enum DragKind {
+    Move {
+        last_mm: (f64, f64),
+        target: DragTarget,
+    },
+    Scale {
+        size: SizeTarget,
+        base_src: String,
+        center_mm: (f64, f64),
+        start_dist: f64,
+    },
 }
 
 impl PreviewApp {
@@ -451,7 +463,7 @@ impl eframe::App for PreviewApp {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("Paper preview");
-            ui.label("Scroll = zoom · Middle-drag / Alt-drag = pan · Drag shapes to edit.");
+            ui.label("Scroll = zoom · Middle-drag / Alt-drag = pan · Drag shapes · Corner handles = scale.");
 
             let doc = match pipeline_doc(&self.source) {
                 Ok(d) => d,
@@ -512,6 +524,13 @@ impl eframe::App for PreviewApp {
                     return;
                 }
             };
+            let size_bindings = match collect_size_targets_page(&self.source, self.page_index) {
+                Ok(b) => b,
+                Err(e) => {
+                    ui.colored_label(egui::Color32::RED, &e.message);
+                    return;
+                }
+            };
             let layers = match collect_layers_page(&self.source, self.page_index) {
                 Ok(l) => l,
                 Err(e) => {
@@ -523,12 +542,16 @@ impl eframe::App for PreviewApp {
                 ui.colored_label(egui::Color32::RED, "Page not found.");
                 return;
             };
-            if bindings.len() != shapes.len() || layers.len() != shapes.len() {
+            if bindings.len() != shapes.len()
+                || layers.len() != shapes.len()
+                || size_bindings.len() != shapes.len()
+            {
                 ui.colored_label(
                     egui::Color32::YELLOW,
                     format!(
-                        "binding/layer/shape mismatch: {} / {} / {}",
+                        "binding/size/layer/shape mismatch: {} / {} / {} / {}",
                         bindings.len(),
+                        size_bindings.len(),
                         layers.len(),
                         shapes.len()
                     ),
@@ -585,19 +608,8 @@ impl eframe::App for PreviewApp {
                     self.path.parent(),
                 );
                 if self.selected == Some(i) {
-                    if let Some((x0, y0, x1, y1)) = PaperLayout::shape_bounds_mm(shape) {
-                        let (ax, ay) = layout.mm_to_px(x0, y1);
-                        let (bx, by) = layout.mm_to_px(x1, y0);
-                        let r = egui::Rect::from_min_max(
-                            rect.min + egui::vec2(ax.min(bx) - 3.0, ay.min(by) - 3.0),
-                            rect.min + egui::vec2(ax.max(bx) + 3.0, ay.max(by) + 3.0),
-                        );
-                        painter.rect_stroke(
-                            r,
-                            0.0,
-                            egui::Stroke::new(2.0, egui::Color32::from_rgb(30, 120, 220)),
-                            egui::StrokeKind::Outside,
-                        );
+                    if let Some(bounds) = PaperLayout::shape_bounds_mm(shape) {
+                        paint_selection_frame(&painter, rect, &layout, bounds);
                     }
                 }
             }
@@ -608,47 +620,121 @@ impl eframe::App for PreviewApp {
 
             if let Some(pos) = response.interact_pointer_pos() {
                 let local = pos - rect.min;
+                let local_pos = egui::pos2(local.x, local.y);
                 let (mx, my) = layout.px_to_mm(local.x, local.y);
 
                 if !skip_shape_drag && response.drag_started() {
-                    if let Some(i) = hit_test_shapes(&shapes, mx, my) {
-                        self.select_layer(i, &layers);
-                        if let Some(target) = bindings.get(i).copied() {
-                            self.drag = Some(DragState {
-                                last_mm: (mx, my),
-                                target,
-                                undo_pushed: false,
-                            });
+                    let mut started = false;
+                    // Prefer scale handles on the current selection.
+                    if let Some(sel) = self.selected {
+                        if let Some(shape) = shapes.get(sel) {
+                            if let Some(bounds) = PaperLayout::shape_bounds_mm(shape) {
+                                if hit_scale_handle(&layout, bounds, local_pos)
+                                    && size_bindings
+                                        .get(sel)
+                                        .is_some_and(|t| *t != SizeTarget::Unsupported)
+                                {
+                                    let (x0, y0, x1, y1) = bounds;
+                                    let cx = (x0 + x1) * 0.5;
+                                    let cy = (y0 + y1) * 0.5;
+                                    let start_dist = ((mx - cx).hypot(my - cy)).max(1e-6);
+                                    if let Some(size) = size_bindings.get(sel).copied() {
+                                        self.drag = Some(DragState {
+                                            kind: DragKind::Scale {
+                                                size,
+                                                base_src: self.source.clone(),
+                                                center_mm: (cx, cy),
+                                                start_dist,
+                                            },
+                                            undo_pushed: false,
+                                        });
+                                        started = true;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if !started {
+                        if let Some(i) = hit_test_shapes(&shapes, mx, my) {
+                            self.select_layer(i, &layers);
+                            if let Some(target) = bindings.get(i).copied() {
+                                self.drag = Some(DragState {
+                                    kind: DragKind::Move {
+                                        last_mm: (mx, my),
+                                        target,
+                                    },
+                                    undo_pushed: false,
+                                });
+                            }
                         }
                     }
                 }
 
                 if !skip_shape_drag && response.dragged() {
                     if let Some(drag) = &self.drag {
-                        let dx = mx - drag.last_mm.0;
-                        let dy = my - drag.last_mm.1;
-                        if dx.abs() > 1e-9 || dy.abs() > 1e-9 {
-                            match nudge_drag_target(&self.source, drag.target, dx, dy) {
-                                Ok(new_src) => {
-                                    let target = drag.target;
-                                    let mut undo_pushed = drag.undo_pushed;
-                                    if !undo_pushed {
-                                        self.push_undo();
-                                        undo_pushed = true;
+                        match &drag.kind {
+                            DragKind::Move { last_mm, target } => {
+                                let dx = mx - last_mm.0;
+                                let dy = my - last_mm.1;
+                                if dx.abs() > 1e-9 || dy.abs() > 1e-9 {
+                                    match nudge_drag_target(&self.source, *target, dx, dy) {
+                                        Ok(new_src) => {
+                                            let target = *target;
+                                            let mut undo_pushed = drag.undo_pushed;
+                                            if !undo_pushed {
+                                                self.push_undo();
+                                                undo_pushed = true;
+                                            }
+                                            self.source = new_src;
+                                            self.error = if self.reload_ok() {
+                                                None
+                                            } else {
+                                                Some("edit produced invalid program".into())
+                                            };
+                                            self.drag = Some(DragState {
+                                                kind: DragKind::Move {
+                                                    last_mm: (mx, my),
+                                                    target,
+                                                },
+                                                undo_pushed,
+                                            });
+                                        }
+                                        Err(e) => self.error = Some(e.message),
                                     }
-                                    self.source = new_src;
-                                    self.error = if self.reload_ok() {
-                                        None
-                                    } else {
-                                        Some("edit produced invalid program".into())
-                                    };
-                                    self.drag = Some(DragState {
-                                        last_mm: (mx, my),
-                                        target,
-                                        undo_pushed,
-                                    });
                                 }
-                                Err(e) => self.error = Some(e.message),
+                            }
+                            DragKind::Scale {
+                                size,
+                                base_src,
+                                center_mm,
+                                start_dist,
+                            } => {
+                                let dist =
+                                    (mx - center_mm.0).hypot(my - center_mm.1).max(1e-6);
+                                let factor = (dist / start_dist).clamp(0.05, 20.0);
+                                match scale_size_target(base_src, *size, factor) {
+                                    Ok(new_src) => {
+                                        let kind = DragKind::Scale {
+                                            size: *size,
+                                            base_src: base_src.clone(),
+                                            center_mm: *center_mm,
+                                            start_dist: *start_dist,
+                                        };
+                                        let mut undo_pushed = drag.undo_pushed;
+                                        if !undo_pushed {
+                                            self.push_undo();
+                                            undo_pushed = true;
+                                        }
+                                        self.source = new_src;
+                                        self.error = if self.reload_ok() {
+                                            None
+                                        } else {
+                                            Some("edit produced invalid program".into())
+                                        };
+                                        self.drag = Some(DragState { kind, undo_pushed });
+                                    }
+                                    Err(e) => self.error = Some(e.message),
+                                }
                             }
                         }
                     }
@@ -662,6 +748,68 @@ impl eframe::App for PreviewApp {
             }
         });
     }
+}
+
+fn paint_selection_frame(
+    painter: &egui::Painter,
+    rect: egui::Rect,
+    layout: &PaperLayout,
+    bounds: (f64, f64, f64, f64),
+) {
+    let (x0, y0, x1, y1) = bounds;
+    let (ax, ay) = layout.mm_to_px(x0, y1);
+    let (bx, by) = layout.mm_to_px(x1, y0);
+    let frame = egui::Rect::from_min_max(
+        rect.min + egui::vec2(ax.min(bx) - 3.0, ay.min(by) - 3.0),
+        rect.min + egui::vec2(ax.max(bx) + 3.0, ay.max(by) + 3.0),
+    );
+    painter.rect_stroke(
+        frame,
+        0.0,
+        egui::Stroke::new(2.0, egui::Color32::from_rgb(30, 120, 220)),
+        egui::StrokeKind::Outside,
+    );
+    let handle = 5.0;
+    let corners = [
+        frame.left_top(),
+        frame.right_top(),
+        frame.left_bottom(),
+        frame.right_bottom(),
+    ];
+    for c in corners {
+        let hr = egui::Rect::from_center_size(c, egui::vec2(handle * 2.0, handle * 2.0));
+        painter.rect_filled(hr, 0.0, egui::Color32::WHITE);
+        painter.rect_stroke(
+            hr,
+            0.0,
+            egui::Stroke::new(1.5, egui::Color32::from_rgb(30, 120, 220)),
+            egui::StrokeKind::Outside,
+        );
+    }
+}
+
+fn hit_scale_handle(
+    layout: &PaperLayout,
+    bounds: (f64, f64, f64, f64),
+    local_px: egui::Pos2,
+) -> bool {
+    let (x0, y0, x1, y1) = bounds;
+    let (ax, ay) = layout.mm_to_px(x0, y1);
+    let (bx, by) = layout.mm_to_px(x1, y0);
+    let frame = egui::Rect::from_min_max(
+        egui::pos2(ax.min(bx) - 3.0, ay.min(by) - 3.0),
+        egui::pos2(ax.max(bx) + 3.0, ay.max(by) + 3.0),
+    );
+    let corners = [
+        frame.left_top(),
+        frame.right_top(),
+        frame.left_bottom(),
+        frame.right_bottom(),
+    ];
+    let hit_r2 = 10.0_f32 * 10.0;
+    corners
+        .iter()
+        .any(|c| local_px.distance_sq(*c) <= hit_r2)
 }
 
 fn paint_shape(

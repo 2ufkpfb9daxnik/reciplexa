@@ -20,8 +20,9 @@
 mod sync;
 
 pub use sync::{
-    collect_drag_targets, collect_drag_targets_page, collect_layers_page, nudge_drag_target,
-    nudge_first_translate, reorder_layer_page, DragTarget, LayerInfo, SyncError,
+    collect_drag_targets, collect_drag_targets_page, collect_layers_page,
+    collect_size_targets_page, nudge_drag_target, nudge_first_translate, reorder_layer_page,
+    scale_size_target, DragTarget, LayerInfo, SizeTarget, SyncError,
 };
 
 use reciplexa_scene::{

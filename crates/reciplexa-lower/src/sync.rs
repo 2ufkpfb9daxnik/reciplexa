@@ -21,6 +21,27 @@ impl SyncError {
     }
 }
 
+/// How a flattened world shape maps back to editable size numbers (scale handles).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SizeTarget {
+    /// `(circle x y r …)` — scale radius about center.
+    CircleR(usize),
+    /// `(rect x y w h …)` — scale w/h about center (rewrites x/y too).
+    RectWh(usize),
+    /// `(ellipse x y rx ry …)` — scale radii about center.
+    EllipseRxRy(usize),
+    /// `(ring x y r width …)` — scale radius about center.
+    RingR(usize),
+    /// `(frame x y w h …)` — scale w/h about center.
+    FrameWh(usize),
+    /// `(text x y size …)` — scale font size.
+    TextSize(usize),
+    /// `(image path x y w h)` — scale w/h about center.
+    ImageWh(usize),
+    /// Lines / polys: no leaf size edit yet.
+    Unsupported,
+}
+
 /// How a flattened world shape maps back to editable CST numbers.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DragTarget {
@@ -287,6 +308,49 @@ pub fn nudge_first_translate(src: &str, dx: f64, dy: f64) -> Result<String, Sync
     nudge_drag_target(src, DragTarget::Translate(0), dx, dy)
 }
 
+/// Collect one [`SizeTarget`] per flattened drawable (same order as hit-test).
+pub fn collect_size_targets_page(
+    src: &str,
+    page_index: usize,
+) -> Result<Vec<SizeTarget>, SyncError> {
+    let root = parse_root(src)?;
+    let mut out = Vec::new();
+    let mut counters = Counters::default();
+    let page = find_page(&root, page_index)?;
+    let items = list_atoms(&page);
+    let start = page_body_start(&items);
+    for item in items.iter().skip(start) {
+        if let Child::Node(n) = item {
+            collect_size_from_shape(n, &mut counters, &mut out);
+        }
+    }
+    Ok(out)
+}
+
+/// Multiply a leaf shape's size by `factor` (>0), rewriting CST numbers only.
+pub fn scale_size_target(
+    src: &str,
+    target: SizeTarget,
+    factor: f64,
+) -> Result<String, SyncError> {
+    if !(factor.is_finite() && factor > 0.0) {
+        return Err(SyncError::new("scale factor must be finite and > 0"));
+    }
+    match target {
+        SizeTarget::CircleR(i) => multiply_nth_number(src, "circle", i, 3, factor),
+        SizeTarget::RingR(i) => multiply_nth_number(src, "ring", i, 3, factor),
+        SizeTarget::EllipseRxRy(i) => {
+            let after = multiply_nth_number(src, "ellipse", i, 3, factor)?;
+            multiply_nth_number(&after, "ellipse", i, 4, factor)
+        }
+        SizeTarget::TextSize(i) => multiply_nth_number(src, "text", i, 3, factor),
+        SizeTarget::RectWh(i) => scale_box_about_center(src, "rect", i, [1, 2, 3, 4], factor),
+        SizeTarget::FrameWh(i) => scale_box_about_center(src, "frame", i, [1, 2, 3, 4], factor),
+        SizeTarget::ImageWh(i) => scale_box_about_center(src, "image", i, [2, 3, 4, 5], factor),
+        SizeTarget::Unsupported => Ok(src.to_string()),
+    }
+}
+
 #[derive(Default)]
 struct Counters {
     translate: usize,
@@ -326,22 +390,7 @@ fn collect_from_shape(
             }
         }
         "rotate" | "scale" | "group" | "opacity" => {
-            let skip = if head.text() == "scale" {
-                // (scale s …) or (scale sx sy …)
-                if items.len() >= 4
-                    && matches!(&items[1], Child::Token(t) if t.kind() == SyntaxKind::Number)
-                    && matches!(&items[2], Child::Token(t) if t.kind() == SyntaxKind::Number)
-                {
-                    3
-                } else {
-                    2
-                }
-            } else if head.text() == "group" {
-                1
-            } else {
-                // rotate / opacity: (head num shape…)
-                2
-            };
+            let skip = transform_body_skip(head.text(), &items);
             for item in items.iter().skip(skip) {
                 if let Child::Node(n) = item {
                     collect_from_shape(n, inherited_translate, counters, out);
@@ -429,6 +478,104 @@ fn collect_from_shape(
             });
         }
         _ => {}
+    }
+}
+
+fn collect_size_from_shape(
+    node: &SyntaxNode,
+    counters: &mut Counters,
+    out: &mut Vec<SizeTarget>,
+) {
+    let items = list_atoms(node);
+    let Some(Child::Token(head)) = items.first() else {
+        return;
+    };
+    if head.kind() != SyntaxKind::Ident {
+        return;
+    }
+    match head.text() {
+        "translate" => {
+            counters.translate += 1;
+            for item in items.iter().skip(3) {
+                if let Child::Node(n) = item {
+                    collect_size_from_shape(n, counters, out);
+                }
+            }
+        }
+        "rotate" | "scale" | "group" | "opacity" => {
+            let skip = transform_body_skip(head.text(), &items);
+            for item in items.iter().skip(skip) {
+                if let Child::Node(n) = item {
+                    collect_size_from_shape(n, counters, out);
+                }
+            }
+        }
+        "circle" => {
+            let idx = counters.circle;
+            counters.circle += 1;
+            out.push(SizeTarget::CircleR(idx));
+        }
+        "rect" => {
+            let idx = counters.rect;
+            counters.rect += 1;
+            out.push(SizeTarget::RectWh(idx));
+        }
+        "ellipse" => {
+            let idx = counters.ellipse;
+            counters.ellipse += 1;
+            out.push(SizeTarget::EllipseRxRy(idx));
+        }
+        "ring" => {
+            let idx = counters.ring;
+            counters.ring += 1;
+            out.push(SizeTarget::RingR(idx));
+        }
+        "frame" => {
+            let idx = counters.frame;
+            counters.frame += 1;
+            out.push(SizeTarget::FrameWh(idx));
+        }
+        "text" => {
+            let idx = counters.text;
+            counters.text += 1;
+            out.push(SizeTarget::TextSize(idx));
+        }
+        "line" => {
+            counters.line += 1;
+            out.push(SizeTarget::Unsupported);
+        }
+        "polyline" => {
+            counters.polyline += 1;
+            out.push(SizeTarget::Unsupported);
+        }
+        "polygon" => {
+            counters.polygon += 1;
+            out.push(SizeTarget::Unsupported);
+        }
+        "image" => {
+            let idx = counters.image;
+            counters.image += 1;
+            out.push(SizeTarget::ImageWh(idx));
+        }
+        _ => {}
+    }
+}
+
+fn transform_body_skip(head: &str, items: &[Child]) -> usize {
+    if head == "scale" {
+        if items.len() >= 4
+            && matches!(&items[1], Child::Token(t) if t.kind() == SyntaxKind::Number)
+            && matches!(&items[2], Child::Token(t) if t.kind() == SyntaxKind::Number)
+        {
+            3
+        } else {
+            2
+        }
+    } else if head == "group" {
+        1
+    } else {
+        // rotate / opacity: (head num shape…)
+        2
     }
 }
 
@@ -547,6 +694,105 @@ fn nudge_nth_pair(
         .ok_or_else(|| SyncError::new(format!("`{head}` #{index} lost after x patch")))?;
     let (_, after_y) = replace_token_text(&y_tok2, &format_drag_number(y + dy));
     Ok(after_y)
+}
+
+fn multiply_nth_number(
+    src: &str,
+    head: &str,
+    index: usize,
+    slot: usize,
+    factor: f64,
+) -> Result<String, SyncError> {
+    let root = parse_root(src)?;
+    let tok = find_nth_number(&root, head, index, slot)
+        .ok_or_else(|| SyncError::new(format!("no `{head}` #{index} slot {slot}")))?;
+    let v: f64 = tok
+        .text()
+        .parse()
+        .map_err(|_| SyncError::new("bad size number"))?;
+    let (_, out) = replace_token_text(&tok, &format_drag_number(v * factor));
+    Ok(out)
+}
+
+fn scale_box_about_center(
+    src: &str,
+    head: &str,
+    index: usize,
+    // [x, y, w, h] atom slots inside the list.
+    slots: [usize; 4],
+    factor: f64,
+) -> Result<String, SyncError> {
+    let root = parse_root(src)?;
+    let x = read_nth_number(&root, head, index, slots[0])?;
+    let y = read_nth_number(&root, head, index, slots[1])?;
+    let w = read_nth_number(&root, head, index, slots[2])?;
+    let h = read_nth_number(&root, head, index, slots[3])?;
+    let cx = x + w * 0.5;
+    let cy = y + h * 0.5;
+    let nw = w * factor;
+    let nh = h * factor;
+    let nx = cx - nw * 0.5;
+    let ny = cy - nh * 0.5;
+    let mut out = set_nth_number(src, head, index, slots[0], nx)?;
+    out = set_nth_number(&out, head, index, slots[1], ny)?;
+    out = set_nth_number(&out, head, index, slots[2], nw)?;
+    set_nth_number(&out, head, index, slots[3], nh)
+}
+
+fn read_nth_number(
+    root: &SyntaxNode,
+    head: &str,
+    index: usize,
+    slot: usize,
+) -> Result<f64, SyncError> {
+    let tok = find_nth_number(root, head, index, slot)
+        .ok_or_else(|| SyncError::new(format!("no `{head}` #{index} slot {slot}")))?;
+    tok.text()
+        .parse()
+        .map_err(|_| SyncError::new("bad number"))
+}
+
+fn set_nth_number(
+    src: &str,
+    head: &str,
+    index: usize,
+    slot: usize,
+    value: f64,
+) -> Result<String, SyncError> {
+    let root = parse_root(src)?;
+    let tok = find_nth_number(&root, head, index, slot)
+        .ok_or_else(|| SyncError::new(format!("no `{head}` #{index} slot {slot}")))?;
+    let (_, out) = replace_token_text(&tok, &format_drag_number(value));
+    Ok(out)
+}
+
+fn find_nth_number(
+    root: &SyntaxNode,
+    head: &str,
+    index: usize,
+    slot: usize,
+) -> Option<SyntaxToken> {
+    let mut seen = 0usize;
+    for node in root.descendants() {
+        if node.kind() != SyntaxKind::List {
+            continue;
+        }
+        let items = list_atoms(&node);
+        let Some(Child::Token(h)) = items.first() else {
+            continue;
+        };
+        if h.kind() != SyntaxKind::Ident || h.text() != head {
+            continue;
+        }
+        if seen == index {
+            return match items.get(slot) {
+                Some(Child::Token(t)) if t.kind() == SyntaxKind::Number => Some(t.clone()),
+                _ => None,
+            };
+        }
+        seen += 1;
+    }
+    None
 }
 
 fn nudge_line(src: &str, index: usize, dx: f64, dy: f64) -> Result<String, SyncError> {
@@ -814,5 +1060,41 @@ mod tests {
     fn out_of_range_target_errors() {
         let src = "(page a4 (circle 1 2 3))";
         assert!(nudge_drag_target(src, DragTarget::CircleXy(3), 1.0, 0.0).is_err());
+    }
+
+    #[test]
+    fn scale_circle_radius() {
+        let src = "(page a4 (circle 10 20 5))";
+        let sizes = collect_size_targets_page(src, 0).unwrap();
+        assert_eq!(sizes, vec![SizeTarget::CircleR(0)]);
+        let out = scale_size_target(src, SizeTarget::CircleR(0), 2.0).unwrap();
+        assert!(out.contains("(circle 10 20 10)"));
+    }
+
+    #[test]
+    fn scale_rect_about_center() {
+        let src = "(page a4 (rect 0 0 10 20))";
+        let out = scale_size_target(src, SizeTarget::RectWh(0), 2.0).unwrap();
+        // center stays at (5, 10); size 20×40 → origin (-5, -10)
+        assert!(
+            out.contains("(rect -5 -10 20 40)"),
+            "unexpected rewrite: {out}"
+        );
+    }
+
+    #[test]
+    fn scale_under_translate_still_edits_leaf() {
+        let src = "(page a4 (translate 1 2 (circle 0 0 4)))";
+        let sizes = collect_size_targets_page(src, 0).unwrap();
+        assert_eq!(sizes, vec![SizeTarget::CircleR(0)]);
+        let out = scale_size_target(src, SizeTarget::CircleR(0), 0.5).unwrap();
+        assert!(out.contains("(circle 0 0 2)"));
+    }
+
+    #[test]
+    fn bad_scale_factor_errors() {
+        let src = "(page a4 (circle 1 2 3))";
+        assert!(scale_size_target(src, SizeTarget::CircleR(0), 0.0).is_err());
+        assert!(scale_size_target(src, SizeTarget::CircleR(0), -1.0).is_err());
     }
 }
