@@ -9,8 +9,8 @@ use std::sync::Arc;
 use eframe::egui;
 use eframe::egui::text::{CCursor, CCursorRange};
 use reciplexa_lower::{
-    collect_drag_targets_page, collect_layers_page, lower_source, nudge_drag_target, DragTarget,
-    LayerInfo,
+    collect_drag_targets_page, collect_layers_page, lower_source, nudge_drag_target,
+    reorder_layer_page, DragTarget, LayerInfo,
 };
 use reciplexa_macro::expand_source;
 use reciplexa_pdf::write_document_with_base;
@@ -166,6 +166,26 @@ impl PreviewApp {
             self.pending_source_select = Some((layer.byte_start, layer.byte_end));
         }
     }
+
+    fn apply_layer_reorder(&mut self, from: usize, to: usize) {
+        if from == to {
+            return;
+        }
+        match reorder_layer_page(&self.source, self.page_index, from, to) {
+            Ok(new_src) => {
+                self.source = new_src;
+                self.drag = None;
+                self.selected = Some(to);
+                self.error = pipeline_doc(&self.source).err();
+                if let Ok(layers) = collect_layers_page(&self.source, self.page_index) {
+                    if let Some(layer) = layers.get(to) {
+                        self.pending_source_select = Some((layer.byte_start, layer.byte_end));
+                    }
+                }
+            }
+            Err(e) => self.error = Some(e.message),
+        }
+    }
 }
 
 impl eframe::App for PreviewApp {
@@ -255,23 +275,65 @@ impl eframe::App for PreviewApp {
 
         egui::SidePanel::right("layers_panel")
             .resizable(true)
-            .default_width(220.0)
+            .default_width(240.0)
             .show(ctx, |ui| {
                 ui.heading("Layers");
-                ui.label("Top = drawn last. Click to select + highlight source.");
+                ui.label("Later in source = on top. Drag rows or use ▲▼ — rewrites .rpx.");
                 ui.separator();
+                let n = layers_for_panel.len();
+                let mut reorder: Option<(usize, usize)> = None;
                 egui::ScrollArea::vertical().show(ui, |ui| {
-                    for (index, layer) in layers_for_panel.iter().enumerate().rev() {
-                        let selected = self.selected == Some(index);
-                        let text = format!("{}. {}", index + 1, layer.label);
-                        if ui.selectable_label(selected, text).clicked() {
-                            self.select_layer(index, &layers_for_panel);
-                        }
+                    // Top of list = topmost (last drawn = highest flatten index).
+                    for flat in (0..n).rev() {
+                        let Some(layer) = layers_for_panel.get(flat) else {
+                            continue;
+                        };
+                        let selected = self.selected == Some(flat);
+                        ui.horizontal(|ui| {
+                            let can_up = flat + 1 < n;
+                            let can_down = flat > 0;
+                            if ui
+                                .add_enabled(can_up, egui::Button::new("▲").small())
+                                .on_hover_text("Bring forward (later in source)")
+                                .clicked()
+                            {
+                                reorder = Some((flat, flat + 1));
+                            }
+                            if ui
+                                .add_enabled(can_down, egui::Button::new("▼").small())
+                                .on_hover_text("Send backward (earlier in source)")
+                                .clicked()
+                            {
+                                reorder = Some((flat, flat - 1));
+                            }
+                            let text = format!("{}. {}", flat + 1, layer.label);
+                            let response = ui.selectable_label(selected, text);
+                            response.dnd_set_drag_payload(flat);
+                            if response.clicked() {
+                                self.select_layer(flat, &layers_for_panel);
+                            }
+                            if let Some(from) = response.dnd_release_payload::<usize>() {
+                                if *from != flat {
+                                    reorder = Some((*from, flat));
+                                }
+                            }
+                            if response.dnd_hover_payload::<usize>().is_some() {
+                                ui.painter().rect_stroke(
+                                    response.rect.expand(2.0),
+                                    2.0,
+                                    egui::Stroke::new(1.5, egui::Color32::from_rgb(30, 120, 220)),
+                                    egui::StrokeKind::Outside,
+                                );
+                            }
+                        });
                     }
-                    if layers_for_panel.is_empty() {
+                    if n == 0 {
                         ui.weak("(no shapes on this page)");
                     }
                 });
+                if let Some((from, to)) = reorder {
+                    self.apply_layer_reorder(from, to);
+                }
             });
 
         egui::CentralPanel::default().show(ctx, |ui| {

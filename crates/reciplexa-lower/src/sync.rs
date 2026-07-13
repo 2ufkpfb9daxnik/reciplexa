@@ -49,6 +49,9 @@ pub enum DragTarget {
 }
 
 /// One flattened drawable for the GUI layer list (same order as hit-test indices).
+///
+/// **Z-order is source order:** later siblings under a page (or group) paint on
+/// top. There is no separate z field — reordering layers rewrites the `.rpx`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LayerInfo {
     pub kind: String,
@@ -56,6 +59,9 @@ pub struct LayerInfo {
     /// Byte range of the leaf shape list in the source (for editor highlight).
     pub byte_start: usize,
     pub byte_end: usize,
+    /// Direct child of `(page …)` that owns this leaf (equals byte_* if top-level).
+    pub root_start: usize,
+    pub root_end: usize,
 }
 
 /// Collect one [`DragTarget`] per flattened drawable, in flatten order.
@@ -91,10 +97,141 @@ pub fn collect_layers_page(src: &str, page_index: usize) -> Result<Vec<LayerInfo
     let start = page_body_start(&items);
     for item in items.iter().skip(start) {
         if let Child::Node(n) = item {
-            collect_layers_from_shape(n, &mut out);
+            let rr = n.text_range();
+            let root_span = (usize::from(rr.start()), usize::from(rr.end()));
+            collect_layers_from_shape(n, root_span, &mut out);
         }
     }
     Ok(out)
+}
+
+/// Move flattened layer `from` to flatten index `to` (0 = bottom / earliest in source).
+///
+/// Rewrites the `.rpx` so paint order stays entirely in the code (no hidden z).
+pub fn reorder_layer_page(
+    src: &str,
+    page_index: usize,
+    from: usize,
+    to: usize,
+) -> Result<String, SyncError> {
+    if from == to {
+        return Ok(src.to_string());
+    }
+    let layers = collect_layers_page(src, page_index)?;
+    if from >= layers.len() || to >= layers.len() {
+        return Err(SyncError::new("layer index out of range"));
+    }
+    let from_root = (layers[from].root_start, layers[from].root_end);
+    let to_root = (layers[to].root_start, layers[to].root_end);
+
+    if from_root == to_root {
+        reorder_among_shared_root(src, &layers, from, to, from_root)
+    } else {
+        reorder_page_roots(src, page_index, from_root, to_root)
+    }
+}
+
+fn reorder_page_roots(
+    src: &str,
+    page_index: usize,
+    from_root: (usize, usize),
+    to_root: (usize, usize),
+) -> Result<String, SyncError> {
+    let root = parse_root(src)?;
+    let page = find_page(&root, page_index)?;
+    let items = list_atoms(&page);
+    let start = page_body_start(&items);
+    let mut forms = Vec::new();
+    for item in items.iter().skip(start) {
+        if let Child::Node(n) = item {
+            let r = n.text_range();
+            forms.push((usize::from(r.start()), usize::from(r.end())));
+        }
+    }
+    let fi = forms
+        .iter()
+        .position(|r| *r == from_root)
+        .ok_or_else(|| SyncError::new("from layer root not found under page"))?;
+    let ti = forms
+        .iter()
+        .position(|r| *r == to_root)
+        .ok_or_else(|| SyncError::new("to layer root not found under page"))?;
+    if fi == ti {
+        return Ok(src.to_string());
+    }
+    let item = forms.remove(fi);
+    forms.insert(ti, item);
+    Ok(rewrite_form_order(src, &forms))
+}
+
+fn reorder_among_shared_root(
+    src: &str,
+    layers: &[LayerInfo],
+    from: usize,
+    to: usize,
+    root: (usize, usize),
+) -> Result<String, SyncError> {
+    let sibling_idx: Vec<usize> = layers
+        .iter()
+        .enumerate()
+        .filter(|(_, l)| (l.root_start, l.root_end) == root)
+        .map(|(i, _)| i)
+        .collect();
+    let fi = sibling_idx
+        .iter()
+        .position(|&i| i == from)
+        .ok_or_else(|| SyncError::new("from layer not under shared root"))?;
+    let ti = sibling_idx
+        .iter()
+        .position(|&i| i == to)
+        .ok_or_else(|| SyncError::new("to layer not under shared root"))?;
+    if fi == ti {
+        return Ok(src.to_string());
+    }
+    let mut forms: Vec<(usize, usize)> = sibling_idx
+        .iter()
+        .map(|&i| (layers[i].byte_start, layers[i].byte_end))
+        .collect();
+    let item = forms.remove(fi);
+    forms.insert(ti, item);
+    Ok(rewrite_form_order(src, &forms))
+}
+
+/// `forms` is the desired order of existing `(start,end)` list spans (without trivia).
+fn rewrite_form_order(src: &str, forms: &[(usize, usize)]) -> String {
+    if forms.is_empty() {
+        return src.to_string();
+    }
+    let extents: Vec<(usize, usize)> = forms
+        .iter()
+        .map(|&(a, b)| extent_with_leading_ws(src, a, b))
+        .collect();
+    let body_start = extents.iter().map(|e| e.0).min().unwrap();
+    let body_end = extents.iter().map(|e| e.1).max().unwrap();
+    let mut new_body = String::new();
+    for &(s, e) in &extents {
+        new_body.push_str(&src[s..e]);
+    }
+    let mut out = String::with_capacity(src.len());
+    out.push_str(&src[..body_start]);
+    out.push_str(&new_body);
+    out.push_str(&src[body_end..]);
+    out
+}
+
+fn extent_with_leading_ws(src: &str, start: usize, end: usize) -> (usize, usize) {
+    let bytes = src.as_bytes();
+    let mut s = start;
+    while s > 0 && matches!(bytes[s - 1], b' ' | b'\t') {
+        s -= 1;
+    }
+    if s > 0 && bytes[s - 1] == b'\n' {
+        s -= 1;
+        if s > 0 && bytes[s - 1] == b'\r' {
+            s -= 1;
+        }
+    }
+    (s, end)
 }
 
 fn find_page(root: &SyntaxNode, page_index: usize) -> Result<SyntaxNode, SyncError> {
@@ -295,7 +432,11 @@ fn collect_from_shape(
     }
 }
 
-fn collect_layers_from_shape(node: &SyntaxNode, out: &mut Vec<LayerInfo>) {
+fn collect_layers_from_shape(
+    node: &SyntaxNode,
+    root_span: (usize, usize),
+    out: &mut Vec<LayerInfo>,
+) {
     let items = list_atoms(node);
     let Some(Child::Token(head)) = items.first() else {
         return;
@@ -308,7 +449,7 @@ fn collect_layers_from_shape(node: &SyntaxNode, out: &mut Vec<LayerInfo>) {
         "translate" => {
             for item in items.iter().skip(3) {
                 if let Child::Node(n) = item {
-                    collect_layers_from_shape(n, out);
+                    collect_layers_from_shape(n, root_span, out);
                 }
             }
         }
@@ -329,7 +470,7 @@ fn collect_layers_from_shape(node: &SyntaxNode, out: &mut Vec<LayerInfo>) {
             };
             for item in items.iter().skip(skip) {
                 if let Child::Node(n) = item {
-                    collect_layers_from_shape(n, out);
+                    collect_layers_from_shape(n, root_span, out);
                 }
             }
         }
@@ -341,6 +482,8 @@ fn collect_layers_from_shape(node: &SyntaxNode, out: &mut Vec<LayerInfo>) {
                 label: layer_label(kind, &items),
                 byte_start: range.start().into(),
                 byte_end: range.end().into(),
+                root_start: root_span.0,
+                root_end: root_span.1,
             });
         }
         _ => {}
@@ -624,10 +767,34 @@ mod tests {
         assert_eq!(layers[1].label, "text \"あ\"");
         assert!(src[layers[0].byte_start..layers[0].byte_end].contains("circle"));
         assert!(src[layers[1].byte_start..layers[1].byte_end].contains("text"));
+        assert_eq!(layers[0].root_start, layers[0].byte_start);
         assert_eq!(
             collect_drag_targets_page(src, 0).unwrap().len(),
             layers.len()
         );
+    }
+
+    #[test]
+    fn reorder_layer_moves_source_order() {
+        let src = "(page a4\n  (circle 1 2 3)\n  (circle 4 5 6)\n  (rect 0 0 1 1))\n";
+        // Move bottom (0) to top (2).
+        let out = reorder_layer_page(src, 0, 0, 2).unwrap();
+        let layers = collect_layers_page(&out, 0).unwrap();
+        assert_eq!(
+            layers.iter().map(|l| l.kind.as_str()).collect::<Vec<_>>(),
+            vec!["circle", "rect", "circle"]
+        );
+        assert!(out.find("(circle 1 2 3)").unwrap() > out.find("(rect 0 0 1 1)").unwrap());
+    }
+
+    #[test]
+    fn reorder_within_translate_rewrites_group_body() {
+        let src = "(page a4\n  (translate 0 0\n    (circle 1 2 3)\n    (rect 0 0 1 1)))\n";
+        let out = reorder_layer_page(src, 0, 0, 1).unwrap();
+        let layers = collect_layers_page(&out, 0).unwrap();
+        assert_eq!(layers[0].kind, "rect");
+        assert_eq!(layers[1].kind, "circle");
+        assert!(out.contains("(translate 0 0"));
     }
 
     // --- defect ---

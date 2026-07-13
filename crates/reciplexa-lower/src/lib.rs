@@ -21,7 +21,7 @@ mod sync;
 
 pub use sync::{
     collect_drag_targets, collect_drag_targets_page, collect_layers_page, nudge_drag_target,
-    nudge_first_translate, DragTarget, LayerInfo, SyncError,
+    nudge_first_translate, reorder_layer_page, DragTarget, LayerInfo, SyncError,
 };
 
 use reciplexa_scene::{
