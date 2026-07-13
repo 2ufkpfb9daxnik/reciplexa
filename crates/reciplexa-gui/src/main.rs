@@ -408,6 +408,14 @@ impl PreviewApp {
                             align = Some(AlignEdge::Bottom);
                         }
                     });
+                    ui.horizontal(|ui| {
+                        if ui.button("Center H").clicked() {
+                            align = Some(AlignEdge::CenterH);
+                        }
+                        if ui.button("Center V").clicked() {
+                            align = Some(AlignEdge::CenterV);
+                        }
+                    });
                     if indices.len() >= 3 {
                         ui.label(egui::RichText::new("Distribute").strong());
                         ui.horizontal(|ui| {
@@ -727,6 +735,22 @@ impl PreviewApp {
                 .iter()
                 .map(|(_, b)| b.3)
                 .fold(f64::NEG_INFINITY, f64::max),
+            AlignEdge::CenterH => {
+                let min_x = items.iter().map(|(_, b)| b.0).fold(f64::INFINITY, f64::min);
+                let max_x = items
+                    .iter()
+                    .map(|(_, b)| b.2)
+                    .fold(f64::NEG_INFINITY, f64::max);
+                (min_x + max_x) * 0.5
+            }
+            AlignEdge::CenterV => {
+                let min_y = items.iter().map(|(_, b)| b.1).fold(f64::INFINITY, f64::min);
+                let max_y = items
+                    .iter()
+                    .map(|(_, b)| b.3)
+                    .fold(f64::NEG_INFINITY, f64::max);
+                (min_y + max_y) * 0.5
+            }
         };
         items.sort_by_key(|(i, _)| *i);
         self.push_undo();
@@ -737,6 +761,8 @@ impl PreviewApp {
                 AlignEdge::Right => (target - x1, 0.0),
                 AlignEdge::Bottom => (0.0, target - y0),
                 AlignEdge::Top => (0.0, target - y1),
+                AlignEdge::CenterH => (target - (x0 + x1) * 0.5, 0.0),
+                AlignEdge::CenterV => (0.0, target - (y0 + y1) * 0.5),
             };
             if dx.abs() < 1e-12 && dy.abs() < 1e-12 {
                 continue;
@@ -895,6 +921,8 @@ enum AlignEdge {
     Right,
     Top,
     Bottom,
+    CenterH,
+    CenterV,
 }
 
 impl eframe::App for PreviewApp {
