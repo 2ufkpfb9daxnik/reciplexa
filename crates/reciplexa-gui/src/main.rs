@@ -380,7 +380,7 @@ impl eframe::App for PreviewApp {
             .default_width(240.0)
             .show(ctx, |ui| {
                 ui.heading("Layers");
-                ui.label("Later in source = on top. Drag rows or use ▲▼ — rewrites .rpx.");
+                ui.label("Drag any row to restack. Top = front (later in source).");
                 ui.separator();
                 let n = layers_for_panel.len();
                 let mut reorder: Option<(usize, usize)> = None;
@@ -391,43 +391,54 @@ impl eframe::App for PreviewApp {
                             continue;
                         };
                         let selected = self.selected == Some(flat);
-                        ui.horizontal(|ui| {
-                            let can_up = flat + 1 < n;
-                            let can_down = flat > 0;
-                            if ui
-                                .add_enabled(can_up, egui::Button::new("▲").small())
-                                .on_hover_text("Bring forward (later in source)")
-                                .clicked()
+                        let id = egui::Id::new(("layer_dnd", self.page_index, flat));
+                        let text = format!("{}. {}", flat + 1, layer.label);
+                        let row = ui.dnd_drag_source(id, flat, |ui| {
+                            ui.horizontal(|ui| {
+                                ui.weak("⠿");
+                                let _ = ui.selectable_label(selected, &text);
+                            });
+                        });
+                        let response = row
+                            .response
+                            .on_hover_cursor(egui::CursorIcon::Grab)
+                            .on_hover_text("Drag to change stacking order");
+                        if response.clicked() {
+                            self.select_layer(flat, &layers_for_panel);
+                        }
+                        // Drop onto a row → take that stacking slot (rewrites .rpx).
+                        if let Some(pointer) = ui.ctx().pointer_interact_pos() {
+                            if response.rect.contains(pointer)
+                                && response.dnd_hover_payload::<usize>().is_some()
                             {
-                                reorder = Some((flat, flat + 1));
-                            }
-                            if ui
-                                .add_enabled(can_down, egui::Button::new("▼").small())
-                                .on_hover_text("Send backward (earlier in source)")
-                                .clicked()
-                            {
-                                reorder = Some((flat, flat - 1));
-                            }
-                            let text = format!("{}. {}", flat + 1, layer.label);
-                            let response = ui.selectable_label(selected, text);
-                            response.dnd_set_drag_payload(flat);
-                            if response.clicked() {
-                                self.select_layer(flat, &layers_for_panel);
-                            }
-                            if let Some(from) = response.dnd_release_payload::<usize>() {
-                                if *from != flat {
-                                    reorder = Some((*from, flat));
+                                let insert_above = pointer.y < response.rect.center().y;
+                                let y = if insert_above {
+                                    response.rect.top()
+                                } else {
+                                    response.rect.bottom()
+                                };
+                                ui.painter().hline(
+                                    response.rect.x_range(),
+                                    y,
+                                    egui::Stroke::new(
+                                        2.0,
+                                        egui::Color32::from_rgb(30, 120, 220),
+                                    ),
+                                );
+                                if let Some(from) = response.dnd_release_payload::<usize>() {
+                                    // Visual top = high flat. Upper half → just in front of
+                                    // this row; lower half → this row's slot.
+                                    let to = if insert_above {
+                                        (flat + 1).min(n.saturating_sub(1))
+                                    } else {
+                                        flat
+                                    };
+                                    if *from != to {
+                                        reorder = Some((*from, to));
+                                    }
                                 }
                             }
-                            if response.dnd_hover_payload::<usize>().is_some() {
-                                ui.painter().rect_stroke(
-                                    response.rect.expand(2.0),
-                                    2.0,
-                                    egui::Stroke::new(1.5, egui::Color32::from_rgb(30, 120, 220)),
-                                    egui::StrokeKind::Outside,
-                                );
-                            }
-                        });
+                        }
                     }
                     if n == 0 {
                         ui.weak("(no shapes on this page)");
