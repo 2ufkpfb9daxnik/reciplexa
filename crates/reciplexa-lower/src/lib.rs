@@ -20,7 +20,8 @@
 mod sync;
 
 pub use sync::{
-    collect_drag_targets, nudge_drag_target, nudge_first_translate, DragTarget, SyncError,
+    collect_drag_targets, collect_drag_targets_page, nudge_drag_target, nudge_first_translate,
+    DragTarget, SyncError,
 };
 
 use reciplexa_scene::{
@@ -125,6 +126,7 @@ fn lower_shape(node: &SyntaxNode) -> Result<Shape, LowerError> {
         "text" => lower_text(&items),
         "line" => lower_line(&items),
         "polyline" => lower_polyline(&items),
+        "group" => lower_group(&items),
         "translate" => lower_translate(&items),
         "rotate" => lower_rotate(&items),
         "scale" => lower_scale(&items),
@@ -497,6 +499,17 @@ fn lower_translate(items: &[Child]) -> Result<Shape, LowerError> {
     })
 }
 
+fn lower_group(items: &[Child]) -> Result<Shape, LowerError> {
+    // (group shape…) — identity transform, for layering / annotations.
+    if items.len() < 2 {
+        return Err(LowerError::new("`group` expects at least one shape"));
+    }
+    Ok(Shape::Group {
+        transform: Affine::identity(),
+        children: lower_shape_tail(&items[1..])?,
+    })
+}
+
 fn lower_rotate(items: &[Child]) -> Result<Shape, LowerError> {
     // (rotate deg shape…)
     if items.len() < 3 {
@@ -829,6 +842,26 @@ mod tests {
             }
             _ => panic!("expected polyline"),
         }
+    }
+
+    #[test]
+    fn lowers_group_and_multipage() {
+        let src = include_str!("../../../examples/two_pages.rpx");
+        let doc = lower_source(src).unwrap();
+        assert_eq!(doc.pages.len(), 2);
+        match &doc.pages[1].shapes[1] {
+            Shape::Group {
+                transform,
+                children,
+            } => {
+                assert_eq!(*transform, Affine::identity());
+                assert_eq!(children.len(), 2);
+            }
+            _ => panic!("expected group"),
+        }
+        let pdf = document_to_pdf(&doc).unwrap();
+        let text = String::from_utf8_lossy(&pdf);
+        assert!(text.contains("/Count 2"));
     }
 
     // --- defect ---

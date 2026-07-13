@@ -46,21 +46,34 @@ pub enum DragTarget {
 
 /// Collect one [`DragTarget`] per flattened drawable, in flatten order.
 pub fn collect_drag_targets(src: &str) -> Result<Vec<DragTarget>, SyncError> {
+    collect_drag_targets_page(src, 0)
+}
+
+/// Collect drag targets for a single page (0-based), matching [`reciplexa_view::flatten_page`].
+pub fn collect_drag_targets_page(
+    src: &str,
+    page_index: usize,
+) -> Result<Vec<DragTarget>, SyncError> {
     let root = parse_root(src)?;
     let mut out = Vec::new();
     let mut counters = Counters::default();
+    let mut page_i = 0usize;
     for form in root.children() {
         if !is_list_headed(&form, "page") {
             continue;
         }
-        let items = list_atoms(&form);
-        for item in items.iter().skip(2) {
-            if let Child::Node(n) = item {
-                collect_from_shape(n, None, &mut counters, &mut out);
+        if page_i == page_index {
+            let items = list_atoms(&form);
+            for item in items.iter().skip(2) {
+                if let Child::Node(n) = item {
+                    collect_from_shape(n, None, &mut counters, &mut out);
+                }
             }
+            return Ok(out);
         }
+        page_i += 1;
     }
-    Ok(out)
+    Err(SyncError::new(format!("no page #{page_index}")))
 }
 
 /// Nudge the numbers described by `target` by `(dx, dy)` mm.
@@ -124,7 +137,7 @@ fn collect_from_shape(
                 }
             }
         }
-        "rotate" | "scale" => {
+        "rotate" | "scale" | "group" => {
             let skip = if head.text() == "scale" {
                 // (scale s …) or (scale sx sy …)
                 if items.len() >= 4
@@ -135,6 +148,8 @@ fn collect_from_shape(
                 } else {
                     2
                 }
+            } else if head.text() == "group" {
+                1
             } else {
                 2
             };
@@ -398,6 +413,19 @@ mod tests {
                 DragTarget::Translate(0),
                 DragTarget::CircleXy(1), // second circle form in file
             ]
+        );
+    }
+
+    #[test]
+    fn page_scoped_bindings_ignore_other_pages() {
+        let src = "(page a4 (circle 1 2 3))\n(page a4 (rect 0 0 1 1))";
+        assert_eq!(
+            collect_drag_targets_page(src, 0).unwrap(),
+            vec![DragTarget::CircleXy(0)]
+        );
+        assert_eq!(
+            collect_drag_targets_page(src, 1).unwrap(),
+            vec![DragTarget::RectXy(0)]
         );
     }
 

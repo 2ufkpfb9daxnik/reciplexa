@@ -31,7 +31,12 @@ pub enum WorldShape {
 
 /// Flatten a document's first page (preview shows page 0).
 pub fn flatten_first_page(doc: &Document) -> Option<(&Page, Vec<WorldShape>)> {
-    let page = doc.pages.first()?;
+    flatten_page(doc, 0)
+}
+
+/// Flatten page `index` (0-based).
+pub fn flatten_page(doc: &Document, index: usize) -> Option<(&Page, Vec<WorldShape>)> {
+    let page = doc.pages.get(index)?;
     Some((page, flatten_shapes(&page.shapes, Affine::identity())))
 }
 

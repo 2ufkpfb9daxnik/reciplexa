@@ -73,6 +73,7 @@ mod tests {
             "ellipse.rpx",
             "outlines.rpx",
             "polyline.rpx",
+            "two_pages.rpx",
         ] {
             let input = repo.join("examples").join(name);
             let output = repo.join("target").join(format!("test-{name}.pdf"));

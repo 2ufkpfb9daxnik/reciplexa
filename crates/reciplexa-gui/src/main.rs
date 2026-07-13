@@ -6,11 +6,11 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 
 use eframe::egui;
-use reciplexa_lower::{collect_drag_targets, lower_source, nudge_drag_target, DragTarget};
+use reciplexa_lower::{collect_drag_targets_page, lower_source, nudge_drag_target, DragTarget};
 use reciplexa_macro::expand_source;
 use reciplexa_pdf::write_document;
 use reciplexa_types::typecheck_source;
-use reciplexa_view::{flatten_first_page, hit_test_shapes, PaperLayout, WorldShape};
+use reciplexa_view::{flatten_page, hit_test_shapes, PaperLayout, WorldShape};
 
 fn pipeline_doc(src: &str) -> Result<reciplexa_scene::Document, String> {
     let expanded = expand_source(src).map_err(|e| format!("macro: {}", e.message))?;
@@ -65,6 +65,7 @@ fn main() -> ExitCode {
                 source: src,
                 error: None,
                 drag: None,
+                page_index: 0,
             }))
         }),
     ) {
@@ -81,6 +82,7 @@ struct PreviewApp {
     source: String,
     error: Option<String>,
     drag: Option<DragState>,
+    page_index: usize,
 }
 
 struct DragState {
@@ -153,9 +155,7 @@ impl eframe::App for PreviewApp {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("Paper preview — drag shapes");
-            ui.label(
-                "Drag updates bound translate / circle / rect / ellipse / text / line leaves.",
-            );
+            ui.label("Drag updates bound translate / shape leaves on the current page.");
 
             let doc = match pipeline_doc(&self.source) {
                 Ok(d) => d,
@@ -164,15 +164,44 @@ impl eframe::App for PreviewApp {
                     return;
                 }
             };
-            let bindings = match collect_drag_targets(&self.source) {
+            let page_count = doc.pages.len();
+            if page_count == 0 {
+                ui.colored_label(egui::Color32::RED, "Document has no pages.");
+                return;
+            }
+            if self.page_index >= page_count {
+                self.page_index = page_count - 1;
+            }
+            ui.horizontal(|ui| {
+                if ui
+                    .add_enabled(self.page_index > 0, egui::Button::new("◀ Prev"))
+                    .clicked()
+                {
+                    self.page_index -= 1;
+                    self.drag = None;
+                }
+                ui.label(format!("Page {} / {}", self.page_index + 1, page_count));
+                if ui
+                    .add_enabled(
+                        self.page_index + 1 < page_count,
+                        egui::Button::new("Next ▶"),
+                    )
+                    .clicked()
+                {
+                    self.page_index += 1;
+                    self.drag = None;
+                }
+            });
+
+            let bindings = match collect_drag_targets_page(&self.source, self.page_index) {
                 Ok(b) => b,
                 Err(e) => {
                     ui.colored_label(egui::Color32::RED, &e.message);
                     return;
                 }
             };
-            let Some((page, shapes)) = flatten_first_page(&doc) else {
-                ui.colored_label(egui::Color32::RED, "Document has no pages.");
+            let Some((page, shapes)) = flatten_page(&doc, self.page_index) else {
+                ui.colored_label(egui::Color32::RED, "Page not found.");
                 return;
             };
             if bindings.len() != shapes.len() {

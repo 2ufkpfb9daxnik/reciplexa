@@ -263,6 +263,19 @@ fn check_form(node: &SyntaxNode) -> Result<Type, TypeError> {
             Ok(Type::Shape)
         }
         "scale" => check_scale(&args, node, span),
+        "group" => {
+            if args.is_empty() {
+                return Err(TypeError::at(
+                    "`group` has type (Shape+) -> Shape",
+                    span.0,
+                    span.1,
+                ));
+            }
+            for a in &args {
+                expect_ty(check_child(a)?, Type::Shape, node)?;
+            }
+            Ok(Type::Shape)
+        }
         other => Err(TypeError::at(
             format!("unknown form `{other}`"),
             span.0,

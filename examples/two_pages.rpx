@@ -1,0 +1,10 @@
+; Two A4 pages
+(page a4
+  (text 30 260 8 "Page 1" black)
+  (circle 105 148.5 40 red))
+
+(page a4
+  (text 30 260 8 "Page 2" black)
+  (group
+    (frame 40 60 130 160 1.5 blue)
+    (ellipse 105 140 50 30 green)))
