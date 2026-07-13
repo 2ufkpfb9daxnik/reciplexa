@@ -40,6 +40,8 @@ pub enum DragTarget {
     TextXy(usize),
     /// N-th `(line …)` — nudges both endpoints by the same delta.
     LineXy(usize),
+    /// N-th `(polyline …)` — nudges every vertex by the same delta.
+    PolylineXy(usize),
 }
 
 /// Collect one [`DragTarget`] per flattened drawable, in flatten order.
@@ -77,6 +79,7 @@ pub fn nudge_drag_target(
         DragTarget::FrameXy(i) => nudge_nth_pair(src, "frame", i, 1, 2, dx, dy),
         DragTarget::TextXy(i) => nudge_nth_pair(src, "text", i, 1, 2, dx, dy),
         DragTarget::LineXy(i) => nudge_line(src, i, dx, dy),
+        DragTarget::PolylineXy(i) => nudge_polyline(src, i, dx, dy),
     }
 }
 
@@ -95,6 +98,7 @@ struct Counters {
     frame: usize,
     text: usize,
     line: usize,
+    polyline: usize,
 }
 
 fn collect_from_shape(
@@ -196,6 +200,14 @@ fn collect_from_shape(
                 None => DragTarget::LineXy(idx),
             });
         }
+        "polyline" => {
+            let idx = counters.polyline;
+            counters.polyline += 1;
+            out.push(match inherited_translate {
+                Some(t) => DragTarget::Translate(t),
+                None => DragTarget::PolylineXy(idx),
+            });
+        }
         _ => {}
     }
 }
@@ -234,6 +246,52 @@ fn nudge_line(src: &str, index: usize, dx: f64, dy: f64) -> Result<String, SyncE
     // Move both endpoints: slots 1,2 then 3,4.
     let after = nudge_nth_pair(src, "line", index, 1, 2, dx, dy)?;
     nudge_nth_pair(&after, "line", index, 3, 4, dx, dy)
+}
+
+fn nudge_polyline(src: &str, index: usize, dx: f64, dy: f64) -> Result<String, SyncError> {
+    let root = parse_root(src)?;
+    let n_coords = count_polyline_coords(&root, index)
+        .ok_or_else(|| SyncError::new(format!("no `polyline` #{index}")))?;
+    let mut out = src.to_string();
+    // Nudge (x,y) pairs at slots 1,2, 3,4, …
+    let pairs = n_coords / 2;
+    for p in 0..pairs {
+        let x_slot = 1 + p * 2;
+        let y_slot = x_slot + 1;
+        out = nudge_nth_pair(&out, "polyline", index, x_slot, y_slot, dx, dy)?;
+    }
+    Ok(out)
+}
+
+fn count_polyline_coords(root: &SyntaxNode, index: usize) -> Option<usize> {
+    let mut seen = 0usize;
+    for node in root.descendants() {
+        if node.kind() != SyntaxKind::List {
+            continue;
+        }
+        let items = list_atoms(&node);
+        let Some(Child::Token(h)) = items.first() else {
+            continue;
+        };
+        if h.kind() != SyntaxKind::Ident || h.text() != "polyline" {
+            continue;
+        }
+        if seen == index {
+            // Count leading numbers after head until a non-number.
+            let mut n = 0usize;
+            for item in items.iter().skip(1) {
+                match item {
+                    Child::Token(t) if t.kind() == SyntaxKind::Number => n += 1,
+                    _ => break,
+                }
+            }
+            // If trailing color+width, numbers already stopped at color.
+            // If no color but trailing width alone is rare for polyline (needs color before width).
+            return Some(n);
+        }
+        seen += 1;
+    }
+    None
 }
 
 fn find_nth_number_pair(

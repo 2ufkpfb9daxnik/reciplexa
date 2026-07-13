@@ -1,0 +1,4 @@
+; Open polyline
+(page a4
+  (polyline 30 80 60 200 105 100 150 200 180 80 red 1.2)
+  (text 40 250 6 "polyline" black))

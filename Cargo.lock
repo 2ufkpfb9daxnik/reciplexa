@@ -2475,6 +2475,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "reciplexa-effect"
+version = "0.1.0"
+
+[[package]]
 name = "reciplexa-gui"
 version = "0.1.0"
 dependencies = [

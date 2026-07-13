@@ -216,6 +216,23 @@ impl Line {
     }
 }
 
+/// Open polyline in local millimeters (≥2 points).
+#[derive(Debug, Clone, PartialEq)]
+pub struct Polyline {
+    pub points_mm: Vec<(f64, f64)>,
+    pub stroke: Color,
+    pub width_mm: f64,
+}
+
+impl Polyline {
+    pub fn is_drawable(&self) -> bool {
+        self.points_mm.len() >= 2
+            && self.width_mm > 0.0
+            && self.stroke.is_channel_valid()
+            && self.points_mm.windows(2).any(|w| w[0] != w[1])
+    }
+}
+
 /// Drawable node. [`Shape::Group`] applies an affine to nested children—
 /// the Glisp-style stack of translate / rotate / scale.
 #[derive(Debug, Clone, PartialEq)]
@@ -227,6 +244,7 @@ pub enum Shape {
     Frame(Frame),
     Text(Text),
     Line(Line),
+    Polyline(Polyline),
     Group {
         transform: Affine,
         children: Vec<Shape>,

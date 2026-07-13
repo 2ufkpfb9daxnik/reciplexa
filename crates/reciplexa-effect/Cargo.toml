@@ -1,0 +1,9 @@
+[package]
+name = "reciplexa-effect"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Algebraic effect labels and handler skeleton (M9 entry)"
+publish = false
+
+[dependencies]

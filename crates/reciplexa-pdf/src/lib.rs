@@ -124,6 +124,14 @@ fn render_shape(shape: &Shape, ctx: &str) -> Result<String, PdfError> {
                 l.x1_mm, l.y1_mm, l.x2_mm, l.y2_mm, l.stroke, l.width_mm,
             ))
         }
+        Shape::Polyline(p) => {
+            if !p.is_drawable() {
+                return Err(PdfError::InvalidShape(format!(
+                    "{ctx}: polyline not drawable"
+                )));
+            }
+            Ok(polyline_ops(&p.points_mm, p.stroke, p.width_mm))
+        }
         Shape::Group {
             transform,
             children,
@@ -309,6 +317,25 @@ fn line_ops(x1: f64, y1: f64, x2: f64, y2: f64, stroke: Color, width_mm: f64) ->
         x2 = mm_to_pt(x2),
         y2 = mm_to_pt(y2),
     )
+}
+
+fn polyline_ops(points: &[(f64, f64)], stroke: Color, width_mm: f64) -> String {
+    let mut ops = format!(
+        "{r:.4} {g:.4} {b:.4} RG\n{w:.4} w\n",
+        r = stroke.r,
+        g = stroke.g,
+        b = stroke.b,
+        w = mm_to_pt(width_mm),
+    );
+    for (i, &(x, y)) in points.iter().enumerate() {
+        if i == 0 {
+            ops.push_str(&format!("{:.4} {:.4} m\n", mm_to_pt(x), mm_to_pt(y)));
+        } else {
+            ops.push_str(&format!("{:.4} {:.4} l\n", mm_to_pt(x), mm_to_pt(y)));
+        }
+    }
+    ops.push_str("S\n");
+    ops
 }
 
 fn text_ops(

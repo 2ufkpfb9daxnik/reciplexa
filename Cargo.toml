@@ -8,6 +8,7 @@ members = [
     "crates/reciplexa-types",
     "crates/reciplexa-view",
     "crates/reciplexa-macro",
+    "crates/reciplexa-effect",
     "crates/reciplexa",
     "crates/reciplexa-gui",
 ]
@@ -29,3 +30,4 @@ reciplexa-lower = { path = "crates/reciplexa-lower" }
 reciplexa-types = { path = "crates/reciplexa-types" }
 reciplexa-view = { path = "crates/reciplexa-view" }
 reciplexa-macro = { path = "crates/reciplexa-macro" }
+reciplexa-effect = { path = "crates/reciplexa-effect" }

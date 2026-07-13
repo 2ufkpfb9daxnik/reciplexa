@@ -24,7 +24,8 @@ pub use sync::{
 };
 
 use reciplexa_scene::{
-    Affine, Circle, Color, Document, Ellipse, Frame, Line, Page, PaperSize, Rect, Ring, Shape, Text,
+    Affine, Circle, Color, Document, Ellipse, Frame, Line, Page, PaperSize, Polyline, Rect, Ring,
+    Shape, Text,
 };
 use reciplexa_syntax::{parse_source, SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken};
 
@@ -123,6 +124,7 @@ fn lower_shape(node: &SyntaxNode) -> Result<Shape, LowerError> {
         "frame" => lower_frame(&items),
         "text" => lower_text(&items),
         "line" => lower_line(&items),
+        "polyline" => lower_polyline(&items),
         "translate" => lower_translate(&items),
         "rotate" => lower_rotate(&items),
         "scale" => lower_scale(&items),
@@ -341,6 +343,66 @@ fn lower_line(items: &[Child]) -> Result<Shape, LowerError> {
         return Err(LowerError::new("line is not drawable"));
     }
     Ok(Shape::Line(line))
+}
+
+fn lower_polyline(items: &[Child]) -> Result<Shape, LowerError> {
+    // (polyline x1 y1 x2 y2 … [color [width]])
+    if items.len() < 5 {
+        return Err(LowerError::new(
+            "`polyline` expects at least two points (x y)×2",
+        ));
+    }
+    let mut end = items.len();
+    let mut stroke = Color::BLACK;
+    let mut width = 0.5;
+    // Optional trailing width number
+    if end >= 2 && matches!(&items[end - 1], Child::Token(t) if t.kind() == SyntaxKind::Number) {
+        // Could be last y, or width. Disambiguate: if preceding is color, it's width.
+        if end >= 3 && is_color_child(&items[end - 2]) {
+            width = number_at(items, end - 1, "polyline width")?;
+            stroke = lower_color(&items[end - 2])?;
+            end -= 2;
+        }
+    } else if end >= 2 && is_color_child(&items[end - 1]) {
+        stroke = lower_color(&items[end - 1])?;
+        end -= 1;
+    }
+    let coords = &items[1..end];
+    if coords.len() < 4 || coords.len() % 2 != 0 {
+        return Err(LowerError::new(
+            "`polyline` needs an even number of coordinates (≥4)",
+        ));
+    }
+    let mut points_mm = Vec::with_capacity(coords.len() / 2);
+    for i in (0..coords.len()).step_by(2) {
+        let x = number_at_slice(coords, i, "polyline x")?;
+        let y = number_at_slice(coords, i + 1, "polyline y")?;
+        points_mm.push((x, y));
+    }
+    let poly = Polyline {
+        points_mm,
+        stroke,
+        width_mm: width,
+    };
+    if !poly.is_drawable() {
+        return Err(LowerError::new("polyline is not drawable"));
+    }
+    Ok(Shape::Polyline(poly))
+}
+
+fn is_color_child(child: &Child) -> bool {
+    match child {
+        Child::Token(t) if t.kind() == SyntaxKind::Ident => Color::named(t.text()).is_some(),
+        Child::Node(n) => list_items(n, "color")
+            .ok()
+            .and_then(|items| ident_at(&items, 0, "color").ok().map(|h| h == "rgb"))
+            .unwrap_or(false),
+        _ => false,
+    }
+}
+
+fn number_at_slice(items: &[Child], index: usize, ctx: &str) -> Result<f64, LowerError> {
+    number_at(items, index, ctx)
 }
 
 fn string_at(items: &[Child], index: usize, ctx: &str) -> Result<String, LowerError> {
@@ -754,6 +816,19 @@ mod tests {
             _ => panic!("expected frame"),
         }
         assert!(document_to_pdf(&doc).is_ok());
+    }
+
+    #[test]
+    fn lowers_polyline() {
+        let doc = lower_source("(page a4 (polyline 0 0 10 10 20 0 blue 1.5))").unwrap();
+        match &doc.pages[0].shapes[0] {
+            Shape::Polyline(p) => {
+                assert_eq!(p.points_mm.len(), 3);
+                assert_eq!(p.stroke, Color::BLUE);
+                assert_eq!(p.width_mm, 1.5);
+            }
+            _ => panic!("expected polyline"),
+        }
     }
 
     // --- defect ---

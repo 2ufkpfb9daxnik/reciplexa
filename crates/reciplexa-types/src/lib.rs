@@ -219,6 +219,7 @@ fn check_form(node: &SyntaxNode) -> Result<Type, TypeError> {
             }
             Ok(Type::Shape)
         }
+        "polyline" => check_polyline(&args, node, span),
         "rgb" => {
             if args.len() != 3 {
                 return Err(TypeError::at(
@@ -268,6 +269,44 @@ fn check_form(node: &SyntaxNode) -> Result<Type, TypeError> {
             span.1,
         )),
     }
+}
+
+fn check_polyline(
+    args: &[Child],
+    node: &SyntaxNode,
+    span: (usize, usize),
+) -> Result<Type, TypeError> {
+    if args.len() < 4 {
+        return Err(TypeError::at(
+            "`polyline` needs ≥2 points (Num×even) [Color [Num]]",
+            span.0,
+            span.1,
+        ));
+    }
+    let mut end = args.len();
+    if end >= 2
+        && synthesizes_number(&args[end - 1])
+        && matches!(check_child(&args[end - 2]), Ok(Type::Color))
+    {
+        expect_ty(check_child(&args[end - 1])?, Type::Number, node)?;
+        expect_ty(check_child(&args[end - 2])?, Type::Color, node)?;
+        end -= 2;
+    } else if end >= 1 && matches!(check_child(&args[end - 1]), Ok(Type::Color)) {
+        expect_ty(check_child(&args[end - 1])?, Type::Color, node)?;
+        end -= 1;
+    }
+    let coords = &args[..end];
+    if coords.len() < 4 || coords.len() % 2 != 0 {
+        return Err(TypeError::at(
+            "`polyline` needs an even number of Num coordinates (≥4)",
+            span.0,
+            span.1,
+        ));
+    }
+    for a in coords {
+        expect_ty(check_child(a)?, Type::Number, node)?;
+    }
+    Ok(Type::Shape)
 }
 
 fn check_scale(args: &[Child], node: &SyntaxNode, span: (usize, usize)) -> Result<Type, TypeError> {
@@ -456,6 +495,14 @@ mod tests {
     fn ring_and_frame_typecheck() {
         let src = "(page a4 (ring 1 2 3 0.5) (frame 0 0 10 10 1 red))";
         assert_eq!(typecheck_source(src).unwrap(), Type::Document);
+    }
+
+    #[test]
+    fn polyline_typecheck() {
+        assert_eq!(
+            typecheck_source("(page a4 (polyline 0 0 1 1 2 0 red 1))").unwrap(),
+            Type::Document
+        );
     }
 
     // --- defect ---

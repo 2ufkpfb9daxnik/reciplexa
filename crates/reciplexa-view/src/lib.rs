@@ -141,6 +141,30 @@ fn flatten_shape(shape: &Shape, parent: Affine, out: &mut Vec<WorldShape>) {
                 fill: l.stroke,
             }));
         }
+        Shape::Polyline(p) => {
+            // One world shape (AABB) so drag bindings stay 1:1 with flatten order.
+            let mut xs = Vec::new();
+            let mut ys = Vec::new();
+            for &(lx, ly) in &p.points_mm {
+                let (x, y) = parent.transform_point(lx, ly);
+                xs.push(x);
+                ys.push(y);
+            }
+            let pad = p.width_mm.max(0.5);
+            let min_x = xs.iter().cloned().fold(f64::INFINITY, f64::min) - pad;
+            let max_x = xs.iter().cloned().fold(f64::NEG_INFINITY, f64::max) + pad;
+            let min_y = ys.iter().cloned().fold(f64::INFINITY, f64::min) - pad;
+            let max_y = ys.iter().cloned().fold(f64::NEG_INFINITY, f64::max) + pad;
+            out.push(WorldShape::Polygon(WorldPolygon {
+                points_mm: vec![
+                    (min_x, min_y),
+                    (max_x, min_y),
+                    (max_x, max_y),
+                    (min_x, max_y),
+                ],
+                fill: p.stroke,
+            }));
+        }
         Shape::Group {
             transform,
             children,
