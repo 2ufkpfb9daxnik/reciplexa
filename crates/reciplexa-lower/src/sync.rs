@@ -32,6 +32,10 @@ pub enum DragTarget {
     RectXy(usize),
     /// N-th `(ellipse x y …)` center when not under a translate binding.
     EllipseXy(usize),
+    /// N-th `(ring x y …)` center when not under a translate binding.
+    RingXy(usize),
+    /// N-th `(frame x y …)` origin when not under a translate binding.
+    FrameXy(usize),
     /// N-th `(text x y …)` baseline when not under a translate binding.
     TextXy(usize),
     /// N-th `(line …)` — nudges both endpoints by the same delta.
@@ -69,6 +73,8 @@ pub fn nudge_drag_target(
         DragTarget::CircleXy(i) => nudge_nth_pair(src, "circle", i, 1, 2, dx, dy),
         DragTarget::RectXy(i) => nudge_nth_pair(src, "rect", i, 1, 2, dx, dy),
         DragTarget::EllipseXy(i) => nudge_nth_pair(src, "ellipse", i, 1, 2, dx, dy),
+        DragTarget::RingXy(i) => nudge_nth_pair(src, "ring", i, 1, 2, dx, dy),
+        DragTarget::FrameXy(i) => nudge_nth_pair(src, "frame", i, 1, 2, dx, dy),
         DragTarget::TextXy(i) => nudge_nth_pair(src, "text", i, 1, 2, dx, dy),
         DragTarget::LineXy(i) => nudge_line(src, i, dx, dy),
     }
@@ -85,6 +91,8 @@ struct Counters {
     circle: usize,
     rect: usize,
     ellipse: usize,
+    ring: usize,
+    frame: usize,
     text: usize,
     line: usize,
 }
@@ -154,6 +162,22 @@ fn collect_from_shape(
             out.push(match inherited_translate {
                 Some(t) => DragTarget::Translate(t),
                 None => DragTarget::EllipseXy(idx),
+            });
+        }
+        "ring" => {
+            let idx = counters.ring;
+            counters.ring += 1;
+            out.push(match inherited_translate {
+                Some(t) => DragTarget::Translate(t),
+                None => DragTarget::RingXy(idx),
+            });
+        }
+        "frame" => {
+            let idx = counters.frame;
+            counters.frame += 1;
+            out.push(match inherited_translate {
+                Some(t) => DragTarget::Translate(t),
+                None => DragTarget::FrameXy(idx),
             });
         }
         "text" => {

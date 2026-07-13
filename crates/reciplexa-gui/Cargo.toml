@@ -15,6 +15,7 @@ eframe = { workspace = true }
 egui = { workspace = true }
 reciplexa-lower = { workspace = true }
 reciplexa-macro = { workspace = true }
+reciplexa-pdf = { workspace = true }
 reciplexa-scene = { workspace = true }
 reciplexa-types = { workspace = true }
 reciplexa-view = { workspace = true }

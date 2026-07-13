@@ -24,7 +24,7 @@ pub use sync::{
 };
 
 use reciplexa_scene::{
-    Affine, Circle, Color, Document, Ellipse, Line, Page, PaperSize, Rect, Shape, Text,
+    Affine, Circle, Color, Document, Ellipse, Frame, Line, Page, PaperSize, Rect, Ring, Shape, Text,
 };
 use reciplexa_syntax::{parse_source, SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken};
 
@@ -119,6 +119,8 @@ fn lower_shape(node: &SyntaxNode) -> Result<Shape, LowerError> {
         "circle" => lower_circle(&items),
         "rect" => lower_rect(&items),
         "ellipse" => lower_ellipse(&items),
+        "ring" => lower_ring(&items),
+        "frame" => lower_frame(&items),
         "text" => lower_text(&items),
         "line" => lower_line(&items),
         "translate" => lower_translate(&items),
@@ -217,6 +219,66 @@ fn lower_ellipse(items: &[Child]) -> Result<Shape, LowerError> {
         )));
     }
     Ok(Shape::Ellipse(ellipse))
+}
+
+fn lower_ring(items: &[Child]) -> Result<Shape, LowerError> {
+    // (ring x y r width) | (ring x y r width color)
+    if items.len() != 5 && items.len() != 6 {
+        return Err(LowerError::new(
+            "`ring` expects (ring x y r width-mm [color])",
+        ));
+    }
+    let x = number_at(items, 1, "ring x")?;
+    let y = number_at(items, 2, "ring y")?;
+    let r = number_at(items, 3, "ring radius")?;
+    let width = number_at(items, 4, "ring width")?;
+    let stroke = if items.len() == 6 {
+        lower_color(&items[5])?
+    } else {
+        Color::BLACK
+    };
+    let ring = Ring {
+        x_mm: x,
+        y_mm: y,
+        radius_mm: r,
+        width_mm: width,
+        stroke,
+    };
+    if !ring.is_drawable() {
+        return Err(LowerError::new("ring is not drawable"));
+    }
+    Ok(Shape::Ring(ring))
+}
+
+fn lower_frame(items: &[Child]) -> Result<Shape, LowerError> {
+    // (frame x y w h width) | (frame x y w h width color)
+    if items.len() != 6 && items.len() != 7 {
+        return Err(LowerError::new(
+            "`frame` expects (frame x y w h stroke-width-mm [color])",
+        ));
+    }
+    let x = number_at(items, 1, "frame x")?;
+    let y = number_at(items, 2, "frame y")?;
+    let w = number_at(items, 3, "frame width")?;
+    let h = number_at(items, 4, "frame height")?;
+    let sw = number_at(items, 5, "frame stroke width")?;
+    let stroke = if items.len() == 7 {
+        lower_color(&items[6])?
+    } else {
+        Color::BLACK
+    };
+    let frame = Frame {
+        x_mm: x,
+        y_mm: y,
+        width_mm: w,
+        height_mm: h,
+        stroke_width_mm: sw,
+        stroke,
+    };
+    if !frame.is_drawable() {
+        return Err(LowerError::new("frame is not drawable"));
+    }
+    Ok(Shape::Frame(frame))
 }
 
 fn lower_text(items: &[Child]) -> Result<Shape, LowerError> {
@@ -671,6 +733,27 @@ mod tests {
             }
             _ => panic!("expected ellipse"),
         }
+    }
+
+    #[test]
+    fn lowers_ring_and_frame() {
+        let src = "(page a4 (ring 1 2 3 0.5 red) (frame 0 0 10 20 1 blue))";
+        let doc = lower_source(src).unwrap();
+        match &doc.pages[0].shapes[0] {
+            Shape::Ring(r) => {
+                assert_eq!(r.radius_mm, 3.0);
+                assert_eq!(r.stroke, Color::RED);
+            }
+            _ => panic!("expected ring"),
+        }
+        match &doc.pages[0].shapes[1] {
+            Shape::Frame(f) => {
+                assert_eq!(f.width_mm, 10.0);
+                assert_eq!(f.stroke, Color::BLUE);
+            }
+            _ => panic!("expected frame"),
+        }
+        assert!(document_to_pdf(&doc).is_ok());
     }
 
     // --- defect ---

@@ -86,6 +86,32 @@ fn flatten_shape(shape: &Shape, parent: Affine, out: &mut Vec<WorldShape>) {
                 fill: e.fill,
             }));
         }
+        Shape::Ring(r) => {
+            let (x, y) = parent.transform_point(r.x_mm, r.y_mm);
+            let scale = linear_scale(parent);
+            out.push(WorldShape::Circle(WorldCircle {
+                x_mm: x,
+                y_mm: y,
+                radius_mm: r.radius_mm * scale,
+                fill: r.stroke,
+            }));
+        }
+        Shape::Frame(f) => {
+            let corners = [
+                (f.x_mm, f.y_mm),
+                (f.x_mm + f.width_mm, f.y_mm),
+                (f.x_mm + f.width_mm, f.y_mm + f.height_mm),
+                (f.x_mm, f.y_mm + f.height_mm),
+            ];
+            let points_mm = corners
+                .into_iter()
+                .map(|(x, y)| parent.transform_point(x, y))
+                .collect();
+            out.push(WorldShape::Polygon(WorldPolygon {
+                points_mm,
+                fill: f.stroke,
+            }));
+        }
         Shape::Text(t) => {
             let (x, y) = parent.transform_point(t.x_mm, t.y_mm);
             let scale = linear_scale(parent);

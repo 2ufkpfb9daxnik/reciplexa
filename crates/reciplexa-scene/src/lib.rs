@@ -142,6 +142,42 @@ impl Ellipse {
     }
 }
 
+/// Stroked circle outline in local millimeters.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Ring {
+    pub x_mm: f64,
+    pub y_mm: f64,
+    pub radius_mm: f64,
+    pub width_mm: f64,
+    pub stroke: Color,
+}
+
+impl Ring {
+    pub fn is_drawable(self) -> bool {
+        self.radius_mm > 0.0 && self.width_mm > 0.0 && self.stroke.is_channel_valid()
+    }
+}
+
+/// Stroked rectangle outline; `(x_mm, y_mm)` is the bottom-left corner.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Frame {
+    pub x_mm: f64,
+    pub y_mm: f64,
+    pub width_mm: f64,
+    pub height_mm: f64,
+    pub stroke_width_mm: f64,
+    pub stroke: Color,
+}
+
+impl Frame {
+    pub fn is_drawable(self) -> bool {
+        self.width_mm > 0.0
+            && self.height_mm > 0.0
+            && self.stroke_width_mm > 0.0
+            && self.stroke.is_channel_valid()
+    }
+}
+
 /// Filled text baseline position in local millimeters.
 ///
 /// `size_mm` is the em-box height used for PDF `Tf` (converted to points).
@@ -187,6 +223,8 @@ pub enum Shape {
     Circle(Circle),
     Rect(Rect),
     Ellipse(Ellipse),
+    Ring(Ring),
+    Frame(Frame),
     Text(Text),
     Line(Line),
     Group {

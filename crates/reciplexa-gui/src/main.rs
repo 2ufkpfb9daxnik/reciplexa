@@ -8,6 +8,7 @@ use std::process::ExitCode;
 use eframe::egui;
 use reciplexa_lower::{collect_drag_targets, lower_source, nudge_drag_target, DragTarget};
 use reciplexa_macro::expand_source;
+use reciplexa_pdf::write_document;
 use reciplexa_types::typecheck_source;
 use reciplexa_view::{flatten_first_page, hit_test_shapes, PaperLayout, WorldShape};
 
@@ -107,6 +108,22 @@ impl eframe::App for PreviewApp {
                             self.error = Some(format!("save: {e}"));
                         } else {
                             self.error = None;
+                        }
+                    }
+                    if ui.button("Export PDF").clicked() {
+                        match pipeline_doc(&self.source) {
+                            Ok(doc) => {
+                                let pdf_path = self.path.with_extension("pdf");
+                                match fs::File::create(&pdf_path)
+                                    .map_err(|e| e.to_string())
+                                    .and_then(|f| {
+                                        write_document(&doc, f).map_err(|e| format!("{e:?}"))
+                                    }) {
+                                    Ok(()) => self.error = None,
+                                    Err(e) => self.error = Some(format!("pdf: {e}")),
+                                }
+                            }
+                            Err(e) => self.error = Some(e),
                         }
                     }
                     if ui.button("Re-expand macros").clicked() {

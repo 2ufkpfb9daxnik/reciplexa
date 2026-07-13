@@ -150,6 +150,38 @@ fn check_form(node: &SyntaxNode) -> Result<Type, TypeError> {
             }
             Ok(Type::Shape)
         }
+        "ring" => {
+            if args.len() != 4 && args.len() != 5 {
+                return Err(TypeError::at(
+                    "`ring` has type (Num×4 [Color]) -> Shape",
+                    span.0,
+                    span.1,
+                ));
+            }
+            for a in args.iter().take(4) {
+                expect_ty(check_child(a)?, Type::Number, node)?;
+            }
+            if args.len() == 5 {
+                expect_ty(check_child(&args[4])?, Type::Color, node)?;
+            }
+            Ok(Type::Shape)
+        }
+        "frame" => {
+            if args.len() != 5 && args.len() != 6 {
+                return Err(TypeError::at(
+                    "`frame` has type (Num×5 [Color]) -> Shape",
+                    span.0,
+                    span.1,
+                ));
+            }
+            for a in args.iter().take(5) {
+                expect_ty(check_child(a)?, Type::Number, node)?;
+            }
+            if args.len() == 6 {
+                expect_ty(check_child(&args[5])?, Type::Color, node)?;
+            }
+            Ok(Type::Shape)
+        }
         "text" => {
             // (text Num Num Num String) | (+ Color)
             if args.len() != 4 && args.len() != 5 {
@@ -418,6 +450,12 @@ mod tests {
             typecheck_source("(page a4 (ellipse 1 2 3 4 red))").unwrap(),
             Type::Document
         );
+    }
+
+    #[test]
+    fn ring_and_frame_typecheck() {
+        let src = "(page a4 (ring 1 2 3 0.5) (frame 0 0 10 10 1 red))";
+        assert_eq!(typecheck_source(src).unwrap(), Type::Document);
     }
 
     // --- defect ---

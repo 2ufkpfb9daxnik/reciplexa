@@ -292,7 +292,21 @@ impl<'a> Parser<'a> {
                 self.input.len(),
             );
         }
-        // Optional Scribble brace body: @foo{…}
+        self.eat_trivia();
+        // Optional Lisp args: @foo[…]
+        if self
+            .current
+            .as_ref()
+            .is_some_and(|t| t.kind == SyntaxKind::LBracket)
+        {
+            self.parse_delimited(
+                SyntaxKind::BracketList,
+                SyntaxKind::LBracket,
+                SyntaxKind::RBracket,
+            );
+            self.eat_trivia();
+        }
+        // Optional Scribble brace body: @foo{…} or @foo[…]{…}
         if self
             .current
             .as_ref()
@@ -491,6 +505,25 @@ mod tests {
     #[test]
     fn at_ident_without_brace() {
         let src = "(doc see @ref)";
+        assert_eq!(unparse(&parse_ok(src)), src);
+    }
+
+    #[test]
+    fn at_with_bracket_args_and_brace_body() {
+        let src = "(doc @link[\"https://example.com\"]{click})";
+        let root = parse_ok(src);
+        assert_eq!(unparse(&root), src);
+        assert!(root
+            .descendants()
+            .any(|n| n.kind() == SyntaxKind::BracketList));
+        assert!(root
+            .descendants()
+            .any(|n| n.kind() == SyntaxKind::BraceList));
+    }
+
+    #[test]
+    fn at_with_bracket_args_only() {
+        let src = "(doc @cite[42])";
         assert_eq!(unparse(&parse_ok(src)), src);
     }
 

@@ -2482,6 +2482,7 @@ dependencies = [
  "egui",
  "reciplexa-lower",
  "reciplexa-macro",
+ "reciplexa-pdf",
  "reciplexa-scene",
  "reciplexa-types",
  "reciplexa-view",

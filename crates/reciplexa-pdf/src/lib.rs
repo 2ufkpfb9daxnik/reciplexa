@@ -85,6 +85,31 @@ fn render_shape(shape: &Shape, ctx: &str) -> Result<String, PdfError> {
             }
             Ok(ellipse_path_ops(e.x_mm, e.y_mm, e.rx_mm, e.ry_mm, e.fill))
         }
+        Shape::Ring(r) => {
+            if !r.is_drawable() {
+                return Err(PdfError::InvalidShape(format!("{ctx}: ring not drawable")));
+            }
+            Ok(ring_path_ops(
+                r.x_mm,
+                r.y_mm,
+                r.radius_mm,
+                r.width_mm,
+                r.stroke,
+            ))
+        }
+        Shape::Frame(f) => {
+            if !f.is_drawable() {
+                return Err(PdfError::InvalidShape(format!("{ctx}: frame not drawable")));
+            }
+            Ok(frame_path_ops(
+                f.x_mm,
+                f.y_mm,
+                f.width_mm,
+                f.height_mm,
+                f.stroke_width_mm,
+                f.stroke,
+            ))
+        }
         Shape::Text(t) => {
             if !t.is_drawable() {
                 return Err(PdfError::InvalidShape(format!("{ctx}: text not drawable")));
@@ -237,6 +262,38 @@ fn ellipse_path_ops(x_mm: f64, y_mm: f64, rx_mm: f64, ry_mm: f64, fill: Color) -
         y11 = cy - ky,
         x12 = cx + rx,
         y12 = cy,
+    )
+}
+
+fn ring_path_ops(x_mm: f64, y_mm: f64, r_mm: f64, width_mm: f64, stroke: Color) -> String {
+    // Same Bezier circle as fill, but stroke with `S`.
+    let body = circle_path_ops(x_mm, y_mm, r_mm, stroke);
+    let stroked = body.replace(" rg\n", " RG\n").replace("\nf\n", "\nS\n");
+    format!(
+        "{w:.4} w\n{stroked}",
+        w = mm_to_pt(width_mm),
+        stroked = stroked
+    )
+}
+
+fn frame_path_ops(
+    x_mm: f64,
+    y_mm: f64,
+    w_mm: f64,
+    h_mm: f64,
+    stroke_width_mm: f64,
+    stroke: Color,
+) -> String {
+    let x = mm_to_pt(x_mm);
+    let y = mm_to_pt(y_mm);
+    let w = mm_to_pt(w_mm);
+    let h = mm_to_pt(h_mm);
+    format!(
+        "{r:.4} {g:.4} {b:.4} RG\n{sw:.4} w\n{x:.4} {y:.4} {w:.4} {h:.4} re\nS\n",
+        r = stroke.r,
+        g = stroke.g,
+        b = stroke.b,
+        sw = mm_to_pt(stroke_width_mm),
     )
 }
 

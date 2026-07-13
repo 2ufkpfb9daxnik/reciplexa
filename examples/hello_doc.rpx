@@ -1,4 +1,6 @@
-; M8: Scribble doc with @-escape (parse/round-trip; not lowered to PDF yet)
+; M8: Scribble doc with @-escape (+ optional [args]{body})
 (doc
 Hello, @em{世界}.
+See @link["https://example.com"]{docs}.
+Cite @cite[42].
 )
