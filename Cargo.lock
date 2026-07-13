@@ -20,6 +20,7 @@ version = "0.1.0"
 dependencies = [
  "reciplexa-lower",
  "reciplexa-pdf",
+ "reciplexa-types",
 ]
 
 [[package]]
@@ -47,6 +48,13 @@ name = "reciplexa-syntax"
 version = "0.1.0"
 dependencies = [
  "rowan",
+]
+
+[[package]]
+name = "reciplexa-types"
+version = "0.1.0"
+dependencies = [
+ "reciplexa-syntax",
 ]
 
 [[package]]

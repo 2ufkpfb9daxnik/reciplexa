@@ -5,6 +5,7 @@ members = [
     "crates/reciplexa-scene",
     "crates/reciplexa-pdf",
     "crates/reciplexa-lower",
+    "crates/reciplexa-types",
     "crates/reciplexa",
 ]
 
@@ -20,3 +21,4 @@ reciplexa-syntax = { path = "crates/reciplexa-syntax" }
 reciplexa-scene = { path = "crates/reciplexa-scene" }
 reciplexa-pdf = { path = "crates/reciplexa-pdf" }
 reciplexa-lower = { path = "crates/reciplexa-lower" }
+reciplexa-types = { path = "crates/reciplexa-types" }
