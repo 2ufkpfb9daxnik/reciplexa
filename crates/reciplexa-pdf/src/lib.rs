@@ -132,6 +132,18 @@ fn render_shape(shape: &Shape, ctx: &str) -> Result<String, PdfError> {
             }
             Ok(polyline_ops(&p.points_mm, p.stroke, p.width_mm))
         }
+        Shape::Image(img) => {
+            if !img.is_drawable() {
+                return Err(PdfError::InvalidShape(format!("{ctx}: image not drawable")));
+            }
+            Ok(image_placeholder_ops(
+                img.x_mm,
+                img.y_mm,
+                img.width_mm,
+                img.height_mm,
+                &img.path,
+            )?)
+        }
         Shape::Group {
             transform,
             children,
@@ -336,6 +348,55 @@ fn polyline_ops(points: &[(f64, f64)], stroke: Color, width_mm: f64) -> String {
     }
     ops.push_str("S\n");
     ops
+}
+
+/// Placeholder: stroked rect + ASCII filename (real image XObject later).
+fn image_placeholder_ops(
+    x_mm: f64,
+    y_mm: f64,
+    w_mm: f64,
+    h_mm: f64,
+    path: &str,
+) -> Result<String, PdfError> {
+    let label = path
+        .rsplit(['/', '\\'])
+        .next()
+        .unwrap_or(path)
+        .chars()
+        .filter(|c| c.is_ascii() && !c.is_control())
+        .take(40)
+        .collect::<String>();
+    if label.is_empty() {
+        return Err(PdfError::InvalidShape(
+            "image path has no ASCII label for placeholder".into(),
+        ));
+    }
+    let mut ops = frame_path_ops(x_mm, y_mm, w_mm, h_mm, 0.5, Color::BLACK);
+    // Diagonal cross.
+    ops.push_str(&line_ops(
+        x_mm,
+        y_mm,
+        x_mm + w_mm,
+        y_mm + h_mm,
+        Color::new(0.6, 0.6, 0.6),
+        0.3,
+    ));
+    ops.push_str(&line_ops(
+        x_mm,
+        y_mm + h_mm,
+        x_mm + w_mm,
+        y_mm,
+        Color::new(0.6, 0.6, 0.6),
+        0.3,
+    ));
+    ops.push_str(&text_ops(
+        x_mm + 2.0,
+        y_mm + h_mm - 6.0,
+        4.0,
+        &label,
+        Color::BLACK,
+    )?);
+    Ok(ops)
 }
 
 fn text_ops(

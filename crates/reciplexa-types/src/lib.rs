@@ -220,6 +220,20 @@ fn check_form(node: &SyntaxNode) -> Result<Type, TypeError> {
             Ok(Type::Shape)
         }
         "polyline" => check_polyline(&args, node, span),
+        "image" => {
+            if args.len() != 5 {
+                return Err(TypeError::at(
+                    "`image` has type (String Num Num Num Num) -> Shape",
+                    span.0,
+                    span.1,
+                ));
+            }
+            expect_ty(check_child(&args[0])?, Type::String, node)?;
+            for a in args.iter().skip(1) {
+                expect_ty(check_child(a)?, Type::Number, node)?;
+            }
+            Ok(Type::Shape)
+        }
         "rgb" => {
             if args.len() != 3 {
                 return Err(TypeError::at(

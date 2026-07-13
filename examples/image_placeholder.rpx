@@ -1,0 +1,5 @@
+; Image placeholder (real PNG embed later)
+(page a4
+  (text 30 270 6 "image placeholder" black)
+  (image "figures/demo.png" 40 80 130 100)
+  (circle 105 220 20 blue))

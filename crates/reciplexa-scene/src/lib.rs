@@ -233,6 +233,24 @@ impl Polyline {
     }
 }
 
+/// Axis-aligned image placeholder (filesystem path for now).
+///
+/// Real PNG/JPEG embedding comes later; PDF/GUI draw a labeled frame.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Image {
+    pub path: String,
+    pub x_mm: f64,
+    pub y_mm: f64,
+    pub width_mm: f64,
+    pub height_mm: f64,
+}
+
+impl Image {
+    pub fn is_drawable(&self) -> bool {
+        !self.path.is_empty() && self.width_mm > 0.0 && self.height_mm > 0.0
+    }
+}
+
 /// Drawable node. [`Shape::Group`] applies an affine to nested children—
 /// the Glisp-style stack of translate / rotate / scale.
 #[derive(Debug, Clone, PartialEq)]
@@ -245,6 +263,7 @@ pub enum Shape {
     Text(Text),
     Line(Line),
     Polyline(Polyline),
+    Image(Image),
     Group {
         transform: Affine,
         children: Vec<Shape>,

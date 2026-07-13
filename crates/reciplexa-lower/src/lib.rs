@@ -25,8 +25,8 @@ pub use sync::{
 };
 
 use reciplexa_scene::{
-    Affine, Circle, Color, Document, Ellipse, Frame, Line, Page, PaperSize, Polyline, Rect, Ring,
-    Shape, Text,
+    Affine, Circle, Color, Document, Ellipse, Frame, Image, Line, Page, PaperSize, Polyline, Rect,
+    Ring, Shape, Text,
 };
 use reciplexa_syntax::{parse_source, SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken};
 
@@ -126,6 +126,7 @@ fn lower_shape(node: &SyntaxNode) -> Result<Shape, LowerError> {
         "text" => lower_text(&items),
         "line" => lower_line(&items),
         "polyline" => lower_polyline(&items),
+        "image" => lower_image(&items),
         "group" => lower_group(&items),
         "translate" => lower_translate(&items),
         "rotate" => lower_rotate(&items),
@@ -390,6 +391,31 @@ fn lower_polyline(items: &[Child]) -> Result<Shape, LowerError> {
         return Err(LowerError::new("polyline is not drawable"));
     }
     Ok(Shape::Polyline(poly))
+}
+
+fn lower_image(items: &[Child]) -> Result<Shape, LowerError> {
+    // (image "path" x y w h)
+    if items.len() != 6 {
+        return Err(LowerError::new(
+            "`image` expects (image \"path\" x y width-mm height-mm)",
+        ));
+    }
+    let path = string_at(items, 1, "image path")?;
+    let x = number_at(items, 2, "image x")?;
+    let y = number_at(items, 3, "image y")?;
+    let w = number_at(items, 4, "image width")?;
+    let h = number_at(items, 5, "image height")?;
+    let image = Image {
+        path,
+        x_mm: x,
+        y_mm: y,
+        width_mm: w,
+        height_mm: h,
+    };
+    if !image.is_drawable() {
+        return Err(LowerError::new("image is not drawable"));
+    }
+    Ok(Shape::Image(image))
 }
 
 fn is_color_child(child: &Child) -> bool {

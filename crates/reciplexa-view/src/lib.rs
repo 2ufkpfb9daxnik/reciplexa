@@ -13,20 +13,56 @@ pub struct WorldCircle {
     pub x_mm: f64,
     pub y_mm: f64,
     pub radius_mm: f64,
-    pub fill: Color,
+    pub color: Color,
+    /// `None` = filled; `Some(w)` = stroked outline of width `w` mm.
+    pub stroke_width_mm: Option<f64>,
 }
 
 /// Convex polygon in page millimeters (rect corners after affine).
 #[derive(Debug, Clone, PartialEq)]
 pub struct WorldPolygon {
     pub points_mm: Vec<(f64, f64)>,
+    pub color: Color,
+    /// `None` = filled; `Some(w)` = stroked outline of width `w` mm.
+    pub stroke_width_mm: Option<f64>,
+}
+
+/// Text baseline in page millimeters.
+#[derive(Debug, Clone, PartialEq)]
+pub struct WorldText {
+    pub x_mm: f64,
+    pub y_mm: f64,
+    pub size_mm: f64,
+    pub content: String,
     pub fill: Color,
+}
+
+/// Open or closed stroked path in page millimeters.
+#[derive(Debug, Clone, PartialEq)]
+pub struct WorldPath {
+    pub points_mm: Vec<(f64, f64)>,
+    pub stroke: Color,
+    pub width_mm: f64,
+    pub closed: bool,
+}
+
+/// Image placeholder rectangle in page millimeters.
+#[derive(Debug, Clone, PartialEq)]
+pub struct WorldImage {
+    pub path: String,
+    pub x_mm: f64,
+    pub y_mm: f64,
+    pub width_mm: f64,
+    pub height_mm: f64,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum WorldShape {
     Circle(WorldCircle),
     Polygon(WorldPolygon),
+    Text(WorldText),
+    Path(WorldPath),
+    Image(WorldImage),
 }
 
 /// Flatten a document's first page (preview shows page 0).
@@ -57,7 +93,8 @@ fn flatten_shape(shape: &Shape, parent: Affine, out: &mut Vec<WorldShape>) {
                 x_mm: x,
                 y_mm: y,
                 radius_mm: c.radius_mm * scale,
-                fill: c.fill,
+                color: c.fill,
+                stroke_width_mm: None,
             }));
         }
         Shape::Rect(r) => {
@@ -73,11 +110,11 @@ fn flatten_shape(shape: &Shape, parent: Affine, out: &mut Vec<WorldShape>) {
                 .collect();
             out.push(WorldShape::Polygon(WorldPolygon {
                 points_mm,
-                fill: r.fill,
+                color: r.fill,
+                stroke_width_mm: None,
             }));
         }
         Shape::Ellipse(e) => {
-            // Approximate for preview / hit-test; PDF draws true curves.
             const N: usize = 32;
             let mut points_mm = Vec::with_capacity(N);
             for i in 0..N {
@@ -88,7 +125,8 @@ fn flatten_shape(shape: &Shape, parent: Affine, out: &mut Vec<WorldShape>) {
             }
             out.push(WorldShape::Polygon(WorldPolygon {
                 points_mm,
-                fill: e.fill,
+                color: e.fill,
+                stroke_width_mm: None,
             }));
         }
         Shape::Ring(r) => {
@@ -98,7 +136,8 @@ fn flatten_shape(shape: &Shape, parent: Affine, out: &mut Vec<WorldShape>) {
                 x_mm: x,
                 y_mm: y,
                 radius_mm: r.radius_mm * scale,
-                fill: r.stroke,
+                color: r.stroke,
+                stroke_width_mm: Some(r.width_mm * scale),
             }));
         }
         Shape::Frame(f) => {
@@ -112,62 +151,58 @@ fn flatten_shape(shape: &Shape, parent: Affine, out: &mut Vec<WorldShape>) {
                 .into_iter()
                 .map(|(x, y)| parent.transform_point(x, y))
                 .collect();
+            let scale = linear_scale(parent);
             out.push(WorldShape::Polygon(WorldPolygon {
                 points_mm,
-                fill: f.stroke,
+                color: f.stroke,
+                stroke_width_mm: Some(f.stroke_width_mm * scale),
             }));
         }
         Shape::Text(t) => {
             let (x, y) = parent.transform_point(t.x_mm, t.y_mm);
             let scale = linear_scale(parent);
-            let w = t.content.len() as f64 * t.size_mm * 0.5 * scale;
-            let h = t.size_mm * scale;
-            out.push(WorldShape::Polygon(WorldPolygon {
-                points_mm: vec![(x, y), (x + w, y), (x + w, y + h), (x, y + h)],
+            out.push(WorldShape::Text(WorldText {
+                x_mm: x,
+                y_mm: y,
+                size_mm: t.size_mm * scale,
+                content: t.content.clone(),
                 fill: t.fill,
             }));
         }
         Shape::Line(l) => {
             let (x1, y1) = parent.transform_point(l.x1_mm, l.y1_mm);
             let (x2, y2) = parent.transform_point(l.x2_mm, l.y2_mm);
-            // Fat segment as a thin quad for hit-testing / preview stroke proxy.
-            let dx = x2 - x1;
-            let dy = y2 - y1;
-            let len = (dx * dx + dy * dy).sqrt().max(1e-9);
-            let px = -dy / len * (l.width_mm.max(0.5) * 0.5);
-            let py = dx / len * (l.width_mm.max(0.5) * 0.5);
-            out.push(WorldShape::Polygon(WorldPolygon {
-                points_mm: vec![
-                    (x1 + px, y1 + py),
-                    (x2 + px, y2 + py),
-                    (x2 - px, y2 - py),
-                    (x1 - px, y1 - py),
-                ],
-                fill: l.stroke,
+            let scale = linear_scale(parent);
+            out.push(WorldShape::Path(WorldPath {
+                points_mm: vec![(x1, y1), (x2, y2)],
+                stroke: l.stroke,
+                width_mm: l.width_mm * scale,
+                closed: false,
             }));
         }
         Shape::Polyline(p) => {
-            // One world shape (AABB) so drag bindings stay 1:1 with flatten order.
-            let mut xs = Vec::new();
-            let mut ys = Vec::new();
-            for &(lx, ly) in &p.points_mm {
-                let (x, y) = parent.transform_point(lx, ly);
-                xs.push(x);
-                ys.push(y);
-            }
-            let pad = p.width_mm.max(0.5);
-            let min_x = xs.iter().cloned().fold(f64::INFINITY, f64::min) - pad;
-            let max_x = xs.iter().cloned().fold(f64::NEG_INFINITY, f64::max) + pad;
-            let min_y = ys.iter().cloned().fold(f64::INFINITY, f64::min) - pad;
-            let max_y = ys.iter().cloned().fold(f64::NEG_INFINITY, f64::max) + pad;
-            out.push(WorldShape::Polygon(WorldPolygon {
-                points_mm: vec![
-                    (min_x, min_y),
-                    (max_x, min_y),
-                    (max_x, max_y),
-                    (min_x, max_y),
-                ],
-                fill: p.stroke,
+            let scale = linear_scale(parent);
+            let points_mm = p
+                .points_mm
+                .iter()
+                .map(|&(x, y)| parent.transform_point(x, y))
+                .collect();
+            out.push(WorldShape::Path(WorldPath {
+                points_mm,
+                stroke: p.stroke,
+                width_mm: p.width_mm * scale,
+                closed: false,
+            }));
+        }
+        Shape::Image(img) => {
+            let (x, y) = parent.transform_point(img.x_mm, img.y_mm);
+            let scale = linear_scale(parent);
+            out.push(WorldShape::Image(WorldImage {
+                path: img.path.clone(),
+                x_mm: x,
+                y_mm: y,
+                width_mm: img.width_mm * scale,
+                height_mm: img.height_mm * scale,
             }));
         }
         Shape::Group {
@@ -256,10 +291,75 @@ fn shape_contains(shape: &WorldShape, x: f64, y: f64) -> bool {
         WorldShape::Circle(c) => {
             let dx = x - c.x_mm;
             let dy = y - c.y_mm;
-            dx * dx + dy * dy <= c.radius_mm * c.radius_mm
+            let dist2 = dx * dx + dy * dy;
+            match c.stroke_width_mm {
+                None => dist2 <= c.radius_mm * c.radius_mm,
+                Some(w) => {
+                    let r = dist2.sqrt();
+                    (r - c.radius_mm).abs() <= w.max(1.0)
+                }
+            }
         }
-        WorldShape::Polygon(p) => point_in_polygon(x, y, &p.points_mm),
+        WorldShape::Polygon(p) => {
+            if p.stroke_width_mm.is_some() {
+                near_polyline(
+                    x,
+                    y,
+                    &p.points_mm,
+                    true,
+                    p.stroke_width_mm.unwrap_or(1.0).max(1.0),
+                )
+            } else {
+                point_in_polygon(x, y, &p.points_mm)
+            }
+        }
+        WorldShape::Text(t) => {
+            let w = t.content.len() as f64 * t.size_mm * 0.55;
+            let h = t.size_mm;
+            x >= t.x_mm && x <= t.x_mm + w && y >= t.y_mm && y <= t.y_mm + h
+        }
+        WorldShape::Path(p) => near_polyline(x, y, &p.points_mm, p.closed, p.width_mm.max(1.0)),
+        WorldShape::Image(img) => {
+            x >= img.x_mm
+                && x <= img.x_mm + img.width_mm
+                && y >= img.y_mm
+                && y <= img.y_mm + img.height_mm
+        }
     }
+}
+
+fn near_polyline(x: f64, y: f64, pts: &[(f64, f64)], closed: bool, tol: f64) -> bool {
+    if pts.len() < 2 {
+        return false;
+    }
+    let n = pts.len();
+    let segs = if closed { n } else { n - 1 };
+    for i in 0..segs {
+        let (x1, y1) = pts[i];
+        let (x2, y2) = pts[(i + 1) % n];
+        if dist_point_segment(x, y, x1, y1, x2, y2) <= tol {
+            return true;
+        }
+    }
+    false
+}
+
+fn dist_point_segment(px: f64, py: f64, x1: f64, y1: f64, x2: f64, y2: f64) -> f64 {
+    let dx = x2 - x1;
+    let dy = y2 - y1;
+    let len2 = dx * dx + dy * dy;
+    if len2 < 1e-18 {
+        let ex = px - x1;
+        let ey = py - y1;
+        return (ex * ex + ey * ey).sqrt();
+    }
+    let t = ((px - x1) * dx + (py - y1) * dy) / len2;
+    let t = t.clamp(0.0, 1.0);
+    let qx = x1 + t * dx;
+    let qy = y1 + t * dy;
+    let ex = px - qx;
+    let ey = py - qy;
+    (ex * ex + ey * ey).sqrt()
 }
 
 fn point_in_polygon(x: f64, y: f64, pts: &[(f64, f64)]) -> bool {
@@ -284,7 +384,7 @@ fn point_in_polygon(x: f64, y: f64, pts: &[(f64, f64)]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use reciplexa_scene::{Circle, Color, Document, Ellipse, Page, PaperSize, Rect, Shape};
+    use reciplexa_scene::{Circle, Color, Document, Ellipse, Page, PaperSize, Rect, Shape, Text};
 
     // --- validity ---
 
@@ -304,6 +404,7 @@ mod tests {
             WorldShape::Circle(c) => {
                 assert_eq!(c.x_mm, 105.0);
                 assert_eq!(c.radius_mm, 40.0);
+                assert!(c.stroke_width_mm.is_none());
             }
             _ => panic!("expected circle"),
         }
@@ -328,6 +429,25 @@ mod tests {
             }
             _ => panic!("expected polygon"),
         }
+    }
+
+    #[test]
+    fn text_flattens_to_world_text() {
+        let shapes = flatten_shapes(
+            &[Shape::Text(Text {
+                x_mm: 10.0,
+                y_mm: 20.0,
+                size_mm: 5.0,
+                content: "Hi".into(),
+                fill: Color::BLACK,
+            })],
+            Affine::identity(),
+        );
+        match &shapes[0] {
+            WorldShape::Text(t) => assert_eq!(t.content, "Hi"),
+            _ => panic!("expected text"),
+        }
+        assert_eq!(hit_test_shapes(&shapes, 11.0, 22.0), Some(0));
     }
 
     #[test]
@@ -382,13 +502,15 @@ mod tests {
                 x_mm: 0.0,
                 y_mm: 0.0,
                 radius_mm: 10.0,
-                fill: Color::BLACK,
+                color: Color::BLACK,
+                stroke_width_mm: None,
             }),
             WorldShape::Circle(WorldCircle {
                 x_mm: 0.0,
                 y_mm: 0.0,
                 radius_mm: 5.0,
-                fill: Color::RED,
+                color: Color::RED,
+                stroke_width_mm: None,
             }),
         ];
         assert_eq!(hit_test_shapes(&shapes, 0.0, 0.0), Some(1));

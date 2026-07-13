@@ -42,6 +42,8 @@ pub enum DragTarget {
     LineXy(usize),
     /// N-th `(polyline …)` — nudges every vertex by the same delta.
     PolylineXy(usize),
+    /// N-th `(image …)` origin when not under a translate binding.
+    ImageXy(usize),
 }
 
 /// Collect one [`DragTarget`] per flattened drawable, in flatten order.
@@ -93,6 +95,7 @@ pub fn nudge_drag_target(
         DragTarget::TextXy(i) => nudge_nth_pair(src, "text", i, 1, 2, dx, dy),
         DragTarget::LineXy(i) => nudge_line(src, i, dx, dy),
         DragTarget::PolylineXy(i) => nudge_polyline(src, i, dx, dy),
+        DragTarget::ImageXy(i) => nudge_nth_pair(src, "image", i, 2, 3, dx, dy),
     }
 }
 
@@ -112,6 +115,7 @@ struct Counters {
     text: usize,
     line: usize,
     polyline: usize,
+    image: usize,
 }
 
 fn collect_from_shape(
@@ -221,6 +225,14 @@ fn collect_from_shape(
             out.push(match inherited_translate {
                 Some(t) => DragTarget::Translate(t),
                 None => DragTarget::PolylineXy(idx),
+            });
+        }
+        "image" => {
+            let idx = counters.image;
+            counters.image += 1;
+            out.push(match inherited_translate {
+                Some(t) => DragTarget::Translate(t),
+                None => DragTarget::ImageXy(idx),
             });
         }
         _ => {}

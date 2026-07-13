@@ -244,7 +244,21 @@ impl eframe::App for PreviewApp {
                         let (x, y) = layout.mm_to_px(c.x_mm, c.y_mm);
                         let r = layout.radius_mm_to_px(c.radius_mm);
                         let center = rect.min + egui::vec2(x, y);
-                        painter.circle_filled(center, r, color32(c.fill));
+                        match c.stroke_width_mm {
+                            None => {
+                                painter.circle_filled(center, r, color32(c.color));
+                            }
+                            Some(w) => {
+                                painter.circle_stroke(
+                                    center,
+                                    r,
+                                    egui::Stroke::new(
+                                        layout.radius_mm_to_px(w).max(1.0),
+                                        color32(c.color),
+                                    ),
+                                );
+                            }
+                        }
                     }
                     WorldShape::Polygon(p) => {
                         if p.points_mm.len() < 3 {
@@ -255,11 +269,91 @@ impl eframe::App for PreviewApp {
                             let (x, y) = layout.mm_to_px(x_mm, y_mm);
                             points.push(rect.min + egui::vec2(x, y));
                         }
-                        painter.add(egui::Shape::convex_polygon(
-                            points,
-                            color32(p.fill),
-                            egui::Stroke::NONE,
-                        ));
+                        match p.stroke_width_mm {
+                            None => {
+                                painter.add(egui::Shape::convex_polygon(
+                                    points,
+                                    color32(p.color),
+                                    egui::Stroke::NONE,
+                                ));
+                            }
+                            Some(w) => {
+                                let stroke = egui::Stroke::new(
+                                    layout.radius_mm_to_px(w).max(1.0),
+                                    color32(p.color),
+                                );
+                                for i in 0..points.len() {
+                                    let a = points[i];
+                                    let b = points[(i + 1) % points.len()];
+                                    painter.line_segment([a, b], stroke);
+                                }
+                            }
+                        }
+                    }
+                    WorldShape::Text(t) => {
+                        let (x, y) = layout.mm_to_px(t.x_mm, t.y_mm + t.size_mm);
+                        let font_px = layout.radius_mm_to_px(t.size_mm).max(8.0);
+                        painter.text(
+                            rect.min + egui::vec2(x, y),
+                            egui::Align2::LEFT_BOTTOM,
+                            &t.content,
+                            egui::FontId::proportional(font_px),
+                            color32(t.fill),
+                        );
+                    }
+                    WorldShape::Path(p) => {
+                        if p.points_mm.len() < 2 {
+                            continue;
+                        }
+                        let stroke = egui::Stroke::new(
+                            layout.radius_mm_to_px(p.width_mm).max(1.0),
+                            color32(p.stroke),
+                        );
+                        let mut pts = Vec::with_capacity(p.points_mm.len());
+                        for &(x_mm, y_mm) in &p.points_mm {
+                            let (x, y) = layout.mm_to_px(x_mm, y_mm);
+                            pts.push(rect.min + egui::vec2(x, y));
+                        }
+                        let n = pts.len();
+                        let segs = if p.closed { n } else { n - 1 };
+                        for i in 0..segs {
+                            painter.line_segment([pts[i], pts[(i + 1) % n]], stroke);
+                        }
+                    }
+                    WorldShape::Image(img) => {
+                        let (x0, y0) = layout.mm_to_px(img.x_mm, img.y_mm + img.height_mm);
+                        let (x1, y1) = layout.mm_to_px(img.x_mm + img.width_mm, img.y_mm);
+                        let r = egui::Rect::from_min_max(
+                            rect.min + egui::vec2(x0, y0),
+                            rect.min + egui::vec2(x1, y1),
+                        );
+                        painter.rect_filled(r, 0.0, egui::Color32::from_gray(230));
+                        painter.rect_stroke(
+                            r,
+                            0.0,
+                            egui::Stroke::new(1.5, egui::Color32::from_gray(60)),
+                            egui::StrokeKind::Outside,
+                        );
+                        painter.line_segment(
+                            [r.left_top(), r.right_bottom()],
+                            egui::Stroke::new(1.0, egui::Color32::from_gray(140)),
+                        );
+                        painter.line_segment(
+                            [r.left_bottom(), r.right_top()],
+                            egui::Stroke::new(1.0, egui::Color32::from_gray(140)),
+                        );
+                        let label = img
+                            .path
+                            .rsplit(['/', '\\'])
+                            .next()
+                            .unwrap_or(img.path.as_str());
+                        painter.text(
+                            r.left_top() + egui::vec2(4.0, 4.0),
+                            egui::Align2::LEFT_TOP,
+                            label,
+                            egui::FontId::proportional(12.0),
+                            egui::Color32::from_gray(40),
+                        );
                     }
                 }
             }
