@@ -46,9 +46,9 @@ fn flatten_shape(shape: &Shape, parent: Affine, out: &mut Vec<WorldCircle>) {
             transform,
             children,
         } => {
-            // Child local → group → parent  ⇒  parent.then(*transform)? 
+            // Child local → group → parent  ⇒  parent.then(*transform)?
             // Point p_local; group applies T; parent applies P.
-            // p_world = P * T * p_local = (P.then(T))? 
+            // p_world = P * T * p_local = (P.then(T))?
             // Our `then` is: self.then(next) means apply self first then next.
             // So T.then(P) would be wrong; we want apply T then P: T.then(P).
             // parent is already P. Combined = transform.then(parent).
@@ -114,6 +114,24 @@ impl PaperLayout {
         let sx = self.width_px as f64 / self.page_width_mm;
         (r_mm * sx) as f32
     }
+
+    pub fn px_to_mm(&self, x_px: f32, y_px: f32) -> (f64, f64) {
+        let sx = self.page_width_mm / self.width_px as f64;
+        let sy = self.page_height_mm / self.height_px as f64;
+        let x_mm = (x_px - self.origin_x_px) as f64 * sx;
+        let y_from_top = (y_px - self.origin_y_px) as f64 * sy;
+        let y_mm = self.page_height_mm - y_from_top;
+        (x_mm, y_mm)
+    }
+}
+
+/// Hit-test circles in page mm; returns the topmost (last drawn) match.
+pub fn hit_test_circles(circles: &[WorldCircle], x_mm: f64, y_mm: f64) -> Option<usize> {
+    circles.iter().enumerate().rev().find_map(|(i, c)| {
+        let dx = x_mm - c.x_mm;
+        let dy = y_mm - c.y_mm;
+        ((dx * dx + dy * dy) <= c.radius_mm * c.radius_mm).then_some(i)
+    })
 }
 
 #[cfg(test)]
@@ -178,6 +196,36 @@ mod tests {
     #[test]
     fn empty_document_has_no_first_page() {
         assert!(flatten_first_page(&Document::default()).is_none());
+    }
+
+    #[test]
+    fn px_mm_roundtrip_center() {
+        let layout = PaperLayout::fit(420.0, 594.0, 0.0, 210.0, 297.0);
+        let (x, y) = layout.mm_to_px(105.0, 148.5);
+        let (mx, my) = layout.px_to_mm(x, y);
+        assert!((mx - 105.0).abs() < 1e-3);
+        assert!((my - 148.5).abs() < 1e-3);
+    }
+
+    #[test]
+    fn hit_test_prefers_topmost() {
+        let circles = vec![
+            WorldCircle {
+                x_mm: 0.0,
+                y_mm: 0.0,
+                radius_mm: 10.0,
+                fill: Color::BLACK,
+            },
+            WorldCircle {
+                x_mm: 0.0,
+                y_mm: 0.0,
+                radius_mm: 5.0,
+                fill: Color::RED,
+            },
+        ];
+        assert_eq!(hit_test_circles(&circles, 0.0, 0.0), Some(1));
+        assert_eq!(hit_test_circles(&circles, 8.0, 0.0), Some(0));
+        assert_eq!(hit_test_circles(&circles, 20.0, 0.0), None);
     }
 
     #[test]

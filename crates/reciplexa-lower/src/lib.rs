@@ -15,6 +15,10 @@
 
 #![forbid(unsafe_code)]
 
+mod sync;
+
+pub use sync::{nudge_first_translate, SyncError};
+
 use reciplexa_scene::{Affine, Circle, Color, Document, Page, PaperSize, Shape};
 use reciplexa_syntax::{parse_source, SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken};
 

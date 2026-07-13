@@ -1,4 +1,4 @@
-//! M6: view-only paper preview. Editing lands in M7.
+//! M7: paper preview with drag → CST translate sync.
 
 use std::env;
 use std::fs;
@@ -6,10 +6,9 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 
 use eframe::egui;
-use reciplexa_lower::lower_source;
-use reciplexa_scene::Document;
+use reciplexa_lower::{lower_source, nudge_first_translate};
 use reciplexa_types::typecheck_source;
-use reciplexa_view::{flatten_first_page, PaperLayout};
+use reciplexa_view::{flatten_first_page, hit_test_circles, PaperLayout};
 
 fn main() -> ExitCode {
     let path = match env::args().nth(1) {
@@ -31,13 +30,10 @@ fn main() -> ExitCode {
         eprintln!("error: type: {} @{}..{}", e.message, e.start, e.end);
         return ExitCode::FAILURE;
     }
-    let doc = match lower_source(&src) {
-        Ok(d) => d,
-        Err(e) => {
-            eprintln!("error: {}", e.message);
-            return ExitCode::FAILURE;
-        }
-    };
+    if let Err(e) = lower_source(&src) {
+        eprintln!("error: {}", e.message);
+        return ExitCode::FAILURE;
+    }
 
     let title = format!("reciplexa — {}", path.display());
     let native_options = eframe::NativeOptions {
@@ -50,7 +46,14 @@ fn main() -> ExitCode {
     match eframe::run_native(
         "reciplexa",
         native_options,
-        Box::new(move |_cc| Ok(Box::new(PreviewApp { doc }))),
+        Box::new(move |_cc| {
+            Ok(Box::new(PreviewApp {
+                path,
+                source: src,
+                error: None,
+                drag: None,
+            }))
+        }),
     ) {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
@@ -61,24 +64,55 @@ fn main() -> ExitCode {
 }
 
 struct PreviewApp {
-    doc: Document,
+    path: PathBuf,
+    source: String,
+    error: Option<String>,
+    drag: Option<DragState>,
+}
+
+struct DragState {
+    last_mm: (f64, f64),
+}
+
+impl PreviewApp {
+    fn reload_ok(&self) -> bool {
+        typecheck_source(&self.source).is_ok() && lower_source(&self.source).is_ok()
+    }
 }
 
 impl eframe::App for PreviewApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading("Paper preview (M6 — view only)");
-            ui.label("Transforms and colors come from the .rpx scene. Drag editing is M7.");
+            ui.heading("Paper preview (M7 — drag translate)");
+            ui.label(
+                "Drag the circle to nudge the first (translate …) in the .rpx (CST-preserving).",
+            );
+            if ui.button("Save .rpx").clicked() {
+                if let Err(e) = fs::write(&self.path, &self.source) {
+                    self.error = Some(format!("save: {e}"));
+                } else {
+                    self.error = None;
+                }
+            }
+            if let Some(err) = &self.error {
+                ui.colored_label(egui::Color32::RED, err);
+            }
             ui.add_space(8.0);
 
-            let Some((page, circles)) = flatten_first_page(&self.doc) else {
+            let doc = match lower_source(&self.source) {
+                Ok(d) => d,
+                Err(e) => {
+                    ui.colored_label(egui::Color32::RED, &e.message);
+                    return;
+                }
+            };
+            let Some((page, circles)) = flatten_first_page(&doc) else {
                 ui.colored_label(egui::Color32::RED, "Document has no pages.");
                 return;
             };
 
             let avail = ui.available_size();
-            let (response, painter) =
-                ui.allocate_painter(avail, egui::Sense::hover());
+            let (response, painter) = ui.allocate_painter(avail, egui::Sense::click_and_drag());
             let rect = response.rect;
             let layout = PaperLayout::fit(
                 rect.width(),
@@ -110,6 +144,42 @@ impl eframe::App for PreviewApp {
                     (c.fill.b * 255.0).round().clamp(0.0, 255.0) as u8,
                 );
                 painter.circle_filled(center, r, color);
+            }
+
+            if let Some(pos) = response.interact_pointer_pos() {
+                let local = pos - rect.min;
+                let (mx, my) = layout.px_to_mm(local.x, local.y);
+
+                if response.drag_started() && hit_test_circles(&circles, mx, my).is_some() {
+                    self.drag = Some(DragState { last_mm: (mx, my) });
+                }
+
+                if response.dragged() {
+                    if let Some(drag) = &self.drag {
+                        let dx = mx - drag.last_mm.0;
+                        let dy = my - drag.last_mm.1;
+                        if dx.abs() > 1e-9 || dy.abs() > 1e-9 {
+                            match nudge_first_translate(&self.source, dx, dy) {
+                                Ok(new_src) => {
+                                    self.source = new_src;
+                                    self.error = if self.reload_ok() {
+                                        None
+                                    } else {
+                                        Some("edit produced invalid program".into())
+                                    };
+                                    self.drag = Some(DragState { last_mm: (mx, my) });
+                                }
+                                Err(e) => self.error = Some(e.message),
+                            }
+                        }
+                    }
+                }
+
+                if response.drag_stopped() {
+                    self.drag = None;
+                }
+            } else if response.drag_stopped() {
+                self.drag = None;
             }
         });
     }
