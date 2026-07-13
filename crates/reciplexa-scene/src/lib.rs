@@ -106,11 +106,30 @@ impl Circle {
     }
 }
 
+/// Axis-aligned filled rectangle in **local** millimeters (before transforms).
+///
+/// `(x_mm, y_mm)` is the **bottom-left** corner in local space.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Rect {
+    pub x_mm: f64,
+    pub y_mm: f64,
+    pub width_mm: f64,
+    pub height_mm: f64,
+    pub fill: Color,
+}
+
+impl Rect {
+    pub fn is_drawable(self) -> bool {
+        self.width_mm > 0.0 && self.height_mm > 0.0 && self.fill.is_channel_valid()
+    }
+}
+
 /// Drawable node. [`Shape::Group`] applies an affine to nested children—
 /// the Glisp-style stack of translate / rotate / scale.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Shape {
     Circle(Circle),
+    Rect(Rect),
     Group {
         transform: Affine,
         children: Vec<Shape>,
@@ -187,6 +206,23 @@ mod tests {
             Shape::Group { children, .. } => assert_eq!(children.len(), 1),
             _ => panic!("expected group"),
         }
+    }
+
+    #[test]
+    fn rect_requires_positive_size() {
+        let ok = Rect {
+            x_mm: 0.0,
+            y_mm: 0.0,
+            width_mm: 10.0,
+            height_mm: 5.0,
+            fill: Color::BLACK,
+        };
+        assert!(ok.is_drawable());
+        let bad = Rect {
+            height_mm: 0.0,
+            ..ok
+        };
+        assert!(!bad.is_drawable());
     }
 
     // --- defect ---

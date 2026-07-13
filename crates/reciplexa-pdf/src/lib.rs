@@ -66,6 +66,18 @@ fn render_shape(shape: &Shape, ctx: &str) -> Result<String, PdfError> {
             }
             Ok(circle_path_ops(c.x_mm, c.y_mm, c.radius_mm, c.fill))
         }
+        Shape::Rect(r) => {
+            if !r.is_drawable() {
+                return Err(PdfError::InvalidShape(format!("{ctx}: rect not drawable")));
+            }
+            Ok(rect_path_ops(
+                r.x_mm,
+                r.y_mm,
+                r.width_mm,
+                r.height_mm,
+                r.fill,
+            ))
+        }
         Shape::Group {
             transform,
             children,
@@ -145,6 +157,19 @@ fn circle_path_ops(x_mm: f64, y_mm: f64, r_mm: f64, fill: Color) -> String {
         y11 = cy - kr,
         x12 = cx + r,
         y12 = cy,
+    )
+}
+
+fn rect_path_ops(x_mm: f64, y_mm: f64, w_mm: f64, h_mm: f64, fill: Color) -> String {
+    let x = mm_to_pt(x_mm);
+    let y = mm_to_pt(y_mm);
+    let w = mm_to_pt(w_mm);
+    let h = mm_to_pt(h_mm);
+    format!(
+        "{r:.4} {g:.4} {b:.4} rg\n{x:.4} {y:.4} {w:.4} {h:.4} re\nf\n",
+        r = fill.r,
+        g = fill.g,
+        b = fill.b,
     )
 }
 
@@ -357,5 +382,24 @@ mod tests {
             document_to_pdf(&doc),
             Err(PdfError::InvalidShape(_))
         ));
+    }
+
+    #[test]
+    fn rect_pdf_contains_re_operator() {
+        use reciplexa_scene::Rect;
+        let doc = Document::single_page(Page {
+            paper: PaperSize::a4(),
+            shapes: vec![Shape::Rect(Rect {
+                x_mm: 10.0,
+                y_mm: 20.0,
+                width_mm: 30.0,
+                height_mm: 40.0,
+                fill: Color::BLUE,
+            })],
+        });
+        let bytes = document_to_pdf(&doc).unwrap();
+        let text = String::from_utf8_lossy(&bytes);
+        assert!(text.contains(" re\n"));
+        assert!(text.contains("0.0000 0.0000 1.0000 rg"));
     }
 }

@@ -8,7 +8,7 @@ use std::process::ExitCode;
 use eframe::egui;
 use reciplexa_lower::{lower_source, nudge_first_translate};
 use reciplexa_types::typecheck_source;
-use reciplexa_view::{flatten_first_page, hit_test_circles, PaperLayout};
+use reciplexa_view::{flatten_first_page, hit_test_shapes, PaperLayout, WorldShape};
 
 fn main() -> ExitCode {
     let path = match env::args().nth(1) {
@@ -106,7 +106,7 @@ impl eframe::App for PreviewApp {
                     return;
                 }
             };
-            let Some((page, circles)) = flatten_first_page(&doc) else {
+            let Some((page, shapes)) = flatten_first_page(&doc) else {
                 ui.colored_label(egui::Color32::RED, "Document has no pages.");
                 return;
             };
@@ -134,23 +134,37 @@ impl eframe::App for PreviewApp {
                 egui::StrokeKind::Outside,
             );
 
-            for c in &circles {
-                let (x, y) = layout.mm_to_px(c.x_mm, c.y_mm);
-                let r = layout.radius_mm_to_px(c.radius_mm);
-                let center = rect.min + egui::vec2(x, y);
-                let color = egui::Color32::from_rgb(
-                    (c.fill.r * 255.0).round().clamp(0.0, 255.0) as u8,
-                    (c.fill.g * 255.0).round().clamp(0.0, 255.0) as u8,
-                    (c.fill.b * 255.0).round().clamp(0.0, 255.0) as u8,
-                );
-                painter.circle_filled(center, r, color);
+            for shape in &shapes {
+                match shape {
+                    WorldShape::Circle(c) => {
+                        let (x, y) = layout.mm_to_px(c.x_mm, c.y_mm);
+                        let r = layout.radius_mm_to_px(c.radius_mm);
+                        let center = rect.min + egui::vec2(x, y);
+                        painter.circle_filled(center, r, color32(c.fill));
+                    }
+                    WorldShape::Polygon(p) => {
+                        if p.points_mm.len() < 3 {
+                            continue;
+                        }
+                        let mut points = Vec::with_capacity(p.points_mm.len());
+                        for &(x_mm, y_mm) in &p.points_mm {
+                            let (x, y) = layout.mm_to_px(x_mm, y_mm);
+                            points.push(rect.min + egui::vec2(x, y));
+                        }
+                        painter.add(egui::Shape::convex_polygon(
+                            points,
+                            color32(p.fill),
+                            egui::Stroke::NONE,
+                        ));
+                    }
+                }
             }
 
             if let Some(pos) = response.interact_pointer_pos() {
                 let local = pos - rect.min;
                 let (mx, my) = layout.px_to_mm(local.x, local.y);
 
-                if response.drag_started() && hit_test_circles(&circles, mx, my).is_some() {
+                if response.drag_started() && hit_test_shapes(&shapes, mx, my).is_some() {
                     self.drag = Some(DragState { last_mm: (mx, my) });
                 }
 
@@ -183,4 +197,12 @@ impl eframe::App for PreviewApp {
             }
         });
     }
+}
+
+fn color32(c: reciplexa_scene::Color) -> egui::Color32 {
+    egui::Color32::from_rgb(
+        (c.r * 255.0).round().clamp(0.0, 255.0) as u8,
+        (c.g * 255.0).round().clamp(0.0, 255.0) as u8,
+        (c.b * 255.0).round().clamp(0.0, 255.0) as u8,
+    )
 }

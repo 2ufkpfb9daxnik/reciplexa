@@ -100,6 +100,23 @@ fn check_form(node: &SyntaxNode) -> Result<Type, TypeError> {
             }
             Ok(Type::Shape)
         }
+        "rect" => {
+            // (rect Num Num Num Num) | (rect Num Num Num Num Color)
+            if args.len() != 4 && args.len() != 5 {
+                return Err(TypeError::at(
+                    "`rect` has type (Num×4) or (Num×4 Color) -> Shape",
+                    span.0,
+                    span.1,
+                ));
+            }
+            for a in args.iter().take(4) {
+                expect_ty(check_child(a)?, Type::Number, node)?;
+            }
+            if args.len() == 5 {
+                expect_ty(check_child(&args[4])?, Type::Color, node)?;
+            }
+            Ok(Type::Shape)
+        }
         "rgb" => {
             if args.len() != 3 {
                 return Err(TypeError::at(

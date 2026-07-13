@@ -19,7 +19,7 @@ mod sync;
 
 pub use sync::{nudge_first_translate, SyncError};
 
-use reciplexa_scene::{Affine, Circle, Color, Document, Page, PaperSize, Shape};
+use reciplexa_scene::{Affine, Circle, Color, Document, Page, PaperSize, Rect, Shape};
 use reciplexa_syntax::{parse_source, SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken};
 
 /// Lowering / validation error (fail-fast: no partial scene for rendering).
@@ -111,6 +111,7 @@ fn lower_shape(node: &SyntaxNode) -> Result<Shape, LowerError> {
     let head = ident_at(&items, 0, "shape")?;
     match head {
         "circle" => lower_circle(&items),
+        "rect" => lower_rect(&items),
         "translate" => lower_translate(&items),
         "rotate" => lower_rotate(&items),
         "scale" => lower_scale(&items),
@@ -145,6 +146,37 @@ fn lower_circle(items: &[Child]) -> Result<Shape, LowerError> {
         )));
     }
     Ok(Shape::Circle(circle))
+}
+
+fn lower_rect(items: &[Child]) -> Result<Shape, LowerError> {
+    // (rect x y w h) | (rect x y w h color)
+    if items.len() != 5 && items.len() != 6 {
+        return Err(LowerError::new(
+            "`rect` expects (rect x y w h) or (rect x y w h color)",
+        ));
+    }
+    let x = number_at(items, 1, "rect x")?;
+    let y = number_at(items, 2, "rect y")?;
+    let w = number_at(items, 3, "rect width")?;
+    let h = number_at(items, 4, "rect height")?;
+    let fill = if items.len() == 6 {
+        lower_color(&items[5])?
+    } else {
+        Color::BLACK
+    };
+    let rect = Rect {
+        x_mm: x,
+        y_mm: y,
+        width_mm: w,
+        height_mm: h,
+        fill,
+    };
+    if !rect.is_drawable() {
+        return Err(LowerError::new(format!(
+            "rect is not drawable (w={w}, h={h})"
+        )));
+    }
+    Ok(Shape::Rect(rect))
 }
 
 fn lower_color(child: &Child) -> Result<Color, LowerError> {
@@ -436,6 +468,24 @@ mod tests {
             }
             _ => panic!("expected circle"),
         }
+    }
+
+    #[test]
+    fn lowers_rect_with_color() {
+        let doc = lower_source("(page a4 (rect 10 20 30 40 blue))").unwrap();
+        match &doc.pages[0].shapes[0] {
+            Shape::Rect(r) => {
+                assert_eq!(r.width_mm, 30.0);
+                assert_eq!(r.height_mm, 40.0);
+                assert_eq!(r.fill, Color::BLUE);
+            }
+            _ => panic!("expected rect"),
+        }
+    }
+
+    #[test]
+    fn bad_rect_arity_fails() {
+        assert!(lower_source("(page a4 (rect 1 2 3))").is_err());
     }
 
     // --- defect ---
