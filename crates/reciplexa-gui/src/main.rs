@@ -9,9 +9,9 @@ use std::sync::Arc;
 use eframe::egui;
 use eframe::egui::text::{CCursor, CCursorRange};
 use reciplexa_lower::{
-    collect_drag_targets_page, collect_layers_page, collect_size_targets_page, layer_opacity,
-    layer_rotation_deg, lower_source, nudge_drag_target, reorder_layer_page, scale_size_target,
-    set_layer_opacity, set_layer_rotation_deg, DragTarget, LayerInfo, SizeTarget,
+    collect_drag_targets_page, collect_layers_page, collect_size_targets_page, delete_layer_page,
+    layer_opacity, layer_rotation_deg, lower_source, nudge_drag_target, reorder_layer_page,
+    scale_size_target, set_layer_opacity, set_layer_rotation_deg, DragTarget, LayerInfo, SizeTarget,
 };
 use reciplexa_macro::expand_source;
 use reciplexa_pdf::write_document_with_base;
@@ -285,6 +285,18 @@ impl PreviewApp {
             Err(e) => self.error = Some(e.message),
         }
     }
+
+    fn apply_layer_delete(&mut self, index: usize) {
+        match delete_layer_page(&self.source, self.page_index, index) {
+            Ok(new_src) => {
+                self.set_source_with_undo(new_src);
+                self.drag = None;
+                self.selected = None;
+                self.error = pipeline_doc(&self.source).err();
+            }
+            Err(e) => self.error = Some(e.message),
+        }
+    }
 }
 
 impl eframe::App for PreviewApp {
@@ -344,6 +356,11 @@ impl eframe::App for PreviewApp {
                             }
                         }
                     }
+                }
+                if ctx.input(|i| {
+                    i.key_pressed(egui::Key::Delete) || i.key_pressed(egui::Key::Backspace)
+                }) {
+                    self.apply_layer_delete(sel);
                 }
             }
         }
@@ -581,6 +598,13 @@ impl eframe::App for PreviewApp {
                     if !slider.is_pointer_button_down_on() {
                         self.opacity_undo_open = false;
                     }
+                    if ui
+                        .button("Delete layer")
+                        .on_hover_text("Remove from .rpx (Delete key)")
+                        .clicked()
+                    {
+                        self.apply_layer_delete(sel);
+                    }
                 } else {
                     self.opacity_undo_open = false;
                 }
@@ -588,7 +612,7 @@ impl eframe::App for PreviewApp {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("Paper preview");
-            ui.label("Scroll = zoom · Middle/Alt-drag = pan · Drag = move · Corners = scale · Top knob = rotate · Arrows = nudge.");
+            ui.label("Scroll = zoom · Middle/Alt-drag = pan · Drag = move · Corners = scale · Top knob = rotate · Arrows = nudge · Delete = remove.");
 
             let doc = match pipeline_doc(&self.source) {
                 Ok(d) => d,

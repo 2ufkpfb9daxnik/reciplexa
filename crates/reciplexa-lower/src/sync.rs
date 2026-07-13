@@ -38,7 +38,13 @@ pub enum SizeTarget {
     TextSize(usize),
     /// `(image path x y w h)` — scale w/h about center.
     ImageWh(usize),
-    /// Lines / polys: no leaf size edit yet.
+    /// `(line x1 y1 x2 y2 …)` — scale endpoints about midpoint.
+    LineSeg(usize),
+    /// `(polyline …)` — scale vertices about centroid.
+    PolylinePoints(usize),
+    /// `(polygon …)` — scale vertices about centroid.
+    PolygonPoints(usize),
+    /// Unknown / not yet editable size.
     Unsupported,
 }
 
@@ -150,6 +156,35 @@ pub fn reorder_layer_page(
     } else {
         reorder_page_roots(src, page_index, from_root, to_root)
     }
+}
+
+/// Remove flattened layer `flat_index` from the page (rewrites `.rpx`).
+///
+/// If the layer is the sole drawable under its page-level root, the whole root
+/// form is removed. Otherwise only that leaf span is cut out of a shared group.
+pub fn delete_layer_page(
+    src: &str,
+    page_index: usize,
+    flat_index: usize,
+) -> Result<String, SyncError> {
+    let layers = collect_layers_page(src, page_index)?;
+    let layer = layers
+        .get(flat_index)
+        .ok_or_else(|| SyncError::new("layer index out of range"))?;
+    let root = (layer.root_start, layer.root_end);
+    let shared = layers
+        .iter()
+        .filter(|l| (l.root_start, l.root_end) == root)
+        .count();
+    let (cut_start, cut_end) = if shared <= 1 {
+        extent_with_leading_ws(src, root.0, root.1)
+    } else {
+        extent_with_leading_ws(src, layer.byte_start, layer.byte_end)
+    };
+    let mut out = String::with_capacity(src.len());
+    out.push_str(&src[..cut_start]);
+    out.push_str(&src[cut_end..]);
+    Ok(out)
 }
 
 fn reorder_page_roots(
@@ -347,6 +382,16 @@ pub fn scale_size_target(
         SizeTarget::RectWh(i) => scale_box_about_center(src, "rect", i, [1, 2, 3, 4], factor),
         SizeTarget::FrameWh(i) => scale_box_about_center(src, "frame", i, [1, 2, 3, 4], factor),
         SizeTarget::ImageWh(i) => scale_box_about_center(src, "image", i, [2, 3, 4, 5], factor),
+        SizeTarget::LineSeg(i) => {
+            let after = scale_xy_pairs_about_centroid(src, "line", i, factor)?;
+            // Optional trailing width at slot 6: (line x1 y1 x2 y2 color width)
+            multiply_nth_number_optional(&after, "line", i, 6, factor)
+        }
+        SizeTarget::PolylinePoints(i) => {
+            let after = scale_xy_pairs_about_centroid(src, "polyline", i, factor)?;
+            scale_polyline_trailing_width(&after, i, factor)
+        }
+        SizeTarget::PolygonPoints(i) => scale_xy_pairs_about_centroid(src, "polygon", i, factor),
         SizeTarget::Unsupported => Ok(src.to_string()),
     }
 }
@@ -782,16 +827,19 @@ fn collect_size_from_shape(
             out.push(SizeTarget::TextSize(idx));
         }
         "line" => {
+            let idx = counters.line;
             counters.line += 1;
-            out.push(SizeTarget::Unsupported);
+            out.push(SizeTarget::LineSeg(idx));
         }
         "polyline" => {
+            let idx = counters.polyline;
             counters.polyline += 1;
-            out.push(SizeTarget::Unsupported);
+            out.push(SizeTarget::PolylinePoints(idx));
         }
         "polygon" => {
+            let idx = counters.polygon;
             counters.polygon += 1;
-            out.push(SizeTarget::Unsupported);
+            out.push(SizeTarget::PolygonPoints(idx));
         }
         "image" => {
             let idx = counters.image;
@@ -953,6 +1001,101 @@ fn multiply_nth_number(
         .map_err(|_| SyncError::new("bad size number"))?;
     let (_, out) = replace_token_text(&tok, &format_drag_number(v * factor));
     Ok(out)
+}
+
+fn multiply_nth_number_optional(
+    src: &str,
+    head: &str,
+    index: usize,
+    slot: usize,
+    factor: f64,
+) -> Result<String, SyncError> {
+    let root = parse_root(src)?;
+    if find_nth_number(&root, head, index, slot).is_none() {
+        return Ok(src.to_string());
+    }
+    multiply_nth_number(src, head, index, slot, factor)
+}
+
+fn scale_xy_pairs_about_centroid(
+    src: &str,
+    head: &str,
+    index: usize,
+    factor: f64,
+) -> Result<String, SyncError> {
+    let root = parse_root(src)?;
+    let n = count_leading_number_coords(&root, head, index)
+        .ok_or_else(|| SyncError::new(format!("no `{head}` #{index}")))?;
+    if n < 4 || n % 2 != 0 {
+        return Err(SyncError::new(format!(
+            "`{head}` #{index} needs an even number of coordinates (≥4)"
+        )));
+    }
+    let pairs = n / 2;
+    let mut pts = Vec::with_capacity(pairs);
+    for p in 0..pairs {
+        let x = read_nth_number(&root, head, index, 1 + p * 2)?;
+        let y = read_nth_number(&root, head, index, 2 + p * 2)?;
+        pts.push((x, y));
+    }
+    let cx = pts.iter().map(|p| p.0).sum::<f64>() / pairs as f64;
+    let cy = pts.iter().map(|p| p.1).sum::<f64>() / pairs as f64;
+    let mut out = src.to_string();
+    for (p, (x, y)) in pts.into_iter().enumerate() {
+        let nx = cx + (x - cx) * factor;
+        let ny = cy + (y - cy) * factor;
+        out = set_nth_number(&out, head, index, 1 + p * 2, nx)?;
+        out = set_nth_number(&out, head, index, 2 + p * 2, ny)?;
+    }
+    Ok(out)
+}
+
+/// Scale trailing `(polyline … color width)` width when present.
+fn scale_polyline_trailing_width(
+    src: &str,
+    index: usize,
+    factor: f64,
+) -> Result<String, SyncError> {
+    let root = parse_root(src)?;
+    let mut seen = 0usize;
+    for node in root.descendants() {
+        if node.kind() != SyntaxKind::List {
+            continue;
+        }
+        let items = list_atoms(&node);
+        let Some(Child::Token(h)) = items.first() else {
+            continue;
+        };
+        if h.kind() != SyntaxKind::Ident || h.text() != "polyline" {
+            continue;
+        }
+        if seen == index {
+            // Width is last atom when it is a number and the previous atom is a color.
+            let last = items.len().checked_sub(1);
+            let prev = items.len().checked_sub(2);
+            let (Some(li), Some(pi)) = (last, prev) else {
+                return Ok(src.to_string());
+            };
+            let width_is_num = matches!(&items[li], Child::Token(t) if t.kind() == SyntaxKind::Number);
+            let prev_is_color = match &items[pi] {
+                Child::Token(t) if t.kind() == SyntaxKind::Ident => true,
+                Child::Node(n) => {
+                    let inner = list_atoms(n);
+                    matches!(
+                        inner.first(),
+                        Some(Child::Token(t)) if t.kind() == SyntaxKind::Ident && t.text() == "rgb"
+                    )
+                }
+                _ => false,
+            };
+            if width_is_num && prev_is_color {
+                return multiply_nth_number(src, "polyline", index, li, factor);
+            }
+            return Ok(src.to_string());
+        }
+        seen += 1;
+    }
+    Ok(src.to_string())
 }
 
 fn scale_box_about_center(
@@ -1404,5 +1547,57 @@ mod tests {
         assert!(out.contains("(opacity 1 (circle 1 2 3))"));
         let out = set_layer_opacity(src, 0, 0, -0.5).unwrap();
         assert!(out.contains("(opacity 0 (circle 1 2 3))"));
+    }
+
+    #[test]
+    fn scale_line_about_midpoint() {
+        let src = "(page a4 (line 0 0 10 0 red 2))";
+        let sizes = collect_size_targets_page(src, 0).unwrap();
+        assert_eq!(sizes, vec![SizeTarget::LineSeg(0)]);
+        let out = scale_size_target(src, SizeTarget::LineSeg(0), 2.0).unwrap();
+        // midpoint (5,0); endpoints → (-5,0) and (15,0); width 4
+        assert!(
+            out.contains("(line -5 0 15 0 red 4)"),
+            "unexpected rewrite: {out}"
+        );
+    }
+
+    #[test]
+    fn scale_polyline_vertices_and_width() {
+        let src = "(page a4 (polyline 0 0 10 0 10 10 red 1.5))";
+        let out = scale_size_target(src, SizeTarget::PolylinePoints(0), 2.0).unwrap();
+        // centroid (20/3, 10/3) ≈ (6.667, 3.333) — check scaled width and that coords moved
+        assert!(out.contains("red 3"), "unexpected rewrite: {out}");
+        assert!(!out.contains("(polyline 0 0 10 0 10 10"));
+    }
+
+    #[test]
+    fn scale_polygon_about_centroid() {
+        let src = "(page a4 (polygon 0 0 10 0 0 10))";
+        let out = scale_size_target(src, SizeTarget::PolygonPoints(0), 2.0).unwrap();
+        // centroid (10/3, 10/3); first vertex 0,0 → -10/3, -10/3
+        assert!(
+            out.contains("-3.333") || out.contains("-3.333333"),
+            "unexpected rewrite: {out}"
+        );
+    }
+
+    #[test]
+    fn delete_top_level_layer() {
+        let src = "(page a4 (circle 1 2 3) (rect 0 0 1 1))";
+        let out = delete_layer_page(src, 0, 0).unwrap();
+        assert!(!out.contains("circle"));
+        assert!(out.contains("(rect 0 0 1 1)"));
+        let layers = collect_layers_page(&out, 0).unwrap();
+        assert_eq!(layers.len(), 1);
+    }
+
+    #[test]
+    fn delete_leaf_inside_translate_keeps_sibling() {
+        let src = "(page a4 (translate 0 0 (circle 1 2 3) (rect 0 0 1 1)))";
+        let out = delete_layer_page(src, 0, 0).unwrap();
+        assert!(out.contains("(translate 0 0"));
+        assert!(!out.contains("circle"));
+        assert!(out.contains("(rect 0 0 1 1)"));
     }
 }
