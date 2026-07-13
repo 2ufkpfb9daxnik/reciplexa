@@ -59,6 +59,9 @@ fn find_next_rewrite(root: &SyntaxNode) -> Option<(usize, usize, String)> {
     if let Some((start, end, replacement)) = find_hline(root) {
         return Some((start, end, replacement));
     }
+    if let Some((start, end, replacement)) = find_vline(root) {
+        return Some((start, end, replacement));
+    }
     None
 }
 
@@ -114,6 +117,19 @@ fn find_color_byte(root: &SyntaxNode) -> Option<(usize, usize, f64, f64, f64)> {
 
 fn find_hline(root: &SyntaxNode) -> Option<(usize, usize, String)> {
     // (hline x1 x2 y [color [width]]) → (line x1 y x2 y …)
+    find_axis_line(root, "hline", true)
+}
+
+fn find_vline(root: &SyntaxNode) -> Option<(usize, usize, String)> {
+    // (vline y1 y2 x [color [width]]) → (line x y1 x y2 …)
+    find_axis_line(root, "vline", false)
+}
+
+fn find_axis_line(
+    root: &SyntaxNode,
+    head_name: &str,
+    horizontal: bool,
+) -> Option<(usize, usize, String)> {
     for node in root.descendants() {
         if node.kind() != SyntaxKind::List {
             continue;
@@ -122,16 +138,22 @@ fn find_hline(root: &SyntaxNode) -> Option<(usize, usize, String)> {
         let Some(Child::Token(head)) = items.first() else {
             continue;
         };
-        if head.kind() != SyntaxKind::Ident || head.text() != "hline" {
+        if head.kind() != SyntaxKind::Ident || head.text() != head_name {
             continue;
         }
         if items.len() < 4 {
             continue;
         }
-        let x1 = atom_text(&items[1])?;
-        let x2 = atom_text(&items[2])?;
-        let y = atom_text(&items[3])?;
-        let mut repl = format!("(line {x1} {y} {x2} {y}");
+        let a = atom_text(&items[1])?;
+        let b = atom_text(&items[2])?;
+        let c = atom_text(&items[3])?;
+        let mut repl = if horizontal {
+            // a=x1 b=x2 c=y
+            format!("(line {a} {c} {b} {c}")
+        } else {
+            // a=y1 b=y2 c=x
+            format!("(line {c} {a} {c} {b}")
+        };
         for item in items.iter().skip(4) {
             repl.push(' ');
             repl.push_str(&atom_text(item)?);
@@ -225,6 +247,14 @@ mod tests {
         let out = expand_source(src).unwrap();
         assert!(out.contains("(line 10 50 100 50 red 1.5)"));
         assert!(!out.contains("hline"));
+    }
+
+    #[test]
+    fn expands_vline_to_line() {
+        let src = "(page a4 (vline 10 100 50 blue))";
+        let out = expand_source(src).unwrap();
+        assert!(out.contains("(line 50 10 50 100 blue)"));
+        assert!(!out.contains("vline"));
     }
 
     #[test]

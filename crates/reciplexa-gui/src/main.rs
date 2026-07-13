@@ -349,6 +349,7 @@ impl PreviewApp {
             let mut open = self.props_open;
             let mut apply_fill = false;
             let mut apply_opacity = false;
+            let mut align: Option<AlignEdge> = None;
             egui::Window::new(format!("Properties ({} selected)", indices.len()))
                 .id(egui::Id::new("selection_properties_multi"))
                 .open(&mut open)
@@ -388,6 +389,22 @@ impl PreviewApp {
                     if ui.button("Apply opacity to selection").clicked() {
                         apply_opacity = true;
                     }
+                    ui.separator();
+                    ui.label(egui::RichText::new("Align").strong());
+                    ui.horizontal(|ui| {
+                        if ui.button("Left").clicked() {
+                            align = Some(AlignEdge::Left);
+                        }
+                        if ui.button("Right").clicked() {
+                            align = Some(AlignEdge::Right);
+                        }
+                        if ui.button("Top").clicked() {
+                            align = Some(AlignEdge::Top);
+                        }
+                        if ui.button("Bottom").clicked() {
+                            align = Some(AlignEdge::Bottom);
+                        }
+                    });
                 });
             self.props_open = open;
             if apply_fill {
@@ -413,6 +430,9 @@ impl PreviewApp {
                     }
                     Err(e) => self.error = Some(e.message),
                 }
+            }
+            if let Some(edge) = align {
+                self.align_selection(edge);
             }
             return;
         }
@@ -618,6 +638,70 @@ impl PreviewApp {
         self.drag = None;
         self.error = pipeline_doc(&self.source).err();
     }
+    fn align_selection(&mut self, edge: AlignEdge) {
+        let Ok(doc) = pipeline_doc(&self.source) else {
+            return;
+        };
+        let Some((_, shapes)) = flatten_page(&doc, self.page_index) else {
+            return;
+        };
+        let mut items: Vec<(usize, (f64, f64, f64, f64))> = self
+            .selected
+            .iter()
+            .filter_map(|&i| {
+                shapes
+                    .get(i)
+                    .and_then(PaperLayout::shape_bounds_mm)
+                    .map(|b| (i, b))
+            })
+            .collect();
+        if items.len() < 2 {
+            return;
+        }
+        let target = match edge {
+            AlignEdge::Left => items.iter().map(|(_, b)| b.0).fold(f64::INFINITY, f64::min),
+            AlignEdge::Right => items
+                .iter()
+                .map(|(_, b)| b.2)
+                .fold(f64::NEG_INFINITY, f64::max),
+            AlignEdge::Bottom => items.iter().map(|(_, b)| b.1).fold(f64::INFINITY, f64::min),
+            AlignEdge::Top => items
+                .iter()
+                .map(|(_, b)| b.3)
+                .fold(f64::NEG_INFINITY, f64::max),
+        };
+        items.sort_by_key(|(i, _)| *i);
+        self.push_undo();
+        let mut src = self.source.clone();
+        for &(i, (x0, y0, x1, y1)) in &items {
+            let (dx, dy) = match edge {
+                AlignEdge::Left => (target - x0, 0.0),
+                AlignEdge::Right => (target - x1, 0.0),
+                AlignEdge::Bottom => (0.0, target - y0),
+                AlignEdge::Top => (0.0, target - y1),
+            };
+            if dx.abs() < 1e-12 && dy.abs() < 1e-12 {
+                continue;
+            }
+            match nudge_layer_page(&src, self.page_index, i, dx, dy) {
+                Ok(new_src) => src = new_src,
+                Err(e) => {
+                    self.error = Some(e.message);
+                    return;
+                }
+            }
+        }
+        self.source = src;
+        self.error = pipeline_doc(&self.source).err();
+    }
+}
+
+#[derive(Clone, Copy)]
+enum AlignEdge {
+    Left,
+    Right,
+    Top,
+    Bottom,
 }
 
 impl eframe::App for PreviewApp {
