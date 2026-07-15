@@ -1,0 +1,11 @@
+[package]
+name = "reciplexa-svg"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "SVG export from reciplexa scene (no GUI)"
+publish = false
+
+[dependencies]
+reciplexa-scene = { workspace = true }
+reciplexa-view = { workspace = true }

@@ -1,24 +1,26 @@
-//! Minimal CLI: `reciplexa <input.rpx> <output.pdf>`
+//! Minimal CLI: `reciplexa <input.rpx> <output.{pdf|svg|pptx}>`
 //!
 //! Compilation stages live in [`reciplexa::pipeline`] so the GUI can share them.
 
 use std::env;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use reciplexa::pipeline::{document_for_export, PipelineError};
 use reciplexa_effect::{seed_from_env, EffectError, EffectHandler, LcgRng, Value};
 use reciplexa_pdf::write_document_with_base;
+use reciplexa_pptx::write_document as write_pptx;
+use reciplexa_svg::write_document as write_svg;
 
 fn main() -> ExitCode {
     let mut args = env::args().skip(1);
     let Some(input) = args.next() else {
-        eprintln!("usage: reciplexa <input.rpx> <output.pdf>");
+        eprintln!("usage: reciplexa <input.rpx> <output.pdf|svg|pptx>");
         return ExitCode::from(2);
     };
     let Some(output) = args.next() else {
-        eprintln!("usage: reciplexa <input.rpx> <output.pdf>");
+        eprintln!("usage: reciplexa <input.rpx> <output.pdf|svg|pptx>");
         return ExitCode::from(2);
     };
 
@@ -74,8 +76,33 @@ fn render(input: &str, output: &str) -> Result<(), String> {
         .parent()
         .filter(|p| !p.as_os_str().is_empty())
         .map(|p| p.to_path_buf());
-    write_document_with_base(&doc, base.as_deref(), file).map_err(|e| format!("pdf: {e:?}"))?;
+    match export_kind(&path) {
+        ExportKind::Pdf => write_document_with_base(&doc, base.as_deref(), file)
+            .map_err(|e| format!("pdf: {e:?}"))?,
+        ExportKind::Svg => write_svg(&doc, file).map_err(|e| format!("svg: {e}"))?,
+        ExportKind::Pptx => write_pptx(&doc, file).map_err(|e| format!("pptx: {e}"))?,
+    }
     Ok(())
+}
+
+enum ExportKind {
+    Pdf,
+    Svg,
+    Pptx,
+}
+
+fn export_kind(path: &Path) -> ExportKind {
+    match path
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("pdf")
+        .to_ascii_lowercase()
+        .as_str()
+    {
+        "svg" => ExportKind::Svg,
+        "pptx" => ExportKind::Pptx,
+        _ => ExportKind::Pdf,
+    }
 }
 
 fn fmt_pipeline(e: PipelineError) -> String {
@@ -96,6 +123,22 @@ mod tests {
         render(input.to_str().unwrap(), output.to_str().unwrap()).expect("render");
         let bytes = fs::read(&output).unwrap();
         assert!(bytes.starts_with(b"%PDF-"));
+    }
+
+    #[test]
+    fn renders_example_fixture_to_svg_and_pptx() {
+        let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let repo = manifest_dir.join("../..");
+        let input = repo.join("examples/black_circle.rpx");
+        let svg_out = repo.join("target/test-black-circle.svg");
+        let pptx_out = repo.join("target/test-black-circle.pptx");
+        render(input.to_str().unwrap(), svg_out.to_str().unwrap()).expect("svg");
+        render(input.to_str().unwrap(), pptx_out.to_str().unwrap()).expect("pptx");
+        let svg = fs::read_to_string(&svg_out).unwrap();
+        assert!(svg.contains("<svg"));
+        assert!(svg.contains("<circle"));
+        let pptx = fs::read(&pptx_out).unwrap();
+        assert_eq!(&pptx[0..2], b"PK");
     }
 
     #[test]

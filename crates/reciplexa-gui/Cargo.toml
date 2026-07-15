@@ -18,6 +18,8 @@ reciplexa = { path = "../reciplexa" }
 reciplexa-lower = { workspace = true }
 reciplexa-macro = { workspace = true }
 reciplexa-pdf = { workspace = true }
+reciplexa-svg = { workspace = true }
+reciplexa-pptx = { workspace = true }
 reciplexa-scene = { workspace = true }
 reciplexa-types = { workspace = true }
 reciplexa-view = { workspace = true }

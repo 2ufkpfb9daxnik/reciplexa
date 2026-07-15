@@ -44,3 +44,10 @@ cargo run -p reciplexa-gui -- examples\doc_title_p.rpx
 引数なしだと空の `(page a4)` で起動。上部の **Open…**（Ctrl+O）で `.rpx` を開く。Insert から図形・テキスト・画像（png/jpg）を追加できる。
 
 プレビューは `(src …)` 効果を走らせません。エクスポート時だけ `perform` / `handle` が動きます。
+
+出力拡張子でバックエンドを選びます: `.pdf`（既定）/ `.svg` / `.pptx`。
+
+```powershell
+cargo run -p reciplexa -- examples\black_circle.rpx target\out.svg
+cargo run -p reciplexa -- examples\black_circle.rpx target\out.pptx
+```

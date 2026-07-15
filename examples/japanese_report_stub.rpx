@@ -2,7 +2,12 @@
 ; GUI loads NotoSansJP from Windows Fonts for preview
 (page 210 297
   (text 25 260 8 "レポート草稿" black)
-  (text 25 245 4 "shapes + images + text (JLReq package later)" black)
-  (circle 105 140 35 blue)
-  (opacity 0.4
-    (rect 40 40 80 50 red)))
+(text 100 260 8 "レポート草稿" black)
+(text 17.493 209.077 3.424 "レポート本文 ここからレポート書いていきます。例えば、
+このようにして改行をしたりとか、\nで改行をしてもいいですし、
+多分\nが使えるなら’他のなんか良く知りませんけどなんかも使えるんでしょうかね。知りませんけど..." black)
+
+  (text 11.031 254.464 4 "shapes + images + text (JLReq package later)" black)
+  (rotate 22.814 (circle 136.162 125.767 45.935 blue))
+  (rotate 49.815 (opacity 0.4
+    (rect 129.908 -84.043 38.68 24.175 red))))

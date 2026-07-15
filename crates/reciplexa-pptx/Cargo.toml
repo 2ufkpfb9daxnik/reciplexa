@@ -1,0 +1,12 @@
+[package]
+name = "reciplexa-pptx"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Minimal PPTX (OOXML) export from reciplexa scene"
+publish = false
+
+[dependencies]
+reciplexa-scene = { workspace = true }
+reciplexa-view = { workspace = true }
+zip = { workspace = true }

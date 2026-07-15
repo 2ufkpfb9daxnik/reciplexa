@@ -16,10 +16,11 @@ use reciplexa_effect::{seed_from_env, EffectError, EffectHandler, LcgRng, Value}
 use reciplexa_lower::{
     collect_layer_props, collect_layers_page, collect_size_targets_page, delete_layer_page,
     delete_page, duplicate_layer_page, group_layers_page, insert_layer_page, insert_page_after,
-    layer_rotation_deg, nudge_layer_page, reorder_layer_page, scale_size_target, set_box_xywh,
-    set_layer_prop, set_layer_rotation_deg, set_layers_fill_rgb, set_layers_opacity,
-    set_layers_stroke_rgb, set_layers_stroke_width, set_line_endpoint, set_poly_vertex,
-    set_text_box, ungroup_layer_page, LayerInfo, PropEditContext, PropGroup, PropValue, SizeTarget,
+    layer_rotation_deg, nudge_layer_page, reorder_layer_page, scale_layer_uniform,
+    scale_size_target, set_box_xywh, set_layer_prop, set_layer_rotation_deg, set_layers_fill_rgb,
+    set_layers_opacity, set_layers_stroke_rgb, set_layers_stroke_width, set_line_endpoint,
+    set_poly_vertex, set_text_box, ungroup_layer_page, LayerInfo, PropEditContext, PropGroup,
+    PropValue, SizeTarget,
 };
 use reciplexa_macro::expand_source;
 use reciplexa_pdf::write_document_with_base;
@@ -210,7 +211,7 @@ fn main() -> ExitCode {
                 undo_stack: Vec::new(),
                 redo_stack: Vec::new(),
                 typing_undo_open: false,
-                props_open: false,
+                props_open: prefs.show_props,
                 props_undo_open: false,
                 batch_fill: [0.2, 0.2, 0.2],
                 batch_stroke: [0.1, 0.1, 0.1],
@@ -225,6 +226,14 @@ fn main() -> ExitCode {
                 show_source: prefs.show_source,
                 show_layers: prefs.show_layers,
                 show_preview: prefs.show_preview,
+                float_source: prefs.float_source,
+                float_layers: prefs.float_layers,
+                float_preview: prefs.float_preview,
+                float_props: prefs.float_props,
+                collapse_source: false,
+                collapse_layers: false,
+                collapse_preview: false,
+                collapse_props: false,
             }))
         }),
     ) {
@@ -280,10 +289,25 @@ struct PreviewApp {
     viewport_page_mm: (f64, f64),
     /// Defer writing zoom/pan to prefs until end of frame.
     viewport_prefs_dirty: bool,
-    /// Floating workspace panes (titles can be dragged).
+    /// Workspace panes (docked by default; □ floats).
     show_source: bool,
     show_layers: bool,
     show_preview: bool,
+    float_source: bool,
+    float_layers: bool,
+    float_preview: bool,
+    float_props: bool,
+    collapse_source: bool,
+    collapse_layers: bool,
+    collapse_preview: bool,
+    collapse_props: bool,
+}
+
+#[derive(Clone, Copy)]
+enum PropPreset {
+    FillRgb([f64; 3]),
+    StrokeWidth(f64),
+    Opacity(f64),
 }
 
 #[derive(Clone)]
@@ -302,6 +326,8 @@ enum DragKind {
     },
     Scale {
         size: SizeTarget,
+        /// Flatten / layer index for [`scale_layer_uniform`] fallbacks.
+        flat_index: usize,
         base_src: String,
         center_mm: (f64, f64),
         start_dist: f64,
@@ -374,7 +400,6 @@ impl PreviewApp {
 
     fn select_layer(&mut self, index: usize, layers: &[LayerInfo]) {
         self.selected = vec![index];
-        self.props_open = true;
         if let Some(layer) = layers.get(index) {
             self.pending_source_select = Some((layer.byte_start, layer.byte_end));
         }
@@ -386,7 +411,6 @@ impl PreviewApp {
         } else {
             self.selected.push(index);
         }
-        self.props_open = !self.selected.is_empty();
         if let Some(&last) = self.selected.last() {
             if let Some(layer) = layers.get(last) {
                 self.pending_source_select = Some((layer.byte_start, layer.byte_end));
@@ -461,6 +485,11 @@ impl PreviewApp {
         prefs.show_source = self.show_source;
         prefs.show_layers = self.show_layers;
         prefs.show_preview = self.show_preview;
+        prefs.show_props = self.props_open;
+        prefs.float_source = self.float_source;
+        prefs.float_layers = self.float_layers;
+        prefs.float_preview = self.float_preview;
+        prefs.float_props = self.float_props;
         prefs.save();
     }
 
@@ -510,15 +539,1037 @@ impl PreviewApp {
         }
     }
 
-    fn show_properties_window(&mut self, ctx: &egui::Context) {
-        if !self.props_open || self.selected.is_empty() {
+    fn paint_source_pane(&mut self, ui: &mut egui::Ui) {
+        ui.label(
+            "Edits reproject live; drag on the paper rewrites numbers here. Ctrl+S saves · Ctrl+O opens.",
+        );
+        ui.horizontal(|ui| {
+            if ui.button("Save .rpx").clicked() {
+                self.save_rpx();
+            }
+            if ui.button("Open…").clicked() {
+                self.open_rpx_dialog(ui.ctx());
+            }
+            if ui.button("Reload disk").clicked() {
+                // Load authoring text as-is; do not bake macros into the editor buffer.
+                match fs::read_to_string(&self.path) {
+                    Ok(raw) => {
+                        self.source = raw;
+                        self.drag = None;
+                        self.clear_selection();
+                        self.error = pipeline_doc(&self.source).err();
+                    }
+                    Err(e) => self.error = Some(format!("reload: {e}")),
+                }
+            }
+            if ui.button("Export PDF").on_hover_text("Ctrl+E").clicked() {
+                self.export_pdf();
+            }
+            if ui.button("Export SVG").clicked() {
+                self.export_document(self.path.with_extension("svg"));
+            }
+            if ui.button("Export PPTX").clicked() {
+                self.export_document(self.path.with_extension("pptx"));
+            }
+            if ui.button("Re-expand macros").clicked() {
+                // Explicit bake: replaces the editor buffer with expanded forms.
+                match expand_source(&self.source) {
+                    Ok(s) => {
+                        self.push_undo();
+                        self.source = s;
+                        self.error = pipeline_doc(&self.source).err();
+                    }
+                    Err(e) => self.error = Some(format!("macro: {}", e.message)),
+                }
+            }
+        });
+        ui.add_space(4.0);
+        let pre_edit = self.source.clone();
+        let editor = egui::TextEdit::multiline(&mut self.source)
+            .id(egui::Id::new("rpx_source_editor"))
+            .code_editor()
+            .desired_width(f32::INFINITY)
+            .desired_rows(36);
+        let response = ui.add_sized(
+            egui::vec2(
+                ui.available_width(),
+                (ui.available_height() - 48.0).max(120.0),
+            ),
+            editor,
+        );
+        if response.changed() {
+            if !self.typing_undo_open {
+                self.undo_stack.push(pre_edit);
+                if self.undo_stack.len() > 100 {
+                    self.undo_stack.remove(0);
+                }
+                self.redo_stack.clear();
+                self.typing_undo_open = true;
+            }
+            self.drag = None;
+            self.error = pipeline_doc(&self.source).err();
+        }
+        if !response.has_focus() {
+            self.typing_undo_open = false;
+        }
+        if let Some(err) = &self.error {
+            ui.add_space(4.0);
+            ui.colored_label(egui::Color32::RED, err);
+        }
+    }
+
+    fn paint_layers_pane(&mut self, ui: &mut egui::Ui, layers: &[LayerInfo]) {
+        ui.label("Drag rows vertically to restack. Top = front (later in source).");
+        ui.separator();
+        let n = layers.len();
+        let mut reorder: Option<(usize, usize)> = None;
+        egui::ScrollArea::vertical().show(ui, |ui| {
+            // Top of list = topmost (last drawn = highest flatten index).
+            for flat in (0..n).rev() {
+                let Some(layer) = layers.get(flat) else {
+                    continue;
+                };
+                let selected = self.selected.contains(&flat);
+                let id = egui::Id::new(("layer_dnd", self.page_index, flat));
+                let text = format!("{}. {}", flat + 1, layer.label);
+                let being_dragged = ui.ctx().is_being_dragged(id);
+
+                let row_resp = ui
+                    .horizontal(|ui| {
+                        ui.weak("⠿");
+                        let label = if being_dragged {
+                            ui.weak(&text)
+                        } else {
+                            ui.selectable_label(selected, &text)
+                        };
+                        let _ = label;
+                    })
+                    .response;
+                let response = ui
+                    .interact(row_resp.rect, id, egui::Sense::click_and_drag())
+                    .on_hover_cursor(egui::CursorIcon::Grab)
+                    .on_hover_text("Drag vertically to change stacking order");
+
+                if response.dragged() {
+                    response.dnd_set_drag_payload(flat);
+                    // Ghost follows pointer Y only (stacking is 1D).
+                    if let Some(pointer) = ui.ctx().pointer_interact_pos() {
+                        let ghost = egui::Rect::from_min_size(
+                            egui::pos2(
+                                row_resp.rect.left(),
+                                pointer.y - row_resp.rect.height() * 0.5,
+                            ),
+                            row_resp.rect.size(),
+                        );
+                        let painter = ui
+                            .ctx()
+                            .layer_painter(egui::LayerId::new(egui::Order::Tooltip, id));
+                        painter.rect_filled(
+                            ghost,
+                            2.0,
+                            egui::Color32::from_rgba_unmultiplied(30, 120, 220, 40),
+                        );
+                        painter.rect_stroke(
+                            ghost,
+                            2.0,
+                            egui::Stroke::new(1.0_f32, egui::Color32::from_rgb(30, 120, 220)),
+                            egui::StrokeKind::Outside,
+                        );
+                        painter.text(
+                            ghost.left_center() + egui::vec2(8.0, 0.0),
+                            egui::Align2::LEFT_CENTER,
+                            &text,
+                            egui::FontId::proportional(13.0),
+                            egui::Color32::from_rgb(20, 60, 120),
+                        );
+                    }
+                }
+
+                if response.clicked() && !response.dragged() {
+                    self.select_layer(flat, &layers);
+                }
+                // Drop onto a row → take that stacking slot (rewrites .rpx).
+                if let Some(pointer) = ui.ctx().pointer_interact_pos() {
+                    if response.rect.contains(pointer)
+                        && response.dnd_hover_payload::<usize>().is_some()
+                    {
+                        let insert_above = pointer.y < response.rect.center().y;
+                        let y = if insert_above {
+                            response.rect.top()
+                        } else {
+                            response.rect.bottom()
+                        };
+                        ui.painter().hline(
+                            response.rect.x_range(),
+                            y,
+                            egui::Stroke::new(2.0_f32, egui::Color32::from_rgb(30, 120, 220)),
+                        );
+                        if let Some(from) = response.dnd_release_payload::<usize>() {
+                            let to = if insert_above {
+                                (flat + 1).min(n.saturating_sub(1))
+                            } else {
+                                flat
+                            };
+                            if *from != to {
+                                reorder = Some((*from, to));
+                            }
+                        }
+                    }
+                }
+            }
+            if n == 0 {
+                ui.weak("(no shapes on this page)");
+            }
+        });
+        if let Some((from, to)) = reorder {
+            self.apply_layer_reorder(from, to);
+        }
+        if !self.selected.is_empty() {
+            ui.separator();
+            if self.selected.len() == 1 {
+                ui.label(format!("Selected layer {}", self.selected[0] + 1));
+            } else {
+                ui.label(format!("{} layers selected", self.selected.len()));
+            }
+            if ui
+                .button(if self.props_open {
+                    "Hide properties"
+                } else {
+                    "Properties…"
+                })
+                .on_hover_text(
+                    "Named arguments for the selection (size, position, color, text…). Not the attribute-button suite.",
+                )
+                .clicked()
+                {
+                    self.props_open = !self.props_open;
+                    self.persist_gui_prefs();
+                }
+            if ui
+                .button("Duplicate")
+                .on_hover_text("Copy selection in .rpx (Ctrl+D)")
+                .clicked()
+            {
+                self.duplicate_selection();
+            }
+            if ui
+                .button("Delete")
+                .on_hover_text("Remove from .rpx (Delete key)")
+                .clicked()
+            {
+                self.delete_selection();
+            }
+        } else {
+            self.props_undo_open = false;
+        }
+    }
+
+    fn paint_preview_pane(&mut self, ui: &mut egui::Ui) {
+        ui.label("Scroll = zoom at cursor · Space/Middle/Alt-drag = pan · F = frame · Shift-drag = axis/aspect/15° · Ctrl-drag = 5mm snap.");
+
+        let doc = match pipeline_doc(&self.source) {
+            Ok(d) => d,
+            Err(e) => {
+                ui.colored_label(egui::Color32::RED, e);
+                ui.label("Keep typing in the source pane — the caret stays there.");
+                return;
+            }
+        };
+        let page_count = doc.pages.len();
+        if page_count == 0 {
+            ui.colored_label(egui::Color32::RED, "Document has no pages.");
+            return;
+        }
+        if self.page_index >= page_count {
+            self.page_index = page_count - 1;
+        }
+
+        ui.horizontal(|ui| {
+            if ui
+                .add_enabled(self.page_index > 0, egui::Button::new("◀ Prev"))
+                .clicked()
+            {
+                self.page_index -= 1;
+                self.drag = None;
+                self.clear_selection();
+            }
+            ui.label(format!("Page {} / {}", self.page_index + 1, page_count));
+            if ui
+                .add_enabled(
+                    self.page_index + 1 < page_count,
+                    egui::Button::new("Next ▶"),
+                )
+                .clicked()
+            {
+                self.page_index += 1;
+                self.drag = None;
+                self.clear_selection();
+            }
+            if ui
+                .button("+ Page")
+                .on_hover_text("Insert empty A4 page after current")
+                .clicked()
+            {
+                self.add_page_after_current();
+            }
+            if ui
+                .add_enabled(page_count > 1, egui::Button::new("− Page"))
+                .on_hover_text("Delete current page")
+                .clicked()
+            {
+                self.delete_current_page();
+            }
+            ui.separator();
+            if ui.button("−").clicked() {
+                self.zoom_viewport_by(1.0 / 1.15, None);
+            }
+            ui.label(format!("{:.0}%", self.zoom * 100.0));
+            if ui.button("+").clicked() {
+                self.zoom_viewport_by(1.15, None);
+            }
+            if ui.button("Reset view").clicked() {
+                self.reset_viewport();
+            }
+            ui.separator();
+            if ui
+                .selectable_label(self.show_grid, "Grid")
+                .on_hover_text("10mm grid (G)")
+                .clicked()
+            {
+                self.show_grid = !self.show_grid;
+                let mut prefs = GuiPrefs::load();
+                prefs.show_grid = self.show_grid;
+                prefs.save();
+            }
+        });
+
+        let size_bindings = match collect_size_targets_page(&self.source, self.page_index) {
+            Ok(b) => b,
+            Err(e) => {
+                ui.colored_label(egui::Color32::RED, &e.message);
+                return;
+            }
+        };
+        let layers = match collect_layers_page(&self.source, self.page_index) {
+            Ok(l) => l,
+            Err(e) => {
+                ui.colored_label(egui::Color32::RED, &e.message);
+                return;
+            }
+        };
+        let Some((page, shapes)) = flatten_page(&doc, self.page_index) else {
+            ui.colored_label(egui::Color32::RED, "Page not found.");
+            return;
+        };
+        if layers.len() != shapes.len() || size_bindings.len() != shapes.len() {
+            ui.colored_label(
+                egui::Color32::YELLOW,
+                format!(
+                    "size/layer/shape mismatch: {} / {} / {}",
+                    size_bindings.len(),
+                    layers.len(),
+                    shapes.len()
+                ),
+            );
+        }
+
+        let avail = ui.available_size();
+        self.viewport_paint_size = avail;
+        self.viewport_page_mm = (page.paper.width_mm, page.paper.height_mm);
+
+        let (response, painter) = ui.allocate_painter(avail, egui::Sense::click_and_drag());
+        let rect = response.rect;
+
+        if response.hovered() {
+            let scroll = ui.input(|i| i.smooth_scroll_delta.y);
+            if scroll.abs() > 0.0 {
+                let factor = (1.0 + scroll * 0.002).clamp(0.85, 1.15);
+                let anchor = ui
+                    .input(|i| i.pointer.hover_pos())
+                    .map(|p| p - rect.min)
+                    .unwrap_or_else(|| avail * 0.5);
+                self.zoom_viewport_by(factor, Some(anchor));
+            }
+        }
+        let space_held = ui.input(|i| i.key_down(egui::Key::Space) && !i.modifiers.any());
+        // Pan with Space+drag, middle mouse, or Alt + drag.
+        let pan_gesture = response.dragged_by(egui::PointerButton::Middle)
+            || (space_held && response.dragged_by(egui::PointerButton::Primary))
+            || (response.dragged() && ui.input(|i| i.modifiers.alt));
+        if pan_gesture {
+            self.pan += response.drag_delta();
+            self.viewport_prefs_dirty = true;
+        }
+        if space_held && response.hovered() {
+            ui.ctx().set_cursor_icon(egui::CursorIcon::Grab);
+        }
+
+        let layout = PaperLayout::fit(
+            rect.width(),
+            rect.height(),
+            24.0,
+            page.paper.width_mm,
+            page.paper.height_mm,
+        )
+        .with_view(self.zoom, self.pan.x, self.pan.y);
+
+        let paper = egui::Rect::from_min_size(
+            rect.min + egui::vec2(layout.origin_x_px, layout.origin_y_px),
+            egui::vec2(layout.width_px, layout.height_px),
+        );
+        painter.rect_filled(paper, 0.0, egui::Color32::WHITE);
+        if self.show_grid {
+            paint_paper_grid(
+                &painter,
+                rect,
+                &layout,
+                page.paper.width_mm,
+                page.paper.height_mm,
+            );
+        }
+        let paper_stroke = match self.theme {
+            UiTheme::Light => egui::Color32::from_gray(80),
+            UiTheme::Dark => egui::Color32::from_gray(160),
+        };
+        painter.rect_stroke(
+            paper,
+            0.0,
+            egui::Stroke::new(1.0_f32, paper_stroke),
+            egui::StrokeKind::Outside,
+        );
+
+        for shape in &shapes {
+            paint_shape(
+                &painter,
+                rect,
+                &layout,
+                shape,
+                &mut self.textures,
+                ui.ctx(),
+                self.path.parent(),
+            );
+        }
+
+        if let Some(pos) = response.hover_pos() {
+            let local = pos - rect.min;
+            let (hx, hy) = layout.px_to_mm(local.x, local.y);
+            if let Some(hi) = hit_test_shapes(&shapes, hx, hy) {
+                if !self.selected.contains(&hi) {
+                    if let Some(shape) = shapes.get(hi) {
+                        if let Some(bounds) = PaperLayout::shape_bounds_mm(shape) {
+                            paint_hover_frame(&painter, rect, &layout, bounds);
+                        }
+                    }
+                }
+            }
+        }
+
+        for (i, shape) in shapes.iter().enumerate() {
+            if self.selected.contains(&i) {
+                if let Some(bounds) = PaperLayout::shape_bounds_mm(shape) {
+                    paint_selection_frame(&painter, rect, &layout, bounds);
+                }
+                if let WorldShape::Path(p) = shape {
+                    let is_line = p.points_mm.len() == 2
+                        && size_bindings
+                            .get(i)
+                            .is_some_and(|t| matches!(t, SizeTarget::LineSeg(_)));
+                    let is_poly = size_bindings.get(i).is_some_and(|t| {
+                        matches!(
+                            t,
+                            SizeTarget::PolylinePoints(_) | SizeTarget::PolygonPoints(_)
+                        )
+                    });
+                    if is_line || is_poly {
+                        paint_line_endpoints(&painter, rect, &layout, &p.points_mm);
+                    }
+                }
+            }
+        }
+
+        if let Some(pos) = response.hover_pos() {
+            let local = pos - rect.min;
+            let (mx, my) = layout.px_to_mm(local.x, local.y);
+            if mx >= -1.0
+                && my >= -1.0
+                && mx <= page.paper.width_mm + 1.0
+                && my <= page.paper.height_mm + 1.0
+            {
+                painter.text(
+                    rect.left_bottom() + egui::vec2(8.0, -8.0),
+                    egui::Align2::LEFT_BOTTOM,
+                    format!("{mx:.1}, {my:.1} mm"),
+                    egui::FontId::monospace(12.0),
+                    egui::Color32::from_gray(110),
+                );
+            }
+        }
+
+        let skip_shape_drag = pan_gesture
+            || ui.input(|i| i.pointer.button_down(egui::PointerButton::Middle))
+            || ui.input(|i| i.modifiers.alt)
+            || (space_held && ui.input(|i| i.pointer.button_down(egui::PointerButton::Primary)));
+
+        if let Some(pos) = response.interact_pointer_pos() {
+            let local = pos - rect.min;
+            let local_pos = egui::pos2(local.x, local.y);
+            let (mx, my) = layout.px_to_mm(local.x, local.y);
+
+            if !skip_shape_drag && response.drag_started() {
+                let mut started = false;
+                let hit_body = hit_test_shapes(&shapes, mx, my);
+                let shift = ui.input(|i| i.modifiers.shift);
+                // Handles for primary selection (endpoints / scale / rotate).
+                if let Some(sel) = self.primary_selected() {
+                    if let Some(shape) = shapes.get(sel) {
+                        // Path vertices work even when the stroke itself is hit.
+                        if let WorldShape::Path(p) = shape {
+                            if let Some(vertex) =
+                                hit_line_endpoint(&layout, &p.points_mm, local_pos)
+                            {
+                                match size_bindings.get(sel).copied() {
+                                    Some(SizeTarget::LineSeg(idx)) if p.points_mm.len() == 2 => {
+                                        self.drag = Some(DragState {
+                                            kind: DragKind::LineEndpoint {
+                                                index: idx,
+                                                endpoint: vertex,
+                                                base_src: self.source.clone(),
+                                            },
+                                            undo_pushed: false,
+                                        });
+                                        started = true;
+                                    }
+                                    Some(SizeTarget::PolylinePoints(idx)) => {
+                                        self.drag = Some(DragState {
+                                            kind: DragKind::PolyVertex {
+                                                head: "polyline",
+                                                index: idx,
+                                                vertex,
+                                                base_src: self.source.clone(),
+                                            },
+                                            undo_pushed: false,
+                                        });
+                                        started = true;
+                                    }
+                                    Some(SizeTarget::PolygonPoints(idx)) => {
+                                        self.drag = Some(DragState {
+                                            kind: DragKind::PolyVertex {
+                                                head: "polygon",
+                                                index: idx,
+                                                vertex,
+                                                base_src: self.source.clone(),
+                                            },
+                                            undo_pushed: false,
+                                        });
+                                        started = true;
+                                    }
+                                    _ => {}
+                                }
+                            }
+                        }
+                        if !started && hit_body != Some(sel) {
+                            if let Some(bounds) = PaperLayout::shape_bounds_mm(shape) {
+                                let (x0, y0, x1, y1) = bounds;
+                                let cx = (x0 + x1) * 0.5;
+                                let cy = (y0 + y1) * 0.5;
+                                if hit_rotate_handle(&layout, bounds, local_pos) {
+                                    let start_angle_rad = (my - cy).atan2(mx - cx);
+                                    let base_deg =
+                                        layer_rotation_deg(&self.source, self.page_index, sel)
+                                            .unwrap_or(0.0);
+                                    self.drag = Some(DragState {
+                                        kind: DragKind::Rotate {
+                                            flat_index: sel,
+                                            base_src: self.source.clone(),
+                                            center_mm: (cx, cy),
+                                            start_angle_rad,
+                                            base_deg,
+                                        },
+                                        undo_pushed: false,
+                                    });
+                                    started = true;
+                                } else if let Some(grab) =
+                                    hit_scale_grab(&layout, bounds, local_pos)
+                                {
+                                    let allow = match grab {
+                                        ScaleGrab::Corner(_) => true,
+                                        ScaleGrab::Edge(_) => {
+                                            size_bindings.get(sel).is_some_and(|t| {
+                                                matches!(
+                                                    t,
+                                                    SizeTarget::TextSize(_)
+                                                        | SizeTarget::RectWh(_)
+                                                        | SizeTarget::FrameWh(_)
+                                                        | SizeTarget::ImageWh(_)
+                                                        | SizeTarget::EllipseRxRy(_)
+                                                )
+                                            })
+                                        }
+                                    };
+                                    if allow {
+                                        let start_dist = ((mx - cx).hypot(my - cy)).max(1e-6);
+                                        if let Some(size) = size_bindings.get(sel).copied() {
+                                            let box_drag = match size {
+                                                SizeTarget::TextSize(_)
+                                                | SizeTarget::RectWh(_)
+                                                | SizeTarget::FrameWh(_)
+                                                | SizeTarget::ImageWh(_)
+                                                | SizeTarget::EllipseRxRy(_) => Some(BoxDrag {
+                                                    grab,
+                                                    start_bounds: bounds,
+                                                }),
+                                                _ => None,
+                                            };
+                                            self.drag = Some(DragState {
+                                                kind: DragKind::Scale {
+                                                    size,
+                                                    flat_index: sel,
+                                                    base_src: self.source.clone(),
+                                                    center_mm: (cx, cy),
+                                                    start_dist,
+                                                    text_box: box_drag,
+                                                },
+                                                undo_pushed: false,
+                                            });
+                                            started = true;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                if !started {
+                    if let Some(i) = hit_body {
+                        if shift {
+                            self.toggle_layer_in_selection(i, &layers);
+                        } else if !self.selected.contains(&i) {
+                            self.select_layer(i, &layers);
+                        }
+                        let flat_indices = if self.selected.contains(&i) {
+                            self.selected.clone()
+                        } else {
+                            vec![i]
+                        };
+                        self.drag = Some(DragState {
+                            kind: DragKind::Move {
+                                last_mm: (mx, my),
+                                flat_indices,
+                            },
+                            undo_pushed: false,
+                        });
+                    } else if !shift {
+                        // Empty drag → marquee range select.
+                        self.clear_selection();
+                        self.drag = Some(DragState {
+                            kind: DragKind::Marquee {
+                                start_mm: (mx, my),
+                                current_mm: (mx, my),
+                            },
+                            undo_pushed: false,
+                        });
+                    }
+                }
+            }
+
+            if !skip_shape_drag && response.dragged() {
+                if let Some(drag) = self.drag.clone() {
+                    match drag.kind {
+                        DragKind::Move {
+                            last_mm,
+                            flat_indices,
+                        } => {
+                            let mut dx = mx - last_mm.0;
+                            let mut dy = my - last_mm.1;
+                            // Shift: lock to dominant axis.
+                            if ui.input(|i| i.modifiers.shift) {
+                                if dx.abs() >= dy.abs() {
+                                    dy = 0.0;
+                                } else {
+                                    dx = 0.0;
+                                }
+                            }
+                            // Ctrl/Cmd: snap motion to a 5mm grid (paper coords).
+                            if ui.input(|i| i.modifiers.command) {
+                                const GRID: f64 = 5.0;
+                                let snap = |v: f64| (v / GRID).round() * GRID;
+                                dx = snap(mx) - snap(last_mm.0);
+                                dy = snap(my) - snap(last_mm.1);
+                                if ui.input(|i| i.modifiers.shift) {
+                                    if dx.abs() >= dy.abs() {
+                                        dy = 0.0;
+                                    } else {
+                                        dx = 0.0;
+                                    }
+                                }
+                            }
+                            let mut indices = flat_indices;
+                            if dx.abs() > 1e-9 || dy.abs() > 1e-9 {
+                                let mut undo_pushed = drag.undo_pushed;
+                                if !undo_pushed {
+                                    self.push_undo();
+                                    undo_pushed = true;
+                                }
+                                let mut src = self.source.clone();
+                                indices.sort_unstable();
+                                let mut ok = true;
+                                for &idx in &indices {
+                                    match nudge_layer_page(&src, self.page_index, idx, dx, dy) {
+                                        Ok(new_src) => src = new_src,
+                                        Err(e) => {
+                                            self.error = Some(e.message);
+                                            ok = false;
+                                            break;
+                                        }
+                                    }
+                                }
+                                if ok {
+                                    self.source = src;
+                                    self.error = if self.reload_ok() {
+                                        None
+                                    } else {
+                                        Some("edit produced invalid program".into())
+                                    };
+                                    self.drag = Some(DragState {
+                                        kind: DragKind::Move {
+                                            last_mm: (mx, my),
+                                            flat_indices: indices,
+                                        },
+                                        undo_pushed,
+                                    });
+                                }
+                            }
+                        }
+                        DragKind::Marquee { start_mm, .. } => {
+                            self.drag = Some(DragState {
+                                kind: DragKind::Marquee {
+                                    start_mm,
+                                    current_mm: (mx, my),
+                                },
+                                undo_pushed: false,
+                            });
+                        }
+                        DragKind::Scale {
+                            size,
+                            flat_index,
+                            base_src,
+                            center_mm,
+                            start_dist,
+                            text_box,
+                        } => {
+                            let scale_result = if let Some(tb) = text_box {
+                                let (mut nx, mut ny, mut nw, mut nh) = box_from_grab(tb, mx, my);
+                                if ui.input(|i| i.modifiers.shift) {
+                                    (nx, ny, nw, nh) = apply_aspect_lock(tb, nx, ny, nw, nh);
+                                }
+                                if ui.input(|i| i.modifiers.command) {
+                                    const GRID: f64 = 5.0;
+                                    let x1 = snap_mm(nx + nw, GRID);
+                                    let y1 = snap_mm(ny + nh, GRID);
+                                    nx = snap_mm(nx, GRID);
+                                    ny = snap_mm(ny, GRID);
+                                    nw = (x1 - nx).max(0.5);
+                                    nh = (y1 - ny).max(0.5);
+                                }
+                                match size {
+                                    SizeTarget::TextSize(idx) => {
+                                        set_text_box(&base_src, idx, nx, ny, nw, nh)
+                                    }
+                                    SizeTarget::RectWh(idx) => set_box_xywh(
+                                        &base_src,
+                                        "rect",
+                                        idx,
+                                        [1, 2, 3, 4],
+                                        nx,
+                                        ny,
+                                        nw,
+                                        nh,
+                                    ),
+                                    SizeTarget::FrameWh(idx) => set_box_xywh(
+                                        &base_src,
+                                        "frame",
+                                        idx,
+                                        [1, 2, 3, 4],
+                                        nx,
+                                        ny,
+                                        nw,
+                                        nh,
+                                    ),
+                                    SizeTarget::ImageWh(idx) => set_box_xywh(
+                                        &base_src,
+                                        "image",
+                                        idx,
+                                        [2, 3, 4, 5],
+                                        nx,
+                                        ny,
+                                        nw,
+                                        nh,
+                                    ),
+                                    SizeTarget::EllipseRxRy(idx) => {
+                                        let cx = nx + nw * 0.5;
+                                        let cy = ny + nh * 0.5;
+                                        let rx = (nw * 0.5).max(0.25);
+                                        let ry = (nh * 0.5).max(0.25);
+                                        set_box_xywh(
+                                            &base_src,
+                                            "ellipse",
+                                            idx,
+                                            [1, 2, 3, 4],
+                                            cx,
+                                            cy,
+                                            rx,
+                                            ry,
+                                        )
+                                    }
+                                    other => {
+                                        let dist =
+                                            (mx - center_mm.0).hypot(my - center_mm.1).max(1e-6);
+                                        let factor = (dist / start_dist).clamp(0.05, 20.0);
+                                        scale_size_target(&base_src, other, factor)
+                                    }
+                                }
+                            } else {
+                                let dist = (mx - center_mm.0).hypot(my - center_mm.1).max(1e-6);
+                                let factor = (dist / start_dist).clamp(0.05, 20.0);
+                                match size {
+                                    SizeTarget::Unsupported => scale_layer_uniform(
+                                        &base_src,
+                                        self.page_index,
+                                        flat_index,
+                                        factor,
+                                    ),
+                                    size => scale_size_target(&base_src, size, factor),
+                                }
+                            };
+                            match scale_result {
+                                Ok(new_src) => {
+                                    let kind = DragKind::Scale {
+                                        size,
+                                        flat_index,
+                                        base_src,
+                                        center_mm,
+                                        start_dist,
+                                        text_box,
+                                    };
+                                    let mut undo_pushed = drag.undo_pushed;
+                                    if !undo_pushed {
+                                        self.push_undo();
+                                        undo_pushed = true;
+                                    }
+                                    self.source = new_src;
+                                    self.error = if self.reload_ok() {
+                                        None
+                                    } else {
+                                        Some("edit produced invalid program".into())
+                                    };
+                                    self.drag = Some(DragState { kind, undo_pushed });
+                                }
+                                Err(e) => self.error = Some(e.message),
+                            }
+                        }
+                        DragKind::LineEndpoint {
+                            index,
+                            endpoint,
+                            base_src,
+                        } => {
+                            let (mut sx, mut sy) = (mx, my);
+                            if ui.input(|i| i.modifiers.command) {
+                                const GRID: f64 = 5.0;
+                                sx = snap_mm(sx, GRID);
+                                sy = snap_mm(sy, GRID);
+                            }
+                            match set_line_endpoint(&base_src, index, endpoint, sx, sy) {
+                                Ok(new_src) => {
+                                    let kind = DragKind::LineEndpoint {
+                                        index,
+                                        endpoint,
+                                        base_src,
+                                    };
+                                    let mut undo_pushed = drag.undo_pushed;
+                                    if !undo_pushed {
+                                        self.push_undo();
+                                        undo_pushed = true;
+                                    }
+                                    self.source = new_src;
+                                    self.error = if self.reload_ok() {
+                                        None
+                                    } else {
+                                        Some("edit produced invalid program".into())
+                                    };
+                                    self.drag = Some(DragState { kind, undo_pushed });
+                                }
+                                Err(e) => self.error = Some(e.message),
+                            }
+                        }
+                        DragKind::PolyVertex {
+                            head,
+                            index,
+                            vertex,
+                            base_src,
+                        } => {
+                            let (mut sx, mut sy) = (mx, my);
+                            if ui.input(|i| i.modifiers.command) {
+                                const GRID: f64 = 5.0;
+                                sx = snap_mm(sx, GRID);
+                                sy = snap_mm(sy, GRID);
+                            }
+                            match set_poly_vertex(&base_src, head, index, vertex, sx, sy) {
+                                Ok(new_src) => {
+                                    let kind = DragKind::PolyVertex {
+                                        head,
+                                        index,
+                                        vertex,
+                                        base_src,
+                                    };
+                                    let mut undo_pushed = drag.undo_pushed;
+                                    if !undo_pushed {
+                                        self.push_undo();
+                                        undo_pushed = true;
+                                    }
+                                    self.source = new_src;
+                                    self.error = if self.reload_ok() {
+                                        None
+                                    } else {
+                                        Some("edit produced invalid program".into())
+                                    };
+                                    self.drag = Some(DragState { kind, undo_pushed });
+                                }
+                                Err(e) => self.error = Some(e.message),
+                            }
+                        }
+                        DragKind::Rotate {
+                            flat_index,
+                            base_src,
+                            center_mm,
+                            start_angle_rad,
+                            base_deg,
+                        } => {
+                            let angle = (my - center_mm.1).atan2(mx - center_mm.0);
+                            let delta_deg = (angle - start_angle_rad).to_degrees();
+                            let mut deg = base_deg + delta_deg;
+                            if ui.input(|i| i.modifiers.shift) {
+                                deg = (deg / 15.0).round() * 15.0;
+                            }
+                            match set_layer_rotation_deg(
+                                &base_src,
+                                self.page_index,
+                                flat_index,
+                                deg,
+                                center_mm,
+                            ) {
+                                Ok(new_src) => {
+                                    let kind = DragKind::Rotate {
+                                        flat_index,
+                                        base_src,
+                                        center_mm,
+                                        start_angle_rad,
+                                        base_deg,
+                                    };
+                                    let mut undo_pushed = drag.undo_pushed;
+                                    if !undo_pushed {
+                                        self.push_undo();
+                                        undo_pushed = true;
+                                    }
+                                    self.source = new_src;
+                                    self.error = if self.reload_ok() {
+                                        None
+                                    } else {
+                                        Some("edit produced invalid program".into())
+                                    };
+                                    self.drag = Some(DragState { kind, undo_pushed });
+                                }
+                                Err(e) => self.error = Some(e.message),
+                            }
+                        }
+                    }
+                }
+            }
+
+            let mut suppress_click = false;
+            if response.drag_stopped() {
+                if let Some(DragState {
+                    kind:
+                        DragKind::Marquee {
+                            start_mm,
+                            current_mm,
+                        },
+                    ..
+                }) = self.drag.take()
+                {
+                    suppress_click = true;
+                    let aabb = (
+                        start_mm.0.min(current_mm.0),
+                        start_mm.1.min(current_mm.1),
+                        start_mm.0.max(current_mm.0),
+                        start_mm.1.max(current_mm.1),
+                    );
+                    let w = aabb.2 - aabb.0;
+                    let h = aabb.3 - aabb.1;
+                    if w > 0.5 || h > 0.5 {
+                        let hits = shapes_intersecting_aabb(&shapes, aabb);
+                        self.selected = hits;
+                        if let Some(&last) = self.selected.last() {
+                            if let Some(layer) = layers.get(last) {
+                                self.pending_source_select =
+                                    Some((layer.byte_start, layer.byte_end));
+                            }
+                        }
+                    }
+                }
+            }
+
+            if !skip_shape_drag && !suppress_click && response.clicked() {
+                let shift = ui.input(|i| i.modifiers.shift);
+                match hit_test_shapes(&shapes, mx, my) {
+                    Some(i) if shift => self.toggle_layer_in_selection(i, &layers),
+                    Some(i) => self.select_layer(i, &layers),
+                    None if !shift => self.clear_selection(),
+                    None => {}
+                }
+            }
+        } else if response.drag_stopped() {
+            self.drag = None;
+        }
+
+        // Draw active marquee rectangle.
+        if let Some(DragState {
+            kind:
+                DragKind::Marquee {
+                    start_mm,
+                    current_mm,
+                },
+            ..
+        }) = &self.drag
+        {
+            let (ax, ay) = layout.mm_to_px(start_mm.0, start_mm.1);
+            let (bx, by) = layout.mm_to_px(current_mm.0, current_mm.1);
+            let mrect = egui::Rect::from_two_pos(
+                rect.min + egui::vec2(ax, ay),
+                rect.min + egui::vec2(bx, by),
+            );
+            painter.rect_filled(
+                mrect,
+                0.0,
+                egui::Color32::from_rgba_unmultiplied(30, 120, 220, 40),
+            );
+            painter.rect_stroke(
+                mrect,
+                0.0,
+                egui::Stroke::new(1.0_f32, egui::Color32::from_rgb(30, 120, 220)),
+                egui::StrokeKind::Outside,
+            );
+        }
+    }
+
+    fn paint_properties_pane(&mut self, ui: &mut egui::Ui) {
+        if self.selected.is_empty() {
+            ui.weak("Select a shape to edit properties.");
             return;
         }
 
         // Multi-select: batch fill / opacity (range ops).
         if self.selected.len() > 1 {
             let indices = self.selected.clone();
-            let mut open = self.props_open;
             let mut apply_fill = false;
             let mut apply_stroke = false;
             let mut apply_stroke_width = false;
@@ -529,141 +1580,124 @@ impl PreviewApp {
             let mut send_back = false;
             let mut bring_forward = false;
             let mut send_backward = false;
-            egui::Window::new(format!("Properties ({} selected)", indices.len()))
-                .id(egui::Id::new("selection_properties_multi"))
-                .open(&mut open)
-                .anchor(egui::Align2::RIGHT_BOTTOM, [-12.0, -12.0])
-                .default_width(280.0)
-                .show(ctx, |ui| {
-                    ui.label("Batch ops on the marquee / multi-selection.");
-                    ui.weak("Full per-object args appear for a single selection.");
-                    ui.separator();
-                    egui::Frame::group(ui.style()).show(ui, |ui| {
-                        ui.label(egui::RichText::new("Fill color (all)").strong());
-                        for (i, lab) in ["fill.r", "fill.g", "fill.b"].iter().enumerate() {
-                            ui.add(
-                                egui::Slider::new(&mut self.batch_fill[i], 0.0..=1.0).text(*lab),
-                            );
-                        }
-                        let [r, g, b] = self.batch_fill;
-                        let swatch = egui::Color32::from_rgb(
-                            (r * 255.0) as u8,
-                            (g * 255.0) as u8,
-                            (b * 255.0) as u8,
-                        );
-                        let (sw_resp, sw_painter) = ui.allocate_painter(
-                            egui::vec2(ui.available_width(), 18.0),
-                            egui::Sense::hover(),
-                        );
-                        sw_painter.rect_filled(sw_resp.rect, 2.0, swatch);
-                        if ui.button("Apply fill to selection").clicked() {
-                            apply_fill = true;
-                        }
-                    });
-                    ui.add_space(6.0);
-                    egui::Frame::group(ui.style()).show(ui, |ui| {
-                        ui.label(egui::RichText::new("Stroke color (all stroked)").strong());
-                        for (i, lab) in ["stroke.r", "stroke.g", "stroke.b"].iter().enumerate() {
-                            ui.add(
-                                egui::Slider::new(&mut self.batch_stroke[i], 0.0..=1.0).text(*lab),
-                            );
-                        }
-                        let [r, g, b] = self.batch_stroke;
-                        let swatch = egui::Color32::from_rgb(
-                            (r * 255.0) as u8,
-                            (g * 255.0) as u8,
-                            (b * 255.0) as u8,
-                        );
-                        let (sw_resp, sw_painter) = ui.allocate_painter(
-                            egui::vec2(ui.available_width(), 18.0),
-                            egui::Sense::hover(),
-                        );
-                        sw_painter.rect_filled(sw_resp.rect, 2.0, swatch);
-                        if ui.button("Apply stroke to selection").clicked() {
-                            apply_stroke = true;
-                        }
-                    });
-                    ui.add_space(6.0);
-                    ui.label(egui::RichText::new("Stroke width (all stroked)").strong());
-                    ui.add(
-                        egui::Slider::new(&mut self.batch_stroke_width, 0.2..=12.0)
-                            .text("stroke.width"),
-                    );
-                    if ui.button("Apply stroke width").clicked() {
-                        apply_stroke_width = true;
+            ui.label("Batch ops on the marquee / multi-selection.");
+            ui.weak("Full per-object args appear for a single selection.");
+            ui.separator();
+            egui::Frame::group(ui.style()).show(ui, |ui| {
+                ui.label(egui::RichText::new("Fill color (all)").strong());
+                for (i, lab) in ["fill.r", "fill.g", "fill.b"].iter().enumerate() {
+                    ui.add(egui::Slider::new(&mut self.batch_fill[i], 0.0..=1.0).text(*lab));
+                }
+                let [r, g, b] = self.batch_fill;
+                let swatch = egui::Color32::from_rgb(
+                    (r * 255.0) as u8,
+                    (g * 255.0) as u8,
+                    (b * 255.0) as u8,
+                );
+                let (sw_resp, sw_painter) = ui
+                    .allocate_painter(egui::vec2(ui.available_width(), 18.0), egui::Sense::hover());
+                sw_painter.rect_filled(sw_resp.rect, 2.0, swatch);
+                if ui.button("Apply fill to selection").clicked() {
+                    apply_fill = true;
+                }
+            });
+            ui.add_space(6.0);
+            egui::Frame::group(ui.style()).show(ui, |ui| {
+                ui.label(egui::RichText::new("Stroke color (all stroked)").strong());
+                for (i, lab) in ["stroke.r", "stroke.g", "stroke.b"].iter().enumerate() {
+                    ui.add(egui::Slider::new(&mut self.batch_stroke[i], 0.0..=1.0).text(*lab));
+                }
+                let [r, g, b] = self.batch_stroke;
+                let swatch = egui::Color32::from_rgb(
+                    (r * 255.0) as u8,
+                    (g * 255.0) as u8,
+                    (b * 255.0) as u8,
+                );
+                let (sw_resp, sw_painter) = ui
+                    .allocate_painter(egui::vec2(ui.available_width(), 18.0), egui::Sense::hover());
+                sw_painter.rect_filled(sw_resp.rect, 2.0, swatch);
+                if ui.button("Apply stroke to selection").clicked() {
+                    apply_stroke = true;
+                }
+            });
+            ui.add_space(6.0);
+            ui.label(egui::RichText::new("Stroke width (all stroked)").strong());
+            ui.add(
+                egui::Slider::new(&mut self.batch_stroke_width, 0.2..=12.0).text("stroke.width"),
+            );
+            if ui.button("Apply stroke width").clicked() {
+                apply_stroke_width = true;
+            }
+            ui.add_space(6.0);
+            ui.label(egui::RichText::new("Opacity (all)").strong());
+            ui.add(egui::Slider::new(&mut self.batch_opacity, 0.0..=1.0).text("opacity"));
+            if ui.button("Apply opacity to selection").clicked() {
+                apply_opacity = true;
+            }
+            ui.separator();
+            ui.label(egui::RichText::new("Align").strong());
+            ui.horizontal(|ui| {
+                if ui.button("Left").clicked() {
+                    align = Some(AlignEdge::Left);
+                }
+                if ui.button("Right").clicked() {
+                    align = Some(AlignEdge::Right);
+                }
+                if ui.button("Top").clicked() {
+                    align = Some(AlignEdge::Top);
+                }
+                if ui.button("Bottom").clicked() {
+                    align = Some(AlignEdge::Bottom);
+                }
+            });
+            ui.horizontal(|ui| {
+                if ui.button("Center H").clicked() {
+                    align = Some(AlignEdge::CenterH);
+                }
+                if ui.button("Center V").clicked() {
+                    align = Some(AlignEdge::CenterV);
+                }
+            });
+            if indices.len() >= 3 {
+                ui.label(egui::RichText::new("Distribute").strong());
+                ui.horizontal(|ui| {
+                    if ui.button("Horizontal").clicked() {
+                        distribute = Some(true);
                     }
-                    ui.add_space(6.0);
-                    ui.label(egui::RichText::new("Opacity (all)").strong());
-                    ui.add(egui::Slider::new(&mut self.batch_opacity, 0.0..=1.0).text("opacity"));
-                    if ui.button("Apply opacity to selection").clicked() {
-                        apply_opacity = true;
+                    if ui.button("Vertical").clicked() {
+                        distribute = Some(false);
                     }
-                    ui.separator();
-                    ui.label(egui::RichText::new("Align").strong());
-                    ui.horizontal(|ui| {
-                        if ui.button("Left").clicked() {
-                            align = Some(AlignEdge::Left);
-                        }
-                        if ui.button("Right").clicked() {
-                            align = Some(AlignEdge::Right);
-                        }
-                        if ui.button("Top").clicked() {
-                            align = Some(AlignEdge::Top);
-                        }
-                        if ui.button("Bottom").clicked() {
-                            align = Some(AlignEdge::Bottom);
-                        }
-                    });
-                    ui.horizontal(|ui| {
-                        if ui.button("Center H").clicked() {
-                            align = Some(AlignEdge::CenterH);
-                        }
-                        if ui.button("Center V").clicked() {
-                            align = Some(AlignEdge::CenterV);
-                        }
-                    });
-                    if indices.len() >= 3 {
-                        ui.label(egui::RichText::new("Distribute").strong());
-                        ui.horizontal(|ui| {
-                            if ui.button("Horizontal").clicked() {
-                                distribute = Some(true);
-                            }
-                            if ui.button("Vertical").clicked() {
-                                distribute = Some(false);
-                            }
-                        });
-                    }
-                    ui.separator();
-                    ui.horizontal(|ui| {
-                        if ui.button("Bring to front").clicked() {
-                            bring_front = true;
-                        }
-                        if ui.button("Send to back").clicked() {
-                            send_back = true;
-                        }
-                    });
-                    ui.horizontal(|ui| {
-                        if ui.button("Forward").on_hover_text("Ctrl+Shift+]").clicked() {
-                            bring_forward = true;
-                        }
-                        if ui
-                            .button("Backward")
-                            .on_hover_text("Ctrl+Shift+[")
-                            .clicked()
-                        {
-                            send_backward = true;
-                        }
-                    });
-                    ui.horizontal(|ui| {
-                        if ui.button("Group").on_hover_text("Ctrl+G").clicked() {
-                            self.group_selection();
-                        }
-                        if ui.button("Ungroup").on_hover_text("Ctrl+Shift+G").clicked() {
-                            self.ungroup_selection();
-                        }
-                    });
                 });
-            self.props_open = open;
+            }
+            ui.separator();
+            ui.horizontal(|ui| {
+                if ui.button("Bring to front").clicked() {
+                    bring_front = true;
+                }
+                if ui.button("Send to back").clicked() {
+                    send_back = true;
+                }
+            });
+            ui.horizontal(|ui| {
+                if ui.button("Forward").on_hover_text("Ctrl+Shift+]").clicked() {
+                    bring_forward = true;
+                }
+                if ui
+                    .button("Backward")
+                    .on_hover_text("Ctrl+Shift+[")
+                    .clicked()
+                {
+                    send_backward = true;
+                }
+            });
+            ui.horizontal(|ui| {
+                if ui.button("Group").on_hover_text("Ctrl+G").clicked() {
+                    self.group_selection();
+                }
+                if ui.button("Ungroup").on_hover_text("Ctrl+Shift+G").clicked() {
+                    self.ungroup_selection();
+                }
+            });
             if apply_fill {
                 let [r, g, b] = self.batch_fill;
                 match set_layers_fill_rgb(&self.source, self.page_index, &indices, r, g, b) {
@@ -756,195 +1790,227 @@ impl PreviewApp {
         let props =
             collect_layer_props(&self.source, self.page_index, sel, &prop_ctx).unwrap_or_default();
 
-        let mut open = self.props_open;
         let mut edit: Option<(String, PropValue)> = None;
+        let mut preset: Option<PropPreset> = None;
         let mut any_slider_down = false;
         let mut bring_front = false;
         let mut send_back = false;
         let mut bring_forward = false;
         let mut send_backward = false;
 
-        egui::Window::new("Properties")
-            .id(egui::Id::new("selection_properties"))
-            .open(&mut open)
-            .anchor(egui::Align2::RIGHT_BOTTOM, [-12.0, -12.0])
-            .default_width(280.0)
-            .resizable(true)
-            .collapsible(true)
-            .show(ctx, |ui| {
-                ui.label("Named args for the selection (rewrites source).");
-                ui.weak("Attribute buttons come later via macros.");
-                ui.separator();
-                for group in [
-                    PropGroup::Layout,
-                    PropGroup::Transform,
-                    PropGroup::Fill,
-                    PropGroup::Stroke,
-                    PropGroup::Content,
-                    PropGroup::Geometry,
-                ] {
-                    let fields: Vec<_> = props.iter().filter(|p| p.group == group).collect();
-                    if fields.is_empty() {
-                        continue;
+        ui.label("Named args for the selection (rewrites source).");
+        ui.weak("Preset buttons below are built-in; macro-defined suites can replace them later.");
+        ui.separator();
+        for group in [
+            PropGroup::Layout,
+            PropGroup::Transform,
+            PropGroup::Fill,
+            PropGroup::Stroke,
+            PropGroup::Content,
+            PropGroup::Geometry,
+        ] {
+            let fields: Vec<_> = props.iter().filter(|p| p.group == group).collect();
+            if fields.is_empty() {
+                continue;
+            }
+            let framed = matches!(group, PropGroup::Fill | PropGroup::Stroke);
+            let mut paint_group = |ui: &mut egui::Ui| {
+                ui.label(egui::RichText::new(group.title()).strong());
+                ui.horizontal_wrapped(|ui| match group {
+                    PropGroup::Fill => {
+                        for (label, rgb) in [
+                            ("Black", [0.0, 0.0, 0.0]),
+                            ("White", [1.0, 1.0, 1.0]),
+                            ("Red", [0.85, 0.15, 0.15]),
+                            ("Blue", [0.15, 0.35, 0.85]),
+                        ] {
+                            if ui.small_button(label).clicked() {
+                                preset = Some(PropPreset::FillRgb(rgb));
+                            }
+                        }
                     }
-                    let framed = matches!(group, PropGroup::Fill | PropGroup::Stroke);
-                    let mut paint_group = |ui: &mut egui::Ui| {
-                        ui.label(egui::RichText::new(group.title()).strong());
-                        if matches!(group, PropGroup::Fill | PropGroup::Stroke) {
-                            let prefix = if group == PropGroup::Fill {
-                                "fill."
-                            } else {
-                                "stroke."
-                            };
-                            let mut rgb = [0.0_f64; 3];
-                            let mut got = 0usize;
-                            for (i, ch) in ["r", "g", "b"].iter().enumerate() {
-                                let id = format!("{prefix}{ch}");
-                                if let Some(PropValue::Number(v)) =
-                                    fields.iter().find(|f| f.id == id).map(|f| &f.value)
-                                {
-                                    rgb[i] = *v;
-                                    got += 1;
-                                }
-                            }
-                            if got == 3 {
-                                let swatch = egui::Color32::from_rgb(
-                                    (rgb[0] * 255.0) as u8,
-                                    (rgb[1] * 255.0) as u8,
-                                    (rgb[2] * 255.0) as u8,
-                                );
-                                let (sw_resp, sw_painter) = ui.allocate_painter(
-                                    egui::vec2(ui.available_width().min(120.0), 16.0),
-                                    egui::Sense::hover(),
-                                );
-                                sw_painter.rect_filled(sw_resp.rect, 2.0, swatch);
+                    PropGroup::Stroke => {
+                        for (label, w) in [("0.5", 0.5), ("1", 1.0), ("2", 2.0)] {
+                            if ui.small_button(format!("{label}mm")).clicked() {
+                                preset = Some(PropPreset::StrokeWidth(w));
                             }
                         }
-                        for field in &fields {
-                            match &field.value {
-                                PropValue::Number(v) => {
-                                    let mut n = *v;
-                                    let resp = if let Some((lo, hi)) = field.slider {
-                                        ui.add(
-                                            egui::Slider::new(&mut n, lo..=hi).text(&field.label),
-                                        )
-                                    } else {
-                                        ui.horizontal(|ui| {
-                                            ui.label(&field.label);
-                                            ui.add(egui::DragValue::new(&mut n).speed(0.1))
-                                        })
-                                        .inner
-                                    };
-                                    if resp.is_pointer_button_down_on() {
-                                        any_slider_down = true;
-                                    }
-                                    if resp.changed() {
-                                        edit = Some((field.id.clone(), PropValue::Number(n)));
-                                    }
-                                }
-                                PropValue::Text(t) => {
-                                    let mut s = t.clone();
-                                    ui.vertical(|ui| {
-                                        ui.label(&field.label);
-                                        let resp = if field.id == "content.text" {
-                                            ui.add(
-                                                egui::TextEdit::multiline(&mut s)
-                                                    .desired_width(220.0)
-                                                    .desired_rows(3),
-                                            )
-                                        } else {
-                                            ui.add(
-                                                egui::TextEdit::singleline(&mut s)
-                                                    .desired_width(160.0),
-                                            )
-                                        };
-                                        if resp.changed() {
-                                            edit = Some((field.id.clone(), PropValue::Text(s)));
-                                        }
-                                    });
-                                }
+                    }
+                    PropGroup::Transform => {
+                        for (label, a) in [("100%", 1.0), ("50%", 0.5), ("25%", 0.25)] {
+                            if ui.small_button(label).clicked() {
+                                preset = Some(PropPreset::Opacity(a));
                             }
                         }
-                    };
-                    if framed {
-                        egui::Frame::group(ui.style()).show(ui, &mut paint_group);
+                    }
+                    _ => {}
+                });
+                if matches!(group, PropGroup::Fill | PropGroup::Stroke) {
+                    let prefix = if group == PropGroup::Fill {
+                        "fill."
                     } else {
-                        paint_group(ui);
+                        "stroke."
+                    };
+                    let mut rgb = [0.0_f64; 3];
+                    let mut got = 0usize;
+                    for (i, ch) in ["r", "g", "b"].iter().enumerate() {
+                        let id = format!("{prefix}{ch}");
+                        if let Some(PropValue::Number(v)) =
+                            fields.iter().find(|f| f.id == id).map(|f| &f.value)
+                        {
+                            rgb[i] = *v;
+                            got += 1;
+                        }
                     }
-                    ui.add_space(4.0);
+                    if got == 3 {
+                        let swatch = egui::Color32::from_rgb(
+                            (rgb[0] * 255.0) as u8,
+                            (rgb[1] * 255.0) as u8,
+                            (rgb[2] * 255.0) as u8,
+                        );
+                        let (sw_resp, sw_painter) = ui.allocate_painter(
+                            egui::vec2(ui.available_width().min(120.0), 16.0),
+                            egui::Sense::hover(),
+                        );
+                        sw_painter.rect_filled(sw_resp.rect, 2.0, swatch);
+                    }
                 }
-                ui.separator();
-                if !props.iter().any(|p| p.id == "geom.w") {
-                    if let Ok(sizes) = collect_size_targets_page(&self.source, self.page_index) {
-                        if let Some(SizeTarget::TextSize(idx)) = sizes.get(sel).copied() {
-                            if ui
-                                .button("Add layout box")
-                                .on_hover_text(
-                                    "Insert w/h from the current selection bounds so edges can resize the box.",
-                                )
-                                .clicked()
-                            {
-                                let (x0, y0, x1, y1) = aabb;
-                                match set_text_box(
-                                    &self.source,
-                                    idx,
-                                    x0,
-                                    y0,
-                                    (x1 - x0).max(0.5),
-                                    (y1 - y0).max(0.5),
-                                ) {
-                                    Ok(new_src) => {
-                                        self.push_undo();
-                                        self.source = new_src;
-                                        self.error = pipeline_doc(&self.source).err();
-                                    }
-                                    Err(e) => self.error = Some(e.message),
-                                }
+                for field in &fields {
+                    match &field.value {
+                        PropValue::Number(v) => {
+                            let mut n = *v;
+                            let resp = if let Some((lo, hi)) = field.slider {
+                                ui.add(egui::Slider::new(&mut n, lo..=hi).text(&field.label))
+                            } else {
+                                ui.horizontal(|ui| {
+                                    ui.label(&field.label);
+                                    ui.add(egui::DragValue::new(&mut n).speed(0.1))
+                                })
+                                .inner
+                            };
+                            if resp.is_pointer_button_down_on() {
+                                any_slider_down = true;
                             }
+                            if resp.changed() {
+                                edit = Some((field.id.clone(), PropValue::Number(n)));
+                            }
+                        }
+                        PropValue::Text(t) => {
+                            let mut s = t.clone();
+                            ui.vertical(|ui| {
+                                ui.label(&field.label);
+                                let resp = if field.id == "content.text" {
+                                    ui.add(
+                                        egui::TextEdit::multiline(&mut s)
+                                            .desired_width(220.0)
+                                            .desired_rows(3),
+                                    )
+                                } else {
+                                    ui.add(egui::TextEdit::singleline(&mut s).desired_width(160.0))
+                                };
+                                if resp.changed() {
+                                    edit = Some((field.id.clone(), PropValue::Text(s)));
+                                }
+                            });
                         }
                     }
                 }
-                ui.horizontal(|ui| {
-                    if ui.button("Bring to front").clicked() {
-                        bring_front = true;
-                    }
-                    if ui.button("Send to back").clicked() {
-                        send_back = true;
-                    }
-                });
-                ui.horizontal(|ui| {
+            };
+            if framed {
+                egui::Frame::group(ui.style()).show(ui, &mut paint_group);
+            } else {
+                paint_group(ui);
+            }
+            ui.add_space(4.0);
+        }
+        ui.separator();
+        if !props.iter().any(|p| p.id == "geom.w") {
+            if let Ok(sizes) = collect_size_targets_page(&self.source, self.page_index) {
+                if let Some(SizeTarget::TextSize(idx)) = sizes.get(sel).copied() {
                     if ui
-                        .button("Forward")
-                        .on_hover_text("Ctrl+Shift+]")
-                        .clicked()
-                    {
-                        bring_forward = true;
-                    }
-                    if ui
-                        .button("Backward")
-                        .on_hover_text("Ctrl+Shift+[")
-                        .clicked()
-                    {
-                        send_backward = true;
-                    }
-                });
-                ui.horizontal(|ui| {
-                    if ui.button("Group").on_hover_text("Ctrl+G").clicked() {
-                        self.group_selection();
-                    }
-                    if ui
-                        .button("Ungroup")
-                        .on_hover_text("Ctrl+Shift+G")
-                        .clicked()
-                    {
-                        self.ungroup_selection();
-                    }
-                });
-            });
-
-        self.props_open = open;
+                            .button("Add layout box")
+                            .on_hover_text(
+                                "Insert w/h from the current selection bounds so edges can resize the box.",
+                            )
+                            .clicked()
+                        {
+                            let (x0, y0, x1, y1) = aabb;
+                            match set_text_box(
+                                &self.source,
+                                idx,
+                                x0,
+                                y0,
+                                (x1 - x0).max(0.5),
+                                (y1 - y0).max(0.5),
+                            ) {
+                                Ok(new_src) => {
+                                    self.push_undo();
+                                    self.source = new_src;
+                                    self.error = pipeline_doc(&self.source).err();
+                                }
+                                Err(e) => self.error = Some(e.message),
+                            }
+                        }
+                }
+            }
+        }
+        ui.horizontal(|ui| {
+            if ui.button("Bring to front").clicked() {
+                bring_front = true;
+            }
+            if ui.button("Send to back").clicked() {
+                send_back = true;
+            }
+        });
+        ui.horizontal(|ui| {
+            if ui.button("Forward").on_hover_text("Ctrl+Shift+]").clicked() {
+                bring_forward = true;
+            }
+            if ui
+                .button("Backward")
+                .on_hover_text("Ctrl+Shift+[")
+                .clicked()
+            {
+                send_backward = true;
+            }
+        });
+        ui.horizontal(|ui| {
+            if ui.button("Group").on_hover_text("Ctrl+G").clicked() {
+                self.group_selection();
+            }
+            if ui.button("Ungroup").on_hover_text("Ctrl+Shift+G").clicked() {
+                self.ungroup_selection();
+            }
+        });
         if let Some((id, value)) = edit {
             self.apply_prop_edit(sel, &id, value, prop_ctx);
+        }
+        if let Some(p) = preset {
+            let indices = [sel];
+            let result = match p {
+                PropPreset::FillRgb(rgb) => set_layers_fill_rgb(
+                    &self.source,
+                    self.page_index,
+                    &indices,
+                    rgb[0],
+                    rgb[1],
+                    rgb[2],
+                ),
+                PropPreset::StrokeWidth(w) => {
+                    set_layers_stroke_width(&self.source, self.page_index, &indices, w)
+                }
+                PropPreset::Opacity(a) => {
+                    set_layers_opacity(&self.source, self.page_index, &indices, a)
+                }
+            };
+            match result {
+                Ok(new_src) => {
+                    self.push_undo();
+                    self.source = new_src;
+                    self.error = pipeline_doc(&self.source).err();
+                }
+                Err(e) => self.error = Some(e.message),
+            }
         }
         if !any_slider_down {
             self.props_undo_open = false;
@@ -1013,7 +2079,6 @@ impl PreviewApp {
         self.source = src;
         self.drag = None;
         self.selected = new_sel;
-        self.props_open = !self.selected.is_empty();
         self.error = pipeline_doc(&self.source).err();
         if let Some(&last) = self.selected.last() {
             if let Ok(layers) = collect_layers_page(&self.source, self.page_index) {
@@ -1076,7 +2141,6 @@ impl PreviewApp {
         }
         self.source = src;
         self.selected = new_sel;
-        self.props_open = !self.selected.is_empty();
         self.error = pipeline_doc(&self.source).err();
     }
 
@@ -1109,7 +2173,6 @@ impl PreviewApp {
                     }
                 }
                 self.selected = vec![idx];
-                self.props_open = true;
                 self.error = pipeline_doc(&self.source).err();
                 if let Ok(layers) = collect_layers_page(&self.source, self.page_index) {
                     if let Some(layer) = layers.get(idx) {
@@ -1559,7 +2622,6 @@ impl PreviewApp {
             Ok((new_src, sel)) => {
                 self.source = new_src;
                 self.selected = sel;
-                self.props_open = !self.selected.is_empty();
                 self.error = pipeline_doc(&self.source).err();
             }
             Err(e) => {
@@ -1578,7 +2640,6 @@ impl PreviewApp {
             Ok((new_src, sel)) => {
                 self.source = new_src;
                 self.selected = sel;
-                self.props_open = !self.selected.is_empty();
                 self.error = pipeline_doc(&self.source).err();
             }
             Err(e) => {
@@ -1641,17 +2702,37 @@ impl PreviewApp {
     }
 
     fn export_pdf(&mut self) {
+        self.export_document(self.path.with_extension("pdf"));
+    }
+
+    fn export_document(&mut self, out_path: PathBuf) {
         match document_for_export(&mut GuiExportHandler::default(), &self.source) {
             Ok((doc, _)) => {
-                let pdf_path = self.path.with_extension("pdf");
                 let base = self.path.parent();
-                match fs::File::create(&pdf_path)
-                    .map_err(|e| e.to_string())
-                    .and_then(|f| {
-                        write_document_with_base(&doc, base, f).map_err(|e| format!("{e:?}"))
-                    }) {
+                let result =
+                    fs::File::create(&out_path)
+                        .map_err(|e| e.to_string())
+                        .and_then(|f| {
+                            match out_path
+                                .extension()
+                                .and_then(|e| e.to_str())
+                                .unwrap_or("pdf")
+                                .to_ascii_lowercase()
+                                .as_str()
+                            {
+                                "svg" => reciplexa_svg::write_document(&doc, f)
+                                    .map_err(|e| e.to_string()),
+                                "pptx" => reciplexa_pptx::write_document(&doc, f)
+                                    .map_err(|e| e.to_string()),
+                                _ => write_document_with_base(&doc, base, f)
+                                    .map_err(|e| format!("{e:?}")),
+                            }
+                        });
+                match result {
                     Ok(()) => self.error = None,
-                    Err(e) => self.error = Some(format!("pdf: {e}")),
+                    Err(e) => {
+                        self.error = Some(format!("{}: {e}", out_path.display()));
+                    }
                 }
             }
             Err(e) => self.error = Some(e.display()),
@@ -1681,6 +2762,38 @@ enum AlignEdge {
     Bottom,
     CenterH,
     CenterV,
+}
+
+fn pane_chrome(
+    ui: &mut egui::Ui,
+    title: &str,
+    floating: &mut bool,
+    visible: &mut bool,
+    collapsed: &mut bool,
+) {
+    ui.horizontal(|ui| {
+        if !title.is_empty() {
+            ui.label(egui::RichText::new(title).strong());
+        }
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            if ui.small_button("×").on_hover_text("Hide pane").clicked() {
+                *visible = false;
+            }
+            let float_tip = if *floating {
+                "Dock into layout"
+            } else {
+                "Float as window"
+            };
+            if ui.small_button("□").on_hover_text(float_tip).clicked() {
+                *floating = !*floating;
+            }
+            let collapse_tip = if *collapsed { "Expand" } else { "Collapse" };
+            if ui.small_button("–").on_hover_text(collapse_tip).clicked() {
+                *collapsed = !*collapsed;
+            }
+        });
+    });
+    ui.separator();
 }
 
 impl eframe::App for PreviewApp {
@@ -1785,13 +2898,11 @@ impl eframe::App for PreviewApp {
         if !source_focused && ctx.input(|i| i.modifiers.command && i.key_pressed(egui::Key::A)) {
             if let Ok(layers) = collect_layers_page(&self.source, self.page_index) {
                 self.selected = (0..layers.len()).collect();
-                self.props_open = !self.selected.is_empty();
             }
         }
         if !source_focused && !self.selected.is_empty() {
             if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
                 self.clear_selection();
-                self.props_open = false;
             }
             let step = if ctx.input(|i| i.modifiers.shift) {
                 5.0
@@ -1925,6 +3036,12 @@ impl eframe::App for PreviewApp {
                 if ui.button("Export PDF").on_hover_text("Ctrl+E").clicked() {
                     self.export_pdf();
                 }
+                if ui.button("Export SVG").clicked() {
+                    self.export_document(self.path.with_extension("svg"));
+                }
+                if ui.button("Export PPTX").clicked() {
+                    self.export_document(self.path.with_extension("pptx"));
+                }
                 ui.separator();
                 ui.label(egui::RichText::new("Insert").strong());
                 if ui.button("Circle").clicked() {
@@ -1971,7 +3088,7 @@ impl eframe::App for PreviewApp {
                 }
                 if ui
                     .selectable_label(self.show_source, "Source")
-                    .on_hover_text("Show/hide floating .rpx editor (drag its title bar)")
+                    .on_hover_text("Show/hide Source pane (docked by default; □ floats)")
                     .clicked()
                 {
                     self.show_source = !self.show_source;
@@ -1979,7 +3096,7 @@ impl eframe::App for PreviewApp {
                 }
                 if ui
                     .selectable_label(self.show_preview, "Preview")
-                    .on_hover_text("Show/hide floating paper preview")
+                    .on_hover_text("Show/hide Preview pane (docked by default; □ floats)")
                     .clicked()
                 {
                     self.show_preview = !self.show_preview;
@@ -1987,7 +3104,7 @@ impl eframe::App for PreviewApp {
                 }
                 if ui
                     .selectable_label(self.show_layers, "Layers")
-                    .on_hover_text("Show/hide floating layers list")
+                    .on_hover_text("Show/hide Layers pane (docked by default; □ floats)")
                     .clicked()
                 {
                     self.show_layers = !self.show_layers;
@@ -1995,10 +3112,11 @@ impl eframe::App for PreviewApp {
                 }
                 if ui
                     .selectable_label(self.props_open, "Properties")
-                    .on_hover_text("Show/hide floating properties")
+                    .on_hover_text("Show/hide Properties pane (docked by default; □ floats)")
                     .clicked()
                 {
                     self.props_open = !self.props_open;
+                    self.persist_gui_prefs();
                 }
                 if ui
                     .button("Reset view")
@@ -2026,1079 +3144,278 @@ impl eframe::App for PreviewApp {
             });
         });
 
-        {
-            let mut open = self.show_source;
+        let layers_for_panel =
+            collect_layers_page(&self.source, self.page_index).unwrap_or_default();
+
+        // --- Docked bento panes ---
+        if self.show_source && !self.float_source {
+            egui::SidePanel::left("dock_source")
+                .resizable(true)
+                .default_width(360.0)
+                .width_range(220.0..=720.0)
+                .show(ctx, |ui| {
+                    let mut floating = self.float_source;
+                    let mut visible = self.show_source;
+                    let mut collapsed = self.collapse_source;
+                    pane_chrome(
+                        ui,
+                        ".rpx source",
+                        &mut floating,
+                        &mut visible,
+                        &mut collapsed,
+                    );
+                    let changed = floating != self.float_source
+                        || visible != self.show_source
+                        || collapsed != self.collapse_source;
+                    self.float_source = floating;
+                    self.show_source = visible;
+                    self.collapse_source = collapsed;
+                    if changed {
+                        self.persist_gui_prefs();
+                    }
+                    if self.show_source && !self.float_source && !self.collapse_source {
+                        self.paint_source_pane(ui);
+                    }
+                });
+        }
+
+        let dock_layers = self.show_layers && !self.float_layers;
+        let dock_props = self.props_open && !self.float_props;
+        if dock_layers || dock_props {
+            egui::SidePanel::right("dock_right")
+                .resizable(true)
+                .default_width(280.0)
+                .width_range(180.0..=480.0)
+                .show(ctx, |ui| {
+                    if dock_layers {
+                        let height = if dock_props {
+                            (ui.available_height() * 0.55).max(120.0)
+                        } else {
+                            ui.available_height()
+                        };
+                        egui::ScrollArea::vertical()
+                            .id_salt("dock_layers_scroll")
+                            .max_height(height)
+                            .show(ui, |ui| {
+                                let mut floating = self.float_layers;
+                                let mut visible = self.show_layers;
+                                let mut collapsed = self.collapse_layers;
+                                pane_chrome(
+                                    ui,
+                                    "Layers",
+                                    &mut floating,
+                                    &mut visible,
+                                    &mut collapsed,
+                                );
+                                let changed = floating != self.float_layers
+                                    || visible != self.show_layers
+                                    || collapsed != self.collapse_layers;
+                                self.float_layers = floating;
+                                self.show_layers = visible;
+                                self.collapse_layers = collapsed;
+                                if changed {
+                                    self.persist_gui_prefs();
+                                }
+                                if self.show_layers && !self.float_layers && !self.collapse_layers {
+                                    self.paint_layers_pane(ui, &layers_for_panel);
+                                }
+                            });
+                        if dock_props {
+                            ui.separator();
+                        }
+                    }
+                    if dock_props {
+                        let mut floating = self.float_props;
+                        let mut visible = self.props_open;
+                        let mut collapsed = self.collapse_props;
+                        let title = if self.selected.len() > 1 {
+                            format!("Properties ({} selected)", self.selected.len())
+                        } else {
+                            "Properties".to_string()
+                        };
+                        pane_chrome(ui, &title, &mut floating, &mut visible, &mut collapsed);
+                        let changed = floating != self.float_props
+                            || visible != self.props_open
+                            || collapsed != self.collapse_props;
+                        self.float_props = floating;
+                        self.props_open = visible;
+                        self.collapse_props = collapsed;
+                        if changed {
+                            self.persist_gui_prefs();
+                        }
+                        if self.props_open && !self.float_props && !self.collapse_props {
+                            egui::ScrollArea::vertical()
+                                .id_salt("dock_props_scroll")
+                                .show(ui, |ui| {
+                                    self.paint_properties_pane(ui);
+                                });
+                        }
+                    }
+                });
+        }
+
+        egui::CentralPanel::default().show(ctx, |ui| {
+            if self.show_preview && !self.float_preview {
+                let mut floating = self.float_preview;
+                let mut visible = self.show_preview;
+                let mut collapsed = self.collapse_preview;
+                pane_chrome(
+                    ui,
+                    "Paper preview",
+                    &mut floating,
+                    &mut visible,
+                    &mut collapsed,
+                );
+                let changed = floating != self.float_preview
+                    || visible != self.show_preview
+                    || collapsed != self.collapse_preview;
+                self.float_preview = floating;
+                self.show_preview = visible;
+                self.collapse_preview = collapsed;
+                if changed {
+                    self.persist_gui_prefs();
+                }
+                if self.show_preview && !self.float_preview && !self.collapse_preview {
+                    self.paint_preview_pane(ui);
+                }
+            } else {
+                ui.centered_and_justified(|ui| {
+                    ui.weak(
+                        "Preview is hidden or floating — restore it from View, or dock with □.",
+                    );
+                });
+            }
+        });
+
+        // --- Floating panes ---
+        if self.show_source && self.float_source {
+            let mut floating = self.float_source;
+            let mut visible = self.show_source;
+            let mut collapsed = self.collapse_source;
             egui::Window::new(".rpx source")
                 .id(egui::Id::new("floating_source"))
-                .open(&mut open)
                 .default_pos([12.0, 56.0])
                 .default_size([420.0, 560.0])
                 .min_width(280.0)
                 .min_height(200.0)
                 .resizable(true)
-                .collapsible(true)
+                .collapsible(false)
                 .constrain(true)
                 .show(ctx, |ui| {
-                ui.label(
-                    "Edits reproject live; drag on the paper rewrites numbers here. Ctrl+S saves · Ctrl+O opens. Drag this window's title to move it.",
-                );
-                ui.horizontal(|ui| {
-                    if ui.button("Save .rpx").clicked() {
-                        self.save_rpx();
-                    }
-                    if ui.button("Open…").clicked() {
-                        self.open_rpx_dialog(ctx);
-                    }
-                    if ui.button("Reload disk").clicked() {
-                        // Load authoring text as-is; do not bake macros into the editor buffer.
-                        match fs::read_to_string(&self.path) {
-                            Ok(raw) => {
-                                self.source = raw;
-                                self.drag = None;
-                                self.clear_selection();
-                                self.error = pipeline_doc(&self.source).err();
-                            }
-                            Err(e) => self.error = Some(format!("reload: {e}")),
-                        }
-                    }
-                    if ui.button("Export PDF").on_hover_text("Ctrl+E").clicked() {
-                        self.export_pdf();
-                    }
-                    if ui.button("Re-expand macros").clicked() {
-                        // Explicit bake: replaces the editor buffer with expanded forms.
-                        match expand_source(&self.source) {
-                            Ok(s) => {
-                                self.push_undo();
-                                self.source = s;
-                                self.error = pipeline_doc(&self.source).err();
-                            }
-                            Err(e) => self.error = Some(format!("macro: {}", e.message)),
-                        }
+                    pane_chrome(ui, "", &mut floating, &mut visible, &mut collapsed);
+                    if !collapsed {
+                        self.paint_source_pane(ui);
                     }
                 });
-                ui.add_space(4.0);
-                let pre_edit = self.source.clone();
-                let editor = egui::TextEdit::multiline(&mut self.source)
-                    .id(egui::Id::new("rpx_source_editor"))
-                    .code_editor()
-                    .desired_width(f32::INFINITY)
-                    .desired_rows(36);
-                let response = ui.add_sized(
-                    egui::vec2(
-                        ui.available_width(),
-                        (ui.available_height() - 48.0).max(120.0),
-                    ),
-                    editor,
-                );
-                if response.changed() {
-                    if !self.typing_undo_open {
-                        self.undo_stack.push(pre_edit);
-                        if self.undo_stack.len() > 100 {
-                            self.undo_stack.remove(0);
-                        }
-                        self.redo_stack.clear();
-                        self.typing_undo_open = true;
-                    }
-                    self.drag = None;
-                    self.error = pipeline_doc(&self.source).err();
-                }
-                if !response.has_focus() {
-                    self.typing_undo_open = false;
-                }
-                if let Some(err) = &self.error {
-                    ui.add_space(4.0);
-                    ui.colored_label(egui::Color32::RED, err);
-                }
-            });
-            if open != self.show_source {
-                self.show_source = open;
+            let changed = floating != self.float_source
+                || visible != self.show_source
+                || collapsed != self.collapse_source;
+            self.float_source = floating;
+            self.show_source = visible;
+            self.collapse_source = collapsed;
+            if changed {
                 self.persist_gui_prefs();
             }
         }
 
-        // Snapshot layers for the floating layers pane (may be empty on error).
-        let layers_for_panel =
-            collect_layers_page(&self.source, self.page_index).unwrap_or_default();
-
-        {
-            let mut open = self.show_layers;
+        if self.show_layers && self.float_layers {
+            let mut floating = self.float_layers;
+            let mut visible = self.show_layers;
+            let mut collapsed = self.collapse_layers;
             egui::Window::new("Layers")
                 .id(egui::Id::new("floating_layers"))
-                .open(&mut open)
                 .default_pos([920.0, 56.0])
                 .default_size([260.0, 420.0])
                 .min_width(180.0)
                 .min_height(160.0)
                 .resizable(true)
-                .collapsible(true)
+                .collapsible(false)
                 .constrain(true)
                 .show(ctx, |ui| {
-                ui.label("Drag rows vertically to restack. Top = front (later in source). Drag this window's title to move it.");
-                ui.separator();
-                let n = layers_for_panel.len();
-                let mut reorder: Option<(usize, usize)> = None;
-                egui::ScrollArea::vertical().show(ui, |ui| {
-                    // Top of list = topmost (last drawn = highest flatten index).
-                    for flat in (0..n).rev() {
-                        let Some(layer) = layers_for_panel.get(flat) else {
-                            continue;
-                        };
-                        let selected = self.selected.contains(&flat);
-                        let id = egui::Id::new(("layer_dnd", self.page_index, flat));
-                        let text = format!("{}. {}", flat + 1, layer.label);
-                        let being_dragged = ui.ctx().is_being_dragged(id);
-
-                        let row_resp = ui
-                            .horizontal(|ui| {
-                                ui.weak("⠿");
-                                let label = if being_dragged {
-                                    ui.weak(&text)
-                                } else {
-                                    ui.selectable_label(selected, &text)
-                                };
-                                let _ = label;
-                            })
-                            .response;
-                        let response = ui
-                            .interact(row_resp.rect, id, egui::Sense::click_and_drag())
-                            .on_hover_cursor(egui::CursorIcon::Grab)
-                            .on_hover_text("Drag vertically to change stacking order");
-
-                        if response.dragged() {
-                            response.dnd_set_drag_payload(flat);
-                            // Ghost follows pointer Y only (stacking is 1D).
-                            if let Some(pointer) = ui.ctx().pointer_interact_pos() {
-                                let ghost = egui::Rect::from_min_size(
-                                    egui::pos2(
-                                        row_resp.rect.left(),
-                                        pointer.y - row_resp.rect.height() * 0.5,
-                                    ),
-                                    row_resp.rect.size(),
-                                );
-                                let painter = ui.ctx().layer_painter(egui::LayerId::new(
-                                    egui::Order::Tooltip,
-                                    id,
-                                ));
-                                painter.rect_filled(
-                                    ghost,
-                                    2.0,
-                                    egui::Color32::from_rgba_unmultiplied(30, 120, 220, 40),
-                                );
-                                painter.rect_stroke(
-                                    ghost,
-                                    2.0,
-                                    egui::Stroke::new(
-                                        1.0_f32,
-                                        egui::Color32::from_rgb(30, 120, 220),
-                                    ),
-                                    egui::StrokeKind::Outside,
-                                );
-                                painter.text(
-                                    ghost.left_center() + egui::vec2(8.0, 0.0),
-                                    egui::Align2::LEFT_CENTER,
-                                    &text,
-                                    egui::FontId::proportional(13.0),
-                                    egui::Color32::from_rgb(20, 60, 120),
-                                );
-                            }
-                        }
-
-                        if response.clicked() && !response.dragged() {
-                            self.select_layer(flat, &layers_for_panel);
-                        }
-                        // Drop onto a row → take that stacking slot (rewrites .rpx).
-                        if let Some(pointer) = ui.ctx().pointer_interact_pos() {
-                            if response.rect.contains(pointer)
-                                && response.dnd_hover_payload::<usize>().is_some()
-                            {
-                                let insert_above = pointer.y < response.rect.center().y;
-                                let y = if insert_above {
-                                    response.rect.top()
-                                } else {
-                                    response.rect.bottom()
-                                };
-                                ui.painter().hline(
-                                    response.rect.x_range(),
-                                    y,
-                                    egui::Stroke::new(
-                                        2.0_f32,
-                                        egui::Color32::from_rgb(30, 120, 220),
-                                    ),
-                                );
-                                if let Some(from) = response.dnd_release_payload::<usize>() {
-                                    let to = if insert_above {
-                                        (flat + 1).min(n.saturating_sub(1))
-                                    } else {
-                                        flat
-                                    };
-                                    if *from != to {
-                                        reorder = Some((*from, to));
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    if n == 0 {
-                        ui.weak("(no shapes on this page)");
+                    pane_chrome(ui, "", &mut floating, &mut visible, &mut collapsed);
+                    if !collapsed {
+                        self.paint_layers_pane(ui, &layers_for_panel);
                     }
                 });
-                if let Some((from, to)) = reorder {
-                    self.apply_layer_reorder(from, to);
-                }
-                if !self.selected.is_empty() {
-                    ui.separator();
-                    if self.selected.len() == 1 {
-                        ui.label(format!("Selected layer {}", self.selected[0] + 1));
-                    } else {
-                        ui.label(format!("{} layers selected", self.selected.len()));
-                    }
-                    if ui
-                        .button(if self.props_open {
-                            "Hide properties"
-                        } else {
-                            "Properties…"
-                        })
-                        .on_hover_text(
-                            "Named arguments for the selection (size, position, color, text…). Not the attribute-button suite.",
-                        )
-                        .clicked()
-                    {
-                        self.props_open = !self.props_open;
-                    }
-                    if ui
-                        .button("Duplicate")
-                        .on_hover_text("Copy selection in .rpx (Ctrl+D)")
-                        .clicked()
-                    {
-                        self.duplicate_selection();
-                    }
-                    if ui
-                        .button("Delete")
-                        .on_hover_text("Remove from .rpx (Delete key)")
-                        .clicked()
-                    {
-                        self.delete_selection();
-                    }
-                } else {
-                    self.props_undo_open = false;
-                }
-            });
-            if open != self.show_layers {
-                self.show_layers = open;
+            let changed = floating != self.float_layers
+                || visible != self.show_layers
+                || collapsed != self.collapse_layers;
+            self.float_layers = floating;
+            self.show_layers = visible;
+            self.collapse_layers = collapsed;
+            if changed {
                 self.persist_gui_prefs();
             }
         }
 
-        // Selection properties panel (floating; already a Window).
-        self.show_properties_window(ctx);
+        if self.props_open && self.float_props {
+            let mut floating = self.float_props;
+            let mut visible = self.props_open;
+            let mut collapsed = self.collapse_props;
+            let title = if self.selected.len() > 1 {
+                format!("Properties ({} selected)", self.selected.len())
+            } else {
+                "Properties".to_string()
+            };
+            egui::Window::new(title)
+                .id(egui::Id::new("floating_props"))
+                .default_pos([920.0, 480.0])
+                .default_size([280.0, 360.0])
+                .min_width(200.0)
+                .min_height(160.0)
+                .resizable(true)
+                .collapsible(false)
+                .constrain(true)
+                .show(ctx, |ui| {
+                    pane_chrome(ui, "", &mut floating, &mut visible, &mut collapsed);
+                    if !collapsed {
+                        self.paint_properties_pane(ui);
+                    }
+                });
+            let changed = floating != self.float_props
+                || visible != self.props_open
+                || collapsed != self.collapse_props;
+            self.float_props = floating;
+            self.props_open = visible;
+            self.collapse_props = collapsed;
+            if changed {
+                self.persist_gui_prefs();
+            }
+        }
 
-        egui::CentralPanel::default().show(ctx, |ui| {
-            ui.centered_and_justified(|ui| {
-                ui.weak(
-                    "Workspace · drag Source / Preview / Layers / Properties by their title bars · toggles in View",
-                );
-            });
-        });
-
-        if self.show_preview {
-            let mut open = self.show_preview;
+        if self.show_preview && self.float_preview {
+            let mut floating = self.float_preview;
+            let mut visible = self.show_preview;
+            let mut collapsed = self.collapse_preview;
             egui::Window::new("Paper preview")
                 .id(egui::Id::new("floating_preview"))
-                .open(&mut open)
                 .default_pos([440.0, 56.0])
                 .default_size([480.0, 640.0])
                 .min_width(320.0)
                 .min_height(280.0)
                 .resizable(true)
-                .collapsible(true)
+                .collapsible(false)
                 .constrain(true)
                 .show(ctx, |ui| {
-            ui.label("Scroll = zoom at cursor · Space/Middle/Alt-drag = pan · F = frame · Shift-drag = axis/aspect/15° · Ctrl-drag = 5mm snap · drag this window's title to move it.");
-
-            let doc = match pipeline_doc(&self.source) {
-                Ok(d) => d,
-                Err(e) => {
-                    ui.colored_label(egui::Color32::RED, e);
-                    ui.label("Keep typing in the source pane — the caret stays there.");
-                    return;
-                }
-            };
-            let page_count = doc.pages.len();
-            if page_count == 0 {
-                ui.colored_label(egui::Color32::RED, "Document has no pages.");
-                return;
-            }
-            if self.page_index >= page_count {
-                self.page_index = page_count - 1;
-            }
-
-            ui.horizontal(|ui| {
-                if ui
-                    .add_enabled(self.page_index > 0, egui::Button::new("◀ Prev"))
-                    .clicked()
-                {
-                    self.page_index -= 1;
-                    self.drag = None;
-                    self.clear_selection();
-                }
-                ui.label(format!("Page {} / {}", self.page_index + 1, page_count));
-                if ui
-                    .add_enabled(
-                        self.page_index + 1 < page_count,
-                        egui::Button::new("Next ▶"),
-                    )
-                    .clicked()
-                {
-                    self.page_index += 1;
-                    self.drag = None;
-                    self.clear_selection();
-                }
-                if ui
-                    .button("+ Page")
-                    .on_hover_text("Insert empty A4 page after current")
-                    .clicked()
-                {
-                    self.add_page_after_current();
-                }
-                if ui
-                    .add_enabled(page_count > 1, egui::Button::new("− Page"))
-                    .on_hover_text("Delete current page")
-                    .clicked()
-                {
-                    self.delete_current_page();
-                }
-                ui.separator();
-                if ui.button("−").clicked() {
-                    self.zoom_viewport_by(1.0 / 1.15, None);
-                }
-                ui.label(format!("{:.0}%", self.zoom * 100.0));
-                if ui.button("+").clicked() {
-                    self.zoom_viewport_by(1.15, None);
-                }
-                if ui.button("Reset view").clicked() {
-                    self.reset_viewport();
-                }
-                ui.separator();
-                if ui
-                    .selectable_label(self.show_grid, "Grid")
-                    .on_hover_text("10mm grid (G)")
-                    .clicked()
-                {
-                    self.show_grid = !self.show_grid;
-                    let mut prefs = GuiPrefs::load();
-                    prefs.show_grid = self.show_grid;
-                    prefs.save();
-                }
-            });
-
-            let size_bindings = match collect_size_targets_page(&self.source, self.page_index) {
-                Ok(b) => b,
-                Err(e) => {
-                    ui.colored_label(egui::Color32::RED, &e.message);
-                    return;
-                }
-            };
-            let layers = match collect_layers_page(&self.source, self.page_index) {
-                Ok(l) => l,
-                Err(e) => {
-                    ui.colored_label(egui::Color32::RED, &e.message);
-                    return;
-                }
-            };
-            let Some((page, shapes)) = flatten_page(&doc, self.page_index) else {
-                ui.colored_label(egui::Color32::RED, "Page not found.");
-                return;
-            };
-            if layers.len() != shapes.len() || size_bindings.len() != shapes.len() {
-                ui.colored_label(
-                    egui::Color32::YELLOW,
-                    format!(
-                        "size/layer/shape mismatch: {} / {} / {}",
-                        size_bindings.len(),
-                        layers.len(),
-                        shapes.len()
-                    ),
-                );
-            }
-
-            let avail = ui.available_size();
-            self.viewport_paint_size = avail;
-            self.viewport_page_mm = (page.paper.width_mm, page.paper.height_mm);
-
-            let (response, painter) = ui.allocate_painter(avail, egui::Sense::click_and_drag());
-            let rect = response.rect;
-
-            if response.hovered() {
-                let scroll = ui.input(|i| i.smooth_scroll_delta.y);
-                if scroll.abs() > 0.0 {
-                    let factor = (1.0 + scroll * 0.002).clamp(0.85, 1.15);
-                    let anchor = ui
-                        .input(|i| i.pointer.hover_pos())
-                        .map(|p| p - rect.min)
-                        .unwrap_or_else(|| avail * 0.5);
-                    self.zoom_viewport_by(factor, Some(anchor));
-                }
-            }
-            let space_held = ui.input(|i| i.key_down(egui::Key::Space) && !i.modifiers.any());
-            // Pan with Space+drag, middle mouse, or Alt + drag.
-            let pan_gesture = response.dragged_by(egui::PointerButton::Middle)
-                || (space_held && response.dragged_by(egui::PointerButton::Primary))
-                || (response.dragged() && ui.input(|i| i.modifiers.alt));
-            if pan_gesture {
-                self.pan += response.drag_delta();
-                self.viewport_prefs_dirty = true;
-            }
-            if space_held && response.hovered() {
-                ui.ctx().set_cursor_icon(egui::CursorIcon::Grab);
-            }
-
-            let layout = PaperLayout::fit(
-                rect.width(),
-                rect.height(),
-                24.0,
-                page.paper.width_mm,
-                page.paper.height_mm,
-            )
-            .with_view(self.zoom, self.pan.x, self.pan.y);
-
-            let paper = egui::Rect::from_min_size(
-                rect.min + egui::vec2(layout.origin_x_px, layout.origin_y_px),
-                egui::vec2(layout.width_px, layout.height_px),
-            );
-            painter.rect_filled(paper, 0.0, egui::Color32::WHITE);
-            if self.show_grid {
-                paint_paper_grid(&painter, rect, &layout, page.paper.width_mm, page.paper.height_mm);
-            }
-            let paper_stroke = match self.theme {
-                UiTheme::Light => egui::Color32::from_gray(80),
-                UiTheme::Dark => egui::Color32::from_gray(160),
-            };
-            painter.rect_stroke(
-                paper,
-                0.0,
-                egui::Stroke::new(1.0_f32, paper_stroke),
-                egui::StrokeKind::Outside,
-            );
-
-            for shape in &shapes {
-                paint_shape(
-                    &painter,
-                    rect,
-                    &layout,
-                    shape,
-                    &mut self.textures,
-                    ui.ctx(),
-                    self.path.parent(),
-                );
-            }
-
-            if let Some(pos) = response.hover_pos() {
-                let local = pos - rect.min;
-                let (hx, hy) = layout.px_to_mm(local.x, local.y);
-                if let Some(hi) = hit_test_shapes(&shapes, hx, hy) {
-                    if !self.selected.contains(&hi) {
-                        if let Some(shape) = shapes.get(hi) {
-                            if let Some(bounds) = PaperLayout::shape_bounds_mm(shape) {
-                                paint_hover_frame(&painter, rect, &layout, bounds);
-                            }
-                        }
+                    pane_chrome(ui, "", &mut floating, &mut visible, &mut collapsed);
+                    if !collapsed {
+                        self.paint_preview_pane(ui);
                     }
-                }
-            }
-
-            for (i, shape) in shapes.iter().enumerate() {
-                if self.selected.contains(&i) {
-                    if let Some(bounds) = PaperLayout::shape_bounds_mm(shape) {
-                        paint_selection_frame(&painter, rect, &layout, bounds);
-                    }
-                    if let WorldShape::Path(p) = shape {
-                        let is_line = p.points_mm.len() == 2
-                            && size_bindings
-                                .get(i)
-                                .is_some_and(|t| matches!(t, SizeTarget::LineSeg(_)));
-                        let is_poly = size_bindings.get(i).is_some_and(|t| {
-                            matches!(
-                                t,
-                                SizeTarget::PolylinePoints(_) | SizeTarget::PolygonPoints(_)
-                            )
-                        });
-                        if is_line || is_poly {
-                            paint_line_endpoints(&painter, rect, &layout, &p.points_mm);
-                        }
-                    }
-                }
-            }
-
-            if let Some(pos) = response.hover_pos() {
-                let local = pos - rect.min;
-                let (mx, my) = layout.px_to_mm(local.x, local.y);
-                if mx >= -1.0
-                    && my >= -1.0
-                    && mx <= page.paper.width_mm + 1.0
-                    && my <= page.paper.height_mm + 1.0
-                {
-                    painter.text(
-                        rect.left_bottom() + egui::vec2(8.0, -8.0),
-                        egui::Align2::LEFT_BOTTOM,
-                        format!("{mx:.1}, {my:.1} mm"),
-                        egui::FontId::monospace(12.0),
-                        egui::Color32::from_gray(110),
-                    );
-                }
-            }
-
-            let skip_shape_drag = pan_gesture
-                || ui.input(|i| i.pointer.button_down(egui::PointerButton::Middle))
-                || ui.input(|i| i.modifiers.alt)
-                || (space_held && ui.input(|i| i.pointer.button_down(egui::PointerButton::Primary)));
-
-            if let Some(pos) = response.interact_pointer_pos() {
-                let local = pos - rect.min;
-                let local_pos = egui::pos2(local.x, local.y);
-                let (mx, my) = layout.px_to_mm(local.x, local.y);
-
-                if !skip_shape_drag && response.drag_started() {
-                    let mut started = false;
-                    let hit_body = hit_test_shapes(&shapes, mx, my);
-                    let shift = ui.input(|i| i.modifiers.shift);
-                    // Handles for primary selection (endpoints / scale / rotate).
-                    if let Some(sel) = self.primary_selected() {
-                        if let Some(shape) = shapes.get(sel) {
-                            // Path vertices work even when the stroke itself is hit.
-                            if let WorldShape::Path(p) = shape {
-                                if let Some(vertex) =
-                                    hit_line_endpoint(&layout, &p.points_mm, local_pos)
-                                {
-                                    match size_bindings.get(sel).copied() {
-                                        Some(SizeTarget::LineSeg(idx))
-                                            if p.points_mm.len() == 2 =>
-                                        {
-                                            self.drag = Some(DragState {
-                                                kind: DragKind::LineEndpoint {
-                                                    index: idx,
-                                                    endpoint: vertex,
-                                                    base_src: self.source.clone(),
-                                                },
-                                                undo_pushed: false,
-                                            });
-                                            started = true;
-                                        }
-                                        Some(SizeTarget::PolylinePoints(idx)) => {
-                                            self.drag = Some(DragState {
-                                                kind: DragKind::PolyVertex {
-                                                    head: "polyline",
-                                                    index: idx,
-                                                    vertex,
-                                                    base_src: self.source.clone(),
-                                                },
-                                                undo_pushed: false,
-                                            });
-                                            started = true;
-                                        }
-                                        Some(SizeTarget::PolygonPoints(idx)) => {
-                                            self.drag = Some(DragState {
-                                                kind: DragKind::PolyVertex {
-                                                    head: "polygon",
-                                                    index: idx,
-                                                    vertex,
-                                                    base_src: self.source.clone(),
-                                                },
-                                                undo_pushed: false,
-                                            });
-                                            started = true;
-                                        }
-                                        _ => {}
-                                    }
-                                }
-                            }
-                            if !started && hit_body != Some(sel) {
-                                if let Some(bounds) = PaperLayout::shape_bounds_mm(shape) {
-                                    let (x0, y0, x1, y1) = bounds;
-                                    let cx = (x0 + x1) * 0.5;
-                                    let cy = (y0 + y1) * 0.5;
-                                    if hit_rotate_handle(&layout, bounds, local_pos) {
-                                        let start_angle_rad = (my - cy).atan2(mx - cx);
-                                        let base_deg = layer_rotation_deg(
-                                            &self.source,
-                                            self.page_index,
-                                            sel,
-                                        )
-                                        .unwrap_or(0.0);
-                                        self.drag = Some(DragState {
-                                            kind: DragKind::Rotate {
-                                                flat_index: sel,
-                                                base_src: self.source.clone(),
-                                                center_mm: (cx, cy),
-                                                start_angle_rad,
-                                                base_deg,
-                                            },
-                                            undo_pushed: false,
-                                        });
-                                        started = true;
-                                    } else if let Some(grab) =
-                                        hit_scale_grab(&layout, bounds, local_pos)
-                                    {
-                                        let allow = match grab {
-                                            ScaleGrab::Corner(_) => true,
-                                            ScaleGrab::Edge(_) => size_bindings.get(sel).is_some_and(
-                                                |t| {
-                                                    matches!(
-                                                        t,
-                                                        SizeTarget::TextSize(_)
-                                                            | SizeTarget::RectWh(_)
-                                                            | SizeTarget::FrameWh(_)
-                                                            | SizeTarget::ImageWh(_)
-                                                            | SizeTarget::EllipseRxRy(_)
-                                                    )
-                                                },
-                                            ),
-                                        };
-                                        if allow
-                                            && size_bindings
-                                                .get(sel)
-                                                .is_some_and(|t| *t != SizeTarget::Unsupported)
-                                        {
-                                            let start_dist =
-                                                ((mx - cx).hypot(my - cy)).max(1e-6);
-                                            if let Some(size) = size_bindings.get(sel).copied() {
-                                                let box_drag = match size {
-                                                    SizeTarget::TextSize(_)
-                                                    | SizeTarget::RectWh(_)
-                                                    | SizeTarget::FrameWh(_)
-                                                    | SizeTarget::ImageWh(_)
-                                                    | SizeTarget::EllipseRxRy(_) => Some(BoxDrag {
-                                                        grab,
-                                                        start_bounds: bounds,
-                                                    }),
-                                                    _ => None,
-                                                };
-                                                self.drag = Some(DragState {
-                                                    kind: DragKind::Scale {
-                                                        size,
-                                                        base_src: self.source.clone(),
-                                                        center_mm: (cx, cy),
-                                                        start_dist,
-                                                        text_box: box_drag,
-                                                    },
-                                                    undo_pushed: false,
-                                                });
-                                                started = true;
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    if !started {
-                        if let Some(i) = hit_body {
-                            if shift {
-                                self.toggle_layer_in_selection(i, &layers);
-                            } else if !self.selected.contains(&i) {
-                                self.select_layer(i, &layers);
-                            }
-                            let flat_indices = if self.selected.contains(&i) {
-                                self.selected.clone()
-                            } else {
-                                vec![i]
-                            };
-                            self.drag = Some(DragState {
-                                kind: DragKind::Move {
-                                    last_mm: (mx, my),
-                                    flat_indices,
-                                },
-                                undo_pushed: false,
-                            });
-                        } else if !shift {
-                            // Empty drag → marquee range select.
-                            self.clear_selection();
-                            self.drag = Some(DragState {
-                                kind: DragKind::Marquee {
-                                    start_mm: (mx, my),
-                                    current_mm: (mx, my),
-                                },
-                                undo_pushed: false,
-                            });
-                        }
-                    }
-                }
-
-                if !skip_shape_drag && response.dragged() {
-                    if let Some(drag) = self.drag.clone() {
-                        match drag.kind {
-                            DragKind::Move {
-                                last_mm,
-                                flat_indices,
-                            } => {
-                                let mut dx = mx - last_mm.0;
-                                let mut dy = my - last_mm.1;
-                                // Shift: lock to dominant axis.
-                                if ui.input(|i| i.modifiers.shift) {
-                                    if dx.abs() >= dy.abs() {
-                                        dy = 0.0;
-                                    } else {
-                                        dx = 0.0;
-                                    }
-                                }
-                                // Ctrl/Cmd: snap motion to a 5mm grid (paper coords).
-                                if ui.input(|i| i.modifiers.command) {
-                                    const GRID: f64 = 5.0;
-                                    let snap = |v: f64| (v / GRID).round() * GRID;
-                                    dx = snap(mx) - snap(last_mm.0);
-                                    dy = snap(my) - snap(last_mm.1);
-                                    if ui.input(|i| i.modifiers.shift) {
-                                        if dx.abs() >= dy.abs() {
-                                            dy = 0.0;
-                                        } else {
-                                            dx = 0.0;
-                                        }
-                                    }
-                                }
-                                let mut indices = flat_indices;
-                                if dx.abs() > 1e-9 || dy.abs() > 1e-9 {
-                                    let mut undo_pushed = drag.undo_pushed;
-                                    if !undo_pushed {
-                                        self.push_undo();
-                                        undo_pushed = true;
-                                    }
-                                    let mut src = self.source.clone();
-                                    indices.sort_unstable();
-                                    let mut ok = true;
-                                    for &idx in &indices {
-                                        match nudge_layer_page(
-                                            &src,
-                                            self.page_index,
-                                            idx,
-                                            dx,
-                                            dy,
-                                        ) {
-                                            Ok(new_src) => src = new_src,
-                                            Err(e) => {
-                                                self.error = Some(e.message);
-                                                ok = false;
-                                                break;
-                                            }
-                                        }
-                                    }
-                                    if ok {
-                                        self.source = src;
-                                        self.error = if self.reload_ok() {
-                                            None
-                                        } else {
-                                            Some("edit produced invalid program".into())
-                                        };
-                                        self.drag = Some(DragState {
-                                            kind: DragKind::Move {
-                                                last_mm: (mx, my),
-                                                flat_indices: indices,
-                                            },
-                                            undo_pushed,
-                                        });
-                                    }
-                                }
-                            }
-                            DragKind::Marquee { start_mm, .. } => {
-                                self.drag = Some(DragState {
-                                    kind: DragKind::Marquee {
-                                        start_mm,
-                                        current_mm: (mx, my),
-                                    },
-                                    undo_pushed: false,
-                                });
-                            }
-                            DragKind::Scale {
-                                size,
-                                base_src,
-                                center_mm,
-                                start_dist,
-                                text_box,
-                            } => {
-                                let scale_result = if let Some(tb) = text_box {
-                                    let (mut nx, mut ny, mut nw, mut nh) = box_from_grab(tb, mx, my);
-                                    if ui.input(|i| i.modifiers.shift) {
-                                        (nx, ny, nw, nh) = apply_aspect_lock(tb, nx, ny, nw, nh);
-                                    }
-                                    if ui.input(|i| i.modifiers.command) {
-                                        const GRID: f64 = 5.0;
-                                        let x1 = snap_mm(nx + nw, GRID);
-                                        let y1 = snap_mm(ny + nh, GRID);
-                                        nx = snap_mm(nx, GRID);
-                                        ny = snap_mm(ny, GRID);
-                                        nw = (x1 - nx).max(0.5);
-                                        nh = (y1 - ny).max(0.5);
-                                    }
-                                    match size {
-                                        SizeTarget::TextSize(idx) => {
-                                            set_text_box(&base_src, idx, nx, ny, nw, nh)
-                                        }
-                                        SizeTarget::RectWh(idx) => set_box_xywh(
-                                            &base_src, "rect", idx, [1, 2, 3, 4], nx, ny, nw, nh,
-                                        ),
-                                        SizeTarget::FrameWh(idx) => set_box_xywh(
-                                            &base_src, "frame", idx, [1, 2, 3, 4], nx, ny, nw, nh,
-                                        ),
-                                        SizeTarget::ImageWh(idx) => set_box_xywh(
-                                            &base_src, "image", idx, [2, 3, 4, 5], nx, ny, nw, nh,
-                                        ),
-                                        SizeTarget::EllipseRxRy(idx) => {
-                                            let cx = nx + nw * 0.5;
-                                            let cy = ny + nh * 0.5;
-                                            let rx = (nw * 0.5).max(0.25);
-                                            let ry = (nh * 0.5).max(0.25);
-                                            set_box_xywh(
-                                                &base_src,
-                                                "ellipse",
-                                                idx,
-                                                [1, 2, 3, 4],
-                                                cx,
-                                                cy,
-                                                rx,
-                                                ry,
-                                            )
-                                        }
-                                        other => {
-                                            let dist = (mx - center_mm.0)
-                                                .hypot(my - center_mm.1)
-                                                .max(1e-6);
-                                            let factor = (dist / start_dist).clamp(0.05, 20.0);
-                                            scale_size_target(&base_src, other, factor)
-                                        }
-                                    }
-                                } else {
-                                    let dist = (mx - center_mm.0)
-                                        .hypot(my - center_mm.1)
-                                        .max(1e-6);
-                                    let factor = (dist / start_dist).clamp(0.05, 20.0);
-                                    scale_size_target(&base_src, size, factor)
-                                };
-                                match scale_result {
-                                    Ok(new_src) => {
-                                        let kind = DragKind::Scale {
-                                            size,
-                                            base_src,
-                                            center_mm,
-                                            start_dist,
-                                            text_box,
-                                        };
-                                        let mut undo_pushed = drag.undo_pushed;
-                                        if !undo_pushed {
-                                            self.push_undo();
-                                            undo_pushed = true;
-                                        }
-                                        self.source = new_src;
-                                        self.error = if self.reload_ok() {
-                                            None
-                                        } else {
-                                            Some("edit produced invalid program".into())
-                                        };
-                                        self.drag = Some(DragState { kind, undo_pushed });
-                                    }
-                                    Err(e) => self.error = Some(e.message),
-                                }
-                            }
-                            DragKind::LineEndpoint {
-                                index,
-                                endpoint,
-                                base_src,
-                            } => {
-                                let (mut sx, mut sy) = (mx, my);
-                                if ui.input(|i| i.modifiers.command) {
-                                    const GRID: f64 = 5.0;
-                                    sx = snap_mm(sx, GRID);
-                                    sy = snap_mm(sy, GRID);
-                                }
-                                match set_line_endpoint(&base_src, index, endpoint, sx, sy) {
-                                    Ok(new_src) => {
-                                        let kind = DragKind::LineEndpoint {
-                                            index,
-                                            endpoint,
-                                            base_src,
-                                        };
-                                        let mut undo_pushed = drag.undo_pushed;
-                                        if !undo_pushed {
-                                            self.push_undo();
-                                            undo_pushed = true;
-                                        }
-                                        self.source = new_src;
-                                        self.error = if self.reload_ok() {
-                                            None
-                                        } else {
-                                            Some("edit produced invalid program".into())
-                                        };
-                                        self.drag = Some(DragState { kind, undo_pushed });
-                                    }
-                                    Err(e) => self.error = Some(e.message),
-                                }
-                            }
-                            DragKind::PolyVertex {
-                                head,
-                                index,
-                                vertex,
-                                base_src,
-                            } => {
-                                let (mut sx, mut sy) = (mx, my);
-                                if ui.input(|i| i.modifiers.command) {
-                                    const GRID: f64 = 5.0;
-                                    sx = snap_mm(sx, GRID);
-                                    sy = snap_mm(sy, GRID);
-                                }
-                                match set_poly_vertex(&base_src, head, index, vertex, sx, sy) {
-                                    Ok(new_src) => {
-                                        let kind = DragKind::PolyVertex {
-                                            head,
-                                            index,
-                                            vertex,
-                                            base_src,
-                                        };
-                                        let mut undo_pushed = drag.undo_pushed;
-                                        if !undo_pushed {
-                                            self.push_undo();
-                                            undo_pushed = true;
-                                        }
-                                        self.source = new_src;
-                                        self.error = if self.reload_ok() {
-                                            None
-                                        } else {
-                                            Some("edit produced invalid program".into())
-                                        };
-                                        self.drag = Some(DragState { kind, undo_pushed });
-                                    }
-                                    Err(e) => self.error = Some(e.message),
-                                }
-                            }
-                            DragKind::Rotate {
-                                flat_index,
-                                base_src,
-                                center_mm,
-                                start_angle_rad,
-                                base_deg,
-                            } => {
-                                let angle = (my - center_mm.1).atan2(mx - center_mm.0);
-                                let delta_deg =
-                                    (angle - start_angle_rad).to_degrees();
-                                let mut deg = base_deg + delta_deg;
-                                if ui.input(|i| i.modifiers.shift) {
-                                    deg = (deg / 15.0).round() * 15.0;
-                                }
-                                match set_layer_rotation_deg(
-                                    &base_src,
-                                    self.page_index,
-                                    flat_index,
-                                    deg,
-                                    center_mm,
-                                ) {
-                                    Ok(new_src) => {
-                                        let kind = DragKind::Rotate {
-                                            flat_index,
-                                            base_src,
-                                            center_mm,
-                                            start_angle_rad,
-                                            base_deg,
-                                        };
-                                        let mut undo_pushed = drag.undo_pushed;
-                                        if !undo_pushed {
-                                            self.push_undo();
-                                            undo_pushed = true;
-                                        }
-                                        self.source = new_src;
-                                        self.error = if self.reload_ok() {
-                                            None
-                                        } else {
-                                            Some("edit produced invalid program".into())
-                                        };
-                                        self.drag = Some(DragState { kind, undo_pushed });
-                                    }
-                                    Err(e) => self.error = Some(e.message),
-                                }
-                            }
-                        }
-                    }
-                }
-
-                let mut suppress_click = false;
-                if response.drag_stopped() {
-                    if let Some(DragState {
-                        kind:
-                            DragKind::Marquee {
-                                start_mm,
-                                current_mm,
-                            },
-                        ..
-                    }) = self.drag.take()
-                    {
-                        suppress_click = true;
-                        let aabb = (
-                            start_mm.0.min(current_mm.0),
-                            start_mm.1.min(current_mm.1),
-                            start_mm.0.max(current_mm.0),
-                            start_mm.1.max(current_mm.1),
-                        );
-                        let w = aabb.2 - aabb.0;
-                        let h = aabb.3 - aabb.1;
-                        if w > 0.5 || h > 0.5 {
-                            let hits = shapes_intersecting_aabb(&shapes, aabb);
-                            self.selected = hits;
-                            self.props_open = !self.selected.is_empty();
-                            if let Some(&last) = self.selected.last() {
-                                if let Some(layer) = layers.get(last) {
-                                    self.pending_source_select =
-                                        Some((layer.byte_start, layer.byte_end));
-                                }
-                            }
-                        }
-                    }
-                }
-
-                if !skip_shape_drag && !suppress_click && response.clicked() {
-                    let shift = ui.input(|i| i.modifiers.shift);
-                    match hit_test_shapes(&shapes, mx, my) {
-                        Some(i) if shift => self.toggle_layer_in_selection(i, &layers),
-                        Some(i) => self.select_layer(i, &layers),
-                        None if !shift => self.clear_selection(),
-                        None => {}
-                    }
-                }
-            } else if response.drag_stopped() {
-                self.drag = None;
-            }
-
-            // Draw active marquee rectangle.
-            if let Some(DragState {
-                kind: DragKind::Marquee {
-                    start_mm,
-                    current_mm,
-                },
-                ..
-            }) = &self.drag
-            {
-                let (ax, ay) = layout.mm_to_px(start_mm.0, start_mm.1);
-                let (bx, by) = layout.mm_to_px(current_mm.0, current_mm.1);
-                let mrect = egui::Rect::from_two_pos(
-                    rect.min + egui::vec2(ax, ay),
-                    rect.min + egui::vec2(bx, by),
-                );
-                painter.rect_filled(
-                    mrect,
-                    0.0,
-                    egui::Color32::from_rgba_unmultiplied(30, 120, 220, 40),
-                );
-                painter.rect_stroke(
-                    mrect,
-                    0.0,
-                    egui::Stroke::new(1.0_f32, egui::Color32::from_rgb(30, 120, 220)),
-                    egui::StrokeKind::Outside,
-                );
-            }
-        });
-            if open != self.show_preview {
-                self.show_preview = open;
+                });
+            let changed = floating != self.float_preview
+                || visible != self.show_preview
+                || collapsed != self.collapse_preview;
+            self.float_preview = floating;
+            self.show_preview = visible;
+            self.collapse_preview = collapsed;
+            if changed {
                 self.persist_gui_prefs();
             }
         }
+
         if self.viewport_prefs_dirty {
             self.persist_gui_prefs();
             self.viewport_prefs_dirty = false;
         }
     }
 }
-
