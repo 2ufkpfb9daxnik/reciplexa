@@ -649,6 +649,18 @@ mod tests {
     }
 
     #[test]
+    fn expands_h3_between_h2_sizes() {
+        let out = expand_source("(doc @h3{Detail})").unwrap();
+        assert!(out.contains("(text 25 270 9 \"Detail\" black)"), "{out}");
+    }
+
+    #[test]
+    fn expands_subsubsection_as_h3_alias() {
+        let out = expand_source("(doc @subsubsection{Detail})").unwrap();
+        assert!(out.contains("(text 25 270 9 \"Detail\" black)"), "{out}");
+    }
+
+    #[test]
     fn empty_h2_skips_empty_text() {
         let out = expand_source("(doc @h2{})").unwrap();
         assert_eq!(out, "(page a4)");

@@ -50,6 +50,8 @@ pub const TITLE_SIZE_MM: f64 = 14.0;
 pub const TITLE_GAP_MM: f64 = 18.0;
 pub const H2_SIZE_MM: f64 = 11.0;
 pub const H2_GAP_MM: f64 = 14.0;
+pub const H3_SIZE_MM: f64 = 9.0;
+pub const H3_GAP_MM: f64 = 12.0;
 pub const BODY_SIZE_MM: f64 = 8.0;
 pub const BODY_GAP_MM: f64 = 12.0;
 pub const QUOTE_SIZE_MM: f64 = 7.0;
@@ -81,6 +83,8 @@ pub const BODY_WRAP_CHARS: usize = 40;
 pub const TITLE_WRAP_CHARS: usize = 24;
 /// Soft wrap budget for h2 lines.
 pub const H2_WRAP_CHARS: usize = 32;
+/// Soft wrap budget for h3 lines.
+pub const H3_WRAP_CHARS: usize = 36;
 
 /// Page frame used when emitting `(page a4 …)` from laid items.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -263,6 +267,10 @@ pub fn layout_doc_parts(parts: &[DocPart]) -> Vec<LaidItem> {
                 "h2" | "section" => {
                     flush_body(&mut buf, &mut out);
                     push_styled_block(brace_body, H2_SIZE_MM, H2_GAP_MM, H2_WRAP_CHARS, &mut out);
+                }
+                "h3" | "subsubsection" => {
+                    flush_body(&mut buf, &mut out);
+                    push_styled_block(brace_body, H3_SIZE_MM, H3_GAP_MM, H3_WRAP_CHARS, &mut out);
                 }
                 "li" | "item" => {
                     flush_body(&mut buf, &mut out);
@@ -743,6 +751,12 @@ fn is_not_line_start(c: char) -> bool {
             | ':'
             | '!'
             | '?'
+            | '！'
+            | '？'
+            | '％'
+            | '°'
+            | '′'
+            | '″'
     )
 }
 
@@ -813,6 +827,16 @@ mod tests {
             "period must not start a line: {lines:?}"
         );
         assert_eq!(lines, vec!["ああ", "あ。"]);
+    }
+
+    #[test]
+    fn wrap_avoids_line_start_with_fullwidth_question() {
+        let lines = wrap_line("あああ？", 3);
+        assert!(
+            lines.iter().all(|l| !l.starts_with('？')),
+            "fullwidth ? must not start a line: {lines:?}"
+        );
+        assert_eq!(lines, vec!["ああ", "あ？"]);
     }
 
     #[test]
