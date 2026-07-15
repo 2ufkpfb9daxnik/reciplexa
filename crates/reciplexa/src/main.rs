@@ -5,7 +5,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-use reciplexa_effect::{collect_performs, run_perform, EffectError, EffectHandler, Value};
+use reciplexa_effect::{run_source_effects, EffectError, EffectHandler, Value};
 use reciplexa_lower::lower_source;
 use reciplexa_macro::expand_source;
 use reciplexa_pdf::write_document_with_base;
@@ -55,11 +55,7 @@ fn render(input: &str, output: &str) -> Result<(), String> {
     let expanded = expand_source(&src).map_err(|e| format!("macro: {}", e.message))?;
     typecheck_source(&expanded)
         .map_err(|e| format!("type: {} @{}..{}", e.message, e.start, e.end))?;
-    let performs = collect_performs(&expanded).map_err(|e| format!("effect: {}", e.message))?;
-    let mut handler = CliHandler;
-    for perf in &performs {
-        run_perform(&mut handler, perf).map_err(|e| format!("effect: {}", e.message))?;
-    }
+    run_source_effects(&mut CliHandler, &expanded).map_err(|e| format!("effect: {}", e.message))?;
     let doc = lower_source(&expanded).map_err(|e| e.message)?;
     let path = PathBuf::from(output);
     if let Some(parent) = path.parent() {
@@ -108,6 +104,11 @@ mod tests {
             "polygon.rpx",
             "japanese_report_stub.rpx",
             "letter_opacity.rpx",
+            "hello_doc.rpx",
+            "hline_macro.rpx",
+            "gray_macro.rpx",
+            "with_handle_log.rpx",
+            "multiline_doc.rpx",
         ] {
             let input = repo.join("examples").join(name);
             let output = repo.join("target").join(format!("test-{name}.pdf"));
