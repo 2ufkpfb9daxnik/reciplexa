@@ -587,6 +587,23 @@ impl PreviewApp {
         self.selected.last().copied()
     }
 
+    fn selection_bounds_mm(&self) -> Option<(f64, f64, f64, f64)> {
+        if self.selected.is_empty() {
+            return None;
+        }
+        let doc = pipeline_doc(&self.source).ok()?;
+        let (_, shapes) = flatten_page(&doc, self.page_index)?;
+        let mut acc: Option<(f64, f64, f64, f64)> = None;
+        for &i in &self.selected {
+            let b = shapes.get(i).and_then(PaperLayout::shape_bounds_mm)?;
+            acc = Some(match acc {
+                None => b,
+                Some((x0, y0, x1, y1)) => (x0.min(b.0), y0.min(b.1), x1.max(b.2), y1.max(b.3)),
+            });
+        }
+        acc
+    }
+
     /// Change zoom while keeping the paper point at `anchor_local` fixed on screen.
     fn set_viewport_zoom(&mut self, new_zoom: f32, anchor_local: egui::Vec2) {
         let new_zoom = new_zoom.clamp(0.2, 8.0);
@@ -631,6 +648,26 @@ impl PreviewApp {
     fn reset_viewport(&mut self) {
         self.zoom = 1.0;
         self.pan = egui::Vec2::ZERO;
+        self.viewport_prefs_dirty = true;
+    }
+
+    fn frame_in_viewport(&mut self, bounds_mm: (f64, f64, f64, f64)) {
+        let (page_w, page_h) = self.viewport_page_mm;
+        let base = PaperLayout::fit(
+            self.viewport_paint_size.x,
+            self.viewport_paint_size.y,
+            24.0,
+            page_w,
+            page_h,
+        );
+        let (zoom, px, py) = PaperLayout::viewport_fit_bounds(
+            &base,
+            (self.viewport_paint_size.x, self.viewport_paint_size.y),
+            bounds_mm,
+            32.0,
+        );
+        self.zoom = zoom;
+        self.pan = egui::vec2(px, py);
         self.viewport_prefs_dirty = true;
     }
 
@@ -1649,6 +1686,14 @@ impl eframe::App for PreviewApp {
         if !source_focused && ctx.input(|i| i.key_pressed(egui::Key::Num0) && i.modifiers.command) {
             self.reset_viewport();
         }
+        if !source_focused && ctx.input(|i| i.key_pressed(egui::Key::F) && !i.modifiers.any()) {
+            if let Some(bounds) = self.selection_bounds_mm() {
+                self.frame_in_viewport(bounds);
+            } else {
+                let (page_w, page_h) = self.viewport_page_mm;
+                self.frame_in_viewport((0.0, 0.0, page_w, page_h));
+            }
+        }
         if !source_focused && ctx.input(|i| i.modifiers.command && i.key_pressed(egui::Key::A)) {
             if let Ok(layers) = collect_layers_page(&self.source, self.page_index) {
                 self.selected = (0..layers.len()).collect();
@@ -1801,6 +1846,9 @@ impl eframe::App for PreviewApp {
                     self.insert_shape(
                         "(polyline 40 180 80 220 120 190 160 210 (rgb 0.2 0.55 0.85) 1.2)",
                     );
+                }
+                if ui.button("Polygon").clicked() {
+                    self.insert_shape("(polygon 60 140 100 180 140 140 (rgb 0.85 0.55 0.2))");
                 }
                 if ui.button("Text").clicked() {
                     self.insert_shape("(text 40 200 12 60 24 \"Text\" (rgb 0.15 0.15 0.2))");
@@ -2089,7 +2137,7 @@ impl eframe::App for PreviewApp {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("Paper preview");
-            ui.label("Scroll = zoom at cursor · Space/Middle/Alt-drag = pan · Arrows pan view (selection empty) · Drag empty = marquee · Shift-click = add/remove · Ctrl+A = select all · Esc = clear · Body-drag = move · Ctrl-drag = 5mm snap · Corner/edge = resize · Top knob = rotate · Arrows nudge selection · Delete = remove · Ctrl+C/V = copy/paste · Ctrl+Shift+L = theme · G = grid.");
+            ui.label("Scroll = zoom at cursor · Space/Middle/Alt-drag = pan · F = frame selection/page · Arrows pan view (selection empty) · Drag empty = marquee · Shift-click = add/remove · Ctrl+A = select all · Esc = clear · Body-drag = move · Ctrl-drag = 5mm snap · Corner/edge = resize · Top knob = rotate · Arrows nudge selection · Delete = remove · Ctrl+C/V = copy/paste · Ctrl+Shift+L = theme · G = grid.");
 
             let doc = match pipeline_doc(&self.source) {
                 Ok(d) => d,

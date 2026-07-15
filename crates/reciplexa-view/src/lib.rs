@@ -355,6 +355,30 @@ impl PaperLayout {
         Self::pan_for_zoom_anchor(base, new_zoom, anchor_local_px, anchor_mm)
     }
 
+    /// Zoom and pan so `bounds_mm` fits inside `avail_px` with `padding_px`, centered.
+    pub fn viewport_fit_bounds(
+        base: &Self,
+        avail_px: (f32, f32),
+        bounds_mm: (f64, f64, f64, f64),
+        padding_px: f32,
+    ) -> (f32, f32, f32) {
+        let (x0, y0, x1, y1) = bounds_mm;
+        let w_mm = (x1 - x0).max(1.0);
+        let h_mm = (y1 - y0).max(1.0);
+        let inner_w = (avail_px.0 - 2.0 * padding_px).max(1.0);
+        let inner_h = (avail_px.1 - 2.0 * padding_px).max(1.0);
+        let mm_per_px_x = base.page_width_mm / base.width_px as f64;
+        let mm_per_px_y = base.page_height_mm / base.height_px as f64;
+        let zoom_w = inner_w as f64 * mm_per_px_x / w_mm;
+        let zoom_h = inner_h as f64 * mm_per_px_y / h_mm;
+        let zoom = (zoom_w.min(zoom_h) as f32).clamp(0.2, 8.0);
+        let cx_mm = (x0 + x1) * 0.5;
+        let cy_mm = (y0 + y1) * 0.5;
+        let anchor = (avail_px.0 * 0.5, avail_px.1 * 0.5);
+        let (px, py) = Self::pan_for_zoom_anchor(base, zoom, anchor, (cx_mm, cy_mm));
+        (zoom, px, py)
+    }
+
     /// Axis-aligned bounds of a flattened shape in page mm `(min_x, min_y, max_x, max_y)`.
     pub fn shape_bounds_mm(shape: &WorldShape) -> Option<(f64, f64, f64, f64)> {
         match shape {
@@ -1028,6 +1052,19 @@ mod tests {
         let z = base.with_view(2.0, 0.0, 0.0);
         assert!((z.width_px - base.width_px * 2.0).abs() < 1e-3);
         assert!((z.height_px - base.height_px * 2.0).abs() < 1e-3);
+    }
+
+    #[test]
+    fn viewport_fit_bounds_centers_selection() {
+        let base = PaperLayout::fit(400.0, 300.0, 24.0, 210.0, 297.0);
+        let bounds = (80.0, 100.0, 130.0, 150.0);
+        let (zoom, px, py) = PaperLayout::viewport_fit_bounds(&base, (400.0, 300.0), bounds, 32.0);
+        let layout = base.with_view(zoom, px, py);
+        let (mx, my) = layout.px_to_mm(200.0, 150.0);
+        let cx = (bounds.0 + bounds.2) * 0.5;
+        let cy = (bounds.1 + bounds.3) * 0.5;
+        assert!((mx - cx).abs() < 1.0);
+        assert!((my - cy).abs() < 1.0);
     }
 
     #[test]
