@@ -113,6 +113,7 @@ mod tests {
             "with_src_log.rpx",
             "polygon.rpx",
             "japanese_report_stub.rpx",
+            "japanese_doc.rpx",
             "letter_opacity.rpx",
             "hello_doc.rpx",
             "hline_macro.rpx",

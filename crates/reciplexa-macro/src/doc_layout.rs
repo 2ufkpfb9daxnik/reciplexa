@@ -395,10 +395,11 @@ fn push_wrapped(
 /// Soft-wrap `text` to at most `max_chars` Unicode scalars per line.
 ///
 /// Breaks at the previous ASCII space only when the limit would split a word;
-/// otherwise hard-breaks. Applies a tiny JLReq-inspired **line-start** kinsoku:
-/// closing punctuation (e.g. `。` `、` `)` ) is pulled onto the previous line
-/// when it would otherwise start the next one (budget may shrink by a few
-/// chars). `max_chars == 0` means no wrapping.
+/// otherwise hard-breaks. Applies a tiny JLReq-inspired kinsoku:
+/// - **line-end:** opening brackets (e.g. `「` `（` `(`) move to the next line
+/// - **line-start:** closing punctuation (e.g. `。` `、` `)`) stays with the previous line
+///
+/// The wrap budget may shrink by a few chars. `max_chars == 0` means no wrapping.
 pub fn wrap_line(text: &str, max_chars: usize) -> Vec<String> {
     if max_chars == 0 {
         return if text.is_empty() {
@@ -431,6 +432,10 @@ pub fn wrap_line(text: &str, max_chars: usize) -> Vec<String> {
                 }
             }
         }
+        // Line-end kinsoku: don't finish a line on an opening bracket.
+        while end > start + 1 && is_not_line_end(chars[end - 1]) {
+            end -= 1;
+        }
         // Line-start kinsoku: don't leave forbidden chars at the head of the remainder.
         while end > start + 1 && end < chars.len() && is_not_line_start(chars[end]) {
             end -= 1;
@@ -446,6 +451,14 @@ pub fn wrap_line(text: &str, max_chars: usize) -> Vec<String> {
         }
     }
     out
+}
+
+/// Characters that must not end a line (subset of JLReq 禁則処理).
+fn is_not_line_end(c: char) -> bool {
+    matches!(
+        c,
+        '「' | '『' | '（' | '［' | '｛' | '〈' | '《' | '〔' | '【' | '(' | '[' | '{'
+    )
 }
 
 /// Characters that must not begin a line (subset of JLReq 禁則処理).
@@ -569,6 +582,17 @@ mod tests {
             "period must not start a line: {lines:?}"
         );
         assert_eq!(lines, vec!["ああ", "あ。"]);
+    }
+
+    #[test]
+    fn wrap_avoids_line_end_with_opening_bracket() {
+        // Without kinsoku, max=2 on "あ「いう" yields ["あ「", "いう"].
+        let lines = wrap_line("あ「いう", 2);
+        assert!(
+            lines.iter().all(|l| !l.ends_with('「')),
+            "'「' must not end a line: {lines:?}"
+        );
+        assert_eq!(lines, vec!["あ", "「い", "う"]);
     }
 
     #[test]
