@@ -1490,6 +1490,27 @@ impl eframe::App for PreviewApp {
             prefs.show_grid = self.show_grid;
             prefs.save();
         }
+        if !source_focused
+            && ctx.input(|i| {
+                i.key_pressed(egui::Key::Equals)
+                    || i.key_pressed(egui::Key::Plus)
+                    || (i.modifiers.command && i.key_pressed(egui::Key::Equals))
+            })
+        {
+            self.zoom = (self.zoom * 1.15).min(8.0);
+        }
+        if !source_focused
+            && ctx.input(|i| {
+                i.key_pressed(egui::Key::Minus)
+                    || (i.modifiers.command && i.key_pressed(egui::Key::Minus))
+            })
+        {
+            self.zoom = (self.zoom / 1.15).max(0.2);
+        }
+        if !source_focused && ctx.input(|i| i.key_pressed(egui::Key::Num0) && i.modifiers.command) {
+            self.zoom = 1.0;
+            self.pan = egui::Vec2::ZERO;
+        }
         if !source_focused && ctx.input(|i| i.modifiers.command && i.key_pressed(egui::Key::A)) {
             if let Ok(layers) = collect_layers_page(&self.source, self.page_index) {
                 self.selected = (0..layers.len()).collect();

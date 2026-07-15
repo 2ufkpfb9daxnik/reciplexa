@@ -930,6 +930,16 @@ mod tests {
     }
 
     #[test]
+    fn wrap_empty_and_narrow_box() {
+        assert_eq!(wrap_text_to_width("", 10.0, 5.0), vec![String::new()]);
+        let lines = wrap_text_to_width("あいう", 10.0, 5.0);
+        assert!(
+            lines.len() >= 2,
+            "CJK wider than box should break: {lines:?}"
+        );
+    }
+
+    #[test]
     fn text_extent_multiline_height() {
         let (w, h) = text_extent_mm("line one\nline two\nline three", 12.0);
         assert!((h - 36.0).abs() < 1e-9, "three lines × 12mm: {h}");
