@@ -1128,7 +1128,23 @@ impl PreviewApp {
         }
     }
 
+    fn confirm_discard_if_dirty(&self) -> bool {
+        if !self.is_dirty() {
+            return true;
+        }
+        let result = rfd::MessageDialog::new()
+            .set_level(rfd::MessageLevel::Warning)
+            .set_title("Unsaved changes")
+            .set_description("Discard unsaved changes?")
+            .set_buttons(rfd::MessageButtons::OkCancel)
+            .show();
+        matches!(result, rfd::MessageDialogResult::Ok)
+    }
+
     fn open_rpx_dialog(&mut self, ctx: &egui::Context) {
+        if !self.confirm_discard_if_dirty() {
+            return;
+        }
         let pick = rfd::FileDialog::new()
             .add_filter("reciplexa", &["rpx"])
             .add_filter("All", &["*"])
@@ -1185,6 +1201,9 @@ impl PreviewApp {
     }
 
     fn new_document(&mut self, ctx: &egui::Context) {
+        if !self.confirm_discard_if_dirty() {
+            return;
+        }
         self.path = PathBuf::from("untitled.rpx");
         self.source = "(page a4)\n".to_string();
         self.drag = None;
