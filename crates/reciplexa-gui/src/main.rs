@@ -2128,6 +2128,7 @@ impl eframe::App for PreviewApp {
                                                             | SizeTarget::RectWh(_)
                                                             | SizeTarget::FrameWh(_)
                                                             | SizeTarget::ImageWh(_)
+                                                            | SizeTarget::EllipseRxRy(_)
                                                     )
                                                 },
                                             ),
@@ -2144,7 +2145,8 @@ impl eframe::App for PreviewApp {
                                                     SizeTarget::TextSize(_)
                                                     | SizeTarget::RectWh(_)
                                                     | SizeTarget::FrameWh(_)
-                                                    | SizeTarget::ImageWh(_) => Some(BoxDrag {
+                                                    | SizeTarget::ImageWh(_)
+                                                    | SizeTarget::EllipseRxRy(_) => Some(BoxDrag {
                                                         grab,
                                                         start_bounds: bounds,
                                                     }),
@@ -2291,6 +2293,22 @@ impl eframe::App for PreviewApp {
                                         SizeTarget::ImageWh(idx) => set_box_xywh(
                                             &base_src, "image", idx, [2, 3, 4, 5], nx, ny, nw, nh,
                                         ),
+                                        SizeTarget::EllipseRxRy(idx) => {
+                                            let cx = nx + nw * 0.5;
+                                            let cy = ny + nh * 0.5;
+                                            let rx = (nw * 0.5).max(0.25);
+                                            let ry = (nh * 0.5).max(0.25);
+                                            set_box_xywh(
+                                                &base_src,
+                                                "ellipse",
+                                                idx,
+                                                [1, 2, 3, 4],
+                                                cx,
+                                                cy,
+                                                rx,
+                                                ry,
+                                            )
+                                        }
                                         other => {
                                             let dist = (mx - center_mm.0)
                                                 .hypot(my - center_mm.1)
