@@ -1,0 +1,6 @@
+; M8 package meaning: @title / @p (size + vertical gap)
+(doc
+@title{レポート表紙}
+@p{本文の段落です。@em{強調}も identity のまま入ります。}
+@p{二段落目。}
+)

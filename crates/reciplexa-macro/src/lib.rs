@@ -202,9 +202,10 @@ fn find_rule(root: &SyntaxNode) -> Option<(usize, usize, String)> {
 
 /// Top-level `(doc …)` → A4 page with text shapes (Scribble package seam, M8/M10).
 ///
-/// Newlines become stacked `(text …)` lines. `@…` forms are identity-flattened.
+/// `@title` / `@p` get package meaning (size + vertical gap). Other `@…` forms
+/// identity-flatten into the surrounding line.
 fn find_doc(root: &SyntaxNode) -> Option<(usize, usize, String)> {
-    use reciplexa_syntax::{doc_parts, flatten_lines};
+    use reciplexa_syntax::doc_parts;
 
     for child in root.children() {
         if child.kind() != SyntaxKind::List {
@@ -218,23 +219,25 @@ fn find_doc(root: &SyntaxNode) -> Option<(usize, usize, String)> {
             continue;
         }
         let parts = doc_parts(&child).ok()?;
-        let lines = flatten_lines(&parts);
+        let lines = layout_doc_parts(&parts);
         let range = child.text_range();
         let start: usize = range.start().into();
         let end: usize = range.end().into();
         let replacement = if lines.is_empty() {
             "(page a4)".to_string()
         } else {
-            const SIZE_MM: f64 = 8.0;
-            const LINE_MM: f64 = 12.0; // size * 1.5 — not JLReq, just a readable start
             const LEFT_MM: f64 = 25.0;
             const TOP_MM: f64 = 270.0;
             let mut repl = String::from("(page a4");
+            let mut y = TOP_MM;
             for (i, line) in lines.iter().enumerate() {
-                let y = TOP_MM - (i as f64) * LINE_MM;
+                if i > 0 {
+                    y -= lines[i - 1].y_gap_after;
+                }
                 repl.push_str(&format!(
-                    " (text {LEFT_MM} {y} {SIZE_MM} \"{}\" black)",
-                    escape_lisp_string(line)
+                    " (text {LEFT_MM} {y} {} \"{}\" black)",
+                    format_frac(line.size_mm),
+                    escape_lisp_string(&line.content)
                 ));
             }
             repl.push(')');
@@ -243,6 +246,107 @@ fn find_doc(root: &SyntaxNode) -> Option<(usize, usize, String)> {
         return Some((start, end, replacement));
     }
     None
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct LaidLine {
+    size_mm: f64,
+    /// Distance to subtract from this baseline to place the next line.
+    y_gap_after: f64,
+    content: String,
+}
+
+const TITLE_SIZE_MM: f64 = 14.0;
+const TITLE_GAP_MM: f64 = 18.0;
+const BODY_SIZE_MM: f64 = 8.0;
+const BODY_GAP_MM: f64 = 12.0;
+
+/// Turn Scribble parts into laid-out text lines (package meaning for `@title` / `@p`).
+fn layout_doc_parts(parts: &[reciplexa_syntax::DocPart]) -> Vec<LaidLine> {
+    use reciplexa_syntax::{flatten_readable, DocPart};
+
+    let mut out = Vec::new();
+    let mut buf = String::new();
+
+    let flush_body = |buf: &mut String, out: &mut Vec<LaidLine>| {
+        let text = collapse_ws(buf);
+        buf.clear();
+        if !text.is_empty() {
+            out.push(LaidLine {
+                size_mm: BODY_SIZE_MM,
+                y_gap_after: BODY_GAP_MM,
+                content: text,
+            });
+        }
+    };
+
+    for part in parts {
+        match part {
+            DocPart::Text(t) => buf.push_str(t),
+            DocPart::Newline => flush_body(&mut buf, &mut out),
+            DocPart::At {
+                name,
+                bracket_args,
+                brace_body,
+            } => match name.as_str() {
+                "title" => {
+                    flush_body(&mut buf, &mut out);
+                    push_styled_block(brace_body, TITLE_SIZE_MM, TITLE_GAP_MM, &mut out);
+                }
+                "p" => {
+                    flush_body(&mut buf, &mut out);
+                    push_styled_block(brace_body, BODY_SIZE_MM, BODY_GAP_MM, &mut out);
+                }
+                _ => {
+                    // Identity flatten into the current body line.
+                    if !brace_body.is_empty() {
+                        buf.push_str(&flatten_readable(brace_body));
+                    } else if let Some(args) = bracket_args {
+                        buf.push_str(args.trim());
+                    }
+                }
+            },
+        }
+    }
+    flush_body(&mut buf, &mut out);
+    out
+}
+
+fn push_styled_block(
+    body: &[reciplexa_syntax::DocPart],
+    size_mm: f64,
+    y_gap_after: f64,
+    out: &mut Vec<LaidLine>,
+) {
+    use reciplexa_syntax::flatten_lines;
+
+    for line in flatten_lines(body) {
+        if line.is_empty() {
+            continue;
+        }
+        out.push(LaidLine {
+            size_mm,
+            y_gap_after,
+            content: line,
+        });
+    }
+}
+
+fn collapse_ws(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut prev_space = false;
+    for c in s.chars() {
+        if c.is_whitespace() {
+            if !prev_space && !out.is_empty() {
+                out.push(' ');
+                prev_space = true;
+            }
+        } else {
+            out.push(c);
+            prev_space = false;
+        }
+    }
+    out.trim().to_string()
 }
 
 fn escape_lisp_string(s: &str) -> String {
@@ -415,5 +519,64 @@ mod tests {
         let out = expand_source("(doc\nFirst\nSecond\n)").unwrap();
         assert!(out.contains("(text 25 270 8 \"First\" black)"));
         assert!(out.contains("(text 25 258 8 \"Second\" black)"));
+    }
+
+    // --- @title / @p package meaning (M8) — validity ---
+
+    #[test]
+    fn expands_title_at_larger_size() {
+        let out = expand_source("(doc @title{Hello})").unwrap();
+        assert!(
+            out.contains("(text 25 270 14 \"Hello\" black)"),
+            "title should use size 14: {out}"
+        );
+        assert!(!out.contains("(doc "));
+    }
+
+    #[test]
+    fn expands_title_then_paragraph_with_gap() {
+        let out = expand_source("(doc @title{Report}\n@p{Body text})").unwrap();
+        assert!(out.contains("(text 25 270 14 \"Report\" black)"), "{out}");
+        // title gap 18 → next baseline at 270 - 18 = 252
+        assert!(
+            out.contains("(text 25 252 8 \"Body text\" black)"),
+            "body after title gap: {out}"
+        );
+    }
+
+    #[test]
+    fn em_still_identity_inside_plain_line() {
+        let out = expand_source("(doc Hello @em{世界}.)").unwrap();
+        assert!(
+            out.contains("(text 25 270 8 \"Hello 世界.\" black)"),
+            "{out}"
+        );
+    }
+
+    // --- defect ---
+
+    #[test]
+    fn empty_title_brace_skips_empty_text() {
+        let out = expand_source("(doc @title{})").unwrap();
+        assert_eq!(
+            out, "(page a4)",
+            "empty title must not emit empty text: {out}"
+        );
+    }
+
+    #[test]
+    fn bare_title_without_brace_does_not_panic() {
+        let out = expand_source("(doc @title)").unwrap();
+        assert!(out.starts_with("(page a4)"), "{out}");
+        assert!(!out.contains("(text "), "bare @title has no content: {out}");
+    }
+
+    #[test]
+    fn unknown_at_form_identity_flattens() {
+        let out = expand_source("(doc see @foo{bar} end)").unwrap();
+        assert!(
+            out.contains("(text 25 270 8 \"see bar end\" black)"),
+            "{out}"
+        );
     }
 }
