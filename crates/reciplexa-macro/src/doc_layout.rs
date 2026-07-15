@@ -831,7 +831,8 @@ fn push_wrapped(
 ///
 /// Breaks at the previous ASCII space only when the limit would split a word;
 /// otherwise hard-breaks. Applies a tiny JLReq-inspired kinsoku:
-/// - **prefer:** break after `。` `、` `！` `？` when they fall in the wrap window
+/// - **prefer:** break after clause / list punctuation (`。` `、` `・` `：` …)
+///   when they fall in the wrap window
 /// - **line-end:** opening brackets (e.g. `「` `（` `(`) move to the next line
 /// - **line-start:** closing punctuation (e.g. `。` `、` `)`) stays with the previous line
 ///
@@ -868,10 +869,10 @@ pub fn wrap_line(text: &str, max_chars: usize) -> Vec<String> {
                 }
             }
         }
-        // Prefer breaking just after Japanese clause punctuation inside the window.
+        // Prefer breaking just after Japanese clause / list punctuation inside the window.
         if let Some(rel) = chars[start..end]
             .iter()
-            .rposition(|c| matches!(*c, '。' | '、' | '！' | '？' | '．' | '，'))
+            .rposition(|c| is_prefer_break_after(*c))
         {
             let after = start + rel + 1;
             if after > start && after < chars.len() {
@@ -897,6 +898,14 @@ pub fn wrap_line(text: &str, max_chars: usize) -> Vec<String> {
         }
     }
     out
+}
+
+/// Characters that are good soft-wrap points when they appear mid-window (JLReq-ish).
+fn is_prefer_break_after(c: char) -> bool {
+    matches!(
+        c,
+        '。' | '、' | '！' | '？' | '．' | '，' | '・' | '：' | '；' | '‥' | '…'
+    )
 }
 
 /// Characters that must not end a line (subset of JLReq 禁則処理).
@@ -1041,6 +1050,12 @@ mod tests {
         // Prefer ending the first line on 。 rather than after the next kana.
         let lines = wrap_line("あい。うえお", 4);
         assert_eq!(lines, vec!["あい。", "うえお"]);
+    }
+
+    #[test]
+    fn wrap_prefers_break_after_middle_dot() {
+        let lines = wrap_line("赤・青・緑いろ", 4);
+        assert_eq!(lines, vec!["赤・青・", "緑いろ"]);
     }
 
     #[test]

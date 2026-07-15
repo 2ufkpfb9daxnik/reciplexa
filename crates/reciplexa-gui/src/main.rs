@@ -680,24 +680,44 @@ impl PreviewApp {
         }
     }
 
-    fn apply_layer_duplicate(&mut self, index: usize) {
-        match duplicate_layer_page(&self.source, self.page_index, index) {
-            Ok(dup) => {
-                // Offset the copy so it is not stacked invisibly on the original.
-                let new_src =
-                    nudge_layer_page(&dup, self.page_index, index + 1, 5.0, -5.0).unwrap_or(dup);
-                self.set_source_with_undo(new_src);
-                self.drag = None;
-                let new_sel = index + 1;
-                self.selected = vec![new_sel];
-                self.error = pipeline_doc(&self.source).err();
-                if let Ok(layers) = collect_layers_page(&self.source, self.page_index) {
-                    if let Some(layer) = layers.get(new_sel) {
-                        self.pending_source_select = Some((layer.byte_start, layer.byte_end));
-                    }
+    /// Duplicate every selected layer (low→high), offsetting each copy, then select the copies.
+    fn duplicate_selection(&mut self) {
+        let mut indices = self.selected.clone();
+        if indices.is_empty() {
+            return;
+        }
+        indices.sort_unstable();
+        indices.dedup();
+        self.push_undo();
+        let mut src = self.source.clone();
+        let mut new_sel = Vec::with_capacity(indices.len());
+        let mut offset = 0usize;
+        for &i in &indices {
+            let from = i + offset;
+            match duplicate_layer_page(&src, self.page_index, from) {
+                Ok(dup) => {
+                    let copy_i = from + 1;
+                    src = nudge_layer_page(&dup, self.page_index, copy_i, 5.0, -5.0).unwrap_or(dup);
+                    new_sel.push(copy_i);
+                    offset += 1;
+                }
+                Err(e) => {
+                    self.error = Some(e.message);
+                    return;
                 }
             }
-            Err(e) => self.error = Some(e.message),
+        }
+        self.source = src;
+        self.drag = None;
+        self.selected = new_sel;
+        self.props_open = !self.selected.is_empty();
+        self.error = pipeline_doc(&self.source).err();
+        if let Some(&last) = self.selected.last() {
+            if let Ok(layers) = collect_layers_page(&self.source, self.page_index) {
+                if let Some(layer) = layers.get(last) {
+                    self.pending_source_select = Some((layer.byte_start, layer.byte_end));
+                }
+            }
         }
     }
 
@@ -1019,10 +1039,8 @@ impl eframe::App for PreviewApp {
             {
                 self.delete_selection();
             }
-            if let Some(sel) = self.primary_selected() {
-                if ctx.input(|i| i.modifiers.command && i.key_pressed(egui::Key::D)) {
-                    self.apply_layer_duplicate(sel);
-                }
+            if ctx.input(|i| i.modifiers.command && i.key_pressed(egui::Key::D)) {
+                self.duplicate_selection();
             }
             if ctx.input(|i| {
                 i.modifiers.command && !i.modifiers.shift && i.key_pressed(egui::Key::CloseBracket)
@@ -1274,14 +1292,12 @@ impl eframe::App for PreviewApp {
                     {
                         self.props_open = !self.props_open;
                     }
-                    if let Some(sel) = self.primary_selected() {
-                        if ui
-                            .button("Duplicate")
-                            .on_hover_text("Copy in .rpx (Ctrl+D)")
-                            .clicked()
-                        {
-                            self.apply_layer_duplicate(sel);
-                        }
+                    if ui
+                        .button("Duplicate")
+                        .on_hover_text("Copy selection in .rpx (Ctrl+D)")
+                        .clicked()
+                    {
+                        self.duplicate_selection();
                     }
                     if ui
                         .button("Delete")
