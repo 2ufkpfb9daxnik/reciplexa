@@ -831,6 +831,7 @@ fn push_wrapped(
 ///
 /// Breaks at the previous ASCII space only when the limit would split a word;
 /// otherwise hard-breaks. Applies a tiny JLReq-inspired kinsoku:
+/// - **prefer:** break after `。` `、` `！` `？` when they fall in the wrap window
 /// - **line-end:** opening brackets (e.g. `「` `（` `(`) move to the next line
 /// - **line-start:** closing punctuation (e.g. `。` `、` `)`) stays with the previous line
 ///
@@ -865,6 +866,16 @@ pub fn wrap_line(text: &str, max_chars: usize) -> Vec<String> {
                 if rel > 0 {
                     end = start + rel;
                 }
+            }
+        }
+        // Prefer breaking just after Japanese clause punctuation inside the window.
+        if let Some(rel) = chars[start..end]
+            .iter()
+            .rposition(|c| matches!(*c, '。' | '、' | '！' | '？' | '．' | '，'))
+        {
+            let after = start + rel + 1;
+            if after > start && after < chars.len() {
+                end = after;
             }
         }
         // Line-end kinsoku: don't finish a line on an opening bracket.
@@ -1023,6 +1034,13 @@ mod tests {
             "period must not start a line: {lines:?}"
         );
         assert_eq!(lines, vec!["ああ", "あ。"]);
+    }
+
+    #[test]
+    fn wrap_prefers_break_after_cjk_period() {
+        // Prefer ending the first line on 。 rather than after the next kana.
+        let lines = wrap_line("あい。うえお", 4);
+        assert_eq!(lines, vec!["あい。", "うえお"]);
     }
 
     #[test]
