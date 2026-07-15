@@ -101,13 +101,73 @@ fn install_cjk_fonts(ctx: &egui::Context) {
     eprintln!("gui font: {}", path.display());
 }
 
-/// Light chrome + clear selection so IME preedit is not a near-black slab.
-fn install_editor_visuals(ctx: &egui::Context) {
-    let mut visuals = egui::Visuals::light();
+/// Light / dark chrome. Paper itself stays light (print preview).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum UiTheme {
+    Light,
+    Dark,
+}
+
+impl UiTheme {
+    fn label(self) -> &'static str {
+        match self {
+            Self::Light => "Light",
+            Self::Dark => "Dark",
+        }
+    }
+
+    fn toggle(self) -> Self {
+        match self {
+            Self::Light => Self::Dark,
+            Self::Dark => Self::Light,
+        }
+    }
+
+    fn from_prefs() -> Self {
+        let Some(path) = theme_prefs_path() else {
+            return Self::Light;
+        };
+        match fs::read_to_string(path) {
+            Ok(s) if s.trim().eq_ignore_ascii_case("dark") => Self::Dark,
+            _ => Self::Light,
+        }
+    }
+
+    fn save_prefs(self) {
+        let Some(path) = theme_prefs_path() else {
+            return;
+        };
+        if let Some(parent) = path.parent() {
+            let _ = fs::create_dir_all(parent);
+        }
+        let body = match self {
+            Self::Light => "light\n",
+            Self::Dark => "dark\n",
+        };
+        let _ = fs::write(path, body);
+    }
+}
+
+fn theme_prefs_path() -> Option<PathBuf> {
+    let base = env::var_os("LOCALAPPDATA")
+        .or_else(|| env::var_os("XDG_CONFIG_HOME"))
+        .or_else(|| env::var_os("HOME"))?;
+    Some(PathBuf::from(base).join("reciplexa").join("theme"))
+}
+
+/// Editor visuals tuned so IME preedit is not a near-black slab.
+fn apply_ui_theme(ctx: &egui::Context, theme: UiTheme) {
+    let mut visuals = match theme {
+        UiTheme::Light => egui::Visuals::light(),
+        UiTheme::Dark => egui::Visuals::dark(),
+    };
     visuals.selection.bg_fill = egui::Color32::from_rgba_unmultiplied(60, 140, 230, 90);
-    visuals.selection.stroke = egui::Stroke::new(1.0, egui::Color32::from_rgb(30, 80, 160));
-    // Soft underline-like cue without blotting the whole TextEdit.
-    visuals.extreme_bg_color = egui::Color32::from_gray(250);
+    visuals.selection.stroke = egui::Stroke::new(1.0, egui::Color32::from_rgb(90, 160, 230));
+    visuals.extreme_bg_color = match theme {
+        UiTheme::Light => egui::Color32::from_gray(250),
+        // Slightly above panel so TextEdit / source pane stay readable under IME.
+        UiTheme::Dark => egui::Color32::from_rgb(36, 36, 40),
+    };
     ctx.set_visuals(visuals);
 }
 
@@ -233,7 +293,8 @@ fn main() -> ExitCode {
         native_options,
         Box::new(move |cc| {
             install_cjk_fonts(&cc.egui_ctx);
-            install_editor_visuals(&cc.egui_ctx);
+            let theme = UiTheme::from_prefs();
+            apply_ui_theme(&cc.egui_ctx, theme);
             Ok(Box::new(PreviewApp {
                 path,
                 source: src,
@@ -255,6 +316,7 @@ fn main() -> ExitCode {
                 batch_stroke: [0.1, 0.1, 0.1],
                 batch_stroke_width: 1.0,
                 batch_opacity: 1.0,
+                theme,
             }))
         }),
     ) {
@@ -296,6 +358,8 @@ struct PreviewApp {
     batch_stroke_width: f64,
     /// Shared opacity for multi-select batch apply.
     batch_opacity: f64,
+    /// UI chrome theme (paper stays light).
+    theme: UiTheme,
 }
 
 #[derive(Clone, Copy)]
@@ -1199,6 +1263,19 @@ impl PreviewApp {
         self.selected = (0..count).collect();
         self.error = pipeline_doc(&self.source).err();
     }
+
+    fn set_theme(&mut self, ctx: &egui::Context, theme: UiTheme) {
+        if self.theme == theme {
+            return;
+        }
+        self.theme = theme;
+        theme.save_prefs();
+        apply_ui_theme(ctx, theme);
+    }
+
+    fn toggle_theme(&mut self, ctx: &egui::Context) {
+        self.set_theme(ctx, self.theme.toggle());
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -1236,6 +1313,10 @@ impl eframe::App for PreviewApp {
         }
         if !source_focused && ctx.input(|i| i.modifiers.command && i.key_pressed(egui::Key::N)) {
             self.new_document(ctx);
+        }
+        // Ctrl+Shift+L — toggle light / dark chrome (paper stays white).
+        if ctx.input(|i| i.modifiers.command && i.modifiers.shift && i.key_pressed(egui::Key::L)) {
+            self.toggle_theme(ctx);
         }
         if !source_focused && ctx.input(|i| i.modifiers.command && i.key_pressed(egui::Key::A)) {
             if let Ok(layers) = collect_layers_page(&self.source, self.page_index) {
@@ -1347,6 +1428,24 @@ impl eframe::App for PreviewApp {
                 }
                 if ui.button("Image…").clicked() {
                     self.insert_image_dialog();
+                }
+                ui.separator();
+                ui.label(egui::RichText::new("View").strong());
+                let theme_label = format!("Theme: {}", self.theme.label());
+                if ui
+                    .button(theme_label)
+                    .on_hover_text("Toggle light / dark UI (Ctrl+Shift+L). Paper stays white.")
+                    .clicked()
+                {
+                    self.toggle_theme(ctx);
+                }
+                if ui
+                    .button("Reset view")
+                    .on_hover_text("Reset zoom and pan")
+                    .clicked()
+                {
+                    self.zoom = 1.0;
+                    self.pan = egui::Vec2::ZERO;
                 }
             });
         });
@@ -1608,7 +1707,7 @@ impl eframe::App for PreviewApp {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("Paper preview");
-            ui.label("Scroll = zoom · Middle/Alt-drag = pan · Drag empty = marquee · Shift-click = add/remove · Ctrl+A = select all · Esc = clear · Body-drag = move · Ctrl-drag = 5mm snap · Corner = scale · Top knob = rotate · Arrows = nudge · Delete = remove.");
+            ui.label("Scroll = zoom · Middle/Alt-drag = pan · Drag empty = marquee · Shift-click = add/remove · Ctrl+A = select all · Esc = clear · Body-drag = move · Ctrl-drag = 5mm snap · Corner = scale · Top knob = rotate · Arrows = nudge · Delete = remove · Ctrl+Shift+L = theme.");
 
             let doc = match pipeline_doc(&self.source) {
                 Ok(d) => d,
@@ -1723,11 +1822,15 @@ impl eframe::App for PreviewApp {
                 rect.min + egui::vec2(layout.origin_x_px, layout.origin_y_px),
                 egui::vec2(layout.width_px, layout.height_px),
             );
-            painter.rect_filled(paper, 0.0, egui::Color32::from_gray(245));
+            painter.rect_filled(paper, 0.0, egui::Color32::WHITE);
+            let paper_stroke = match self.theme {
+                UiTheme::Light => egui::Color32::from_gray(80),
+                UiTheme::Dark => egui::Color32::from_gray(160),
+            };
             painter.rect_stroke(
                 paper,
                 0.0,
-                egui::Stroke::new(1.0_f32, egui::Color32::from_gray(80)),
+                egui::Stroke::new(1.0_f32, paper_stroke),
                 egui::StrokeKind::Outside,
             );
 
