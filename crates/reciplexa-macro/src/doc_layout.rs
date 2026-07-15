@@ -48,6 +48,10 @@ pub const QUOTE_SIZE_MM: f64 = 7.0;
 pub const QUOTE_GAP_MM: f64 = 12.0;
 pub const QUOTE_INDENT_MM: f64 = 10.0;
 pub const QUOTE_WRAP_CHARS: usize = 36;
+pub const CODE_SIZE_MM: f64 = 6.5;
+pub const CODE_GAP_MM: f64 = 10.0;
+pub const CODE_INDENT_MM: f64 = 8.0;
+pub const CODE_WRAP_CHARS: usize = 48;
 pub const HR_GAP_MM: f64 = 12.0;
 pub const HR_WIDTH_MM: f64 = 0.4;
 
@@ -219,6 +223,17 @@ pub fn layout_doc_parts(parts: &[DocPart]) -> Vec<LaidItem> {
                         QUOTE_GAP_MM,
                         QUOTE_WRAP_CHARS,
                         QUOTE_INDENT_MM,
+                        &mut out,
+                    );
+                }
+                "code" => {
+                    flush_body(&mut buf, &mut out);
+                    push_styled_block_indent(
+                        brace_body,
+                        CODE_SIZE_MM,
+                        CODE_GAP_MM,
+                        CODE_WRAP_CHARS,
+                        CODE_INDENT_MM,
                         &mut out,
                     );
                 }

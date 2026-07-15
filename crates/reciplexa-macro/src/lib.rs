@@ -681,4 +681,21 @@ mod tests {
         let out = expand_source("(doc @pagebreak{})").unwrap();
         assert!(out.contains("(page a4)"), "{out}");
     }
+
+    // --- @code ---
+
+    #[test]
+    fn expands_code_indented_smaller() {
+        let out = expand_source("(doc @code{let x = 1})").unwrap();
+        // left 25 + indent 8 = 33; size 6.5
+        assert!(
+            out.contains("(text 33 270 6.5 \"let x = 1\" black)"),
+            "{out}"
+        );
+    }
+
+    #[test]
+    fn empty_code_skips() {
+        assert_eq!(expand_source("(doc @code{})").unwrap(), "(page a4)");
+    }
 }

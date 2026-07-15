@@ -1,0 +1,5 @@
+(doc
+@title{Snippet}
+@p{Inline package meaning for code blocks:}
+@code{let x = 1 + 2}
+@p{Done.})
