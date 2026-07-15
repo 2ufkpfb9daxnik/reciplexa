@@ -104,6 +104,20 @@ mod tests {
     }
 
     #[test]
+    fn document_from_source_expands_doc_image() {
+        let doc = document_from_source(r#"(doc @image["figures/demo.png"])"#).unwrap();
+        assert_eq!(doc.pages.len(), 1);
+        assert!(
+            doc.pages[0]
+                .shapes
+                .iter()
+                .any(|s| matches!(s, Shape::Image(_))),
+            "expected an Image shape: {:?}",
+            doc.pages[0].shapes
+        );
+    }
+
+    #[test]
     fn document_from_source_does_not_run_effects() {
         // Preview path must not touch the handler (export will).
         let mut h = TestHandler::default();

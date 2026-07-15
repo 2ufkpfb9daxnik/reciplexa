@@ -582,6 +582,16 @@ mod tests {
     }
 
     #[test]
+    fn expands_figure_as_image_alias() {
+        let out = expand_source(r#"(doc @figure["figures/demo.png"]{Cap})"#).unwrap();
+        assert!(
+            out.contains(r#"(image "figures/demo.png" 25 220 80 50)"#),
+            "{out}"
+        );
+        assert!(out.contains("\"Cap\" black)"), "{out}");
+    }
+
+    #[test]
     fn expands_image_custom_size_in_brackets() {
         let out = expand_source(r#"(doc @image["figures/demo.png" 100 40])"#).unwrap();
         assert!(

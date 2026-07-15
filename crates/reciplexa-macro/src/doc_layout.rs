@@ -365,7 +365,7 @@ pub fn layout_doc_parts(parts: &[DocPart]) -> Vec<LaidItem> {
                 "cite" => {
                     push_cite_inline(bracket_args.as_deref(), &mut buf);
                 }
-                "image" => {
+                "image" | "figure" => {
                     flush_body(&mut buf, &mut out);
                     push_image(bracket_args.as_deref(), brace_body, &mut out);
                 }
