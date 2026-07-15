@@ -1,8 +1,10 @@
-; M8: title / h2 / list / paragraph package meanings
+; M8: title / h2 / list / quote / vspace / hr
 (doc
 @title{レポート表紙}
+@hr{}
 @h2{はじめに}
 @p{本文の段落です。@em{強調}も identity のまま入ります。}
+@vspace{8}
 @h2{やること}
 @li{要件を書く}
 @li{テストを先に足す}

@@ -207,7 +207,7 @@ fn find_rule(root: &SyntaxNode) -> Option<(usize, usize, String)> {
 fn find_doc(root: &SyntaxNode) -> Option<(usize, usize, String)> {
     use reciplexa_syntax::doc_parts;
 
-    use crate::doc_layout::{place_lines, DocFrame};
+    use crate::doc_layout::{place_items, DocFrame, PlacedItem};
 
     for child in root.children() {
         if child.kind() != SyntaxKind::List {
@@ -221,17 +221,17 @@ fn find_doc(root: &SyntaxNode) -> Option<(usize, usize, String)> {
             continue;
         }
         let parts = doc_parts(&child).ok()?;
-        let lines = layout_doc_parts(&parts);
+        let laid = layout_doc_parts(&parts);
         let range = child.text_range();
         let start: usize = range.start().into();
         let end: usize = range.end().into();
-        let replacement = if lines.is_empty() {
+        let replacement = if laid.is_empty() {
             "(page a4)".to_string()
         } else {
-            let placed = place_lines(&lines, DocFrame::A4);
+            let placed = place_items(&laid, DocFrame::A4);
             let page_count = placed
                 .iter()
-                .map(|p| p.page_index)
+                .map(PlacedItem::page_index)
                 .max()
                 .map(|p| p + 1)
                 .unwrap_or(1);
@@ -241,14 +241,35 @@ fn find_doc(root: &SyntaxNode) -> Option<(usize, usize, String)> {
                     repl.push('\n');
                 }
                 repl.push_str("(page a4");
-                for p in placed.iter().filter(|p| p.page_index == page) {
-                    repl.push_str(&format!(
-                        " (text {} {} {} \"{}\" black)",
-                        format_frac(p.x_mm),
-                        format_frac(p.y_mm),
-                        format_frac(p.size_mm),
-                        escape_lisp_string(&p.content)
-                    ));
+                for p in placed.iter().filter(|p| p.page_index() == page) {
+                    match p {
+                        PlacedItem::Text(t) => {
+                            repl.push_str(&format!(
+                                " (text {} {} {} \"{}\" black)",
+                                format_frac(t.x_mm),
+                                format_frac(t.y_mm),
+                                format_frac(t.size_mm),
+                                escape_lisp_string(&t.content)
+                            ));
+                        }
+                        PlacedItem::Line {
+                            x1_mm,
+                            y1_mm,
+                            x2_mm,
+                            y2_mm,
+                            width_mm,
+                            ..
+                        } => {
+                            repl.push_str(&format!(
+                                " (line {} {} {} {} black {})",
+                                format_frac(*x1_mm),
+                                format_frac(*y1_mm),
+                                format_frac(*x2_mm),
+                                format_frac(*y2_mm),
+                                format_frac(*width_mm)
+                            ));
+                        }
+                    }
                 }
                 repl.push(')');
             }
@@ -603,5 +624,38 @@ mod tests {
         assert!(out.contains("1. A"), "{out}");
         assert!(out.contains("2. B"), "{out}");
         assert!(!out.contains("3."), "{out}");
+    }
+
+    // --- @vspace / @hr ---
+
+    #[test]
+    fn expands_vspace_shifts_following_text() {
+        let out = expand_source("(doc @p{Above}\n@vspace{20}\n@p{Below})").unwrap();
+        assert!(out.contains("(text 25 270 8 \"Above\" black)"), "{out}");
+        // body gap 12 after Above, then +20 vspace → Below at 270 - 12 - 20 = 238
+        assert!(
+            out.contains("(text 25 238 8 \"Below\" black)"),
+            "vspace should push following line: {out}"
+        );
+    }
+
+    #[test]
+    fn expands_hr_emits_line_shape() {
+        let out = expand_source("(doc @p{Head}\n@hr{}\n@p{Tail})").unwrap();
+        assert!(out.contains("(text 25 270 8 \"Head\" black)"), "{out}");
+        // After Head (gap 12): y=258 for the rule; A4 content width 25..185
+        assert!(
+            out.contains("(line 25 258 185 258 black 0.4)"),
+            "hr should emit a stroked line: {out}"
+        );
+        assert!(out.contains("(text 25 246 8 \"Tail\" black)"), "{out}");
+    }
+
+    #[test]
+    fn bad_vspace_payload_is_skipped() {
+        let out = expand_source("(doc @p{A}\n@vspace{nope}\n@p{B})").unwrap();
+        // Invalid vspace ignored → normal body gap 12 only.
+        assert!(out.contains("(text 25 270 8 \"A\" black)"), "{out}");
+        assert!(out.contains("(text 25 258 8 \"B\" black)"), "{out}");
     }
 }

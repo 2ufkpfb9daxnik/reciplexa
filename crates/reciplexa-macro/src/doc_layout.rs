@@ -1,7 +1,7 @@
 //! Scribble `(doc …)` layout package (meaning, not reading).
 //!
 //! Reading lives in `reciplexa-syntax::doc`. This module turns [`DocPart`]s into
-//! sized / spaced text lines ready to emit as `(text …)` shapes.
+//! sized / spaced items ready to emit as `(text …)` / `(line …)` shapes.
 
 use reciplexa_syntax::{flatten_lines, flatten_readable, DocPart};
 
@@ -9,11 +9,35 @@ use reciplexa_syntax::{flatten_lines, flatten_readable, DocPart};
 #[derive(Debug, Clone, PartialEq)]
 pub struct LaidLine {
     pub size_mm: f64,
-    /// Distance to subtract from this baseline to place the next line.
+    /// Distance to subtract from this baseline to place the next item.
     pub y_gap_after: f64,
     /// Extra inset from [`DocFrame::left_mm`] (e.g. quotes).
     pub indent_mm: f64,
     pub content: String,
+}
+
+/// Flow item after Scribble package layout (text, gap, or rule).
+#[derive(Debug, Clone, PartialEq)]
+pub enum LaidItem {
+    Text(LaidLine),
+    /// Advance the cursor by `mm` without drawing (from `@vspace{…}`).
+    VSpace {
+        mm: f64,
+    },
+    /// Horizontal rule at the current baseline (`@hr`).
+    Hr {
+        y_gap_after: f64,
+    },
+}
+
+impl LaidItem {
+    fn y_gap_after(&self) -> f64 {
+        match self {
+            LaidItem::Text(t) => t.y_gap_after,
+            LaidItem::VSpace { mm } => *mm,
+            LaidItem::Hr { y_gap_after } => *y_gap_after,
+        }
+    }
 }
 
 pub const TITLE_SIZE_MM: f64 = 14.0;
@@ -26,6 +50,8 @@ pub const QUOTE_SIZE_MM: f64 = 7.0;
 pub const QUOTE_GAP_MM: f64 = 12.0;
 pub const QUOTE_INDENT_MM: f64 = 10.0;
 pub const QUOTE_WRAP_CHARS: usize = 36;
+pub const HR_GAP_MM: f64 = 12.0;
+pub const HR_WIDTH_MM: f64 = 0.4;
 
 /// Soft wrap budget for body lines (~A4 content width at body size; not JLReq).
 pub const BODY_WRAP_CHARS: usize = 40;
@@ -34,12 +60,14 @@ pub const TITLE_WRAP_CHARS: usize = 24;
 /// Soft wrap budget for h2 lines.
 pub const H2_WRAP_CHARS: usize = 32;
 
-/// Page frame used when emitting `(page a4 (text …)…)` from laid lines.
+/// Page frame used when emitting `(page a4 …)` from laid items.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct DocFrame {
     pub left_mm: f64,
     pub top_mm: f64,
     pub bottom_mm: f64,
+    /// Paper width in mm (A4 = 210); right margin = width - left.
+    pub width_mm: f64,
 }
 
 impl DocFrame {
@@ -47,7 +75,12 @@ impl DocFrame {
         left_mm: 25.0,
         top_mm: 270.0,
         bottom_mm: 25.0,
+        width_mm: 210.0,
     };
+
+    pub fn right_mm(self) -> f64 {
+        self.width_mm - self.left_mm
+    }
 }
 
 /// One text shape placement after pagination (page-local coordinates).
@@ -60,18 +93,41 @@ pub struct PlacedText {
     pub content: String,
 }
 
-/// Assign laid lines to A4 pages, starting a new page when the baseline would
+/// Drawable placement after pagination.
+#[derive(Debug, Clone, PartialEq)]
+pub enum PlacedItem {
+    Text(PlacedText),
+    Line {
+        page_index: usize,
+        x1_mm: f64,
+        y1_mm: f64,
+        x2_mm: f64,
+        y2_mm: f64,
+        width_mm: f64,
+    },
+}
+
+impl PlacedItem {
+    pub fn page_index(&self) -> usize {
+        match self {
+            PlacedItem::Text(t) => t.page_index,
+            PlacedItem::Line { page_index, .. } => *page_index,
+        }
+    }
+}
+
+/// Assign laid items to pages, starting a new page when the baseline would
 /// fall below [`DocFrame::bottom_mm`].
-pub fn place_lines(lines: &[LaidLine], frame: DocFrame) -> Vec<PlacedText> {
+pub fn place_items(items: &[LaidItem], frame: DocFrame) -> Vec<PlacedItem> {
     let mut out = Vec::new();
-    if lines.is_empty() {
+    if items.is_empty() {
         return out;
     }
     let mut page = 0usize;
     let mut y = frame.top_mm;
-    for (i, line) in lines.iter().enumerate() {
+    for (i, item) in items.iter().enumerate() {
         if i > 0 {
-            let next_y = y - lines[i - 1].y_gap_after;
+            let next_y = y - items[i - 1].y_gap_after();
             if next_y < frame.bottom_mm {
                 page += 1;
                 y = frame.top_mm;
@@ -79,19 +135,36 @@ pub fn place_lines(lines: &[LaidLine], frame: DocFrame) -> Vec<PlacedText> {
                 y = next_y;
             }
         }
-        out.push(PlacedText {
-            page_index: page,
-            x_mm: frame.left_mm + line.indent_mm,
-            y_mm: y,
-            size_mm: line.size_mm,
-            content: line.content.clone(),
-        });
+        match item {
+            LaidItem::Text(line) => {
+                out.push(PlacedItem::Text(PlacedText {
+                    page_index: page,
+                    x_mm: frame.left_mm + line.indent_mm,
+                    y_mm: y,
+                    size_mm: line.size_mm,
+                    content: line.content.clone(),
+                }));
+            }
+            LaidItem::VSpace { .. } => {
+                // Cursor advances via y_gap_after only; nothing drawn.
+            }
+            LaidItem::Hr { .. } => {
+                out.push(PlacedItem::Line {
+                    page_index: page,
+                    x1_mm: frame.left_mm,
+                    y1_mm: y,
+                    x2_mm: frame.right_mm(),
+                    y2_mm: y,
+                    width_mm: HR_WIDTH_MM,
+                });
+            }
+        }
     }
     out
 }
 
-/// Turn Scribble parts into laid-out text lines (`@title` / `@p` meaning).
-pub fn layout_doc_parts(parts: &[DocPart]) -> Vec<LaidLine> {
+/// Turn Scribble parts into laid items (`@title` / `@p` / `@vspace` / `@hr` …).
+pub fn layout_doc_parts(parts: &[DocPart]) -> Vec<LaidItem> {
     let mut out = Vec::new();
     let mut buf = String::new();
 
@@ -147,6 +220,16 @@ pub fn layout_doc_parts(parts: &[DocPart]) -> Vec<LaidLine> {
                         &mut out,
                     );
                 }
+                "vspace" => {
+                    flush_body(&mut buf, &mut out);
+                    push_vspace(brace_body, &mut out);
+                }
+                "hr" => {
+                    flush_body(&mut buf, &mut out);
+                    out.push(LaidItem::Hr {
+                        y_gap_after: HR_GAP_MM,
+                    });
+                }
                 _ => {
                     if !brace_body.is_empty() {
                         buf.push_str(&flatten_readable(brace_body));
@@ -161,7 +244,7 @@ pub fn layout_doc_parts(parts: &[DocPart]) -> Vec<LaidLine> {
     out
 }
 
-fn flush_body(buf: &mut String, out: &mut Vec<LaidLine>) {
+fn flush_body(buf: &mut String, out: &mut Vec<LaidItem>) {
     let text = collapse_ws(buf);
     buf.clear();
     if text.is_empty() {
@@ -175,7 +258,7 @@ fn push_styled_block(
     size_mm: f64,
     y_gap_after: f64,
     wrap_chars: usize,
-    out: &mut Vec<LaidLine>,
+    out: &mut Vec<LaidItem>,
 ) {
     push_styled_block_indent(body, size_mm, y_gap_after, wrap_chars, 0.0, out);
 }
@@ -186,7 +269,7 @@ fn push_styled_block_indent(
     y_gap_after: f64,
     wrap_chars: usize,
     indent_mm: f64,
-    out: &mut Vec<LaidLine>,
+    out: &mut Vec<LaidItem>,
 ) {
     for line in flatten_lines(body) {
         if line.is_empty() {
@@ -197,7 +280,7 @@ fn push_styled_block_indent(
 }
 
 /// `@li{…}` → body-sized lines prefixed with a bullet (package meaning, not font glyphs).
-fn push_list_items(body: &[DocPart], out: &mut Vec<LaidLine>) {
+fn push_list_items(body: &[DocPart], out: &mut Vec<LaidItem>) {
     for line in flatten_lines(body) {
         if line.is_empty() {
             continue;
@@ -215,7 +298,7 @@ fn push_list_items(body: &[DocPart], out: &mut Vec<LaidLine>) {
 }
 
 /// `@ol{a; b; c}` → numbered body lines. Semicolons separate items (brace text stays simple).
-fn push_ordered_list(body: &[DocPart], out: &mut Vec<LaidLine>) {
+fn push_ordered_list(body: &[DocPart], out: &mut Vec<LaidItem>) {
     let flat = flatten_readable(body);
     let mut n = 0usize;
     for segment in flat.split(';') {
@@ -236,13 +319,25 @@ fn push_ordered_list(body: &[DocPart], out: &mut Vec<LaidLine>) {
     }
 }
 
+/// `@vspace{N}` — N must parse as a finite positive number (mm); otherwise skip.
+fn push_vspace(body: &[DocPart], out: &mut Vec<LaidItem>) {
+    let raw = flatten_readable(body);
+    let Ok(mm) = raw.parse::<f64>() else {
+        return;
+    };
+    if !(mm.is_finite() && mm > 0.0) {
+        return;
+    }
+    out.push(LaidItem::VSpace { mm });
+}
+
 fn push_wrapped(
     text: &str,
     size_mm: f64,
     y_gap_after: f64,
     wrap_chars: usize,
     indent_mm: f64,
-    out: &mut Vec<LaidLine>,
+    out: &mut Vec<LaidItem>,
 ) {
     let chunks = wrap_line(text, wrap_chars);
     let n = chunks.len();
@@ -253,12 +348,12 @@ fn push_wrapped(
             // Continuations use body leading until the block gap on the last fragment.
             BODY_GAP_MM.min(y_gap_after)
         };
-        out.push(LaidLine {
+        out.push(LaidItem::Text(LaidLine {
             size_mm,
             y_gap_after: gap,
             indent_mm,
             content: chunk,
-        });
+        }));
     }
 }
 
@@ -342,6 +437,16 @@ mod tests {
         doc_parts(&list).unwrap()
     }
 
+    fn text_items(items: &[LaidItem]) -> Vec<&LaidLine> {
+        items
+            .iter()
+            .filter_map(|i| match i {
+                LaidItem::Text(t) => Some(t),
+                _ => None,
+            })
+            .collect()
+    }
+
     // --- validity: wrap ---
 
     #[test]
@@ -364,9 +469,10 @@ mod tests {
         let long = "a".repeat(45);
         let src = format!("(doc @p{{{long}}})");
         let laid = layout_doc_parts(&parts(&src));
-        assert!(laid.len() >= 2, "expected wrap into ≥2 lines: {laid:?}");
-        assert!(laid.iter().all(|l| l.size_mm == BODY_SIZE_MM));
-        assert!(laid
+        let texts = text_items(&laid);
+        assert!(texts.len() >= 2, "expected wrap into ≥2 lines: {laid:?}");
+        assert!(texts.iter().all(|l| l.size_mm == BODY_SIZE_MM));
+        assert!(texts
             .iter()
             .all(|l| l.content.chars().count() <= BODY_WRAP_CHARS));
     }
@@ -389,18 +495,55 @@ mod tests {
     }
 
     #[test]
-    fn place_lines_starts_new_page_at_bottom_margin() {
-        let lines: Vec<LaidLine> = (0..30)
-            .map(|i| LaidLine {
+    fn place_items_starts_new_page_at_bottom_margin() {
+        let items: Vec<LaidItem> = (0..30)
+            .map(|i| {
+                LaidItem::Text(LaidLine {
+                    size_mm: BODY_SIZE_MM,
+                    y_gap_after: BODY_GAP_MM,
+                    indent_mm: 0.0,
+                    content: format!("L{i}"),
+                })
+            })
+            .collect();
+        let placed = place_items(&items, DocFrame::A4);
+        let max_page = placed.iter().map(PlacedItem::page_index).max().unwrap();
+        assert!(max_page >= 1, "expected a second page, got {placed:?}");
+        assert!(placed.iter().all(|p| match p {
+            PlacedItem::Text(t) => t.y_mm >= DocFrame::A4.bottom_mm,
+            PlacedItem::Line { y1_mm, .. } => *y1_mm >= DocFrame::A4.bottom_mm,
+        }));
+    }
+
+    #[test]
+    fn place_items_emits_hr_line() {
+        let items = vec![
+            LaidItem::Text(LaidLine {
                 size_mm: BODY_SIZE_MM,
                 y_gap_after: BODY_GAP_MM,
                 indent_mm: 0.0,
-                content: format!("L{i}"),
-            })
-            .collect();
-        let placed = place_lines(&lines, DocFrame::A4);
-        let max_page = placed.iter().map(|p| p.page_index).max().unwrap();
-        assert!(max_page >= 1, "expected a second page, got {placed:?}");
-        assert!(placed.iter().all(|p| p.y_mm >= DocFrame::A4.bottom_mm));
+                content: "Head".into(),
+            }),
+            LaidItem::Hr {
+                y_gap_after: HR_GAP_MM,
+            },
+        ];
+        let placed = place_items(&items, DocFrame::A4);
+        assert_eq!(placed.len(), 2);
+        match &placed[1] {
+            PlacedItem::Line {
+                x1_mm,
+                x2_mm,
+                y1_mm,
+                width_mm,
+                ..
+            } => {
+                assert_eq!(*x1_mm, 25.0);
+                assert_eq!(*x2_mm, 185.0);
+                assert_eq!(*y1_mm, 258.0);
+                assert_eq!(*width_mm, HR_WIDTH_MM);
+            }
+            other => panic!("expected line, got {other:?}"),
+        }
     }
 }
