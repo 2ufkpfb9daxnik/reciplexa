@@ -56,6 +56,10 @@ pub fn layout_doc_parts(parts: &[DocPart]) -> Vec<LaidLine> {
                     flush_body(&mut buf, &mut out);
                     push_styled_block(brace_body, H2_SIZE_MM, H2_GAP_MM, H2_WRAP_CHARS, &mut out);
                 }
+                "li" => {
+                    flush_body(&mut buf, &mut out);
+                    push_list_items(brace_body, &mut out);
+                }
                 "p" => {
                     flush_body(&mut buf, &mut out);
                     push_styled_block(
