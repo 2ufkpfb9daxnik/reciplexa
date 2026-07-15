@@ -65,6 +65,9 @@ fn find_next_rewrite(root: &SyntaxNode) -> Option<(usize, usize, String)> {
     if let Some((start, end, replacement)) = find_rule(root) {
         return Some((start, end, replacement));
     }
+    if let Some((start, end, replacement)) = find_doc(root) {
+        return Some((start, end, replacement));
+    }
     None
 }
 
@@ -197,6 +200,66 @@ fn find_rule(root: &SyntaxNode) -> Option<(usize, usize, String)> {
     None
 }
 
+/// Top-level `(doc …)` → A4 page with text shapes (Scribble package seam, M8/M10).
+///
+/// Newlines become stacked `(text …)` lines. `@…` forms are identity-flattened.
+fn find_doc(root: &SyntaxNode) -> Option<(usize, usize, String)> {
+    use reciplexa_syntax::{doc_parts, flatten_lines};
+
+    for child in root.children() {
+        if child.kind() != SyntaxKind::List {
+            continue;
+        }
+        let items = list_atoms(&child);
+        let Some(Child::Token(head)) = items.first() else {
+            continue;
+        };
+        if head.kind() != SyntaxKind::Ident || head.text() != "doc" {
+            continue;
+        }
+        let parts = doc_parts(&child).ok()?;
+        let lines = flatten_lines(&parts);
+        let range = child.text_range();
+        let start: usize = range.start().into();
+        let end: usize = range.end().into();
+        let replacement = if lines.is_empty() {
+            "(page a4)".to_string()
+        } else {
+            const SIZE_MM: f64 = 8.0;
+            const LINE_MM: f64 = 12.0; // size * 1.5 — not JLReq, just a readable start
+            const LEFT_MM: f64 = 25.0;
+            const TOP_MM: f64 = 270.0;
+            let mut repl = String::from("(page a4");
+            for (i, line) in lines.iter().enumerate() {
+                let y = TOP_MM - (i as f64) * LINE_MM;
+                repl.push_str(&format!(
+                    " (text {LEFT_MM} {y} {SIZE_MM} \"{}\" black)",
+                    escape_lisp_string(line)
+                ));
+            }
+            repl.push(')');
+            repl
+        };
+        return Some((start, end, replacement));
+    }
+    None
+}
+
+fn escape_lisp_string(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for c in s.chars() {
+        match c {
+            '\\' => out.push_str("\\\\"),
+            '"' => out.push_str("\\\""),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            _ => out.push(c),
+        }
+    }
+    out
+}
+
 fn atom_text(child: &Child) -> Option<String> {
     match child {
         Child::Token(t) => Some(t.text().to_string()),
@@ -325,5 +388,32 @@ mod tests {
         let out = expand_source("(circle 0 0 1 (color-byte 0 128 255))").unwrap();
         let root = parse_source(&out).into_result().unwrap();
         assert_eq!(unparse(&root), out);
+    }
+
+    #[test]
+    fn expands_plain_doc_to_page_text() {
+        let out = expand_source("(doc Hello.)").unwrap();
+        assert!(out.contains("(page a4 (text 25 270 8 \"Hello.\" black))"));
+        assert!(!out.contains("(doc "));
+    }
+
+    #[test]
+    fn expands_doc_with_at_identity() {
+        let out = expand_source("(doc Hello @em{世界}.)").unwrap();
+        assert!(out.contains("Hello 世界."));
+        assert!(out.starts_with("(page a4 (text "));
+    }
+
+    #[test]
+    fn empty_doc_becomes_empty_page() {
+        let out = expand_source("(doc)").unwrap();
+        assert_eq!(out, "(page a4)");
+    }
+
+    #[test]
+    fn expands_multiline_doc_to_stacked_text() {
+        let out = expand_source("(doc\nFirst\nSecond\n)").unwrap();
+        assert!(out.contains("(text 25 270 8 \"First\" black)"));
+        assert!(out.contains("(text 25 258 8 \"Second\" black)"));
     }
 }

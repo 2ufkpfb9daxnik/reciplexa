@@ -1,0 +1,6 @@
+; M10 slice: multi-line Scribble doc → stacked text
+(doc
+Hello from a multi-line report.
+Second line with @em{emphasis}.
+第三行：日本語もそのまま出ます。
+)
