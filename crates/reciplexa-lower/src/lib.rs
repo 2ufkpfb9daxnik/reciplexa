@@ -87,7 +87,8 @@ pub fn lower_syntax(root: &SyntaxNode) -> Result<Document, LowerError> {
         match head {
             "page" => pages.push(lower_page(&form)?),
             "doc" | "src" => {
-                // Not drawn: Scribble docs and effect/logic blocks are skipped here.
+                // `doc` is normally expanded to `(page …)` by reciplexa-macro (M8).
+                // Leftover `doc`/`src` forms are skipped (logic / package seams).
             }
             other => {
                 return Err(LowerError::new(format!(
@@ -429,7 +430,7 @@ fn lower_polyline(items: &[Child]) -> Result<Shape, LowerError> {
         end -= 1;
     }
     let coords = &items[1..end];
-    if coords.len() < 4 || coords.len() % 2 != 0 {
+    if coords.len() < 4 || !coords.len().is_multiple_of(2) {
         return Err(LowerError::new(
             "`polyline` needs an even number of coordinates (≥4)",
         ));
@@ -465,7 +466,7 @@ fn lower_polygon(items: &[Child]) -> Result<Shape, LowerError> {
         end -= 1;
     }
     let coords = &items[1..end];
-    if coords.len() < 6 || coords.len() % 2 != 0 {
+    if coords.len() < 6 || !coords.len().is_multiple_of(2) {
         return Err(LowerError::new(
             "`polygon` needs an even number of coordinates (≥6)",
         ));

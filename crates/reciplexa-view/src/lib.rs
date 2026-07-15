@@ -417,7 +417,12 @@ fn shape_contains(shape: &WorldShape, x: f64, y: f64) -> bool {
             let n = t.content.chars().count().max(1) as f64;
             let w = n * t.size_mm * 0.95 + 2.0 * pad;
             let h = t.size_mm * 1.35 + 2.0 * pad;
-            let locals = [(-pad, -pad), (w - pad, -pad), (w - pad, h - pad), (-pad, h - pad)];
+            let locals = [
+                (-pad, -pad),
+                (w - pad, -pad),
+                (w - pad, h - pad),
+                (-pad, h - pad),
+            ];
             let rad = t.rotation_deg.to_radians();
             let (sine, cosine) = (rad.sin(), rad.cos());
             let corners: Vec<(f64, f64)> = locals

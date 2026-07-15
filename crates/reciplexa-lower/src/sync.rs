@@ -530,11 +530,7 @@ pub fn collect_size_targets_page(
 }
 
 /// Multiply a leaf shape's size by `factor` (>0), rewriting CST numbers only.
-pub fn scale_size_target(
-    src: &str,
-    target: SizeTarget,
-    factor: f64,
-) -> Result<String, SyncError> {
+pub fn scale_size_target(src: &str, target: SizeTarget, factor: f64) -> Result<String, SyncError> {
     if !(factor.is_finite() && factor > 0.0) {
         return Err(SyncError::new("scale factor must be finite and > 0"));
     }
@@ -744,11 +740,7 @@ fn find_list_covering(root: &SyntaxNode, start: usize, end: usize) -> Option<Syn
 }
 
 /// Opacity on the layer root `(opacity α …)`, or 1.0 if absent.
-pub fn layer_opacity(
-    src: &str,
-    page_index: usize,
-    flat_index: usize,
-) -> Result<f64, SyncError> {
+pub fn layer_opacity(src: &str, page_index: usize, flat_index: usize) -> Result<f64, SyncError> {
     let layers = collect_layers_page(src, page_index)?;
     let layer = layers
         .get(flat_index)
@@ -949,11 +941,7 @@ fn collect_from_shape(
     }
 }
 
-fn collect_size_from_shape(
-    node: &SyntaxNode,
-    counters: &mut Counters,
-    out: &mut Vec<SizeTarget>,
-) {
+fn collect_size_from_shape(node: &SyntaxNode, counters: &mut Counters, out: &mut Vec<SizeTarget>) {
     let items = list_atoms(node);
     let Some(Child::Token(head)) = items.first() else {
         return;
@@ -1208,7 +1196,7 @@ fn scale_xy_pairs_about_centroid(
     let root = parse_root(src)?;
     let n = count_leading_number_coords(&root, head, index)
         .ok_or_else(|| SyncError::new(format!("no `{head}` #{index}")))?;
-    if n < 4 || n % 2 != 0 {
+    if n < 4 || !n.is_multiple_of(2) {
         return Err(SyncError::new(format!(
             "`{head}` #{index} needs an even number of coordinates (≥4)"
         )));
@@ -1258,7 +1246,8 @@ fn scale_polyline_trailing_width(
             let (Some(li), Some(pi)) = (last, prev) else {
                 return Ok(src.to_string());
             };
-            let width_is_num = matches!(&items[li], Child::Token(t) if t.kind() == SyntaxKind::Number);
+            let width_is_num =
+                matches!(&items[li], Child::Token(t) if t.kind() == SyntaxKind::Number);
             let prev_is_color = match &items[pi] {
                 Child::Token(t) if t.kind() == SyntaxKind::Ident => true,
                 Child::Node(n) => {
@@ -1313,9 +1302,7 @@ fn read_nth_number(
 ) -> Result<f64, SyncError> {
     let tok = find_nth_number(root, head, index, slot)
         .ok_or_else(|| SyncError::new(format!("no `{head}` #{index} slot {slot}")))?;
-    tok.text()
-        .parse()
-        .map_err(|_| SyncError::new("bad number"))
+    tok.text().parse().map_err(|_| SyncError::new("bad number"))
 }
 
 fn set_nth_number(
@@ -1675,10 +1662,7 @@ mod tests {
         );
         assert_eq!(layer_rotation_deg(&out, 0, 0).unwrap(), 30.0);
         let out2 = set_layer_rotation_deg(&out, 0, 0, -15.0, (10.0, 20.0)).unwrap();
-        assert!(
-            out2.contains("(rotate -15 "),
-            "unexpected rewrite: {out2}"
-        );
+        assert!(out2.contains("(rotate -15 "), "unexpected rewrite: {out2}");
         assert_eq!(layer_rotation_deg(&out2, 0, 0).unwrap(), -15.0);
     }
 
@@ -1703,8 +1687,7 @@ mod tests {
 
     #[test]
     fn center_rotate_sandwich_drag_uses_outer_translate() {
-        let src =
-            "(page a4 (translate 10 20 (rotate 30 (translate -10 -20 (circle 10 20 5)))))";
+        let src = "(page a4 (translate 10 20 (rotate 30 (translate -10 -20 (circle 10 20 5)))))";
         let t = collect_drag_targets_page(src, 0).unwrap();
         assert_eq!(t, vec![DragTarget::Translate(0)]);
         let out = nudge_drag_target(src, DragTarget::Translate(0), 1.0, 2.0).unwrap();
@@ -1825,8 +1808,7 @@ mod tests {
 
     #[test]
     fn nudge_layer_center_sandwich_moves_outer_only() {
-        let src =
-            "(page a4 (translate 10 20 (rotate 30 (translate -10 -20 (circle 10 20 5)))))";
+        let src = "(page a4 (translate 10 20 (rotate 30 (translate -10 -20 (circle 10 20 5)))))";
         let out = nudge_layer_page(src, 0, 0, 2.0, 3.0).unwrap();
         assert!(out.contains("(translate 12 23 (rotate 30 (translate -10 -20"));
         assert!(out.contains("(circle 10 20 5)"));

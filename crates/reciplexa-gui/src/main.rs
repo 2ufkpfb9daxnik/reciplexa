@@ -71,18 +71,23 @@ fn suppress_ime_confirm_newline(ctx: &egui::Context, hold_frames: &mut u8) {
             .events
             .iter()
             .any(|e| matches!(e, egui::Event::Ime(_)));
-        let has_commit = input.events.iter().any(|e| {
-            matches!(e, egui::Event::Ime(egui::ImeEvent::Commit(_)))
-        });
+        let has_commit = input
+            .events
+            .iter()
+            .any(|e| matches!(e, egui::Event::Ime(egui::ImeEvent::Commit(_))));
         if has_commit {
             *hold_frames = (*hold_frames).max(2);
         }
         if has_ime || *hold_frames > 0 {
             input.events.retain(|e| {
-                let is_enter =
-                    matches!(e, egui::Event::Key { key: egui::Key::Enter, .. });
-                let is_newline =
-                    matches!(e, egui::Event::Text(t) if t == "\n" || t == "\r\n");
+                let is_enter = matches!(
+                    e,
+                    egui::Event::Key {
+                        key: egui::Key::Enter,
+                        ..
+                    }
+                );
+                let is_newline = matches!(e, egui::Event::Text(t) if t == "\n" || t == "\r\n");
                 !(is_enter || is_newline)
             });
         }
@@ -102,10 +107,9 @@ fn highlight_source_range(ctx: &egui::Context, source: &str, start: usize, end: 
     let c0 = byte_to_char_index(source, start);
     let c1 = byte_to_char_index(source, end);
     if let Some(mut state) = egui::text_edit::TextEditState::load(ctx, id) {
-        state.cursor.set_char_range(Some(CCursorRange::two(
-            CCursor::new(c0),
-            CCursor::new(c1),
-        )));
+        state
+            .cursor
+            .set_char_range(Some(CCursorRange::two(CCursor::new(c0), CCursor::new(c1))));
         state.store(ctx, id);
     }
 }
@@ -318,14 +322,7 @@ impl PreviewApp {
         value: PropValue,
         prop_ctx: PropEditContext,
     ) {
-        match set_layer_prop(
-            &self.source,
-            self.page_index,
-            flat,
-            id,
-            &value,
-            &prop_ctx,
-        ) {
+        match set_layer_prop(&self.source, self.page_index, flat, id, &value, &prop_ctx) {
             Ok(new_src) => {
                 if !self.props_undo_open {
                     self.push_undo();
@@ -386,9 +383,7 @@ impl PreviewApp {
                     });
                     ui.add_space(6.0);
                     ui.label(egui::RichText::new("Opacity (all)").strong());
-                    ui.add(
-                        egui::Slider::new(&mut self.batch_opacity, 0.0..=1.0).text("opacity"),
-                    );
+                    ui.add(egui::Slider::new(&mut self.batch_opacity, 0.0..=1.0).text("opacity"));
                     if ui.button("Apply opacity to selection").clicked() {
                         apply_opacity = true;
                     }
@@ -465,7 +460,7 @@ impl PreviewApp {
             if let Some(edge) = align {
                 self.align_selection(edge);
             }
-                    if let Some(horizontal) = distribute {
+            if let Some(horizontal) = distribute {
                 self.distribute_selection(horizontal);
             }
             if bring_front {
@@ -665,8 +660,8 @@ impl PreviewApp {
         match duplicate_layer_page(&self.source, self.page_index, index) {
             Ok(dup) => {
                 // Offset the copy so it is not stacked invisibly on the original.
-                let new_src = nudge_layer_page(&dup, self.page_index, index + 1, 5.0, -5.0)
-                    .unwrap_or(dup);
+                let new_src =
+                    nudge_layer_page(&dup, self.page_index, index + 1, 5.0, -5.0).unwrap_or(dup);
                 self.set_source_with_undo(new_src);
                 self.drag = None;
                 let new_sel = index + 1;
@@ -930,8 +925,7 @@ impl eframe::App for PreviewApp {
         suppress_ime_confirm_newline(ctx, &mut self.ime_enter_hold);
 
         // Ctrl+Z / Ctrl+Y for source undo/redo (IME mistakes, layer moves, etc.).
-        if ctx.input(|i| i.modifiers.command && i.key_pressed(egui::Key::Z) && !i.modifiers.shift)
-        {
+        if ctx.input(|i| i.modifiers.command && i.key_pressed(egui::Key::Z) && !i.modifiers.shift) {
             self.undo();
         }
         if ctx.input(|i| {
@@ -950,9 +944,7 @@ impl eframe::App for PreviewApp {
 
         // Arrow keys nudge the selection when the source editor is not focused.
         let source_focused = ctx.memory(|m| m.has_focus(egui::Id::new("rpx_source_editor")));
-        if !source_focused
-            && ctx.input(|i| i.modifiers.command && i.key_pressed(egui::Key::A))
-        {
+        if !source_focused && ctx.input(|i| i.modifiers.command && i.key_pressed(egui::Key::A)) {
             if let Ok(layers) = collect_layers_page(&self.source, self.page_index) {
                 self.selected = (0..layers.len()).collect();
                 self.props_open = !self.selected.is_empty();
@@ -998,9 +990,9 @@ impl eframe::App for PreviewApp {
                 self.source = src;
                 self.error = pipeline_doc(&self.source).err();
             }
-            if ctx.input(|i| {
-                i.key_pressed(egui::Key::Delete) || i.key_pressed(egui::Key::Backspace)
-            }) {
+            if ctx
+                .input(|i| i.key_pressed(egui::Key::Delete) || i.key_pressed(egui::Key::Backspace))
+            {
                 self.delete_selection();
             }
             if let Some(sel) = self.primary_selected() {
@@ -1029,7 +1021,9 @@ impl eframe::App for PreviewApp {
             .default_width(400.0)
             .show(ctx, |ui| {
                 ui.heading(".rpx source");
-                ui.label("Edits reproject live; drag on the paper rewrites numbers here. Ctrl+S saves.");
+                ui.label(
+                    "Edits reproject live; drag on the paper rewrites numbers here. Ctrl+S saves.",
+                );
                 ui.horizontal(|ui| {
                     if ui.button("Save .rpx").clicked() {
                         if let Err(e) = fs::write(&self.path, &self.source) {
@@ -1088,7 +1082,10 @@ impl eframe::App for PreviewApp {
                     .desired_width(f32::INFINITY)
                     .desired_rows(36);
                 let response = ui.add_sized(
-                    egui::vec2(ui.available_width(), (ui.available_height() - 48.0).max(120.0)),
+                    egui::vec2(
+                        ui.available_width(),
+                        (ui.available_height() - 48.0).max(120.0),
+                    ),
                     editor,
                 );
                 if response.changed() {
@@ -1113,7 +1110,8 @@ impl eframe::App for PreviewApp {
             });
 
         // Snapshot layers for the right panel (may be empty on error).
-        let layers_for_panel = collect_layers_page(&self.source, self.page_index).unwrap_or_default();
+        let layers_for_panel =
+            collect_layers_page(&self.source, self.page_index).unwrap_or_default();
 
         egui::SidePanel::right("layers_panel")
             .resizable(true)
@@ -1175,7 +1173,7 @@ impl eframe::App for PreviewApp {
                                     ghost,
                                     2.0,
                                     egui::Stroke::new(
-                                        1.0,
+                                        1.0_f32,
                                         egui::Color32::from_rgb(30, 120, 220),
                                     ),
                                     egui::StrokeKind::Outside,
@@ -1208,7 +1206,7 @@ impl eframe::App for PreviewApp {
                                     response.rect.x_range(),
                                     y,
                                     egui::Stroke::new(
-                                        2.0,
+                                        2.0_f32,
                                         egui::Color32::from_rgb(30, 120, 220),
                                     ),
                                 );
@@ -1397,7 +1395,7 @@ impl eframe::App for PreviewApp {
             painter.rect_stroke(
                 paper,
                 0.0,
-                egui::Stroke::new(1.0, egui::Color32::from_gray(80)),
+                egui::Stroke::new(1.0_f32, egui::Color32::from_gray(80)),
                 egui::StrokeKind::Outside,
             );
 
@@ -1725,7 +1723,7 @@ impl eframe::App for PreviewApp {
                 painter.rect_stroke(
                     mrect,
                     0.0,
-                    egui::Stroke::new(1.0, egui::Color32::from_rgb(30, 120, 220)),
+                    egui::Stroke::new(1.0_f32, egui::Color32::from_rgb(30, 120, 220)),
                     egui::StrokeKind::Outside,
                 );
             }
@@ -1749,7 +1747,7 @@ fn paint_selection_frame(
     painter.rect_stroke(
         frame,
         0.0,
-        egui::Stroke::new(2.0, egui::Color32::from_rgb(30, 120, 220)),
+        egui::Stroke::new(2.0_f32, egui::Color32::from_rgb(30, 120, 220)),
         egui::StrokeKind::Outside,
     );
     let handle = 5.0;
@@ -1765,7 +1763,7 @@ fn paint_selection_frame(
         painter.rect_stroke(
             hr,
             0.0,
-            egui::Stroke::new(1.5, egui::Color32::from_rgb(30, 120, 220)),
+            egui::Stroke::new(1.5_f32, egui::Color32::from_rgb(30, 120, 220)),
             egui::StrokeKind::Outside,
         );
     }
@@ -1773,13 +1771,13 @@ fn paint_selection_frame(
     let knob = rotate_handle_pos(frame);
     painter.line_segment(
         [egui::pos2(frame.center().x, frame.top()), knob],
-        egui::Stroke::new(1.5, egui::Color32::from_rgb(30, 120, 220)),
+        egui::Stroke::new(1.5_f32, egui::Color32::from_rgb(30, 120, 220)),
     );
     painter.circle_filled(knob, 5.0, egui::Color32::WHITE);
     painter.circle_stroke(
         knob,
         5.0,
-        egui::Stroke::new(1.5, egui::Color32::from_rgb(30, 120, 220)),
+        egui::Stroke::new(1.5_f32, egui::Color32::from_rgb(30, 120, 220)),
     );
 }
 
@@ -1810,9 +1808,7 @@ fn hit_scale_handle(
         frame.right_bottom(),
     ];
     let hit_r2 = 10.0_f32 * 10.0;
-    corners
-        .iter()
-        .any(|c| local_px.distance_sq(*c) <= hit_r2)
+    corners.iter().any(|c| local_px.distance_sq(*c) <= hit_r2)
 }
 
 fn hit_rotate_handle(
@@ -1902,11 +1898,9 @@ fn paint_shape(
             // Unrotated top-left is above the baseline; rotate that offset around baseline.
             let tl_rel = egui::vec2(0.0, -h);
             let (s, c) = (angle.sin(), angle.cos());
-            let top_left = baseline
-                + egui::vec2(tl_rel.x * c + tl_rel.y * s, -tl_rel.x * s + tl_rel.y * c);
-            painter.add(
-                egui::epaint::TextShape::new(top_left, galley, color).with_angle(angle),
-            );
+            let top_left =
+                baseline + egui::vec2(tl_rel.x * c + tl_rel.y * s, -tl_rel.x * s + tl_rel.y * c);
+            painter.add(egui::epaint::TextShape::new(top_left, galley, color).with_angle(angle));
         }
         WorldShape::Path(p) => {
             if p.points_mm.len() < 2 {
@@ -1960,13 +1954,13 @@ fn paint_shape(
                     .extend_from_slice(&[i0, i0 + 1, i0 + 2, i0, i0 + 2, i0 + 3]);
                 painter.add(egui::Shape::mesh(mesh));
             } else {
-                let stroke = egui::Stroke::new(1.5, egui::Color32::from_gray(60));
+                let stroke = egui::Stroke::new(1.5_f32, egui::Color32::from_gray(60));
                 for i in 0..4 {
                     painter.line_segment([screen[i], screen[(i + 1) % 4]], stroke);
                 }
                 painter.line_segment(
                     [screen[0], screen[2]],
-                    egui::Stroke::new(1.0, egui::Color32::from_gray(140)),
+                    egui::Stroke::new(1.0_f32, egui::Color32::from_gray(140)),
                 );
             }
         }

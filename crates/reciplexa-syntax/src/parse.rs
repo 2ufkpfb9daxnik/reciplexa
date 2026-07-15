@@ -223,10 +223,7 @@ impl<'a> Parser<'a> {
 
     /// Scribble body until `close` (not consumed). Newlines are kept as tokens.
     fn parse_scribble_until(&mut self, close: SyntaxKind) {
-        loop {
-            let Some(tok) = self.current.clone() else {
-                break;
-            };
+        while let Some(tok) = self.current.clone() {
             if tok.kind == close {
                 break;
             }

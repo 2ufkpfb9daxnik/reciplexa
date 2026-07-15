@@ -410,8 +410,14 @@ pub fn set_layer_fill_rgb(
             paper_w_mm: 210.0,
             paper_h_mm: 297.0,
         };
-        let mut out =
-            set_layer_prop(src, page_index, flat_index, "fill.r", &PropValue::Number(r), &ctx)?;
+        let mut out = set_layer_prop(
+            src,
+            page_index,
+            flat_index,
+            "fill.r",
+            &PropValue::Number(r),
+            &ctx,
+        )?;
         out = set_layer_prop(
             &out,
             page_index,
@@ -915,15 +921,7 @@ mod tests {
             paper_w_mm: 210.0,
             paper_h_mm: 297.0,
         };
-        let out = set_layer_prop(
-            src,
-            0,
-            0,
-            "fill.g",
-            &PropValue::Number(0.8),
-            &ctx,
-        )
-        .unwrap();
+        let out = set_layer_prop(src, 0, 0, "fill.g", &PropValue::Number(0.8), &ctx).unwrap();
         assert!(out.contains("(rgb 0.2 0.8 0.6)"));
     }
 
@@ -968,15 +966,7 @@ mod tests {
             paper_w_mm: 210.0,
             paper_h_mm: 297.0,
         };
-        let out = set_layer_prop(
-            src,
-            0,
-            0,
-            "fill.r",
-            &PropValue::Number(0.5),
-            &ctx,
-        )
-        .unwrap();
+        let out = set_layer_prop(src, 0, 0, "fill.r", &PropValue::Number(0.5), &ctx).unwrap();
         assert!(out.contains("(rgb 0.5 0 0)") || out.contains("(rgb 0.5 0.0 0.0)"));
     }
 

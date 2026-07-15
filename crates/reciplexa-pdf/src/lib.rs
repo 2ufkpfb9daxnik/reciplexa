@@ -90,10 +90,7 @@ pub fn document_to_pdf(doc: &Document) -> Result<Vec<u8>, PdfError> {
 
 /// Render a scene document; resolve `(image "…")` paths relative to `base` when set
 /// (typically the directory containing the `.rpx` source).
-pub fn document_to_pdf_with_base(
-    doc: &Document,
-    base: Option<&Path>,
-) -> Result<Vec<u8>, PdfError> {
+pub fn document_to_pdf_with_base(doc: &Document, base: Option<&Path>) -> Result<Vec<u8>, PdfError> {
     if doc.pages.is_empty() {
         return Err(PdfError::EmptyDocument);
     }
@@ -160,16 +157,18 @@ fn load_raster_rgb(path: &Path) -> Result<EmbeddedImage, String> {
     {
         Some("jpg") | Some("jpeg") => load_jpeg_rgb(&bytes),
         Some("png") => load_png_rgb_bytes(&bytes),
-        _ => Err(
-            "unsupported image format (need PNG or JPEG; sniff magic or use .png/.jpg)".into(),
-        ),
+        _ => {
+            Err("unsupported image format (need PNG or JPEG; sniff magic or use .png/.jpg)".into())
+        }
     }
 }
 
 fn load_jpeg_rgb(bytes: &[u8]) -> Result<EmbeddedImage, String> {
     let mut decoder = jpeg_decoder::Decoder::new(std::io::Cursor::new(bytes));
     let pixels = decoder.decode().map_err(|e| e.to_string())?;
-    let info = decoder.info().ok_or_else(|| "JPEG missing header info".to_string())?;
+    let info = decoder
+        .info()
+        .ok_or_else(|| "JPEG missing header info".to_string())?;
     let width = u32::from(info.width);
     let height = u32::from(info.height);
     let rgb = match info.pixel_format {
@@ -298,7 +297,12 @@ fn render_shape(
                     "{ctx}: circle not drawable"
                 )));
             }
-            Ok(ops_only(circle_path_ops(c.x_mm, c.y_mm, c.radius_mm, c.fill)))
+            Ok(ops_only(circle_path_ops(
+                c.x_mm,
+                c.y_mm,
+                c.radius_mm,
+                c.fill,
+            )))
         }
         Shape::Rect(r) => {
             if !r.is_drawable() {
@@ -713,12 +717,10 @@ fn outline_text_ops(
                 .into(),
         )
     })?;
-    let data = std::fs::read(&path).map_err(|e| {
-        PdfError::InvalidShape(format!("read font {}: {e}", path.display()))
-    })?;
-    let face = ttf_parser::Face::parse(&data, 0).map_err(|e| {
-        PdfError::InvalidShape(format!("parse font {}: {e}", path.display()))
-    })?;
+    let data = std::fs::read(&path)
+        .map_err(|e| PdfError::InvalidShape(format!("read font {}: {e}", path.display())))?;
+    let face = ttf_parser::Face::parse(&data, 0)
+        .map_err(|e| PdfError::InvalidShape(format!("parse font {}: {e}", path.display())))?;
     let units = f64::from(face.units_per_em());
     if units <= 0.0 {
         return Err(PdfError::InvalidShape("font units_per_em is zero".into()));
@@ -727,7 +729,12 @@ fn outline_text_ops(
     let scale = size_pt / units;
     let mut x = mm_to_pt(x_mm);
     let y = mm_to_pt(y_mm);
-    let mut ops = format!("{r:.4} {g:.4} {b:.4} rg\n", r = fill.r, g = fill.g, b = fill.b);
+    let mut ops = format!(
+        "{r:.4} {g:.4} {b:.4} rg\n",
+        r = fill.r,
+        g = fill.g,
+        b = fill.b
+    );
     for ch in content.chars() {
         if ch == '\n' || ch == '\r' {
             continue;
@@ -806,8 +813,9 @@ impl ttf_parser::OutlineBuilder for PdfOutline {
         let (x1, y1) = self.map(cx1, cy1);
         let (x2, y2) = self.map(cx2, cy2);
         let (x, y) = self.map(x, y);
-        self.ops
-            .push_str(&format!("{x1:.4} {y1:.4} {x2:.4} {y2:.4} {x:.4} {y:.4} c\n"));
+        self.ops.push_str(&format!(
+            "{x1:.4} {y1:.4} {x2:.4} {y2:.4} {x:.4} {y:.4} c\n"
+        ));
     }
 
     fn curve_to(&mut self, x1: f32, y1: f32, x2: f32, y2: f32, x: f32, y: f32) {
@@ -816,8 +824,9 @@ impl ttf_parser::OutlineBuilder for PdfOutline {
         let (x1, y1) = self.map(x1, y1);
         let (x2, y2) = self.map(x2, y2);
         let (x, y) = self.map(x, y);
-        self.ops
-            .push_str(&format!("{x1:.4} {y1:.4} {x2:.4} {y2:.4} {x:.4} {y:.4} c\n"));
+        self.ops.push_str(&format!(
+            "{x1:.4} {y1:.4} {x2:.4} {y2:.4} {x:.4} {y:.4} c\n"
+        ));
     }
 
     fn close(&mut self) {
@@ -1133,7 +1142,12 @@ mod tests {
         let dir = std::env::temp_dir().join("reciplexa-pdf-png-test");
         let _ = std::fs::create_dir_all(&dir);
         let png_path = dir.join("dot.png");
-        write_temp_png(&png_path, 2, 2, &[255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 0]);
+        write_temp_png(
+            &png_path,
+            2,
+            2,
+            &[255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 0],
+        );
 
         let doc = Document::single_page(Page {
             paper: PaperSize::a4(),
