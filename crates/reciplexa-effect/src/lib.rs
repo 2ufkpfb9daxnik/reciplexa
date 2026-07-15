@@ -1,7 +1,7 @@
 //! Algebraic-effect skeleton for reciplexa (M9).
 //!
 //! Side effects are expressed as `perform` operations run under top-level
-//! `(src …)` blocks (and nested `(handle log …)` for muted logging). A tiny
+//! `(src …)` blocks (and nested `(handle log|write-path …)` for muted ops). A tiny
 //! sequential interpreter returns [`Value`]s so hosts can grow against a stable
 //! surface without embedding effects in the PDF or GUI crates.
 
@@ -175,7 +175,8 @@ fn run_src_form(handler: &mut dyn EffectHandler, form: &SyntaxNode) -> Result<Va
     }
 }
 
-/// `(handle log BODY…)` runs BODY with `log` muted (returns Unit without host I/O).
+/// `(handle log|write-path BODY…)` runs BODY with that op muted (returns Unit
+/// without host I/O). Other ops still forward to the outer handler.
 fn run_handle(handler: &mut dyn EffectHandler, form: &SyntaxNode) -> Result<Value, EffectError> {
     use reciplexa_syntax::{SyntaxElement, SyntaxKind};
 
@@ -194,15 +195,18 @@ fn run_handle(handler: &mut dyn EffectHandler, form: &SyntaxNode) -> Result<Valu
             "unknown effect op in handle `{op_name}`"
         )));
     };
-    if op != EffectOp::Log {
-        return Err(EffectError::new(
-            "only `(handle log …)` is implemented in this milestone",
-        ));
+    if !matches!(op, EffectOp::Log | EffectOp::WritePath) {
+        return Err(EffectError::new(format!(
+            "only `(handle log …)` / `(handle write-path …)` are implemented; got `{op_name}`"
+        )));
     }
 
     // Body = List children after the op ident tokens (skip handle + op).
     let mut seen_op = false;
-    let mut muted = MuteLog { inner: handler };
+    let mut muted = MuteOp {
+        muted: op,
+        inner: handler,
+    };
     let mut last = Value::Unit;
     for el in form.children_with_tokens() {
         match el {
@@ -230,14 +234,19 @@ fn run_handle(handler: &mut dyn EffectHandler, form: &SyntaxNode) -> Result<Valu
     Ok(last)
 }
 
-/// Handler adapter that swallows `log` while forwarding other ops.
-struct MuteLog<'a> {
+/// Handler adapter that swallows one muted op while forwarding others.
+struct MuteOp<'a> {
+    muted: EffectOp,
     inner: &'a mut dyn EffectHandler,
 }
 
-impl EffectHandler for MuteLog<'_> {
-    fn on_log(&mut self, _message: &str) -> Result<Value, EffectError> {
-        Ok(Value::Unit)
+impl EffectHandler for MuteOp<'_> {
+    fn on_log(&mut self, message: &str) -> Result<Value, EffectError> {
+        if self.muted == EffectOp::Log {
+            Ok(Value::Unit)
+        } else {
+            self.inner.on_log(message)
+        }
     }
 
     fn on_random(&mut self) -> Result<Value, EffectError> {
@@ -245,7 +254,11 @@ impl EffectHandler for MuteLog<'_> {
     }
 
     fn on_write_path(&mut self, path: &str) -> Result<Value, EffectError> {
-        self.inner.on_write_path(path)
+        if self.muted == EffectOp::WritePath {
+            Ok(Value::Unit)
+        } else {
+            self.inner.on_write_path(path)
+        }
     }
 }
 
@@ -540,6 +553,37 @@ mod tests {
         assert!(!h.logs.iter().any(|l| l == "silent"));
         assert_eq!(vals.len(), 3);
         assert_eq!(vals[1], Value::Number(0.1));
+    }
+
+    #[test]
+    fn handle_write_path_mutes_nested_writes() {
+        let src = r#"
+(src
+  (perform write-path "outer.pdf")
+  (handle write-path
+    (perform write-path "silent.pdf")
+    (perform log "still logs"))
+  (perform write-path "after.pdf"))
+"#;
+        let mut h = TestHandler::default();
+        run_source_effects(&mut h, src).unwrap();
+        assert_eq!(h.writes, vec!["outer.pdf", "after.pdf"]);
+        assert!(!h.writes.iter().any(|w| w == "silent.pdf"));
+        assert_eq!(h.logs, vec!["still logs"]);
+    }
+
+    #[test]
+    fn handle_random_is_rejected() {
+        let err = run_source_effects(
+            &mut TestHandler::default(),
+            "(src (handle random (perform log \"x\")))",
+        )
+        .unwrap_err();
+        assert!(
+            err.message.contains("handle") && err.message.contains("random"),
+            "{}",
+            err.message
+        );
     }
 
     #[test]

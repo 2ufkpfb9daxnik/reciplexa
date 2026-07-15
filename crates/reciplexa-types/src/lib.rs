@@ -427,7 +427,7 @@ fn check_src_child(child: &Child) -> Result<Type, TypeError> {
     }
 }
 
-/// `(handle log BODY…)` — body forms must be Unit (`perform` / nested `handle`).
+/// `(handle log BODY…)` / `(handle write-path BODY…)` — body forms must be Unit.
 fn check_handle(
     args: &[Child],
     node: &SyntaxNode,
@@ -457,9 +457,9 @@ fn check_handle(
             span.1,
         ));
     };
-    if op != EffectOp::Log {
+    if !matches!(op, EffectOp::Log | EffectOp::WritePath) {
         return Err(TypeError::at(
-            "only `(handle log …)` is typed in this milestone",
+            format!("only `(handle log …)` / `(handle write-path …)` are typed; got `{op_name}`"),
             span.0,
             span.1,
         ));
@@ -770,6 +770,18 @@ mod tests {
         assert_eq!(typecheck_source(src).unwrap(), Type::Document);
     }
 
+    #[test]
+    fn src_with_handle_write_path_typechecks() {
+        let src = r#"
+(src
+  (handle write-path
+    (perform write-path "silent.pdf")
+    (perform log "ok")))
+(page a4 (circle 1 2 3))
+"#;
+        assert_eq!(typecheck_source(src).unwrap(), Type::Document);
+    }
+
     // --- defect ---
 
     #[test]
@@ -795,6 +807,14 @@ mod tests {
         let err =
             typecheck_source("(src (perform draw \"x\"))\n(page a4 (circle 1 2 3))").unwrap_err();
         assert!(err.message.contains("unknown effect op"));
+    }
+
+    #[test]
+    fn handle_random_is_not_typed() {
+        let err =
+            typecheck_source("(src (handle random (perform log \"x\")))\n(page a4 (circle 1 2 3))")
+                .unwrap_err();
+        assert!(err.message.contains("write-path") || err.message.contains("random"));
     }
 
     #[test]

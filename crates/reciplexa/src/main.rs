@@ -118,6 +118,8 @@ mod tests {
             "hline_macro.rpx",
             "gray_macro.rpx",
             "with_handle_log.rpx",
+            "with_handle_write_path.rpx",
+            "with_code.rpx",
             "multiline_doc.rpx",
             "doc_title_p.rpx",
             "long_doc.rpx",
