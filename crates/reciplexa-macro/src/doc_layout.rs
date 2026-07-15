@@ -295,7 +295,7 @@ pub fn layout_doc_parts(parts: &[DocPart]) -> Vec<LaidItem> {
                     flush_body(&mut buf, &mut out);
                     push_warn_block(brace_body, &mut out);
                 }
-                "em" => {
+                "em" | "italic" => {
                     push_marked_inline(brace_body, "*", &mut buf);
                 }
                 "strong" | "bold" => {

@@ -511,6 +511,15 @@ mod tests {
     }
 
     #[test]
+    fn expands_italic_as_em_alias() {
+        let out = expand_source("(doc Hello @italic{世界}.)").unwrap();
+        assert!(
+            out.contains("(text 25 270 8 \"Hello *世界*.\" black)"),
+            "{out}"
+        );
+    }
+
+    #[test]
     fn expands_strong_with_double_asterisks() {
         let out = expand_source("(doc Go @strong{fast}.)").unwrap();
         assert!(
