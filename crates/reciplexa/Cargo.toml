@@ -3,8 +3,12 @@ name = "reciplexa"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "CLI entry for reciplexa (render .rpx to PDF for now)"
+description = "CLI entry and shared .rpx compile pipeline"
 publish = false
+
+[lib]
+name = "reciplexa"
+path = "src/lib.rs"
 
 [[bin]]
 name = "reciplexa"
@@ -16,3 +20,4 @@ reciplexa-macro = { workspace = true }
 reciplexa-effect = { workspace = true }
 reciplexa-pdf = { workspace = true }
 reciplexa-types = { workspace = true }
+reciplexa-scene = { workspace = true }

@@ -13,9 +13,11 @@ path = "src/main.rs"
 [dependencies]
 eframe = { workspace = true }
 egui = { workspace = true }
+reciplexa = { path = "../reciplexa" }
 reciplexa-lower = { workspace = true }
 reciplexa-macro = { workspace = true }
 reciplexa-pdf = { workspace = true }
 reciplexa-scene = { workspace = true }
 reciplexa-types = { workspace = true }
 reciplexa-view = { workspace = true }
+reciplexa-effect = { workspace = true }

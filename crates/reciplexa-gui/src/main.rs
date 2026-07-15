@@ -8,24 +8,41 @@ use std::sync::Arc;
 
 use eframe::egui;
 use eframe::egui::text::{CCursor, CCursorRange};
+use reciplexa::pipeline::{document_for_export, document_from_source};
+use reciplexa_effect::{EffectError, EffectHandler, Value};
 use reciplexa_lower::{
     collect_layer_props, collect_layers_page, collect_size_targets_page, delete_layer_page,
-    duplicate_layer_page, layer_rotation_deg, lower_source, nudge_layer_page, reorder_layer_page,
+    duplicate_layer_page, layer_rotation_deg, nudge_layer_page, reorder_layer_page,
     scale_size_target, set_layer_prop, set_layer_rotation_deg, set_layers_fill_rgb,
     set_layers_opacity, LayerInfo, PropEditContext, PropGroup, PropValue, SizeTarget,
 };
 use reciplexa_macro::expand_source;
 use reciplexa_pdf::write_document_with_base;
-use reciplexa_types::typecheck_source;
 use reciplexa_view::{
     flatten_page, hit_test_shapes, shapes_intersecting_aabb, PaperLayout, WorldShape,
 };
 
+/// Live preview: expand + typecheck + lower **without** running `(src)` effects.
 fn pipeline_doc(src: &str) -> Result<reciplexa_scene::Document, String> {
-    let expanded = expand_source(src).map_err(|e| format!("macro: {}", e.message))?;
-    typecheck_source(&expanded)
-        .map_err(|e| format!("type: {} @{}..{}", e.message, e.start, e.end))?;
-    lower_source(&expanded).map_err(|e| e.message)
+    document_from_source(src).map_err(|e| e.display())
+}
+
+struct GuiExportHandler;
+
+impl EffectHandler for GuiExportHandler {
+    fn on_log(&mut self, message: &str) -> Result<Value, EffectError> {
+        eprintln!("[perform log] {message}");
+        Ok(Value::Unit)
+    }
+
+    fn on_random(&mut self) -> Result<Value, EffectError> {
+        Ok(Value::Number(0.0))
+    }
+
+    fn on_write_path(&mut self, path: &str) -> Result<Value, EffectError> {
+        eprintln!("[perform write-path] {path}");
+        Ok(Value::Unit)
+    }
 }
 
 fn install_cjk_fonts(ctx: &egui::Context) {
@@ -130,13 +147,9 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    let (src, mut initial_error) = match expand_source(&src) {
-        Ok(s) => (s, None),
-        Err(e) => (src, Some(format!("macro: {}", e.message))),
-    };
-    if initial_error.is_none() {
-        initial_error = pipeline_doc(&src).err();
-    }
+    // Keep the author's `.rpx` text. Expansion happens inside `pipeline_doc` /
+    // export so Scribble macros (`@title`, …) stay editable.
+    let initial_error = pipeline_doc(&src).err();
     if let Some(ref e) = initial_error {
         eprintln!("warn: opening with error (edit to fix): {e}");
     }
@@ -1033,22 +1046,20 @@ impl eframe::App for PreviewApp {
                         }
                     }
                     if ui.button("Reload disk").clicked() {
+                        // Load authoring text as-is; do not bake macros into the editor buffer.
                         match fs::read_to_string(&self.path) {
-                            Ok(raw) => match expand_source(&raw) {
-                                Ok(s) => {
-                                    self.source = s;
-                                    self.drag = None;
-                                    self.clear_selection();
-                                    self.error = pipeline_doc(&self.source).err();
-                                }
-                                Err(e) => self.error = Some(format!("macro: {}", e.message)),
-                            },
+                            Ok(raw) => {
+                                self.source = raw;
+                                self.drag = None;
+                                self.clear_selection();
+                                self.error = pipeline_doc(&self.source).err();
+                            }
                             Err(e) => self.error = Some(format!("reload: {e}")),
                         }
                     }
                     if ui.button("Export PDF").clicked() {
-                        match pipeline_doc(&self.source) {
-                            Ok(doc) => {
+                        match document_for_export(&mut GuiExportHandler, &self.source) {
+                            Ok((doc, _)) => {
                                 let pdf_path = self.path.with_extension("pdf");
                                 let base = self.path.parent();
                                 match fs::File::create(&pdf_path)
@@ -1061,14 +1072,16 @@ impl eframe::App for PreviewApp {
                                     Err(e) => self.error = Some(format!("pdf: {e}")),
                                 }
                             }
-                            Err(e) => self.error = Some(e),
+                            Err(e) => self.error = Some(e.display()),
                         }
                     }
                     if ui.button("Re-expand macros").clicked() {
+                        // Explicit bake: replaces the editor buffer with expanded forms.
                         match expand_source(&self.source) {
                             Ok(s) => {
+                                self.push_undo();
                                 self.source = s;
-                                self.error = None;
+                                self.error = pipeline_doc(&self.source).err();
                             }
                             Err(e) => self.error = Some(format!("macro: {}", e.message)),
                         }

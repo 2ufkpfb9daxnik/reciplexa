@@ -1,15 +1,15 @@
 //! Minimal CLI: `reciplexa <input.rpx> <output.pdf>`
+//!
+//! Compilation stages live in [`reciplexa::pipeline`] so the GUI can share them.
 
 use std::env;
 use std::fs;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-use reciplexa_effect::{run_source_effects, EffectError, EffectHandler, Value};
-use reciplexa_lower::lower_source;
-use reciplexa_macro::expand_source;
+use reciplexa::pipeline::{document_for_export, PipelineError};
+use reciplexa_effect::{EffectError, EffectHandler, Value};
 use reciplexa_pdf::write_document_with_base;
-use reciplexa_types::typecheck_source;
 
 fn main() -> ExitCode {
     let mut args = env::args().skip(1);
@@ -52,11 +52,7 @@ impl EffectHandler for CliHandler {
 
 fn render(input: &str, output: &str) -> Result<(), String> {
     let src = fs::read_to_string(input).map_err(|e| format!("read {input}: {e}"))?;
-    let expanded = expand_source(&src).map_err(|e| format!("macro: {}", e.message))?;
-    typecheck_source(&expanded)
-        .map_err(|e| format!("type: {} @{}..{}", e.message, e.start, e.end))?;
-    run_source_effects(&mut CliHandler, &expanded).map_err(|e| format!("effect: {}", e.message))?;
-    let doc = lower_source(&expanded).map_err(|e| e.message)?;
+    let (doc, _) = document_for_export(&mut CliHandler, &src).map_err(fmt_pipeline)?;
     let path = PathBuf::from(output);
     if let Some(parent) = path.parent() {
         if !parent.as_os_str().is_empty() {
@@ -70,6 +66,10 @@ fn render(input: &str, output: &str) -> Result<(), String> {
         .map(|p| p.to_path_buf());
     write_document_with_base(&doc, base.as_deref(), file).map_err(|e| format!("pdf: {e:?}"))?;
     Ok(())
+}
+
+fn fmt_pipeline(e: PipelineError) -> String {
+    e.display()
 }
 
 #[cfg(test)]
