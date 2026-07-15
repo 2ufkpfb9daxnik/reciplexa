@@ -658,4 +658,27 @@ mod tests {
         assert!(out.contains("(text 25 270 8 \"A\" black)"), "{out}");
         assert!(out.contains("(text 25 258 8 \"B\" black)"), "{out}");
     }
+
+    // --- @pagebreak ---
+
+    #[test]
+    fn expands_pagebreak_starts_second_page() {
+        let out = expand_source("(doc @p{One}\n@pagebreak{}\n@p{Two})").unwrap();
+        assert_eq!(out.matches("(page a4").count(), 2, "{out}");
+        assert!(out.contains("(text 25 270 8 \"One\" black)"), "{out}");
+        // Second page resets to top margin.
+        assert!(
+            out.contains("\n(page a4 (text 25 270 8 \"Two\" black))")
+                || out.ends_with("(page a4 (text 25 270 8 \"Two\" black))"),
+            "Two should start at top of page 2: {out}"
+        );
+    }
+
+    #[test]
+    fn pagebreak_alone_yields_empty_pages_skipped() {
+        // Only a break with no drawable items → still one empty page is ok,
+        // or empty doc page; we accept a single empty page.
+        let out = expand_source("(doc @pagebreak{})").unwrap();
+        assert!(out.contains("(page a4)"), "{out}");
+    }
 }

@@ -16,7 +16,7 @@ pub struct LaidLine {
     pub content: String,
 }
 
-/// Flow item after Scribble package layout (text, gap, or rule).
+/// Flow item after Scribble package layout (text, gap, rule, or forced break).
 #[derive(Debug, Clone, PartialEq)]
 pub enum LaidItem {
     Text(LaidLine),
@@ -28,15 +28,13 @@ pub enum LaidItem {
     Hr {
         y_gap_after: f64,
     },
+    /// Force the next drawable item onto a new page (`@pagebreak`).
+    PageBreak,
 }
 
 impl LaidItem {
-    fn y_gap_after(&self) -> f64 {
-        match self {
-            LaidItem::Text(t) => t.y_gap_after,
-            LaidItem::VSpace { mm } => *mm,
-            LaidItem::Hr { y_gap_after } => *y_gap_after,
-        }
+    fn is_pagebreak(&self) -> bool {
+        matches!(self, LaidItem::PageBreak)
     }
 }
 
@@ -117,7 +115,7 @@ impl PlacedItem {
 }
 
 /// Assign laid items to pages, starting a new page when the baseline would
-/// fall below [`DocFrame::bottom_mm`].
+/// fall below [`DocFrame::bottom_mm`], or when a [`LaidItem::PageBreak`] appears.
 pub fn place_items(items: &[LaidItem], frame: DocFrame) -> Vec<PlacedItem> {
     let mut out = Vec::new();
     if items.is_empty() {
@@ -125,9 +123,21 @@ pub fn place_items(items: &[LaidItem], frame: DocFrame) -> Vec<PlacedItem> {
     }
     let mut page = 0usize;
     let mut y = frame.top_mm;
-    for (i, item) in items.iter().enumerate() {
-        if i > 0 {
-            let next_y = y - items[i - 1].y_gap_after();
+    let mut force_new_page = false;
+    let mut prev_gap = 0.0_f64;
+    let mut have_prev = false;
+    for item in items {
+        if item.is_pagebreak() {
+            force_new_page = true;
+            have_prev = false;
+            continue;
+        }
+        if force_new_page {
+            page += 1;
+            y = frame.top_mm;
+            force_new_page = false;
+        } else if have_prev {
+            let next_y = y - prev_gap;
             if next_y < frame.bottom_mm {
                 page += 1;
                 y = frame.top_mm;
@@ -144,11 +154,14 @@ pub fn place_items(items: &[LaidItem], frame: DocFrame) -> Vec<PlacedItem> {
                     size_mm: line.size_mm,
                     content: line.content.clone(),
                 }));
+                prev_gap = line.y_gap_after;
+                have_prev = true;
             }
-            LaidItem::VSpace { .. } => {
-                // Cursor advances via y_gap_after only; nothing drawn.
+            LaidItem::VSpace { mm } => {
+                prev_gap = *mm;
+                have_prev = true;
             }
-            LaidItem::Hr { .. } => {
+            LaidItem::Hr { y_gap_after } => {
                 out.push(PlacedItem::Line {
                     page_index: page,
                     x1_mm: frame.left_mm,
@@ -157,7 +170,10 @@ pub fn place_items(items: &[LaidItem], frame: DocFrame) -> Vec<PlacedItem> {
                     y2_mm: y,
                     width_mm: HR_WIDTH_MM,
                 });
+                prev_gap = *y_gap_after;
+                have_prev = true;
             }
+            LaidItem::PageBreak => unreachable!("handled above"),
         }
     }
     out
@@ -229,6 +245,10 @@ pub fn layout_doc_parts(parts: &[DocPart]) -> Vec<LaidItem> {
                     out.push(LaidItem::Hr {
                         y_gap_after: HR_GAP_MM,
                     });
+                }
+                "pagebreak" => {
+                    flush_body(&mut buf, &mut out);
+                    out.push(LaidItem::PageBreak);
                 }
                 _ => {
                     if !brace_body.is_empty() {
