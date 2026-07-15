@@ -69,6 +69,9 @@ fn find_next_rewrite(root: &SyntaxNode) -> Option<(usize, usize, String)> {
     if let Some((start, end, replacement)) = find_rule(root) {
         return Some((start, end, replacement));
     }
+    if let Some((start, end, replacement)) = find_square(root) {
+        return Some((start, end, replacement));
+    }
     if let Some((start, end, replacement)) = find_doc(root) {
         return Some((start, end, replacement));
     }
@@ -164,6 +167,37 @@ fn find_axis_line(
             // a=y1 b=y2 c=x
             format!("(line {c} {a} {c} {b}")
         };
+        for item in items.iter().skip(4) {
+            repl.push(' ');
+            repl.push_str(&atom_text(item)?);
+        }
+        repl.push(')');
+        let range = node.text_range();
+        return Some((range.start().into(), range.end().into(), repl));
+    }
+    None
+}
+
+/// `(square x y size [fill…])` → `(rect x y size size …)`.
+fn find_square(root: &SyntaxNode) -> Option<(usize, usize, String)> {
+    for node in root.descendants() {
+        if node.kind() != SyntaxKind::List {
+            continue;
+        }
+        let items = list_atoms(&node);
+        let Some(Child::Token(head)) = items.first() else {
+            continue;
+        };
+        if head.kind() != SyntaxKind::Ident || head.text() != "square" {
+            continue;
+        }
+        if items.len() < 4 {
+            continue;
+        }
+        let x = atom_text(&items[1])?;
+        let y = atom_text(&items[2])?;
+        let size = atom_text(&items[3])?;
+        let mut repl = format!("(rect {x} {y} {size} {size}");
         for item in items.iter().skip(4) {
             repl.push(' ');
             repl.push_str(&atom_text(item)?);
@@ -413,6 +447,13 @@ mod tests {
         assert!(out.contains(" 190 "));
         assert!(!out.contains("rule"));
         assert!(!out.contains("hline"));
+    }
+
+    #[test]
+    fn expands_square_to_rect() {
+        let src = "(page a4 (square 10 20 30 red))";
+        let out = expand_source(src).unwrap();
+        assert_eq!(out, "(page a4 (rect 10 20 30 30 red))");
     }
 
     #[test]

@@ -1381,7 +1381,7 @@ impl eframe::App for PreviewApp {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("Paper preview");
-            ui.label("Scroll = zoom · Middle/Alt-drag = pan · Drag empty = marquee · Shift-click = add/remove · Ctrl+A = select all · Esc = clear · Body-drag = move · Corner = scale · Top knob = rotate · Arrows = nudge · Delete = remove.");
+            ui.label("Scroll = zoom · Middle/Alt-drag = pan · Drag empty = marquee · Shift-click = add/remove · Ctrl+A = select all · Esc = clear · Body-drag = move · Ctrl-drag = 5mm snap · Corner = scale · Top knob = rotate · Arrows = nudge · Delete = remove.");
 
             let doc = match pipeline_doc(&self.source) {
                 Ok(d) => d,
@@ -1625,8 +1625,15 @@ impl eframe::App for PreviewApp {
                                 last_mm,
                                 flat_indices,
                             } => {
-                                let dx = mx - last_mm.0;
-                                let dy = my - last_mm.1;
+                                let mut dx = mx - last_mm.0;
+                                let mut dy = my - last_mm.1;
+                                // Ctrl/Cmd: snap motion to a 5mm grid (paper coords).
+                                if ui.input(|i| i.modifiers.command) {
+                                    const GRID: f64 = 5.0;
+                                    let snap = |v: f64| (v / GRID).round() * GRID;
+                                    dx = snap(mx) - snap(last_mm.0);
+                                    dy = snap(my) - snap(last_mm.1);
+                                }
                                 let mut indices = flat_indices;
                                 if dx.abs() > 1e-9 || dy.abs() > 1e-9 {
                                     let mut undo_pushed = drag.undo_pushed;

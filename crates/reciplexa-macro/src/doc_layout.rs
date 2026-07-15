@@ -973,6 +973,11 @@ fn is_not_line_start(c: char) -> bool {
             | '°'
             | '′'
             | '″'
+            | '・'
+            | '：'
+            | '；'
+            | '‥'
+            | '…'
     )
 }
 
@@ -1056,6 +1061,12 @@ mod tests {
     fn wrap_prefers_break_after_middle_dot() {
         let lines = wrap_line("赤・青・緑いろ", 4);
         assert_eq!(lines, vec!["赤・青・", "緑いろ"]);
+    }
+
+    #[test]
+    fn wrap_avoids_line_start_with_middle_dot() {
+        let lines = wrap_line("あいう・え", 3);
+        assert!(lines.iter().all(|l| !l.starts_with('・')), "{lines:?}");
     }
 
     #[test]
