@@ -1,0 +1,36 @@
+; Multipage Scribble doc (spills past bottom margin)
+(doc
+@title{長いメモ}
+@h2{1. 背景}
+@p{ここから段落が続き、下端マージンに当たると次のページへ送られます。}
+@li{項目 A}
+@li{項目 B}
+@li{項目 C}
+@h2{2. 本文}
+@p{line0}
+@p{line1}
+@p{line2}
+@p{line3}
+@p{line4}
+@p{line5}
+@p{line6}
+@p{line7}
+@p{line8}
+@p{line9}
+@p{line10}
+@p{line11}
+@p{line12}
+@p{line13}
+@p{line14}
+@p{line15}
+@p{line16}
+@p{line17}
+@p{line18}
+@p{line19}
+@p{line20}
+@p{line21}
+@p{line22}
+@p{line23}
+@h2{3. まとめ}
+@p{最終ページ側に落ちる想定の締めです。}
+)

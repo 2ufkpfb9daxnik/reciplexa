@@ -11,6 +11,8 @@ pub struct LaidLine {
     pub size_mm: f64,
     /// Distance to subtract from this baseline to place the next line.
     pub y_gap_after: f64,
+    /// Extra inset from [`DocFrame::left_mm`] (e.g. quotes).
+    pub indent_mm: f64,
     pub content: String,
 }
 
@@ -20,6 +22,10 @@ pub const H2_SIZE_MM: f64 = 11.0;
 pub const H2_GAP_MM: f64 = 14.0;
 pub const BODY_SIZE_MM: f64 = 8.0;
 pub const BODY_GAP_MM: f64 = 12.0;
+pub const QUOTE_SIZE_MM: f64 = 7.0;
+pub const QUOTE_GAP_MM: f64 = 12.0;
+pub const QUOTE_INDENT_MM: f64 = 10.0;
+pub const QUOTE_WRAP_CHARS: usize = 36;
 
 /// Soft wrap budget for body lines (~A4 content width at body size; not JLReq).
 pub const BODY_WRAP_CHARS: usize = 40;
@@ -75,7 +81,7 @@ pub fn place_lines(lines: &[LaidLine], frame: DocFrame) -> Vec<PlacedText> {
         }
         out.push(PlacedText {
             page_index: page,
-            x_mm: frame.left_mm,
+            x_mm: frame.left_mm + line.indent_mm,
             y_mm: y,
             size_mm: line.size_mm,
             content: line.content.clone(),
@@ -116,6 +122,17 @@ pub fn layout_doc_parts(parts: &[DocPart]) -> Vec<LaidLine> {
                     flush_body(&mut buf, &mut out);
                     push_list_items(brace_body, &mut out);
                 }
+                "quote" => {
+                    flush_body(&mut buf, &mut out);
+                    push_styled_block_indent(
+                        brace_body,
+                        QUOTE_SIZE_MM,
+                        QUOTE_GAP_MM,
+                        QUOTE_WRAP_CHARS,
+                        QUOTE_INDENT_MM,
+                        &mut out,
+                    );
+                }
                 "p" => {
                     flush_body(&mut buf, &mut out);
                     push_styled_block(
@@ -146,7 +163,7 @@ fn flush_body(buf: &mut String, out: &mut Vec<LaidLine>) {
     if text.is_empty() {
         return;
     }
-    push_wrapped(&text, BODY_SIZE_MM, BODY_GAP_MM, BODY_WRAP_CHARS, out);
+    push_wrapped(&text, BODY_SIZE_MM, BODY_GAP_MM, BODY_WRAP_CHARS, 0.0, out);
 }
 
 fn push_styled_block(
@@ -156,11 +173,22 @@ fn push_styled_block(
     wrap_chars: usize,
     out: &mut Vec<LaidLine>,
 ) {
+    push_styled_block_indent(body, size_mm, y_gap_after, wrap_chars, 0.0, out);
+}
+
+fn push_styled_block_indent(
+    body: &[DocPart],
+    size_mm: f64,
+    y_gap_after: f64,
+    wrap_chars: usize,
+    indent_mm: f64,
+    out: &mut Vec<LaidLine>,
+) {
     for line in flatten_lines(body) {
         if line.is_empty() {
             continue;
         }
-        push_wrapped(&line, size_mm, y_gap_after, wrap_chars, out);
+        push_wrapped(&line, size_mm, y_gap_after, wrap_chars, indent_mm, out);
     }
 }
 
@@ -171,7 +199,14 @@ fn push_list_items(body: &[DocPart], out: &mut Vec<LaidLine>) {
             continue;
         }
         let bulleted = format!("• {line}");
-        push_wrapped(&bulleted, BODY_SIZE_MM, BODY_GAP_MM, BODY_WRAP_CHARS, out);
+        push_wrapped(
+            &bulleted,
+            BODY_SIZE_MM,
+            BODY_GAP_MM,
+            BODY_WRAP_CHARS,
+            0.0,
+            out,
+        );
     }
 }
 
@@ -180,6 +215,7 @@ fn push_wrapped(
     size_mm: f64,
     y_gap_after: f64,
     wrap_chars: usize,
+    indent_mm: f64,
     out: &mut Vec<LaidLine>,
 ) {
     let chunks = wrap_line(text, wrap_chars);
@@ -194,6 +230,7 @@ fn push_wrapped(
         out.push(LaidLine {
             size_mm,
             y_gap_after: gap,
+            indent_mm,
             content: chunk,
         });
     }
@@ -331,6 +368,7 @@ mod tests {
             .map(|i| LaidLine {
                 size_mm: BODY_SIZE_MM,
                 y_gap_after: BODY_GAP_MM,
+                indent_mm: 0.0,
                 content: format!("L{i}"),
             })
             .collect();

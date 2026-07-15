@@ -110,6 +110,7 @@ mod tests {
             "with_handle_log.rpx",
             "multiline_doc.rpx",
             "doc_title_p.rpx",
+            "long_doc.rpx",
         ] {
             let input = repo.join("examples").join(name);
             let output = repo.join("target").join(format!("test-{name}.pdf"));

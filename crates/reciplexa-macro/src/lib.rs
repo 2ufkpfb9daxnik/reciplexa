@@ -564,4 +564,21 @@ mod tests {
             "expected multipage layout, got {page_count} page(s): {out}"
         );
     }
+
+    // --- @quote ---
+
+    #[test]
+    fn expands_quote_indented_smaller() {
+        let out = expand_source("(doc @quote{Cited line})").unwrap();
+        // Indented left (35) and size 7.
+        assert!(
+            out.contains("(text 35 270 7 \"Cited line\" black)"),
+            "{out}"
+        );
+    }
+
+    #[test]
+    fn empty_quote_skips() {
+        assert_eq!(expand_source("(doc @quote{})").unwrap(), "(page a4)");
+    }
 }
