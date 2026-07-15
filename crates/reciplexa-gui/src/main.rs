@@ -143,6 +143,9 @@ fn theme_prefs_path() -> Option<PathBuf> {
 struct GuiPrefs {
     theme: UiTheme,
     show_grid: bool,
+    zoom: f32,
+    pan_x: f32,
+    pan_y: f32,
 }
 
 impl GuiPrefs {
@@ -150,6 +153,9 @@ impl GuiPrefs {
         let mut prefs = Self {
             theme: UiTheme::Light,
             show_grid: false,
+            zoom: 1.0,
+            pan_x: 0.0,
+            pan_y: 0.0,
         };
         let Some(path) = theme_prefs_path() else {
             return prefs;
@@ -167,6 +173,18 @@ impl GuiPrefs {
                 }
             } else if let Some(v) = line.strip_prefix("grid=") {
                 prefs.show_grid = matches!(v, "1" | "true" | "on");
+            } else if let Some(v) = line.strip_prefix("zoom=") {
+                if let Ok(z) = v.parse::<f32>() {
+                    prefs.zoom = z.clamp(0.2, 8.0);
+                }
+            } else if let Some(v) = line.strip_prefix("pan_x=") {
+                if let Ok(x) = v.parse::<f32>() {
+                    prefs.pan_x = x;
+                }
+            } else if let Some(v) = line.strip_prefix("pan_y=") {
+                if let Ok(y) = v.parse::<f32>() {
+                    prefs.pan_y = y;
+                }
             } else if line.eq_ignore_ascii_case("dark") {
                 // Backward compatible with old single-word theme file.
                 prefs.theme = UiTheme::Dark;
@@ -183,12 +201,15 @@ impl GuiPrefs {
             let _ = fs::create_dir_all(parent);
         }
         let body = format!(
-            "theme={}\ngrid={}\n",
+            "theme={}\ngrid={}\nzoom={:.4}\npan_x={:.2}\npan_y={:.2}\n",
             match self.theme {
                 UiTheme::Light => "light",
                 UiTheme::Dark => "dark",
             },
-            if self.show_grid { "1" } else { "0" }
+            if self.show_grid { "1" } else { "0" },
+            self.zoom.clamp(0.2, 8.0),
+            self.pan_x,
+            self.pan_y,
         );
         let _ = fs::write(path, body);
     }
@@ -342,8 +363,8 @@ fn main() -> ExitCode {
                 error: initial_error,
                 drag: None,
                 page_index: 0,
-                zoom: 1.0,
-                pan: egui::Vec2::ZERO,
+                zoom: prefs.zoom,
+                pan: egui::vec2(prefs.pan_x, prefs.pan_y),
                 selected: Vec::new(),
                 pending_source_select: None,
                 textures: std::collections::HashMap::new(),
@@ -360,6 +381,9 @@ fn main() -> ExitCode {
                 theme: prefs.theme,
                 show_grid: prefs.show_grid,
                 title_dirty: false,
+                viewport_paint_size: egui::Vec2::new(400.0, 400.0),
+                viewport_page_mm: (210.0, 297.0),
+                viewport_prefs_dirty: false,
             }))
         }),
     ) {
@@ -409,6 +433,12 @@ struct PreviewApp {
     show_grid: bool,
     /// Last window-title dirty bit (avoid spamming viewport cmds).
     title_dirty: bool,
+    /// Last frame's paper preview size (for keyboard zoom anchor).
+    viewport_paint_size: egui::Vec2,
+    /// Last frame's page size in mm (for keyboard zoom anchor).
+    viewport_page_mm: (f64, f64),
+    /// Defer writing zoom/pan to prefs until end of frame.
+    viewport_prefs_dirty: bool,
 }
 
 #[derive(Clone, Copy)]
@@ -555,6 +585,53 @@ impl PreviewApp {
 
     fn primary_selected(&self) -> Option<usize> {
         self.selected.last().copied()
+    }
+
+    /// Change zoom while keeping the paper point at `anchor_local` fixed on screen.
+    fn set_viewport_zoom(&mut self, new_zoom: f32, anchor_local: egui::Vec2) {
+        let new_zoom = new_zoom.clamp(0.2, 8.0);
+        if (new_zoom - self.zoom).abs() < 1e-6 {
+            return;
+        }
+        let (page_w, page_h) = self.viewport_page_mm;
+        let base = PaperLayout::fit(
+            self.viewport_paint_size.x,
+            self.viewport_paint_size.y,
+            24.0,
+            page_w,
+            page_h,
+        );
+        let (px, py) = PaperLayout::pan_for_zoom_change(
+            &base,
+            self.zoom,
+            (self.pan.x, self.pan.y),
+            new_zoom,
+            (anchor_local.x, anchor_local.y),
+        );
+        self.zoom = new_zoom;
+        self.pan = egui::vec2(px, py);
+    }
+
+    fn zoom_viewport_by(&mut self, factor: f32, anchor_local: Option<egui::Vec2>) {
+        let anchor = anchor_local.unwrap_or_else(|| self.viewport_paint_size * 0.5);
+        self.set_viewport_zoom(self.zoom * factor, anchor);
+        self.viewport_prefs_dirty = true;
+    }
+
+    fn persist_gui_prefs(&self) {
+        let mut prefs = GuiPrefs::load();
+        prefs.theme = self.theme;
+        prefs.show_grid = self.show_grid;
+        prefs.zoom = self.zoom;
+        prefs.pan_x = self.pan.x;
+        prefs.pan_y = self.pan.y;
+        prefs.save();
+    }
+
+    fn reset_viewport(&mut self) {
+        self.zoom = 1.0;
+        self.pan = egui::Vec2::ZERO;
+        self.viewport_prefs_dirty = true;
     }
 
     fn apply_prop_edit(
@@ -1111,8 +1188,7 @@ impl PreviewApp {
                 self.drag = None;
                 self.clear_selection();
                 self.page_index = 0;
-                self.zoom = 1.0;
-                self.pan = egui::Vec2::ZERO;
+                self.reset_viewport();
                 self.textures.clear();
                 self.undo_stack.clear();
                 self.redo_stack.clear();
@@ -1209,8 +1285,7 @@ impl PreviewApp {
         self.drag = None;
         self.clear_selection();
         self.page_index = 0;
-        self.zoom = 1.0;
-        self.pan = egui::Vec2::ZERO;
+        self.reset_viewport();
         self.textures.clear();
         self.undo_stack.clear();
         self.redo_stack.clear();
@@ -1500,6 +1575,7 @@ impl PreviewApp {
 
     fn toggle_theme(&mut self, ctx: &egui::Context) {
         self.set_theme(ctx, self.theme.toggle());
+        self.persist_gui_prefs();
     }
 }
 
@@ -1560,7 +1636,7 @@ impl eframe::App for PreviewApp {
                     || (i.modifiers.command && i.key_pressed(egui::Key::Equals))
             })
         {
-            self.zoom = (self.zoom * 1.15).min(8.0);
+            self.zoom_viewport_by(1.15, None);
         }
         if !source_focused
             && ctx.input(|i| {
@@ -1568,11 +1644,10 @@ impl eframe::App for PreviewApp {
                     || (i.modifiers.command && i.key_pressed(egui::Key::Minus))
             })
         {
-            self.zoom = (self.zoom / 1.15).max(0.2);
+            self.zoom_viewport_by(1.0 / 1.15, None);
         }
         if !source_focused && ctx.input(|i| i.key_pressed(egui::Key::Num0) && i.modifiers.command) {
-            self.zoom = 1.0;
-            self.pan = egui::Vec2::ZERO;
+            self.reset_viewport();
         }
         if !source_focused && ctx.input(|i| i.modifiers.command && i.key_pressed(egui::Key::A)) {
             if let Ok(layers) = collect_layers_page(&self.source, self.page_index) {
@@ -1642,6 +1717,30 @@ impl eframe::App for PreviewApp {
                 i.modifiers.command && !i.modifiers.shift && i.key_pressed(egui::Key::OpenBracket)
             }) {
                 self.send_selection_to_back();
+            }
+        }
+        if !source_focused && self.selected.is_empty() {
+            let step = if ctx.input(|i| i.modifiers.shift) {
+                48.0
+            } else {
+                16.0
+            };
+            let mut delta = egui::Vec2::ZERO;
+            if ctx.input(|i| i.key_pressed(egui::Key::ArrowLeft)) {
+                delta.x += step;
+            }
+            if ctx.input(|i| i.key_pressed(egui::Key::ArrowRight)) {
+                delta.x -= step;
+            }
+            if ctx.input(|i| i.key_pressed(egui::Key::ArrowDown)) {
+                delta.y -= step;
+            }
+            if ctx.input(|i| i.key_pressed(egui::Key::ArrowUp)) {
+                delta.y += step;
+            }
+            if delta != egui::Vec2::ZERO {
+                self.pan += delta;
+                self.viewport_prefs_dirty = true;
             }
         }
         if !source_focused {
@@ -1727,8 +1826,7 @@ impl eframe::App for PreviewApp {
                     .on_hover_text("Reset zoom and pan")
                     .clicked()
                 {
-                    self.zoom = 1.0;
-                    self.pan = egui::Vec2::ZERO;
+                    self.reset_viewport();
                 }
                 ui.label(format!("{:.0}%", self.zoom * 100.0));
                 let grid_label = if self.show_grid {
@@ -1991,7 +2089,7 @@ impl eframe::App for PreviewApp {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("Paper preview");
-            ui.label("Scroll = zoom · Middle/Alt-drag = pan · Drag empty = marquee · Shift-click = add/remove · Ctrl+A = select all · Esc = clear · Body-drag = move · Ctrl-drag = 5mm snap · Corner/edge = resize · Top knob = rotate · Arrows = nudge · Delete = remove · Ctrl+C/V = copy/paste · Ctrl+Shift+L = theme · G = grid.");
+            ui.label("Scroll = zoom at cursor · Space/Middle/Alt-drag = pan · Arrows pan view (selection empty) · Drag empty = marquee · Shift-click = add/remove · Ctrl+A = select all · Esc = clear · Body-drag = move · Ctrl-drag = 5mm snap · Corner/edge = resize · Top knob = rotate · Arrows nudge selection · Delete = remove · Ctrl+C/V = copy/paste · Ctrl+Shift+L = theme · G = grid.");
 
             let doc = match pipeline_doc(&self.source) {
                 Ok(d) => d,
@@ -2033,15 +2131,14 @@ impl eframe::App for PreviewApp {
                 }
                 ui.separator();
                 if ui.button("−").clicked() {
-                    self.zoom = (self.zoom / 1.15).max(0.2);
+                    self.zoom_viewport_by(1.0 / 1.15, None);
                 }
                 ui.label(format!("{:.0}%", self.zoom * 100.0));
                 if ui.button("+").clicked() {
-                    self.zoom = (self.zoom * 1.15).min(8.0);
+                    self.zoom_viewport_by(1.15, None);
                 }
                 if ui.button("Reset view").clicked() {
-                    self.zoom = 1.0;
-                    self.pan = egui::Vec2::ZERO;
+                    self.reset_viewport();
                 }
                 ui.separator();
                 if ui
@@ -2087,6 +2184,9 @@ impl eframe::App for PreviewApp {
             }
 
             let avail = ui.available_size();
+            self.viewport_paint_size = avail;
+            self.viewport_page_mm = (page.paper.width_mm, page.paper.height_mm);
+
             let (response, painter) = ui.allocate_painter(avail, egui::Sense::click_and_drag());
             let rect = response.rect;
 
@@ -2094,14 +2194,24 @@ impl eframe::App for PreviewApp {
                 let scroll = ui.input(|i| i.smooth_scroll_delta.y);
                 if scroll.abs() > 0.0 {
                     let factor = (1.0 + scroll * 0.002).clamp(0.85, 1.15);
-                    self.zoom = (self.zoom * factor).clamp(0.2, 8.0);
+                    let anchor = ui
+                        .input(|i| i.pointer.hover_pos())
+                        .map(|p| p - rect.min)
+                        .unwrap_or_else(|| avail * 0.5);
+                    self.zoom_viewport_by(factor, Some(anchor));
                 }
             }
-            // Pan with middle mouse or Alt + drag.
+            let space_held = ui.input(|i| i.key_down(egui::Key::Space) && !i.modifiers.any());
+            // Pan with Space+drag, middle mouse, or Alt + drag.
             let pan_gesture = response.dragged_by(egui::PointerButton::Middle)
+                || (space_held && response.dragged_by(egui::PointerButton::Primary))
                 || (response.dragged() && ui.input(|i| i.modifiers.alt));
             if pan_gesture {
                 self.pan += response.drag_delta();
+                self.viewport_prefs_dirty = true;
+            }
+            if space_held && response.hovered() {
+                ui.ctx().set_cursor_icon(egui::CursorIcon::Grab);
             }
 
             let layout = PaperLayout::fit(
@@ -2201,7 +2311,8 @@ impl eframe::App for PreviewApp {
 
             let skip_shape_drag = pan_gesture
                 || ui.input(|i| i.pointer.button_down(egui::PointerButton::Middle))
-                || ui.input(|i| i.modifiers.alt);
+                || ui.input(|i| i.modifiers.alt)
+                || (space_held && ui.input(|i| i.pointer.button_down(egui::PointerButton::Primary)));
 
             if let Some(pos) = response.interact_pointer_pos() {
                 let local = pos - rect.min;
@@ -2709,6 +2820,10 @@ impl eframe::App for PreviewApp {
                 );
             }
         });
+        if self.viewport_prefs_dirty {
+            self.persist_gui_prefs();
+            self.viewport_prefs_dirty = false;
+        }
     }
 }
 

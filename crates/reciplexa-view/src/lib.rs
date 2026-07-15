@@ -323,6 +323,38 @@ impl PaperLayout {
         self
     }
 
+    /// Pan offset so that `anchor_mm` stays at `anchor_local_px` after [`Self::with_view`].
+    pub fn pan_for_zoom_anchor(
+        base: &Self,
+        zoom: f32,
+        anchor_local_px: (f32, f32),
+        anchor_mm: (f64, f64),
+    ) -> (f32, f32) {
+        let zoom = zoom.clamp(0.2, 8.0);
+        let w = base.width_px * zoom;
+        let h = base.height_px * zoom;
+        let sx = w / base.page_width_mm as f32;
+        let sy = h / base.page_height_mm as f32;
+        let target_ox = anchor_local_px.0 - anchor_mm.0 as f32 * sx;
+        let target_oy = anchor_local_px.1 - (base.page_height_mm - anchor_mm.1) as f32 * sy;
+        let pan_x = target_ox - base.origin_x_px - base.width_px * 0.5 + w * 0.5;
+        let pan_y = target_oy - base.origin_y_px - base.height_px * 0.5 + h * 0.5;
+        (pan_x, pan_y)
+    }
+
+    /// Pan for a zoom change while keeping the paper point under `anchor_local_px` fixed.
+    pub fn pan_for_zoom_change(
+        base: &Self,
+        old_zoom: f32,
+        old_pan: (f32, f32),
+        new_zoom: f32,
+        anchor_local_px: (f32, f32),
+    ) -> (f32, f32) {
+        let old_layout = base.with_view(old_zoom, old_pan.0, old_pan.1);
+        let anchor_mm = old_layout.px_to_mm(anchor_local_px.0, anchor_local_px.1);
+        Self::pan_for_zoom_anchor(base, new_zoom, anchor_local_px, anchor_mm)
+    }
+
     /// Axis-aligned bounds of a flattened shape in page mm `(min_x, min_y, max_x, max_y)`.
     pub fn shape_bounds_mm(shape: &WorldShape) -> Option<(f64, f64, f64, f64)> {
         match shape {
@@ -996,6 +1028,22 @@ mod tests {
         let z = base.with_view(2.0, 0.0, 0.0);
         assert!((z.width_px - base.width_px * 2.0).abs() < 1e-3);
         assert!((z.height_px - base.height_px * 2.0).abs() < 1e-3);
+    }
+
+    #[test]
+    fn zoom_anchor_keeps_paper_point_under_cursor() {
+        let base = PaperLayout::fit(400.0, 400.0, 24.0, 210.0, 297.0);
+        let anchor = (200.0_f32, 180.0_f32);
+        let old_zoom = 1.0_f32;
+        let old_pan = (0.0_f32, 0.0_f32);
+        let old_layout = base.with_view(old_zoom, old_pan.0, old_pan.1);
+        let anchor_mm = old_layout.px_to_mm(anchor.0, anchor.1);
+        let new_zoom = 2.5_f32;
+        let (px, py) = PaperLayout::pan_for_zoom_change(&base, old_zoom, old_pan, new_zoom, anchor);
+        let new_layout = base.with_view(new_zoom, px, py);
+        let (mx, my) = new_layout.px_to_mm(anchor.0, anchor.1);
+        assert!((mx - anchor_mm.0).abs() < 0.05);
+        assert!((my - anchor_mm.1).abs() < 0.05);
     }
 
     #[test]
