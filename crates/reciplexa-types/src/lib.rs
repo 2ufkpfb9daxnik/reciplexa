@@ -408,8 +408,9 @@ fn check_src_child(child: &Child) -> Result<Type, TypeError> {
             let (head, args, span) = split_list(n)?;
             match head.as_str() {
                 "perform" => check_perform(&args, n, span),
+                "handle" => check_handle(&args, n, span),
                 other => Err(TypeError::at(
-                    format!("unsupported form in `src`: `{other}` (only `perform` for now)"),
+                    format!("unsupported form in `src`: `{other}` (only `perform` / `handle`)"),
                     span.0,
                     span.1,
                 )),
@@ -424,6 +425,49 @@ fn check_src_child(child: &Child) -> Result<Type, TypeError> {
             ))
         }
     }
+}
+
+/// `(handle log BODY…)` — body forms must be Unit (`perform` / nested `handle`).
+fn check_handle(
+    args: &[Child],
+    node: &SyntaxNode,
+    span: (usize, usize),
+) -> Result<Type, TypeError> {
+    if args.is_empty() {
+        return Err(TypeError::at(
+            "`handle` needs an effect op name",
+            span.0,
+            span.1,
+        ));
+    }
+    let op_name = match &args[0] {
+        Child::Token(t) if t.kind() == SyntaxKind::Ident => t.text().to_string(),
+        _ => {
+            return Err(TypeError::at(
+                "`handle` op must be an identifier",
+                span.0,
+                span.1,
+            ));
+        }
+    };
+    let Some(op) = EffectOp::parse(&op_name) else {
+        return Err(TypeError::at(
+            format!("unknown effect op `{op_name}`"),
+            span.0,
+            span.1,
+        ));
+    };
+    if op != EffectOp::Log {
+        return Err(TypeError::at(
+            "only `(handle log …)` is typed in this milestone",
+            span.0,
+            span.1,
+        ));
+    }
+    for a in args.iter().skip(1) {
+        expect_ty(check_src_child(a)?, Type::Unit, node)?;
+    }
+    Ok(Type::Unit)
 }
 
 fn check_polyline(
@@ -451,7 +495,7 @@ fn check_polyline(
         end -= 1;
     }
     let coords = &args[..end];
-    if coords.len() < 4 || coords.len() % 2 != 0 {
+    if coords.len() < 4 || !coords.len().is_multiple_of(2) {
         return Err(TypeError::at(
             "`polyline` needs an even number of Num coordinates (≥4)",
             span.0,
@@ -482,7 +526,7 @@ fn check_polygon(
         end -= 1;
     }
     let coords = &args[..end];
-    if coords.len() < 6 || coords.len() % 2 != 0 {
+    if coords.len() < 6 || !coords.len().is_multiple_of(2) {
         return Err(TypeError::at(
             "`polygon` needs an even number of Num coordinates (≥6)",
             span.0,
@@ -709,6 +753,18 @@ mod tests {
 (src
   (perform log "building")
   (perform random))
+(page a4 (circle 1 2 3))
+"#;
+        assert_eq!(typecheck_source(src).unwrap(), Type::Document);
+    }
+
+    #[test]
+    fn src_with_handle_log_typechecks() {
+        let src = r#"
+(src
+  (handle log
+    (perform log "muted")
+    (perform random)))
 (page a4 (circle 1 2 3))
 "#;
         assert_eq!(typecheck_source(src).unwrap(), Type::Document);

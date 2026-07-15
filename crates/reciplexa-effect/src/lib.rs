@@ -1,9 +1,9 @@
-//! Algebraic-effect skeleton for reciplexa (M9 entry).
+//! Algebraic-effect skeleton for reciplexa (M9).
 //!
-//! Side effects (I/O, draw, randomness, …) will eventually be expressed as
-//! `perform` operations handled by `handle` forms. This crate only defines the
-//! labels and a tiny pure interpreter stub so the rest of the stack can grow
-//! against a stable surface without embedding effects in the PDF or GUI crates.
+//! Side effects are expressed as `perform` operations run under top-level
+//! `(src …)` blocks (and nested `(handle log …)` for muted logging). A tiny
+//! sequential interpreter returns [`Value`]s so hosts can grow against a stable
+//! surface without embedding effects in the PDF or GUI crates.
 
 #![forbid(unsafe_code)]
 
@@ -89,15 +89,7 @@ pub fn run_perform(handler: &mut dyn EffectHandler, perf: &Perform) -> Result<Va
 
 /// Collect `(perform …)` forms nested under top-level `(src …)` blocks.
 pub fn collect_performs(input: &str) -> Result<Vec<Perform>, EffectError> {
-    use reciplexa_syntax::parse_source;
-
-    let parse = parse_source(input);
-    if !parse.errors.is_empty() {
-        return Err(EffectError::new(format!(
-            "parse error: {}",
-            parse.errors[0].message
-        )));
-    }
+    let parse = parse_root(input)?;
     let mut out = Vec::new();
     for form in parse.root.children() {
         if !is_list_headed(&form, "src") {
@@ -108,75 +100,228 @@ pub fn collect_performs(input: &str) -> Result<Vec<Perform>, EffectError> {
     Ok(out)
 }
 
+/// Run every top-level `(src …)` block in order, returning performed values.
+pub fn run_source_effects(
+    handler: &mut dyn EffectHandler,
+    input: &str,
+) -> Result<Vec<Value>, EffectError> {
+    let parse = parse_root(input)?;
+    let mut values = Vec::new();
+    for form in parse.root.children() {
+        if is_list_headed(&form, "src") {
+            values.extend(run_src_forms(handler, &form)?);
+        }
+    }
+    Ok(values)
+}
+
+/// Interpret direct children of a `(src …)` list: `perform` and `handle`.
+pub fn run_src_forms(
+    handler: &mut dyn EffectHandler,
+    src_list: &SyntaxNode,
+) -> Result<Vec<Value>, EffectError> {
+    if !is_list_headed(src_list, "src") {
+        return Err(EffectError::new("run_src_forms expects a `(src …)` list"));
+    }
+    let mut values = Vec::new();
+    for child in src_list.children() {
+        if child.kind() != reciplexa_syntax::SyntaxKind::List {
+            continue;
+        }
+        values.push(run_src_form(handler, &child)?);
+    }
+    Ok(values)
+}
+
+fn run_src_form(handler: &mut dyn EffectHandler, form: &SyntaxNode) -> Result<Value, EffectError> {
+    let head = list_head_ident(form).ok_or_else(|| EffectError::new("src form needs a head"))?;
+    match head.as_str() {
+        "perform" => {
+            let perf = parse_perform_node(form)?;
+            run_perform(handler, &perf)
+        }
+        "handle" => run_handle(handler, form),
+        other => Err(EffectError::new(format!(
+            "unsupported form in `src`: `{other}` (only `perform` / `handle`)"
+        ))),
+    }
+}
+
+/// `(handle log BODY…)` runs BODY with `log` muted (returns Unit without host I/O).
+fn run_handle(handler: &mut dyn EffectHandler, form: &SyntaxNode) -> Result<Value, EffectError> {
+    use reciplexa_syntax::{SyntaxElement, SyntaxKind};
+
+    let atoms = list_ident_tokens(form);
+    if atoms.is_empty() || atoms[0].text() != "handle" {
+        return Err(EffectError::new("internal: expected handle"));
+    }
+    if atoms.len() < 2 || atoms[1].kind() != SyntaxKind::Ident {
+        return Err(EffectError::new(
+            "`handle` needs an effect op name: (handle log BODY…)",
+        ));
+    }
+    let op_name = atoms[1].text().to_string();
+    let Some(op) = EffectOp::parse(&op_name) else {
+        return Err(EffectError::new(format!(
+            "unknown effect op in handle `{op_name}`"
+        )));
+    };
+    if op != EffectOp::Log {
+        return Err(EffectError::new(
+            "only `(handle log …)` is implemented in this milestone",
+        ));
+    }
+
+    // Body = List children after the op ident tokens (skip handle + op).
+    let mut seen_op = false;
+    let mut muted = MuteLog { inner: handler };
+    let mut last = Value::Unit;
+    for el in form.children_with_tokens() {
+        match el {
+            SyntaxElement::Token(t) => {
+                if t.kind() == SyntaxKind::Ident && t.text() == "handle" {
+                    continue;
+                }
+                if t.kind() == SyntaxKind::Ident && !seen_op {
+                    seen_op = true;
+                    continue;
+                }
+            }
+            SyntaxElement::Node(n) if n.kind() == SyntaxKind::List => {
+                if !seen_op {
+                    return Err(EffectError::new("`handle` needs an op before the body"));
+                }
+                last = run_src_form(&mut muted, &n)?;
+            }
+            _ => {}
+        }
+    }
+    if !seen_op {
+        return Err(EffectError::new("`handle` needs an effect op name"));
+    }
+    Ok(last)
+}
+
+/// Handler adapter that swallows `log` while forwarding other ops.
+struct MuteLog<'a> {
+    inner: &'a mut dyn EffectHandler,
+}
+
+impl EffectHandler for MuteLog<'_> {
+    fn on_log(&mut self, _message: &str) -> Result<Value, EffectError> {
+        Ok(Value::Unit)
+    }
+
+    fn on_random(&mut self) -> Result<Value, EffectError> {
+        self.inner.on_random()
+    }
+
+    fn on_write_path(&mut self, path: &str) -> Result<Value, EffectError> {
+        self.inner.on_write_path(path)
+    }
+}
+
+fn parse_root(input: &str) -> Result<reciplexa_syntax::Parse, EffectError> {
+    use reciplexa_syntax::parse_source;
+
+    let parse = parse_source(input);
+    if !parse.errors.is_empty() {
+        return Err(EffectError::new(format!(
+            "parse error: {}",
+            parse.errors[0].message
+        )));
+    }
+    Ok(parse)
+}
+
 fn is_list_headed(node: &SyntaxNode, name: &str) -> bool {
+    list_head_ident(node).is_some_and(|h| h == name)
+}
+
+fn list_head_ident(node: &SyntaxNode) -> Option<String> {
     use reciplexa_syntax::{SyntaxElement, SyntaxKind};
     if node.kind() != SyntaxKind::List {
-        return false;
+        return None;
     }
     for el in node.children_with_tokens() {
         if let SyntaxElement::Token(t) = el {
             if t.kind().is_trivia() || t.kind() == SyntaxKind::LParen {
                 continue;
             }
-            return t.kind() == SyntaxKind::Ident && t.text() == name;
+            if t.kind() == SyntaxKind::Ident {
+                return Some(t.text().to_string());
+            }
+            return None;
         }
     }
-    false
+    None
+}
+
+fn list_ident_tokens(node: &SyntaxNode) -> Vec<reciplexa_syntax::SyntaxToken> {
+    use reciplexa_syntax::{SyntaxElement, SyntaxKind};
+    let mut atoms = Vec::new();
+    for el in node.children_with_tokens() {
+        if let SyntaxElement::Token(t) = el {
+            if t.kind().is_trivia() || matches!(t.kind(), SyntaxKind::LParen | SyntaxKind::RParen) {
+                continue;
+            }
+            atoms.push(t);
+        }
+    }
+    atoms
 }
 
 fn collect_performs_in_list(node: &SyntaxNode, out: &mut Vec<Perform>) -> Result<(), EffectError> {
-    use reciplexa_syntax::{SyntaxElement, SyntaxKind};
-
     for child in node.children() {
-        if child.kind() != SyntaxKind::List {
+        if child.kind() != reciplexa_syntax::SyntaxKind::List {
             continue;
         }
-        let mut atoms = Vec::new();
-        for el in child.children_with_tokens() {
-            match el {
-                SyntaxElement::Token(t) => {
-                    if t.kind().is_trivia()
-                        || matches!(t.kind(), SyntaxKind::LParen | SyntaxKind::RParen)
-                    {
-                        continue;
-                    }
-                    atoms.push(t);
-                }
-                SyntaxElement::Node(_) => {}
+        let head = list_head_ident(&child);
+        match head.as_deref() {
+            Some("perform") => out.push(parse_perform_node(&child)?),
+            Some("handle") => {
+                // Nested performs inside handle still count for collect_performs.
+                collect_performs_in_list(&child, out)?;
             }
+            _ => {}
         }
-        if atoms.is_empty() || atoms[0].kind() != SyntaxKind::Ident {
-            continue;
-        }
-        if atoms[0].text() != "perform" {
-            continue;
-        }
-        if atoms.len() < 2 || atoms[1].kind() != SyntaxKind::Ident {
-            return Err(EffectError::new("perform needs an op identifier"));
-        }
-        let op_name = atoms[1].text();
-        let Some(op) = EffectOp::parse(op_name) else {
-            return Err(EffectError::new(format!("unknown effect op `{op_name}`")));
-        };
-        let payload = match op {
-            EffectOp::Random => String::new(),
-            EffectOp::Log | EffectOp::WritePath => {
-                if atoms.len() < 3 || atoms[2].kind() != SyntaxKind::String {
-                    return Err(EffectError::new(format!(
-                        "perform {op_name} needs a string payload"
-                    )));
-                }
-                let raw = atoms[2].text();
-                if raw.len() >= 2 && raw.starts_with('"') && raw.ends_with('"') {
-                    unescape_string(&raw[1..raw.len() - 1])
-                } else {
-                    return Err(EffectError::new("malformed string payload"));
-                }
-            }
-        };
-        out.push(Perform { op, payload });
     }
     Ok(())
+}
+
+fn parse_perform_node(node: &SyntaxNode) -> Result<Perform, EffectError> {
+    use reciplexa_syntax::SyntaxKind;
+
+    let atoms = list_ident_tokens(node);
+    // perform also needs String tokens — list_ident_tokens only keeps all non-trivia tokens actually
+    // Wait, it pushes ALL non-delimiter tokens including String. Good - rename was wrong in my head.
+    if atoms.is_empty() || atoms[0].kind() != SyntaxKind::Ident || atoms[0].text() != "perform" {
+        return Err(EffectError::new("expected `(perform …)`"));
+    }
+    if atoms.len() < 2 || atoms[1].kind() != SyntaxKind::Ident {
+        return Err(EffectError::new("perform needs an op identifier"));
+    }
+    let op_name = atoms[1].text();
+    let Some(op) = EffectOp::parse(op_name) else {
+        return Err(EffectError::new(format!("unknown effect op `{op_name}`")));
+    };
+    let payload = match op {
+        EffectOp::Random => String::new(),
+        EffectOp::Log | EffectOp::WritePath => {
+            if atoms.len() < 3 || atoms[2].kind() != SyntaxKind::String {
+                return Err(EffectError::new(format!(
+                    "perform {op_name} needs a string payload"
+                )));
+            }
+            let raw = atoms[2].text();
+            if raw.len() >= 2 && raw.starts_with('"') && raw.ends_with('"') {
+                unescape_string(&raw[1..raw.len() - 1])
+            } else {
+                return Err(EffectError::new("malformed string payload"));
+            }
+        }
+    };
+    Ok(Perform { op, payload })
 }
 
 fn unescape_string(s: &str) -> String {
@@ -313,5 +458,45 @@ mod tests {
         assert_eq!(ps[0].op, EffectOp::Log);
         assert_eq!(ps[0].payload, "hello");
         assert_eq!(ps[1].op, EffectOp::WritePath);
+    }
+
+    #[test]
+    fn run_src_returns_values_in_order() {
+        let src = r#"(src (perform log "a") (perform random))"#;
+        let mut h = TestHandler {
+            random_seq: vec![0.42],
+            ..Default::default()
+        };
+        let vals = run_source_effects(&mut h, src).unwrap();
+        assert_eq!(h.logs, vec!["a"]);
+        assert_eq!(vals, vec![Value::Unit, Value::Number(0.42)]);
+    }
+
+    #[test]
+    fn handle_log_mutes_nested_log() {
+        let src = r#"
+(src
+  (perform log "outer")
+  (handle log
+    (perform log "silent")
+    (perform random))
+  (perform log "after"))
+"#;
+        let mut h = TestHandler {
+            random_seq: vec![0.1],
+            ..Default::default()
+        };
+        let vals = run_source_effects(&mut h, src).unwrap();
+        assert_eq!(h.logs, vec!["outer", "after"]);
+        assert!(!h.logs.iter().any(|l| l == "silent"));
+        assert_eq!(vals.len(), 3);
+        assert_eq!(vals[1], Value::Number(0.1));
+    }
+
+    #[test]
+    fn unsupported_src_form_errors() {
+        let err =
+            run_source_effects(&mut TestHandler::default(), "(src (define x 1))").unwrap_err();
+        assert!(err.message.contains("unsupported"));
     }
 }
