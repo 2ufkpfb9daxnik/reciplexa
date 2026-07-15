@@ -441,10 +441,10 @@ fn parse_image_bracket(s: &str) -> Option<(String, f64, f64)> {
     if s.is_empty() {
         return None;
     }
-    let (path, rest) = if s.starts_with('"') {
-        let end = s[1..].find('"')? + 1;
-        let path = s[1..end].to_string();
-        let rest = s[end + 1..].trim().to_string();
+    let (path, rest) = if let Some(after_quote) = s.strip_prefix('"') {
+        let end = after_quote.find('"')?;
+        let path = after_quote[..end].to_string();
+        let rest = after_quote[end + 1..].trim().to_string();
         (path, rest)
     } else {
         let mut parts = s.split_whitespace();
