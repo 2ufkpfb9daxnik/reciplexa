@@ -146,6 +146,9 @@ struct GuiPrefs {
     zoom: f32,
     pan_x: f32,
     pan_y: f32,
+    show_source: bool,
+    show_layers: bool,
+    show_preview: bool,
 }
 
 impl GuiPrefs {
@@ -156,6 +159,9 @@ impl GuiPrefs {
             zoom: 1.0,
             pan_x: 0.0,
             pan_y: 0.0,
+            show_source: true,
+            show_layers: true,
+            show_preview: true,
         };
         let Some(path) = theme_prefs_path() else {
             return prefs;
@@ -185,6 +191,12 @@ impl GuiPrefs {
                 if let Ok(y) = v.parse::<f32>() {
                     prefs.pan_y = y;
                 }
+            } else if let Some(v) = line.strip_prefix("pane_source=") {
+                prefs.show_source = matches!(v, "1" | "true" | "on");
+            } else if let Some(v) = line.strip_prefix("pane_layers=") {
+                prefs.show_layers = matches!(v, "1" | "true" | "on");
+            } else if let Some(v) = line.strip_prefix("pane_preview=") {
+                prefs.show_preview = matches!(v, "1" | "true" | "on");
             } else if line.eq_ignore_ascii_case("dark") {
                 // Backward compatible with old single-word theme file.
                 prefs.theme = UiTheme::Dark;
@@ -201,7 +213,7 @@ impl GuiPrefs {
             let _ = fs::create_dir_all(parent);
         }
         let body = format!(
-            "theme={}\ngrid={}\nzoom={:.4}\npan_x={:.2}\npan_y={:.2}\n",
+            "theme={}\ngrid={}\nzoom={:.4}\npan_x={:.2}\npan_y={:.2}\npane_source={}\npane_layers={}\npane_preview={}\n",
             match self.theme {
                 UiTheme::Light => "light",
                 UiTheme::Dark => "dark",
@@ -210,6 +222,9 @@ impl GuiPrefs {
             self.zoom.clamp(0.2, 8.0),
             self.pan_x,
             self.pan_y,
+            if self.show_source { "1" } else { "0" },
+            if self.show_layers { "1" } else { "0" },
+            if self.show_preview { "1" } else { "0" },
         );
         let _ = fs::write(path, body);
     }
@@ -384,6 +399,9 @@ fn main() -> ExitCode {
                 viewport_paint_size: egui::Vec2::new(400.0, 400.0),
                 viewport_page_mm: (210.0, 297.0),
                 viewport_prefs_dirty: false,
+                show_source: prefs.show_source,
+                show_layers: prefs.show_layers,
+                show_preview: prefs.show_preview,
             }))
         }),
     ) {
@@ -439,6 +457,10 @@ struct PreviewApp {
     viewport_page_mm: (f64, f64),
     /// Defer writing zoom/pan to prefs until end of frame.
     viewport_prefs_dirty: bool,
+    /// Floating workspace panes (titles can be dragged).
+    show_source: bool,
+    show_layers: bool,
+    show_preview: bool,
 }
 
 #[derive(Clone, Copy)]
@@ -642,6 +664,9 @@ impl PreviewApp {
         prefs.zoom = self.zoom;
         prefs.pan_x = self.pan.x;
         prefs.pan_y = self.pan.y;
+        prefs.show_source = self.show_source;
+        prefs.show_layers = self.show_layers;
+        prefs.show_preview = self.show_preview;
         prefs.save();
     }
 
@@ -2151,6 +2176,37 @@ impl eframe::App for PreviewApp {
                     self.toggle_theme(ctx);
                 }
                 if ui
+                    .selectable_label(self.show_source, "Source")
+                    .on_hover_text("Show/hide floating .rpx editor (drag its title bar)")
+                    .clicked()
+                {
+                    self.show_source = !self.show_source;
+                    self.persist_gui_prefs();
+                }
+                if ui
+                    .selectable_label(self.show_preview, "Preview")
+                    .on_hover_text("Show/hide floating paper preview")
+                    .clicked()
+                {
+                    self.show_preview = !self.show_preview;
+                    self.persist_gui_prefs();
+                }
+                if ui
+                    .selectable_label(self.show_layers, "Layers")
+                    .on_hover_text("Show/hide floating layers list")
+                    .clicked()
+                {
+                    self.show_layers = !self.show_layers;
+                    self.persist_gui_prefs();
+                }
+                if ui
+                    .selectable_label(self.props_open, "Properties")
+                    .on_hover_text("Show/hide floating properties")
+                    .clicked()
+                {
+                    self.props_open = !self.props_open;
+                }
+                if ui
                     .button("Reset view")
                     .on_hover_text("Reset zoom and pan")
                     .clicked()
@@ -2176,13 +2232,21 @@ impl eframe::App for PreviewApp {
             });
         });
 
-        egui::SidePanel::left("source_panel")
-            .resizable(true)
-            .default_width(400.0)
-            .show(ctx, |ui| {
-                ui.heading(".rpx source");
+        {
+            let mut open = self.show_source;
+            egui::Window::new(".rpx source")
+                .id(egui::Id::new("floating_source"))
+                .open(&mut open)
+                .default_pos([12.0, 56.0])
+                .default_size([420.0, 560.0])
+                .min_width(280.0)
+                .min_height(200.0)
+                .resizable(true)
+                .collapsible(true)
+                .constrain(true)
+                .show(ctx, |ui| {
                 ui.label(
-                    "Edits reproject live; drag on the paper rewrites numbers here. Ctrl+S saves · Ctrl+O opens.",
+                    "Edits reproject live; drag on the paper rewrites numbers here. Ctrl+S saves · Ctrl+O opens. Drag this window's title to move it.",
                 );
                 ui.horizontal(|ui| {
                     if ui.button("Save .rpx").clicked() {
@@ -2252,17 +2316,30 @@ impl eframe::App for PreviewApp {
                     ui.colored_label(egui::Color32::RED, err);
                 }
             });
+            if open != self.show_source {
+                self.show_source = open;
+                self.persist_gui_prefs();
+            }
+        }
 
-        // Snapshot layers for the right panel (may be empty on error).
+        // Snapshot layers for the floating layers pane (may be empty on error).
         let layers_for_panel =
             collect_layers_page(&self.source, self.page_index).unwrap_or_default();
 
-        egui::SidePanel::right("layers_panel")
-            .resizable(true)
-            .default_width(240.0)
-            .show(ctx, |ui| {
-                ui.heading("Layers");
-                ui.label("Drag rows vertically to restack. Top = front (later in source).");
+        {
+            let mut open = self.show_layers;
+            egui::Window::new("Layers")
+                .id(egui::Id::new("floating_layers"))
+                .open(&mut open)
+                .default_pos([920.0, 56.0])
+                .default_size([260.0, 420.0])
+                .min_width(180.0)
+                .min_height(160.0)
+                .resizable(true)
+                .collapsible(true)
+                .constrain(true)
+                .show(ctx, |ui| {
+                ui.label("Drag rows vertically to restack. Top = front (later in source). Drag this window's title to move it.");
                 ui.separator();
                 let n = layers_for_panel.len();
                 let mut reorder: Option<(usize, usize)> = None;
@@ -2412,13 +2489,37 @@ impl eframe::App for PreviewApp {
                     self.props_undo_open = false;
                 }
             });
+            if open != self.show_layers {
+                self.show_layers = open;
+                self.persist_gui_prefs();
+            }
+        }
 
-        // Selection properties panel (bottom-right). Edits rewrite .rpx.
+        // Selection properties panel (floating; already a Window).
         self.show_properties_window(ctx);
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading("Paper preview");
-            ui.label("Scroll = zoom at cursor · Space/Middle/Alt-drag = pan · F = frame · Shift-drag = axis/aspect/15° · Ctrl-drag = 5mm snap · Ctrl+Shift+[ ] = z-step · Arrows nudge (Alt=0.1mm Shift=5mm) · Ctrl+C/V · Ctrl+Shift+S = Save As · G = grid.");
+            ui.centered_and_justified(|ui| {
+                ui.weak(
+                    "Workspace · drag Source / Preview / Layers / Properties by their title bars · toggles in View",
+                );
+            });
+        });
+
+        if self.show_preview {
+            let mut open = self.show_preview;
+            egui::Window::new("Paper preview")
+                .id(egui::Id::new("floating_preview"))
+                .open(&mut open)
+                .default_pos([440.0, 56.0])
+                .default_size([480.0, 640.0])
+                .min_width(320.0)
+                .min_height(280.0)
+                .resizable(true)
+                .collapsible(true)
+                .constrain(true)
+                .show(ctx, |ui| {
+            ui.label("Scroll = zoom at cursor · Space/Middle/Alt-drag = pan · F = frame · Shift-drag = axis/aspect/15° · Ctrl-drag = 5mm snap · drag this window's title to move it.");
 
             let doc = match pipeline_doc(&self.source) {
                 Ok(d) => d,
@@ -3195,6 +3296,11 @@ impl eframe::App for PreviewApp {
                 );
             }
         });
+            if open != self.show_preview {
+                self.show_preview = open;
+                self.persist_gui_prefs();
+            }
+        }
         if self.viewport_prefs_dirty {
             self.persist_gui_prefs();
             self.viewport_prefs_dirty = false;
