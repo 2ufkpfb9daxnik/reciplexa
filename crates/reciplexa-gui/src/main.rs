@@ -9,7 +9,7 @@ use std::sync::Arc;
 use eframe::egui;
 use eframe::egui::text::{CCursor, CCursorRange};
 use reciplexa::pipeline::{document_for_export, document_from_source};
-use reciplexa_effect::{EffectError, EffectHandler, LcgRng, Value};
+use reciplexa_effect::{seed_from_env, EffectError, EffectHandler, LcgRng, Value};
 use reciplexa_lower::{
     collect_layer_props, collect_layers_page, collect_size_targets_page, delete_layer_page,
     duplicate_layer_page, layer_rotation_deg, nudge_layer_page, reorder_layer_page,
@@ -33,9 +33,9 @@ struct GuiExportHandler {
 
 impl Default for GuiExportHandler {
     fn default() -> Self {
-        // Same seed as CLI so export is reproducible across hosts.
+        // Same env seed as CLI so export is reproducible across hosts.
         Self {
-            rng: LcgRng::new(1),
+            rng: LcgRng::new(seed_from_env()),
         }
     }
 }

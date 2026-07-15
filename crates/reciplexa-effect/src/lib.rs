@@ -86,6 +86,21 @@ impl LcgRng {
     }
 }
 
+/// Resolve the host RNG seed from an optional env string.
+///
+/// Missing / empty / non-decimal → `1` (the CLI/GUI default).
+pub fn seed_from_env_var(raw: Option<&str>) -> u64 {
+    let Some(s) = raw.map(str::trim).filter(|s| !s.is_empty()) else {
+        return 1;
+    };
+    s.parse::<u64>().unwrap_or(1)
+}
+
+/// Read `RECIPLEXA_SEED` (or default `1`).
+pub fn seed_from_env() -> u64 {
+    seed_from_env_var(std::env::var("RECIPLEXA_SEED").ok().as_deref())
+}
+
 /// Host-supplied handlers for performed effects.
 pub trait EffectHandler {
     fn on_log(&mut self, message: &str) -> Result<Value, EffectError>;
@@ -497,6 +512,21 @@ mod tests {
         let first_a = a.next_unit();
         let first_b = b.next_unit();
         assert_ne!(first_a, first_b);
+    }
+
+    #[test]
+    fn seed_from_env_var_defaults_and_parses() {
+        assert_eq!(seed_from_env_var(None), 1);
+        assert_eq!(seed_from_env_var(Some("")), 1);
+        assert_eq!(seed_from_env_var(Some("  ")), 1);
+        assert_eq!(seed_from_env_var(Some("42")), 42);
+        assert_eq!(seed_from_env_var(Some(" 99 ")), 99);
+    }
+
+    #[test]
+    fn seed_from_env_var_rejects_garbage() {
+        assert_eq!(seed_from_env_var(Some("nope")), 1);
+        assert_eq!(seed_from_env_var(Some("-3")), 1);
     }
 
     // --- defect ---

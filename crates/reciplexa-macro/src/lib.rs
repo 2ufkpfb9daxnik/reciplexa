@@ -465,6 +465,15 @@ mod tests {
     }
 
     #[test]
+    fn expands_h1_as_title_alias() {
+        let out = expand_source("(doc @h1{Hello})").unwrap();
+        assert!(
+            out.contains("(text 25 270 14 \"Hello\" black)"),
+            "h1 should match title size: {out}"
+        );
+    }
+
+    #[test]
     fn expands_title_then_paragraph_with_gap() {
         let out = expand_source("(doc @title{Report}\n@p{Body text})").unwrap();
         assert!(out.contains("(text 25 270 14 \"Report\" black)"), "{out}");
@@ -706,6 +715,15 @@ mod tests {
     fn expands_code_indented_smaller() {
         let out = expand_source("(doc @code{let x = 1})").unwrap();
         // left 25 + indent 8 = 33; size 6.5
+        assert!(
+            out.contains("(text 33 270 6.5 \"let x = 1\" black)"),
+            "{out}"
+        );
+    }
+
+    #[test]
+    fn expands_pre_as_code_alias() {
+        let out = expand_source("(doc @pre{let x = 1})").unwrap();
         assert!(
             out.contains("(text 33 270 6.5 \"let x = 1\" black)"),
             "{out}"

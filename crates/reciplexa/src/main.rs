@@ -8,7 +8,7 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 
 use reciplexa::pipeline::{document_for_export, PipelineError};
-use reciplexa_effect::{EffectError, EffectHandler, LcgRng, Value};
+use reciplexa_effect::{seed_from_env, EffectError, EffectHandler, LcgRng, Value};
 use reciplexa_pdf::write_document_with_base;
 
 fn main() -> ExitCode {
@@ -37,9 +37,9 @@ struct CliHandler {
 
 impl Default for CliHandler {
     fn default() -> Self {
-        // Fixed seed so CLI exports are reproducible across runs.
+        // RECIPLEXA_SEED overrides the default seed of 1.
         Self {
-            rng: LcgRng::new(1),
+            rng: LcgRng::new(seed_from_env()),
         }
     }
 }

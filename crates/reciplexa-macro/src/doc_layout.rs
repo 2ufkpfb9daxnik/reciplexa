@@ -197,7 +197,7 @@ pub fn layout_doc_parts(parts: &[DocPart]) -> Vec<LaidItem> {
                 bracket_args,
                 brace_body,
             } => match name.as_str() {
-                "title" => {
+                "title" | "h1" => {
                     flush_body(&mut buf, &mut out);
                     push_styled_block(
                         brace_body,
@@ -226,7 +226,7 @@ pub fn layout_doc_parts(parts: &[DocPart]) -> Vec<LaidItem> {
                         &mut out,
                     );
                 }
-                "code" => {
+                "code" | "pre" => {
                     flush_body(&mut buf, &mut out);
                     push_styled_block_indent(
                         brace_body,
