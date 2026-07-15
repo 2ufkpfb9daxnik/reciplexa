@@ -395,7 +395,10 @@ fn push_wrapped(
 /// Soft-wrap `text` to at most `max_chars` Unicode scalars per line.
 ///
 /// Breaks at the previous ASCII space only when the limit would split a word;
-/// otherwise hard-breaks. `max_chars == 0` means no wrapping.
+/// otherwise hard-breaks. Applies a tiny JLReq-inspired **line-start** kinsoku:
+/// closing punctuation (e.g. `。` `、` `)` ) is pulled onto the previous line
+/// when it would otherwise start the next one (budget may shrink by a few
+/// chars). `max_chars == 0` means no wrapping.
 pub fn wrap_line(text: &str, max_chars: usize) -> Vec<String> {
     if max_chars == 0 {
         return if text.is_empty() {
@@ -428,6 +431,10 @@ pub fn wrap_line(text: &str, max_chars: usize) -> Vec<String> {
                 }
             }
         }
+        // Line-start kinsoku: don't leave forbidden chars at the head of the remainder.
+        while end > start + 1 && end < chars.len() && is_not_line_start(chars[end]) {
+            end -= 1;
+        }
         let slice: String = chars[start..end].iter().collect();
         let trimmed = slice.trim();
         if !trimmed.is_empty() {
@@ -439,6 +446,60 @@ pub fn wrap_line(text: &str, max_chars: usize) -> Vec<String> {
         }
     }
     out
+}
+
+/// Characters that must not begin a line (subset of JLReq 禁則処理).
+fn is_not_line_start(c: char) -> bool {
+    matches!(
+        c,
+        '。' | '、'
+            | '．'
+            | '，'
+            | '）'
+            | '］'
+            | '｝'
+            | '」'
+            | '』'
+            | '〉'
+            | '》'
+            | '〕'
+            | '】'
+            | 'ー'
+            | '゛'
+            | '゜'
+            | 'ゝ'
+            | 'ゞ'
+            | '々'
+            | 'ぁ'
+            | 'ぃ'
+            | 'ぅ'
+            | 'ぇ'
+            | 'ぉ'
+            | 'っ'
+            | 'ゃ'
+            | 'ゅ'
+            | 'ょ'
+            | 'ゎ'
+            | 'ァ'
+            | 'ィ'
+            | 'ゥ'
+            | 'ェ'
+            | 'ォ'
+            | 'ッ'
+            | 'ャ'
+            | 'ュ'
+            | 'ョ'
+            | 'ヮ'
+            | ')'
+            | ']'
+            | '}'
+            | ','
+            | '.'
+            | ';'
+            | ':'
+            | '!'
+            | '?'
+    )
 }
 
 fn collapse_ws(s: &str) -> String {
@@ -500,6 +561,27 @@ mod tests {
     }
 
     #[test]
+    fn wrap_avoids_line_start_with_cjk_period() {
+        // Without kinsoku, max=3 on "あああ。" yields ["あああ", "。"].
+        let lines = wrap_line("あああ。", 3);
+        assert!(
+            lines.iter().all(|l| !l.starts_with('。')),
+            "period must not start a line: {lines:?}"
+        );
+        assert_eq!(lines, vec!["ああ", "あ。"]);
+    }
+
+    #[test]
+    fn wrap_avoids_line_start_with_closing_paren() {
+        let lines = wrap_line("abc)", 3);
+        assert!(
+            lines.iter().all(|l| !l.starts_with(')')),
+            "')' must not start a line: {lines:?}"
+        );
+        assert_eq!(lines, vec!["ab", "c)"]);
+    }
+
+    #[test]
     fn layout_wraps_long_paragraph() {
         let long = "a".repeat(45);
         let src = format!("(doc @p{{{long}}})");
@@ -522,6 +604,12 @@ mod tests {
     #[test]
     fn wrap_empty_is_empty() {
         assert!(wrap_line("", 10).is_empty());
+    }
+
+    #[test]
+    fn wrap_single_kinsoku_char_still_emits() {
+        // A lone forbidden-start char must still appear (no infinite shrink).
+        assert_eq!(wrap_line("。", 1), vec!["。".to_string()]);
     }
 
     #[test]
