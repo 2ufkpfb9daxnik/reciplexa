@@ -104,6 +104,17 @@ fn push_styled_block(
     }
 }
 
+/// `@li{…}` → body-sized lines prefixed with a bullet (package meaning, not font glyphs).
+fn push_list_items(body: &[DocPart], out: &mut Vec<LaidLine>) {
+    for line in flatten_lines(body) {
+        if line.is_empty() {
+            continue;
+        }
+        let bulleted = format!("• {line}");
+        push_wrapped(&bulleted, BODY_SIZE_MM, BODY_GAP_MM, BODY_WRAP_CHARS, out);
+    }
+}
+
 fn push_wrapped(
     text: &str,
     size_mm: f64,

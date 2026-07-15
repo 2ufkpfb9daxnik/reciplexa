@@ -516,4 +516,25 @@ mod tests {
         let out = expand_source("(doc @h2{})").unwrap();
         assert_eq!(out, "(page a4)");
     }
+
+    // --- @li list items ---
+
+    #[test]
+    fn expands_li_with_bullet_prefix() {
+        let out = expand_source("(doc @li{First}\n@li{Second})").unwrap();
+        assert!(
+            out.contains("(text 25 270 8 \"• First\" black)"),
+            "first li: {out}"
+        );
+        assert!(
+            out.contains("(text 25 258 8 \"• Second\" black)"),
+            "second li: {out}"
+        );
+    }
+
+    #[test]
+    fn empty_li_skips_empty_text() {
+        let out = expand_source("(doc @li{})").unwrap();
+        assert_eq!(out, "(page a4)");
+    }
 }

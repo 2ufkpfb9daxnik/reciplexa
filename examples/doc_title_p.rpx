@@ -1,8 +1,10 @@
-; M8: title / h2 / paragraph package meanings
+; M8: title / h2 / list / paragraph package meanings
 (doc
 @title{レポート表紙}
 @h2{はじめに}
 @p{本文の段落です。@em{強調}も identity のまま入ります。}
-@h2{詳細}
-@p{wrapping wraps wrapping wraps wrapping wraps wrapping wraps wrapping wraps end.}
+@h2{やること}
+@li{要件を書く}
+@li{テストを先に足す}
+@li{小さくコミットする}
 )
