@@ -191,19 +191,29 @@ impl Frame {
 /// Filled text baseline position in local millimeters.
 ///
 /// `size_mm` is the em-box height used for PDF `Tf` (converted to points).
-/// Content is currently limited to PDF WinAnsi/ASCII at the emitter.
+/// Optional `width_mm` / `height_mm` define the editable layout box (baseline-left,
+/// y up). When absent, viewers estimate a box from content + font size.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Text {
     pub x_mm: f64,
     pub y_mm: f64,
     pub size_mm: f64,
+    pub width_mm: Option<f64>,
+    pub height_mm: Option<f64>,
     pub content: String,
     pub fill: Color,
 }
 
 impl Text {
     pub fn is_drawable(&self) -> bool {
-        self.size_mm > 0.0 && !self.content.is_empty() && self.fill.is_channel_valid()
+        if !(self.size_mm > 0.0 && !self.content.is_empty() && self.fill.is_channel_valid()) {
+            return false;
+        }
+        match (self.width_mm, self.height_mm) {
+            (None, None) => true,
+            (Some(w), Some(h)) => w > 0.0 && h > 0.0,
+            _ => false,
+        }
     }
 }
 
@@ -402,12 +412,26 @@ mod tests {
             x_mm: 0.0,
             y_mm: 0.0,
             size_mm: 4.0,
+            width_mm: None,
+            height_mm: None,
             content: "a".into(),
             fill: Color::BLACK,
         };
         assert!(t.is_drawable());
         assert!(!Text {
             content: String::new(),
+            ..t.clone()
+        }
+        .is_drawable());
+        assert!(!Text {
+            width_mm: Some(10.0),
+            height_mm: None,
+            ..t.clone()
+        }
+        .is_drawable());
+        assert!(Text {
+            width_mm: Some(10.0),
+            height_mm: Some(5.0),
             ..t.clone()
         }
         .is_drawable());

@@ -15,7 +15,7 @@ use reciplexa_lower::{
     duplicate_layer_page, insert_layer_page, layer_rotation_deg, nudge_layer_page,
     reorder_layer_page, scale_size_target, set_layer_prop, set_layer_rotation_deg,
     set_layers_fill_rgb, set_layers_opacity, set_layers_stroke_rgb, set_layers_stroke_width,
-    LayerInfo, PropEditContext, PropGroup, PropValue, SizeTarget,
+    set_text_box, LayerInfo, PropEditContext, PropGroup, PropValue, SizeTarget,
 };
 use reciplexa_macro::expand_source;
 use reciplexa_pdf::write_document_with_base;
@@ -298,6 +298,20 @@ struct PreviewApp {
     batch_opacity: f64,
 }
 
+#[derive(Clone, Copy)]
+enum ScaleCorner {
+    TopLeft,
+    TopRight,
+    BottomLeft,
+    BottomRight,
+}
+
+#[derive(Clone, Copy)]
+struct TextBoxDrag {
+    corner: ScaleCorner,
+    anchor_mm: (f64, f64),
+}
+
 #[derive(Clone)]
 struct DragState {
     kind: DragKind,
@@ -317,6 +331,7 @@ enum DragKind {
         base_src: String,
         center_mm: (f64, f64),
         start_dist: f64,
+        text_box: Option<TextBoxDrag>,
     },
     Rotate {
         flat_index: usize,
@@ -1773,24 +1788,39 @@ impl eframe::App for PreviewApp {
                                             undo_pushed: false,
                                         });
                                         started = true;
-                                    } else if hit_scale_handle(&layout, bounds, local_pos)
-                                        && size_bindings
+                                    } else if let Some(corner) =
+                                        hit_scale_corner(&layout, bounds, local_pos)
+                                    {
+                                        if size_bindings
                                             .get(sel)
                                             .is_some_and(|t| *t != SizeTarget::Unsupported)
-                                    {
-                                        let start_dist =
-                                            ((mx - cx).hypot(my - cy)).max(1e-6);
-                                        if let Some(size) = size_bindings.get(sel).copied() {
-                                            self.drag = Some(DragState {
-                                                kind: DragKind::Scale {
-                                                    size,
-                                                    base_src: self.source.clone(),
-                                                    center_mm: (cx, cy),
-                                                    start_dist,
-                                                },
-                                                undo_pushed: false,
-                                            });
-                                            started = true;
+                                        {
+                                            let start_dist =
+                                                ((mx - cx).hypot(my - cy)).max(1e-6);
+                                            if let Some(size) = size_bindings.get(sel).copied() {
+                                                let text_box =
+                                                    if matches!(size, SizeTarget::TextSize(_)) {
+                                                        Some(TextBoxDrag {
+                                                            corner,
+                                                            anchor_mm: text_anchor_corner(
+                                                                bounds, corner,
+                                                            ),
+                                                        })
+                                                    } else {
+                                                        None
+                                                    };
+                                                self.drag = Some(DragState {
+                                                    kind: DragKind::Scale {
+                                                        size,
+                                                        base_src: self.source.clone(),
+                                                        center_mm: (cx, cy),
+                                                        start_dist,
+                                                        text_box,
+                                                    },
+                                                    undo_pushed: false,
+                                                });
+                                                started = true;
+                                            }
                                         }
                                     }
                                 }
@@ -1903,17 +1933,30 @@ impl eframe::App for PreviewApp {
                                 base_src,
                                 center_mm,
                                 start_dist,
+                                text_box,
                             } => {
-                                let dist =
-                                    (mx - center_mm.0).hypot(my - center_mm.1).max(1e-6);
-                                let factor = (dist / start_dist).clamp(0.05, 20.0);
-                                match scale_size_target(&base_src, size, factor) {
+                                let scale_result = if let (
+                                    Some(tb),
+                                    SizeTarget::TextSize(idx),
+                                ) = (text_box, size)
+                                {
+                                    let (nx, ny, nw, nh) = text_box_from_corner(tb, mx, my);
+                                    set_text_box(&base_src, idx, nx, ny, nw, nh)
+                                } else {
+                                    let dist = (mx - center_mm.0)
+                                        .hypot(my - center_mm.1)
+                                        .max(1e-6);
+                                    let factor = (dist / start_dist).clamp(0.05, 20.0);
+                                    scale_size_target(&base_src, size, factor)
+                                };
+                                match scale_result {
                                     Ok(new_src) => {
                                         let kind = DragKind::Scale {
                                             size,
                                             base_src,
                                             center_mm,
                                             start_dist,
+                                            text_box,
                                         };
                                         let mut undo_pushed = drag.undo_pushed;
                                         if !undo_pushed {
@@ -2119,20 +2162,60 @@ fn rotate_handle_pos(frame: egui::Rect) -> egui::Pos2 {
     egui::pos2(frame.center().x, frame.top() - 22.0)
 }
 
-fn hit_scale_handle(
+fn hit_scale_corner(
     layout: &PaperLayout,
     bounds: (f64, f64, f64, f64),
     local_px: egui::Pos2,
-) -> bool {
+) -> Option<ScaleCorner> {
     let frame = selection_frame_local(layout, bounds);
     let corners = [
-        frame.left_top(),
-        frame.right_top(),
-        frame.left_bottom(),
-        frame.right_bottom(),
+        (frame.left_top(), ScaleCorner::TopLeft),
+        (frame.right_top(), ScaleCorner::TopRight),
+        (frame.left_bottom(), ScaleCorner::BottomLeft),
+        (frame.right_bottom(), ScaleCorner::BottomRight),
     ];
     let hit_r2 = 10.0_f32 * 10.0;
-    corners.iter().any(|c| local_px.distance_sq(*c) <= hit_r2)
+    corners
+        .into_iter()
+        .find(|(c, _)| local_px.distance_sq(*c) <= hit_r2)
+        .map(|(_, corner)| corner)
+}
+
+fn text_anchor_corner(bounds: (f64, f64, f64, f64), corner: ScaleCorner) -> (f64, f64) {
+    let (x0, y0, x1, y1) = bounds;
+    match corner {
+        ScaleCorner::TopLeft => (x1, y0),
+        ScaleCorner::TopRight => (x0, y0),
+        ScaleCorner::BottomLeft => (x1, y1),
+        ScaleCorner::BottomRight => (x0, y1),
+    }
+}
+
+fn text_box_from_corner(tb: TextBoxDrag, mx: f64, my: f64) -> (f64, f64, f64, f64) {
+    let (ax, ay) = tb.anchor_mm;
+    const MIN: f64 = 0.5;
+    match tb.corner {
+        ScaleCorner::TopLeft => {
+            let w = (ax - mx).max(MIN);
+            let h = (my - ay).max(MIN);
+            (ax - w, ay, w, h)
+        }
+        ScaleCorner::TopRight => {
+            let w = (mx - ax).max(MIN);
+            let h = (my - ay).max(MIN);
+            (ax, ay, w, h)
+        }
+        ScaleCorner::BottomLeft => {
+            let w = (ax - mx).max(MIN);
+            let h = (ay - my).max(MIN);
+            (ax - w, ay - h, w, h)
+        }
+        ScaleCorner::BottomRight => {
+            let w = (mx - ax).max(MIN);
+            let h = (ay - my).max(MIN);
+            (ax, ay - h, w, h)
+        }
+    }
 }
 
 fn hit_rotate_handle(

@@ -36,6 +36,9 @@ pub struct WorldText {
     pub x_mm: f64,
     pub y_mm: f64,
     pub size_mm: f64,
+    /// Layout box width/height in page mm (after parent scale).
+    pub width_mm: f64,
+    pub height_mm: f64,
     /// Counter-clockwise degrees from parent affine (page space).
     pub rotation_deg: f64,
     pub content: String,
@@ -172,10 +175,19 @@ fn flatten_shape(shape: &Shape, parent: Affine, alpha: f64, out: &mut Vec<WorldS
         Shape::Text(t) => {
             let (x, y) = parent.transform_point(t.x_mm, t.y_mm);
             let scale = linear_scale(parent);
+            let (w, h) = match (t.width_mm, t.height_mm) {
+                (Some(w), Some(h)) => (w * scale, h * scale),
+                _ => {
+                    let (ew, eh) = text_extent_mm(&t.content, t.size_mm * scale);
+                    (ew, eh)
+                }
+            };
             out.push(WorldShape::Text(WorldText {
                 x_mm: x,
                 y_mm: y,
                 size_mm: t.size_mm * scale,
+                width_mm: w,
+                height_mm: h,
                 rotation_deg: parent.rotation_deg(),
                 content: t.content.clone(),
                 fill: t.fill,
@@ -413,15 +425,12 @@ fn shape_contains(shape: &WorldShape, x: f64, y: f64) -> bool {
             }
         }
         WorldShape::Text(t) => {
-            let pad = (t.size_mm * 0.6).max(2.5);
-            let n = t.content.chars().count().max(1) as f64;
-            let w = n * t.size_mm * 0.95 + 2.0 * pad;
-            let h = t.size_mm * 1.35 + 2.0 * pad;
+            let pad = (t.size_mm * 0.25).max(1.5);
             let locals = [
                 (-pad, -pad),
-                (w - pad, -pad),
-                (w - pad, h - pad),
-                (-pad, h - pad),
+                (t.width_mm + pad, -pad),
+                (t.width_mm + pad, t.height_mm + pad),
+                (-pad, t.height_mm + pad),
             ];
             let rad = t.rotation_deg.to_radians();
             let (sine, cosine) = (rad.sin(), rad.cos());
@@ -442,11 +451,49 @@ fn shape_contains(shape: &WorldShape, x: f64, y: f64) -> bool {
     }
 }
 
-/// Approximate glyph box corners in page mm (baseline-left origin, y up).
+/// Em-width estimate for one codepoint at `size_mm` (egui proportional / CJK fallback).
+fn char_width_mm(ch: char, size_mm: f64) -> f64 {
+    if ch == '\t' {
+        size_mm * 2.0
+    } else if ch.is_ascii() {
+        size_mm
+            * match ch {
+                'i' | 'l' | '!' | '|' | '.' | ',' | ':' | ';' | ' ' => 0.35,
+                'm' | 'w' | 'M' | 'W' => 0.85,
+                _ => 0.55,
+            }
+    } else {
+        size_mm
+    }
+}
+
+fn line_width_mm(line: &str, size_mm: f64) -> f64 {
+    line.chars().map(|ch| char_width_mm(ch, size_mm)).sum()
+}
+
+/// Text box size in mm from baseline-left (y up). Matches GUI/PDF hard line breaks (1 em leading).
+pub fn text_extent_mm(content: &str, size_mm: f64) -> (f64, f64) {
+    let lines: Vec<&str> = if content.is_empty() {
+        vec![""]
+    } else {
+        content
+            .split('\n')
+            .map(|l| l.trim_end_matches('\r'))
+            .collect()
+    };
+    let w = lines
+        .iter()
+        .map(|line| line_width_mm(line, size_mm))
+        .fold(0.0_f64, f64::max);
+    let h = lines.len() as f64 * size_mm;
+    let min = size_mm * 0.01;
+    (w.max(min), h.max(min))
+}
+
+/// Glyph box corners in page mm (baseline-left origin, y up).
 pub fn text_corners_mm(t: &WorldText) -> [(f64, f64); 4] {
-    let n = t.content.chars().count().max(1) as f64;
-    let w = n * t.size_mm * 0.95;
-    let h = t.size_mm * 1.35;
+    let w = t.width_mm;
+    let h = t.height_mm;
     let locals = [(0.0, 0.0), (w, 0.0), (w, h), (0.0, h)];
     let rad = t.rotation_deg.to_radians();
     let (sine, cosine) = (rad.sin(), rad.cos());
@@ -584,6 +631,8 @@ mod tests {
                 x_mm: 10.0,
                 y_mm: 20.0,
                 size_mm: 5.0,
+                width_mm: None,
+                height_mm: None,
                 content: "Hi".into(),
                 fill: Color::BLACK,
             })],
@@ -608,6 +657,8 @@ mod tests {
                     x_mm: 0.0,
                     y_mm: 0.0,
                     size_mm: 5.0,
+                    width_mm: None,
+                    height_mm: None,
                     content: "A".into(),
                     fill: Color::BLACK,
                 })],
@@ -815,12 +866,46 @@ mod tests {
     }
 
     #[test]
+    fn text_extent_multiline_height() {
+        let (w, h) = text_extent_mm("line one\nline two\nline three", 12.0);
+        assert!((h - 36.0).abs() < 1e-9, "three lines × 12mm: {h}");
+        assert!(w > 0.0);
+        let (w1, h1) = text_extent_mm("short\nmuch longer line", 10.0);
+        assert!((h1 - 20.0).abs() < 1e-9);
+        let (w_short, _) = text_extent_mm("short", 10.0);
+        assert!(w1 > w_short);
+    }
+
+    #[test]
+    fn text_corners_multiline_box() {
+        let t = WorldText {
+            x_mm: 10.0,
+            y_mm: 20.0,
+            size_mm: 12.0,
+            width_mm: text_extent_mm("A\nBC", 12.0).0,
+            height_mm: text_extent_mm("A\nBC", 12.0).1,
+            rotation_deg: 0.0,
+            content: "A\nBC".into(),
+            fill: Color::BLACK,
+            alpha: 1.0,
+        };
+        let corners = text_corners_mm(&t);
+        let (x0, y0, x1, y1) = bounds_of_points(&corners).unwrap();
+        assert!((x1 - x0 - t.width_mm).abs() < 1e-9);
+        assert!((y1 - y0 - t.height_mm).abs() < 1e-9);
+        assert!((x0 - 10.0).abs() < 1e-9);
+        assert!((y0 - 20.0).abs() < 1e-9);
+    }
+
+    #[test]
     fn text_hit_uses_padded_box() {
         let shapes = flatten_shapes(
             &[Shape::Text(Text {
                 x_mm: 10.0,
                 y_mm: 20.0,
                 size_mm: 5.0,
+                width_mm: None,
+                height_mm: None,
                 content: "Hi".into(),
                 fill: Color::BLACK,
             })],

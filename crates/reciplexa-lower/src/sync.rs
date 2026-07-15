@@ -34,7 +34,7 @@ pub enum SizeTarget {
     RingR(usize),
     /// `(frame x y w h …)` — scale w/h about center.
     FrameWh(usize),
-    /// `(text x y size …)` — scale font size.
+    /// `(text x y size [w h] …)` — resize layout box (writes/inserts w/h; font size unchanged).
     TextSize(usize),
     /// `(image path x y w h)` — scale w/h about center.
     ImageWh(usize),
@@ -581,7 +581,7 @@ pub fn scale_size_target(src: &str, target: SizeTarget, factor: f64) -> Result<S
             let after = multiply_nth_number(src, "ellipse", i, 3, factor)?;
             multiply_nth_number(&after, "ellipse", i, 4, factor)
         }
-        SizeTarget::TextSize(i) => multiply_nth_number(src, "text", i, 3, factor),
+        SizeTarget::TextSize(i) => scale_text_box(src, i, factor, factor),
         SizeTarget::RectWh(i) => scale_box_about_center(src, "rect", i, [1, 2, 3, 4], factor),
         SizeTarget::FrameWh(i) => scale_box_about_center(src, "frame", i, [1, 2, 3, 4], factor),
         SizeTarget::ImageWh(i) => scale_box_about_center(src, "image", i, [2, 3, 4, 5], factor),
@@ -597,6 +597,118 @@ pub fn scale_size_target(src: &str, target: SizeTarget, factor: f64) -> Result<S
         SizeTarget::PolygonPoints(i) => scale_xy_pairs_about_centroid(src, "polygon", i, factor),
         SizeTarget::Unsupported => Ok(src.to_string()),
     }
+}
+
+/// Resize a `(text …)` layout box with independent width/height factors.
+///
+/// Font `size` is unchanged. Missing `w`/`h` slots are inserted after the size atom.
+pub fn scale_text_box(src: &str, index: usize, fx: f64, fy: f64) -> Result<String, SyncError> {
+    if !(fx.is_finite() && fy.is_finite() && fx > 0.0 && fy > 0.0) {
+        return Err(SyncError::new("scale factors must be finite and > 0"));
+    }
+    let root = parse_root(src)?;
+    let x = read_nth_number(&root, "text", index, 1)?;
+    let y = read_nth_number(&root, "text", index, 2)?;
+    let size = read_nth_number(&root, "text", index, 3)?;
+    let content = read_nth_text_content(&root, index)?;
+    let (w, h) = match text_box_dims(&root, index)? {
+        Some(dims) => dims,
+        None => reciplexa_view::text_extent_mm(&content, size),
+    };
+    let cx = x + w * 0.5;
+    let cy = y + h * 0.5;
+    let nw = (w * fx).max(0.5);
+    let nh = (h * fy).max(0.5);
+    let nx = cx - nw * 0.5;
+    let ny = cy - nh * 0.5;
+    set_text_box(src, index, nx, ny, nw, nh)
+}
+
+/// Set absolute `(text …)` origin and layout box (`w`/`h`), inserting slots if needed.
+pub fn set_text_box(
+    src: &str,
+    index: usize,
+    x: f64,
+    y: f64,
+    w: f64,
+    h: f64,
+) -> Result<String, SyncError> {
+    if ![x, y, w, h].into_iter().all(|v| v.is_finite()) {
+        return Err(SyncError::new("text box values must be finite"));
+    }
+    if !(w > 0.0 && h > 0.0) {
+        return Err(SyncError::new("text box w/h must be > 0"));
+    }
+    let root = parse_root(src)?;
+    let has_box = text_box_dims(&root, index)?.is_some();
+    let mut out = set_nth_number(src, "text", index, 1, x)?;
+    out = set_nth_number(&out, "text", index, 2, y)?;
+    if has_box {
+        out = set_nth_number(&out, "text", index, 4, w)?;
+        set_nth_number(&out, "text", index, 5, h)
+    } else {
+        insert_text_box_slots(&out, index, w, h)
+    }
+}
+
+fn text_box_dims(root: &SyntaxNode, index: usize) -> Result<Option<(f64, f64)>, SyncError> {
+    let items = nth_text_items(root, index)?;
+    // Boxed form: (text x y size w h "…" …)
+    if items.len() < 7 {
+        return Ok(None);
+    }
+    match (items.get(4), items.get(5), items.get(6)) {
+        (Some(Child::Token(w)), Some(Child::Token(h)), Some(Child::Token(s)))
+            if w.kind() == SyntaxKind::Number
+                && h.kind() == SyntaxKind::Number
+                && s.kind() == SyntaxKind::String =>
+        {
+            let ww: f64 = w
+                .text()
+                .parse()
+                .map_err(|_| SyncError::new("bad text width"))?;
+            let hh: f64 = h
+                .text()
+                .parse()
+                .map_err(|_| SyncError::new("bad text height"))?;
+            Ok(Some((ww, hh)))
+        }
+        _ => Ok(None),
+    }
+}
+
+fn nth_text_items(root: &SyntaxNode, index: usize) -> Result<Vec<Child>, SyncError> {
+    let mut seen = 0usize;
+    for node in root.descendants() {
+        if node.kind() != SyntaxKind::List {
+            continue;
+        }
+        let items = list_atoms(&node);
+        let Some(Child::Token(h)) = items.first() else {
+            continue;
+        };
+        if h.kind() != SyntaxKind::Ident || h.text() != "text" {
+            continue;
+        }
+        if seen == index {
+            return Ok(items);
+        }
+        seen += 1;
+    }
+    Err(SyncError::new(format!("no `text` #{index}")))
+}
+
+fn insert_text_box_slots(src: &str, index: usize, w: f64, h: f64) -> Result<String, SyncError> {
+    let root = parse_root(src)?;
+    let size_tok = find_nth_number(&root, "text", index, 3)
+        .ok_or_else(|| SyncError::new(format!("no `text` #{index} size")))?;
+    let insert_at: usize = size_tok.text_range().end().into();
+    let snippet = format!(" {} {}", format_drag_number(w), format_drag_number(h));
+    let mut out = String::with_capacity(src.len() + snippet.len());
+    out.push_str(&src[..insert_at]);
+    out.push_str(&snippet);
+    out.push_str(&src[insert_at..]);
+    Ok(out)
 }
 
 /// Degrees on a center-pivoted `(rotate …)` for this flatten index, or 0.
@@ -1334,6 +1446,33 @@ fn scale_box_about_center(
     set_nth_number(&out, head, index, slots[3], nh)
 }
 
+fn read_nth_text_content(root: &SyntaxNode, index: usize) -> Result<String, SyncError> {
+    let mut seen = 0usize;
+    for node in root.descendants() {
+        if node.kind() != SyntaxKind::List {
+            continue;
+        }
+        let items = list_atoms(&node);
+        let Some(Child::Token(h)) = items.first() else {
+            continue;
+        };
+        if h.kind() != SyntaxKind::Ident || h.text() != "text" {
+            continue;
+        }
+        if seen == index {
+            let content = items.iter().find_map(|c| match c {
+                Child::Token(t) if t.kind() == SyntaxKind::String => {
+                    Some(t.text().trim_matches('"').to_string())
+                }
+                _ => None,
+            });
+            return content.ok_or_else(|| SyncError::new(format!("no `text` #{index} string")));
+        }
+        seen += 1;
+    }
+    Err(SyncError::new(format!("no `text` #{index}")))
+}
+
 fn read_nth_number(
     root: &SyntaxNode,
     head: &str,
@@ -1672,6 +1811,41 @@ mod tests {
         assert!(
             out.contains("(rect -5 -10 20 40)"),
             "unexpected rewrite: {out}"
+        );
+    }
+
+    #[test]
+    fn scale_text_box_axes() {
+        let src = "(page a4 (text 10 20 12 \"hello\"))";
+        let out = scale_text_box(src, 0, 2.0, 0.5).unwrap();
+        // Font size stays; w/h inserted and scaled about center.
+        assert!(
+            out.contains("(text ") && out.contains(" 12 ") && out.contains("\"hello\")"),
+            "unexpected rewrite: {out}"
+        );
+        assert!(
+            !out.contains("(text 10 20 12 \"hello\")"),
+            "should insert box dims: {out}"
+        );
+        let sizes = collect_size_targets_page(&out, 0).unwrap();
+        assert_eq!(sizes, vec![SizeTarget::TextSize(0)]);
+        // Second scale edits existing w/h.
+        let out2 = scale_text_box(&out, 0, 1.0, 2.0).unwrap();
+        assert!(out2.contains(" 12 "), "size must stay: {out2}");
+    }
+
+    #[test]
+    fn set_text_box_inserts_and_updates() {
+        let src = "(page a4 (text 10 20 12 \"hello\" blue))";
+        let out = set_text_box(src, 0, 11.0, 21.0, 40.0, 15.0).unwrap();
+        assert!(
+            out.contains("(text 11 21 12 40 15 \"hello\" blue)"),
+            "unexpected: {out}"
+        );
+        let out2 = set_text_box(&out, 0, 0.0, 0.0, 8.0, 9.0).unwrap();
+        assert!(
+            out2.contains("(text 0 0 12 8 9 \"hello\" blue)"),
+            "unexpected: {out2}"
         );
     }
 

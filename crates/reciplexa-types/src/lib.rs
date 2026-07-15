@@ -218,20 +218,34 @@ fn check_form(node: &SyntaxNode) -> Result<Type, TypeError> {
             Ok(Type::Shape)
         }
         "text" => {
-            // (text Num Num Num String) | (+ Color)
-            if args.len() != 4 && args.len() != 5 {
-                return Err(TypeError::at(
-                    "`text` has type (Num Num Num String [Color]) -> Shape",
-                    span.0,
-                    span.1,
-                ));
-            }
-            for a in args.iter().take(3) {
-                expect_ty(check_child(a)?, Type::Number, node)?;
-            }
-            expect_ty(check_child(&args[3])?, Type::String, node)?;
-            if args.len() == 5 {
-                expect_ty(check_child(&args[4])?, Type::Color, node)?;
+            // (text Num Num Num String [Color])
+            // | (text Num Num Num Num Num String [Color])
+            match args.len() {
+                4 | 5 => {
+                    for a in args.iter().take(3) {
+                        expect_ty(check_child(a)?, Type::Number, node)?;
+                    }
+                    expect_ty(check_child(&args[3])?, Type::String, node)?;
+                    if args.len() == 5 {
+                        expect_ty(check_child(&args[4])?, Type::Color, node)?;
+                    }
+                }
+                6 | 7 => {
+                    for a in args.iter().take(5) {
+                        expect_ty(check_child(a)?, Type::Number, node)?;
+                    }
+                    expect_ty(check_child(&args[5])?, Type::String, node)?;
+                    if args.len() == 7 {
+                        expect_ty(check_child(&args[6])?, Type::Color, node)?;
+                    }
+                }
+                _ => {
+                    return Err(TypeError::at(
+                        "`text` has type (Num Num Num [Num Num] String [Color]) -> Shape",
+                        span.0,
+                        span.1,
+                    ));
+                }
             }
             Ok(Type::Shape)
         }
@@ -723,6 +737,8 @@ mod tests {
     fn text_and_line_typecheck() {
         let src = r#"(page a4 (text 1 2 3 "Hi" red) (line 0 0 10 10 blue 0.5))"#;
         assert_eq!(typecheck_source(src).unwrap(), Type::Document);
+        let boxed = r#"(page a4 (text 1 2 3 40 20 "Hi" red))"#;
+        assert_eq!(typecheck_source(boxed).unwrap(), Type::Document);
     }
 
     #[test]

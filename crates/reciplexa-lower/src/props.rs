@@ -254,7 +254,24 @@ fn collect_paint_props(paint: &SyntaxNode, out: &mut Vec<PropField>) -> Result<(
             push_geom_num(&items, 1, "geom.x", "x", out);
             push_geom_num(&items, 2, "geom.y", "y", out);
             push_geom_num(&items, 3, "geom.size", "size", out);
-            if let Some(s) = string_at(&items, 4) {
+            // Boxed: (text x y size w h "…") — slot 4 is a number.
+            let boxed = matches!(
+                items.get(4),
+                Some(Child::Token(t)) if t.kind() == SyntaxKind::Number
+            );
+            if boxed {
+                push_geom_num(&items, 4, "geom.w", "w", out);
+                push_geom_num(&items, 5, "geom.h", "h", out);
+                if let Some(s) = string_at(&items, 6) {
+                    out.push(PropField {
+                        id: "content.text".into(),
+                        label: "text".into(),
+                        group: PropGroup::Content,
+                        value: PropValue::Text(unquote(s)),
+                        slider: None,
+                    });
+                }
+            } else if let Some(s) = string_at(&items, 4) {
                 out.push(PropField {
                     id: "content.text".into(),
                     label: "text".into(),
@@ -337,7 +354,11 @@ fn set_paint_prop(
             if kind != "text" {
                 return Err(SyncError::new("text content only on text shapes"));
             }
-            set_atom_string(src, &items, 4, t)
+            let slot = items
+                .iter()
+                .position(|c| matches!(c, Child::Token(tok) if tok.kind() == SyntaxKind::String))
+                .ok_or_else(|| SyncError::new("text content string missing"))?;
+            set_atom_string(src, &items, slot, t)
         }
         "content.path" => {
             let PropValue::Text(t) = value else {
@@ -617,6 +638,8 @@ fn geom_slot(kind: &str, id: &str) -> Option<usize> {
         ("rect" | "frame", "geom.w") => Some(3),
         ("rect" | "frame", "geom.h") => Some(4),
         ("text", "geom.size") => Some(3),
+        ("text", "geom.w") => Some(4),
+        ("text", "geom.h") => Some(5),
         ("image", "geom.x") => Some(2),
         ("image", "geom.y") => Some(3),
         ("image", "geom.w") => Some(4),

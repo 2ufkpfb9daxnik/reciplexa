@@ -9,6 +9,7 @@ publish = false
 [dependencies]
 reciplexa-syntax = { workspace = true }
 reciplexa-scene = { workspace = true }
+reciplexa-view = { workspace = true }
 
 [dev-dependencies]
 reciplexa-pdf = { workspace = true }

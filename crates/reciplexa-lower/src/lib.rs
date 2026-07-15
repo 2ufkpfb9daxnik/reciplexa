@@ -12,6 +12,8 @@
 //!   (scale <s> <shape…>)
 //!   (scale <sx> <sy> <shape…>)
 //!   (text <x> <y> <size-mm> "…")
+//!   (text <x> <y> <size-mm> <w-mm> <h-mm> "…")
+//!   (text <x> <y> <size-mm> "…" color)
 //!   (line <x1> <y1> <x2> <y2> [color [width-mm]]))
 //! ```
 
@@ -29,8 +31,8 @@ pub use sync::{
     collect_drag_targets, collect_drag_targets_page, collect_layers_page,
     collect_size_targets_page, delete_layer_page, duplicate_layer_page, insert_layer_page,
     layer_opacity, layer_rotation_deg, nudge_drag_target, nudge_first_translate, nudge_layer_page,
-    reorder_layer_page, scale_size_target, set_layer_opacity, set_layer_rotation_deg, DragTarget,
-    LayerInfo, SizeTarget, SyncError,
+    reorder_layer_page, scale_size_target, scale_text_box, set_layer_opacity,
+    set_layer_rotation_deg, set_text_box, DragTarget, LayerInfo, SizeTarget, SyncError,
 };
 
 use reciplexa_scene::{
@@ -347,18 +349,41 @@ fn lower_frame(items: &[Child]) -> Result<Shape, LowerError> {
 }
 
 fn lower_text(items: &[Child]) -> Result<Shape, LowerError> {
-    // (text x y size "content") | (text x y size "content" color)
-    if items.len() != 5 && items.len() != 6 {
-        return Err(LowerError::new(
-            "`text` expects (text x y size-mm \"…\") or with a trailing color",
-        ));
+    // (text x y size "content" [color])
+    // (text x y size w h "content" [color])
+    let (width, height, content_slot, color_slot) = match items.len() {
+        5 => (None, None, 4, None),
+        6 => {
+            // Either trailing color or start of boxed form — boxed needs ≥7.
+            (None, None, 4, Some(5))
+        }
+        7 => {
+            // (text x y size w h "…")
+            let w = number_at(items, 4, "text width")?;
+            let h = number_at(items, 5, "text height")?;
+            (Some(w), Some(h), 6, None)
+        }
+        8 => {
+            let w = number_at(items, 4, "text width")?;
+            let h = number_at(items, 5, "text height")?;
+            (Some(w), Some(h), 6, Some(7))
+        }
+        _ => {
+            return Err(LowerError::new(
+                "`text` expects (text x y size-mm [w-mm h-mm] \"…\" [color])",
+            ));
+        }
+    };
+    // Ambiguous len==6: must be content string then color, not w/h alone.
+    if items.len() == 6 {
+        string_at(items, 4, "text content")?;
     }
     let x = number_at(items, 1, "text x")?;
     let y = number_at(items, 2, "text y")?;
     let size = number_at(items, 3, "text size")?;
-    let content = string_at(items, 4, "text content")?;
-    let fill = if items.len() == 6 {
-        lower_color(&items[5])?
+    let content = string_at(items, content_slot, "text content")?;
+    let fill = if let Some(i) = color_slot {
+        lower_color(&items[i])?
     } else {
         Color::BLACK
     };
@@ -366,6 +391,8 @@ fn lower_text(items: &[Child]) -> Result<Shape, LowerError> {
         x_mm: x,
         y_mm: y,
         size_mm: size,
+        width_mm: width,
+        height_mm: height,
         content,
         fill,
     };
@@ -913,16 +940,26 @@ mod tests {
     fn lowers_text_and_line() {
         let src = r#"(page a4
   (text 20 250 5 "Hello" blue)
+  (text 30 200 6 40 20 "Boxed")
   (line 20 200 100 200 red 1))"#;
         let doc = lower_source(src).unwrap();
         match &doc.pages[0].shapes[0] {
             Shape::Text(t) => {
                 assert_eq!(t.content, "Hello");
                 assert_eq!(t.fill, Color::BLUE);
+                assert_eq!(t.width_mm, None);
             }
             _ => panic!("expected text"),
         }
         match &doc.pages[0].shapes[1] {
+            Shape::Text(t) => {
+                assert_eq!(t.content, "Boxed");
+                assert_eq!(t.width_mm, Some(40.0));
+                assert_eq!(t.height_mm, Some(20.0));
+            }
+            _ => panic!("expected boxed text"),
+        }
+        match &doc.pages[0].shapes[2] {
             Shape::Line(l) => {
                 assert_eq!(l.x2_mm, 100.0);
                 assert_eq!(l.stroke, Color::RED);
