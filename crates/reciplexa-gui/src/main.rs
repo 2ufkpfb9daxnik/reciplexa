@@ -2394,10 +2394,13 @@ fn paint_shape(
         WorldShape::Text(t) => {
             let font_px = layout.radius_mm_to_px(t.size_mm).max(0.5);
             let color = color32(t.fill, t.alpha);
-            let galley = painter.layout_no_wrap(
+            let wrap_px = layout.radius_mm_to_px(t.width_mm).max(1.0);
+            // Soft-wrap to the layout box width; hard newlines still break.
+            let galley = painter.layout(
                 t.content.clone(),
                 egui::FontId::proportional(font_px),
                 color,
+                wrap_px,
             );
             // Baseline in screen pixels (page Y-up → screen Y-down).
             let (bx, by) = layout.mm_to_px(t.x_mm, t.y_mm);

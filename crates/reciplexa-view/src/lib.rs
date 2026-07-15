@@ -471,6 +471,57 @@ fn line_width_mm(line: &str, size_mm: f64) -> f64 {
     line.chars().map(|ch| char_width_mm(ch, size_mm)).sum()
 }
 
+/// Soft-wrap `content` to `max_width_mm` (hard `\n` preserved). Empty → one empty line.
+pub fn wrap_text_to_width(content: &str, size_mm: f64, max_width_mm: f64) -> Vec<String> {
+    let max_w = max_width_mm.max(size_mm * 0.01);
+    let mut out = Vec::new();
+    let paragraphs: Vec<&str> = if content.is_empty() {
+        vec![""]
+    } else {
+        content
+            .split('\n')
+            .map(|l| l.trim_end_matches('\r'))
+            .collect()
+    };
+    for para in paragraphs {
+        if para.is_empty() {
+            out.push(String::new());
+            continue;
+        }
+        let mut line = String::new();
+        let mut line_w = 0.0_f64;
+        for ch in para.chars() {
+            let cw = char_width_mm(ch, size_mm);
+            if !line.is_empty() && line_w + cw > max_w {
+                // Prefer break after whitespace when possible.
+                if let Some(idx) = line.rfind(|c: char| c.is_whitespace()) {
+                    let (keep, rest) = line.split_at(idx + 1);
+                    let rest = rest.to_string();
+                    out.push(keep.trim_end().to_string());
+                    line = rest;
+                    line_w = line_width_mm(&line, size_mm);
+                } else {
+                    out.push(std::mem::take(&mut line));
+                    line_w = 0.0;
+                }
+            }
+            line.push(ch);
+            line_w += cw;
+        }
+        out.push(line);
+    }
+    if out.is_empty() {
+        out.push(String::new());
+    }
+    out
+}
+
+/// Laid-out line count and height for wrapped text (1 em leading per line).
+pub fn wrapped_text_height_mm(content: &str, size_mm: f64, max_width_mm: f64) -> f64 {
+    let lines = wrap_text_to_width(content, size_mm, max_width_mm);
+    (lines.len() as f64 * size_mm).max(size_mm * 0.01)
+}
+
 /// Text box size in mm from baseline-left (y up). Matches GUI/PDF hard line breaks (1 em leading).
 pub fn text_extent_mm(content: &str, size_mm: f64) -> (f64, f64) {
     let lines: Vec<&str> = if content.is_empty() {
@@ -863,6 +914,19 @@ mod tests {
             WorldShape::Circle(c) => assert!((c.alpha - 0.25).abs() < 1e-9),
             _ => panic!("expected circle"),
         }
+    }
+
+    #[test]
+    fn wrap_text_breaks_long_ascii() {
+        let lines = wrap_text_to_width("hello world there", 10.0, 40.0);
+        assert!(lines.len() >= 2, "expected wrap: {lines:?}");
+        assert!(lines.iter().all(|l| line_width_mm(l, 10.0) <= 40.0 + 1e-6));
+    }
+
+    #[test]
+    fn wrap_preserves_hard_newlines() {
+        let lines = wrap_text_to_width("aa\nbb", 10.0, 100.0);
+        assert_eq!(lines, vec!["aa".to_string(), "bb".to_string()]);
     }
 
     #[test]

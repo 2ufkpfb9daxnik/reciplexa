@@ -399,7 +399,7 @@ fn render_shape(
                 return Err(PdfError::InvalidShape(format!("{ctx}: text not drawable")));
             }
             Ok(ops_only(text_ops(
-                t.x_mm, t.y_mm, t.size_mm, &t.content, t.fill, cjk,
+                t.x_mm, t.y_mm, t.size_mm, t.width_mm, &t.content, t.fill, cjk,
             )?))
         }
         Shape::Line(l) => {
@@ -686,6 +686,7 @@ fn text_ops(
     x_mm: f64,
     y_mm: f64,
     size_mm: f64,
+    wrap_width_mm: Option<f64>,
     content: &str,
     fill: Color,
     cjk: Option<&CjkFontEmbed>,
@@ -694,12 +695,15 @@ fn text_ops(
         return Ok(String::new());
     }
     let size_pt = mm_to_pt(size_mm);
-    // Match egui `layout_no_wrap` hard breaks: one em of leading per line.
+    // Match GUI wrapped / hard line breaks: one em of leading per line.
     let leading = size_pt;
-    let lines: Vec<&str> = content
-        .split('\n')
-        .map(|l| l.trim_end_matches('\r'))
-        .collect();
+    let lines: Vec<String> = match wrap_width_mm {
+        Some(w) if w > 0.0 => reciplexa_view::wrap_text_to_width(content, size_mm, w),
+        _ => content
+            .split('\n')
+            .map(|l| l.trim_end_matches('\r').to_string())
+            .collect(),
+    };
     let use_cjk = !content.is_ascii();
     if use_cjk && cjk.is_none() {
         return Err(PdfError::InvalidShape(
@@ -1053,6 +1057,29 @@ mod tests {
         assert!(text.contains("T*\n"), "line advance missing: {text}");
         assert!(text.contains("(hello) Tj"));
         assert!(text.contains("(world) Tj"));
+    }
+
+    #[test]
+    fn boxed_text_soft_wraps_in_pdf() {
+        let doc = Document::single_page(Page {
+            paper: PaperSize::a4(),
+            shapes: vec![Shape::Text(Text {
+                x_mm: 20.0,
+                y_mm: 200.0,
+                size_mm: 10.0,
+                width_mm: Some(35.0),
+                height_mm: Some(40.0),
+                content: "hello world there".into(),
+                fill: Color::BLACK,
+            })],
+        });
+        let bytes = document_to_pdf(&doc).unwrap();
+        let text = String::from_utf8_lossy(&bytes);
+        assert!(
+            text.contains("T*\n"),
+            "soft wrap should emit line advances: {text}"
+        );
+        assert!(text.matches(" Tj\n").count() >= 2);
     }
 
     #[test]
