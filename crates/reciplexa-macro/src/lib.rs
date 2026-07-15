@@ -647,8 +647,21 @@ mod tests {
     }
 
     #[test]
+    fn expands_ul_bullets_semicolon_items() {
+        let out = expand_source("(doc @ul{Alpha; Beta; Gamma})").unwrap();
+        assert!(out.contains("(text 25 270 8 \"• Alpha\" black)"), "{out}");
+        assert!(out.contains("(text 25 258 8 \"• Beta\" black)"), "{out}");
+        assert!(out.contains("(text 25 246 8 \"• Gamma\" black)"), "{out}");
+    }
+
+    #[test]
     fn empty_ol_skips() {
         assert_eq!(expand_source("(doc @ol{})").unwrap(), "(page a4)");
+    }
+
+    #[test]
+    fn empty_ul_skips() {
+        assert_eq!(expand_source("(doc @ul{})").unwrap(), "(page a4)");
     }
 
     #[test]
@@ -657,6 +670,13 @@ mod tests {
         assert!(out.contains("1. A"), "{out}");
         assert!(out.contains("2. B"), "{out}");
         assert!(!out.contains("3."), "{out}");
+    }
+
+    #[test]
+    fn ul_trims_blank_segments() {
+        let out = expand_source("(doc @ul{A;; B})").unwrap();
+        assert!(out.contains("• A"), "{out}");
+        assert!(out.contains("• B"), "{out}");
     }
 
     // --- @vspace / @hr ---

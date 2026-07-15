@@ -241,6 +241,10 @@ pub fn layout_doc_parts(parts: &[DocPart]) -> Vec<LaidItem> {
                     flush_body(&mut buf, &mut out);
                     push_ordered_list(brace_body, &mut out);
                 }
+                "ul" => {
+                    flush_body(&mut buf, &mut out);
+                    push_unordered_list(brace_body, &mut out);
+                }
                 "p" => {
                     flush_body(&mut buf, &mut out);
                     push_styled_block(
@@ -345,6 +349,26 @@ fn push_ordered_list(body: &[DocPart], out: &mut Vec<LaidItem>) {
         let numbered = format!("{n}. {item}");
         push_wrapped(
             &numbered,
+            BODY_SIZE_MM,
+            BODY_GAP_MM,
+            BODY_WRAP_CHARS,
+            0.0,
+            out,
+        );
+    }
+}
+
+/// `@ul{a; b; c}` → bulleted body lines (same semicolon split as `@ol`).
+fn push_unordered_list(body: &[DocPart], out: &mut Vec<LaidItem>) {
+    let flat = flatten_readable(body);
+    for segment in flat.split(';') {
+        let item = segment.trim();
+        if item.is_empty() {
+            continue;
+        }
+        let bulleted = format!("• {item}");
+        push_wrapped(
+            &bulleted,
             BODY_SIZE_MM,
             BODY_GAP_MM,
             BODY_WRAP_CHARS,
