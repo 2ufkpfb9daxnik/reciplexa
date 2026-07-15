@@ -269,6 +269,23 @@ fn find_doc(root: &SyntaxNode) -> Option<(usize, usize, String)> {
                                 format_frac(*width_mm)
                             ));
                         }
+                        PlacedItem::Image {
+                            path,
+                            x_mm,
+                            y_mm,
+                            width_mm,
+                            height_mm,
+                            ..
+                        } => {
+                            repl.push_str(&format!(
+                                " (image \"{}\" {} {} {} {})",
+                                escape_lisp_string(path),
+                                format_frac(*x_mm),
+                                format_frac(*y_mm),
+                                format_frac(*width_mm),
+                                format_frac(*height_mm)
+                            ));
+                        }
                     }
                 }
                 repl.push(')');
@@ -500,6 +517,36 @@ mod tests {
             out.contains("(text 33 270 6 \"Fig. 1 A circle\" black)"),
             "{out}"
         );
+    }
+
+    #[test]
+    fn expands_image_emits_image_shape() {
+        let out = expand_source(r#"(doc @image["figures/demo.png"])"#).unwrap();
+        // Default 80×50; top at 270 → bottom y = 220
+        assert!(
+            out.contains(r#"(image "figures/demo.png" 25 220 80 50)"#),
+            "{out}"
+        );
+    }
+
+    #[test]
+    fn expands_image_with_caption_brace() {
+        let out = expand_source(r#"(doc @image["figures/demo.png"]{Demo shot})"#).unwrap();
+        assert!(
+            out.contains(r#"(image "figures/demo.png" 25 220 80 50)"#),
+            "{out}"
+        );
+        // After image height 50 + pad 8 → caption at 212
+        assert!(
+            out.contains("(text 33 212 6 \"Demo shot\" black)"),
+            "caption under image: {out}"
+        );
+    }
+
+    #[test]
+    fn empty_image_path_skips() {
+        assert_eq!(expand_source("(doc @image[])").unwrap(), "(page a4)");
+        assert_eq!(expand_source(r#"(doc @image[""])"#).unwrap(), "(page a4)");
     }
 
     #[test]

@@ -124,6 +124,7 @@ mod tests {
             "multiline_doc.rpx",
             "doc_title_p.rpx",
             "doc_link_caption.rpx",
+            "doc_with_figure.rpx",
             "long_doc.rpx",
         ] {
             let input = repo.join("examples").join(name);

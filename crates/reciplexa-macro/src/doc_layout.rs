@@ -16,7 +16,7 @@ pub struct LaidLine {
     pub content: String,
 }
 
-/// Flow item after Scribble package layout (text, gap, rule, or forced break).
+/// Flow item after Scribble package layout (text, gap, rule, image, or forced break).
 #[derive(Debug, Clone, PartialEq)]
 pub enum LaidItem {
     Text(LaidLine),
@@ -26,6 +26,14 @@ pub enum LaidItem {
     },
     /// Horizontal rule at the current baseline (`@hr`).
     Hr {
+        y_gap_after: f64,
+    },
+    /// Embedded image (`@image["path"]`); `y` in placement is bottom-left.
+    Image {
+        path: String,
+        width_mm: f64,
+        height_mm: f64,
+        /// Advance after the image top reference (typically height + pad).
         y_gap_after: f64,
     },
     /// Force the next drawable item onto a new page (`@pagebreak`).
@@ -60,6 +68,12 @@ pub const CAPTION_WRAP_CHARS: usize = 42;
 pub const BR_GAP_MM: f64 = 12.0;
 pub const HR_GAP_MM: f64 = 12.0;
 pub const HR_WIDTH_MM: f64 = 0.4;
+/// Default `@image` width (mm).
+pub const FIGURE_WIDTH_MM: f64 = 80.0;
+/// Default `@image` height (mm).
+pub const FIGURE_HEIGHT_MM: f64 = 50.0;
+/// Extra gap under a figure before the next flow item.
+pub const FIGURE_PAD_MM: f64 = 8.0;
 
 /// Soft wrap budget for body lines (~A4 content width at body size; not JLReq).
 pub const BODY_WRAP_CHARS: usize = 40;
@@ -113,6 +127,15 @@ pub enum PlacedItem {
         y2_mm: f64,
         width_mm: f64,
     },
+    Image {
+        page_index: usize,
+        path: String,
+        x_mm: f64,
+        /// Bottom-left y (same convention as `(image …)`).
+        y_mm: f64,
+        width_mm: f64,
+        height_mm: f64,
+    },
 }
 
 impl PlacedItem {
@@ -120,6 +143,7 @@ impl PlacedItem {
         match self {
             PlacedItem::Text(t) => t.page_index,
             PlacedItem::Line { page_index, .. } => *page_index,
+            PlacedItem::Image { page_index, .. } => *page_index,
         }
     }
 }
@@ -142,18 +166,24 @@ pub fn place_items(items: &[LaidItem], frame: DocFrame) -> Vec<PlacedItem> {
             have_prev = false;
             continue;
         }
+        let item_height = match item {
+            LaidItem::Image { height_mm, .. } => *height_mm,
+            _ => 0.0,
+        };
         if force_new_page {
             page += 1;
             y = frame.top_mm;
             force_new_page = false;
         } else if have_prev {
             let next_y = y - prev_gap;
-            if next_y < frame.bottom_mm {
+            if next_y - item_height < frame.bottom_mm {
                 page += 1;
                 y = frame.top_mm;
             } else {
                 y = next_y;
             }
+        } else if y - item_height < frame.bottom_mm && item_height > 0.0 {
+            // First item on a page that still cannot fit: place at top anyway.
         }
         match item {
             LaidItem::Text(line) => {
@@ -179,6 +209,23 @@ pub fn place_items(items: &[LaidItem], frame: DocFrame) -> Vec<PlacedItem> {
                     x2_mm: frame.right_mm(),
                     y2_mm: y,
                     width_mm: HR_WIDTH_MM,
+                });
+                prev_gap = *y_gap_after;
+                have_prev = true;
+            }
+            LaidItem::Image {
+                path,
+                width_mm,
+                height_mm,
+                y_gap_after,
+            } => {
+                out.push(PlacedItem::Image {
+                    page_index: page,
+                    path: path.clone(),
+                    x_mm: frame.left_mm,
+                    y_mm: y - height_mm,
+                    width_mm: *width_mm,
+                    height_mm: *height_mm,
                 });
                 prev_gap = *y_gap_after;
                 have_prev = true;
@@ -293,6 +340,10 @@ pub fn layout_doc_parts(parts: &[DocPart]) -> Vec<LaidItem> {
                 "cite" => {
                     push_cite_inline(bracket_args.as_deref(), &mut buf);
                 }
+                "image" => {
+                    flush_body(&mut buf, &mut out);
+                    push_image(bracket_args.as_deref(), brace_body, &mut out);
+                }
                 _ => {
                     if !brace_body.is_empty() {
                         buf.push_str(&flatten_readable(brace_body));
@@ -353,6 +404,28 @@ fn strip_bracket_string(s: &str) -> String {
     } else {
         t.to_string()
     }
+}
+
+/// `@image["path"]{optional caption}` — default figure size, caption as `@caption`.
+fn push_image(bracket_args: Option<&str>, body: &[DocPart], out: &mut Vec<LaidItem>) {
+    let path = bracket_args.map(strip_bracket_string).unwrap_or_default();
+    if path.is_empty() {
+        return;
+    }
+    out.push(LaidItem::Image {
+        path,
+        width_mm: FIGURE_WIDTH_MM,
+        height_mm: FIGURE_HEIGHT_MM,
+        y_gap_after: FIGURE_HEIGHT_MM + FIGURE_PAD_MM,
+    });
+    push_styled_block_indent(
+        body,
+        CAPTION_SIZE_MM,
+        CAPTION_GAP_MM,
+        CAPTION_WRAP_CHARS,
+        CAPTION_INDENT_MM,
+        out,
+    );
 }
 
 fn push_styled_block(
@@ -817,6 +890,7 @@ mod tests {
         assert!(placed.iter().all(|p| match p {
             PlacedItem::Text(t) => t.y_mm >= DocFrame::A4.bottom_mm,
             PlacedItem::Line { y1_mm, .. } => *y1_mm >= DocFrame::A4.bottom_mm,
+            PlacedItem::Image { y_mm, .. } => *y_mm >= DocFrame::A4.bottom_mm,
         }));
     }
 
