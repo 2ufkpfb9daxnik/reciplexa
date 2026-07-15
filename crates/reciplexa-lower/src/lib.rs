@@ -29,11 +29,12 @@ pub use props::{
 };
 pub use sync::{
     collect_drag_targets, collect_drag_targets_page, collect_layers_page,
-    collect_size_targets_page, delete_layer_page, duplicate_layer_page, insert_layer_page,
-    layer_opacity, layer_rotation_deg, nudge_drag_target, nudge_first_translate, nudge_layer_page,
-    reorder_layer_page, scale_size_target, scale_size_target_axes, scale_text_box, set_box_xywh,
-    set_layer_opacity, set_layer_rotation_deg, set_line_endpoint, set_poly_vertex, set_text_box,
-    DragTarget, LayerInfo, SizeTarget, SyncError,
+    collect_size_targets_page, delete_layer_page, duplicate_layer_page, group_layers_page,
+    insert_layer_page, layer_opacity, layer_rotation_deg, nudge_drag_target, nudge_first_translate,
+    nudge_layer_page, reorder_layer_page, scale_size_target, scale_size_target_axes,
+    scale_text_box, set_box_xywh, set_layer_opacity, set_layer_rotation_deg, set_line_endpoint,
+    set_poly_vertex, set_text_box, ungroup_layer_page, DragTarget, LayerInfo, SizeTarget,
+    SyncError,
 };
 
 use reciplexa_scene::{

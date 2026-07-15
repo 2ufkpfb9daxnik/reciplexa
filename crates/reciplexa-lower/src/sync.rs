@@ -263,6 +263,164 @@ pub fn insert_layer_page(
     Ok((out, idx))
 }
 
+/// Wrap contiguous page-level roots that own `flat_indices` in `(group …)`.
+///
+/// Returns the rewritten source and the flatten indices of every leaf now inside
+/// the new group (same relative order).
+pub fn group_layers_page(
+    src: &str,
+    page_index: usize,
+    flat_indices: &[usize],
+) -> Result<(String, Vec<usize>), SyncError> {
+    let mut indices: Vec<usize> = flat_indices.to_vec();
+    indices.sort_unstable();
+    indices.dedup();
+    if indices.len() < 2 {
+        return Err(SyncError::new("group needs at least two layers"));
+    }
+    let layers = collect_layers_page(src, page_index)?;
+    let mut roots: Vec<(usize, usize)> = Vec::new();
+    for &i in &indices {
+        let layer = layers
+            .get(i)
+            .ok_or_else(|| SyncError::new("layer index out of range"))?;
+        let root = (layer.root_start, layer.root_end);
+        if roots.last() != Some(&root) {
+            roots.push(root);
+        }
+    }
+    if roots.len() < 2 {
+        return Err(SyncError::new(
+            "group needs layers from at least two page-level forms",
+        ));
+    }
+
+    let root = parse_root(src)?;
+    let page = find_page(&root, page_index)?;
+    let items = list_atoms(&page);
+    let start = page_body_start(&items);
+    let forms: Vec<(usize, usize)> = items
+        .iter()
+        .skip(start)
+        .filter_map(|item| match item {
+            Child::Node(n) => {
+                let r = n.text_range();
+                Some((usize::from(r.start()), usize::from(r.end())))
+            }
+            _ => None,
+        })
+        .collect();
+
+    let mut form_idxs = Vec::with_capacity(roots.len());
+    for r in &roots {
+        let fi = forms
+            .iter()
+            .position(|f| f == r)
+            .ok_or_else(|| SyncError::new("selected layer is not a top-level page root"))?;
+        form_idxs.push(fi);
+    }
+    form_idxs.sort_unstable();
+    form_idxs.dedup();
+    for w in form_idxs.windows(2) {
+        if w[1] != w[0] + 1 {
+            return Err(SyncError::new(
+                "group requires contiguous layer roots in source order",
+            ));
+        }
+    }
+    let first = form_idxs[0];
+    let last = *form_idxs.last().unwrap();
+    let span_start = forms[first].0;
+    let span_end = forms[last].1;
+
+    let mut body = String::from("(group");
+    for form in forms.iter().take(last + 1).skip(first) {
+        let (a, b) = *form;
+        body.push_str("\n    ");
+        body.push_str(src[a..b].trim());
+    }
+    body.push_str("\n  )");
+
+    let mut out = String::with_capacity(src.len() + body.len());
+    out.push_str(&src[..span_start]);
+    out.push_str(&body);
+    out.push_str(&src[span_end..]);
+
+    let mut before = 0usize;
+    for f in &forms[..first] {
+        before += layers
+            .iter()
+            .filter(|l| (l.root_start, l.root_end) == *f)
+            .count();
+    }
+    let mut count = 0usize;
+    for form in forms.iter().take(last + 1).skip(first) {
+        count += layers
+            .iter()
+            .filter(|l| (l.root_start, l.root_end) == *form)
+            .count();
+    }
+    let new_sel: Vec<usize> = (before..before + count).collect();
+    Ok((out, new_sel))
+}
+
+/// Peel a top-level `(group …)` owning `flat_index` into sibling page forms.
+pub fn ungroup_layer_page(
+    src: &str,
+    page_index: usize,
+    flat_index: usize,
+) -> Result<(String, Vec<usize>), SyncError> {
+    let layers = collect_layers_page(src, page_index)?;
+    let layer = layers
+        .get(flat_index)
+        .ok_or_else(|| SyncError::new("layer index out of range"))?;
+    let root_span = (layer.root_start, layer.root_end);
+    let root = parse_root(src)?;
+    let Some(node) = find_span_node(&root, root_span.0, root_span.1) else {
+        return Err(SyncError::new("group root node not found"));
+    };
+    if !is_headed(&node, "group") {
+        return Err(SyncError::new("layer root is not a group"));
+    }
+    let items = list_atoms(&node);
+    let mut children = Vec::new();
+    for item in items.iter().skip(1) {
+        if let Child::Node(n) = item {
+            let r = n.text_range();
+            children.push(src[usize::from(r.start())..usize::from(r.end())].to_string());
+        }
+    }
+    if children.is_empty() {
+        return Err(SyncError::new("group has no children"));
+    }
+    let replacement = children.join("\n  ");
+    let mut out = String::with_capacity(src.len() + replacement.len());
+    out.push_str(&src[..root_span.0]);
+    out.push_str(&replacement);
+    out.push_str(&src[root_span.1..]);
+
+    let start = layers
+        .iter()
+        .position(|l| (l.root_start, l.root_end) == root_span)
+        .unwrap_or(flat_index);
+    let count = layers
+        .iter()
+        .filter(|l| (l.root_start, l.root_end) == root_span)
+        .count();
+    let new_sel: Vec<usize> = (start..start + count).collect();
+    Ok((out, new_sel))
+}
+
+fn find_span_node(root: &SyntaxNode, start: usize, end: usize) -> Option<SyntaxNode> {
+    root.descendants().find(|n| {
+        if n.kind() != SyntaxKind::List {
+            return false;
+        }
+        let r = n.text_range();
+        usize::from(r.start()) == start && usize::from(r.end()) == end
+    })
+}
+
 fn reorder_page_roots(
     src: &str,
     page_index: usize,
@@ -2165,6 +2323,45 @@ mod tests {
         let (out, idx) = insert_layer_page(src, 0, "(circle 105 148.5 20)").unwrap();
         assert_eq!(out, "(page a4 (circle 105 148.5 20))");
         assert_eq!(idx, 0);
+    }
+
+    #[test]
+    fn group_and_ungroup_contiguous_roots() {
+        let src = "(page a4 (circle 1 2 3) (rect 0 0 10 10) (ellipse 50 60 5 4))";
+        let (grouped, sel) = group_layers_page(src, 0, &[0, 1]).unwrap();
+        assert!(grouped.contains("(group"), "expected group: {grouped}");
+        assert!(grouped.contains("(circle 1 2 3)"));
+        assert!(grouped.contains("(rect 0 0 10 10)"));
+        assert!(grouped.contains("(ellipse 50 60 5 4)"));
+        assert_eq!(sel, vec![0, 1]);
+        let layers = collect_layers_page(&grouped, 0).unwrap();
+        assert_eq!(layers.len(), 3);
+        // Shared group root for first two leaves.
+        assert_eq!(
+            (layers[0].root_start, layers[0].root_end),
+            (layers[1].root_start, layers[1].root_end)
+        );
+        assert_ne!(
+            (layers[0].root_start, layers[0].root_end),
+            (layers[2].root_start, layers[2].root_end)
+        );
+
+        let (ungrouped, sel2) = ungroup_layer_page(&grouped, 0, 0).unwrap();
+        assert!(!ungrouped.contains("(group"), "peeled: {ungrouped}");
+        assert_eq!(sel2, vec![0, 1]);
+        let layers2 = collect_layers_page(&ungrouped, 0).unwrap();
+        assert_eq!(layers2.len(), 3);
+        assert_ne!(
+            (layers2[0].root_start, layers2[0].root_end),
+            (layers2[1].root_start, layers2[1].root_end)
+        );
+    }
+
+    #[test]
+    fn group_rejects_noncontiguous_roots() {
+        let src = "(page a4 (circle 1 2 3) (rect 0 0 10 10) (ellipse 50 60 5 4))";
+        let err = group_layers_page(src, 0, &[0, 2]).unwrap_err();
+        assert!(err.message.contains("contiguous"));
     }
 
     #[test]

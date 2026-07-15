@@ -12,11 +12,11 @@ use reciplexa::pipeline::{document_for_export, document_from_source};
 use reciplexa_effect::{seed_from_env, EffectError, EffectHandler, LcgRng, Value};
 use reciplexa_lower::{
     collect_layer_props, collect_layers_page, collect_size_targets_page, delete_layer_page,
-    duplicate_layer_page, insert_layer_page, layer_rotation_deg, nudge_layer_page,
-    reorder_layer_page, scale_size_target, set_box_xywh, set_layer_prop, set_layer_rotation_deg,
-    set_layers_fill_rgb, set_layers_opacity, set_layers_stroke_rgb, set_layers_stroke_width,
-    set_line_endpoint, set_poly_vertex, set_text_box, LayerInfo, PropEditContext, PropGroup,
-    PropValue, SizeTarget,
+    duplicate_layer_page, group_layers_page, insert_layer_page, layer_rotation_deg,
+    nudge_layer_page, reorder_layer_page, scale_size_target, set_box_xywh, set_layer_prop,
+    set_layer_rotation_deg, set_layers_fill_rgb, set_layers_opacity, set_layers_stroke_rgb,
+    set_layers_stroke_width, set_line_endpoint, set_poly_vertex, set_text_box, ungroup_layer_page,
+    LayerInfo, PropEditContext, PropGroup, PropValue, SizeTarget,
 };
 use reciplexa_macro::expand_source;
 use reciplexa_pdf::write_document_with_base;
@@ -835,6 +835,14 @@ impl PreviewApp {
                             send_backward = true;
                         }
                     });
+                    ui.horizontal(|ui| {
+                        if ui.button("Group").on_hover_text("Ctrl+G").clicked() {
+                            self.group_selection();
+                        }
+                        if ui.button("Ungroup").on_hover_text("Ctrl+Shift+G").clicked() {
+                            self.ungroup_selection();
+                        }
+                    });
                 });
             self.props_open = open;
             if apply_fill {
@@ -1099,6 +1107,18 @@ impl PreviewApp {
                         .clicked()
                     {
                         send_backward = true;
+                    }
+                });
+                ui.horizontal(|ui| {
+                    if ui.button("Group").on_hover_text("Ctrl+G").clicked() {
+                        self.group_selection();
+                    }
+                    if ui
+                        .button("Ungroup")
+                        .on_hover_text("Ctrl+Shift+G")
+                        .clicked()
+                    {
+                        self.ungroup_selection();
                     }
                 });
             });
@@ -1710,6 +1730,45 @@ impl PreviewApp {
         self.error = pipeline_doc(&self.source).err();
     }
 
+    fn group_selection(&mut self) {
+        if self.selected.len() < 2 {
+            self.error = Some("select at least two contiguous layers to group".into());
+            return;
+        }
+        self.push_undo();
+        match group_layers_page(&self.source, self.page_index, &self.selected) {
+            Ok((new_src, sel)) => {
+                self.source = new_src;
+                self.selected = sel;
+                self.props_open = !self.selected.is_empty();
+                self.error = pipeline_doc(&self.source).err();
+            }
+            Err(e) => {
+                let _ = self.undo_stack.pop();
+                self.error = Some(e.message);
+            }
+        }
+    }
+
+    fn ungroup_selection(&mut self) {
+        let Some(flat) = self.primary_selected() else {
+            return;
+        };
+        self.push_undo();
+        match ungroup_layer_page(&self.source, self.page_index, flat) {
+            Ok((new_src, sel)) => {
+                self.source = new_src;
+                self.selected = sel;
+                self.props_open = !self.selected.is_empty();
+                self.error = pipeline_doc(&self.source).err();
+            }
+            Err(e) => {
+                let _ = self.undo_stack.pop();
+                self.error = Some(e.message);
+            }
+        }
+    }
+
     fn is_dirty(&self) -> bool {
         self.source != self.saved_source
     }
@@ -1812,6 +1871,18 @@ impl eframe::App for PreviewApp {
             let mut prefs = GuiPrefs::load();
             prefs.show_grid = self.show_grid;
             prefs.save();
+        }
+        if !source_focused
+            && ctx
+                .input(|i| i.modifiers.command && !i.modifiers.shift && i.key_pressed(egui::Key::G))
+        {
+            self.group_selection();
+        }
+        if !source_focused
+            && ctx
+                .input(|i| i.modifiers.command && i.modifiers.shift && i.key_pressed(egui::Key::G))
+        {
+            self.ungroup_selection();
         }
         if !source_focused
             && ctx.input(|i| {
