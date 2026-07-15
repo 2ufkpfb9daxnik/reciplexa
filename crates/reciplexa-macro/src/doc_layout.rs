@@ -415,16 +415,16 @@ fn strip_bracket_string(s: &str) -> String {
 }
 
 /// `@image["path"]{optional caption}` — default figure size, caption as `@caption`.
+/// Size override: `@image["path" width-mm height-mm]`.
 fn push_image(bracket_args: Option<&str>, body: &[DocPart], out: &mut Vec<LaidItem>) {
-    let path = bracket_args.map(strip_bracket_string).unwrap_or_default();
-    if path.is_empty() {
+    let Some((path, width_mm, height_mm)) = bracket_args.and_then(parse_image_bracket) else {
         return;
-    }
+    };
     out.push(LaidItem::Image {
         path,
-        width_mm: FIGURE_WIDTH_MM,
-        height_mm: FIGURE_HEIGHT_MM,
-        y_gap_after: FIGURE_HEIGHT_MM + FIGURE_PAD_MM,
+        width_mm,
+        height_mm,
+        y_gap_after: height_mm + FIGURE_PAD_MM,
     });
     push_styled_block_indent(
         body,
@@ -434,6 +434,36 @@ fn push_image(bracket_args: Option<&str>, body: &[DocPart], out: &mut Vec<LaidIt
         CAPTION_INDENT_MM,
         out,
     );
+}
+
+fn parse_image_bracket(s: &str) -> Option<(String, f64, f64)> {
+    let s = s.trim();
+    if s.is_empty() {
+        return None;
+    }
+    let (path, rest) = if s.starts_with('"') {
+        let end = s[1..].find('"')? + 1;
+        let path = s[1..end].to_string();
+        let rest = s[end + 1..].trim().to_string();
+        (path, rest)
+    } else {
+        let mut parts = s.split_whitespace();
+        let path = parts.next()?.to_string();
+        let rest = parts.collect::<Vec<_>>().join(" ");
+        (path, rest)
+    };
+    if path.is_empty() {
+        return None;
+    }
+    let nums: Vec<f64> = rest
+        .split_whitespace()
+        .filter_map(|t| t.parse().ok())
+        .collect();
+    let (width_mm, height_mm) = match nums.as_slice() {
+        [w, h, ..] if *w > 0.0 && *h > 0.0 && w.is_finite() && h.is_finite() => (*w, *h),
+        _ => (FIGURE_WIDTH_MM, FIGURE_HEIGHT_MM),
+    };
+    Some((path, width_mm, height_mm))
 }
 
 fn push_styled_block(

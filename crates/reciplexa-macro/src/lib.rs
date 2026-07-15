@@ -530,6 +530,15 @@ mod tests {
     }
 
     #[test]
+    fn expands_image_custom_size_in_brackets() {
+        let out = expand_source(r#"(doc @image["figures/demo.png" 100 40])"#).unwrap();
+        assert!(
+            out.contains(r#"(image "figures/demo.png" 25 230 100 40)"#),
+            "{out}"
+        );
+    }
+
+    #[test]
     fn expands_image_with_caption_brace() {
         let out = expand_source(r#"(doc @image["figures/demo.png"]{Demo shot})"#).unwrap();
         assert!(
@@ -547,6 +556,15 @@ mod tests {
     fn empty_image_path_skips() {
         assert_eq!(expand_source("(doc @image[])").unwrap(), "(page a4)");
         assert_eq!(expand_source(r#"(doc @image[""])"#).unwrap(), "(page a4)");
+    }
+
+    #[test]
+    fn bad_image_size_falls_back_to_default() {
+        let out = expand_source(r#"(doc @image["figures/demo.png" -1 40])"#).unwrap();
+        assert!(
+            out.contains(r#"(image "figures/demo.png" 25 220 80 50)"#),
+            "non-positive size should use defaults: {out}"
+        );
     }
 
     #[test]
