@@ -644,6 +644,27 @@ pub fn set_line_endpoint(
     set_nth_number(&out, "line", index, y_slot, y)
 }
 
+/// Set one vertex of `(polyline …)` / `(polygon …)` (`vertex` is 0-based).
+pub fn set_poly_vertex(
+    src: &str,
+    head: &str,
+    index: usize,
+    vertex: usize,
+    x: f64,
+    y: f64,
+) -> Result<String, SyncError> {
+    if head != "polyline" && head != "polygon" {
+        return Err(SyncError::new("set_poly_vertex only for polyline/polygon"));
+    }
+    if !x.is_finite() || !y.is_finite() {
+        return Err(SyncError::new("vertex must be finite"));
+    }
+    let x_slot = 1 + vertex * 2;
+    let y_slot = x_slot + 1;
+    let out = set_nth_number(src, head, index, x_slot, x)?;
+    set_nth_number(&out, head, index, y_slot, y)
+}
+
 /// Set absolute origin + size for a box-like leaf (`rect` / `frame` / `image`).
 #[allow(clippy::too_many_arguments)]
 pub fn set_box_xywh(
@@ -1909,6 +1930,16 @@ mod tests {
         assert!(
             out0.contains("(line -1 -2 10 10 red 1)"),
             "unexpected: {out0}"
+        );
+    }
+
+    #[test]
+    fn set_polyline_vertex_rewrites_pair() {
+        let src = "(page a4 (polyline 0 0 10 0 10 10 red 1))";
+        let out = set_poly_vertex(src, "polyline", 0, 1, 5.0, 5.0).unwrap();
+        assert!(
+            out.contains("(polyline 0 0 5 5 10 10 red 1)"),
+            "unexpected: {out}"
         );
     }
 

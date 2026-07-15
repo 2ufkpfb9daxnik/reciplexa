@@ -15,7 +15,8 @@ use reciplexa_lower::{
     duplicate_layer_page, insert_layer_page, layer_rotation_deg, nudge_layer_page,
     reorder_layer_page, scale_size_target, set_box_xywh, set_layer_prop, set_layer_rotation_deg,
     set_layers_fill_rgb, set_layers_opacity, set_layers_stroke_rgb, set_layers_stroke_width,
-    set_line_endpoint, set_text_box, LayerInfo, PropEditContext, PropGroup, PropValue, SizeTarget,
+    set_line_endpoint, set_poly_vertex, set_text_box, LayerInfo, PropEditContext, PropGroup,
+    PropValue, SizeTarget,
 };
 use reciplexa_macro::expand_source;
 use reciplexa_pdf::write_document_with_base;
@@ -464,6 +465,13 @@ enum DragKind {
     LineEndpoint {
         index: usize,
         endpoint: usize,
+        base_src: String,
+    },
+    /// Drag one polyline/polygon vertex.
+    PolyVertex {
+        head: &'static str,
+        index: usize,
+        vertex: usize,
         base_src: String,
     },
     Rotate {
@@ -2082,11 +2090,17 @@ impl eframe::App for PreviewApp {
                         paint_selection_frame(&painter, rect, &layout, bounds);
                     }
                     if let WorldShape::Path(p) = shape {
-                        if p.points_mm.len() == 2
+                        let is_line = p.points_mm.len() == 2
                             && size_bindings
                                 .get(i)
-                                .is_some_and(|t| matches!(t, SizeTarget::LineSeg(_)))
-                        {
+                                .is_some_and(|t| matches!(t, SizeTarget::LineSeg(_)));
+                        let is_poly = size_bindings.get(i).is_some_and(|t| {
+                            matches!(
+                                t,
+                                SizeTarget::PolylinePoints(_) | SizeTarget::PolygonPoints(_)
+                            )
+                        });
+                        if is_line || is_poly {
                             paint_line_endpoints(&painter, rect, &layout, &p.points_mm);
                         }
                     }
@@ -2127,23 +2141,50 @@ impl eframe::App for PreviewApp {
                     // Handles for primary selection (endpoints / scale / rotate).
                     if let Some(sel) = self.primary_selected() {
                         if let Some(shape) = shapes.get(sel) {
-                            // Line endpoints work even when the stroke itself is hit.
-                            if let (WorldShape::Path(p), Some(SizeTarget::LineSeg(idx))) =
-                                (shape, size_bindings.get(sel).copied())
-                            {
-                                if p.points_mm.len() == 2 {
-                                    if let Some(endpoint) =
-                                        hit_line_endpoint(&layout, &p.points_mm, local_pos)
-                                    {
-                                        self.drag = Some(DragState {
-                                            kind: DragKind::LineEndpoint {
-                                                index: idx,
-                                                endpoint,
-                                                base_src: self.source.clone(),
-                                            },
-                                            undo_pushed: false,
-                                        });
-                                        started = true;
+                            // Path vertices work even when the stroke itself is hit.
+                            if let WorldShape::Path(p) = shape {
+                                if let Some(vertex) =
+                                    hit_line_endpoint(&layout, &p.points_mm, local_pos)
+                                {
+                                    match size_bindings.get(sel).copied() {
+                                        Some(SizeTarget::LineSeg(idx))
+                                            if p.points_mm.len() == 2 =>
+                                        {
+                                            self.drag = Some(DragState {
+                                                kind: DragKind::LineEndpoint {
+                                                    index: idx,
+                                                    endpoint: vertex,
+                                                    base_src: self.source.clone(),
+                                                },
+                                                undo_pushed: false,
+                                            });
+                                            started = true;
+                                        }
+                                        Some(SizeTarget::PolylinePoints(idx)) => {
+                                            self.drag = Some(DragState {
+                                                kind: DragKind::PolyVertex {
+                                                    head: "polyline",
+                                                    index: idx,
+                                                    vertex,
+                                                    base_src: self.source.clone(),
+                                                },
+                                                undo_pushed: false,
+                                            });
+                                            started = true;
+                                        }
+                                        Some(SizeTarget::PolygonPoints(idx)) => {
+                                            self.drag = Some(DragState {
+                                                kind: DragKind::PolyVertex {
+                                                    head: "polygon",
+                                                    index: idx,
+                                                    vertex,
+                                                    base_src: self.source.clone(),
+                                                },
+                                                undo_pushed: false,
+                                            });
+                                            started = true;
+                                        }
+                                        _ => {}
                                     }
                                 }
                             }
@@ -2415,6 +2456,36 @@ impl eframe::App for PreviewApp {
                                         let kind = DragKind::LineEndpoint {
                                             index,
                                             endpoint,
+                                            base_src,
+                                        };
+                                        let mut undo_pushed = drag.undo_pushed;
+                                        if !undo_pushed {
+                                            self.push_undo();
+                                            undo_pushed = true;
+                                        }
+                                        self.source = new_src;
+                                        self.error = if self.reload_ok() {
+                                            None
+                                        } else {
+                                            Some("edit produced invalid program".into())
+                                        };
+                                        self.drag = Some(DragState { kind, undo_pushed });
+                                    }
+                                    Err(e) => self.error = Some(e.message),
+                                }
+                            }
+                            DragKind::PolyVertex {
+                                head,
+                                index,
+                                vertex,
+                                base_src,
+                            } => {
+                                match set_poly_vertex(&base_src, head, index, vertex, mx, my) {
+                                    Ok(new_src) => {
+                                        let kind = DragKind::PolyVertex {
+                                            head,
+                                            index,
+                                            vertex,
                                             base_src,
                                         };
                                         let mut undo_pushed = drag.undo_pushed;
@@ -2723,7 +2794,7 @@ fn paint_line_endpoints(
     layout: &PaperLayout,
     points_mm: &[(f64, f64)],
 ) {
-    for &(x, y) in points_mm.iter().take(2) {
+    for &(x, y) in points_mm {
         let (px, py) = layout.mm_to_px(x, y);
         let c = rect.min + egui::vec2(px, py);
         painter.circle_filled(c, 5.0, egui::Color32::WHITE);
@@ -2741,19 +2812,15 @@ fn hit_line_endpoint(
     local_px: egui::Pos2,
 ) -> Option<usize> {
     let hit_r2 = 10.0_f32 * 10.0;
-    points_mm
-        .iter()
-        .take(2)
-        .enumerate()
-        .find_map(|(i, &(x, y))| {
-            let (px, py) = layout.mm_to_px(x, y);
-            let c = egui::pos2(px, py);
-            if local_px.distance_sq(c) <= hit_r2 {
-                Some(i)
-            } else {
-                None
-            }
-        })
+    points_mm.iter().enumerate().find_map(|(i, &(x, y))| {
+        let (px, py) = layout.mm_to_px(x, y);
+        let c = egui::pos2(px, py);
+        if local_px.distance_sq(c) <= hit_r2 {
+            Some(i)
+        } else {
+            None
+        }
+    })
 }
 
 fn paint_paper_grid(
