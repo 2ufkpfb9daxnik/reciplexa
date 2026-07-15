@@ -291,6 +291,16 @@ pub fn layout_doc_parts(parts: &[DocPart]) -> Vec<LaidItem> {
                     flush_body(&mut buf, &mut out);
                     push_note_block(brace_body, &mut out);
                 }
+                "warn" => {
+                    flush_body(&mut buf, &mut out);
+                    push_warn_block(brace_body, &mut out);
+                }
+                "em" => {
+                    push_marked_inline(brace_body, "*", &mut buf);
+                }
+                "strong" | "bold" => {
+                    push_marked_inline(brace_body, "**", &mut buf);
+                }
                 "code" | "pre" => {
                     flush_body(&mut buf, &mut out);
                     push_code_block(brace_body, &mut out);
@@ -507,6 +517,34 @@ fn push_note_block(body: &[DocPart], out: &mut Vec<LaidItem>) {
         QUOTE_INDENT_MM,
         out,
     );
+}
+
+/// `@warn{…}` — same layout as note, with a `Warning: ` prefix.
+fn push_warn_block(body: &[DocPart], out: &mut Vec<LaidItem>) {
+    let text = flatten_readable(body);
+    if text.is_empty() {
+        return;
+    }
+    let prefixed = format!("Warning: {text}");
+    push_wrapped(
+        &prefixed,
+        QUOTE_SIZE_MM,
+        QUOTE_GAP_MM,
+        QUOTE_WRAP_CHARS,
+        QUOTE_INDENT_MM,
+        out,
+    );
+}
+
+/// `@em` / `@strong` — surround flat text with markers (no font weight yet).
+fn push_marked_inline(body: &[DocPart], marker: &str, buf: &mut String) {
+    let text = flatten_readable(body);
+    if text.is_empty() {
+        return;
+    }
+    buf.push_str(marker);
+    buf.push_str(&text);
+    buf.push_str(marker);
 }
 
 /// `@li{…}` → body-sized lines prefixed with a bullet (package meaning, not font glyphs).

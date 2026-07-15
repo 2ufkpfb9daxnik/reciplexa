@@ -450,9 +450,9 @@ mod tests {
     }
 
     #[test]
-    fn expands_doc_with_at_identity() {
+    fn expands_doc_with_em_markers() {
         let out = expand_source("(doc Hello @em{世界}.)").unwrap();
-        assert!(out.contains("Hello 世界."));
+        assert!(out.contains("Hello *世界*."));
         assert!(out.starts_with("(page a4 (text "));
     }
 
@@ -502,12 +502,37 @@ mod tests {
     }
 
     #[test]
-    fn em_still_identity_inside_plain_line() {
+    fn expands_em_with_asterisk_markers() {
         let out = expand_source("(doc Hello @em{世界}.)").unwrap();
         assert!(
-            out.contains("(text 25 270 8 \"Hello 世界.\" black)"),
+            out.contains("(text 25 270 8 \"Hello *世界*.\" black)"),
             "{out}"
         );
+    }
+
+    #[test]
+    fn expands_strong_with_double_asterisks() {
+        let out = expand_source("(doc Go @strong{fast}.)").unwrap();
+        assert!(
+            out.contains("(text 25 270 8 \"Go **fast**.\" black)"),
+            "{out}"
+        );
+    }
+
+    #[test]
+    fn expands_warn_prefix_and_indent() {
+        let out = expand_source("(doc @warn{Hot surface.})").unwrap();
+        assert!(
+            out.contains("(text 35 270 7 \"Warning: Hot surface.\" black)"),
+            "{out}"
+        );
+    }
+
+    #[test]
+    fn empty_em_strong_warn_skip() {
+        assert_eq!(expand_source("(doc @em{})").unwrap(), "(page a4)");
+        assert_eq!(expand_source("(doc @strong{})").unwrap(), "(page a4)");
+        assert_eq!(expand_source("(doc @warn{})").unwrap(), "(page a4)");
     }
 
     #[test]
