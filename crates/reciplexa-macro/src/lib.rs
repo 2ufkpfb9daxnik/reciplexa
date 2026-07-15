@@ -553,6 +553,12 @@ mod tests {
     }
 
     #[test]
+    fn expands_section_as_h2_alias() {
+        let out = expand_source("(doc @section{Intro})").unwrap();
+        assert!(out.contains("(text 25 270 11 \"Intro\" black)"), "{out}");
+    }
+
+    #[test]
     fn empty_h2_skips_empty_text() {
         let out = expand_source("(doc @h2{})").unwrap();
         assert_eq!(out, "(page a4)");

@@ -207,7 +207,7 @@ pub fn layout_doc_parts(parts: &[DocPart]) -> Vec<LaidItem> {
                         &mut out,
                     );
                 }
-                "h2" => {
+                "h2" | "section" => {
                     flush_body(&mut buf, &mut out);
                     push_styled_block(brace_body, H2_SIZE_MM, H2_GAP_MM, H2_WRAP_CHARS, &mut out);
                 }

@@ -135,6 +135,21 @@ mod tests {
         assert_eq!(h.logs, vec!["a", "b"]);
     }
 
+    #[test]
+    fn document_for_export_mutes_write_path() {
+        let mut h = TestHandler::default();
+        let src = r#"
+(src
+  (perform write-path "a.pdf")
+  (handle write-path (perform write-path "mute.pdf"))
+  (perform write-path "b.pdf"))
+(page a4 (circle 1 2 3))
+"#;
+        let (doc, _) = document_for_export(&mut h, src).unwrap();
+        assert_eq!(doc.pages.len(), 1);
+        assert_eq!(h.writes, vec!["a.pdf", "b.pdf"]);
+    }
+
     // --- defect ---
 
     #[test]
