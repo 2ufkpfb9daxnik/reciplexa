@@ -1659,6 +1659,9 @@ impl eframe::App for PreviewApp {
                 if ui.button("Save As…").clicked() {
                     self.save_rpx_as_dialog(ctx);
                 }
+                if ui.button("Export PDF").on_hover_text("Ctrl+E").clicked() {
+                    self.export_pdf();
+                }
                 ui.separator();
                 ui.label(egui::RichText::new("Insert").strong());
                 if ui.button("Circle").clicked() {
