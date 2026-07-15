@@ -11,3 +11,4 @@ reciplexa-scene = { workspace = true }
 png = "0.17"
 jpeg-decoder = "0.3"
 ttf-parser = "0.25"
+subsetter = { workspace = true }

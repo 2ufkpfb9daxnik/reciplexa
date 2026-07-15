@@ -22,8 +22,8 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 ```
 
-日本語を PDF のアウトライン化にするときは Noto Sans JP など（`%WINDIR%\Fonts`）が必要です。  
-CI ではフォントをダウンロードし、`RECIPLEXA_CJK_FONT` でパスを渡します。ローカルでも同じ環境変数で上書きできます。
+日本語 PDF では CJK フォントをサブセット埋め込みしてコピー／選択できるようにします（`RECIPLEXA_CJK_FONT` または Windows の Yu Gothic / Noto 等）。  
+CI ではフォントをダウンロードし、`RECIPLEXA_CJK_FONT` でパスを渡します。
 
 ## サンプルを PDF にする
 

@@ -1,16 +1,21 @@
 //! Minimal PDF emitter for [`reciplexa_scene::Document`].
 //!
-//! Hand-rolled PDF-1.4: shapes, Helvetica ASCII text, system-font glyph outlines
-//! for non-ASCII (CJK), and embedded PNG/JPEG images. Named paper sizes are
-//! temporary sugar; numeric `(page w h …)` is the core. JLReq typesetting stays
-//! a later package.
+//! Hand-rolled PDF-1.4: shapes, Helvetica ASCII text, embedded subset CJK as a
+//! selectable CID/Type0 font (Identity-H + ToUnicode), and PNG/JPEG images.
+//! Named paper sizes are temporary sugar; numeric `(page w h …)` is the core.
+//! JLReq typesetting stays a later package.
 
 #![forbid(unsafe_code)]
+
+mod cjk_font;
 
 use std::collections::{BTreeSet, HashMap};
 use std::path::{Path, PathBuf};
 
 use reciplexa_scene::{Affine, Color, Document, Page, Shape};
+
+pub use cjk_font::cjk_font_path;
+use cjk_font::CjkFontEmbed;
 
 /// Errors while building a PDF.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -95,6 +100,13 @@ pub fn document_to_pdf_with_base(doc: &Document, base: Option<&Path>) -> Result<
         return Err(PdfError::EmptyDocument);
     }
 
+    let cjk_chars = collect_non_ascii_chars(doc);
+    let cjk = if cjk_chars.is_empty() {
+        None
+    } else {
+        Some(CjkFontEmbed::build(&cjk_chars)?)
+    };
+
     let mut store = ImageStore::new(base);
     let mut page_contents = Vec::with_capacity(doc.pages.len());
     let mut page_sizes = Vec::with_capacity(doc.pages.len());
@@ -108,10 +120,15 @@ pub fn document_to_pdf_with_base(doc: &Document, base: Option<&Path>) -> Result<
         let w_pt = mm_to_pt(page.paper.width_mm);
         let h_pt = mm_to_pt(page.paper.height_mm);
         page_sizes.push((w_pt, h_pt));
-        page_contents.push(render_page_content(page, i, &mut store)?);
+        page_contents.push(render_page_content(page, i, &mut store, cjk.as_ref())?);
     }
 
-    Ok(assemble_pdf(&page_sizes, &page_contents, &store.images))
+    Ok(assemble_pdf(
+        &page_sizes,
+        &page_contents,
+        &store.images,
+        cjk.as_ref(),
+    ))
 }
 
 pub fn write_document(doc: &Document, w: impl std::io::Write) -> Result<(), PdfError> {
@@ -263,16 +280,41 @@ fn load_png_rgb_bytes(bytes: &[u8]) -> Result<EmbeddedImage, String> {
     Ok(EmbeddedImage { width, height, rgb })
 }
 
+fn collect_non_ascii_chars(doc: &Document) -> BTreeSet<char> {
+    let mut out = BTreeSet::new();
+    for page in &doc.pages {
+        for shape in &page.shapes {
+            collect_shape_chars(shape, &mut out);
+        }
+    }
+    out
+}
+
+fn collect_shape_chars(shape: &Shape, out: &mut BTreeSet<char>) {
+    match shape {
+        Shape::Text(t) if !t.content.is_ascii() => {
+            out.extend(t.content.chars().filter(|c| !c.is_control()));
+        }
+        Shape::Opacity { children, .. } | Shape::Group { children, .. } => {
+            for child in children {
+                collect_shape_chars(child, out);
+            }
+        }
+        _ => {}
+    }
+}
+
 fn render_page_content(
     page: &Page,
     index: usize,
     store: &mut ImageStore,
+    cjk: Option<&CjkFontEmbed>,
 ) -> Result<PageEmit, PdfError> {
     let mut ops = String::new();
     let mut opacities = BTreeSet::new();
     let mut images = BTreeSet::new();
     for (si, shape) in page.shapes.iter().enumerate() {
-        let emit = render_shape(shape, &format!("page {index} shape {si}"), 1.0, store)?;
+        let emit = render_shape(shape, &format!("page {index} shape {si}"), 1.0, store, cjk)?;
         ops.push_str(&emit.ops);
         opacities.extend(emit.opacities);
         images.extend(emit.images);
@@ -289,6 +331,7 @@ fn render_shape(
     ctx: &str,
     parent_alpha: f64,
     store: &mut ImageStore,
+    cjk: Option<&CjkFontEmbed>,
 ) -> Result<PageEmit, PdfError> {
     match shape {
         Shape::Circle(c) => {
@@ -356,7 +399,7 @@ fn render_shape(
                 return Err(PdfError::InvalidShape(format!("{ctx}: text not drawable")));
             }
             Ok(ops_only(text_ops(
-                t.x_mm, t.y_mm, t.size_mm, &t.content, t.fill,
+                t.x_mm, t.y_mm, t.size_mm, &t.content, t.fill, cjk,
             )?))
         }
         Shape::Line(l) => {
@@ -408,7 +451,7 @@ fn render_shape(
             let mut opacities = BTreeSet::from([pct]);
             let mut images = BTreeSet::new();
             for (i, child) in children.iter().enumerate() {
-                let emit = render_shape(child, &format!("{ctx}/{i}"), combined, store)?;
+                let emit = render_shape(child, &format!("{ctx}/{i}"), combined, store, cjk)?;
                 ops.push_str(&emit.ops);
                 opacities.extend(emit.opacities);
                 images.extend(emit.images);
@@ -434,7 +477,7 @@ fn render_shape(
             let mut opacities = BTreeSet::new();
             let mut images = BTreeSet::new();
             for (i, child) in children.iter().enumerate() {
-                let emit = render_shape(child, &format!("{ctx}/{i}"), parent_alpha, store)?;
+                let emit = render_shape(child, &format!("{ctx}/{i}"), parent_alpha, store, cjk)?;
                 ops.push_str(&emit.ops);
                 opacities.extend(emit.opacities);
                 images.extend(emit.images);
@@ -645,13 +688,14 @@ fn text_ops(
     size_mm: f64,
     content: &str,
     fill: Color,
+    cjk: Option<&CjkFontEmbed>,
 ) -> Result<String, PdfError> {
     if content.is_empty() {
         return Ok(String::new());
     }
+    let size_pt = mm_to_pt(size_mm);
     if content.is_ascii() {
         let escaped = pdf_escape_ascii(content)?;
-        let size_pt = mm_to_pt(size_mm);
         return Ok(format!(
             "BT\n/F1 {size:.4} Tf\n{r:.4} {g:.4} {b:.4} rg\n{x:.4} {y:.4} Td\n({escaped}) Tj\nET\n",
             size = size_pt,
@@ -662,8 +706,22 @@ fn text_ops(
             y = mm_to_pt(y_mm),
         ));
     }
-    // Non-ASCII: draw glyph outlines from a system CJK font (no CID embed yet).
-    outline_text_ops(x_mm, y_mm, size_mm, content, fill)
+    let cjk = cjk.ok_or_else(|| {
+        PdfError::InvalidShape("internal: non-ASCII text without CJK font embed".into())
+    })?;
+    let hex = cjk.encode_hex(content)?;
+    if hex.is_empty() {
+        return Ok(String::new());
+    }
+    Ok(format!(
+        "BT\n/F2 {size:.4} Tf\n{r:.4} {g:.4} {b:.4} rg\n{x:.4} {y:.4} Td\n<{hex}> Tj\nET\n",
+        size = size_pt,
+        r = fill.r,
+        g = fill.g,
+        b = fill.b,
+        x = mm_to_pt(x_mm),
+        y = mm_to_pt(y_mm),
+    ))
 }
 
 fn pdf_escape_ascii(s: &str) -> Result<String, PdfError> {
@@ -688,166 +746,6 @@ fn pdf_escape_ascii(s: &str) -> Result<String, PdfError> {
     Ok(out)
 }
 
-fn system_cjk_font_path() -> Option<PathBuf> {
-    // CI / explicit override (GitHub Actions windows images lack Noto CJK).
-    if let Some(p) = std::env::var_os("RECIPLEXA_CJK_FONT") {
-        let path = PathBuf::from(p);
-        if path.is_file() {
-            return Some(path);
-        }
-    }
-    let windir = std::env::var_os("WINDIR").unwrap_or_else(|| r"C:\Windows".into());
-    let fonts = PathBuf::from(windir).join("Fonts");
-    for name in [
-        "NotoSansJP-VF.ttf",
-        "NotoSansJP-VariableFont_wght.ttf",
-        "NotoSans-Regular.ttf",
-    ] {
-        let p = fonts.join(name);
-        if p.is_file() {
-            return Some(p);
-        }
-    }
-    None
-}
-
-/// Path to a CJK-capable TTF used for non-ASCII PDF glyph outlines.
-///
-/// Resolution order: `RECIPLEXA_CJK_FONT` env, then common Windows Fonts names.
-pub fn cjk_font_path() -> Option<PathBuf> {
-    system_cjk_font_path()
-}
-
-fn outline_text_ops(
-    x_mm: f64,
-    y_mm: f64,
-    size_mm: f64,
-    content: &str,
-    fill: Color,
-) -> Result<String, PdfError> {
-    let path = system_cjk_font_path().ok_or_else(|| {
-        PdfError::InvalidShape(
-            "non-ASCII text needs a system CJK font (expected NotoSansJP under %WINDIR%\\Fonts)"
-                .into(),
-        )
-    })?;
-    let data = std::fs::read(&path)
-        .map_err(|e| PdfError::InvalidShape(format!("read font {}: {e}", path.display())))?;
-    let face = ttf_parser::Face::parse(&data, 0)
-        .map_err(|e| PdfError::InvalidShape(format!("parse font {}: {e}", path.display())))?;
-    let units = f64::from(face.units_per_em());
-    if units <= 0.0 {
-        return Err(PdfError::InvalidShape("font units_per_em is zero".into()));
-    }
-    let size_pt = mm_to_pt(size_mm);
-    let scale = size_pt / units;
-    let mut x = mm_to_pt(x_mm);
-    let y = mm_to_pt(y_mm);
-    let mut ops = format!(
-        "{r:.4} {g:.4} {b:.4} rg\n",
-        r = fill.r,
-        g = fill.g,
-        b = fill.b
-    );
-    for ch in content.chars() {
-        if ch == '\n' || ch == '\r' {
-            continue;
-        }
-        let Some(gid) = face.glyph_index(ch) else {
-            return Err(PdfError::InvalidShape(format!(
-                "font missing glyph for U+{:04X}",
-                ch as u32
-            )));
-        };
-        let mut builder = PdfOutline {
-            scale,
-            origin_x: x,
-            origin_y: y,
-            last_x: 0.0,
-            last_y: 0.0,
-            ops: String::new(),
-        };
-        if face.outline_glyph(gid, &mut builder).is_none() {
-            // Space / mark with no outline — still advance.
-        } else {
-            ops.push_str(&builder.ops);
-            ops.push_str("f\n");
-        }
-        let adv = face
-            .glyph_hor_advance(gid)
-            .map(f64::from)
-            .unwrap_or(units * 0.5);
-        x += adv * scale;
-    }
-    Ok(ops)
-}
-
-struct PdfOutline {
-    scale: f64,
-    origin_x: f64,
-    origin_y: f64,
-    last_x: f32,
-    last_y: f32,
-    ops: String,
-}
-
-impl PdfOutline {
-    fn map(&self, px: f32, py: f32) -> (f64, f64) {
-        (
-            self.origin_x + f64::from(px) * self.scale,
-            self.origin_y + f64::from(py) * self.scale,
-        )
-    }
-}
-
-impl ttf_parser::OutlineBuilder for PdfOutline {
-    fn move_to(&mut self, x: f32, y: f32) {
-        self.last_x = x;
-        self.last_y = y;
-        let (x, y) = self.map(x, y);
-        self.ops.push_str(&format!("{x:.4} {y:.4} m\n"));
-    }
-
-    fn line_to(&mut self, x: f32, y: f32) {
-        self.last_x = x;
-        self.last_y = y;
-        let (x, y) = self.map(x, y);
-        self.ops.push_str(&format!("{x:.4} {y:.4} l\n"));
-    }
-
-    fn quad_to(&mut self, x1: f32, y1: f32, x: f32, y: f32) {
-        let lx = self.last_x;
-        let ly = self.last_y;
-        let cx1 = lx + (2.0 / 3.0) * (x1 - lx);
-        let cy1 = ly + (2.0 / 3.0) * (y1 - ly);
-        let cx2 = x + (2.0 / 3.0) * (x1 - x);
-        let cy2 = y + (2.0 / 3.0) * (y1 - y);
-        self.last_x = x;
-        self.last_y = y;
-        let (x1, y1) = self.map(cx1, cy1);
-        let (x2, y2) = self.map(cx2, cy2);
-        let (x, y) = self.map(x, y);
-        self.ops.push_str(&format!(
-            "{x1:.4} {y1:.4} {x2:.4} {y2:.4} {x:.4} {y:.4} c\n"
-        ));
-    }
-
-    fn curve_to(&mut self, x1: f32, y1: f32, x2: f32, y2: f32, x: f32, y: f32) {
-        self.last_x = x;
-        self.last_y = y;
-        let (x1, y1) = self.map(x1, y1);
-        let (x2, y2) = self.map(x2, y2);
-        let (x, y) = self.map(x, y);
-        self.ops.push_str(&format!(
-            "{x1:.4} {y1:.4} {x2:.4} {y2:.4} {x:.4} {y:.4} c\n"
-        ));
-    }
-
-    fn close(&mut self) {
-        self.ops.push_str("h\n");
-    }
-}
-
 fn affine_cm_ops(t: Affine) -> String {
     let s = 72.0 / 25.4;
     format!(
@@ -865,19 +763,22 @@ fn mm_to_pt(mm: f64) -> f64 {
     mm * 72.0 / 25.4
 }
 
-/// Assemble PDF-1.4 with a shared Helvetica font and optional image XObjects.
+/// Assemble PDF-1.4 with Helvetica, optional CJK CID font, and image XObjects.
 fn assemble_pdf(
     page_sizes: &[(f64, f64)],
     contents: &[PageEmit],
     images: &[EmbeddedImage],
+    cjk: Option<&CjkFontEmbed>,
 ) -> Vec<u8> {
     assert_eq!(page_sizes.len(), contents.len());
     let n = page_sizes.len();
     let img_n = images.len();
-    // 1 Catalog, 2 Pages, 3 Font, 4..3+img_n Images, then Pages, then contents
-    let font_obj = 3;
-    let image_obj0 = 4;
-    let page_obj0 = 4 + img_n;
+    let helvetica_obj = 3usize;
+    // Optional Type0 stack: Type0, CIDFont, FontDescriptor, FontFile2, ToUnicode
+    let cjk_obj0 = 4usize;
+    let cjk_objs = if cjk.is_some() { 5usize } else { 0 };
+    let image_obj0 = cjk_obj0 + cjk_objs;
+    let page_obj0 = image_obj0 + img_n;
     let content_obj0 = page_obj0 + n;
 
     let mut objects: Vec<Vec<u8>> = Vec::new();
@@ -894,6 +795,60 @@ fn assemble_pdf(
             .to_vec(),
     );
 
+    if let Some(cjk) = cjk {
+        let cid = cjk_obj0 + 1;
+        let desc = cjk_obj0 + 2;
+        let file = cjk_obj0 + 3;
+        let tounicode = cjk_obj0 + 4;
+        let name = &cjk.base_name;
+        objects.push(
+            format!(
+                "<< /Type /Font /Subtype /Type0 /BaseFont /{name} \
+                 /Encoding /Identity-H /DescendantFonts [{cid} 0 R] \
+                 /ToUnicode {tounicode} 0 R >>"
+            )
+            .into_bytes(),
+        );
+        let w = cjk.widths_array();
+        let [bx0, by0, bx1, by1] = cjk.font_bbox;
+        objects.push(
+            format!(
+                "<< /Type /Font /Subtype /CIDFontType2 /BaseFont /{name} \
+                 /CIDSystemInfo << /Registry (Adobe) /Ordering (Identity) /Supplement 0 >> \
+                 /FontDescriptor {desc} 0 R /DW 1000 /W {w} /CIDToGIDMap /Identity >>"
+            )
+            .into_bytes(),
+        );
+        objects.push(
+            format!(
+                "<< /Type /FontDescriptor /FontName /{name} /Flags 4 \
+                 /FontBBox [{bx0} {by0} {bx1} {by1}] /ItalicAngle 0 \
+                 /Ascent {} /Descent {} /CapHeight {} /StemV 80 \
+                 /FontFile2 {file} 0 R >>",
+                cjk.ascent, cjk.descent, cjk.ascent
+            )
+            .into_bytes(),
+        );
+        let font_bytes = &cjk.subset_ttf;
+        let mut ff = format!(
+            "<< /Length {} /Length1 {} >>\nstream\n",
+            font_bytes.len(),
+            font_bytes.len()
+        )
+        .into_bytes();
+        ff.extend_from_slice(font_bytes);
+        ff.extend_from_slice(b"\nendstream");
+        objects.push(ff);
+        let cmap = cjk.to_unicode_cmap();
+        let mut tu = format!("<< /Length {} >>\nstream\n", cmap.len()).into_bytes();
+        tu.extend_from_slice(cmap.as_bytes());
+        if !cmap.ends_with('\n') {
+            tu.push(b'\n');
+        }
+        tu.extend_from_slice(b"endstream");
+        objects.push(tu);
+    }
+
     for img in images {
         objects.push(image_xobject_bytes(img));
     }
@@ -902,10 +857,15 @@ fn assemble_pdf(
         let content_id = content_obj0 + i;
         let gs = ext_gstate_dict(&contents[i].opacities);
         let xo = xobject_dict(&contents[i].images, image_obj0);
+        let font_res = if cjk.is_some() {
+            format!("/Font << /F1 {helvetica_obj} 0 R /F2 {cjk_obj0} 0 R >>")
+        } else {
+            format!("/Font << /F1 {helvetica_obj} 0 R >>")
+        };
         let page_id_body = format!(
             "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {w:.4} {h:.4}] \
              /Contents {content_id} 0 R \
-             /Resources << /Font << /F1 {font_obj} 0 R >> {gs}{xo}>> >>"
+             /Resources << {font_res} {gs}{xo}>> >>"
         );
         objects.push(page_id_body.into_bytes());
     }
@@ -1059,7 +1019,7 @@ mod tests {
     }
 
     #[test]
-    fn non_ascii_text_uses_outline_glyphs_when_font_present() {
+    fn non_ascii_text_embeds_selectable_cid_font() {
         let doc = Document::single_page(Page {
             paper: PaperSize::a4(),
             shapes: vec![Shape::Text(Text {
@@ -1070,17 +1030,21 @@ mod tests {
                 fill: Color::BLACK,
             })],
         });
-        if system_cjk_font_path().is_none() {
+        if cjk_font::system_cjk_font_path().is_none() {
             let err = document_to_pdf(&doc).unwrap_err();
             assert!(matches!(err, PdfError::InvalidShape(_)));
             return;
         }
         let bytes = document_to_pdf(&doc).unwrap();
         let text = String::from_utf8_lossy(&bytes);
-        // Outline path fill, not Helvetica Tj.
+        assert!(text.contains("/Identity-H"));
+        assert!(text.contains("/Subtype /Type0"));
+        assert!(text.contains("/CIDFontType2"));
+        assert!(text.contains("begincmap"));
+        assert!(text.contains("/F2 "));
+        assert!(text.contains("Tj"));
+        // Not outline-filled paths for the Japanese text.
         assert!(!text.contains("(日本語)"));
-        assert!(text.contains(" m\n") || text.contains(" c\n"));
-        assert!(text.contains("\nf\n") || text.contains(" f\n"));
     }
 
     #[test]
