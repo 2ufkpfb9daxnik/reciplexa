@@ -911,6 +911,36 @@ impl PreviewApp {
                     ui.add_space(4.0);
                 }
                 ui.separator();
+                if !props.iter().any(|p| p.id == "geom.w") {
+                    if let Ok(sizes) = collect_size_targets_page(&self.source, self.page_index) {
+                        if let Some(SizeTarget::TextSize(idx)) = sizes.get(sel).copied() {
+                            if ui
+                                .button("Add layout box")
+                                .on_hover_text(
+                                    "Insert w/h from the current selection bounds so edges can resize the box.",
+                                )
+                                .clicked()
+                            {
+                                let (x0, y0, x1, y1) = aabb;
+                                match set_text_box(
+                                    &self.source,
+                                    idx,
+                                    x0,
+                                    y0,
+                                    (x1 - x0).max(0.5),
+                                    (y1 - y0).max(0.5),
+                                ) {
+                                    Ok(new_src) => {
+                                        self.push_undo();
+                                        self.source = new_src;
+                                        self.error = pipeline_doc(&self.source).err();
+                                    }
+                                    Err(e) => self.error = Some(e.message),
+                                }
+                            }
+                        }
+                    }
+                }
                 ui.horizontal(|ui| {
                     if ui.button("Bring to front").clicked() {
                         bring_front = true;
@@ -1645,6 +1675,11 @@ impl eframe::App for PreviewApp {
                 }
                 if ui.button("Line").clicked() {
                     self.insert_shape("(line 40 200 170 200 (rgb 0.9 0.35 0.2) 1.2)");
+                }
+                if ui.button("Polyline").clicked() {
+                    self.insert_shape(
+                        "(polyline 40 180 80 220 120 190 160 210 (rgb 0.2 0.55 0.85) 1.2)",
+                    );
                 }
                 if ui.button("Text").clicked() {
                     self.insert_shape("(text 40 200 12 60 24 \"Text\" (rgb 0.15 0.15 0.2))");
