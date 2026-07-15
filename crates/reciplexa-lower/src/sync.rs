@@ -223,6 +223,46 @@ pub fn duplicate_layer_page(
     Ok(out)
 }
 
+/// Append a complete shape form as a new top-level child of `(page …)`.
+///
+/// `form` must be a full list, e.g. `(circle 105 148.5 20)`. Returns the new
+/// source and the flatten index of the inserted leaf (usually last).
+pub fn insert_layer_page(
+    src: &str,
+    page_index: usize,
+    form: &str,
+) -> Result<(String, usize), SyncError> {
+    let form = form.trim();
+    if form.is_empty() || !form.starts_with('(') || !form.ends_with(')') {
+        return Err(SyncError::new("insert form must be a complete (…) list"));
+    }
+    let root = parse_root(src)?;
+    let page = find_page(&root, page_index)?;
+    let range = page.text_range();
+    let page_start = usize::from(range.start());
+    let page_end = usize::from(range.end());
+    if page_end == 0 || !src[..page_end].ends_with(')') {
+        return Err(SyncError::new("page form missing closing paren"));
+    }
+    let insert_at = page_end - 1;
+    let pad = if src[page_start..insert_at].contains('\n') {
+        "\n  "
+    } else {
+        " "
+    };
+    let mut out = String::with_capacity(src.len() + form.len() + pad.len());
+    out.push_str(&src[..insert_at]);
+    out.push_str(pad);
+    out.push_str(form);
+    out.push_str(&src[insert_at..]);
+    let layers = collect_layers_page(&out, page_index)?;
+    let idx = layers
+        .len()
+        .checked_sub(1)
+        .ok_or_else(|| SyncError::new("insert produced no layers"))?;
+    Ok((out, idx))
+}
+
 fn reorder_page_roots(
     src: &str,
     page_index: usize,
@@ -1775,6 +1815,24 @@ mod tests {
         assert_eq!(layers[0].kind, "circle");
         assert_eq!(layers[1].kind, "circle");
         assert_eq!(layers[2].kind, "rect");
+    }
+
+    #[test]
+    fn insert_layer_appends_and_returns_index() {
+        let src = "(page a4 (circle 1 2 3))";
+        let (out, idx) = insert_layer_page(src, 0, "(rect 10 20 30 40 red)").unwrap();
+        assert!(out.contains("(rect 10 20 30 40 red)"));
+        let layers = collect_layers_page(&out, 0).unwrap();
+        assert_eq!(idx, layers.len() - 1);
+        assert_eq!(layers[idx].kind, "rect");
+    }
+
+    #[test]
+    fn insert_layer_into_empty_page() {
+        let src = "(page a4)";
+        let (out, idx) = insert_layer_page(src, 0, "(circle 105 148.5 20)").unwrap();
+        assert_eq!(out, "(page a4 (circle 105 148.5 20))");
+        assert_eq!(idx, 0);
     }
 
     #[test]

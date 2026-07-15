@@ -12,10 +12,10 @@ use reciplexa::pipeline::{document_for_export, document_from_source};
 use reciplexa_effect::{seed_from_env, EffectError, EffectHandler, LcgRng, Value};
 use reciplexa_lower::{
     collect_layer_props, collect_layers_page, collect_size_targets_page, delete_layer_page,
-    duplicate_layer_page, layer_rotation_deg, nudge_layer_page, reorder_layer_page,
-    scale_size_target, set_layer_prop, set_layer_rotation_deg, set_layers_fill_rgb,
-    set_layers_opacity, set_layers_stroke_rgb, set_layers_stroke_width, LayerInfo, PropEditContext,
-    PropGroup, PropValue, SizeTarget,
+    duplicate_layer_page, insert_layer_page, layer_rotation_deg, nudge_layer_page,
+    reorder_layer_page, scale_size_target, set_layer_prop, set_layer_rotation_deg,
+    set_layers_fill_rgb, set_layers_opacity, set_layers_stroke_rgb, set_layers_stroke_width,
+    LayerInfo, PropEditContext, PropGroup, PropValue, SizeTarget,
 };
 use reciplexa_macro::expand_source;
 use reciplexa_pdf::write_document_with_base;
@@ -60,13 +60,20 @@ impl EffectHandler for GuiExportHandler {
 fn install_cjk_fonts(ctx: &egui::Context) {
     let windir = PathBuf::from(env::var_os("WINDIR").unwrap_or_else(|| r"C:\Windows".into()));
     let fonts_dir = windir.join("Fonts");
+    // Prefer static TTF/TTC. Variable fonts often break egui glyph metrics, which
+    // makes IME preedit look like a solid black block over the whole TextEdit.
     let candidates = [
+        fonts_dir.join("YuGothR.ttc"),
+        fonts_dir.join("BIZ-UDGothicR.ttc"),
+        fonts_dir.join("meiryo.ttc"),
+        fonts_dir.join("msgothic.ttc"),
+        fonts_dir.join("NotoSans-Regular.ttf"),
+        // VF last — usable for PDF exports elsewhere, risky as the primary GUI face.
         fonts_dir.join("NotoSansJP-VF.ttf"),
         fonts_dir.join("NotoSansJP-VariableFont_wght.ttf"),
-        fonts_dir.join("NotoSans-Regular.ttf"),
     ];
     let Some(path) = candidates.into_iter().find(|p| p.is_file()) else {
-        eprintln!("warn: no CJK-capable TTF found for GUI preview");
+        eprintln!("warn: no CJK-capable TTF/TTC found for GUI preview");
         return;
     };
     let Ok(bytes) = fs::read(&path) else {
@@ -74,6 +81,8 @@ fn install_cjk_fonts(ctx: &egui::Context) {
         return;
     };
     let mut fonts = egui::FontDefinitions::default();
+    // Keep egui's bundled Latin faces first; CJK is a fallback for both families
+    // so monospace / code editors keep stable metrics for ASCII.
     fonts.font_data.insert(
         "reciplexa_cjk".into(),
         Arc::new(egui::FontData::from_owned(bytes)),
@@ -82,7 +91,7 @@ fn install_cjk_fonts(ctx: &egui::Context) {
         .families
         .entry(egui::FontFamily::Proportional)
         .or_default()
-        .insert(0, "reciplexa_cjk".into());
+        .push("reciplexa_cjk".into());
     fonts
         .families
         .entry(egui::FontFamily::Monospace)
@@ -90,6 +99,16 @@ fn install_cjk_fonts(ctx: &egui::Context) {
         .push("reciplexa_cjk".into());
     ctx.set_fonts(fonts);
     eprintln!("gui font: {}", path.display());
+}
+
+/// Light chrome + clear selection so IME preedit is not a near-black slab.
+fn install_editor_visuals(ctx: &egui::Context) {
+    let mut visuals = egui::Visuals::light();
+    visuals.selection.bg_fill = egui::Color32::from_rgba_unmultiplied(60, 140, 230, 90);
+    visuals.selection.stroke = egui::Stroke::new(1.0, egui::Color32::from_rgb(30, 80, 160));
+    // Soft underline-like cue without blotting the whole TextEdit.
+    visuals.extreme_bg_color = egui::Color32::from_gray(250);
+    ctx.set_visuals(visuals);
 }
 
 fn suppress_ime_confirm_newline(ctx: &egui::Context, hold_frames: &mut u8) {
@@ -179,6 +198,7 @@ fn main() -> ExitCode {
         native_options,
         Box::new(move |cc| {
             install_cjk_fonts(&cc.egui_ctx);
+            install_editor_visuals(&cc.egui_ctx);
             Ok(Box::new(PreviewApp {
                 path,
                 source: src,
@@ -786,6 +806,26 @@ impl PreviewApp {
         }
     }
 
+    /// Insert a core shape form onto the current page and select it.
+    fn insert_shape(&mut self, form: &str) {
+        self.push_undo();
+        match insert_layer_page(&self.source, self.page_index, form) {
+            Ok((new_src, idx)) => {
+                self.source = new_src;
+                self.drag = None;
+                self.selected = vec![idx];
+                self.props_open = true;
+                self.error = pipeline_doc(&self.source).err();
+                if let Ok(layers) = collect_layers_page(&self.source, self.page_index) {
+                    if let Some(layer) = layers.get(idx) {
+                        self.pending_source_select = Some((layer.byte_start, layer.byte_end));
+                    }
+                }
+            }
+            Err(e) => self.error = Some(e.message),
+        }
+    }
+
     fn delete_selection(&mut self) {
         let mut indices = self.selected.clone();
         if indices.is_empty() {
@@ -1122,6 +1162,34 @@ impl eframe::App for PreviewApp {
         if let Some((start, end)) = self.pending_source_select.take() {
             highlight_source_range(ctx, &self.source, start, end);
         }
+
+        egui::TopBottomPanel::top("insert_bar").show(ctx, |ui| {
+            ui.horizontal_wrapped(|ui| {
+                ui.label(egui::RichText::new("Insert").strong());
+                ui.separator();
+                if ui.button("Circle").clicked() {
+                    self.insert_shape("(circle 105 148.5 20)");
+                }
+                if ui.button("Rect").clicked() {
+                    self.insert_shape("(rect 60 120 90 60)");
+                }
+                if ui.button("Ellipse").clicked() {
+                    self.insert_shape("(ellipse 105 148.5 40 25)");
+                }
+                if ui.button("Frame").clicked() {
+                    self.insert_shape("(frame 50 100 110 80 1.5 black)");
+                }
+                if ui.button("Line").clicked() {
+                    self.insert_shape("(line 40 200 170 200 black 1)");
+                }
+                if ui.button("Text").clicked() {
+                    self.insert_shape("(text 40 200 12 \"Text\" black)");
+                }
+                if ui.button("Ring").clicked() {
+                    self.insert_shape("(ring 105 148.5 30 8)");
+                }
+            });
+        });
 
         egui::SidePanel::left("source_panel")
             .resizable(true)
