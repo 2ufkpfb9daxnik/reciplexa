@@ -32,7 +32,8 @@ pub use sync::{
     collect_size_targets_page, delete_layer_page, duplicate_layer_page, insert_layer_page,
     layer_opacity, layer_rotation_deg, nudge_drag_target, nudge_first_translate, nudge_layer_page,
     reorder_layer_page, scale_size_target, scale_text_box, set_box_xywh, set_layer_opacity,
-    set_layer_rotation_deg, set_text_box, DragTarget, LayerInfo, SizeTarget, SyncError,
+    set_layer_rotation_deg, set_line_endpoint, set_text_box, DragTarget, LayerInfo, SizeTarget,
+    SyncError,
 };
 
 use reciplexa_scene::{

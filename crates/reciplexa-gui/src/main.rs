@@ -15,7 +15,7 @@ use reciplexa_lower::{
     duplicate_layer_page, insert_layer_page, layer_rotation_deg, nudge_layer_page,
     reorder_layer_page, scale_size_target, set_box_xywh, set_layer_prop, set_layer_rotation_deg,
     set_layers_fill_rgb, set_layers_opacity, set_layers_stroke_rgb, set_layers_stroke_width,
-    set_text_box, LayerInfo, PropEditContext, PropGroup, PropValue, SizeTarget,
+    set_line_endpoint, set_text_box, LayerInfo, PropEditContext, PropGroup, PropValue, SizeTarget,
 };
 use reciplexa_macro::expand_source;
 use reciplexa_pdf::write_document_with_base;
@@ -459,6 +459,12 @@ enum DragKind {
         center_mm: (f64, f64),
         start_dist: f64,
         text_box: Option<BoxDrag>,
+    },
+    /// Drag one endpoint of a 2-point line.
+    LineEndpoint {
+        index: usize,
+        endpoint: usize,
+        base_src: String,
     },
     Rotate {
         flat_index: usize,
@@ -2075,6 +2081,15 @@ impl eframe::App for PreviewApp {
                     if let Some(bounds) = PaperLayout::shape_bounds_mm(shape) {
                         paint_selection_frame(&painter, rect, &layout, bounds);
                     }
+                    if let WorldShape::Path(p) = shape {
+                        if p.points_mm.len() == 2
+                            && size_bindings
+                                .get(i)
+                                .is_some_and(|t| matches!(t, SizeTarget::LineSeg(_)))
+                        {
+                            paint_line_endpoints(&painter, rect, &layout, &p.points_mm);
+                        }
+                    }
                 }
             }
 
@@ -2109,10 +2124,30 @@ impl eframe::App for PreviewApp {
                     let mut started = false;
                     let hit_body = hit_test_shapes(&shapes, mx, my);
                     let shift = ui.input(|i| i.modifiers.shift);
-                    // Handles only for primary selection when not grabbing the fill.
+                    // Handles for primary selection (endpoints / scale / rotate).
                     if let Some(sel) = self.primary_selected() {
-                        if hit_body != Some(sel) {
-                            if let Some(shape) = shapes.get(sel) {
+                        if let Some(shape) = shapes.get(sel) {
+                            // Line endpoints work even when the stroke itself is hit.
+                            if let (WorldShape::Path(p), Some(SizeTarget::LineSeg(idx))) =
+                                (shape, size_bindings.get(sel).copied())
+                            {
+                                if p.points_mm.len() == 2 {
+                                    if let Some(endpoint) =
+                                        hit_line_endpoint(&layout, &p.points_mm, local_pos)
+                                    {
+                                        self.drag = Some(DragState {
+                                            kind: DragKind::LineEndpoint {
+                                                index: idx,
+                                                endpoint,
+                                                base_src: self.source.clone(),
+                                            },
+                                            undo_pushed: false,
+                                        });
+                                        started = true;
+                                    }
+                                }
+                            }
+                            if !started && hit_body != Some(sel) {
                                 if let Some(bounds) = PaperLayout::shape_bounds_mm(shape) {
                                     let (x0, y0, x1, y1) = bounds;
                                     let cx = (x0 + x1) * 0.5;
@@ -2353,6 +2388,34 @@ impl eframe::App for PreviewApp {
                                             center_mm,
                                             start_dist,
                                             text_box,
+                                        };
+                                        let mut undo_pushed = drag.undo_pushed;
+                                        if !undo_pushed {
+                                            self.push_undo();
+                                            undo_pushed = true;
+                                        }
+                                        self.source = new_src;
+                                        self.error = if self.reload_ok() {
+                                            None
+                                        } else {
+                                            Some("edit produced invalid program".into())
+                                        };
+                                        self.drag = Some(DragState { kind, undo_pushed });
+                                    }
+                                    Err(e) => self.error = Some(e.message),
+                                }
+                            }
+                            DragKind::LineEndpoint {
+                                index,
+                                endpoint,
+                                base_src,
+                            } => {
+                                match set_line_endpoint(&base_src, index, endpoint, mx, my) {
+                                    Ok(new_src) => {
+                                        let kind = DragKind::LineEndpoint {
+                                            index,
+                                            endpoint,
+                                            base_src,
                                         };
                                         let mut undo_pushed = drag.undo_pushed;
                                         if !undo_pushed {
@@ -2652,6 +2715,45 @@ fn box_from_grab(tb: BoxDrag, mx: f64, my: f64) -> (f64, f64, f64, f64) {
             (x0, y1 - h, x1 - x0, h)
         }
     }
+}
+
+fn paint_line_endpoints(
+    painter: &egui::Painter,
+    rect: egui::Rect,
+    layout: &PaperLayout,
+    points_mm: &[(f64, f64)],
+) {
+    for &(x, y) in points_mm.iter().take(2) {
+        let (px, py) = layout.mm_to_px(x, y);
+        let c = rect.min + egui::vec2(px, py);
+        painter.circle_filled(c, 5.0, egui::Color32::WHITE);
+        painter.circle_stroke(
+            c,
+            5.0,
+            egui::Stroke::new(1.5_f32, egui::Color32::from_rgb(30, 120, 220)),
+        );
+    }
+}
+
+fn hit_line_endpoint(
+    layout: &PaperLayout,
+    points_mm: &[(f64, f64)],
+    local_px: egui::Pos2,
+) -> Option<usize> {
+    let hit_r2 = 10.0_f32 * 10.0;
+    points_mm
+        .iter()
+        .take(2)
+        .enumerate()
+        .find_map(|(i, &(x, y))| {
+            let (px, py) = layout.mm_to_px(x, y);
+            let c = egui::pos2(px, py);
+            if local_px.distance_sq(c) <= hit_r2 {
+                Some(i)
+            } else {
+                None
+            }
+        })
 }
 
 fn paint_paper_grid(

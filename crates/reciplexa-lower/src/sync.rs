@@ -624,6 +624,26 @@ pub fn scale_text_box(src: &str, index: usize, fx: f64, fy: f64) -> Result<Strin
     set_text_box(src, index, nx, ny, nw, nh)
 }
 
+/// Set one endpoint of `(line x1 y1 x2 y2 …)`; `endpoint` is 0 or 1.
+pub fn set_line_endpoint(
+    src: &str,
+    index: usize,
+    endpoint: usize,
+    x: f64,
+    y: f64,
+) -> Result<String, SyncError> {
+    if endpoint > 1 {
+        return Err(SyncError::new("line endpoint must be 0 or 1"));
+    }
+    if !x.is_finite() || !y.is_finite() {
+        return Err(SyncError::new("line endpoint must be finite"));
+    }
+    let x_slot = 1 + endpoint * 2;
+    let y_slot = x_slot + 1;
+    let out = set_nth_number(src, "line", index, x_slot, x)?;
+    set_nth_number(&out, "line", index, y_slot, y)
+}
+
 /// Set absolute origin + size for a box-like leaf (`rect` / `frame` / `image`).
 #[allow(clippy::too_many_arguments)]
 pub fn set_box_xywh(
@@ -1878,6 +1898,18 @@ mod tests {
         let src = "(page a4 (rect 10 20 30 40 red))";
         let out = set_box_xywh(src, "rect", 0, [1, 2, 3, 4], 5.0, 6.0, 7.0, 8.0).unwrap();
         assert!(out.contains("(rect 5 6 7 8 red)"), "unexpected: {out}");
+    }
+
+    #[test]
+    fn set_line_endpoint_rewrites_pair() {
+        let src = "(page a4 (line 0 0 10 10 red 1))";
+        let out = set_line_endpoint(src, 0, 1, 20.0, 30.0).unwrap();
+        assert!(out.contains("(line 0 0 20 30 red 1)"), "unexpected: {out}");
+        let out0 = set_line_endpoint(src, 0, 0, -1.0, -2.0).unwrap();
+        assert!(
+            out0.contains("(line -1 -2 10 10 red 1)"),
+            "unexpected: {out0}"
+        );
     }
 
     #[test]
