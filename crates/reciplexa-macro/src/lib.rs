@@ -207,6 +207,8 @@ fn find_rule(root: &SyntaxNode) -> Option<(usize, usize, String)> {
 fn find_doc(root: &SyntaxNode) -> Option<(usize, usize, String)> {
     use reciplexa_syntax::doc_parts;
 
+    use crate::doc_layout::{place_lines, DocFrame};
+
     for child in root.children() {
         if child.kind() != SyntaxKind::List {
             continue;
@@ -226,21 +228,30 @@ fn find_doc(root: &SyntaxNode) -> Option<(usize, usize, String)> {
         let replacement = if lines.is_empty() {
             "(page a4)".to_string()
         } else {
-            const LEFT_MM: f64 = 25.0;
-            const TOP_MM: f64 = 270.0;
-            let mut repl = String::from("(page a4");
-            let mut y = TOP_MM;
-            for (i, line) in lines.iter().enumerate() {
-                if i > 0 {
-                    y -= lines[i - 1].y_gap_after;
+            let placed = place_lines(&lines, DocFrame::A4);
+            let page_count = placed
+                .iter()
+                .map(|p| p.page_index)
+                .max()
+                .map(|p| p + 1)
+                .unwrap_or(1);
+            let mut repl = String::new();
+            for page in 0..page_count {
+                if page > 0 {
+                    repl.push('\n');
                 }
-                repl.push_str(&format!(
-                    " (text {LEFT_MM} {y} {} \"{}\" black)",
-                    format_frac(line.size_mm),
-                    escape_lisp_string(&line.content)
-                ));
+                repl.push_str("(page a4");
+                for p in placed.iter().filter(|p| p.page_index == page) {
+                    repl.push_str(&format!(
+                        " (text {} {} {} \"{}\" black)",
+                        format_frac(p.x_mm),
+                        format_frac(p.y_mm),
+                        format_frac(p.size_mm),
+                        escape_lisp_string(&p.content)
+                    ));
+                }
+                repl.push(')');
             }
-            repl.push(')');
             repl
         };
         return Some((start, end, replacement));
@@ -536,5 +547,21 @@ mod tests {
     fn empty_li_skips_empty_text() {
         let out = expand_source("(doc @li{})").unwrap();
         assert_eq!(out, "(page a4)");
+    }
+
+    #[test]
+    fn long_doc_spills_onto_second_page() {
+        // Body gap 12mm from y=270 down; bottom margin 25 → room for many lines.
+        let mut body = String::from("(doc");
+        for i in 0..30 {
+            body.push_str(&format!("\n@p{{line{i}}}"));
+        }
+        body.push(')');
+        let out = expand_source(&body).unwrap();
+        let page_count = out.matches("(page a4").count();
+        assert!(
+            page_count >= 2,
+            "expected multipage layout, got {page_count} page(s): {out}"
+        );
     }
 }

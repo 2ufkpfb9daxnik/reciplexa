@@ -28,6 +28,62 @@ pub const TITLE_WRAP_CHARS: usize = 24;
 /// Soft wrap budget for h2 lines.
 pub const H2_WRAP_CHARS: usize = 32;
 
+/// Page frame used when emitting `(page a4 (text …)…)` from laid lines.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct DocFrame {
+    pub left_mm: f64,
+    pub top_mm: f64,
+    pub bottom_mm: f64,
+}
+
+impl DocFrame {
+    pub const A4: Self = Self {
+        left_mm: 25.0,
+        top_mm: 270.0,
+        bottom_mm: 25.0,
+    };
+}
+
+/// One text shape placement after pagination (page-local coordinates).
+#[derive(Debug, Clone, PartialEq)]
+pub struct PlacedText {
+    pub page_index: usize,
+    pub x_mm: f64,
+    pub y_mm: f64,
+    pub size_mm: f64,
+    pub content: String,
+}
+
+/// Assign laid lines to A4 pages, starting a new page when the baseline would
+/// fall below [`DocFrame::bottom_mm`].
+pub fn place_lines(lines: &[LaidLine], frame: DocFrame) -> Vec<PlacedText> {
+    let mut out = Vec::new();
+    if lines.is_empty() {
+        return out;
+    }
+    let mut page = 0usize;
+    let mut y = frame.top_mm;
+    for (i, line) in lines.iter().enumerate() {
+        if i > 0 {
+            let next_y = y - lines[i - 1].y_gap_after;
+            if next_y < frame.bottom_mm {
+                page += 1;
+                y = frame.top_mm;
+            } else {
+                y = next_y;
+            }
+        }
+        out.push(PlacedText {
+            page_index: page,
+            x_mm: frame.left_mm,
+            y_mm: y,
+            size_mm: line.size_mm,
+            content: line.content.clone(),
+        });
+    }
+    out
+}
+
 /// Turn Scribble parts into laid-out text lines (`@title` / `@p` meaning).
 pub fn layout_doc_parts(parts: &[DocPart]) -> Vec<LaidLine> {
     let mut out = Vec::new();
@@ -267,5 +323,20 @@ mod tests {
     #[test]
     fn layout_skips_empty_title() {
         assert!(layout_doc_parts(&parts("(doc @title{})")).is_empty());
+    }
+
+    #[test]
+    fn place_lines_starts_new_page_at_bottom_margin() {
+        let lines: Vec<LaidLine> = (0..30)
+            .map(|i| LaidLine {
+                size_mm: BODY_SIZE_MM,
+                y_gap_after: BODY_GAP_MM,
+                content: format!("L{i}"),
+            })
+            .collect();
+        let placed = place_lines(&lines, DocFrame::A4);
+        let max_page = placed.iter().map(|p| p.page_index).max().unwrap();
+        assert!(max_page >= 1, "expected a second page, got {placed:?}");
+        assert!(placed.iter().all(|p| p.y_mm >= DocFrame::A4.bottom_mm));
     }
 }
