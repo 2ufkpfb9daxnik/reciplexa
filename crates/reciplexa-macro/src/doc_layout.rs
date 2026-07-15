@@ -228,14 +228,7 @@ pub fn layout_doc_parts(parts: &[DocPart]) -> Vec<LaidItem> {
                 }
                 "code" | "pre" => {
                     flush_body(&mut buf, &mut out);
-                    push_styled_block_indent(
-                        brace_body,
-                        CODE_SIZE_MM,
-                        CODE_GAP_MM,
-                        CODE_WRAP_CHARS,
-                        CODE_INDENT_MM,
-                        &mut out,
-                    );
+                    push_code_block(brace_body, &mut out);
                 }
                 "ol" => {
                     flush_body(&mut buf, &mut out);
@@ -375,6 +368,60 @@ fn push_unordered_list(body: &[DocPart], out: &mut Vec<LaidItem>) {
             0.0,
             out,
         );
+    }
+}
+
+/// `@code` / `@pre` — preserve internal spaces; soft-wrap still applies.
+fn push_code_block(body: &[DocPart], out: &mut Vec<LaidItem>) {
+    for line in flatten_code_lines(body) {
+        if line.is_empty() {
+            continue;
+        }
+        push_wrapped(
+            &line,
+            CODE_SIZE_MM,
+            CODE_GAP_MM,
+            CODE_WRAP_CHARS,
+            CODE_INDENT_MM,
+            out,
+        );
+    }
+}
+
+/// Like [`flatten_lines`], but keeps runs of spaces (only trim ends of each line).
+fn flatten_code_lines(parts: &[DocPart]) -> Vec<String> {
+    let mut lines: Vec<String> = Vec::new();
+    let mut cur = String::new();
+    flush_code_parts(parts, &mut lines, &mut cur);
+    if !cur.is_empty() || lines.is_empty() {
+        lines.push(std::mem::take(&mut cur));
+    }
+    lines
+        .into_iter()
+        .map(|l| l.trim_end().to_string())
+        .filter(|l| !l.is_empty())
+        .collect()
+}
+
+fn flush_code_parts(parts: &[DocPart], lines: &mut Vec<String>, cur: &mut String) {
+    for part in parts {
+        match part {
+            DocPart::Text(t) => cur.push_str(t),
+            DocPart::Newline => {
+                lines.push(std::mem::take(cur));
+            }
+            DocPart::At {
+                bracket_args,
+                brace_body,
+                ..
+            } => {
+                if !brace_body.is_empty() {
+                    flush_code_parts(brace_body, lines, cur);
+                } else if let Some(args) = bracket_args {
+                    cur.push_str(args);
+                }
+            }
+        }
     }
 }
 

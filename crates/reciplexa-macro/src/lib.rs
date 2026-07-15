@@ -748,6 +748,15 @@ mod tests {
     }
 
     #[test]
+    fn expands_code_preserves_internal_spaces() {
+        let out = expand_source("(doc @code{a  b})").unwrap();
+        assert!(
+            out.contains("(text 33 270 6.5 \"a  b\" black)"),
+            "code must keep double spaces: {out}"
+        );
+    }
+
+    #[test]
     fn expands_pre_as_code_alias() {
         let out = expand_source("(doc @pre{let x = 1})").unwrap();
         assert!(
