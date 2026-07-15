@@ -20,7 +20,8 @@ use reciplexa_lower::{
 use reciplexa_macro::expand_source;
 use reciplexa_pdf::write_document_with_base;
 use reciplexa_view::{
-    flatten_page, hit_test_shapes, shapes_intersecting_aabb, PaperLayout, WorldShape,
+    flatten_page, hit_test_shapes, shapes_intersecting_aabb, text_corners_mm, PaperLayout,
+    WorldShape,
 };
 
 /// Live preview: expand + typecheck + lower **without** running `(src)` effects.
@@ -317,6 +318,7 @@ fn main() -> ExitCode {
                 batch_stroke_width: 1.0,
                 batch_opacity: 1.0,
                 theme,
+                show_grid: false,
             }))
         }),
     ) {
@@ -360,6 +362,8 @@ struct PreviewApp {
     batch_opacity: f64,
     /// UI chrome theme (paper stays light).
     theme: UiTheme,
+    /// Draw a light millimeter grid on the paper.
+    show_grid: bool,
 }
 
 #[derive(Clone, Copy)]
@@ -371,9 +375,24 @@ enum ScaleCorner {
 }
 
 #[derive(Clone, Copy)]
+enum ScaleEdge {
+    Left,
+    Right,
+    Top,
+    Bottom,
+}
+
+#[derive(Clone, Copy)]
+enum ScaleGrab {
+    Corner(ScaleCorner),
+    Edge(ScaleEdge),
+}
+
+#[derive(Clone, Copy)]
 struct TextBoxDrag {
-    corner: ScaleCorner,
-    anchor_mm: (f64, f64),
+    grab: ScaleGrab,
+    /// Page AABB at drag start: (x0, y0, x1, y1) with y-up.
+    start_bounds: (f64, f64, f64, f64),
 }
 
 #[derive(Clone)]
@@ -1318,6 +1337,9 @@ impl eframe::App for PreviewApp {
         if ctx.input(|i| i.modifiers.command && i.modifiers.shift && i.key_pressed(egui::Key::L)) {
             self.toggle_theme(ctx);
         }
+        if !source_focused && ctx.input(|i| i.key_pressed(egui::Key::G) && !i.modifiers.any()) {
+            self.show_grid = !self.show_grid;
+        }
         if !source_focused && ctx.input(|i| i.modifiers.command && i.key_pressed(egui::Key::A)) {
             if let Ok(layers) = collect_layers_page(&self.source, self.page_index) {
                 self.selected = (0..layers.len()).collect();
@@ -1421,7 +1443,7 @@ impl eframe::App for PreviewApp {
                     self.insert_shape("(line 40 200 170 200 (rgb 0.9 0.35 0.2) 1.2)");
                 }
                 if ui.button("Text").clicked() {
-                    self.insert_shape("(text 40 200 12 \"Text\" (rgb 0.15 0.15 0.2))");
+                    self.insert_shape("(text 40 200 12 60 24 \"Text\" (rgb 0.15 0.15 0.2))");
                 }
                 if ui.button("Ring").clicked() {
                     self.insert_shape("(ring 105 148.5 30 8 (rgb 0.95 0.55 0.15))");
@@ -1446,6 +1468,19 @@ impl eframe::App for PreviewApp {
                 {
                     self.zoom = 1.0;
                     self.pan = egui::Vec2::ZERO;
+                }
+                ui.label(format!("{:.0}%", self.zoom * 100.0));
+                let grid_label = if self.show_grid {
+                    "Grid: On"
+                } else {
+                    "Grid: Off"
+                };
+                if ui
+                    .button(grid_label)
+                    .on_hover_text("Toggle 10mm paper grid")
+                    .clicked()
+                {
+                    self.show_grid = !self.show_grid;
                 }
             });
         });
@@ -1759,6 +1794,14 @@ impl eframe::App for PreviewApp {
                     self.zoom = 1.0;
                     self.pan = egui::Vec2::ZERO;
                 }
+                ui.separator();
+                if ui
+                    .selectable_label(self.show_grid, "Grid")
+                    .on_hover_text("10mm grid (G)")
+                    .clicked()
+                {
+                    self.show_grid = !self.show_grid;
+                }
             });
 
             let size_bindings = match collect_size_targets_page(&self.source, self.page_index) {
@@ -1823,6 +1866,9 @@ impl eframe::App for PreviewApp {
                 egui::vec2(layout.width_px, layout.height_px),
             );
             painter.rect_filled(paper, 0.0, egui::Color32::WHITE);
+            if self.show_grid {
+                paint_paper_grid(&painter, rect, &layout, page.paper.width_mm, page.paper.height_mm);
+            }
             let paper_stroke = match self.theme {
                 UiTheme::Light => egui::Color32::from_gray(80),
                 UiTheme::Dark => egui::Color32::from_gray(160),
@@ -1848,6 +1894,24 @@ impl eframe::App for PreviewApp {
                     if let Some(bounds) = PaperLayout::shape_bounds_mm(shape) {
                         paint_selection_frame(&painter, rect, &layout, bounds);
                     }
+                }
+            }
+
+            if let Some(pos) = response.hover_pos() {
+                let local = pos - rect.min;
+                let (mx, my) = layout.px_to_mm(local.x, local.y);
+                if mx >= -1.0
+                    && my >= -1.0
+                    && mx <= page.paper.width_mm + 1.0
+                    && my <= page.paper.height_mm + 1.0
+                {
+                    painter.text(
+                        rect.left_bottom() + egui::vec2(8.0, -8.0),
+                        egui::Align2::LEFT_BOTTOM,
+                        format!("{mx:.1}, {my:.1} mm"),
+                        egui::FontId::monospace(12.0),
+                        egui::Color32::from_gray(110),
+                    );
                 }
             }
 
@@ -1891,12 +1955,19 @@ impl eframe::App for PreviewApp {
                                             undo_pushed: false,
                                         });
                                         started = true;
-                                    } else if let Some(corner) =
-                                        hit_scale_corner(&layout, bounds, local_pos)
+                                    } else if let Some(grab) =
+                                        hit_scale_grab(&layout, bounds, local_pos)
                                     {
-                                        if size_bindings
-                                            .get(sel)
-                                            .is_some_and(|t| *t != SizeTarget::Unsupported)
+                                        let allow = match grab {
+                                            ScaleGrab::Corner(_) => true,
+                                            ScaleGrab::Edge(_) => size_bindings
+                                                .get(sel)
+                                                .is_some_and(|t| matches!(t, SizeTarget::TextSize(_))),
+                                        };
+                                        if allow
+                                            && size_bindings
+                                                .get(sel)
+                                                .is_some_and(|t| *t != SizeTarget::Unsupported)
                                         {
                                             let start_dist =
                                                 ((mx - cx).hypot(my - cy)).max(1e-6);
@@ -1904,10 +1975,8 @@ impl eframe::App for PreviewApp {
                                                 let text_box =
                                                     if matches!(size, SizeTarget::TextSize(_)) {
                                                         Some(TextBoxDrag {
-                                                            corner,
-                                                            anchor_mm: text_anchor_corner(
-                                                                bounds, corner,
-                                                            ),
+                                                            grab,
+                                                            start_bounds: bounds,
                                                         })
                                                     } else {
                                                         None
@@ -2043,7 +2112,7 @@ impl eframe::App for PreviewApp {
                                     SizeTarget::TextSize(idx),
                                 ) = (text_box, size)
                                 {
-                                    let (nx, ny, nw, nh) = text_box_from_corner(tb, mx, my);
+                                    let (nx, ny, nw, nh) = text_box_from_grab(tb, mx, my);
                                     set_text_box(&base_src, idx, nx, ny, nw, nh)
                                 } else {
                                     let dist = (mx - center_mm.0)
@@ -2237,6 +2306,22 @@ fn paint_selection_frame(
             egui::StrokeKind::Outside,
         );
     }
+    let edges = [
+        frame.center_top(),
+        frame.center_bottom(),
+        frame.left_center(),
+        frame.right_center(),
+    ];
+    for c in edges {
+        let hr = egui::Rect::from_center_size(c, egui::vec2(handle * 1.6, handle * 1.6));
+        painter.rect_filled(hr, 0.0, egui::Color32::WHITE);
+        painter.rect_stroke(
+            hr,
+            0.0,
+            egui::Stroke::new(1.2_f32, egui::Color32::from_rgb(30, 120, 220)),
+            egui::StrokeKind::Outside,
+        );
+    }
     // Rotate knob: above the top-center of the selection frame.
     let knob = rotate_handle_pos(frame);
     painter.line_segment(
@@ -2265,59 +2350,123 @@ fn rotate_handle_pos(frame: egui::Rect) -> egui::Pos2 {
     egui::pos2(frame.center().x, frame.top() - 22.0)
 }
 
-fn hit_scale_corner(
+fn hit_scale_grab(
     layout: &PaperLayout,
     bounds: (f64, f64, f64, f64),
     local_px: egui::Pos2,
-) -> Option<ScaleCorner> {
+) -> Option<ScaleGrab> {
     let frame = selection_frame_local(layout, bounds);
-    let corners = [
-        (frame.left_top(), ScaleCorner::TopLeft),
-        (frame.right_top(), ScaleCorner::TopRight),
-        (frame.left_bottom(), ScaleCorner::BottomLeft),
-        (frame.right_bottom(), ScaleCorner::BottomRight),
-    ];
     let hit_r2 = 10.0_f32 * 10.0;
-    corners
+    let corners = [
+        (frame.left_top(), ScaleGrab::Corner(ScaleCorner::TopLeft)),
+        (frame.right_top(), ScaleGrab::Corner(ScaleCorner::TopRight)),
+        (
+            frame.left_bottom(),
+            ScaleGrab::Corner(ScaleCorner::BottomLeft),
+        ),
+        (
+            frame.right_bottom(),
+            ScaleGrab::Corner(ScaleCorner::BottomRight),
+        ),
+    ];
+    if let Some((_, grab)) = corners
         .into_iter()
         .find(|(c, _)| local_px.distance_sq(*c) <= hit_r2)
-        .map(|(_, corner)| corner)
+    {
+        return Some(grab);
+    }
+    let edges = [
+        (frame.center_top(), ScaleGrab::Edge(ScaleEdge::Top)),
+        (frame.center_bottom(), ScaleGrab::Edge(ScaleEdge::Bottom)),
+        (frame.left_center(), ScaleGrab::Edge(ScaleEdge::Left)),
+        (frame.right_center(), ScaleGrab::Edge(ScaleEdge::Right)),
+    ];
+    edges
+        .into_iter()
+        .find(|(c, _)| local_px.distance_sq(*c) <= hit_r2)
+        .map(|(_, grab)| grab)
 }
 
-fn text_anchor_corner(bounds: (f64, f64, f64, f64), corner: ScaleCorner) -> (f64, f64) {
-    let (x0, y0, x1, y1) = bounds;
-    match corner {
-        ScaleCorner::TopLeft => (x1, y0),
-        ScaleCorner::TopRight => (x0, y0),
-        ScaleCorner::BottomLeft => (x1, y1),
-        ScaleCorner::BottomRight => (x0, y1),
+fn text_box_from_grab(tb: TextBoxDrag, mx: f64, my: f64) -> (f64, f64, f64, f64) {
+    let (x0, y0, x1, y1) = tb.start_bounds;
+    const MIN: f64 = 0.5;
+    match tb.grab {
+        ScaleGrab::Corner(ScaleCorner::TopLeft) => {
+            let w = (x1 - mx).max(MIN);
+            let h = (my - y0).max(MIN);
+            (x1 - w, y0, w, h)
+        }
+        ScaleGrab::Corner(ScaleCorner::TopRight) => {
+            let w = (mx - x0).max(MIN);
+            let h = (my - y0).max(MIN);
+            (x0, y0, w, h)
+        }
+        ScaleGrab::Corner(ScaleCorner::BottomLeft) => {
+            let w = (x1 - mx).max(MIN);
+            let h = (y1 - my).max(MIN);
+            (x1 - w, y1 - h, w, h)
+        }
+        ScaleGrab::Corner(ScaleCorner::BottomRight) => {
+            let w = (mx - x0).max(MIN);
+            let h = (y1 - my).max(MIN);
+            (x0, y1 - h, w, h)
+        }
+        ScaleGrab::Edge(ScaleEdge::Left) => {
+            let w = (x1 - mx).max(MIN);
+            (x1 - w, y0, w, y1 - y0)
+        }
+        ScaleGrab::Edge(ScaleEdge::Right) => {
+            let w = (mx - x0).max(MIN);
+            (x0, y0, w, y1 - y0)
+        }
+        ScaleGrab::Edge(ScaleEdge::Top) => {
+            let h = (my - y0).max(MIN);
+            (x0, y0, x1 - x0, h)
+        }
+        ScaleGrab::Edge(ScaleEdge::Bottom) => {
+            let h = (y1 - my).max(MIN);
+            (x0, y1 - h, x1 - x0, h)
+        }
     }
 }
 
-fn text_box_from_corner(tb: TextBoxDrag, mx: f64, my: f64) -> (f64, f64, f64, f64) {
-    let (ax, ay) = tb.anchor_mm;
-    const MIN: f64 = 0.5;
-    match tb.corner {
-        ScaleCorner::TopLeft => {
-            let w = (ax - mx).max(MIN);
-            let h = (my - ay).max(MIN);
-            (ax - w, ay, w, h)
-        }
-        ScaleCorner::TopRight => {
-            let w = (mx - ax).max(MIN);
-            let h = (my - ay).max(MIN);
-            (ax, ay, w, h)
-        }
-        ScaleCorner::BottomLeft => {
-            let w = (ax - mx).max(MIN);
-            let h = (ay - my).max(MIN);
-            (ax - w, ay - h, w, h)
-        }
-        ScaleCorner::BottomRight => {
-            let w = (mx - ax).max(MIN);
-            let h = (ay - my).max(MIN);
-            (ax, ay - h, w, h)
-        }
+fn paint_paper_grid(
+    painter: &egui::Painter,
+    rect: egui::Rect,
+    layout: &PaperLayout,
+    paper_w_mm: f64,
+    paper_h_mm: f64,
+) {
+    const STEP: f64 = 10.0;
+    let stroke = egui::Stroke::new(
+        1.0_f32,
+        egui::Color32::from_rgba_unmultiplied(40, 80, 140, 35),
+    );
+    let mut x = 0.0;
+    while x <= paper_w_mm + 1e-6 {
+        let (px0, py0) = layout.mm_to_px(x, 0.0);
+        let (px1, py1) = layout.mm_to_px(x, paper_h_mm);
+        painter.line_segment(
+            [
+                rect.min + egui::vec2(px0, py0),
+                rect.min + egui::vec2(px1, py1),
+            ],
+            stroke,
+        );
+        x += STEP;
+    }
+    let mut y = 0.0;
+    while y <= paper_h_mm + 1e-6 {
+        let (px0, py0) = layout.mm_to_px(0.0, y);
+        let (px1, py1) = layout.mm_to_px(paper_w_mm, y);
+        painter.line_segment(
+            [
+                rect.min + egui::vec2(px0, py0),
+                rect.min + egui::vec2(px1, py1),
+            ],
+            stroke,
+        );
+        y += STEP;
     }
 }
 
@@ -2413,7 +2562,19 @@ fn paint_shape(
             let (s, c) = (angle.sin(), angle.cos());
             let top_left =
                 baseline + egui::vec2(tl_rel.x * c + tl_rel.y * s, -tl_rel.x * s + tl_rel.y * c);
-            painter.add(egui::epaint::TextShape::new(top_left, galley, color).with_angle(angle));
+            // Clip to the layout box AABB so height shrinks hide overflow.
+            let box_corners = text_corners_mm(t);
+            let mut clip = egui::Rect::NOTHING;
+            for &(xmm, ymm) in &box_corners {
+                let (px, py) = layout.mm_to_px(xmm, ymm);
+                clip = clip.union(egui::Rect::from_center_size(
+                    rect.min + egui::vec2(px, py),
+                    egui::vec2(1.0, 1.0),
+                ));
+            }
+            clip = clip.expand(2.0).intersect(painter.clip_rect());
+            let clipped = painter.with_clip_rect(clip);
+            clipped.add(egui::epaint::TextShape::new(top_left, galley, color).with_angle(angle));
         }
         WorldShape::Path(p) => {
             if p.points_mm.len() < 2 {
