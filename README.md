@@ -37,7 +37,10 @@ cargo run -p reciplexa -- examples\doc_with_figure.rpx target\figure.pdf
 ## GUI
 
 ```powershell
+cargo run -p reciplexa-gui
 cargo run -p reciplexa-gui -- examples\doc_title_p.rpx
 ```
+
+引数なしだと空の `(page a4)` で起動。上部の **Open…**（Ctrl+O）で `.rpx` を開く。Insert から図形・テキスト・画像（png/jpg）を追加できる。
 
 プレビューは `(src …)` 効果を走らせません。エクスポート時だけ `perform` / `handle` が動きます。

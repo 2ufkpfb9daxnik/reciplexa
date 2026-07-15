@@ -2,7 +2,7 @@
 
 use std::env;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::sync::Arc;
 
@@ -162,21 +162,56 @@ fn highlight_source_range(ctx: &egui::Context, source: &str, start: usize, end: 
     }
 }
 
-fn main() -> ExitCode {
-    let path = match env::args().nth(1) {
-        Some(p) => PathBuf::from(p),
-        None => {
-            eprintln!("usage: reciplexa-gui <input.rpx>");
-            return ExitCode::from(2);
+fn escape_lisp_string(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for c in s.chars() {
+        match c {
+            '\\' => out.push_str("\\\\"),
+            '"' => out.push_str("\\\""),
+            _ => out.push(c),
         }
-    };
+    }
+    out
+}
 
-    let src = match fs::read_to_string(&path) {
-        Ok(s) => s,
-        Err(e) => {
-            eprintln!("error: read {}: {e}", path.display());
-            return ExitCode::FAILURE;
+/// Prefer a path relative to the `.rpx` directory, using `/` separators.
+fn path_for_rpx(doc_path: &Path, asset: &Path) -> String {
+    if let Some(base) = doc_path.parent() {
+        if let Ok(rel) = asset.strip_prefix(base) {
+            return rel
+                .components()
+                .map(|c| c.as_os_str().to_string_lossy())
+                .collect::<Vec<_>>()
+                .join("/");
         }
+    }
+    asset
+        .components()
+        .map(|c| c.as_os_str().to_string_lossy())
+        .collect::<Vec<_>>()
+        .join("/")
+}
+
+fn set_window_title(ctx: &egui::Context, path: &Path) {
+    ctx.send_viewport_cmd(egui::ViewportCommand::Title(format!(
+        "reciplexa — {}",
+        path.display()
+    )));
+}
+
+fn main() -> ExitCode {
+    let (path, src) = match env::args().nth(1) {
+        Some(p) => {
+            let path = PathBuf::from(p);
+            match fs::read_to_string(&path) {
+                Ok(s) => (path, s),
+                Err(e) => {
+                    eprintln!("error: read {}: {e}", path.display());
+                    return ExitCode::FAILURE;
+                }
+            }
+        }
+        None => (PathBuf::from("untitled.rpx"), "(page a4)\n".to_string()),
     };
     // Keep the author's `.rpx` text. Expansion happens inside `pipeline_doc` /
     // export so Scribble macros (`@title`, …) stay editable.
@@ -826,6 +861,98 @@ impl PreviewApp {
         }
     }
 
+    fn open_rpx_path(&mut self, ctx: &egui::Context, path: PathBuf) {
+        match fs::read_to_string(&path) {
+            Ok(raw) => {
+                self.path = path;
+                self.source = raw;
+                self.drag = None;
+                self.clear_selection();
+                self.page_index = 0;
+                self.zoom = 1.0;
+                self.pan = egui::Vec2::ZERO;
+                self.textures.clear();
+                self.undo_stack.clear();
+                self.redo_stack.clear();
+                self.typing_undo_open = false;
+                self.props_undo_open = false;
+                self.error = pipeline_doc(&self.source).err();
+                set_window_title(ctx, &self.path);
+            }
+            Err(e) => self.error = Some(format!("open: {e}")),
+        }
+    }
+
+    fn open_rpx_dialog(&mut self, ctx: &egui::Context) {
+        let pick = rfd::FileDialog::new()
+            .add_filter("reciplexa", &["rpx"])
+            .add_filter("All", &["*"])
+            .set_title("Open .rpx")
+            .pick_file();
+        if let Some(path) = pick {
+            self.open_rpx_path(ctx, path);
+        }
+    }
+
+    fn save_rpx(&mut self) {
+        if let Err(e) = fs::write(&self.path, &self.source) {
+            self.error = Some(format!("save: {e}"));
+        } else {
+            self.error = None;
+        }
+    }
+
+    fn save_rpx_as_dialog(&mut self, ctx: &egui::Context) {
+        let pick = rfd::FileDialog::new()
+            .add_filter("reciplexa", &["rpx"])
+            .set_file_name(
+                self.path
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("untitled.rpx"),
+            )
+            .set_title("Save .rpx As")
+            .save_file();
+        if let Some(mut path) = pick {
+            if path.extension().is_none() {
+                path.set_extension("rpx");
+            }
+            self.path = path;
+            self.save_rpx();
+            set_window_title(ctx, &self.path);
+        }
+    }
+
+    fn insert_image_dialog(&mut self) {
+        let pick = rfd::FileDialog::new()
+            .add_filter("Images", &["png", "jpg", "jpeg"])
+            .set_title("Insert Image")
+            .pick_file();
+        let Some(asset) = pick else {
+            return;
+        };
+        let rel = path_for_rpx(&self.path, &asset);
+        let form = format!("(image \"{}\" 40 120 80 60)", escape_lisp_string(&rel));
+        self.insert_shape(&form);
+    }
+
+    fn new_document(&mut self, ctx: &egui::Context) {
+        self.path = PathBuf::from("untitled.rpx");
+        self.source = "(page a4)\n".to_string();
+        self.drag = None;
+        self.clear_selection();
+        self.page_index = 0;
+        self.zoom = 1.0;
+        self.pan = egui::Vec2::ZERO;
+        self.textures.clear();
+        self.undo_stack.clear();
+        self.redo_stack.clear();
+        self.typing_undo_open = false;
+        self.props_undo_open = false;
+        self.error = None;
+        set_window_title(ctx, &self.path);
+    }
+
     fn delete_selection(&mut self) {
         let mut indices = self.selected.clone();
         if indices.is_empty() {
@@ -1084,15 +1211,17 @@ impl eframe::App for PreviewApp {
             self.redo();
         }
         if ctx.input(|i| i.modifiers.command && i.key_pressed(egui::Key::S)) {
-            if let Err(e) = fs::write(&self.path, &self.source) {
-                self.error = Some(format!("save: {e}"));
-            } else {
-                self.error = None;
-            }
+            self.save_rpx();
         }
 
         // Arrow keys nudge the selection when the source editor is not focused.
         let source_focused = ctx.memory(|m| m.has_focus(egui::Id::new("rpx_source_editor")));
+        if !source_focused && ctx.input(|i| i.modifiers.command && i.key_pressed(egui::Key::O)) {
+            self.open_rpx_dialog(ctx);
+        }
+        if !source_focused && ctx.input(|i| i.modifiers.command && i.key_pressed(egui::Key::N)) {
+            self.new_document(ctx);
+        }
         if !source_focused && ctx.input(|i| i.modifiers.command && i.key_pressed(egui::Key::A)) {
             if let Ok(layers) = collect_layers_page(&self.source, self.page_index) {
                 self.selected = (0..layers.len()).collect();
@@ -1165,28 +1294,44 @@ impl eframe::App for PreviewApp {
 
         egui::TopBottomPanel::top("insert_bar").show(ctx, |ui| {
             ui.horizontal_wrapped(|ui| {
-                ui.label(egui::RichText::new("Insert").strong());
+                ui.label(egui::RichText::new("File").strong());
+                if ui.button("New").clicked() {
+                    self.new_document(ctx);
+                }
+                if ui.button("Open…").clicked() {
+                    self.open_rpx_dialog(ctx);
+                }
+                if ui.button("Save").clicked() {
+                    self.save_rpx();
+                }
+                if ui.button("Save As…").clicked() {
+                    self.save_rpx_as_dialog(ctx);
+                }
                 ui.separator();
+                ui.label(egui::RichText::new("Insert").strong());
                 if ui.button("Circle").clicked() {
-                    self.insert_shape("(circle 105 148.5 20)");
+                    self.insert_shape("(circle 105 148.5 20 (rgb 0.85 0.3 0.35))");
                 }
                 if ui.button("Rect").clicked() {
-                    self.insert_shape("(rect 60 120 90 60)");
+                    self.insert_shape("(rect 60 120 90 60 (rgb 0.25 0.55 0.9))");
                 }
                 if ui.button("Ellipse").clicked() {
-                    self.insert_shape("(ellipse 105 148.5 40 25)");
+                    self.insert_shape("(ellipse 105 148.5 40 25 (rgb 0.3 0.72 0.45))");
                 }
                 if ui.button("Frame").clicked() {
-                    self.insert_shape("(frame 50 100 110 80 1.5 black)");
+                    self.insert_shape("(frame 50 100 110 80 1.5 (rgb 0.15 0.35 0.75))");
                 }
                 if ui.button("Line").clicked() {
-                    self.insert_shape("(line 40 200 170 200 black 1)");
+                    self.insert_shape("(line 40 200 170 200 (rgb 0.9 0.35 0.2) 1.2)");
                 }
                 if ui.button("Text").clicked() {
-                    self.insert_shape("(text 40 200 12 \"Text\" black)");
+                    self.insert_shape("(text 40 200 12 \"Text\" (rgb 0.15 0.15 0.2))");
                 }
                 if ui.button("Ring").clicked() {
-                    self.insert_shape("(ring 105 148.5 30 8)");
+                    self.insert_shape("(ring 105 148.5 30 8 (rgb 0.95 0.55 0.15))");
+                }
+                if ui.button("Image…").clicked() {
+                    self.insert_image_dialog();
                 }
             });
         });
@@ -1197,15 +1342,14 @@ impl eframe::App for PreviewApp {
             .show(ctx, |ui| {
                 ui.heading(".rpx source");
                 ui.label(
-                    "Edits reproject live; drag on the paper rewrites numbers here. Ctrl+S saves.",
+                    "Edits reproject live; drag on the paper rewrites numbers here. Ctrl+S saves · Ctrl+O opens.",
                 );
                 ui.horizontal(|ui| {
                     if ui.button("Save .rpx").clicked() {
-                        if let Err(e) = fs::write(&self.path, &self.source) {
-                            self.error = Some(format!("save: {e}"));
-                        } else {
-                            self.error = None;
-                        }
+                        self.save_rpx();
+                    }
+                    if ui.button("Open…").clicked() {
+                        self.open_rpx_dialog(ctx);
                     }
                     if ui.button("Reload disk").clicked() {
                         // Load authoring text as-is; do not bake macros into the editor buffer.
