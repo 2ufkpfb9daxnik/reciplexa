@@ -232,6 +232,10 @@ pub fn layout_doc_parts(parts: &[DocPart]) -> Vec<LaidItem> {
                         &mut out,
                     );
                 }
+                "note" => {
+                    flush_body(&mut buf, &mut out);
+                    push_note_block(brace_body, &mut out);
+                }
                 "code" | "pre" => {
                     flush_body(&mut buf, &mut out);
                     push_code_block(brace_body, &mut out);
@@ -375,6 +379,23 @@ fn push_styled_block_indent(
         }
         push_wrapped(&line, size_mm, y_gap_after, wrap_chars, indent_mm, out);
     }
+}
+
+/// `@note{…}` — quote-sized indented callout with a fixed `Note: ` prefix.
+fn push_note_block(body: &[DocPart], out: &mut Vec<LaidItem>) {
+    let text = flatten_readable(body);
+    if text.is_empty() {
+        return;
+    }
+    let prefixed = format!("Note: {text}");
+    push_wrapped(
+        &prefixed,
+        QUOTE_SIZE_MM,
+        QUOTE_GAP_MM,
+        QUOTE_WRAP_CHARS,
+        QUOTE_INDENT_MM,
+        out,
+    );
 }
 
 /// `@li{…}` → body-sized lines prefixed with a bullet (package meaning, not font glyphs).

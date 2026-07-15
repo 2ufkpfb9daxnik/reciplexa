@@ -675,6 +675,20 @@ mod tests {
     }
 
     #[test]
+    fn expands_note_prefix_and_indent() {
+        let out = expand_source("(doc @note{Watch the margins.})").unwrap();
+        assert!(
+            out.contains("(text 35 270 7 \"Note: Watch the margins.\" black)"),
+            "{out}"
+        );
+    }
+
+    #[test]
+    fn empty_note_skips() {
+        assert_eq!(expand_source("(doc @note{})").unwrap(), "(page a4)");
+    }
+
+    #[test]
     fn empty_quote_skips() {
         assert_eq!(expand_source("(doc @quote{})").unwrap(), "(page a4)");
     }
