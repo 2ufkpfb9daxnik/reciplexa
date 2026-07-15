@@ -2110,7 +2110,7 @@ impl eframe::App for PreviewApp {
                 egui::StrokeKind::Outside,
             );
 
-            for (i, shape) in shapes.iter().enumerate() {
+            for shape in &shapes {
                 paint_shape(
                     &painter,
                     rect,
@@ -2120,6 +2120,23 @@ impl eframe::App for PreviewApp {
                     ui.ctx(),
                     self.path.parent(),
                 );
+            }
+
+            if let Some(pos) = response.hover_pos() {
+                let local = pos - rect.min;
+                let (hx, hy) = layout.px_to_mm(local.x, local.y);
+                if let Some(hi) = hit_test_shapes(&shapes, hx, hy) {
+                    if !self.selected.contains(&hi) {
+                        if let Some(shape) = shapes.get(hi) {
+                            if let Some(bounds) = PaperLayout::shape_bounds_mm(shape) {
+                                paint_hover_frame(&painter, rect, &layout, bounds);
+                            }
+                        }
+                    }
+                }
+            }
+
+            for (i, shape) in shapes.iter().enumerate() {
                 if self.selected.contains(&i) {
                     if let Some(bounds) = PaperLayout::shape_bounds_mm(shape) {
                         paint_selection_frame(&painter, rect, &layout, bounds);
@@ -2671,6 +2688,30 @@ impl eframe::App for PreviewApp {
             }
         });
     }
+}
+
+fn paint_hover_frame(
+    painter: &egui::Painter,
+    rect: egui::Rect,
+    layout: &PaperLayout,
+    bounds: (f64, f64, f64, f64),
+) {
+    let (x0, y0, x1, y1) = bounds;
+    let (ax, ay) = layout.mm_to_px(x0, y1);
+    let (bx, by) = layout.mm_to_px(x1, y0);
+    let frame = egui::Rect::from_min_max(
+        rect.min + egui::vec2(ax.min(bx) - 2.0, ay.min(by) - 2.0),
+        rect.min + egui::vec2(ax.max(bx) + 2.0, ay.max(by) + 2.0),
+    );
+    painter.rect_stroke(
+        frame,
+        0.0,
+        egui::Stroke::new(
+            1.0_f32,
+            egui::Color32::from_rgba_unmultiplied(30, 120, 220, 120),
+        ),
+        egui::StrokeKind::Outside,
+    );
 }
 
 fn paint_selection_frame(
