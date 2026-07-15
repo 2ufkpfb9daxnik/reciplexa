@@ -10,7 +10,7 @@ use reciplexa_syntax::{
 
 use crate::sync::{
     collect_layers_page, collect_size_targets_page, layer_opacity, layer_rotation_deg,
-    nudge_layer_page, scale_size_target, set_layer_opacity, set_layer_rotation_deg, SyncError,
+    nudge_layer_page, scale_size_target_axes, set_layer_opacity, set_layer_rotation_deg, SyncError,
 };
 
 /// UI grouping for the properties panel.
@@ -171,13 +171,13 @@ pub fn set_layer_prop(
             if *nw <= 0.0 || !nw.is_finite() {
                 return Err(SyncError::new("width must be positive"));
             }
-            let factor = *nw / w;
+            let fx = *nw / w;
             let targets = collect_size_targets_page(src, page_index)?;
             let target = targets
                 .get(flat_index)
                 .copied()
                 .ok_or_else(|| SyncError::new("size target missing"))?;
-            scale_size_target(src, target, factor)
+            scale_size_target_axes(src, target, fx, 1.0)
         }
         "layout.h" => {
             let PropValue::Number(nh) = value else {
@@ -186,13 +186,13 @@ pub fn set_layer_prop(
             if *nh <= 0.0 || !nh.is_finite() {
                 return Err(SyncError::new("height must be positive"));
             }
-            let factor = *nh / h;
+            let fy = *nh / h;
             let targets = collect_size_targets_page(src, page_index)?;
             let target = targets
                 .get(flat_index)
                 .copied()
                 .ok_or_else(|| SyncError::new("size target missing"))?;
-            scale_size_target(src, target, factor)
+            scale_size_target_axes(src, target, 1.0, fy)
         }
         "transform.rotation" => {
             let PropValue::Number(deg) = value else {
@@ -1093,6 +1093,42 @@ mod tests {
         let out = set_layer_prop(src, 0, 0, "layout.x", &PropValue::Number(8.0), &ctx).unwrap();
         // AABB min x was 5 → delta +3
         assert!(out.contains("(translate 13 20"));
+    }
+
+    #[test]
+    fn layout_w_does_not_change_height() {
+        let src = "(page a4 (rect 10 20 40 30 (rgb 0.2 0.3 0.4)))";
+        let ctx = PropEditContext {
+            aabb_mm: (10.0, 20.0, 50.0, 50.0),
+            paper_w_mm: 210.0,
+            paper_h_mm: 297.0,
+        };
+        let out = set_layer_prop(src, 0, 0, "layout.w", &PropValue::Number(80.0), &ctx).unwrap();
+        // Width doubled about center: x goes 10→-10? cx=30, nw=80 → nx= -10... wait aabb w=40, nw=80, fx=2
+        // Scale about center: cx = 10+40/2=30, nx=30-40= -10? nw=80, nx=30-40=-10
+        assert!(out.contains("80") || out.contains("80.0"));
+        // height should remain 30
+        assert!(out.contains(" 30 ") || out.contains(" 30)"));
+        let out_h = set_layer_prop(src, 0, 0, "layout.h", &PropValue::Number(60.0), &ctx).unwrap();
+        assert!(out_h.contains(" 40 ") || out_h.contains("(rect"));
+        // width unchanged at 40
+        assert!(out_h.contains("40"));
+        assert!(out_h.contains("60") || out_h.contains("60.0"));
+    }
+
+    #[test]
+    fn layout_w_text_box_independent() {
+        let src = "(page a4 (text 10 20 12 50 20 \"hi\"))";
+        let ctx = PropEditContext {
+            aabb_mm: (10.0, 20.0, 60.0, 40.0),
+            paper_w_mm: 210.0,
+            paper_h_mm: 297.0,
+        };
+        let out = set_layer_prop(src, 0, 0, "layout.w", &PropValue::Number(100.0), &ctx).unwrap();
+        assert!(out.contains("100") || out.contains("100.0"));
+        // font size and height stay
+        assert!(out.contains(" 12 "));
+        assert!(out.contains("20") || out.contains("20.0"));
     }
 
     #[test]

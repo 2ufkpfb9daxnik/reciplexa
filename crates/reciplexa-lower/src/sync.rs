@@ -1494,6 +1494,21 @@ fn scale_box_about_center(
     slots: [usize; 4],
     factor: f64,
 ) -> Result<String, SyncError> {
+    scale_box_axes(src, head, index, slots, factor, factor)
+}
+
+/// Scale a box leaf's width/height independently about its center.
+pub fn scale_box_axes(
+    src: &str,
+    head: &str,
+    index: usize,
+    slots: [usize; 4],
+    fx: f64,
+    fy: f64,
+) -> Result<String, SyncError> {
+    if !(fx.is_finite() && fy.is_finite() && fx > 0.0 && fy > 0.0) {
+        return Err(SyncError::new("scale factors must be finite and > 0"));
+    }
     let root = parse_root(src)?;
     let x = read_nth_number(&root, head, index, slots[0])?;
     let y = read_nth_number(&root, head, index, slots[1])?;
@@ -1501,14 +1516,43 @@ fn scale_box_about_center(
     let h = read_nth_number(&root, head, index, slots[3])?;
     let cx = x + w * 0.5;
     let cy = y + h * 0.5;
-    let nw = w * factor;
-    let nh = h * factor;
+    let nw = (w * fx).max(0.5);
+    let nh = (h * fy).max(0.5);
     let nx = cx - nw * 0.5;
     let ny = cy - nh * 0.5;
     let mut out = set_nth_number(src, head, index, slots[0], nx)?;
     out = set_nth_number(&out, head, index, slots[1], ny)?;
     out = set_nth_number(&out, head, index, slots[2], nw)?;
     set_nth_number(&out, head, index, slots[3], nh)
+}
+
+/// Resize one axis of a size target (width via `fx`, height via `fy`).
+pub fn scale_size_target_axes(
+    src: &str,
+    target: SizeTarget,
+    fx: f64,
+    fy: f64,
+) -> Result<String, SyncError> {
+    if !(fx.is_finite() && fy.is_finite() && fx > 0.0 && fy > 0.0) {
+        return Err(SyncError::new("scale factors must be finite and > 0"));
+    }
+    match target {
+        SizeTarget::TextSize(i) => scale_text_box(src, i, fx, fy),
+        SizeTarget::RectWh(i) => scale_box_axes(src, "rect", i, [1, 2, 3, 4], fx, fy),
+        SizeTarget::FrameWh(i) => scale_box_axes(src, "frame", i, [1, 2, 3, 4], fx, fy),
+        SizeTarget::ImageWh(i) => scale_box_axes(src, "image", i, [2, 3, 4, 5], fx, fy),
+        SizeTarget::EllipseRxRy(i) => {
+            let after = multiply_nth_number(src, "ellipse", i, 3, fx)?;
+            multiply_nth_number(&after, "ellipse", i, 4, fy)
+        }
+        // Circles/rings have one radius; width and height change together.
+        SizeTarget::CircleR(_)
+        | SizeTarget::RingR(_)
+        | SizeTarget::LineSeg(_)
+        | SizeTarget::PolylinePoints(_)
+        | SizeTarget::PolygonPoints(_)
+        | SizeTarget::Unsupported => scale_size_target(src, target, fx.max(fy)),
+    }
 }
 
 fn read_nth_text_content(root: &SyntaxNode, index: usize) -> Result<String, SyncError> {
@@ -1875,6 +1919,26 @@ mod tests {
         // center stays at (5, 10); size 20×40 → origin (-5, -10)
         assert!(
             out.contains("(rect -5 -10 20 40)"),
+            "unexpected rewrite: {out}"
+        );
+    }
+
+    #[test]
+    fn scale_rect_width_only() {
+        let src = "(page a4 (rect 0 0 10 20))";
+        let out = scale_size_target_axes(src, SizeTarget::RectWh(0), 2.0, 1.0).unwrap();
+        assert!(
+            out.contains("(rect -5 0 20 20)"),
+            "unexpected rewrite: {out}"
+        );
+    }
+
+    #[test]
+    fn scale_ellipse_axes_independently() {
+        let src = "(page a4 (ellipse 50 60 10 20))";
+        let out = scale_size_target_axes(src, SizeTarget::EllipseRxRy(0), 2.0, 0.5).unwrap();
+        assert!(
+            out.contains("(ellipse 50 60 20 10)"),
             "unexpected rewrite: {out}"
         );
     }

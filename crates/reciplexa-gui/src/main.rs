@@ -708,6 +708,8 @@ impl PreviewApp {
             let mut distribute: Option<bool> = None; // Some(true)=H, Some(false)=V
             let mut bring_front = false;
             let mut send_back = false;
+            let mut bring_forward = false;
+            let mut send_backward = false;
             egui::Window::new(format!("Properties ({} selected)", indices.len()))
                 .id(egui::Id::new("selection_properties_multi"))
                 .open(&mut open)
@@ -821,6 +823,18 @@ impl PreviewApp {
                             send_back = true;
                         }
                     });
+                    ui.horizontal(|ui| {
+                        if ui.button("Forward").on_hover_text("Ctrl+Shift+]").clicked() {
+                            bring_forward = true;
+                        }
+                        if ui
+                            .button("Backward")
+                            .on_hover_text("Ctrl+Shift+[")
+                            .clicked()
+                        {
+                            send_backward = true;
+                        }
+                    });
                 });
             self.props_open = open;
             if apply_fill {
@@ -883,6 +897,12 @@ impl PreviewApp {
             if send_back {
                 self.send_selection_to_back();
             }
+            if bring_forward {
+                self.nudge_selection_z(1);
+            }
+            if send_backward {
+                self.nudge_selection_z(-1);
+            }
             return;
         }
 
@@ -914,6 +934,8 @@ impl PreviewApp {
         let mut any_slider_down = false;
         let mut bring_front = false;
         let mut send_back = false;
+        let mut bring_forward = false;
+        let mut send_backward = false;
 
         egui::Window::new("Properties")
             .id(egui::Id::new("selection_properties"))
@@ -1063,6 +1085,22 @@ impl PreviewApp {
                         send_back = true;
                     }
                 });
+                ui.horizontal(|ui| {
+                    if ui
+                        .button("Forward")
+                        .on_hover_text("Ctrl+Shift+]")
+                        .clicked()
+                    {
+                        bring_forward = true;
+                    }
+                    if ui
+                        .button("Backward")
+                        .on_hover_text("Ctrl+Shift+[")
+                        .clicked()
+                    {
+                        send_backward = true;
+                    }
+                });
             });
 
         self.props_open = open;
@@ -1077,6 +1115,12 @@ impl PreviewApp {
         }
         if send_back {
             self.send_selection_to_back();
+        }
+        if bring_forward {
+            self.nudge_selection_z(1);
+        }
+        if send_backward {
+            self.nudge_selection_z(-1);
         }
     }
 
@@ -1204,6 +1248,27 @@ impl PreviewApp {
             Ok((new_src, idx)) => {
                 self.source = new_src;
                 self.drag = None;
+                // Place the new shape at the current viewport center.
+                if let Some((vx, vy)) = self.viewport_center_mm() {
+                    if let Ok(doc) = pipeline_doc(&self.source) {
+                        if let Some((_, shapes)) = flatten_page(&doc, self.page_index) {
+                            if let Some(b) = shapes.get(idx).and_then(PaperLayout::shape_bounds_mm)
+                            {
+                                let cx = (b.0 + b.2) * 0.5;
+                                let cy = (b.1 + b.3) * 0.5;
+                                let dx = vx - cx;
+                                let dy = vy - cy;
+                                if dx.abs() > 1e-6 || dy.abs() > 1e-6 {
+                                    if let Ok(nudged) =
+                                        nudge_layer_page(&self.source, self.page_index, idx, dx, dy)
+                                    {
+                                        self.source = nudged;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
                 self.selected = vec![idx];
                 self.props_open = true;
                 self.error = pipeline_doc(&self.source).err();
@@ -1215,6 +1280,20 @@ impl PreviewApp {
             }
             Err(e) => self.error = Some(e.message),
         }
+    }
+
+    fn viewport_center_mm(&self) -> Option<(f64, f64)> {
+        let (page_w, page_h) = self.viewport_page_mm;
+        if page_w <= 0.0 || page_h <= 0.0 {
+            return None;
+        }
+        let avail = self.viewport_paint_size;
+        if avail.x <= 1.0 || avail.y <= 1.0 {
+            return None;
+        }
+        let base = PaperLayout::fit(avail.x, avail.y, 24.0, page_w, page_h);
+        let layout = base.with_view(self.zoom, self.pan.x, self.pan.y);
+        Some(layout.px_to_mm(avail.x * 0.5, avail.y * 0.5))
     }
 
     fn open_rpx_path(&mut self, ctx: &egui::Context, path: PathBuf) {
@@ -1567,6 +1646,70 @@ impl PreviewApp {
         self.error = pipeline_doc(&self.source).err();
     }
 
+    /// Move selection one step toward front (`delta > 0`) or back (`delta < 0`).
+    fn nudge_selection_z(&mut self, delta: isize) {
+        if delta == 0 {
+            return;
+        }
+        let mut sel = self.selected.clone();
+        sel.sort_unstable();
+        sel.dedup();
+        if sel.is_empty() {
+            return;
+        }
+        self.push_undo();
+        let mut src = self.source.clone();
+        let order: Vec<usize> = if delta > 0 {
+            (0..sel.len()).rev().collect()
+        } else {
+            (0..sel.len()).collect()
+        };
+        for i in order {
+            let from = sel[i];
+            let n = match collect_layers_page(&src, self.page_index) {
+                Ok(l) => l.len(),
+                Err(e) => {
+                    self.error = Some(e.message);
+                    return;
+                }
+            };
+            if n == 0 {
+                break;
+            }
+            let to = (from as isize + delta).clamp(0, (n - 1) as isize) as usize;
+            if to == from {
+                continue;
+            }
+            // Avoid hopping over another still-selected member in the same step.
+            if sel.contains(&to) {
+                continue;
+            }
+            match reorder_layer_page(&src, self.page_index, from, to) {
+                Ok(new_src) => src = new_src,
+                Err(e) => {
+                    self.error = Some(e.message);
+                    return;
+                }
+            }
+            for (j, s) in sel.iter_mut().enumerate() {
+                if j == i {
+                    *s = to;
+                    continue;
+                }
+                if from < to {
+                    if *s > from && *s <= to {
+                        *s -= 1;
+                    }
+                } else if *s >= to && *s < from {
+                    *s += 1;
+                }
+            }
+        }
+        self.source = src;
+        self.selected = sel;
+        self.error = pipeline_doc(&self.source).err();
+    }
+
     fn is_dirty(&self) -> bool {
         self.source != self.saved_source
     }
@@ -1642,7 +1785,11 @@ impl eframe::App for PreviewApp {
             self.redo();
         }
         if ctx.input(|i| i.modifiers.command && i.key_pressed(egui::Key::S)) {
-            self.save_rpx();
+            if ctx.input(|i| i.modifiers.shift) {
+                self.save_rpx_as_dialog(ctx);
+            } else {
+                self.save_rpx();
+            }
         }
         if ctx.input(|i| i.modifiers.command && i.key_pressed(egui::Key::E)) {
             self.export_pdf();
@@ -1686,6 +1833,21 @@ impl eframe::App for PreviewApp {
         if !source_focused && ctx.input(|i| i.key_pressed(egui::Key::Num0) && i.modifiers.command) {
             self.reset_viewport();
         }
+        if !source_focused && ctx.input(|i| i.key_pressed(egui::Key::PageUp)) && self.page_index > 0
+        {
+            self.page_index -= 1;
+            self.drag = None;
+            self.clear_selection();
+        }
+        if !source_focused && ctx.input(|i| i.key_pressed(egui::Key::PageDown)) {
+            if let Ok(doc) = pipeline_doc(&self.source) {
+                if self.page_index + 1 < doc.pages.len() {
+                    self.page_index += 1;
+                    self.drag = None;
+                    self.clear_selection();
+                }
+            }
+        }
         if !source_focused && ctx.input(|i| i.key_pressed(egui::Key::F) && !i.modifiers.any()) {
             if let Some(bounds) = self.selection_bounds_mm() {
                 self.frame_in_viewport(bounds);
@@ -1707,6 +1869,8 @@ impl eframe::App for PreviewApp {
             }
             let step = if ctx.input(|i| i.modifiers.shift) {
                 5.0
+            } else if ctx.input(|i| i.modifiers.alt) {
+                0.1
             } else {
                 1.0
             };
@@ -1762,6 +1926,16 @@ impl eframe::App for PreviewApp {
                 i.modifiers.command && !i.modifiers.shift && i.key_pressed(egui::Key::OpenBracket)
             }) {
                 self.send_selection_to_back();
+            }
+            if ctx.input(|i| {
+                i.modifiers.command && i.modifiers.shift && i.key_pressed(egui::Key::CloseBracket)
+            }) {
+                self.nudge_selection_z(1);
+            }
+            if ctx.input(|i| {
+                i.modifiers.command && i.modifiers.shift && i.key_pressed(egui::Key::OpenBracket)
+            }) {
+                self.nudge_selection_z(-1);
             }
         }
         if !source_focused && self.selected.is_empty() {
@@ -2137,7 +2311,7 @@ impl eframe::App for PreviewApp {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("Paper preview");
-            ui.label("Scroll = zoom at cursor · Space/Middle/Alt-drag = pan · F = frame selection/page · Arrows pan view (selection empty) · Drag empty = marquee · Shift-click = add/remove · Ctrl+A = select all · Esc = clear · Body-drag = move · Ctrl-drag = 5mm snap · Corner/edge = resize · Top knob = rotate · Arrows nudge selection · Delete = remove · Ctrl+C/V = copy/paste · Ctrl+Shift+L = theme · G = grid.");
+            ui.label("Scroll = zoom at cursor · Space/Middle/Alt-drag = pan · F = frame · Shift-drag = axis/aspect/15° · Ctrl-drag = 5mm snap · Ctrl+Shift+[ ] = z-step · Arrows nudge (Alt=0.1mm Shift=5mm) · Ctrl+C/V · Ctrl+Shift+S = Save As · G = grid.");
 
             let doc = match pipeline_doc(&self.source) {
                 Ok(d) => d,
@@ -2542,12 +2716,27 @@ impl eframe::App for PreviewApp {
                             } => {
                                 let mut dx = mx - last_mm.0;
                                 let mut dy = my - last_mm.1;
+                                // Shift: lock to dominant axis.
+                                if ui.input(|i| i.modifiers.shift) {
+                                    if dx.abs() >= dy.abs() {
+                                        dy = 0.0;
+                                    } else {
+                                        dx = 0.0;
+                                    }
+                                }
                                 // Ctrl/Cmd: snap motion to a 5mm grid (paper coords).
                                 if ui.input(|i| i.modifiers.command) {
                                     const GRID: f64 = 5.0;
                                     let snap = |v: f64| (v / GRID).round() * GRID;
                                     dx = snap(mx) - snap(last_mm.0);
                                     dy = snap(my) - snap(last_mm.1);
+                                    if ui.input(|i| i.modifiers.shift) {
+                                        if dx.abs() >= dy.abs() {
+                                            dy = 0.0;
+                                        } else {
+                                            dx = 0.0;
+                                        }
+                                    }
                                 }
                                 let mut indices = flat_indices;
                                 if dx.abs() > 1e-9 || dy.abs() > 1e-9 {
@@ -2610,13 +2799,15 @@ impl eframe::App for PreviewApp {
                             } => {
                                 let scale_result = if let Some(tb) = text_box {
                                     let (mut nx, mut ny, mut nw, mut nh) = box_from_grab(tb, mx, my);
+                                    if ui.input(|i| i.modifiers.shift) {
+                                        (nx, ny, nw, nh) = apply_aspect_lock(tb, nx, ny, nw, nh);
+                                    }
                                     if ui.input(|i| i.modifiers.command) {
                                         const GRID: f64 = 5.0;
-                                        let snap = |v: f64| (v / GRID).round() * GRID;
-                                        let x1 = snap(nx + nw);
-                                        let y1 = snap(ny + nh);
-                                        nx = snap(nx);
-                                        ny = snap(ny);
+                                        let x1 = snap_mm(nx + nw, GRID);
+                                        let y1 = snap_mm(ny + nh, GRID);
+                                        nx = snap_mm(nx, GRID);
+                                        ny = snap_mm(ny, GRID);
                                         nw = (x1 - nx).max(0.5);
                                         nh = (y1 - ny).max(0.5);
                                     }
@@ -2694,7 +2885,13 @@ impl eframe::App for PreviewApp {
                                 endpoint,
                                 base_src,
                             } => {
-                                match set_line_endpoint(&base_src, index, endpoint, mx, my) {
+                                let (mut sx, mut sy) = (mx, my);
+                                if ui.input(|i| i.modifiers.command) {
+                                    const GRID: f64 = 5.0;
+                                    sx = snap_mm(sx, GRID);
+                                    sy = snap_mm(sy, GRID);
+                                }
+                                match set_line_endpoint(&base_src, index, endpoint, sx, sy) {
                                     Ok(new_src) => {
                                         let kind = DragKind::LineEndpoint {
                                             index,
@@ -2723,7 +2920,13 @@ impl eframe::App for PreviewApp {
                                 vertex,
                                 base_src,
                             } => {
-                                match set_poly_vertex(&base_src, head, index, vertex, mx, my) {
+                                let (mut sx, mut sy) = (mx, my);
+                                if ui.input(|i| i.modifiers.command) {
+                                    const GRID: f64 = 5.0;
+                                    sx = snap_mm(sx, GRID);
+                                    sy = snap_mm(sy, GRID);
+                                }
+                                match set_poly_vertex(&base_src, head, index, vertex, sx, sy) {
                                     Ok(new_src) => {
                                         let kind = DragKind::PolyVertex {
                                             head,
@@ -2757,7 +2960,10 @@ impl eframe::App for PreviewApp {
                                 let angle = (my - center_mm.1).atan2(mx - center_mm.0);
                                 let delta_deg =
                                     (angle - start_angle_rad).to_degrees();
-                                let deg = base_deg + delta_deg;
+                                let mut deg = base_deg + delta_deg;
+                                if ui.input(|i| i.modifiers.shift) {
+                                    deg = (deg / 15.0).round() * 15.0;
+                                }
                                 match set_layer_rotation_deg(
                                     &base_src,
                                     self.page_index,
@@ -3057,6 +3263,54 @@ fn box_from_grab(tb: BoxDrag, mx: f64, my: f64) -> (f64, f64, f64, f64) {
             (x0, y1 - h, x1 - x0, h)
         }
     }
+}
+
+/// Apply Shift aspect-ratio lock for corner resizes (keeps the fixed edges).
+fn apply_aspect_lock(
+    tb: BoxDrag,
+    mut nx: f64,
+    mut ny: f64,
+    mut nw: f64,
+    mut nh: f64,
+) -> (f64, f64, f64, f64) {
+    let ScaleGrab::Corner(corner) = tb.grab else {
+        return (nx, ny, nw, nh);
+    };
+    let (sx0, sy0, sx1, sy1) = tb.start_bounds;
+    let sw = (sx1 - sx0).max(1e-9);
+    let sh = (sy1 - sy0).max(1e-9);
+    let aspect = sw / sh;
+    const MIN: f64 = 0.5;
+    if (nw - sw).abs() >= (nh - sh).abs() {
+        nh = (nw / aspect).max(MIN);
+        nw = (nh * aspect).max(MIN);
+    } else {
+        nw = (nh * aspect).max(MIN);
+        nh = (nw / aspect).max(MIN);
+    }
+    match corner {
+        ScaleCorner::TopLeft => {
+            nx = sx1 - nw;
+            ny = sy0;
+        }
+        ScaleCorner::TopRight => {
+            nx = sx0;
+            ny = sy0;
+        }
+        ScaleCorner::BottomLeft => {
+            nx = sx1 - nw;
+            ny = sy1 - nh;
+        }
+        ScaleCorner::BottomRight => {
+            nx = sx0;
+            ny = sy1 - nh;
+        }
+    }
+    (nx, ny, nw, nh)
+}
+
+fn snap_mm(v: f64, grid: f64) -> f64 {
+    (v / grid).round() * grid
 }
 
 fn paint_line_endpoints(
