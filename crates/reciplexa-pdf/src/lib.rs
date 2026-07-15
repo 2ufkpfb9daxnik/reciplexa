@@ -694,34 +694,47 @@ fn text_ops(
         return Ok(String::new());
     }
     let size_pt = mm_to_pt(size_mm);
-    if content.is_ascii() {
-        let escaped = pdf_escape_ascii(content)?;
-        return Ok(format!(
-            "BT\n/F1 {size:.4} Tf\n{r:.4} {g:.4} {b:.4} rg\n{x:.4} {y:.4} Td\n({escaped}) Tj\nET\n",
-            size = size_pt,
-            r = fill.r,
-            g = fill.g,
-            b = fill.b,
-            x = mm_to_pt(x_mm),
-            y = mm_to_pt(y_mm),
+    // Match egui `layout_no_wrap` hard breaks: one em of leading per line.
+    let leading = size_pt;
+    let lines: Vec<&str> = content
+        .split('\n')
+        .map(|l| l.trim_end_matches('\r'))
+        .collect();
+    let use_cjk = !content.is_ascii();
+    if use_cjk && cjk.is_none() {
+        return Err(PdfError::InvalidShape(
+            "internal: non-ASCII text without CJK font embed".into(),
         ));
     }
-    let cjk = cjk.ok_or_else(|| {
-        PdfError::InvalidShape("internal: non-ASCII text without CJK font embed".into())
-    })?;
-    let hex = cjk.encode_hex(content)?;
-    if hex.is_empty() {
-        return Ok(String::new());
-    }
-    Ok(format!(
-        "BT\n/F2 {size:.4} Tf\n{r:.4} {g:.4} {b:.4} rg\n{x:.4} {y:.4} Td\n<{hex}> Tj\nET\n",
+
+    let mut ops = format!(
+        "BT\n/{font} {size:.4} Tf\n{leading:.4} TL\n{r:.4} {g:.4} {b:.4} rg\n{x:.4} {y:.4} Td\n",
+        font = if use_cjk { "F2" } else { "F1" },
         size = size_pt,
         r = fill.r,
         g = fill.g,
         b = fill.b,
         x = mm_to_pt(x_mm),
         y = mm_to_pt(y_mm),
-    ))
+    );
+    for (i, line) in lines.iter().enumerate() {
+        if i > 0 {
+            ops.push_str("T*\n");
+        }
+        if use_cjk {
+            let hex = cjk.unwrap().encode_hex(line)?;
+            if hex.is_empty() {
+                // Empty line still advances via T*; show nothing.
+                continue;
+            }
+            ops.push_str(&format!("<{hex}> Tj\n"));
+        } else {
+            let escaped = pdf_escape_ascii(line)?;
+            ops.push_str(&format!("({escaped}) Tj\n"));
+        }
+    }
+    ops.push_str("ET\n");
+    Ok(ops)
 }
 
 fn pdf_escape_ascii(s: &str) -> Result<String, PdfError> {
@@ -1016,6 +1029,49 @@ mod tests {
         assert!(text.contains("Tj"));
         assert!(text.contains(" m\n"));
         assert!(text.contains(" l\n"));
+    }
+
+    #[test]
+    fn multiline_text_emits_leading_and_tstar() {
+        let doc = Document::single_page(Page {
+            paper: PaperSize::a4(),
+            shapes: vec![Shape::Text(Text {
+                x_mm: 20.0,
+                y_mm: 200.0,
+                size_mm: 5.0,
+                content: "hello\nworld".into(),
+                fill: Color::BLACK,
+            })],
+        });
+        let bytes = document_to_pdf(&doc).unwrap();
+        let text = String::from_utf8_lossy(&bytes);
+        assert!(text.contains(" TL\n"), "text leading missing: {text}");
+        assert!(text.contains("T*\n"), "line advance missing: {text}");
+        assert!(text.contains("(hello) Tj"));
+        assert!(text.contains("(world) Tj"));
+    }
+
+    #[test]
+    fn multiline_cjk_text_emits_tstar_when_font_present() {
+        let doc = Document::single_page(Page {
+            paper: PaperSize::a4(),
+            shapes: vec![Shape::Text(Text {
+                x_mm: 10.0,
+                y_mm: 100.0,
+                size_mm: 5.0,
+                content: "一行目\n二行目".into(),
+                fill: Color::BLACK,
+            })],
+        });
+        if cjk_font::system_cjk_font_path().is_none() {
+            return;
+        }
+        let bytes = document_to_pdf(&doc).unwrap();
+        let text = String::from_utf8_lossy(&bytes);
+        assert!(text.contains("T*\n"));
+        assert!(text.contains("/F2 "));
+        // Two Tj shows (one per line).
+        assert!(text.matches(" Tj\n").count() >= 2);
     }
 
     #[test]

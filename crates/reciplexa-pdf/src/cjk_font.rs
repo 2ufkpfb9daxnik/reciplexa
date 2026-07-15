@@ -108,7 +108,9 @@ impl CjkFontEmbed {
         let mut hex = String::with_capacity(content.len() * 4);
         for ch in content.chars() {
             if ch == '\n' || ch == '\r' {
-                continue;
+                return Err(PdfError::InvalidShape(
+                    "encode_hex expects a single line (no embedded newlines)".into(),
+                ));
             }
             let cid = self
                 .unicode_to_cid
