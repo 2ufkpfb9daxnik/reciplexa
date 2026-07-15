@@ -492,4 +492,28 @@ mod tests {
             "long paragraph should wrap to multiple text shapes: {out}"
         );
     }
+
+    // --- @h2 package meaning ---
+
+    #[test]
+    fn expands_h2_between_title_and_body() {
+        let out = expand_source("(doc @title{T}\n@h2{Section}\n@p{Body})").unwrap();
+        assert!(out.contains("(text 25 270 14 \"T\" black)"), "{out}");
+        // title gap 18 → 252; h2 size 11
+        assert!(
+            out.contains("(text 25 252 11 \"Section\" black)"),
+            "h2 after title: {out}"
+        );
+        // h2 gap 14 → 238
+        assert!(
+            out.contains("(text 25 238 8 \"Body\" black)"),
+            "body after h2: {out}"
+        );
+    }
+
+    #[test]
+    fn empty_h2_skips_empty_text() {
+        let out = expand_source("(doc @h2{})").unwrap();
+        assert_eq!(out, "(page a4)");
+    }
 }

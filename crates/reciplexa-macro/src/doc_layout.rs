@@ -16,6 +16,8 @@ pub struct LaidLine {
 
 pub const TITLE_SIZE_MM: f64 = 14.0;
 pub const TITLE_GAP_MM: f64 = 18.0;
+pub const H2_SIZE_MM: f64 = 11.0;
+pub const H2_GAP_MM: f64 = 14.0;
 pub const BODY_SIZE_MM: f64 = 8.0;
 pub const BODY_GAP_MM: f64 = 12.0;
 
@@ -23,6 +25,8 @@ pub const BODY_GAP_MM: f64 = 12.0;
 pub const BODY_WRAP_CHARS: usize = 40;
 /// Soft wrap budget for title lines.
 pub const TITLE_WRAP_CHARS: usize = 24;
+/// Soft wrap budget for h2 lines.
+pub const H2_WRAP_CHARS: usize = 32;
 
 /// Turn Scribble parts into laid-out text lines (`@title` / `@p` meaning).
 pub fn layout_doc_parts(parts: &[DocPart]) -> Vec<LaidLine> {
@@ -47,6 +51,10 @@ pub fn layout_doc_parts(parts: &[DocPart]) -> Vec<LaidLine> {
                         TITLE_WRAP_CHARS,
                         &mut out,
                     );
+                }
+                "h2" => {
+                    flush_body(&mut buf, &mut out);
+                    push_styled_block(brace_body, H2_SIZE_MM, H2_GAP_MM, H2_WRAP_CHARS, &mut out);
                 }
                 "p" => {
                     flush_body(&mut buf, &mut out);

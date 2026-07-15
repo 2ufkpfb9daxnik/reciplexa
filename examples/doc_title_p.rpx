@@ -1,6 +1,8 @@
-; M8/M10: @title/@p with soft wrap on long body lines
+; M8: title / h2 / paragraph package meanings
 (doc
 @title{レポート表紙}
-@p{本文の段落です。@em{強調}も identity のまま入ります。このあとにわざと長い英語を続けて soft wrap を確認します: wrapping wraps wrapping wraps wrapping wraps wrapping wraps wrapping wraps}
-@p{二段落目は短く。}
+@h2{はじめに}
+@p{本文の段落です。@em{強調}も identity のまま入ります。}
+@h2{詳細}
+@p{wrapping wraps wrapping wraps wrapping wraps wrapping wraps wrapping wraps end.}
 )
