@@ -6,7 +6,11 @@
 
 #![forbid(unsafe_code)]
 
+mod doc_layout;
+
 use reciplexa_syntax::{parse_source, SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken};
+
+use doc_layout::layout_doc_parts;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ExpandError {
@@ -200,10 +204,6 @@ fn find_rule(root: &SyntaxNode) -> Option<(usize, usize, String)> {
     None
 }
 
-/// Top-level `(doc …)` → A4 page with text shapes (Scribble package seam, M8/M10).
-///
-/// `@title` / `@p` get package meaning (size + vertical gap). Other `@…` forms
-/// identity-flatten into the surrounding line.
 fn find_doc(root: &SyntaxNode) -> Option<(usize, usize, String)> {
     use reciplexa_syntax::doc_parts;
 
@@ -246,107 +246,6 @@ fn find_doc(root: &SyntaxNode) -> Option<(usize, usize, String)> {
         return Some((start, end, replacement));
     }
     None
-}
-
-#[derive(Debug, Clone, PartialEq)]
-struct LaidLine {
-    size_mm: f64,
-    /// Distance to subtract from this baseline to place the next line.
-    y_gap_after: f64,
-    content: String,
-}
-
-const TITLE_SIZE_MM: f64 = 14.0;
-const TITLE_GAP_MM: f64 = 18.0;
-const BODY_SIZE_MM: f64 = 8.0;
-const BODY_GAP_MM: f64 = 12.0;
-
-/// Turn Scribble parts into laid-out text lines (package meaning for `@title` / `@p`).
-fn layout_doc_parts(parts: &[reciplexa_syntax::DocPart]) -> Vec<LaidLine> {
-    use reciplexa_syntax::{flatten_readable, DocPart};
-
-    let mut out = Vec::new();
-    let mut buf = String::new();
-
-    let flush_body = |buf: &mut String, out: &mut Vec<LaidLine>| {
-        let text = collapse_ws(buf);
-        buf.clear();
-        if !text.is_empty() {
-            out.push(LaidLine {
-                size_mm: BODY_SIZE_MM,
-                y_gap_after: BODY_GAP_MM,
-                content: text,
-            });
-        }
-    };
-
-    for part in parts {
-        match part {
-            DocPart::Text(t) => buf.push_str(t),
-            DocPart::Newline => flush_body(&mut buf, &mut out),
-            DocPart::At {
-                name,
-                bracket_args,
-                brace_body,
-            } => match name.as_str() {
-                "title" => {
-                    flush_body(&mut buf, &mut out);
-                    push_styled_block(brace_body, TITLE_SIZE_MM, TITLE_GAP_MM, &mut out);
-                }
-                "p" => {
-                    flush_body(&mut buf, &mut out);
-                    push_styled_block(brace_body, BODY_SIZE_MM, BODY_GAP_MM, &mut out);
-                }
-                _ => {
-                    // Identity flatten into the current body line.
-                    if !brace_body.is_empty() {
-                        buf.push_str(&flatten_readable(brace_body));
-                    } else if let Some(args) = bracket_args {
-                        buf.push_str(args.trim());
-                    }
-                }
-            },
-        }
-    }
-    flush_body(&mut buf, &mut out);
-    out
-}
-
-fn push_styled_block(
-    body: &[reciplexa_syntax::DocPart],
-    size_mm: f64,
-    y_gap_after: f64,
-    out: &mut Vec<LaidLine>,
-) {
-    use reciplexa_syntax::flatten_lines;
-
-    for line in flatten_lines(body) {
-        if line.is_empty() {
-            continue;
-        }
-        out.push(LaidLine {
-            size_mm,
-            y_gap_after,
-            content: line,
-        });
-    }
-}
-
-fn collapse_ws(s: &str) -> String {
-    let mut out = String::with_capacity(s.len());
-    let mut prev_space = false;
-    for c in s.chars() {
-        if c.is_whitespace() {
-            if !prev_space && !out.is_empty() {
-                out.push(' ');
-                prev_space = true;
-            }
-        } else {
-            out.push(c);
-            prev_space = false;
-        }
-    }
-    out.trim().to_string()
 }
 
 fn escape_lisp_string(s: &str) -> String {
@@ -577,6 +476,20 @@ mod tests {
         assert!(
             out.contains("(text 25 270 8 \"see bar end\" black)"),
             "{out}"
+        );
+    }
+
+    #[test]
+    fn expands_wrapped_long_paragraph() {
+        let long = "word ".repeat(12);
+        let long = long.trim();
+        assert!(long.len() > 40);
+        let src = format!("(doc @p{{{long}}})");
+        let out = expand_source(&src).unwrap();
+        let text_count = out.matches("(text ").count();
+        assert!(
+            text_count >= 2,
+            "long paragraph should wrap to multiple text shapes: {out}"
         );
     }
 }
