@@ -31,7 +31,7 @@ pub use sync::{
     collect_drag_targets, collect_drag_targets_page, collect_layers_page,
     collect_size_targets_page, delete_layer_page, duplicate_layer_page, insert_layer_page,
     layer_opacity, layer_rotation_deg, nudge_drag_target, nudge_first_translate, nudge_layer_page,
-    reorder_layer_page, scale_size_target, scale_text_box, set_layer_opacity,
+    reorder_layer_page, scale_size_target, scale_text_box, set_box_xywh, set_layer_opacity,
     set_layer_rotation_deg, set_text_box, DragTarget, LayerInfo, SizeTarget, SyncError,
 };
 

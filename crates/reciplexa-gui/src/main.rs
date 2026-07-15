@@ -13,7 +13,7 @@ use reciplexa_effect::{seed_from_env, EffectError, EffectHandler, LcgRng, Value}
 use reciplexa_lower::{
     collect_layer_props, collect_layers_page, collect_size_targets_page, delete_layer_page,
     duplicate_layer_page, insert_layer_page, layer_rotation_deg, nudge_layer_page,
-    reorder_layer_page, scale_size_target, set_layer_prop, set_layer_rotation_deg,
+    reorder_layer_page, scale_size_target, set_box_xywh, set_layer_prop, set_layer_rotation_deg,
     set_layers_fill_rgb, set_layers_opacity, set_layers_stroke_rgb, set_layers_stroke_width,
     set_text_box, LayerInfo, PropEditContext, PropGroup, PropValue, SizeTarget,
 };
@@ -389,7 +389,7 @@ enum ScaleGrab {
 }
 
 #[derive(Clone, Copy)]
-struct TextBoxDrag {
+struct BoxDrag {
     grab: ScaleGrab,
     /// Page AABB at drag start: (x0, y0, x1, y1) with y-up.
     start_bounds: (f64, f64, f64, f64),
@@ -414,7 +414,7 @@ enum DragKind {
         base_src: String,
         center_mm: (f64, f64),
         start_dist: f64,
-        text_box: Option<TextBoxDrag>,
+        text_box: Option<BoxDrag>,
     },
     Rotate {
         flat_index: usize,
@@ -1960,9 +1960,17 @@ impl eframe::App for PreviewApp {
                                     {
                                         let allow = match grab {
                                             ScaleGrab::Corner(_) => true,
-                                            ScaleGrab::Edge(_) => size_bindings
-                                                .get(sel)
-                                                .is_some_and(|t| matches!(t, SizeTarget::TextSize(_))),
+                                            ScaleGrab::Edge(_) => size_bindings.get(sel).is_some_and(
+                                                |t| {
+                                                    matches!(
+                                                        t,
+                                                        SizeTarget::TextSize(_)
+                                                            | SizeTarget::RectWh(_)
+                                                            | SizeTarget::FrameWh(_)
+                                                            | SizeTarget::ImageWh(_)
+                                                    )
+                                                },
+                                            ),
                                         };
                                         if allow
                                             && size_bindings
@@ -1972,22 +1980,23 @@ impl eframe::App for PreviewApp {
                                             let start_dist =
                                                 ((mx - cx).hypot(my - cy)).max(1e-6);
                                             if let Some(size) = size_bindings.get(sel).copied() {
-                                                let text_box =
-                                                    if matches!(size, SizeTarget::TextSize(_)) {
-                                                        Some(TextBoxDrag {
-                                                            grab,
-                                                            start_bounds: bounds,
-                                                        })
-                                                    } else {
-                                                        None
-                                                    };
+                                                let box_drag = match size {
+                                                    SizeTarget::TextSize(_)
+                                                    | SizeTarget::RectWh(_)
+                                                    | SizeTarget::FrameWh(_)
+                                                    | SizeTarget::ImageWh(_) => Some(BoxDrag {
+                                                        grab,
+                                                        start_bounds: bounds,
+                                                    }),
+                                                    _ => None,
+                                                };
                                                 self.drag = Some(DragState {
                                                     kind: DragKind::Scale {
                                                         size,
                                                         base_src: self.source.clone(),
                                                         center_mm: (cx, cy),
                                                         start_dist,
-                                                        text_box,
+                                                        text_box: box_drag,
                                                     },
                                                     undo_pushed: false,
                                                 });
@@ -2107,13 +2116,29 @@ impl eframe::App for PreviewApp {
                                 start_dist,
                                 text_box,
                             } => {
-                                let scale_result = if let (
-                                    Some(tb),
-                                    SizeTarget::TextSize(idx),
-                                ) = (text_box, size)
-                                {
-                                    let (nx, ny, nw, nh) = text_box_from_grab(tb, mx, my);
-                                    set_text_box(&base_src, idx, nx, ny, nw, nh)
+                                let scale_result = if let Some(tb) = text_box {
+                                    let (nx, ny, nw, nh) = box_from_grab(tb, mx, my);
+                                    match size {
+                                        SizeTarget::TextSize(idx) => {
+                                            set_text_box(&base_src, idx, nx, ny, nw, nh)
+                                        }
+                                        SizeTarget::RectWh(idx) => set_box_xywh(
+                                            &base_src, "rect", idx, [1, 2, 3, 4], nx, ny, nw, nh,
+                                        ),
+                                        SizeTarget::FrameWh(idx) => set_box_xywh(
+                                            &base_src, "frame", idx, [1, 2, 3, 4], nx, ny, nw, nh,
+                                        ),
+                                        SizeTarget::ImageWh(idx) => set_box_xywh(
+                                            &base_src, "image", idx, [2, 3, 4, 5], nx, ny, nw, nh,
+                                        ),
+                                        other => {
+                                            let dist = (mx - center_mm.0)
+                                                .hypot(my - center_mm.1)
+                                                .max(1e-6);
+                                            let factor = (dist / start_dist).clamp(0.05, 20.0);
+                                            scale_size_target(&base_src, other, factor)
+                                        }
+                                    }
                                 } else {
                                     let dist = (mx - center_mm.0)
                                         .hypot(my - center_mm.1)
@@ -2387,7 +2412,7 @@ fn hit_scale_grab(
         .map(|(_, grab)| grab)
 }
 
-fn text_box_from_grab(tb: TextBoxDrag, mx: f64, my: f64) -> (f64, f64, f64, f64) {
+fn box_from_grab(tb: BoxDrag, mx: f64, my: f64) -> (f64, f64, f64, f64) {
     let (x0, y0, x1, y1) = tb.start_bounds;
     const MIN: f64 = 0.5;
     match tb.grab {

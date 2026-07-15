@@ -624,6 +624,30 @@ pub fn scale_text_box(src: &str, index: usize, fx: f64, fy: f64) -> Result<Strin
     set_text_box(src, index, nx, ny, nw, nh)
 }
 
+/// Set absolute origin + size for a box-like leaf (`rect` / `frame` / `image`).
+#[allow(clippy::too_many_arguments)]
+pub fn set_box_xywh(
+    src: &str,
+    head: &str,
+    index: usize,
+    slots: [usize; 4],
+    x: f64,
+    y: f64,
+    w: f64,
+    h: f64,
+) -> Result<String, SyncError> {
+    if ![x, y, w, h].into_iter().all(|v| v.is_finite()) {
+        return Err(SyncError::new("box values must be finite"));
+    }
+    if !(w > 0.0 && h > 0.0) {
+        return Err(SyncError::new("box w/h must be > 0"));
+    }
+    let mut out = set_nth_number(src, head, index, slots[0], x)?;
+    out = set_nth_number(&out, head, index, slots[1], y)?;
+    out = set_nth_number(&out, head, index, slots[2], w)?;
+    set_nth_number(&out, head, index, slots[3], h)
+}
+
 /// Set absolute `(text …)` origin and layout box (`w`/`h`), inserting slots if needed.
 pub fn set_text_box(
     src: &str,
@@ -1847,6 +1871,13 @@ mod tests {
             out2.contains("(text 0 0 12 8 9 \"hello\" blue)"),
             "unexpected: {out2}"
         );
+    }
+
+    #[test]
+    fn set_rect_box_xywh() {
+        let src = "(page a4 (rect 10 20 30 40 red))";
+        let out = set_box_xywh(src, "rect", 0, [1, 2, 3, 4], 5.0, 6.0, 7.0, 8.0).unwrap();
+        assert!(out.contains("(rect 5 6 7 8 red)"), "unexpected: {out}");
     }
 
     #[test]
