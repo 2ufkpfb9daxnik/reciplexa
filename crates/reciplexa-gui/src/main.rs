@@ -124,28 +124,10 @@ impl UiTheme {
         }
     }
 
-    fn from_prefs() -> Self {
-        let Some(path) = theme_prefs_path() else {
-            return Self::Light;
-        };
-        match fs::read_to_string(path) {
-            Ok(s) if s.trim().eq_ignore_ascii_case("dark") => Self::Dark,
-            _ => Self::Light,
-        }
-    }
-
     fn save_prefs(self) {
-        let Some(path) = theme_prefs_path() else {
-            return;
-        };
-        if let Some(parent) = path.parent() {
-            let _ = fs::create_dir_all(parent);
-        }
-        let body = match self {
-            Self::Light => "light\n",
-            Self::Dark => "dark\n",
-        };
-        let _ = fs::write(path, body);
+        let mut prefs = GuiPrefs::load();
+        prefs.theme = self;
+        prefs.save();
     }
 }
 
@@ -153,7 +135,62 @@ fn theme_prefs_path() -> Option<PathBuf> {
     let base = env::var_os("LOCALAPPDATA")
         .or_else(|| env::var_os("XDG_CONFIG_HOME"))
         .or_else(|| env::var_os("HOME"))?;
-    Some(PathBuf::from(base).join("reciplexa").join("theme"))
+    Some(PathBuf::from(base).join("reciplexa").join("prefs.txt"))
+}
+
+#[derive(Debug, Clone, Copy)]
+struct GuiPrefs {
+    theme: UiTheme,
+    show_grid: bool,
+}
+
+impl GuiPrefs {
+    fn load() -> Self {
+        let mut prefs = Self {
+            theme: UiTheme::Light,
+            show_grid: false,
+        };
+        let Some(path) = theme_prefs_path() else {
+            return prefs;
+        };
+        let Ok(raw) = fs::read_to_string(path) else {
+            return prefs;
+        };
+        for line in raw.lines() {
+            let line = line.trim();
+            if let Some(v) = line.strip_prefix("theme=") {
+                if v.eq_ignore_ascii_case("dark") {
+                    prefs.theme = UiTheme::Dark;
+                } else {
+                    prefs.theme = UiTheme::Light;
+                }
+            } else if let Some(v) = line.strip_prefix("grid=") {
+                prefs.show_grid = matches!(v, "1" | "true" | "on");
+            } else if line.eq_ignore_ascii_case("dark") {
+                // Backward compatible with old single-word theme file.
+                prefs.theme = UiTheme::Dark;
+            }
+        }
+        prefs
+    }
+
+    fn save(self) {
+        let Some(path) = theme_prefs_path() else {
+            return;
+        };
+        if let Some(parent) = path.parent() {
+            let _ = fs::create_dir_all(parent);
+        }
+        let body = format!(
+            "theme={}\ngrid={}\n",
+            match self.theme {
+                UiTheme::Light => "light",
+                UiTheme::Dark => "dark",
+            },
+            if self.show_grid { "1" } else { "0" }
+        );
+        let _ = fs::write(path, body);
+    }
 }
 
 /// Editor visuals tuned so IME preedit is not a near-black slab.
@@ -295,8 +332,8 @@ fn main() -> ExitCode {
         native_options,
         Box::new(move |cc| {
             install_cjk_fonts(&cc.egui_ctx);
-            let theme = UiTheme::from_prefs();
-            apply_ui_theme(&cc.egui_ctx, theme);
+            let prefs = GuiPrefs::load();
+            apply_ui_theme(&cc.egui_ctx, prefs.theme);
             Ok(Box::new(PreviewApp {
                 path,
                 source: src.clone(),
@@ -319,8 +356,8 @@ fn main() -> ExitCode {
                 batch_stroke: [0.1, 0.1, 0.1],
                 batch_stroke_width: 1.0,
                 batch_opacity: 1.0,
-                theme,
-                show_grid: false,
+                theme: prefs.theme,
+                show_grid: prefs.show_grid,
                 title_dirty: false,
             }))
         }),
@@ -946,6 +983,62 @@ impl PreviewApp {
         }
     }
 
+    fn copy_selection_forms(&self) -> Option<String> {
+        let layers = collect_layers_page(&self.source, self.page_index).ok()?;
+        if self.selected.is_empty() {
+            return None;
+        }
+        let mut indices = self.selected.clone();
+        indices.sort_unstable();
+        let mut forms = Vec::new();
+        for i in indices {
+            let layer = layers.get(i)?;
+            if layer.byte_end <= self.source.len() && layer.byte_start <= layer.byte_end {
+                forms.push(
+                    self.source[layer.byte_start..layer.byte_end]
+                        .trim()
+                        .to_string(),
+                );
+            }
+        }
+        if forms.is_empty() {
+            None
+        } else {
+            Some(forms.join("\n"))
+        }
+    }
+
+    fn paste_forms(&mut self, text: &str) {
+        let forms: Vec<&str> = text
+            .lines()
+            .map(str::trim)
+            .filter(|l| l.starts_with('(') && l.ends_with(')'))
+            .collect();
+        if forms.is_empty() {
+            return;
+        }
+        self.push_undo();
+        let mut src = self.source.clone();
+        let mut new_sel = Vec::new();
+        for form in forms {
+            match insert_layer_page(&src, self.page_index, form) {
+                Ok((next, idx)) => {
+                    // Offset pasted copies slightly so they are visible.
+                    src = nudge_layer_page(&next, self.page_index, idx, 8.0, -8.0).unwrap_or(next);
+                    new_sel.push(idx);
+                }
+                Err(e) => {
+                    self.error = Some(e.message);
+                    return;
+                }
+            }
+        }
+        self.source = src;
+        self.selected = new_sel;
+        self.props_open = !self.selected.is_empty();
+        self.error = pipeline_doc(&self.source).err();
+    }
+
     /// Insert a core shape form onto the current page and select it.
     fn insert_shape(&mut self, form: &str) {
         self.push_undo();
@@ -1393,6 +1486,9 @@ impl eframe::App for PreviewApp {
         }
         if !source_focused && ctx.input(|i| i.key_pressed(egui::Key::G) && !i.modifiers.any()) {
             self.show_grid = !self.show_grid;
+            let mut prefs = GuiPrefs::load();
+            prefs.show_grid = self.show_grid;
+            prefs.save();
         }
         if !source_focused && ctx.input(|i| i.modifiers.command && i.key_pressed(egui::Key::A)) {
             if let Ok(layers) = collect_layers_page(&self.source, self.page_index) {
@@ -1448,6 +1544,11 @@ impl eframe::App for PreviewApp {
             if ctx.input(|i| i.modifiers.command && i.key_pressed(egui::Key::D)) {
                 self.duplicate_selection();
             }
+            if ctx.input(|i| i.modifiers.command && i.key_pressed(egui::Key::C)) {
+                if let Some(forms) = self.copy_selection_forms() {
+                    ctx.copy_text(forms);
+                }
+            }
             if ctx.input(|i| {
                 i.modifiers.command && !i.modifiers.shift && i.key_pressed(egui::Key::CloseBracket)
             }) {
@@ -1457,6 +1558,20 @@ impl eframe::App for PreviewApp {
                 i.modifiers.command && !i.modifiers.shift && i.key_pressed(egui::Key::OpenBracket)
             }) {
                 self.send_selection_to_back();
+            }
+        }
+        if !source_focused {
+            let pasted: Vec<String> = ctx.input(|i| {
+                i.events
+                    .iter()
+                    .filter_map(|e| match e {
+                        egui::Event::Paste(s) => Some(s.clone()),
+                        _ => None,
+                    })
+                    .collect()
+            });
+            for s in pasted {
+                self.paste_forms(&s);
             }
         }
 
@@ -1535,6 +1650,9 @@ impl eframe::App for PreviewApp {
                     .clicked()
                 {
                     self.show_grid = !self.show_grid;
+                    let mut prefs = GuiPrefs::load();
+                    prefs.show_grid = self.show_grid;
+                    prefs.save();
                 }
             });
         });
@@ -1781,7 +1899,7 @@ impl eframe::App for PreviewApp {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("Paper preview");
-            ui.label("Scroll = zoom · Middle/Alt-drag = pan · Drag empty = marquee · Shift-click = add/remove · Ctrl+A = select all · Esc = clear · Body-drag = move · Ctrl-drag = 5mm snap · Corner = scale · Top knob = rotate · Arrows = nudge · Delete = remove · Ctrl+Shift+L = theme.");
+            ui.label("Scroll = zoom · Middle/Alt-drag = pan · Drag empty = marquee · Shift-click = add/remove · Ctrl+A = select all · Esc = clear · Body-drag = move · Ctrl-drag = 5mm snap · Corner/edge = resize · Top knob = rotate · Arrows = nudge · Delete = remove · Ctrl+C/V = copy/paste · Ctrl+Shift+L = theme · G = grid.");
 
             let doc = match pipeline_doc(&self.source) {
                 Ok(d) => d,
@@ -1840,6 +1958,9 @@ impl eframe::App for PreviewApp {
                     .clicked()
                 {
                     self.show_grid = !self.show_grid;
+                    let mut prefs = GuiPrefs::load();
+                    prefs.show_grid = self.show_grid;
+                    prefs.save();
                 }
             });
 
