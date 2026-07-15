@@ -573,6 +573,28 @@ mod tests {
     }
 
     #[test]
+    fn nested_handles_mute_independently() {
+        let src = r#"
+(src
+  (handle log
+    (handle write-path
+      (perform log "silent-log")
+      (perform write-path "silent.pdf")
+      (perform random)))
+  (perform log "after")
+  (perform write-path "after.pdf"))
+"#;
+        let mut h = TestHandler {
+            random_seq: vec![0.5],
+            ..Default::default()
+        };
+        let vals = run_source_effects(&mut h, src).unwrap();
+        assert_eq!(h.logs, vec!["after"]);
+        assert_eq!(h.writes, vec!["after.pdf"]);
+        assert_eq!(vals[0], Value::Number(0.5));
+    }
+
+    #[test]
     fn handle_random_is_rejected() {
         let err = run_source_effects(
             &mut TestHandler::default(),

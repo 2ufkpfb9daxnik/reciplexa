@@ -565,9 +565,27 @@ mod tests {
     }
 
     #[test]
+    fn expands_item_as_li_alias() {
+        let out = expand_source("(doc @item{Alpha}\n@item{Beta})").unwrap();
+        assert!(
+            out.contains("(text 25 270 8 \"• Alpha\" black)"),
+            "first item: {out}"
+        );
+        assert!(
+            out.contains("(text 25 258 8 \"• Beta\" black)"),
+            "second item: {out}"
+        );
+    }
+
+    #[test]
     fn empty_li_skips_empty_text() {
         let out = expand_source("(doc @li{})").unwrap();
         assert_eq!(out, "(page a4)");
+    }
+
+    #[test]
+    fn empty_item_skips() {
+        assert_eq!(expand_source("(doc @item{})").unwrap(), "(page a4)");
     }
 
     #[test]
