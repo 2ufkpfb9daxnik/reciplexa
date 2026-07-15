@@ -19,6 +19,7 @@
 
 #![forbid(unsafe_code)]
 
+mod cst_walk;
 mod props;
 mod sync;
 

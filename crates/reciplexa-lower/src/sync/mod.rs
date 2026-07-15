@@ -4,9 +4,15 @@
 //! so hit-test indices line up with editable leaves.
 
 use reciplexa_syntax::{
-    format_drag_number, parse_source, replace_token_text, SyntaxElement, SyntaxKind, SyntaxNode,
-    SyntaxToken,
+    format_drag_number, parse_source, replace_token_text, SyntaxKind, SyntaxNode, SyntaxToken,
 };
+
+use crate::cst_walk::{find_list_covering, list_atoms, Child};
+
+mod pages;
+
+pub use pages::{count_pages, delete_page, insert_page_after};
+use pages::{find_page, page_body_start};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SyncError {
@@ -376,7 +382,7 @@ pub fn ungroup_layer_page(
         .ok_or_else(|| SyncError::new("layer index out of range"))?;
     let root_span = (layer.root_start, layer.root_end);
     let root = parse_root(src)?;
-    let Some(node) = find_span_node(&root, root_span.0, root_span.1) else {
+    let Some(node) = find_list_covering(&root, root_span.0, root_span.1) else {
         return Err(SyncError::new("group root node not found"));
     };
     if !is_headed(&node, "group") {
@@ -409,16 +415,6 @@ pub fn ungroup_layer_page(
         .count();
     let new_sel: Vec<usize> = (start..start + count).collect();
     Ok((out, new_sel))
-}
-
-fn find_span_node(root: &SyntaxNode, start: usize, end: usize) -> Option<SyntaxNode> {
-    root.descendants().find(|n| {
-        if n.kind() != SyntaxKind::List {
-            return false;
-        }
-        let r = n.text_range();
-        usize::from(r.start()) == start && usize::from(r.end()) == end
-    })
 }
 
 fn reorder_page_roots(
@@ -509,7 +505,7 @@ fn rewrite_form_order(src: &str, forms: &[(usize, usize)]) -> String {
     out
 }
 
-fn extent_with_leading_ws(src: &str, start: usize, end: usize) -> (usize, usize) {
+pub(crate) fn extent_with_leading_ws(src: &str, start: usize, end: usize) -> (usize, usize) {
     let bytes = src.as_bytes();
     let mut s = start;
     while s > 0 && matches!(bytes[s - 1], b' ' | b'\t') {
@@ -522,118 +518,6 @@ fn extent_with_leading_ws(src: &str, start: usize, end: usize) -> (usize, usize)
         }
     }
     (s, end)
-}
-
-fn find_page(root: &SyntaxNode, page_index: usize) -> Result<SyntaxNode, SyncError> {
-    let mut page_i = 0usize;
-    for form in root.children() {
-        if !is_list_headed(&form, "page") {
-            continue;
-        }
-        if page_i == page_index {
-            return Ok(form);
-        }
-        page_i += 1;
-    }
-    Err(SyncError::new(format!("no page #{page_index}")))
-}
-
-fn page_spans(root: &SyntaxNode) -> Vec<(usize, usize)> {
-    let mut out = Vec::new();
-    for form in root.children() {
-        if !is_list_headed(&form, "page") {
-            continue;
-        }
-        let r = form.text_range();
-        out.push((usize::from(r.start()), usize::from(r.end())));
-    }
-    out
-}
-
-/// Number of top-level `(page …)` forms.
-pub fn count_pages(src: &str) -> Result<usize, SyncError> {
-    let root = parse_root(src)?;
-    Ok(page_spans(&root).len())
-}
-
-/// Insert a new empty page after `after_index` (0-based). Use `after_index == -1` style by
-/// passing `None` to insert at the start — here we take `isize` with -1 meaning before first.
-///
-/// `form` defaults conceptually to `(page a4)`; pass a complete `(page …)` list.
-pub fn insert_page_after(
-    src: &str,
-    after_index: Option<usize>,
-    form: &str,
-) -> Result<(String, usize), SyncError> {
-    let form = form.trim();
-    if form.is_empty() || !form.starts_with("(page") || !form.ends_with(')') {
-        return Err(SyncError::new(
-            "insert_page form must be a complete (page …) list",
-        ));
-    }
-    let root = parse_root(src)?;
-    let spans = page_spans(&root);
-    let new_index = match after_index {
-        None => 0,
-        Some(i) if i < spans.len() => i + 1,
-        Some(_) => return Err(SyncError::new("page index out of range")),
-    };
-    let insert_at = if spans.is_empty() {
-        src.len()
-    } else if new_index == 0 {
-        spans[0].0
-    } else if new_index >= spans.len() {
-        spans[spans.len() - 1].1
-    } else {
-        spans[new_index].0
-    };
-    let pad_before = if insert_at > 0 && !src[..insert_at].ends_with('\n') {
-        "\n"
-    } else {
-        ""
-    };
-    let pad_after = if insert_at < src.len() && !src[insert_at..].starts_with('\n') {
-        "\n"
-    } else {
-        ""
-    };
-    let mut out = String::with_capacity(src.len() + form.len() + 2);
-    out.push_str(&src[..insert_at]);
-    out.push_str(pad_before);
-    out.push_str(form);
-    out.push_str(pad_after);
-    out.push_str(&src[insert_at..]);
-    Ok((out, new_index))
-}
-
-/// Delete top-level `(page …)` at `page_index`. Refuses to delete the last page.
-pub fn delete_page(src: &str, page_index: usize) -> Result<String, SyncError> {
-    let root = parse_root(src)?;
-    let spans = page_spans(&root);
-    if spans.len() <= 1 {
-        return Err(SyncError::new("cannot delete the only page"));
-    }
-    if page_index >= spans.len() {
-        return Err(SyncError::new("page index out of range"));
-    }
-    let (start, end) = spans[page_index];
-    let (cut_start, cut_end) = extent_with_leading_ws(src, start, end);
-    let mut out = String::with_capacity(src.len());
-    out.push_str(&src[..cut_start]);
-    out.push_str(&src[cut_end..]);
-    Ok(out)
-}
-
-/// Index of the first shape child under `(page …)`.
-fn page_body_start(items: &[Child]) -> usize {
-    if items.len() >= 3
-        && matches!(&items[1], Child::Token(t) if t.kind() == SyntaxKind::Number)
-        && matches!(&items[2], Child::Token(t) if t.kind() == SyntaxKind::Number)
-    {
-        3
-    } else {
-        2
-    }
 }
 
 /// Nudge the numbers described by `target` by `(dx, dy)` mm.
@@ -1188,16 +1072,6 @@ fn find_rotate_degrees_token(node: &SyntaxNode) -> Option<SyntaxToken> {
     } else {
         None
     }
-}
-
-fn find_list_covering(root: &SyntaxNode, start: usize, end: usize) -> Option<SyntaxNode> {
-    root.descendants().find(|n| {
-        if n.kind() != SyntaxKind::List {
-            return false;
-        }
-        let r = n.text_range();
-        usize::from(r.start()) == start && usize::from(r.end()) == end
-    })
 }
 
 /// Opacity on the layer root `(opacity α …)`, or 1.0 if absent.
@@ -1977,41 +1851,10 @@ fn find_nth_number_pair(
     None
 }
 
-fn parse_root(src: &str) -> Result<SyntaxNode, SyncError> {
+pub(crate) fn parse_root(src: &str) -> Result<SyntaxNode, SyncError> {
     parse_source(src)
         .into_result()
         .map_err(|e| SyncError::new(format!("parse error: {}", e[0].message)))
-}
-
-fn is_list_headed(node: &SyntaxNode, name: &str) -> bool {
-    if node.kind() != SyntaxKind::List {
-        return false;
-    }
-    let items = list_atoms(node);
-    matches!(items.first(), Some(Child::Token(t)) if t.kind() == SyntaxKind::Ident && t.text() == name)
-}
-
-enum Child {
-    Token(SyntaxToken),
-    Node(SyntaxNode),
-}
-
-fn list_atoms(node: &SyntaxNode) -> Vec<Child> {
-    let mut items = Vec::new();
-    for el in node.children_with_tokens() {
-        match el {
-            SyntaxElement::Token(t) => {
-                if t.kind().is_trivia()
-                    || matches!(t.kind(), SyntaxKind::LParen | SyntaxKind::RParen)
-                {
-                    continue;
-                }
-                items.push(Child::Token(t));
-            }
-            SyntaxElement::Node(n) => items.push(Child::Node(n)),
-        }
-    }
-    items
 }
 
 #[cfg(test)]

@@ -4,13 +4,14 @@
 //! buttons). It only exposes named arguments / layout knobs that rewrite CST.
 
 use reciplexa_syntax::{
-    format_drag_number, parse_source, replace_token_text, SyntaxElement, SyntaxKind, SyntaxNode,
-    SyntaxToken,
+    format_drag_number, replace_token_text, SyntaxKind, SyntaxNode, SyntaxToken,
 };
 
+use crate::cst_walk::{find_list_covering, list_atoms, Child};
 use crate::sync::{
     collect_layers_page, collect_size_targets_page, layer_opacity, layer_rotation_deg,
-    nudge_layer_page, scale_size_target_axes, set_layer_opacity, set_layer_rotation_deg, SyncError,
+    nudge_layer_page, parse_root, scale_size_target_axes, set_layer_opacity, set_layer_rotation_deg,
+    SyncError,
 };
 
 /// UI grouping for the properties panel.
@@ -988,45 +989,6 @@ fn num(id: &str, label: &str, group: PropGroup, v: f64, slider: Option<(f64, f64
         value: PropValue::Number(v),
         slider,
     }
-}
-
-fn parse_root(src: &str) -> Result<SyntaxNode, SyncError> {
-    parse_source(src)
-        .into_result()
-        .map_err(|e| SyncError::new(format!("parse error: {}", e[0].message)))
-}
-
-fn find_list_covering(root: &SyntaxNode, start: usize, end: usize) -> Option<SyntaxNode> {
-    root.descendants().find(|n| {
-        if n.kind() != SyntaxKind::List {
-            return false;
-        }
-        let r = n.text_range();
-        usize::from(r.start()) == start && usize::from(r.end()) == end
-    })
-}
-
-enum Child {
-    Token(SyntaxToken),
-    Node(SyntaxNode),
-}
-
-fn list_atoms(node: &SyntaxNode) -> Vec<Child> {
-    let mut items = Vec::new();
-    for el in node.children_with_tokens() {
-        match el {
-            SyntaxElement::Token(t) => {
-                if t.kind().is_trivia()
-                    || matches!(t.kind(), SyntaxKind::LParen | SyntaxKind::RParen)
-                {
-                    continue;
-                }
-                items.push(Child::Token(t));
-            }
-            SyntaxElement::Node(n) => items.push(Child::Node(n)),
-        }
-    }
-    items
 }
 
 #[cfg(test)]
