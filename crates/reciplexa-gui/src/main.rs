@@ -12,11 +12,11 @@ use reciplexa::pipeline::{document_for_export, document_from_source};
 use reciplexa_effect::{seed_from_env, EffectError, EffectHandler, LcgRng, Value};
 use reciplexa_lower::{
     collect_layer_props, collect_layers_page, collect_size_targets_page, delete_layer_page,
-    duplicate_layer_page, group_layers_page, insert_layer_page, layer_rotation_deg,
-    nudge_layer_page, reorder_layer_page, scale_size_target, set_box_xywh, set_layer_prop,
-    set_layer_rotation_deg, set_layers_fill_rgb, set_layers_opacity, set_layers_stroke_rgb,
-    set_layers_stroke_width, set_line_endpoint, set_poly_vertex, set_text_box, ungroup_layer_page,
-    LayerInfo, PropEditContext, PropGroup, PropValue, SizeTarget,
+    delete_page, duplicate_layer_page, group_layers_page, insert_layer_page, insert_page_after,
+    layer_rotation_deg, nudge_layer_page, reorder_layer_page, scale_size_target, set_box_xywh,
+    set_layer_prop, set_layer_rotation_deg, set_layers_fill_rgb, set_layers_opacity,
+    set_layers_stroke_rgb, set_layers_stroke_width, set_line_endpoint, set_poly_vertex,
+    set_text_box, ungroup_layer_page, LayerInfo, PropEditContext, PropGroup, PropValue, SizeTarget,
 };
 use reciplexa_macro::expand_source;
 use reciplexa_pdf::write_document_with_base;
@@ -1769,6 +1769,42 @@ impl PreviewApp {
         }
     }
 
+    fn add_page_after_current(&mut self) {
+        self.push_undo();
+        match insert_page_after(&self.source, Some(self.page_index), "(page a4)") {
+            Ok((new_src, idx)) => {
+                self.source = new_src;
+                self.page_index = idx;
+                self.drag = None;
+                self.clear_selection();
+                self.error = pipeline_doc(&self.source).err();
+            }
+            Err(e) => {
+                let _ = self.undo_stack.pop();
+                self.error = Some(e.message);
+            }
+        }
+    }
+
+    fn delete_current_page(&mut self) {
+        self.push_undo();
+        match delete_page(&self.source, self.page_index) {
+            Ok(new_src) => {
+                self.source = new_src;
+                if self.page_index > 0 {
+                    self.page_index -= 1;
+                }
+                self.drag = None;
+                self.clear_selection();
+                self.error = pipeline_doc(&self.source).err();
+            }
+            Err(e) => {
+                let _ = self.undo_stack.pop();
+                self.error = Some(e.message);
+            }
+        }
+    }
+
     fn is_dirty(&self) -> bool {
         self.source != self.saved_source
     }
@@ -2421,6 +2457,20 @@ impl eframe::App for PreviewApp {
                     self.page_index += 1;
                     self.drag = None;
                     self.clear_selection();
+                }
+                if ui
+                    .button("+ Page")
+                    .on_hover_text("Insert empty A4 page after current")
+                    .clicked()
+                {
+                    self.add_page_after_current();
+                }
+                if ui
+                    .add_enabled(page_count > 1, egui::Button::new("− Page"))
+                    .on_hover_text("Delete current page")
+                    .clicked()
+                {
+                    self.delete_current_page();
                 }
                 ui.separator();
                 if ui.button("−").clicked() {
