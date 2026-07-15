@@ -14,7 +14,8 @@ use reciplexa_lower::{
     collect_layer_props, collect_layers_page, collect_size_targets_page, delete_layer_page,
     duplicate_layer_page, layer_rotation_deg, nudge_layer_page, reorder_layer_page,
     scale_size_target, set_layer_prop, set_layer_rotation_deg, set_layers_fill_rgb,
-    set_layers_opacity, LayerInfo, PropEditContext, PropGroup, PropValue, SizeTarget,
+    set_layers_opacity, set_layers_stroke_rgb, set_layers_stroke_width, LayerInfo, PropEditContext,
+    PropGroup, PropValue, SizeTarget,
 };
 use reciplexa_macro::expand_source;
 use reciplexa_pdf::write_document_with_base;
@@ -196,6 +197,8 @@ fn main() -> ExitCode {
                 props_open: false,
                 props_undo_open: false,
                 batch_fill: [0.2, 0.2, 0.2],
+                batch_stroke: [0.1, 0.1, 0.1],
+                batch_stroke_width: 1.0,
                 batch_opacity: 1.0,
             }))
         }),
@@ -232,6 +235,10 @@ struct PreviewApp {
     props_undo_open: bool,
     /// Shared fill when multiple shapes are selected (marquee batch).
     batch_fill: [f64; 3],
+    /// Shared stroke color for multi-select (line / frame / polyline).
+    batch_stroke: [f64; 3],
+    /// Shared stroke width (mm) for multi-select.
+    batch_stroke_width: f64,
     /// Shared opacity for multi-select batch apply.
     batch_opacity: f64,
 }
@@ -369,6 +376,8 @@ impl PreviewApp {
             let indices = self.selected.clone();
             let mut open = self.props_open;
             let mut apply_fill = false;
+            let mut apply_stroke = false;
+            let mut apply_stroke_width = false;
             let mut apply_opacity = false;
             let mut align: Option<AlignEdge> = None;
             let mut distribute: Option<bool> = None; // Some(true)=H, Some(false)=V
@@ -405,6 +414,38 @@ impl PreviewApp {
                             apply_fill = true;
                         }
                     });
+                    ui.add_space(6.0);
+                    egui::Frame::group(ui.style()).show(ui, |ui| {
+                        ui.label(egui::RichText::new("Stroke color (all stroked)").strong());
+                        for (i, lab) in ["stroke.r", "stroke.g", "stroke.b"].iter().enumerate() {
+                            ui.add(
+                                egui::Slider::new(&mut self.batch_stroke[i], 0.0..=1.0).text(*lab),
+                            );
+                        }
+                        let [r, g, b] = self.batch_stroke;
+                        let swatch = egui::Color32::from_rgb(
+                            (r * 255.0) as u8,
+                            (g * 255.0) as u8,
+                            (b * 255.0) as u8,
+                        );
+                        let (sw_resp, sw_painter) = ui.allocate_painter(
+                            egui::vec2(ui.available_width(), 18.0),
+                            egui::Sense::hover(),
+                        );
+                        sw_painter.rect_filled(sw_resp.rect, 2.0, swatch);
+                        if ui.button("Apply stroke to selection").clicked() {
+                            apply_stroke = true;
+                        }
+                    });
+                    ui.add_space(6.0);
+                    ui.label(egui::RichText::new("Stroke width (all stroked)").strong());
+                    ui.add(
+                        egui::Slider::new(&mut self.batch_stroke_width, 0.2..=12.0)
+                            .text("stroke.width"),
+                    );
+                    if ui.button("Apply stroke width").clicked() {
+                        apply_stroke_width = true;
+                    }
                     ui.add_space(6.0);
                     ui.label(egui::RichText::new("Opacity (all)").strong());
                     ui.add(egui::Slider::new(&mut self.batch_opacity, 0.0..=1.0).text("opacity"));
@@ -460,6 +501,30 @@ impl PreviewApp {
             if apply_fill {
                 let [r, g, b] = self.batch_fill;
                 match set_layers_fill_rgb(&self.source, self.page_index, &indices, r, g, b) {
+                    Ok(new_src) => {
+                        self.set_source_with_undo(new_src);
+                        self.error = pipeline_doc(&self.source).err();
+                    }
+                    Err(e) => self.error = Some(e.message),
+                }
+            }
+            if apply_stroke {
+                let [r, g, b] = self.batch_stroke;
+                match set_layers_stroke_rgb(&self.source, self.page_index, &indices, r, g, b) {
+                    Ok(new_src) => {
+                        self.set_source_with_undo(new_src);
+                        self.error = pipeline_doc(&self.source).err();
+                    }
+                    Err(e) => self.error = Some(e.message),
+                }
+            }
+            if apply_stroke_width {
+                match set_layers_stroke_width(
+                    &self.source,
+                    self.page_index,
+                    &indices,
+                    self.batch_stroke_width,
+                ) {
                     Ok(new_src) => {
                         self.set_source_with_undo(new_src);
                         self.error = pipeline_doc(&self.source).err();

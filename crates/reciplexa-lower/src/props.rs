@@ -358,7 +358,7 @@ fn set_paint_prop(
                 "fill.b" => 2,
                 _ => unreachable!(),
             };
-            set_color_channel(src, &items, ColorRole::Fill, ch, *n)
+            set_color_channel(src, kind, &items, ColorRole::Fill, ch, *n)
         }
         "stroke.r" | "stroke.g" | "stroke.b" => {
             let PropValue::Number(n) = value else {
@@ -370,7 +370,7 @@ fn set_paint_prop(
                 "stroke.b" => 2,
                 _ => unreachable!(),
             };
-            set_color_channel(src, &items, ColorRole::Stroke, ch, *n)
+            set_color_channel(src, kind, &items, ColorRole::Stroke, ch, *n)
         }
         "stroke.width" => {
             let PropValue::Number(n) = value else {
@@ -491,6 +491,119 @@ pub fn set_layers_opacity(
         out = set_layer_opacity(&out, page_index, i, alpha)?;
     }
     Ok(out)
+}
+
+/// Set stroke RGB on one layer (line / frame / polyline that already has a stroke color).
+pub fn set_layer_stroke_rgb(
+    src: &str,
+    page_index: usize,
+    flat_index: usize,
+    r: f64,
+    g: f64,
+    b: f64,
+) -> Result<String, SyncError> {
+    let ctx = PropEditContext {
+        aabb_mm: (0.0, 0.0, 1.0, 1.0),
+        paper_w_mm: 210.0,
+        paper_h_mm: 297.0,
+    };
+    let mut out = set_layer_prop(
+        src,
+        page_index,
+        flat_index,
+        "stroke.r",
+        &PropValue::Number(r),
+        &ctx,
+    )?;
+    out = set_layer_prop(
+        &out,
+        page_index,
+        flat_index,
+        "stroke.g",
+        &PropValue::Number(g),
+        &ctx,
+    )?;
+    out = set_layer_prop(
+        &out,
+        page_index,
+        flat_index,
+        "stroke.b",
+        &PropValue::Number(b),
+        &ctx,
+    )?;
+    Ok(out)
+}
+
+/// Batch stroke RGB. Skips layers without a stroke color; errors if none apply.
+pub fn set_layers_stroke_rgb(
+    src: &str,
+    page_index: usize,
+    indices: &[usize],
+    r: f64,
+    g: f64,
+    b: f64,
+) -> Result<String, SyncError> {
+    let mut out = src.to_string();
+    let mut sorted = indices.to_vec();
+    sorted.sort_unstable();
+    sorted.dedup();
+    let mut any = false;
+    let mut last_err = None;
+    for &i in sorted.iter().rev() {
+        match set_layer_stroke_rgb(&out, page_index, i, r, g, b) {
+            Ok(next) => {
+                out = next;
+                any = true;
+            }
+            Err(e) => last_err = Some(e),
+        }
+    }
+    if any {
+        Ok(out)
+    } else {
+        Err(last_err.unwrap_or_else(|| SyncError::new("no stroked layers in selection")))
+    }
+}
+
+/// Batch stroke width. Skips layers without width; errors if none apply.
+pub fn set_layers_stroke_width(
+    src: &str,
+    page_index: usize,
+    indices: &[usize],
+    width: f64,
+) -> Result<String, SyncError> {
+    let ctx = PropEditContext {
+        aabb_mm: (0.0, 0.0, 1.0, 1.0),
+        paper_w_mm: 210.0,
+        paper_h_mm: 297.0,
+    };
+    let mut out = src.to_string();
+    let mut sorted = indices.to_vec();
+    sorted.sort_unstable();
+    sorted.dedup();
+    let mut any = false;
+    let mut last_err = None;
+    for &i in sorted.iter().rev() {
+        match set_layer_prop(
+            &out,
+            page_index,
+            i,
+            "stroke.width",
+            &PropValue::Number(width),
+            &ctx,
+        ) {
+            Ok(next) => {
+                out = next;
+                any = true;
+            }
+            Err(e) => last_err = Some(e),
+        }
+    }
+    if any {
+        Ok(out)
+    } else {
+        Err(last_err.unwrap_or_else(|| SyncError::new("no stroke width on selection")))
+    }
 }
 
 fn geom_slot(kind: &str, id: &str) -> Option<usize> {
@@ -652,6 +765,7 @@ fn push_rgb_fields(rgb: [f64; 3], group: PropGroup, prefix: &str, out: &mut Vec<
 
 fn set_color_channel(
     _src: &str,
+    kind: &str,
     items: &[Child],
     role: ColorRole,
     channel: usize,
@@ -664,7 +778,7 @@ fn set_color_channel(
         ColorRole::Fill => items
             .last()
             .ok_or_else(|| SyncError::new("no fill color on this shape"))?,
-        ColorRole::Stroke => find_stroke_color_child(items)
+        ColorRole::Stroke => find_stroke_color_child(kind, items)
             .ok_or_else(|| SyncError::new("no stroke color on this shape"))?,
     };
     match child {
@@ -698,29 +812,29 @@ fn set_color_channel(
     }
 }
 
-fn find_stroke_color_child(items: &[Child]) -> Option<&Child> {
-    // Prefer second color atom when present; else color before trailing width.
-    let colors: Vec<_> = items
-        .iter()
-        .filter(|c| color_channels(c).is_some())
-        .collect();
-    if colors.len() >= 2 {
-        return Some(colors[1]);
-    }
-    if items.len() >= 6 {
-        // line: color at slot 5
-        if color_channels(&items[5]).is_some() {
-            return Some(&items[5]);
+fn find_stroke_color_child<'a>(kind: &str, items: &'a [Child]) -> Option<&'a Child> {
+    match kind {
+        "line" => items.get(5).filter(|c| color_channels(c).is_some()),
+        "frame" => {
+            let colors: Vec<_> = items
+                .iter()
+                .filter(|c| color_channels(c).is_some())
+                .collect();
+            colors.get(1).copied()
         }
-    }
-    let last = items.last()?;
-    if matches!(last, Child::Token(t) if t.kind() == SyntaxKind::Number) {
-        let prev = items.get(items.len() - 2)?;
-        if color_channels(prev).is_some() {
-            return Some(prev);
+        "polyline" => {
+            // Vertices, then optional color, optional width.
+            let mut i = 1;
+            while i + 1 < items.len()
+                && matches!(items[i], Child::Token(ref t) if t.kind() == SyntaxKind::Number)
+                && matches!(items[i + 1], Child::Token(ref t) if t.kind() == SyntaxKind::Number)
+            {
+                i += 2;
+            }
+            items.get(i).filter(|c| color_channels(c).is_some())
         }
+        _ => None,
     }
-    colors.first().copied()
 }
 
 fn set_stroke_width(
@@ -991,5 +1105,16 @@ mod tests {
         let src = "(page a4 (circle 0 0 5) (circle 20 20 5))";
         let out = set_layers_opacity(src, 0, &[0, 1], 0.5).unwrap();
         assert_eq!(out.matches("(opacity 0.5").count(), 2);
+    }
+
+    #[test]
+    fn batch_stroke_skips_fills_and_updates_lines() {
+        let src = "(page a4 (circle 0 0 5 red) (line 0 0 10 10 blue 1.5))";
+        let out = set_layers_stroke_rgb(src, 0, &[0, 1], 0.2, 0.3, 0.4).unwrap();
+        assert!(out.contains("(circle 0 0 5 red)"));
+        assert!(out.contains("(rgb 0.2 0.3 0.4)"));
+        assert!(!out.contains(" blue "));
+        let wide = set_layers_stroke_width(&out, 0, &[0, 1], 2.5).unwrap();
+        assert!(wide.contains("2.5"));
     }
 }

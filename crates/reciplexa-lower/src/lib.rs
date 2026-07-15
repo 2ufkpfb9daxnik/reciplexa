@@ -21,8 +21,9 @@ mod props;
 mod sync;
 
 pub use props::{
-    collect_layer_props, set_layer_fill_rgb, set_layer_prop, set_layers_fill_rgb,
-    set_layers_opacity, PropEditContext, PropField, PropGroup, PropValue,
+    collect_layer_props, set_layer_fill_rgb, set_layer_prop, set_layer_stroke_rgb,
+    set_layers_fill_rgb, set_layers_opacity, set_layers_stroke_rgb, set_layers_stroke_width,
+    PropEditContext, PropField, PropGroup, PropValue,
 };
 pub use sync::{
     collect_drag_targets, collect_drag_targets_page, collect_layers_page,
