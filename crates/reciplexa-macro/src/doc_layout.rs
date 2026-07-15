@@ -52,6 +52,12 @@ pub const CODE_SIZE_MM: f64 = 6.5;
 pub const CODE_GAP_MM: f64 = 10.0;
 pub const CODE_INDENT_MM: f64 = 8.0;
 pub const CODE_WRAP_CHARS: usize = 48;
+pub const CAPTION_SIZE_MM: f64 = 6.0;
+pub const CAPTION_GAP_MM: f64 = 10.0;
+pub const CAPTION_INDENT_MM: f64 = 8.0;
+pub const CAPTION_WRAP_CHARS: usize = 42;
+/// Fixed blank gap from `@br{}` (same leading as body).
+pub const BR_GAP_MM: f64 = 12.0;
 pub const HR_GAP_MM: f64 = 12.0;
 pub const HR_WIDTH_MM: f64 = 0.4;
 
@@ -262,6 +268,27 @@ pub fn layout_doc_parts(parts: &[DocPart]) -> Vec<LaidItem> {
                     flush_body(&mut buf, &mut out);
                     out.push(LaidItem::PageBreak);
                 }
+                "caption" => {
+                    flush_body(&mut buf, &mut out);
+                    push_styled_block_indent(
+                        brace_body,
+                        CAPTION_SIZE_MM,
+                        CAPTION_GAP_MM,
+                        CAPTION_WRAP_CHARS,
+                        CAPTION_INDENT_MM,
+                        &mut out,
+                    );
+                }
+                "br" => {
+                    flush_body(&mut buf, &mut out);
+                    out.push(LaidItem::VSpace { mm: BR_GAP_MM });
+                }
+                "link" => {
+                    push_link_inline(brace_body, bracket_args.as_deref(), &mut buf);
+                }
+                "cite" => {
+                    push_cite_inline(bracket_args.as_deref(), &mut buf);
+                }
                 _ => {
                     if !brace_body.is_empty() {
                         buf.push_str(&flatten_readable(brace_body));
@@ -283,6 +310,45 @@ fn flush_body(buf: &mut String, out: &mut Vec<LaidItem>) {
         return;
     }
     push_wrapped(&text, BODY_SIZE_MM, BODY_GAP_MM, BODY_WRAP_CHARS, 0.0, out);
+}
+
+/// `@link[url]{label}` → `label (url)` (no PDF hyperlink yet; package text only).
+fn push_link_inline(body: &[DocPart], bracket_args: Option<&str>, buf: &mut String) {
+    let label = flatten_readable(body);
+    let url = bracket_args
+        .map(strip_bracket_string)
+        .filter(|s| !s.is_empty());
+    match (label.is_empty(), url) {
+        (false, Some(u)) => {
+            buf.push_str(&label);
+            buf.push_str(" (");
+            buf.push_str(&u);
+            buf.push(')');
+        }
+        (false, None) => buf.push_str(&label),
+        (true, Some(u)) => buf.push_str(&u),
+        (true, None) => {}
+    }
+}
+
+/// `@cite[key]` → `[key]`.
+fn push_cite_inline(bracket_args: Option<&str>, buf: &mut String) {
+    let key = bracket_args.map(strip_bracket_string).unwrap_or_default();
+    if key.is_empty() {
+        return;
+    }
+    buf.push('[');
+    buf.push_str(&key);
+    buf.push(']');
+}
+
+fn strip_bracket_string(s: &str) -> String {
+    let t = s.trim();
+    if t.len() >= 2 && t.starts_with('"') && t.ends_with('"') {
+        t[1..t.len() - 1].to_string()
+    } else {
+        t.to_string()
+    }
 }
 
 fn push_styled_block(

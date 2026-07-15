@@ -493,6 +493,49 @@ mod tests {
         );
     }
 
+    #[test]
+    fn expands_caption_indented_smaller() {
+        let out = expand_source("(doc @caption{Fig. 1 A circle})").unwrap();
+        assert!(
+            out.contains("(text 33 270 6 \"Fig. 1 A circle\" black)"),
+            "{out}"
+        );
+    }
+
+    #[test]
+    fn expands_br_adds_gap_between_paragraphs() {
+        let out = expand_source("(doc @p{Above}\n@br{}\n@p{Below})").unwrap();
+        assert!(out.contains("(text 25 270 8 \"Above\" black)"), "{out}");
+        // body gap 12 after Above, then +12 br → Below at 246
+        assert!(
+            out.contains("(text 25 246 8 \"Below\" black)"),
+            "br should insert a blank gap: {out}"
+        );
+    }
+
+    #[test]
+    fn expands_link_appends_url_in_parens() {
+        let out = expand_source(r#"(doc See @link["https://example.com"]{docs}.)"#).unwrap();
+        assert!(out.contains("See docs (https://example.com)."), "{out}");
+    }
+
+    #[test]
+    fn expands_cite_as_bracketed_key() {
+        let out = expand_source(r#"(doc Cite @cite[42].)"#).unwrap();
+        assert!(out.contains("Cite [42]."), "{out}");
+    }
+
+    #[test]
+    fn empty_caption_skips() {
+        assert_eq!(expand_source("(doc @caption{})").unwrap(), "(page a4)");
+    }
+
+    #[test]
+    fn empty_link_and_cite_are_skipped() {
+        assert_eq!(expand_source("(doc @link[]{})").unwrap(), "(page a4)");
+        assert_eq!(expand_source("(doc @cite[])").unwrap(), "(page a4)");
+    }
+
     // --- defect ---
 
     #[test]
