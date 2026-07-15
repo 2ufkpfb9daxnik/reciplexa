@@ -739,6 +739,7 @@ mod tests {
         assert_eq!(typecheck_source(src).unwrap(), Type::Document);
         let boxed = r#"(page a4 (text 1 2 3 40 20 "Hi" red))"#;
         assert_eq!(typecheck_source(boxed).unwrap(), Type::Document);
+        assert!(typecheck_source(r#"(page a4 (text 1 2 3 10 20))"#).is_err());
     }
 
     #[test]
