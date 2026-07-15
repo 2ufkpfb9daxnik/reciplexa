@@ -301,6 +301,13 @@ pub fn layout_doc_parts(parts: &[DocPart]) -> Vec<LaidItem> {
                 "strong" | "bold" => {
                     push_marked_inline(brace_body, "**", &mut buf);
                 }
+                "tt" | "code_inline" => {
+                    push_marked_inline(brace_body, "`", &mut buf);
+                }
+                "center" => {
+                    flush_body(&mut buf, &mut out);
+                    push_centered_block(brace_body, &mut out);
+                }
                 "code" | "pre" => {
                     flush_body(&mut buf, &mut out);
                     push_code_block(brace_body, &mut out);
@@ -536,7 +543,7 @@ fn push_warn_block(body: &[DocPart], out: &mut Vec<LaidItem>) {
     );
 }
 
-/// `@em` / `@strong` — surround flat text with markers (no font weight yet).
+/// `@em` / `@strong` / `@tt` — surround flat text with markers (no font variants yet).
 fn push_marked_inline(body: &[DocPart], marker: &str, buf: &mut String) {
     let text = flatten_readable(body);
     if text.is_empty() {
@@ -545,6 +552,28 @@ fn push_marked_inline(body: &[DocPart], marker: &str, buf: &mut String) {
     buf.push_str(marker);
     buf.push_str(&text);
     buf.push_str(marker);
+}
+
+/// `@center{…}` — approximate horizontal centering via indent (char-width heuristic).
+fn push_centered_block(body: &[DocPart], out: &mut Vec<LaidItem>) {
+    for line in flatten_lines(body) {
+        if line.is_empty() {
+            continue;
+        }
+        let n = line.chars().count().min(BODY_WRAP_CHARS);
+        let content_w = DocFrame::A4.right_mm() - DocFrame::A4.left_mm;
+        let char_w = content_w / BODY_WRAP_CHARS as f64;
+        let text_w = n as f64 * char_w;
+        let indent = ((content_w - text_w) / 2.0).max(0.0);
+        push_wrapped(
+            &line,
+            BODY_SIZE_MM,
+            BODY_GAP_MM,
+            BODY_WRAP_CHARS,
+            indent,
+            out,
+        );
+    }
 }
 
 /// `@li{…}` → body-sized lines prefixed with a bullet (package meaning, not font glyphs).

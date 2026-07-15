@@ -536,6 +536,33 @@ mod tests {
     }
 
     #[test]
+    fn expands_tt_with_backticks() {
+        let out = expand_source("(doc Use @tt{cargo test}.)").unwrap();
+        assert!(
+            out.contains("(text 25 270 8 \"Use `cargo test`.\" black)"),
+            "{out}"
+        );
+    }
+
+    #[test]
+    fn expands_center_indents_short_line() {
+        let out = expand_source("(doc @center{Hi})").unwrap();
+        // ~2 chars → large indent off left 25; must not stay at 25
+        assert!(
+            !out.contains("(text 25 270 8 \"Hi\" black)"),
+            "should be centered: {out}"
+        );
+        assert!(out.contains("\"Hi\" black)"), "{out}");
+        assert!(out.contains("(text "), "{out}");
+    }
+
+    #[test]
+    fn empty_tt_center_skip() {
+        assert_eq!(expand_source("(doc @tt{})").unwrap(), "(page a4)");
+        assert_eq!(expand_source("(doc @center{})").unwrap(), "(page a4)");
+    }
+
+    #[test]
     fn expands_caption_indented_smaller() {
         let out = expand_source("(doc @caption{Fig. 1 A circle})").unwrap();
         assert!(
