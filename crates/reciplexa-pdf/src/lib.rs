@@ -689,6 +689,13 @@ fn pdf_escape_ascii(s: &str) -> Result<String, PdfError> {
 }
 
 fn system_cjk_font_path() -> Option<PathBuf> {
+    // CI / explicit override (GitHub Actions windows images lack Noto CJK).
+    if let Some(p) = std::env::var_os("RECIPLEXA_CJK_FONT") {
+        let path = PathBuf::from(p);
+        if path.is_file() {
+            return Some(path);
+        }
+    }
     let windir = std::env::var_os("WINDIR").unwrap_or_else(|| r"C:\Windows".into());
     let fonts = PathBuf::from(windir).join("Fonts");
     for name in [
@@ -702,6 +709,13 @@ fn system_cjk_font_path() -> Option<PathBuf> {
         }
     }
     None
+}
+
+/// Path to a CJK-capable TTF used for non-ASCII PDF glyph outlines.
+///
+/// Resolution order: `RECIPLEXA_CJK_FONT` env, then common Windows Fonts names.
+pub fn cjk_font_path() -> Option<PathBuf> {
+    system_cjk_font_path()
 }
 
 fn outline_text_ops(

@@ -17,6 +17,35 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+      - name: Install CJK font for PDF outline tests
+        shell: pwsh
+        run: |
+          $dir = Join-Path $env:RUNNER_TEMP "reciplexa-fonts"
+          New-Item -ItemType Directory -Force $dir | Out-Null
+          $out = Join-Path $dir "NotoSansJP-VF.ttf"
+          $urls = @(
+            "https://github.com/notofonts/noto-cjk/raw/main/Sans/Variable/TTF/Subset/NotoSansJP-VF.ttf",
+            "https://github.com/googlefonts/noto-cjk/raw/main/Sans/Variable/TTF/Subset/NotoSansJP-VF.ttf",
+            "https://cdn.jsdelivr.net/gh/notofonts/noto-cjk@main/Sans/Variable/TTF/Subset/NotoSansJP-VF.ttf"
+          )
+          $ok = $false
+          foreach ($u in $urls) {
+            try {
+              Write-Host "Downloading $u"
+              Invoke-WebRequest -Uri $u -OutFile $out -UseBasicParsing
+              if ((Get-Item $out).Length -gt 100000) {
+                $ok = $true
+                break
+              }
+            } catch {
+              Write-Warning $_
+            }
+          }
+          if (-not $ok) {
+            throw "failed to download CJK font for PDF outline tests"
+          }
+          Add-Content -Path $env:GITHUB_ENV -Value "RECIPLEXA_CJK_FONT=$out"
+          Write-Host "RECIPLEXA_CJK_FONT=$out"
       - name: Format
         run: cargo fmt --all -- --check
       - name: Clippy

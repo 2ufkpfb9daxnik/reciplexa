@@ -12,12 +12,18 @@
 
 ## ビルドとテスト
 
+GitHub Actions の CI と同じく、**ワークスペース全体**を毎回見ます（新しいファイルだけではありません）。
+コミット前にこの3つを通すのが安全です（全体でもおおよそ数分以内）。
+
 ```powershell
 $env:PATH = "$env:USERPROFILE\.cargo\bin;$env:PATH"
 cargo fmt --all
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 ```
+
+日本語を PDF のアウトライン化にするときは Noto Sans JP など（`%WINDIR%\Fonts`）が必要です。  
+CI ではフォントをダウンロードし、`RECIPLEXA_CJK_FONT` でパスを渡します。ローカルでも同じ環境変数で上書きできます。
 
 ## サンプルを PDF にする
 

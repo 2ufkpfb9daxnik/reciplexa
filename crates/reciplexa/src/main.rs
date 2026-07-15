@@ -102,6 +102,7 @@ mod tests {
     fn renders_text_line_and_macro_examples() {
         let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
         let repo = manifest_dir.join("../..");
+        let has_cjk = reciplexa_pdf::cjk_font_path().is_some();
         for name in [
             "text_and_line.rpx",
             "color_byte.rpx",
@@ -127,10 +128,28 @@ mod tests {
             "doc_with_figure.rpx",
             "long_doc.rpx",
         ] {
+            if example_needs_cjk_font(name) && !has_cjk {
+                eprintln!(
+                    "skip {name}: no CJK font (set RECIPLEXA_CJK_FONT or install NotoSansJP)"
+                );
+                continue;
+            }
             let input = repo.join("examples").join(name);
             let output = repo.join("target").join(format!("test-{name}.pdf"));
             render(input.to_str().unwrap(), output.to_str().unwrap())
                 .unwrap_or_else(|e| panic!("{name}: {e}"));
         }
+    }
+
+    fn example_needs_cjk_font(name: &str) -> bool {
+        matches!(
+            name,
+            "japanese_report_stub.rpx"
+                | "japanese_doc.rpx"
+                | "multiline_doc.rpx"
+                | "long_doc.rpx"
+                | "doc_title_p.rpx"
+                | "hello_doc.rpx"
+        )
     }
 }
