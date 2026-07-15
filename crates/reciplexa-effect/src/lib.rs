@@ -58,6 +58,34 @@ pub enum Value {
     String(String),
 }
 
+/// Deterministic linear congruential generator for `(perform random)`.
+///
+/// Produces values in `[0, 1)`. Same seed ⇒ same sequence (CLI/GUI export
+/// and tests can share this instead of a hard-coded `0.0` stub).
+#[derive(Debug, Clone)]
+pub struct LcgRng {
+    state: u64,
+}
+
+impl LcgRng {
+    /// Numerical Recipes–style parameters; `seed == 0` is remapped so the
+    /// stream is never stuck at zero.
+    pub fn new(seed: u64) -> Self {
+        Self {
+            state: if seed == 0 { 0xC0FFEE } else { seed },
+        }
+    }
+
+    /// Next sample in `[0, 1)`.
+    pub fn next_unit(&mut self) -> f64 {
+        // LCG: X_{n+1} = (a X_n + c) mod 2^64
+        self.state = self.state.wrapping_mul(6364136223846793005).wrapping_add(1);
+        // Take high 53 bits → float in [0, 1)
+        let mantissa = (self.state >> 11) as f64;
+        mantissa / ((1u64 << 53) as f64)
+    }
+}
+
 /// Host-supplied handlers for performed effects.
 pub trait EffectHandler {
     fn on_log(&mut self, message: &str) -> Result<Value, EffectError>;
@@ -435,6 +463,27 @@ mod tests {
             .unwrap(),
             Value::Number(0.5)
         );
+    }
+
+    #[test]
+    fn lcg_same_seed_same_sequence() {
+        let mut a = LcgRng::new(42);
+        let mut b = LcgRng::new(42);
+        let seq_a: Vec<f64> = (0..8).map(|_| a.next_unit()).collect();
+        let seq_b: Vec<f64> = (0..8).map(|_| b.next_unit()).collect();
+        assert_eq!(seq_a, seq_b);
+        for v in &seq_a {
+            assert!(*v >= 0.0 && *v < 1.0, "out of range: {v}");
+        }
+    }
+
+    #[test]
+    fn lcg_different_seeds_diverge() {
+        let mut a = LcgRng::new(1);
+        let mut b = LcgRng::new(2);
+        let first_a = a.next_unit();
+        let first_b = b.next_unit();
+        assert_ne!(first_a, first_b);
     }
 
     // --- defect ---

@@ -8,7 +8,7 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 
 use reciplexa::pipeline::{document_for_export, PipelineError};
-use reciplexa_effect::{EffectError, EffectHandler, Value};
+use reciplexa_effect::{EffectError, EffectHandler, LcgRng, Value};
 use reciplexa_pdf::write_document_with_base;
 
 fn main() -> ExitCode {
@@ -31,7 +31,18 @@ fn main() -> ExitCode {
     }
 }
 
-struct CliHandler;
+struct CliHandler {
+    rng: LcgRng,
+}
+
+impl Default for CliHandler {
+    fn default() -> Self {
+        // Fixed seed so CLI exports are reproducible across runs.
+        Self {
+            rng: LcgRng::new(1),
+        }
+    }
+}
 
 impl EffectHandler for CliHandler {
     fn on_log(&mut self, message: &str) -> Result<Value, EffectError> {
@@ -40,8 +51,7 @@ impl EffectHandler for CliHandler {
     }
 
     fn on_random(&mut self) -> Result<Value, EffectError> {
-        // Deterministic stub until a real RNG effect is wired.
-        Ok(Value::Number(0.0))
+        Ok(Value::Number(self.rng.next_unit()))
     }
 
     fn on_write_path(&mut self, path: &str) -> Result<Value, EffectError> {
@@ -52,7 +62,7 @@ impl EffectHandler for CliHandler {
 
 fn render(input: &str, output: &str) -> Result<(), String> {
     let src = fs::read_to_string(input).map_err(|e| format!("read {input}: {e}"))?;
-    let (doc, _) = document_for_export(&mut CliHandler, &src).map_err(fmt_pipeline)?;
+    let (doc, _) = document_for_export(&mut CliHandler::default(), &src).map_err(fmt_pipeline)?;
     let path = PathBuf::from(output);
     if let Some(parent) = path.parent() {
         if !parent.as_os_str().is_empty() {
