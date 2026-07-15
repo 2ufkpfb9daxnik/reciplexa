@@ -253,9 +253,10 @@ fn path_for_rpx(doc_path: &Path, asset: &Path) -> String {
         .join("/")
 }
 
-fn set_window_title(ctx: &egui::Context, path: &Path) {
+fn set_window_title(ctx: &egui::Context, path: &Path, dirty: bool) {
+    let star = if dirty { " •" } else { "" };
     ctx.send_viewport_cmd(egui::ViewportCommand::Title(format!(
-        "reciplexa — {}",
+        "reciplexa — {}{star}",
         path.display()
     )));
 }
@@ -298,7 +299,8 @@ fn main() -> ExitCode {
             apply_ui_theme(&cc.egui_ctx, theme);
             Ok(Box::new(PreviewApp {
                 path,
-                source: src,
+                source: src.clone(),
+                saved_source: src,
                 error: initial_error,
                 drag: None,
                 page_index: 0,
@@ -319,6 +321,7 @@ fn main() -> ExitCode {
                 batch_opacity: 1.0,
                 theme,
                 show_grid: false,
+                title_dirty: false,
             }))
         }),
     ) {
@@ -333,6 +336,8 @@ fn main() -> ExitCode {
 struct PreviewApp {
     path: PathBuf,
     source: String,
+    /// Last-saved / last-loaded buffer; dirty when differs from `source`.
+    saved_source: String,
     error: Option<String>,
     drag: Option<DragState>,
     page_index: usize,
@@ -364,6 +369,8 @@ struct PreviewApp {
     theme: UiTheme,
     /// Draw a light millimeter grid on the paper.
     show_grid: bool,
+    /// Last window-title dirty bit (avoid spamming viewport cmds).
+    title_dirty: bool,
 }
 
 #[derive(Clone, Copy)]
@@ -975,7 +982,10 @@ impl PreviewApp {
                 self.typing_undo_open = false;
                 self.props_undo_open = false;
                 self.error = pipeline_doc(&self.source).err();
-                set_window_title(ctx, &self.path);
+                self.mark_saved();
+                self.title_dirty = true; // force title refresh
+                set_window_title(ctx, &self.path, false);
+                self.title_dirty = false;
             }
             Err(e) => self.error = Some(format!("open: {e}")),
         }
@@ -997,6 +1007,7 @@ impl PreviewApp {
             self.error = Some(format!("save: {e}"));
         } else {
             self.error = None;
+            self.mark_saved();
         }
     }
 
@@ -1017,7 +1028,9 @@ impl PreviewApp {
             }
             self.path = path;
             self.save_rpx();
-            set_window_title(ctx, &self.path);
+            self.title_dirty = true;
+            set_window_title(ctx, &self.path, false);
+            self.title_dirty = false;
         }
     }
 
@@ -1048,7 +1061,10 @@ impl PreviewApp {
         self.typing_undo_open = false;
         self.props_undo_open = false;
         self.error = None;
-        set_window_title(ctx, &self.path);
+        self.mark_saved();
+        self.title_dirty = true;
+        set_window_title(ctx, &self.path, false);
+        self.title_dirty = false;
     }
 
     fn delete_selection(&mut self) {
@@ -1283,6 +1299,40 @@ impl PreviewApp {
         self.error = pipeline_doc(&self.source).err();
     }
 
+    fn is_dirty(&self) -> bool {
+        self.source != self.saved_source
+    }
+
+    fn refresh_window_title(&mut self, ctx: &egui::Context) {
+        let dirty = self.is_dirty();
+        if dirty != self.title_dirty {
+            self.title_dirty = dirty;
+            set_window_title(ctx, &self.path, dirty);
+        }
+    }
+
+    fn mark_saved(&mut self) {
+        self.saved_source = self.source.clone();
+    }
+
+    fn export_pdf(&mut self) {
+        match document_for_export(&mut GuiExportHandler::default(), &self.source) {
+            Ok((doc, _)) => {
+                let pdf_path = self.path.with_extension("pdf");
+                let base = self.path.parent();
+                match fs::File::create(&pdf_path)
+                    .map_err(|e| e.to_string())
+                    .and_then(|f| {
+                        write_document_with_base(&doc, base, f).map_err(|e| format!("{e:?}"))
+                    }) {
+                    Ok(()) => self.error = None,
+                    Err(e) => self.error = Some(format!("pdf: {e}")),
+                }
+            }
+            Err(e) => self.error = Some(e.display()),
+        }
+    }
+
     fn set_theme(&mut self, ctx: &egui::Context, theme: UiTheme) {
         if self.theme == theme {
             return;
@@ -1310,6 +1360,7 @@ enum AlignEdge {
 impl eframe::App for PreviewApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         suppress_ime_confirm_newline(ctx, &mut self.ime_enter_hold);
+        self.refresh_window_title(ctx);
 
         // Ctrl+Z / Ctrl+Y for source undo/redo (IME mistakes, layer moves, etc.).
         if ctx.input(|i| i.modifiers.command && i.key_pressed(egui::Key::Z) && !i.modifiers.shift) {
@@ -1323,6 +1374,9 @@ impl eframe::App for PreviewApp {
         }
         if ctx.input(|i| i.modifiers.command && i.key_pressed(egui::Key::S)) {
             self.save_rpx();
+        }
+        if ctx.input(|i| i.modifiers.command && i.key_pressed(egui::Key::E)) {
+            self.export_pdf();
         }
 
         // Arrow keys nudge the selection when the source editor is not focused.
@@ -1512,23 +1566,8 @@ impl eframe::App for PreviewApp {
                             Err(e) => self.error = Some(format!("reload: {e}")),
                         }
                     }
-                    if ui.button("Export PDF").clicked() {
-                        match document_for_export(&mut GuiExportHandler::default(), &self.source) {
-                            Ok((doc, _)) => {
-                                let pdf_path = self.path.with_extension("pdf");
-                                let base = self.path.parent();
-                                match fs::File::create(&pdf_path)
-                                    .map_err(|e| e.to_string())
-                                    .and_then(|f| {
-                                        write_document_with_base(&doc, base, f)
-                                            .map_err(|e| format!("{e:?}"))
-                                    }) {
-                                    Ok(()) => self.error = None,
-                                    Err(e) => self.error = Some(format!("pdf: {e}")),
-                                }
-                            }
-                            Err(e) => self.error = Some(e.display()),
-                        }
+                    if ui.button("Export PDF").on_hover_text("Ctrl+E").clicked() {
+                        self.export_pdf();
                     }
                     if ui.button("Re-expand macros").clicked() {
                         // Explicit bake: replaces the editor buffer with expanded forms.

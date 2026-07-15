@@ -399,7 +399,14 @@ fn render_shape(
                 return Err(PdfError::InvalidShape(format!("{ctx}: text not drawable")));
             }
             Ok(ops_only(text_ops(
-                t.x_mm, t.y_mm, t.size_mm, t.width_mm, &t.content, t.fill, cjk,
+                t.x_mm,
+                t.y_mm,
+                t.size_mm,
+                t.width_mm,
+                t.height_mm,
+                &t.content,
+                t.fill,
+                cjk,
             )?))
         }
         Shape::Line(l) => {
@@ -682,11 +689,13 @@ fn image_xobject_ops(x_mm: f64, y_mm: f64, w_mm: f64, h_mm: f64, id: usize) -> S
     )
 }
 
+#[allow(clippy::too_many_arguments)]
 fn text_ops(
     x_mm: f64,
     y_mm: f64,
     size_mm: f64,
     wrap_width_mm: Option<f64>,
+    wrap_height_mm: Option<f64>,
     content: &str,
     fill: Color,
     cjk: Option<&CjkFontEmbed>,
@@ -703,6 +712,14 @@ fn text_ops(
             .split('\n')
             .map(|l| l.trim_end_matches('\r').to_string())
             .collect(),
+    };
+    // Optional height clips overflow (matches GUI clip-to-box).
+    let lines = match wrap_height_mm {
+        Some(h) if h > 0.0 && size_mm > 0.0 => {
+            let max_lines = ((h / size_mm).floor() as usize).max(1);
+            lines.into_iter().take(max_lines).collect()
+        }
+        _ => lines,
     };
     let use_cjk = !content.is_ascii();
     if use_cjk && cjk.is_none() {
@@ -1080,6 +1097,29 @@ mod tests {
             "soft wrap should emit line advances: {text}"
         );
         assert!(text.matches(" Tj\n").count() >= 2);
+    }
+
+    #[test]
+    fn boxed_text_clips_by_height() {
+        let doc = Document::single_page(Page {
+            paper: PaperSize::a4(),
+            shapes: vec![Shape::Text(Text {
+                x_mm: 20.0,
+                y_mm: 200.0,
+                size_mm: 10.0,
+                width_mm: Some(200.0),
+                height_mm: Some(15.0),
+                content: "one\ntwo\nthree".into(),
+                fill: Color::BLACK,
+            })],
+        });
+        let bytes = document_to_pdf(&doc).unwrap();
+        let text = String::from_utf8_lossy(&bytes);
+        assert!(text.contains("(one) Tj"));
+        assert!(
+            !text.contains("(three) Tj"),
+            "third line should clip: {text}"
+        );
     }
 
     #[test]
