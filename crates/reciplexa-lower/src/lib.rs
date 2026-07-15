@@ -1096,6 +1096,13 @@ mod tests {
     }
 
     #[test]
+    fn wrong_text_arity_fails() {
+        assert!(lower_source("(page a4 (text 1 2 3))").is_err());
+        assert!(lower_source(r#"(page a4 (text 1 2 3 4 5))"#).is_err()); // w/h without string
+        assert!(lower_source(r#"(page a4 (text 1 2 3 10 20 "ok"))"#).is_ok());
+    }
+
+    #[test]
     fn zero_radius_fails() {
         let err = lower_source("(page a4 (circle 1 2 0))").unwrap_err();
         assert!(err.message.contains("not drawable"));

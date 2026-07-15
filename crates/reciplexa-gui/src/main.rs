@@ -2411,7 +2411,17 @@ impl eframe::App for PreviewApp {
                                 text_box,
                             } => {
                                 let scale_result = if let Some(tb) = text_box {
-                                    let (nx, ny, nw, nh) = box_from_grab(tb, mx, my);
+                                    let (mut nx, mut ny, mut nw, mut nh) = box_from_grab(tb, mx, my);
+                                    if ui.input(|i| i.modifiers.command) {
+                                        const GRID: f64 = 5.0;
+                                        let snap = |v: f64| (v / GRID).round() * GRID;
+                                        let x1 = snap(nx + nw);
+                                        let y1 = snap(ny + nh);
+                                        nx = snap(nx);
+                                        ny = snap(ny);
+                                        nw = (x1 - nx).max(0.5);
+                                        nh = (y1 - ny).max(0.5);
+                                    }
                                     match size {
                                         SizeTarget::TextSize(idx) => {
                                             set_text_box(&base_src, idx, nx, ny, nw, nh)
