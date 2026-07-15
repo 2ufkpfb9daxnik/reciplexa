@@ -133,6 +133,10 @@ pub fn layout_doc_parts(parts: &[DocPart]) -> Vec<LaidLine> {
                         &mut out,
                     );
                 }
+                "ol" => {
+                    flush_body(&mut buf, &mut out);
+                    push_ordered_list(brace_body, &mut out);
+                }
                 "p" => {
                     flush_body(&mut buf, &mut out);
                     push_styled_block(
@@ -201,6 +205,28 @@ fn push_list_items(body: &[DocPart], out: &mut Vec<LaidLine>) {
         let bulleted = format!("• {line}");
         push_wrapped(
             &bulleted,
+            BODY_SIZE_MM,
+            BODY_GAP_MM,
+            BODY_WRAP_CHARS,
+            0.0,
+            out,
+        );
+    }
+}
+
+/// `@ol{a; b; c}` → numbered body lines. Semicolons separate items (brace text stays simple).
+fn push_ordered_list(body: &[DocPart], out: &mut Vec<LaidLine>) {
+    let flat = flatten_readable(body);
+    let mut n = 0usize;
+    for segment in flat.split(';') {
+        let item = segment.trim();
+        if item.is_empty() {
+            continue;
+        }
+        n += 1;
+        let numbered = format!("{n}. {item}");
+        push_wrapped(
+            &numbered,
             BODY_SIZE_MM,
             BODY_GAP_MM,
             BODY_WRAP_CHARS,

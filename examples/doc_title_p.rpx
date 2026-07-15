@@ -7,4 +7,7 @@
 @li{要件を書く}
 @li{テストを先に足す}
 @li{小さくコミットする}
+@h2{手順}
+@ol{expand; typecheck; lower}
+@quote{コードがドキュメントになるように。}
 )

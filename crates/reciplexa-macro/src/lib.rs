@@ -581,4 +581,27 @@ mod tests {
     fn empty_quote_skips() {
         assert_eq!(expand_source("(doc @quote{})").unwrap(), "(page a4)");
     }
+
+    // --- numbered list: @ol{ item; item } uses `;` separators inside one brace ---
+
+    #[test]
+    fn expands_ol_numbers_items() {
+        let out = expand_source("(doc @ol{Alpha; Beta; Gamma})").unwrap();
+        assert!(out.contains("(text 25 270 8 \"1. Alpha\" black)"), "{out}");
+        assert!(out.contains("(text 25 258 8 \"2. Beta\" black)"), "{out}");
+        assert!(out.contains("(text 25 246 8 \"3. Gamma\" black)"), "{out}");
+    }
+
+    #[test]
+    fn empty_ol_skips() {
+        assert_eq!(expand_source("(doc @ol{})").unwrap(), "(page a4)");
+    }
+
+    #[test]
+    fn ol_trims_blank_segments() {
+        let out = expand_source("(doc @ol{A;; B})").unwrap();
+        assert!(out.contains("1. A"), "{out}");
+        assert!(out.contains("2. B"), "{out}");
+        assert!(!out.contains("3."), "{out}");
+    }
 }
