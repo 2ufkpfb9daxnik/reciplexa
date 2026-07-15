@@ -276,7 +276,7 @@ pub fn layout_doc_parts(parts: &[DocPart]) -> Vec<LaidItem> {
                     flush_body(&mut buf, &mut out);
                     push_list_items(brace_body, &mut out);
                 }
-                "quote" => {
+                "quote" | "blockquote" => {
                     flush_body(&mut buf, &mut out);
                     push_styled_block_indent(
                         brace_body,
@@ -294,6 +294,10 @@ pub fn layout_doc_parts(parts: &[DocPart]) -> Vec<LaidItem> {
                 "warn" => {
                     flush_body(&mut buf, &mut out);
                     push_warn_block(brace_body, &mut out);
+                }
+                "todo" => {
+                    flush_body(&mut buf, &mut out);
+                    push_todo_block(brace_body, &mut out);
                 }
                 "em" | "italic" => {
                     push_marked_inline(brace_body, "*", &mut buf);
@@ -394,7 +398,7 @@ fn flush_body(buf: &mut String, out: &mut Vec<LaidItem>) {
 
 /// `@link[url]{label}` → `label (url)` (no PDF hyperlink yet; package text only).
 fn push_link_inline(body: &[DocPart], bracket_args: Option<&str>, buf: &mut String) {
-    let label = flatten_readable(body);
+    let label = flatten_marked(body);
     let url = bracket_args
         .map(strip_bracket_string)
         .filter(|s| !s.is_empty());
@@ -543,9 +547,26 @@ fn push_warn_block(body: &[DocPart], out: &mut Vec<LaidItem>) {
     );
 }
 
+/// `@todo{…}` — callout with a `TODO: ` prefix.
+fn push_todo_block(body: &[DocPart], out: &mut Vec<LaidItem>) {
+    let text = flatten_readable(body);
+    if text.is_empty() {
+        return;
+    }
+    let prefixed = format!("TODO: {text}");
+    push_wrapped(
+        &prefixed,
+        QUOTE_SIZE_MM,
+        QUOTE_GAP_MM,
+        QUOTE_WRAP_CHARS,
+        QUOTE_INDENT_MM,
+        out,
+    );
+}
+
 /// `@em` / `@strong` / `@tt` — surround flat text with markers (no font variants yet).
 fn push_marked_inline(body: &[DocPart], marker: &str, buf: &mut String) {
-    let text = flatten_readable(body);
+    let text = flatten_marked(body);
     if text.is_empty() {
         return;
     }
@@ -554,9 +575,87 @@ fn push_marked_inline(body: &[DocPart], marker: &str, buf: &mut String) {
     buf.push_str(marker);
 }
 
+/// Like [`flatten_readable`], but runs package inline marks (`@em`, `@link`, …).
+fn flatten_marked(parts: &[DocPart]) -> String {
+    let mut buf = String::new();
+    append_marked(parts, &mut buf);
+    collapse_ws(&buf)
+}
+
+fn append_marked(parts: &[DocPart], buf: &mut String) {
+    for part in parts {
+        match part {
+            DocPart::Text(t) => buf.push_str(t),
+            DocPart::Newline => buf.push(' '),
+            DocPart::At {
+                name,
+                bracket_args,
+                brace_body,
+            } => match name.as_str() {
+                "em" | "italic" => push_marked_inline(brace_body, "*", buf),
+                "strong" | "bold" => push_marked_inline(brace_body, "**", buf),
+                "tt" | "code_inline" => push_marked_inline(brace_body, "`", buf),
+                "link" => push_link_inline(brace_body, bracket_args.as_deref(), buf),
+                "cite" => push_cite_inline(bracket_args.as_deref(), buf),
+                _ => {
+                    if !brace_body.is_empty() {
+                        append_marked(brace_body, buf);
+                    } else if let Some(args) = bracket_args {
+                        buf.push_str(args.trim());
+                    }
+                }
+            },
+        }
+    }
+}
+
+/// Line-splitting variant of [`flatten_marked`] for `@li`.
+fn flatten_lines_marked(parts: &[DocPart]) -> Vec<String> {
+    let mut lines: Vec<String> = Vec::new();
+    let mut cur = String::new();
+    append_marked_lines(parts, &mut lines, &mut cur);
+    if !cur.is_empty() || lines.is_empty() {
+        lines.push(std::mem::take(&mut cur));
+    }
+    lines
+        .into_iter()
+        .map(|l| collapse_ws(&l))
+        .filter(|l| !l.is_empty())
+        .collect()
+}
+
+fn append_marked_lines(parts: &[DocPart], lines: &mut Vec<String>, cur: &mut String) {
+    for part in parts {
+        match part {
+            DocPart::Text(t) => cur.push_str(t),
+            DocPart::Newline => {
+                lines.push(std::mem::take(cur));
+            }
+            DocPart::At {
+                name,
+                bracket_args,
+                brace_body,
+            } => match name.as_str() {
+                "em" | "italic" => push_marked_inline(brace_body, "*", cur),
+                "strong" | "bold" => push_marked_inline(brace_body, "**", cur),
+                "tt" | "code_inline" => push_marked_inline(brace_body, "`", cur),
+                "link" => push_link_inline(brace_body, bracket_args.as_deref(), cur),
+                "cite" => push_cite_inline(bracket_args.as_deref(), cur),
+                _ => {
+                    if !brace_body.is_empty() {
+                        append_marked_lines(brace_body, lines, cur);
+                    } else if let Some(args) = bracket_args {
+                        cur.push_str(args.trim());
+                    }
+                }
+            },
+        }
+    }
+}
+
 /// `@center{…}` — approximate horizontal centering via indent (char-width heuristic).
 fn push_centered_block(body: &[DocPart], out: &mut Vec<LaidItem>) {
-    for line in flatten_lines(body) {
+    for line in flatten_lines_marked(body) {
         if line.is_empty() {
             continue;
         }
@@ -578,7 +677,7 @@ fn push_centered_block(body: &[DocPart], out: &mut Vec<LaidItem>) {
 
 /// `@li{…}` → body-sized lines prefixed with a bullet (package meaning, not font glyphs).
 fn push_list_items(body: &[DocPart], out: &mut Vec<LaidItem>) {
-    for line in flatten_lines(body) {
+    for line in flatten_lines_marked(body) {
         if line.is_empty() {
             continue;
         }
@@ -596,7 +695,7 @@ fn push_list_items(body: &[DocPart], out: &mut Vec<LaidItem>) {
 
 /// `@ol{a; b; c}` → numbered body lines. Semicolons separate items (brace text stays simple).
 fn push_ordered_list(body: &[DocPart], out: &mut Vec<LaidItem>) {
-    let flat = flatten_readable(body);
+    let flat = flatten_marked(body);
     let mut n = 0usize;
     for segment in flat.split(';') {
         let item = segment.trim();
@@ -618,7 +717,7 @@ fn push_ordered_list(body: &[DocPart], out: &mut Vec<LaidItem>) {
 
 /// `@ul{a; b; c}` → bulleted body lines (same semicolon split as `@ol`).
 fn push_unordered_list(body: &[DocPart], out: &mut Vec<LaidItem>) {
-    let flat = flatten_readable(body);
+    let flat = flatten_marked(body);
     for segment in flat.split(';') {
         let item = segment.trim();
         if item.is_empty() {

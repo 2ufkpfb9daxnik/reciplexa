@@ -860,6 +860,31 @@ mod tests {
     }
 
     #[test]
+    fn expands_ul_runs_inline_marks_inside_items() {
+        let out = expand_source("(doc @ul{plain; @em{hi}})").unwrap();
+        assert!(out.contains("• plain"), "{out}");
+        assert!(
+            out.contains("• *hi*"),
+            "inline @em inside @ul should mark: {out}"
+        );
+    }
+
+    #[test]
+    fn expands_blockquote_as_quote_alias() {
+        let out = expand_source("(doc @blockquote{Cited})").unwrap();
+        assert!(out.contains("(text 35 270 7 \"Cited\" black)"), "{out}");
+    }
+
+    #[test]
+    fn expands_todo_prefix_callout() {
+        let out = expand_source("(doc @todo{Ship it.})").unwrap();
+        assert!(
+            out.contains("(text 35 270 7 \"TODO: Ship it.\" black)"),
+            "{out}"
+        );
+    }
+
+    #[test]
     fn empty_ol_skips() {
         assert_eq!(expand_source("(doc @ol{})").unwrap(), "(page a4)");
     }
