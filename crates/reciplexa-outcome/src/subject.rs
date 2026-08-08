@@ -18,6 +18,10 @@ impl<A, E> SubjectOutcome<A, E> {
         matches!(self, Self::Success(_))
     }
 
+    pub fn is_failure(&self) -> bool {
+        matches!(self, Self::Failure(_))
+    }
+
     pub fn map<B>(self, f: impl FnOnce(A) -> B) -> SubjectOutcome<B, E> {
         match self {
             Self::Success(a) => SubjectOutcome::Success(f(a)),
@@ -55,6 +59,10 @@ impl<A, E> ApplicationOutcome<A, E> {
 
     pub fn is_completed(&self) -> bool {
         matches!(self, Self::Completed(_))
+    }
+
+    pub fn is_cancelled(&self) -> bool {
+        matches!(self, Self::Cancelled(_))
     }
 }
 
