@@ -1,0 +1,13 @@
+[package]
+name = "reciplexa-diagnostic"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Structured diagnostic schema for reciplexa"
+publish = false
+
+[dependencies]
+reciplexa-identity = { workspace = true }
+reciplexa-source = { workspace = true }
+
+[dev-dependencies]
