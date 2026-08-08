@@ -5,9 +5,11 @@
 #![forbid(unsafe_code)]
 
 pub mod module;
+pub mod package;
 pub mod resolve;
 pub mod scope;
 
 pub use module::{ModuleSkeleton, ModuleUnit};
+pub use package::{resolve_package, PackageResolveResult};
 pub use resolve::{resolve_source, BindingEnv, ResolveError, ResolveResult};
 pub use scope::{ScopeStack, ScopeTree};
