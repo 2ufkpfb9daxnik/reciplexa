@@ -38,7 +38,7 @@ impl TestSubject {
 }
 
 /// Assert the subject succeeded.
-pub fn assert_subject_success<E, A: PartialEq + std::fmt::Debug>(
+pub fn assert_subject_success<E: std::fmt::Debug, A: PartialEq + std::fmt::Debug>(
     outcome: SubjectOutcome<A, E>,
     expected: A,
 ) {
