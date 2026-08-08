@@ -1,8 +1,11 @@
 //! Paper preview with drag → CST sync, plus a live `.rpx` source pane.
 
+mod document_state;
 mod fonts;
 mod prefs;
 mod preview_paint;
+
+use document_state::DocumentPathState;
 
 use std::env;
 use std::fs;
@@ -234,6 +237,7 @@ fn main() -> ExitCode {
                 collapse_layers: false,
                 collapse_preview: false,
                 collapse_props: false,
+                document_path: DocumentPathState::from_env(),
             }))
         }),
     ) {
@@ -301,6 +305,8 @@ struct PreviewApp {
     collapse_layers: bool,
     collapse_preview: bool,
     collapse_props: bool,
+    /// Optional document-model path (Phase 4 strangler); CST sync remains default.
+    document_path: DocumentPathState,
 }
 
 #[derive(Clone, Copy)]
@@ -379,6 +385,7 @@ impl PreviewApp {
             self.source = prev;
             self.drag = None;
             self.error = pipeline_doc(&self.source).err();
+            self.rebuild_document_path();
         }
     }
 
@@ -388,6 +395,7 @@ impl PreviewApp {
             self.source = next;
             self.drag = None;
             self.error = pipeline_doc(&self.source).err();
+            self.rebuild_document_path();
         }
     }
 
@@ -400,6 +408,9 @@ impl PreviewApp {
 
     fn select_layer(&mut self, index: usize, layers: &[LayerInfo]) {
         self.selected = vec![index];
+        if self.document_path.enabled {
+            self.document_path.select_layer(index);
+        }
         if let Some(layer) = layers.get(index) {
             self.pending_source_select = Some((layer.byte_start, layer.byte_end));
         }
@@ -411,6 +422,9 @@ impl PreviewApp {
         } else {
             self.selected.push(index);
         }
+        if self.document_path.enabled {
+            self.document_path.toggle_layer(index);
+        }
         if let Some(&last) = self.selected.last() {
             if let Some(layer) = layers.get(last) {
                 self.pending_source_select = Some((layer.byte_start, layer.byte_end));
@@ -420,7 +434,15 @@ impl PreviewApp {
 
     fn clear_selection(&mut self) {
         self.selected.clear();
+        self.document_path.clear_selection();
         self.props_undo_open = false;
+    }
+
+    fn rebuild_document_path(&mut self) {
+        if self.document_path.enabled {
+            self.document_path.rebuild(&self.source);
+            self.document_path.sync_selection_indices(&self.selected);
+        }
     }
 
     fn primary_selected(&self) -> Option<usize> {
@@ -534,6 +556,7 @@ impl PreviewApp {
                 }
                 self.source = new_src;
                 self.error = pipeline_doc(&self.source).err();
+                self.rebuild_document_path();
             }
             Err(e) => self.error = Some(e.message),
         }
@@ -558,6 +581,7 @@ impl PreviewApp {
                         self.drag = None;
                         self.clear_selection();
                         self.error = pipeline_doc(&self.source).err();
+                        self.rebuild_document_path();
                     }
                     Err(e) => self.error = Some(format!("reload: {e}")),
                 }
@@ -578,6 +602,7 @@ impl PreviewApp {
                         self.push_undo();
                         self.source = s;
                         self.error = pipeline_doc(&self.source).err();
+                        self.rebuild_document_path();
                     }
                     Err(e) => self.error = Some(format!("macro: {}", e.message)),
                 }
@@ -608,6 +633,7 @@ impl PreviewApp {
             }
             self.drag = None;
             self.error = pipeline_doc(&self.source).err();
+            self.rebuild_document_path();
         }
         if !response.has_focus() {
             self.typing_undo_open = false;
@@ -686,7 +712,7 @@ impl PreviewApp {
                 }
 
                 if response.clicked() && !response.dragged() {
-                    self.select_layer(flat, &layers);
+                    self.select_layer(flat, layers);
                 }
                 // Drop onto a row → take that stacking slot (rewrites .rpx).
                 if let Some(pointer) = ui.ctx().pointer_interact_pos() {
@@ -765,7 +791,23 @@ impl PreviewApp {
     }
 
     fn paint_preview_pane(&mut self, ui: &mut egui::Ui) {
-        ui.label("Scroll = zoom at cursor · Space/Middle/Alt-drag = pan · F = frame · Shift-drag = axis/aspect/15° · Ctrl-drag = 5mm snap.");
+        ui.horizontal(|ui| {
+            ui.label("Scroll = zoom at cursor · Space/Middle/Alt-drag = pan · F = frame · Shift-drag = axis/aspect/15° · Ctrl-drag = 5mm snap.");
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                if ui
+                    .checkbox(&mut self.document_path.enabled, "Document path")
+                    .on_hover_text("Phase 4: keep StableNodeId selection alongside CST sync")
+                    .changed()
+                {
+                    self.rebuild_document_path();
+                }
+                if self.document_path.enabled {
+                    if let Some(id) = self.document_path.primary_node() {
+                        ui.weak(format!("node {}", id.get()));
+                    }
+                }
+            });
+        });
 
         let doc = match pipeline_doc(&self.source) {
             Ok(d) => d,
@@ -1507,6 +1549,9 @@ impl PreviewApp {
                     let h = aabb.3 - aabb.1;
                     if w > 0.5 || h > 0.5 {
                         let hits = shapes_intersecting_aabb(&shapes, aabb);
+                        if self.document_path.enabled {
+                            self.document_path.select_layers(&hits);
+                        }
                         self.selected = hits;
                         if let Some(&last) = self.selected.last() {
                             if let Some(layer) = layers.get(last) {
@@ -1704,6 +1749,7 @@ impl PreviewApp {
                     Ok(new_src) => {
                         self.set_source_with_undo(new_src);
                         self.error = pipeline_doc(&self.source).err();
+                        self.rebuild_document_path();
                     }
                     Err(e) => self.error = Some(e.message),
                 }
@@ -1714,6 +1760,7 @@ impl PreviewApp {
                     Ok(new_src) => {
                         self.set_source_with_undo(new_src);
                         self.error = pipeline_doc(&self.source).err();
+                        self.rebuild_document_path();
                     }
                     Err(e) => self.error = Some(e.message),
                 }
@@ -1728,6 +1775,7 @@ impl PreviewApp {
                     Ok(new_src) => {
                         self.set_source_with_undo(new_src);
                         self.error = pipeline_doc(&self.source).err();
+                        self.rebuild_document_path();
                     }
                     Err(e) => self.error = Some(e.message),
                 }
@@ -1742,6 +1790,7 @@ impl PreviewApp {
                     Ok(new_src) => {
                         self.set_source_with_undo(new_src);
                         self.error = pipeline_doc(&self.source).err();
+                        self.rebuild_document_path();
                     }
                     Err(e) => self.error = Some(e.message),
                 }
@@ -1947,6 +1996,7 @@ impl PreviewApp {
                                     self.push_undo();
                                     self.source = new_src;
                                     self.error = pipeline_doc(&self.source).err();
+        self.rebuild_document_path();
                                 }
                                 Err(e) => self.error = Some(e.message),
                             }
@@ -2008,6 +2058,7 @@ impl PreviewApp {
                     self.push_undo();
                     self.source = new_src;
                     self.error = pipeline_doc(&self.source).err();
+                    self.rebuild_document_path();
                 }
                 Err(e) => self.error = Some(e.message),
             }
@@ -2039,6 +2090,7 @@ impl PreviewApp {
                 self.drag = None;
                 self.selected = vec![to];
                 self.error = pipeline_doc(&self.source).err();
+                self.rebuild_document_path();
                 if let Ok(layers) = collect_layers_page(&self.source, self.page_index) {
                     if let Some(layer) = layers.get(to) {
                         self.pending_source_select = Some((layer.byte_start, layer.byte_end));
@@ -2080,6 +2132,7 @@ impl PreviewApp {
         self.drag = None;
         self.selected = new_sel;
         self.error = pipeline_doc(&self.source).err();
+        self.rebuild_document_path();
         if let Some(&last) = self.selected.last() {
             if let Ok(layers) = collect_layers_page(&self.source, self.page_index) {
                 if let Some(layer) = layers.get(last) {
@@ -2142,6 +2195,7 @@ impl PreviewApp {
         self.source = src;
         self.selected = new_sel;
         self.error = pipeline_doc(&self.source).err();
+        self.rebuild_document_path();
     }
 
     /// Insert a core shape form onto the current page and select it.
@@ -2174,6 +2228,7 @@ impl PreviewApp {
                 }
                 self.selected = vec![idx];
                 self.error = pipeline_doc(&self.source).err();
+                self.rebuild_document_path();
                 if let Ok(layers) = collect_layers_page(&self.source, self.page_index) {
                     if let Some(layer) = layers.get(idx) {
                         self.pending_source_select = Some((layer.byte_start, layer.byte_end));
@@ -2213,6 +2268,7 @@ impl PreviewApp {
                 self.typing_undo_open = false;
                 self.props_undo_open = false;
                 self.error = pipeline_doc(&self.source).err();
+                self.rebuild_document_path();
                 self.mark_saved();
                 self.title_dirty = true; // force title refresh
                 set_window_title(ctx, &self.path, false);
@@ -2337,6 +2393,7 @@ impl PreviewApp {
         self.clear_selection();
         self.drag = None;
         self.error = pipeline_doc(&self.source).err();
+        self.rebuild_document_path();
     }
     fn align_selection(&mut self, edge: AlignEdge) {
         let Ok(doc) = pipeline_doc(&self.source) else {
@@ -2411,6 +2468,7 @@ impl PreviewApp {
         }
         self.source = src;
         self.error = pipeline_doc(&self.source).err();
+        self.rebuild_document_path();
     }
 
     fn distribute_selection(&mut self, horizontal: bool) {
@@ -2464,6 +2522,7 @@ impl PreviewApp {
         }
         self.source = src;
         self.error = pipeline_doc(&self.source).err();
+        self.rebuild_document_path();
     }
 
     fn bring_selection_to_front(&mut self) {
@@ -2509,6 +2568,7 @@ impl PreviewApp {
             self.selected = ((n - count)..n).collect();
         }
         self.error = pipeline_doc(&self.source).err();
+        self.rebuild_document_path();
     }
 
     fn send_selection_to_back(&mut self) {
@@ -2546,6 +2606,7 @@ impl PreviewApp {
         self.source = src;
         self.selected = (0..count).collect();
         self.error = pipeline_doc(&self.source).err();
+        self.rebuild_document_path();
     }
 
     /// Move selection one step toward front (`delta > 0`) or back (`delta < 0`).
@@ -2610,6 +2671,7 @@ impl PreviewApp {
         self.source = src;
         self.selected = sel;
         self.error = pipeline_doc(&self.source).err();
+        self.rebuild_document_path();
     }
 
     fn group_selection(&mut self) {
@@ -2623,6 +2685,7 @@ impl PreviewApp {
                 self.source = new_src;
                 self.selected = sel;
                 self.error = pipeline_doc(&self.source).err();
+                self.rebuild_document_path();
             }
             Err(e) => {
                 let _ = self.undo_stack.pop();
@@ -2641,6 +2704,7 @@ impl PreviewApp {
                 self.source = new_src;
                 self.selected = sel;
                 self.error = pipeline_doc(&self.source).err();
+                self.rebuild_document_path();
             }
             Err(e) => {
                 let _ = self.undo_stack.pop();
@@ -2658,6 +2722,7 @@ impl PreviewApp {
                 self.drag = None;
                 self.clear_selection();
                 self.error = pipeline_doc(&self.source).err();
+                self.rebuild_document_path();
             }
             Err(e) => {
                 let _ = self.undo_stack.pop();
@@ -2677,6 +2742,7 @@ impl PreviewApp {
                 self.drag = None;
                 self.clear_selection();
                 self.error = pipeline_doc(&self.source).err();
+                self.rebuild_document_path();
             }
             Err(e) => {
                 let _ = self.undo_stack.pop();
@@ -2940,6 +3006,7 @@ impl eframe::App for PreviewApp {
                 }
                 self.source = src;
                 self.error = pipeline_doc(&self.source).err();
+                self.rebuild_document_path();
             }
             if ctx
                 .input(|i| i.key_pressed(egui::Key::Delete) || i.key_pressed(egui::Key::Backspace))

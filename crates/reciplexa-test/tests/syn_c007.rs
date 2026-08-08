@@ -5,11 +5,7 @@ use reciplexa_test::{run_conformance, ConformanceCase};
 
 #[test]
 fn test_syn_c007_multiple_parse_diagnostics() {
-    let case = ConformanceCase::new(
-        "TEST-SYN-C007",
-        "LEX/SYN",
-        "multiple diagnostics collected",
-    );
+    let case = ConformanceCase::new("TEST-SYN-C007", "LEX/SYN", "multiple diagnostics collected");
     run_conformance(&case, || {
         // Unexpected close, then another malformed form.
         let parse = parse_source(") (unclosed");

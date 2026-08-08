@@ -32,10 +32,7 @@ pub fn resolve_package(
         });
         modules.insert(module_id, resolve_source(source));
     }
-    PackageResolveResult {
-        skeleton,
-        modules,
-    }
+    PackageResolveResult { skeleton, modules }
 }
 
 #[cfg(test)]

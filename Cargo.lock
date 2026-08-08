@@ -2885,6 +2885,7 @@ dependencies = [
  "reciplexa-identity",
  "reciplexa-scene",
  "reciplexa-source",
+ "reciplexa-syntax",
 ]
 
 [[package]]
@@ -2909,7 +2910,9 @@ dependencies = [
  "eframe",
  "egui",
  "reciplexa",
+ "reciplexa-document",
  "reciplexa-effect",
+ "reciplexa-identity",
  "reciplexa-lower",
  "reciplexa-macro",
  "reciplexa-pdf",
@@ -2933,6 +2936,7 @@ name = "reciplexa-ir"
 version = "0.1.0"
 dependencies = [
  "reciplexa-core",
+ "reciplexa-eval",
  "reciplexa-outcome",
 ]
 
@@ -3018,12 +3022,16 @@ dependencies = [
 name = "reciplexa-test"
 version = "0.1.0"
 dependencies = [
+ "reciplexa",
  "reciplexa-core",
  "reciplexa-diagnostic",
+ "reciplexa-document",
  "reciplexa-eval",
+ "reciplexa-identity",
  "reciplexa-ir",
  "reciplexa-outcome",
  "reciplexa-runtime",
+ "reciplexa-scene",
  "reciplexa-source",
  "reciplexa-syntax",
 ]

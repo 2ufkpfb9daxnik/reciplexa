@@ -129,9 +129,8 @@ fn resolve_expr(
     env: &mut BindingEnv,
     errors: &mut Vec<ResolveError>,
 ) {
-    match node.kind() {
-        SyntaxKind::List => resolve_form(node, stack, env, errors),
-        _ => {}
+    if node.kind() == SyntaxKind::List {
+        resolve_form(node, stack, env, errors);
     }
     for el in node.children_with_tokens() {
         if let SyntaxElement::Token(tok) = el {
