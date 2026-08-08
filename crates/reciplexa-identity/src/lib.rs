@@ -5,6 +5,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod binding;
 pub mod document;
 pub mod package;
 pub mod syntax;
