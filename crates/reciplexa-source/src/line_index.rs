@@ -41,6 +41,12 @@ pub struct SourcePosition {
     pub column: ColumnNumber,
 }
 
+impl core::fmt::Display for SourcePosition {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{}:{}", self.line.get(), self.column.get())
+    }
+}
+
 /// Index mapping byte offsets to line starts.
 #[derive(Debug, Clone, Default)]
 pub struct LineIndex {
@@ -101,6 +107,13 @@ mod tests {
         let pos = idx.position(ByteOffset::new(3));
         assert_eq!(pos.line.get(), 2);
         assert_eq!(pos.column.get(), 1);
+    }
+
+    #[test]
+    fn position_formats_as_line_column() {
+        let idx = LineIndex::new("(page a4)");
+        let pos = idx.position(ByteOffset::new(6));
+        assert_eq!(pos.to_string(), "1:7");
     }
 
     #[test]
