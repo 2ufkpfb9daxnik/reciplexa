@@ -48,6 +48,12 @@ mod tests {
     use reciplexa_source::resource::SourceResourceId;
 
     #[test]
+    fn empty_render_returns_empty_string() {
+        let index = LineIndex::new("");
+        assert_eq!(render_diagnostics(&index, &[]), "");
+    }
+
+    #[test]
     fn renders_line_with_location() {
         let index = LineIndex::new("(page a4");
         let diag = Diagnostic::new(
