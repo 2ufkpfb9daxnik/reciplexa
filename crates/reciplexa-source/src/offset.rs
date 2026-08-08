@@ -62,6 +62,11 @@ mod tests {
     use super::*;
 
     #[test]
+    fn saturating_sub_does_not_underflow() {
+        assert_eq!(ByteOffset::new(3).saturating_sub(10), ByteOffset::ZERO);
+    }
+
+    #[test]
     fn zero_is_default() {
         assert_eq!(ByteOffset::default(), ByteOffset::ZERO);
     }
