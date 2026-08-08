@@ -1,0 +1,13 @@
+[package]
+name = "reciplexa-outcome"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Outcome, failure, cancellation, and defect classification for reciplexa"
+publish = false
+
+[dependencies]
+reciplexa-identity = { workspace = true }
+reciplexa-source = { workspace = true }
+
+[dev-dependencies]
