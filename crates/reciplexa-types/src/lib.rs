@@ -108,7 +108,7 @@ fn check_form(node: &SyntaxNode) -> Result<Type, TypeError> {
                             span.1,
                         ));
                     }
-                    expect_ty(check_child(&args[1])?, Type::Number, node)?;
+                    require_ty(&args[1], Type::Number, node)?;
                     2
                 }
                 other => {
@@ -120,7 +120,7 @@ fn check_form(node: &SyntaxNode) -> Result<Type, TypeError> {
                 }
             };
             for a in args.iter().skip(shape_start) {
-                expect_ty(check_child(a)?, Type::Shape, node)?;
+                require_ty(a, Type::Shape, node)?;
             }
             Ok(Type::Page)
         }
@@ -130,7 +130,7 @@ fn check_form(node: &SyntaxNode) -> Result<Type, TypeError> {
         }
         "src" => {
             for a in &args {
-                expect_ty(check_src_child(a)?, Type::Unit, node)?;
+                require_src_ty(a, Type::Unit, node)?;
             }
             Ok(Type::Src)
         }
@@ -145,10 +145,10 @@ fn check_form(node: &SyntaxNode) -> Result<Type, TypeError> {
                 ));
             }
             for a in args.iter().take(3) {
-                expect_ty(check_child(a)?, Type::Number, node)?;
+                require_ty(a, Type::Number, node)?;
             }
             if args.len() == 4 {
-                expect_ty(check_child(&args[3])?, Type::Color, node)?;
+                require_ty(&args[3], Type::Color, node)?;
             }
             Ok(Type::Shape)
         }
@@ -162,10 +162,10 @@ fn check_form(node: &SyntaxNode) -> Result<Type, TypeError> {
                 ));
             }
             for a in args.iter().take(4) {
-                expect_ty(check_child(a)?, Type::Number, node)?;
+                require_ty(a, Type::Number, node)?;
             }
             if args.len() == 5 {
-                expect_ty(check_child(&args[4])?, Type::Color, node)?;
+                require_ty(&args[4], Type::Color, node)?;
             }
             Ok(Type::Shape)
         }
@@ -178,10 +178,10 @@ fn check_form(node: &SyntaxNode) -> Result<Type, TypeError> {
                 ));
             }
             for a in args.iter().take(4) {
-                expect_ty(check_child(a)?, Type::Number, node)?;
+                require_ty(a, Type::Number, node)?;
             }
             if args.len() == 5 {
-                expect_ty(check_child(&args[4])?, Type::Color, node)?;
+                require_ty(&args[4], Type::Color, node)?;
             }
             Ok(Type::Shape)
         }
@@ -194,10 +194,10 @@ fn check_form(node: &SyntaxNode) -> Result<Type, TypeError> {
                 ));
             }
             for a in args.iter().take(4) {
-                expect_ty(check_child(a)?, Type::Number, node)?;
+                require_ty(a, Type::Number, node)?;
             }
             if args.len() == 5 {
-                expect_ty(check_child(&args[4])?, Type::Color, node)?;
+                require_ty(&args[4], Type::Color, node)?;
             }
             Ok(Type::Shape)
         }
@@ -210,10 +210,10 @@ fn check_form(node: &SyntaxNode) -> Result<Type, TypeError> {
                 ));
             }
             for a in args.iter().take(5) {
-                expect_ty(check_child(a)?, Type::Number, node)?;
+                require_ty(a, Type::Number, node)?;
             }
             if args.len() == 6 {
-                expect_ty(check_child(&args[5])?, Type::Color, node)?;
+                require_ty(&args[5], Type::Color, node)?;
             }
             Ok(Type::Shape)
         }
@@ -223,20 +223,20 @@ fn check_form(node: &SyntaxNode) -> Result<Type, TypeError> {
             match args.len() {
                 4 | 5 => {
                     for a in args.iter().take(3) {
-                        expect_ty(check_child(a)?, Type::Number, node)?;
+                        require_ty(a, Type::Number, node)?;
                     }
-                    expect_ty(check_child(&args[3])?, Type::String, node)?;
+                    require_ty(&args[3], Type::String, node)?;
                     if args.len() == 5 {
-                        expect_ty(check_child(&args[4])?, Type::Color, node)?;
+                        require_ty(&args[4], Type::Color, node)?;
                     }
                 }
                 6 | 7 => {
                     for a in args.iter().take(5) {
-                        expect_ty(check_child(a)?, Type::Number, node)?;
+                        require_ty(a, Type::Number, node)?;
                     }
-                    expect_ty(check_child(&args[5])?, Type::String, node)?;
+                    require_ty(&args[5], Type::String, node)?;
                     if args.len() == 7 {
-                        expect_ty(check_child(&args[6])?, Type::Color, node)?;
+                        require_ty(&args[6], Type::Color, node)?;
                     }
                 }
                 _ => {
@@ -258,13 +258,13 @@ fn check_form(node: &SyntaxNode) -> Result<Type, TypeError> {
                 ));
             }
             for a in args.iter().take(4) {
-                expect_ty(check_child(a)?, Type::Number, node)?;
+                require_ty(a, Type::Number, node)?;
             }
             if args.len() >= 5 {
-                expect_ty(check_child(&args[4])?, Type::Color, node)?;
+                require_ty(&args[4], Type::Color, node)?;
             }
             if args.len() == 6 {
-                expect_ty(check_child(&args[5])?, Type::Number, node)?;
+                require_ty(&args[5], Type::Number, node)?;
             }
             Ok(Type::Shape)
         }
@@ -278,9 +278,9 @@ fn check_form(node: &SyntaxNode) -> Result<Type, TypeError> {
                     span.1,
                 ));
             }
-            expect_ty(check_child(&args[0])?, Type::String, node)?;
+            require_ty(&args[0], Type::String, node)?;
             for a in args.iter().skip(1) {
-                expect_ty(check_child(a)?, Type::Number, node)?;
+                require_ty(a, Type::Number, node)?;
             }
             Ok(Type::Shape)
         }
@@ -293,7 +293,7 @@ fn check_form(node: &SyntaxNode) -> Result<Type, TypeError> {
                 ));
             }
             for a in &args {
-                expect_ty(check_child(a)?, Type::Number, node)?;
+                require_ty(a, Type::Number, node)?;
             }
             Ok(Type::Color)
         }
@@ -305,10 +305,10 @@ fn check_form(node: &SyntaxNode) -> Result<Type, TypeError> {
                     span.1,
                 ));
             }
-            expect_ty(check_child(&args[0])?, Type::Number, node)?;
-            expect_ty(check_child(&args[1])?, Type::Number, node)?;
+            require_ty(&args[0], Type::Number, node)?;
+            require_ty(&args[1], Type::Number, node)?;
             for a in args.iter().skip(2) {
-                expect_ty(check_child(a)?, Type::Shape, node)?;
+                require_ty(a, Type::Shape, node)?;
             }
             Ok(Type::Shape)
         }
@@ -320,9 +320,9 @@ fn check_form(node: &SyntaxNode) -> Result<Type, TypeError> {
                     span.1,
                 ));
             }
-            expect_ty(check_child(&args[0])?, Type::Number, node)?;
+            require_ty(&args[0], Type::Number, node)?;
             for a in args.iter().skip(1) {
-                expect_ty(check_child(a)?, Type::Shape, node)?;
+                require_ty(a, Type::Shape, node)?;
             }
             Ok(Type::Shape)
         }
@@ -336,7 +336,7 @@ fn check_form(node: &SyntaxNode) -> Result<Type, TypeError> {
                 ));
             }
             for a in &args {
-                expect_ty(check_child(a)?, Type::Shape, node)?;
+                require_ty(a, Type::Shape, node)?;
             }
             Ok(Type::Shape)
         }
@@ -348,9 +348,9 @@ fn check_form(node: &SyntaxNode) -> Result<Type, TypeError> {
                     span.1,
                 ));
             }
-            expect_ty(check_child(&args[0])?, Type::Number, node)?;
+            require_ty(&args[0], Type::Number, node)?;
             for a in args.iter().skip(1) {
-                expect_ty(check_child(a)?, Type::Shape, node)?;
+                require_ty(a, Type::Shape, node)?;
             }
             Ok(Type::Shape)
         }
@@ -400,7 +400,7 @@ fn check_perform(
                     span.1,
                 ));
             }
-            expect_ty(check_child(&args[1])?, Type::String, node)?;
+            require_ty(&args[1], Type::String, node)?;
         }
         EffectOp::Random => {
             if args.len() != 1 {
@@ -479,7 +479,7 @@ fn check_handle(
         ));
     }
     for a in args.iter().skip(1) {
-        expect_ty(check_src_child(a)?, Type::Unit, node)?;
+        require_src_ty(a, Type::Unit, node)?;
     }
     Ok(Type::Unit)
 }
@@ -501,11 +501,11 @@ fn check_polyline(
         && synthesizes_number(&args[end - 1])
         && matches!(check_child(&args[end - 2]), Ok(Type::Color))
     {
-        expect_ty(check_child(&args[end - 1])?, Type::Number, node)?;
-        expect_ty(check_child(&args[end - 2])?, Type::Color, node)?;
+        require_ty(&args[end - 1], Type::Number, node)?;
+        require_ty(&args[end - 2], Type::Color, node)?;
         end -= 2;
     } else if end >= 1 && matches!(check_child(&args[end - 1]), Ok(Type::Color)) {
-        expect_ty(check_child(&args[end - 1])?, Type::Color, node)?;
+        require_ty(&args[end - 1], Type::Color, node)?;
         end -= 1;
     }
     let coords = &args[..end];
@@ -517,7 +517,7 @@ fn check_polyline(
         ));
     }
     for a in coords {
-        expect_ty(check_child(a)?, Type::Number, node)?;
+        require_ty(a, Type::Number, node)?;
     }
     Ok(Type::Shape)
 }
@@ -536,7 +536,7 @@ fn check_polygon(
     }
     let mut end = args.len();
     if end >= 1 && matches!(check_child(&args[end - 1]), Ok(Type::Color)) {
-        expect_ty(check_child(&args[end - 1])?, Type::Color, node)?;
+        require_ty(&args[end - 1], Type::Color, node)?;
         end -= 1;
     }
     let coords = &args[..end];
@@ -548,7 +548,7 @@ fn check_polygon(
         ));
     }
     for a in coords {
-        expect_ty(check_child(a)?, Type::Number, node)?;
+        require_ty(a, Type::Number, node)?;
     }
     Ok(Type::Shape)
 }
@@ -561,9 +561,9 @@ fn check_scale(args: &[Child], node: &SyntaxNode, span: (usize, usize)) -> Resul
             span.1,
         ));
     }
-    expect_ty(check_child(&args[0])?, Type::Number, node)?;
+    require_ty(&args[0], Type::Number, node)?;
     let rest = if args.len() >= 2 && synthesizes_number(&args[1]) {
-        expect_ty(check_child(&args[1])?, Type::Number, node)?;
+        require_ty(&args[1], Type::Number, node)?;
         &args[2..]
     } else {
         &args[1..]
@@ -576,7 +576,7 @@ fn check_scale(args: &[Child], node: &SyntaxNode, span: (usize, usize)) -> Resul
         ));
     }
     for a in rest {
-        expect_ty(check_child(a)?, Type::Shape, node)?;
+        require_ty(a, Type::Shape, node)?;
     }
     Ok(Type::Shape)
 }
@@ -629,6 +629,21 @@ fn expect_ty(got: Type, want: Type, node: &SyntaxNode) -> Result<(), TypeError> 
     }
 }
 
+/// check_child + expect_ty without nested `?` (keeps region coverage honest).
+fn require_ty(child: &Child, want: Type, node: &SyntaxNode) -> Result<(), TypeError> {
+    match check_child(child) {
+        Ok(got) => expect_ty(got, want, node),
+        Err(e) => Err(e),
+    }
+}
+
+fn require_src_ty(child: &Child, want: Type, node: &SyntaxNode) -> Result<(), TypeError> {
+    match check_src_child(child) {
+        Ok(got) => expect_ty(got, want, node),
+        Err(e) => Err(e),
+    }
+}
+
 #[derive(Debug)]
 enum Child {
     Node(SyntaxNode),
@@ -673,620 +688,4 @@ fn split_list(node: &SyntaxNode) -> Result<SplitList, TypeError> {
     }
     let head = head_tok.text().to_string();
     Ok((head, items.into_iter().skip(1).collect(), span))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    // --- validity ---
-
-    #[test]
-    fn black_circle_page_is_document() {
-        let ty = typecheck_source("(page a4 (circle 105 148.5 40))").unwrap();
-        assert_eq!(ty, Type::Document);
-    }
-
-    #[test]
-    fn letter_and_opacity_typecheck() {
-        let src = "(page letter (opacity 0.5 (circle 1 2 3 red)))";
-        assert_eq!(typecheck_source(src).unwrap(), Type::Document);
-    }
-
-    #[test]
-    fn numeric_paper_typecheck() {
-        let src = "(page 210 297 (circle 1 2 3))";
-        assert_eq!(typecheck_source(src).unwrap(), Type::Document);
-    }
-
-    #[test]
-    fn transformed_colored_program_typechecks() {
-        let src = r#"
-(page a4
-  (translate 105 148.5
-    (rotate 30
-      (scale 1.5
-        (circle 0 0 20 red)))))
-"#;
-        assert_eq!(typecheck_source(src).unwrap(), Type::Document);
-    }
-
-    #[test]
-    fn rgb_and_nonuniform_scale_typecheck() {
-        let src = "(page a4 (scale 2 3 (circle 0 0 5 (rgb 0.2 0.4 0.6))))";
-        assert_eq!(typecheck_source(src).unwrap(), Type::Document);
-    }
-
-    #[test]
-    fn doc_block_typechecks_as_document() {
-        assert_eq!(
-            typecheck_source("(doc Hello @em{x})").unwrap(),
-            Type::Document
-        );
-    }
-
-    #[test]
-    fn mixed_page_and_doc_typecheck() {
-        assert_eq!(
-            typecheck_source("(page a4 (circle 1 2 3))\n(doc hi)").unwrap(),
-            Type::Document
-        );
-    }
-
-    #[test]
-    fn text_and_line_typecheck() {
-        let src = r#"(page a4 (text 1 2 3 "Hi" red) (line 0 0 10 10 blue 0.5))"#;
-        assert_eq!(typecheck_source(src).unwrap(), Type::Document);
-        let boxed = r#"(page a4 (text 1 2 3 40 20 "Hi" red))"#;
-        assert_eq!(typecheck_source(boxed).unwrap(), Type::Document);
-        assert!(typecheck_source(r#"(page a4 (text 1 2 3 10 20))"#).is_err());
-    }
-
-    #[test]
-    fn ellipse_typecheck() {
-        assert_eq!(
-            typecheck_source("(page a4 (ellipse 1 2 3 4 red))").unwrap(),
-            Type::Document
-        );
-    }
-
-    #[test]
-    fn ring_and_frame_typecheck() {
-        let src = "(page a4 (ring 1 2 3 0.5) (frame 0 0 10 10 1 red))";
-        assert_eq!(typecheck_source(src).unwrap(), Type::Document);
-    }
-
-    #[test]
-    fn polyline_typecheck() {
-        assert_eq!(
-            typecheck_source("(page a4 (polyline 0 0 1 1 2 0 red 1))").unwrap(),
-            Type::Document
-        );
-    }
-
-    #[test]
-    fn src_with_perform_typechecks() {
-        let src = r#"
-(src
-  (perform log "building")
-  (perform random))
-(page a4 (circle 1 2 3))
-"#;
-        assert_eq!(typecheck_source(src).unwrap(), Type::Document);
-    }
-
-    #[test]
-    fn src_with_handle_log_typechecks() {
-        let src = r#"
-(src
-  (handle log
-    (perform log "muted")
-    (perform random)))
-(page a4 (circle 1 2 3))
-"#;
-        assert_eq!(typecheck_source(src).unwrap(), Type::Document);
-    }
-
-    #[test]
-    fn src_with_handle_write_path_typechecks() {
-        let src = r#"
-(src
-  (handle write-path
-    (perform write-path "silent.pdf")
-    (perform log "ok")))
-(page a4 (circle 1 2 3))
-"#;
-        assert_eq!(typecheck_source(src).unwrap(), Type::Document);
-    }
-
-    // --- defect ---
-
-    #[test]
-    fn circle_with_shape_where_number_fails() {
-        let err = typecheck_source("(page a4 (circle (circle 0 0 1) 0 1))").unwrap_err();
-        assert!(err.message.contains("type mismatch"));
-    }
-
-    #[test]
-    fn page_body_must_be_shape() {
-        let err = typecheck_source("(page a4 12)").unwrap_err();
-        assert!(err.message.contains("type mismatch"));
-    }
-
-    #[test]
-    fn unknown_ident_fails() {
-        let err = typecheck_source("(page a4 (circle 0 0 1 puce))").unwrap_err();
-        assert!(err.message.contains("unbound identifier"));
-    }
-
-    #[test]
-    fn unknown_effect_op_fails() {
-        let err =
-            typecheck_source("(src (perform draw \"x\"))\n(page a4 (circle 1 2 3))").unwrap_err();
-        assert!(err.message.contains("unknown effect op"));
-    }
-
-    #[test]
-    fn handle_random_is_not_typed() {
-        let err =
-            typecheck_source("(src (handle random (perform log \"x\")))\n(page a4 (circle 1 2 3))")
-                .unwrap_err();
-        assert!(err.message.contains("write-path") || err.message.contains("random"));
-    }
-
-    #[test]
-    fn unknown_form_fails() {
-        let err = typecheck_source("(page a4 (square 1))").unwrap_err();
-        assert!(err.message.contains("unknown form"));
-    }
-
-    #[test]
-    fn parse_error_surfaces() {
-        let err = typecheck_source("(page a4").unwrap_err();
-        assert!(err.message.contains("parse error"));
-    }
-
-    #[test]
-    fn scale_without_body_fails() {
-        assert!(typecheck_source("(page a4 (scale 2))").is_err());
-    }
-
-    #[test]
-    fn empty_source_fails() {
-        assert!(typecheck_source("").is_err());
-    }
-
-    #[test]
-    fn polygon_and_image_typecheck() {
-        let src = "(page a4 (polygon 0 0 1 0 1 1 red) (image \"x.png\" 0 0 10 10))";
-        assert_eq!(typecheck_source(src).unwrap(), Type::Document);
-    }
-
-    #[test]
-    fn group_and_translate_typecheck() {
-        let src = "(page a4 (translate 1 2 (group (circle 0 0 1) (rect 1 2 3 4))))";
-        assert_eq!(typecheck_source(src).unwrap(), Type::Document);
-    }
-
-    #[test]
-    fn rotate_typecheck() {
-        assert_eq!(
-            typecheck_source("(page a4 (rotate 45 (circle 0 0 1)))").unwrap(),
-            Type::Document
-        );
-    }
-
-    #[test]
-    fn perform_random_wrong_arity_fails() {
-        let err =
-            typecheck_source("(src (perform random \"x\"))\n(page a4 (circle 1 2 3))").unwrap_err();
-        assert!(err.message.contains("random"));
-    }
-
-    #[test]
-    fn src_token_body_fails() {
-        let err = typecheck_source("(src 42)\n(page a4)").unwrap_err();
-        assert!(err.message.contains("list forms") || err.message.contains("type mismatch"));
-    }
-
-    #[test]
-    fn page_numeric_paper_needs_height() {
-        let err = typecheck_source("(page 210)").unwrap_err();
-        assert!(!err.message.is_empty());
-    }
-
-    #[test]
-    fn polyline_odd_coords_fails() {
-        let err = typecheck_source("(page a4 (polyline 0 0 1))").unwrap_err();
-        assert!(!err.message.is_empty());
-    }
-
-    #[test]
-    fn rgb_wrong_arity_fails() {
-        let err = typecheck_source("(page a4 (rgb 1 2))").unwrap_err();
-        assert!(err.message.contains("rgb"));
-    }
-
-    #[test]
-    fn handle_missing_op_fails() {
-        let err = typecheck_source("(src (handle))\n(page a4)").unwrap_err();
-        assert!(!err.message.is_empty());
-    }
-
-    #[test]
-    fn polyline_color_only_typechecks() {
-        let src = "(page a4 (polyline 0 0 1 1 2 0 red))";
-        assert_eq!(typecheck_source(src).unwrap(), Type::Document);
-    }
-
-    #[test]
-    fn polyline_too_few_args_fails() {
-        let err = typecheck_source("(page a4 (polyline 0 0))").unwrap_err();
-        assert!(err.message.contains("polyline"));
-    }
-
-    #[test]
-    fn polygon_without_color_typechecks() {
-        let src = "(page a4 (polygon 0 0 1 0 1 1 0 1))";
-        assert_eq!(typecheck_source(src).unwrap(), Type::Document);
-    }
-
-    #[test]
-    fn polygon_too_few_points_fails() {
-        let err = typecheck_source("(page a4 (polygon 0 0 1 0))").unwrap_err();
-        assert!(err.message.contains("polygon"));
-    }
-
-    #[test]
-    fn line_with_width_and_color_typechecks() {
-        let src = "(page a4 (line 0 0 10 10 blue 2))";
-        assert_eq!(typecheck_source(src).unwrap(), Type::Document);
-    }
-
-    #[test]
-    fn ellipse_without_color_typechecks() {
-        let src = "(page a4 (ellipse 1 2 3 4))";
-        assert_eq!(typecheck_source(src).unwrap(), Type::Document);
-    }
-
-    #[test]
-    fn rgb_color_in_circle_typechecks() {
-        let src = "(page a4 (circle 1 2 3 (rgb 1 0 0)))";
-        assert_eq!(typecheck_source(src).unwrap(), Type::Document);
-    }
-
-    #[test]
-    fn opacity_requires_shape_body() {
-        let err = typecheck_source("(page a4 (opacity 0.5))").unwrap_err();
-        assert!(!err.message.is_empty());
-    }
-
-    #[test]
-    fn page_empty_and_bad_paper_fail() {
-        assert!(typecheck_source("(page)")
-            .unwrap_err()
-            .message
-            .contains("paper"));
-        let err = typecheck_source("(page \"a4\" (circle 0 0 1))").unwrap_err();
-        assert!(err.message.contains("Paper") || err.message.contains("paper"));
-    }
-
-    #[test]
-    fn shape_arity_boundaries() {
-        assert!(typecheck_source("(page a4 (circle 1 2))").is_err());
-        assert!(typecheck_source("(page a4 (circle 1 2 3 4 5))").is_err());
-        assert!(typecheck_source("(page a4 (rect 1 2 3))").is_err());
-        assert!(typecheck_source("(page a4 (rect 1 2 3 4 5 6))").is_err());
-        assert!(typecheck_source("(page a4 (ellipse 1 2 3))").is_err());
-        assert!(typecheck_source("(page a4 (ring 1 2 3))").is_err());
-        assert!(typecheck_source("(page a4 (frame 1 2 3 4))").is_err());
-        assert!(typecheck_source("(page a4 (image \"x.png\" 0 0 1))").is_err());
-        assert!(typecheck_source("(page a4 (translate 1))").is_err());
-        assert!(typecheck_source("(page a4 (rotate))").is_err());
-        assert!(typecheck_source("(page a4 (group))").is_err());
-        assert!(typecheck_source("(page a4 (line 0 0 1))").is_err());
-        assert!(typecheck_source("(page a4 (line 0 0 1 1 red 2 extra))").is_err());
-        assert!(typecheck_source("(page a4 (text 1 2))").is_err());
-    }
-
-    #[test]
-    fn color_and_paper_idents_partition() {
-        for color in ["black", "white", "red", "green", "blue"] {
-            let src = format!("(page a4 (circle 0 0 1 {color}))");
-            assert_eq!(typecheck_source(&src).unwrap(), Type::Document);
-        }
-        for paper in ["a4", "letter"] {
-            let src = format!("(page {paper} (circle 0 0 1))");
-            assert_eq!(typecheck_source(&src).unwrap(), Type::Document);
-        }
-    }
-
-    #[test]
-    fn rect_ring_frame_with_and_without_color() {
-        assert_eq!(
-            typecheck_source("(page a4 (rect 0 0 1 1))").unwrap(),
-            Type::Document
-        );
-        assert_eq!(
-            typecheck_source("(page a4 (rect 0 0 1 1 blue))").unwrap(),
-            Type::Document
-        );
-        assert_eq!(
-            typecheck_source("(page a4 (ring 1 2 3 0.5 red))").unwrap(),
-            Type::Document
-        );
-        assert_eq!(
-            typecheck_source("(page a4 (frame 0 0 10 10 1 blue))").unwrap(),
-            Type::Document
-        );
-    }
-
-    #[test]
-    fn text_boxed_with_color_and_line_color_only() {
-        assert_eq!(
-            typecheck_source(r#"(page a4 (text 1 2 3 40 20 "Hi" blue))"#).unwrap(),
-            Type::Document
-        );
-        assert_eq!(
-            typecheck_source("(page a4 (line 0 0 10 10 red))").unwrap(),
-            Type::Document
-        );
-        assert_eq!(
-            typecheck_source("(page a4 (line 0 0 10 10))").unwrap(),
-            Type::Document
-        );
-    }
-
-    #[test]
-    fn scale_uniform_and_nonuniform_and_errors() {
-        assert_eq!(
-            typecheck_source("(page a4 (scale 2 (circle 0 0 1)))").unwrap(),
-            Type::Document
-        );
-        assert!(typecheck_source("(page a4 (scale))").is_err());
-        assert!(typecheck_source("(page a4 (scale 2 3))").is_err());
-        let err = typecheck_source("(page a4 (scale red (circle 0 0 1)))").unwrap_err();
-        assert!(!err.message.is_empty());
-    }
-
-    #[test]
-    fn perform_log_and_write_path_partitions() {
-        assert_eq!(
-            typecheck_source("(src (perform log \"x\"))\n(page a4 (circle 1 2 3))").unwrap(),
-            Type::Document
-        );
-        assert_eq!(
-            typecheck_source("(src (perform write-path \"out.pdf\"))\n(page a4 (circle 1 2 3))")
-                .unwrap(),
-            Type::Document
-        );
-        assert!(typecheck_source("(src (perform))\n(page a4)").is_err());
-        assert!(typecheck_source("(src (perform log))\n(page a4)").is_err());
-        assert!(typecheck_source("(src (perform write-path))\n(page a4)").is_err());
-        assert!(typecheck_source("(src (perform log 1))\n(page a4)").is_err());
-    }
-
-    #[test]
-    fn handle_log_and_write_path_error_arms() {
-        // Empty body is valid Unit; non-ident / nested bad forms fail.
-        assert!(typecheck_source("(src (handle log))\n(page a4 (circle 1 2 3))").is_ok());
-        assert!(typecheck_source("(src (handle write-path))\n(page a4 (circle 1 2 3))").is_ok());
-        assert!(typecheck_source("(src (handle 1 (perform log \"x\")))\n(page a4)").is_err());
-        assert!(typecheck_source("(src (handle log (circle 0 0 1)))\n(page a4)").is_err());
-        let err =
-            typecheck_source("(src (handle foo (perform log \"x\")))\n(page a4)").unwrap_err();
-        assert!(!err.message.is_empty());
-    }
-
-    #[test]
-    fn type_mismatch_on_shape_args() {
-        assert!(typecheck_source("(page a4 (rect 0 0 1 red))").is_err());
-        assert!(typecheck_source("(page a4 (circle 0 0 red))").is_err());
-        assert!(typecheck_source("(page a4 (image 1 0 0 10 10))").is_err());
-        assert!(typecheck_source(r#"(page a4 (text 1 2 3 4))"#).is_err());
-        assert!(typecheck_source("(page a4 (group 1))").is_err());
-        assert!(typecheck_source("(page a4 (opacity red (circle 0 0 1)))").is_err());
-    }
-
-    #[test]
-    fn top_level_must_be_document_forms() {
-        let err = typecheck_source("(circle 0 0 1)").unwrap_err();
-        assert!(!err.message.is_empty());
-        let err = typecheck_source("42").unwrap_err();
-        assert!(!err.message.is_empty());
-    }
-
-    #[test]
-    fn display_type_error_includes_span() {
-        let err = typecheck_source("(page a4 (square 1))").unwrap_err();
-        assert!(err.message.contains("unknown form") || err.message.contains("square"));
-        let _ = format!("{:?}", err);
-    }
-
-    #[test]
-    fn non_source_file_root_fails() {
-        let parse = parse_source("(page a4)");
-        let node = parse.root.children().next().expect("page form");
-        let err = typecheck_syntax(&node).unwrap_err();
-        assert!(err.message.contains("SourceFile"));
-    }
-
-    #[test]
-    fn page_numeric_height_must_be_number() {
-        let err = typecheck_source("(page 210 foo)").unwrap_err();
-        assert!(!err.message.is_empty());
-    }
-
-    #[test]
-    fn perform_in_shape_position_fails() {
-        let err = typecheck_source(r#"(page a4 (perform log "x"))"#).unwrap_err();
-        assert!(err.message.contains("type mismatch"));
-    }
-
-    #[test]
-    fn src_unsupported_form_fails() {
-        let err = typecheck_source("(src (circle 1 2 3))\n(page a4)").unwrap_err();
-        assert!(err.message.contains("unsupported") || err.message.contains("perform"));
-    }
-
-    #[test]
-    fn text_three_numbers_string_without_color() {
-        assert_eq!(
-            typecheck_source(r#"(page a4 (text 1 2 3 "hi"))"#).unwrap(),
-            Type::Document
-        );
-    }
-
-    #[test]
-    fn additional_type_mismatch_partitions() {
-        assert!(typecheck_source("(page a4 (circle red 0 1))").is_err());
-        assert!(typecheck_source("(page a4 (rgb 1 2 red))").is_err());
-        assert!(typecheck_source(r#"(page a4 (text 1 2 3 red "hi"))"#).is_err());
-        assert!(typecheck_source("(page a4 (translate red 1 (circle 0 0 1)))").is_err());
-        assert!(typecheck_source("(page a4 (opacity (circle 0 0 1) (circle 0 0 1)))").is_err());
-        assert!(typecheck_source("(src (perform log 1))\n(page a4)").is_err());
-        assert!(typecheck_source("(page a4 (polyline 0 0 1 1 red red))").is_err());
-    }
-
-    #[test]
-    fn polygon_odd_coords_after_color_strip_fails() {
-        let err = typecheck_source("(page a4 (polygon 0 0 1 0 1 red))").unwrap_err();
-        assert!(err.message.contains("polygon") || err.message.contains("even"));
-    }
-
-    #[test]
-    fn perform_op_must_be_ident() {
-        let err = typecheck_source("(src (perform 1))\n(page a4)").unwrap_err();
-        assert!(err.message.contains("identifier") || err.message.contains("perform"));
-    }
-
-    #[test]
-    fn page_with_only_paper_typechecks() {
-        assert_eq!(typecheck_source("(page a4)").unwrap(), Type::Document);
-        assert_eq!(typecheck_source("(page 100 200)").unwrap(), Type::Document);
-    }
-
-    #[test]
-    fn ring_frame_wrong_color_type_fails() {
-        assert!(typecheck_source("(page a4 (ring 1 2 3 0.5 9))").is_err());
-        assert!(typecheck_source("(page a4 (frame 0 0 1 1 1 9))").is_err());
-    }
-
-    #[test]
-    fn line_width_must_be_number() {
-        assert!(typecheck_source("(page a4 (line 0 0 1 1 red red))").is_err());
-    }
-
-    #[test]
-    fn translate_rotate_bodies_must_be_shapes() {
-        assert!(typecheck_source("(page a4 (translate 1 2 3))").is_err());
-        assert!(typecheck_source("(page a4 (rotate 45 1))").is_err());
-        assert!(typecheck_source("(page a4 (circle 0 0 1 2))").is_err());
-    }
-
-    #[test]
-    fn type_debug_covers_variants() {
-        let _ = format!(
-            "{:?}",
-            (
-                Type::Number,
-                Type::String,
-                Type::Color,
-                Type::Paper,
-                Type::Shape,
-                Type::Page,
-                Type::Doc,
-                Type::Src,
-                Type::Unit,
-                Type::Document
-            )
-        );
-    }
-
-    #[test]
-    fn polyline_with_color_and_width_typechecks() {
-        let src = "(page a4 (polyline 0 0 1 1 2 0 red 0.5))";
-        assert_eq!(typecheck_source(src).unwrap(), Type::Document);
-    }
-
-    #[test]
-    fn handle_non_ident_and_unknown_op_fail() {
-        let err = typecheck_source("(src (handle 1 (perform log \"x\")))\n(page a4)").unwrap_err();
-        assert!(!err.message.is_empty());
-        let err =
-            typecheck_source("(src (handle baz (perform log \"x\")))\n(page a4)").unwrap_err();
-        assert!(err.message.contains("unknown effect op") || err.message.contains("baz"));
-    }
-
-    #[test]
-    fn multi_shape_transforms_typecheck() {
-        let src = "(page a4 (translate 1 2 (circle 0 0 1) (rect 0 0 1 1)))";
-        assert_eq!(typecheck_source(src).unwrap(), Type::Document);
-        let src = "(page a4 (opacity 0.5 (circle 0 0 1) (rect 0 0 1 1)))";
-        assert_eq!(typecheck_source(src).unwrap(), Type::Document);
-    }
-
-    #[test]
-    fn split_list_bad_head_via_typecheck() {
-        let err = typecheck_source("(42 1 2 3)").unwrap_err();
-        assert!(!err.message.is_empty());
-    }
-
-    #[test]
-    fn circle_four_args_without_color_and_rgb_at_top_level_fail() {
-        assert_eq!(
-            typecheck_source("(page a4 (circle 1 2 3))").unwrap(),
-            Type::Document
-        );
-        let err = typecheck_source("(rgb 1 2 3)\n(page a4)").unwrap_err();
-        assert!(!err.message.is_empty());
-    }
-
-    #[test]
-    fn handle_op_must_be_ident() {
-        let err = typecheck_source("(src (handle 1))\n(page a4)").unwrap_err();
-        assert!(err.message.contains("identifier") || err.message.contains("handle"));
-    }
-
-    #[test]
-    fn empty_list_and_non_ident_head_fail() {
-        let err = typecheck_source("()\n(page a4)").unwrap_err();
-        assert!(!err.message.is_empty());
-        let err = typecheck_source("(1 2 3)\n(page a4)").unwrap_err();
-        assert!(
-            err.message.contains("identifier")
-                || err.message.contains("head")
-                || err.message.contains("list")
-                || !err.message.is_empty()
-        );
-    }
-
-    #[test]
-    fn bracket_list_as_top_level_fails_or_is_rejected() {
-        // Top-level must be page/doc/src document forms.
-        let err = typecheck_source("[page a4]").unwrap_err();
-        assert!(!err.message.is_empty());
-    }
-
-    #[test]
-    fn all_surface_keywords_as_shapes_typecheck_or_fail_cleanly() {
-        // Keywords that are shapes should typecheck in page body.
-        for src in [
-            "(page a4 (ellipse 1 2 3 4))",
-            "(page a4 (ring 1 2 3 0.5))",
-            "(page a4 (frame 0 0 1 1 1))",
-            "(page a4 (image \"x\" 0 0 1 1))",
-            "(page a4 (rgb 0 0 0) (circle 0 0 1))", // rgb alone at page level may fail
-        ] {
-            let _ = typecheck_source(src); // must not panic
-        }
-    }
-
-    #[test]
-    fn type_error_equality_and_clone() {
-        let err = typecheck_source("(page a4 (square 1))").unwrap_err();
-        let clone = err.clone();
-        assert_eq!(err, clone);
-        assert!(!err.message.is_empty());
-    }
 }

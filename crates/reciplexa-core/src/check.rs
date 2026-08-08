@@ -372,4 +372,243 @@ mod tests {
         let ty = infer_expr(&expr, &TypeEnv::new(), &mut subst, range()).unwrap();
         assert_eq!(subst.apply(&ty), CoreType::Number);
     }
+
+    fn bad_record_get() -> CoreExpr {
+        CoreExpr::RecordGet {
+            record: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
+            field: "missing".into(),
+        }
+    }
+
+    #[test]
+    fn infer_propagates_nested_errors() {
+        let bad = bad_record_get();
+        let mut subst = Subst::new();
+        let env = TypeEnv::new();
+        let r = range();
+
+        assert!(infer_expr(
+            &CoreExpr::Perform {
+                op: "log".into(),
+                arg: Box::new(bad.clone()),
+            },
+            &env,
+            &mut subst,
+            r
+        )
+        .is_err());
+
+        assert!(infer_expr(
+            &CoreExpr::Seq(vec![CoreExpr::Lit(CoreLiteral::Number(1.0)), bad.clone(),]),
+            &env,
+            &mut subst,
+            r
+        )
+        .is_err());
+
+        assert!(infer_expr(
+            &CoreExpr::Let {
+                name: "x".into(),
+                value: Box::new(bad.clone()),
+                body: Box::new(CoreExpr::Lit(CoreLiteral::Number(0.0))),
+            },
+            &env,
+            &mut subst,
+            r
+        )
+        .is_err());
+
+        assert!(infer_expr(
+            &CoreExpr::Record {
+                fields: vec![("a".into(), bad.clone())],
+            },
+            &env,
+            &mut subst,
+            r
+        )
+        .is_err());
+
+        assert!(infer_expr(
+            &CoreExpr::Variant {
+                tag: "Some".into(),
+                payload: Some(Box::new(bad.clone())),
+            },
+            &env,
+            &mut subst,
+            r
+        )
+        .is_err());
+
+        assert!(infer_expr(
+            &CoreExpr::Let {
+                name: "x".into(),
+                value: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
+                body: Box::new(bad.clone()),
+            },
+            &env,
+            &mut subst,
+            r
+        )
+        .is_err());
+
+        assert!(infer_expr(
+            &CoreExpr::Lambda {
+                param: "x".into(),
+                body: Box::new(bad.clone()),
+            },
+            &env,
+            &mut subst,
+            r
+        )
+        .is_err());
+
+        assert!(infer_expr(
+            &CoreExpr::App {
+                fun: Box::new(bad.clone()),
+                arg: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
+            },
+            &env,
+            &mut subst,
+            r
+        )
+        .is_err());
+
+        assert!(infer_expr(
+            &CoreExpr::App {
+                fun: Box::new(CoreExpr::Lambda {
+                    param: "x".into(),
+                    body: Box::new(CoreExpr::Lit(CoreLiteral::Number(0.0))),
+                }),
+                arg: Box::new(bad.clone()),
+            },
+            &env,
+            &mut subst,
+            r
+        )
+        .is_err());
+
+        assert!(infer_expr(
+            &CoreExpr::Match {
+                scrutinee: Box::new(bad.clone()),
+                arms: vec![MatchArm {
+                    tag: "A".into(),
+                    bind: None,
+                    body: CoreExpr::Lit(CoreLiteral::Number(0.0)),
+                }],
+            },
+            &env,
+            &mut subst,
+            r
+        )
+        .is_err());
+
+        assert!(infer_expr(
+            &CoreExpr::RecordGet {
+                record: Box::new(bad),
+                field: "x".into(),
+            },
+            &env,
+            &mut subst,
+            r
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn app_non_function_unify_fails() {
+        let expr = CoreExpr::App {
+            fun: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
+            arg: Box::new(CoreExpr::Lit(CoreLiteral::Number(2.0))),
+        };
+        let err = infer_expr(&expr, &TypeEnv::new(), &mut Subst::new(), range()).unwrap_err();
+        assert!(err.message.contains("Mismatch"));
+    }
+
+    #[test]
+    fn typecheck_value_propagates_infer_error() {
+        let expr = bad_record_get();
+        assert!(typecheck_value(expr, &TypeEnv::new(), range()).is_err());
+    }
+
+    #[test]
+    fn infers_empty_seq_and_lambda() {
+        let mut subst = Subst::new();
+        let empty =
+            infer_expr(&CoreExpr::Seq(vec![]), &TypeEnv::new(), &mut subst, range()).unwrap();
+        assert_eq!(empty, CoreType::Unit);
+
+        let lam = CoreExpr::Lambda {
+            param: "x".into(),
+            body: Box::new(CoreExpr::Lit(CoreLiteral::String("ok".into()))),
+        };
+        let ty = infer_expr(&lam, &TypeEnv::new(), &mut subst, range()).unwrap();
+        if let CoreType::Fun { args, .. } = ty {
+            assert_eq!(args.len(), 1);
+        } else {
+            panic!("expected Fun");
+        }
+    }
+
+    #[test]
+    fn match_on_non_variant_scrutinee() {
+        let expr = CoreExpr::Match {
+            scrutinee: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
+            arms: vec![MatchArm {
+                tag: "ignored".into(),
+                bind: None,
+                body: CoreExpr::Lit(CoreLiteral::Number(2.0)),
+            }],
+        };
+        let ty = infer_expr(&expr, &TypeEnv::new(), &mut Subst::new(), range()).unwrap();
+        assert_eq!(ty, CoreType::Number);
+    }
+
+    #[test]
+    fn check_arm_body_infer_error() {
+        let expr = CoreExpr::Match {
+            scrutinee: Box::new(CoreExpr::Variant {
+                tag: "A".into(),
+                payload: None,
+            }),
+            arms: vec![MatchArm {
+                tag: "A".into(),
+                bind: None,
+                body: bad_record_get(),
+            }],
+        };
+        assert!(infer_expr(&expr, &TypeEnv::new(), &mut Subst::new(), range()).is_err());
+    }
+
+    #[test]
+    fn match_arm_bind_without_payload_and_unknown_tag() {
+        // Nullary variant + bind name: no payload to insert.
+        let nullary = CoreExpr::Match {
+            scrutinee: Box::new(CoreExpr::Variant {
+                tag: "None".into(),
+                payload: None,
+            }),
+            arms: vec![MatchArm {
+                tag: "None".into(),
+                bind: Some("x".into()),
+                body: CoreExpr::Lit(CoreLiteral::Number(0.0)),
+            }],
+        };
+        let mut subst = Subst::new();
+        assert!(infer_expr(&nullary, &TypeEnv::new(), &mut subst, range()).is_ok());
+
+        // Arm tag absent from scrutinee type still typechecks the body.
+        let mismatch_tag = CoreExpr::Match {
+            scrutinee: Box::new(CoreExpr::Variant {
+                tag: "A".into(),
+                payload: None,
+            }),
+            arms: vec![MatchArm {
+                tag: "B".into(),
+                bind: Some("x".into()),
+                body: CoreExpr::Lit(CoreLiteral::Number(1.0)),
+            }],
+        };
+        let mut subst = Subst::new();
+        assert!(infer_expr(&mismatch_tag, &TypeEnv::new(), &mut subst, range()).is_ok());
+    }
 }

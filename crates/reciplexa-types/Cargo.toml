@@ -11,3 +11,4 @@ reciplexa-syntax = { workspace = true }
 reciplexa-effect = { workspace = true }
 
 [dev-dependencies]
+reciplexa-syntax = { workspace = true }

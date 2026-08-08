@@ -96,6 +96,11 @@ mod tests {
         let var = CoreType::Variant {
             variants: vec![("Ok".into(), Some(CoreType::Number))],
         };
-        assert!(matches!(var, CoreType::Variant { .. }));
+        assert_eq!(
+            var,
+            CoreType::Variant {
+                variants: vec![("Ok".into(), Some(CoreType::Number))],
+            }
+        );
     }
 }

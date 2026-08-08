@@ -375,4 +375,194 @@ mod tests {
             } if tag == "none"
         ));
     }
+
+    #[test]
+    fn eval_propagates_nested_errors() {
+        let bad = CoreExpr::RecordGet {
+            record: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
+            field: "missing".into(),
+        };
+        let env = HashMap::new();
+        let mut host = UnitHost;
+
+        assert!(eval_expr(
+            &CoreExpr::Perform {
+                op: "log".into(),
+                arg: Box::new(bad.clone()),
+            },
+            &env,
+            &mut host
+        )
+        .is_err());
+
+        assert!(eval_expr(
+            &CoreExpr::Seq(vec![CoreExpr::Lit(CoreLiteral::Number(1.0)), bad.clone(),]),
+            &env,
+            &mut host
+        )
+        .is_err());
+
+        assert!(eval_expr(
+            &CoreExpr::Let {
+                name: "x".into(),
+                value: Box::new(bad.clone()),
+                body: Box::new(CoreExpr::Lit(CoreLiteral::Number(0.0))),
+            },
+            &env,
+            &mut host
+        )
+        .is_err());
+
+        assert!(eval_expr(
+            &CoreExpr::Record {
+                fields: vec![("a".into(), bad.clone())],
+            },
+            &env,
+            &mut host
+        )
+        .is_err());
+
+        assert!(eval_expr(
+            &CoreExpr::Variant {
+                tag: "some".into(),
+                payload: Some(Box::new(bad.clone())),
+            },
+            &env,
+            &mut host
+        )
+        .is_err());
+
+        assert!(eval_expr(
+            &CoreExpr::Match {
+                scrutinee: Box::new(bad.clone()),
+                arms: vec![],
+            },
+            &env,
+            &mut host
+        )
+        .is_err());
+
+        assert!(eval_expr(
+            &CoreExpr::App {
+                fun: Box::new(bad.clone()),
+                arg: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
+            },
+            &env,
+            &mut host
+        )
+        .is_err());
+
+        assert!(eval_expr(
+            &CoreExpr::App {
+                fun: Box::new(CoreExpr::Lambda {
+                    param: "x".into(),
+                    body: Box::new(CoreExpr::Lit(CoreLiteral::Number(0.0))),
+                }),
+                arg: Box::new(bad.clone()),
+            },
+            &env,
+            &mut host
+        )
+        .is_err());
+
+        assert!(eval_expr(
+            &CoreExpr::RecordGet {
+                record: Box::new(bad),
+                field: "x".into(),
+            },
+            &env,
+            &mut host
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn eval_match_without_bind() {
+        let expr = CoreExpr::Match {
+            scrutinee: Box::new(CoreExpr::Variant {
+                tag: "ok".into(),
+                payload: Some(Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0)))),
+            }),
+            arms: vec![MatchArm {
+                tag: "ok".into(),
+                bind: None,
+                body: CoreExpr::Lit(CoreLiteral::Number(5.0)),
+            }],
+        };
+        assert_eq!(
+            eval_expr(&expr, &HashMap::new(), &mut UnitHost).unwrap(),
+            RuntimeValue::Number(5.0)
+        );
+    }
+
+    #[test]
+    fn eval_lambda_and_multi_field_record() {
+        let closure = eval_expr(
+            &CoreExpr::Lambda {
+                param: "x".into(),
+                body: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
+            },
+            &HashMap::new(),
+            &mut UnitHost,
+        )
+        .unwrap();
+        assert!(matches!(closure, RuntimeValue::Closure { .. }));
+
+        let rec = eval_expr(
+            &CoreExpr::Record {
+                fields: vec![
+                    ("a".into(), CoreExpr::Lit(CoreLiteral::Number(1.0))),
+                    ("b".into(), CoreExpr::Lit(CoreLiteral::String("x".into()))),
+                ],
+            },
+            &HashMap::new(),
+            &mut UnitHost,
+        )
+        .unwrap();
+        if let RuntimeValue::Record(fields) = rec {
+            assert_eq!(fields.len(), 2);
+        } else {
+            panic!("expected record");
+        }
+    }
+
+    #[test]
+    fn eval_match_bind_without_payload() {
+        let expr = CoreExpr::Match {
+            scrutinee: Box::new(CoreExpr::Variant {
+                tag: "none".into(),
+                payload: None,
+            }),
+            arms: vec![MatchArm {
+                tag: "none".into(),
+                bind: Some("x".into()),
+                body: CoreExpr::Lit(CoreLiteral::Number(0.0)),
+            }],
+        };
+        assert_eq!(
+            eval_expr(&expr, &HashMap::new(), &mut UnitHost).unwrap(),
+            RuntimeValue::Number(0.0)
+        );
+    }
+
+    #[test]
+    fn eval_app_closure_chain() {
+        let expr = CoreExpr::App {
+            fun: Box::new(CoreExpr::App {
+                fun: Box::new(CoreExpr::Lambda {
+                    param: "x".into(),
+                    body: Box::new(CoreExpr::Lambda {
+                        param: "y".into(),
+                        body: Box::new(CoreExpr::Lit(CoreLiteral::Number(9.0))),
+                    }),
+                }),
+                arg: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
+            }),
+            arg: Box::new(CoreExpr::Lit(CoreLiteral::Number(2.0))),
+        };
+        assert_eq!(
+            eval_expr(&expr, &HashMap::new(), &mut UnitHost).unwrap(),
+            RuntimeValue::Number(9.0)
+        );
+    }
 }
