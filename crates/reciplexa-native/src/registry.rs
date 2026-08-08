@@ -51,10 +51,8 @@ impl AdapterRegistry {
             .ok_or_else(|| NegotiationError::NotRegistered(name.into()))?;
         let contract = provider.contract();
         if contract.abi_version != required_abi {
-            self.quarantined.insert(
-                name.into(),
-                QuarantineReason::AbiMismatch,
-            );
+            self.quarantined
+                .insert(name.into(), QuarantineReason::AbiMismatch);
             return Err(NegotiationError::AbiMismatch {
                 expected: required_abi,
                 found: contract.abi_version,
@@ -87,9 +85,7 @@ impl AdapterRegistry {
             .ok_or_else(|| NegotiationError::NotRegistered(inst.contract.name.clone()))?;
         provider
             .call(op, args)
-            .map_err(|e| {
-                NegotiationError::Quarantined(e)
-            })
+            .map_err(NegotiationError::Quarantined)
     }
 
     pub fn shutdown(&mut self, instance_id: u64) {

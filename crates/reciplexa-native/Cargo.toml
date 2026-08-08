@@ -6,5 +6,9 @@ license.workspace = true
 description = "Foreign boundary, native adapter registry, lifecycle (Phase 11)"
 publish = false
 
+[[bin]]
+name = "rpx-native-image"
+path = "src/bin/rpx_native_image.rs"
+
 [dependencies]
 reciplexa-outcome = { workspace = true }
