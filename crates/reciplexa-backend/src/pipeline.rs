@@ -3,12 +3,12 @@
 use reciplexa_scene::Document;
 use reciplexa_visual_ir::{
     lower_scene_document_with_options, validate_render_document, ArtifactProvenance, LowerOptions,
-    NodeSourceHint, ProvenanceMap, RenderValidationError,
+    NodeSourceHint, ProvenanceMap, RenderDocument, RenderValidationError,
 };
 
 use crate::capability::{BackendCapability, PlanningError};
 use crate::emit::{emit_svg_from_plan, EmitError};
-use crate::plan::{plan_preview, plan_svg};
+use crate::plan::{plan_preview, plan_svg, BackendPlan};
 use crate::preview::{emit_preview_from_plan, PreviewDrawable};
 use crate::profile::OutputProfile;
 use crate::verify::{validate_svg_artifact, ArtifactValidationError};
@@ -56,9 +56,18 @@ pub fn export_scene_to_svg_with_hints(
     let (render, prov) = lower_scene_document_with_options(doc, &options);
     validate_render_document(&render).map_err(ExportError::Render)?;
     let plan = plan_svg(&render, cap, profile).map_err(ExportError::Planning)?;
-    let svg = emit_svg_from_plan(&plan, &render).map_err(ExportError::Emit)?;
+    finalize_svg_export(&plan, &render, &prov)
+}
+
+/// Emit + validate SVG from an existing plan (exposed for mismatch / artifact tests).
+pub fn finalize_svg_export(
+    plan: &BackendPlan,
+    render: &RenderDocument,
+    prov: &ProvenanceMap,
+) -> Result<VerifiedSvgArtifact, ExportError> {
+    let svg = emit_svg_from_plan(plan, render).map_err(ExportError::Emit)?;
     validate_svg_artifact(&svg).map_err(ExportError::Artifact)?;
-    let provenance = build_artifact_provenance(&plan, &prov);
+    let provenance = build_artifact_provenance(plan, prov);
     Ok(VerifiedSvgArtifact { svg, provenance })
 }
 
@@ -85,8 +94,17 @@ pub fn export_scene_to_preview_with_hints(
     let (render, prov) = lower_scene_document_with_options(doc, &options);
     validate_render_document(&render).map_err(ExportError::Render)?;
     let plan = plan_preview(&render, cap, profile).map_err(ExportError::Planning)?;
-    let drawables = emit_preview_from_plan(&plan, &render).map_err(ExportError::Emit)?;
-    let provenance = build_artifact_provenance(&plan, &prov);
+    finalize_preview_export(&plan, &render, &prov)
+}
+
+/// Emit preview drawables from an existing plan (exposed for mismatch tests).
+pub fn finalize_preview_export(
+    plan: &BackendPlan,
+    render: &RenderDocument,
+    prov: &ProvenanceMap,
+) -> Result<VerifiedPreviewArtifact, ExportError> {
+    let drawables = emit_preview_from_plan(plan, render).map_err(ExportError::Emit)?;
+    let provenance = build_artifact_provenance(plan, prov);
     Ok(VerifiedPreviewArtifact {
         drawables,
         provenance,
@@ -94,7 +112,7 @@ pub fn export_scene_to_preview_with_hints(
 }
 
 fn build_artifact_provenance(
-    plan: &crate::plan::BackendPlan,
+    plan: &BackendPlan,
     prov: &ProvenanceMap,
 ) -> Vec<ArtifactProvenance> {
     plan.nodes
@@ -110,157 +128,4 @@ fn build_artifact_provenance(
             }
         })
         .collect()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use reciplexa_identity::document::StableNodeId;
-    use reciplexa_scene::{Color, Document, Page, PaperSize, Rect, Shape};
-
-    #[test]
-    fn exports_simple_rect() {
-        let doc = Document::single_page(Page {
-            paper: PaperSize::a4(),
-            shapes: vec![Shape::Rect(Rect {
-                x_mm: 10.0,
-                y_mm: 20.0,
-                width_mm: 30.0,
-                height_mm: 40.0,
-                fill: Color::RED,
-            })],
-        });
-        let artifact = export_scene_to_svg(
-            &doc,
-            &BackendCapability::svg_default(),
-            &OutputProfile::svg_default(),
-        )
-        .unwrap();
-        assert!(artifact.svg.contains("rpx-"));
-        assert!(artifact.svg.contains("<rect"));
-        assert!(!artifact.provenance.is_empty());
-    }
-
-    #[test]
-    fn preview_export_tracks_provenance_hints() {
-        let doc = Document::single_page(Page {
-            paper: PaperSize::a4(),
-            shapes: vec![Shape::Rect(Rect {
-                x_mm: 1.0,
-                y_mm: 2.0,
-                width_mm: 3.0,
-                height_mm: 4.0,
-                fill: Color::BLACK,
-            })],
-        });
-        let hints = vec![Some(NodeSourceHint {
-            stable_node_id: StableNodeId::new(7),
-            source_byte_start: 10,
-            source_byte_end: 30,
-        })];
-        let artifact = export_scene_to_preview_with_hints(
-            &doc,
-            &BackendCapability::svg_default(),
-            &OutputProfile::svg_default(),
-            &hints,
-        )
-        .unwrap();
-        assert_eq!(artifact.drawables.len(), 1);
-        assert_eq!(
-            artifact.provenance[0].stable_node_id,
-            Some(StableNodeId::new(7))
-        );
-        assert_eq!(artifact.provenance[0].source_byte_start, Some(10));
-    }
-
-    #[test]
-    fn export_maps_render_validation_error() {
-        let doc = Document::single_page(Page {
-            paper: PaperSize::a4(),
-            shapes: vec![Shape::Circle(reciplexa_scene::Circle {
-                x_mm: 0.0,
-                y_mm: 0.0,
-                radius_mm: 0.0,
-                fill: Color::BLACK,
-            })],
-        });
-        let err = export_scene_to_svg(
-            &doc,
-            &BackendCapability::svg_default(),
-            &OutputProfile::svg_default(),
-        )
-        .unwrap_err();
-        assert!(matches!(err, ExportError::Render(_)));
-    }
-
-    #[test]
-    fn export_maps_planning_error_when_images_disabled() {
-        let doc = Document::single_page(Page {
-            paper: PaperSize::a4(),
-            shapes: vec![Shape::Image(reciplexa_scene::Image {
-                path: "a.png".into(),
-                x_mm: 0.0,
-                y_mm: 0.0,
-                width_mm: 10.0,
-                height_mm: 10.0,
-            })],
-        });
-        let mut cap = BackendCapability::svg_default();
-        cap.svg_images = false;
-        let err = export_scene_to_svg(&doc, &cap, &OutputProfile::svg_default()).unwrap_err();
-        assert!(matches!(
-            err,
-            ExportError::Planning(crate::capability::PlanningError::CapabilityMismatch(_))
-        ));
-    }
-
-    /// Documents `ExportError::Emit`: plan/render mismatch after an otherwise valid lower+plan path.
-    #[test]
-    fn export_maps_emit_error_when_plan_mismatches_render() {
-        use crate::emit::emit_svg_from_plan;
-        use crate::plan::{plan_svg, Representation};
-        use reciplexa_scene::Circle;
-        use reciplexa_visual_ir::{
-            lower_scene_document_with_options, validate_render_document, LowerOptions,
-        };
-
-        let doc = Document::single_page(Page {
-            paper: PaperSize::a4(),
-            shapes: vec![Shape::Circle(Circle {
-                x_mm: 1.0,
-                y_mm: 2.0,
-                radius_mm: 3.0,
-                fill: Color::BLACK,
-            })],
-        });
-        let profile = OutputProfile::svg_default();
-        let cap = BackendCapability::svg_default();
-        let options = LowerOptions {
-            ellipse_sides: profile.ellipse_sides,
-            provenance_hints: vec![],
-        };
-        let (render, _) = lower_scene_document_with_options(&doc, &options);
-        validate_render_document(&render).unwrap();
-        let mut plan = plan_svg(&render, &cap, &profile).unwrap();
-        plan.nodes[0].representation = Representation::SvgRect;
-        let emit_err = emit_svg_from_plan(&plan, &render).unwrap_err();
-        assert!(matches!(
-            ExportError::Emit(emit_err),
-            ExportError::Emit(crate::emit::EmitError::PlanNodeMismatch { .. })
-        ));
-    }
-
-    /// Documents `ExportError::Artifact` mapping from post-emission validation.
-    #[test]
-    fn export_maps_artifact_validation_error() {
-        let bad_svg = r#"<?xml version="1.0"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="10mm" height="10mm" viewBox="0 0 10 10">
-  <rect x="Infinity" y="0" width="1" height="1"/>
-</svg>"#;
-        let artifact_err = validate_svg_artifact(bad_svg).unwrap_err();
-        assert!(matches!(
-            ExportError::Artifact(artifact_err),
-            ExportError::Artifact(ArtifactValidationError::ContainsNaN)
-        ));
-    }
 }

@@ -14,7 +14,8 @@ pub use capability::{BackendCapability, CapabilityMismatch, PlanningError};
 pub use emit::EmitError;
 pub use pipeline::{
     export_scene_to_preview, export_scene_to_preview_with_hints, export_scene_to_svg,
-    export_scene_to_svg_with_hints, ExportError, VerifiedPreviewArtifact, VerifiedSvgArtifact,
+    export_scene_to_svg_with_hints, finalize_preview_export, finalize_svg_export, ExportError,
+    VerifiedPreviewArtifact, VerifiedSvgArtifact,
 };
 pub use plan::{plan_preview, plan_svg, BackendPlan, BackendTarget, PlannedNode, Representation};
 pub use preview::{emit_preview_from_plan, PreviewDrawable};
