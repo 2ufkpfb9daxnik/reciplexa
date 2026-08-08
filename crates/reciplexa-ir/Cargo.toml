@@ -8,6 +8,7 @@ publish = false
 
 [dependencies]
 reciplexa-core = { workspace = true }
+reciplexa-eval = { workspace = true }
 reciplexa-outcome = { workspace = true }
 
 [dev-dependencies]

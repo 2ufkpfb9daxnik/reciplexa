@@ -267,30 +267,6 @@ pub(crate) fn snap_mm(v: f64, grid: f64) -> f64 {
     (v / grid).round() * grid
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn snap_mm_rounds_to_grid() {
-        assert!((snap_mm(12.0, 5.0) - 10.0).abs() < 1e-9);
-        assert!((snap_mm(13.0, 5.0) - 15.0).abs() < 1e-9);
-    }
-
-    #[test]
-    fn box_from_grab_bottom_right_grows() {
-        let tb = BoxDrag {
-            grab: ScaleGrab::Corner(ScaleCorner::BottomRight),
-            start_bounds: (10.0, 20.0, 30.0, 40.0),
-        };
-        let (x, y, w, h) = box_from_grab(tb, 50.0, 10.0);
-        assert!((x - 10.0).abs() < 1e-9);
-        assert!((y - 10.0).abs() < 1e-9);
-        assert!((w - 40.0).abs() < 1e-9);
-        assert!((h - 30.0).abs() < 1e-9);
-    }
-}
-
 pub(crate) fn paint_line_endpoints(
     painter: &egui::Painter,
     rect: egui::Rect,
@@ -574,4 +550,28 @@ fn color32(c: reciplexa_scene::Color, alpha: f64) -> egui::Color32 {
         (c.b * 255.0).round().clamp(0.0, 255.0) as u8,
         (alpha * 255.0).round().clamp(0.0, 255.0) as u8,
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn snap_mm_rounds_to_grid() {
+        assert!((snap_mm(12.0, 5.0) - 10.0).abs() < 1e-9);
+        assert!((snap_mm(13.0, 5.0) - 15.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn box_from_grab_bottom_right_grows() {
+        let tb = BoxDrag {
+            grab: ScaleGrab::Corner(ScaleCorner::BottomRight),
+            start_bounds: (10.0, 20.0, 30.0, 40.0),
+        };
+        let (x, y, w, h) = box_from_grab(tb, 50.0, 10.0);
+        assert!((x - 10.0).abs() < 1e-9);
+        assert!((y - 10.0).abs() < 1e-9);
+        assert!((w - 40.0).abs() < 1e-9);
+        assert!((h - 30.0).abs() < 1e-9);
+    }
 }
