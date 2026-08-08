@@ -50,6 +50,13 @@ impl DiagnosticCollector {
             .count()
     }
 
+    pub fn warning_count(&self) -> usize {
+        self.diagnostics
+            .iter()
+            .filter(|d| matches!(d.severity, DiagnosticSeverity::Warning))
+            .count()
+    }
+
     pub fn extend(&mut self, other: DiagnosticCollector) {
         for diagnostic in other.diagnostics {
             let id = DiagnosticId::new(self.next_id);

@@ -24,6 +24,9 @@ pub fn render_diagnostic_line(index: &LineIndex, diagnostic: &Diagnostic) -> Str
 
 /// Render all diagnostics, one per line.
 pub fn render_diagnostics(index: &LineIndex, diagnostics: &[Diagnostic]) -> String {
+    if diagnostics.is_empty() {
+        return String::new();
+    }
     diagnostics
         .iter()
         .map(|d| render_diagnostic_line(index, d))
