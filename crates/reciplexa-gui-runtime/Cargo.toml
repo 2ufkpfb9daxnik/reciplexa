@@ -1,0 +1,11 @@
+[package]
+name = "reciplexa-gui-runtime"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "GUI description, reconciliation, and widget state (Phase 8)"
+publish = false
+
+[dependencies]
+reciplexa-identity = { workspace = true }
+reciplexa-document = { workspace = true }
