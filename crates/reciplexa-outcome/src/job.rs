@@ -20,6 +20,15 @@ impl<A, E> JobResult<A, E> {
     pub fn is_defected(&self) -> bool {
         matches!(self, Self::Defected(_))
     }
+
+    pub fn map<B>(self, f: impl FnOnce(A) -> B) -> JobResult<B, E> {
+        match self {
+            Self::Completed(a) => JobResult::Completed(f(a)),
+            Self::Failed(e) => JobResult::Failed(e),
+            Self::Cancelled(c) => JobResult::Cancelled(c),
+            Self::Defected(d) => JobResult::Defected(d),
+        }
+    }
 }
 
 #[cfg(test)]
