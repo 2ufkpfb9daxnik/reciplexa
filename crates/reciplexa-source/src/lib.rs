@@ -10,3 +10,4 @@ pub mod line_index;
 pub mod offset;
 pub mod range;
 pub mod resource;
+pub mod shebang;
