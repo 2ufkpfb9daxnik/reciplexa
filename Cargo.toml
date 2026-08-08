@@ -1,6 +1,11 @@
 [workspace]
 resolver = "2"
 members = [
+    "crates/reciplexa-source",
+    "crates/reciplexa-identity",
+    "crates/reciplexa-outcome",
+    "crates/reciplexa-diagnostic",
+    "crates/reciplexa-test",
     "crates/reciplexa-syntax",
     "crates/reciplexa-scene",
     "crates/reciplexa-pdf",
@@ -27,6 +32,11 @@ egui = "0.31"
 eframe = "0.31"
 rfd = "0.15"
 subsetter = "0.2"
+reciplexa-source = { path = "crates/reciplexa-source" }
+reciplexa-identity = { path = "crates/reciplexa-identity" }
+reciplexa-outcome = { path = "crates/reciplexa-outcome" }
+reciplexa-diagnostic = { path = "crates/reciplexa-diagnostic" }
+reciplexa-test = { path = "crates/reciplexa-test" }
 reciplexa-syntax = { path = "crates/reciplexa-syntax" }
 reciplexa-scene = { path = "crates/reciplexa-scene" }
 reciplexa-pdf = { path = "crates/reciplexa-pdf" }

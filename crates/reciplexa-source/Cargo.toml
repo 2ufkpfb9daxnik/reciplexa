@@ -1,0 +1,11 @@
+[package]
+name = "reciplexa-source"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Source resources, UTF-8 byte ranges, and source identity for reciplexa"
+publish = false
+
+[dependencies]
+
+[dev-dependencies]
