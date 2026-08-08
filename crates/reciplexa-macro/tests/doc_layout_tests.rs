@@ -433,4 +433,293 @@ fn push_wrapped_multi_chunk_uses_body_gap() {
 fn wrap_line_empty_max_zero_returns_single() {
     assert_eq!(wrap_line("abc", 0), vec!["abc".to_string()]);
     assert!(wrap_line("", 5).is_empty());
+    assert!(wrap_line("", 0).is_empty());
 }
+
+#[test]
+fn layout_manual_marked_newlines_and_unknown_brackets() {
+    // Brace walkers drop Newline trivia; build parts directly to hit append_marked*.
+    let parts = vec![
+        DocPart::At {
+            name: "em".into(),
+            bracket_args: None,
+            brace_body: vec![
+                DocPart::Text("a".into()),
+                DocPart::Newline,
+                DocPart::Text("b".into()),
+                DocPart::At {
+                    name: "unknown".into(),
+                    bracket_args: Some(" brack ".into()),
+                    brace_body: vec![],
+                },
+            ],
+        },
+        DocPart::Text(" ".into()),
+        DocPart::At {
+            name: "li".into(),
+            bracket_args: None,
+            brace_body: vec![
+                DocPart::Text("plain".into()),
+                DocPart::Newline,
+                DocPart::At {
+                    name: "italic".into(),
+                    bracket_args: None,
+                    brace_body: vec![DocPart::Text("i".into())],
+                },
+                DocPart::At {
+                    name: "bold".into(),
+                    bracket_args: None,
+                    brace_body: vec![DocPart::Text("b".into())],
+                },
+                DocPart::At {
+                    name: "code_inline".into(),
+                    bracket_args: None,
+                    brace_body: vec![DocPart::Text("c".into())],
+                },
+                DocPart::At {
+                    name: "link".into(),
+                    bracket_args: Some("\"u\"".into()),
+                    brace_body: vec![DocPart::Text("L".into())],
+                },
+                DocPart::At {
+                    name: "cite".into(),
+                    bracket_args: Some("42".into()),
+                    brace_body: vec![],
+                },
+                DocPart::At {
+                    name: "nest".into(),
+                    bracket_args: None,
+                    brace_body: vec![DocPart::Text("inner".into())],
+                },
+                DocPart::At {
+                    name: "only".into(),
+                    bracket_args: Some("args".into()),
+                    brace_body: vec![],
+                },
+            ],
+        },
+    ];
+    let laid = layout_doc_parts(&parts);
+    let text = text_items(&laid)
+        .iter()
+        .map(|l| l.content.as_str())
+        .collect::<Vec<_>>()
+        .join("|");
+    assert!(text.contains("*a bbrack*"), "{text}");
+    assert!(text.contains("• plain"), "{text}");
+    assert!(text.contains("*i*"), "{text}");
+    assert!(text.contains("**b**"), "{text}");
+    assert!(text.contains("`c`"), "{text}");
+    assert!(text.contains("L (u)"), "{text}");
+    assert!(text.contains("[42]"), "{text}");
+    assert!(text.contains("inner"), "{text}");
+    assert!(text.contains("args"), "{text}");
+}
+
+#[test]
+fn layout_manual_code_newlines_and_nested_ats() {
+    let parts = vec![DocPart::At {
+        name: "code".into(),
+        bracket_args: None,
+        brace_body: vec![
+            DocPart::Text("line1".into()),
+            DocPart::Newline,
+            DocPart::At {
+                name: "x".into(),
+                bracket_args: None,
+                brace_body: vec![DocPart::Text("nested".into())],
+            },
+            DocPart::Newline,
+            DocPart::At {
+                name: "y".into(),
+                bracket_args: Some("br".into()),
+                brace_body: vec![],
+            },
+        ],
+    }];
+    let laid = layout_doc_parts(&parts);
+    let texts = text_items(&laid);
+    let joined = texts
+        .iter()
+        .map(|l| l.content.as_str())
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert!(joined.contains("line1"), "{joined}");
+    assert!(joined.contains("nested"), "{joined}");
+    assert!(joined.contains("br"), "{joined}");
+}
+
+#[test]
+fn layout_vspace_non_positive_skipped() {
+    assert!(layout_doc_parts(&parts("(doc @vspace{0})")).is_empty());
+    assert!(layout_doc_parts(&parts("(doc @vspace{-3})")).is_empty());
+    assert!(layout_doc_parts(&parts("(doc @vspace{inf})")).is_empty());
+}
+
+#[test]
+fn place_items_pagebreak_only_yields_empty() {
+    let placed = place_items(&[LaidItem::PageBreak], DocFrame::A4);
+    assert!(placed.is_empty());
+}
+
+#[test]
+fn link_cite_partitions_via_manual_parts() {
+    let parts = vec![
+        DocPart::At {
+            name: "link".into(),
+            bracket_args: None,
+            brace_body: vec![DocPart::Text("label-only".into())],
+        },
+        DocPart::Text(" ".into()),
+        DocPart::At {
+            name: "link".into(),
+            bracket_args: Some("\"url-only\"".into()),
+            brace_body: vec![],
+        },
+        DocPart::Text(" ".into()),
+        DocPart::At {
+            name: "link".into(),
+            bracket_args: None,
+            brace_body: vec![],
+        },
+        DocPart::At {
+            name: "cite".into(),
+            bracket_args: None,
+            brace_body: vec![],
+        },
+    ];
+    let laid = layout_doc_parts(&parts);
+    let text = text_items(&laid)
+        .iter()
+        .map(|l| l.content.as_str())
+        .collect::<Vec<_>>()
+        .join(" ");
+    assert!(text.contains("label-only"), "{text}");
+    assert!(text.contains("url-only"), "{text}");
+}
+
+#[test]
+fn append_marked_nested_aliases_and_bare_unknown() {
+    let parts = vec![DocPart::At {
+        name: "em".into(),
+        bracket_args: None,
+        brace_body: vec![
+            DocPart::At {
+                name: "italic".into(),
+                bracket_args: None,
+                brace_body: vec![DocPart::Text("i".into())],
+            },
+            DocPart::Text(" ".into()),
+            DocPart::At {
+                name: "bold".into(),
+                bracket_args: None,
+                brace_body: vec![DocPart::Text("b".into())],
+            },
+            DocPart::Text(" ".into()),
+            DocPart::At {
+                name: "code_inline".into(),
+                bracket_args: None,
+                brace_body: vec![DocPart::Text("c".into())],
+            },
+            DocPart::Text(" ".into()),
+            DocPart::At {
+                name: "link".into(),
+                bracket_args: Some("\"u\"".into()),
+                brace_body: vec![DocPart::Text("L".into())],
+            },
+            DocPart::Text(" ".into()),
+            DocPart::At {
+                name: "cite".into(),
+                bracket_args: Some("9".into()),
+                brace_body: vec![],
+            },
+            DocPart::Text(" ".into()),
+            DocPart::At {
+                name: "bare".into(),
+                bracket_args: None,
+                brace_body: vec![],
+            },
+        ],
+    }];
+    let laid = layout_doc_parts(&parts);
+    let text = text_items(&laid)
+        .iter()
+        .map(|l| l.content.as_str())
+        .collect::<Vec<_>>()
+        .join(" ");
+    assert!(text.contains("**i**") || text.contains("*i*"), "{text}");
+    assert!(text.contains("**b**"), "{text}");
+    assert!(text.contains("`c`"), "{text}");
+    assert!(text.contains("L (u)"), "{text}");
+    assert!(text.contains("[9]"), "{text}");
+}
+
+#[test]
+fn flatten_lines_marked_trailing_newline_no_extra() {
+    let parts = vec![DocPart::At {
+        name: "li".into(),
+        bracket_args: None,
+        brace_body: vec![
+            DocPart::Text("only".into()),
+            DocPart::Newline,
+            DocPart::At {
+                name: "bare".into(),
+                bracket_args: None,
+                brace_body: vec![],
+            },
+        ],
+    }];
+    let laid = layout_doc_parts(&parts);
+    assert_eq!(text_items(&laid).len(), 1);
+}
+
+#[test]
+fn code_trailing_newline_and_bare_at() {
+    let parts = vec![DocPart::At {
+        name: "code".into(),
+        bracket_args: None,
+        brace_body: vec![
+            DocPart::Text("x".into()),
+            DocPart::Newline,
+            DocPart::At {
+                name: "z".into(),
+                bracket_args: None,
+                brace_body: vec![],
+            },
+        ],
+    }];
+    let laid = layout_doc_parts(&parts);
+    assert!(text_items(&laid).iter().any(|l| l.content == "x"));
+}
+
+#[test]
+fn image_unclosed_quote_path_skipped() {
+    let parts = vec![DocPart::At {
+        name: "image".into(),
+        bracket_args: Some("\"unterminated".into()),
+        brace_body: vec![],
+    }];
+    assert!(layout_doc_parts(&parts).is_empty());
+}
+
+#[test]
+fn layout_bare_unknown_at_no_args() {
+    let laid = layout_doc_parts(&parts("(doc @foo)"));
+    assert!(laid.is_empty() || text_items(&laid).is_empty() || {
+        // Bare unknown contributes nothing.
+        text_items(&laid).iter().all(|l| !l.content.contains("foo"))
+    });
+}
+
+#[test]
+fn wrap_whitespace_only_chunk_and_space_at_window_start() {
+    assert!(wrap_line("   ", 5).is_empty());
+    // Leading spaces fill the first wrap window → empty trim mid-loop (no empty chunk).
+    let lines = wrap_line("    abcdef", 4);
+    assert!(lines.iter().all(|l| !l.is_empty()), "{lines:?}");
+    assert!(lines[0].starts_with('a'), "{lines:?}");
+    // Leading spaces in a mid-window hard-break path (rel == 0 stays).
+    let lines2 = wrap_line(" abcdefgh", 4);
+    assert!(!lines2.is_empty());
+}
+

@@ -1,6 +1,4 @@
 use reciplexa_lower::*;
-use reciplexa_syntax::parse_source;
-
 
 // --- validity ---
 
@@ -733,4 +731,58 @@ fn scale_axes_circle_uses_max_factor() {
     let src = "(page a4 (circle 10 20 5))";
     let out = scale_size_target_axes(src, SizeTarget::CircleR(0), 1.0, 3.0).unwrap();
     assert!(out.contains("(circle 10 20 15)"), "{out}");
+}
+
+#[test]
+fn page_crud_form_and_parse_errors() {
+    let src = "(page a4)\n(page letter)";
+    assert!(insert_page_after(src, Some(0), "")
+        .unwrap_err()
+        .message
+        .contains("insert_page form"));
+    assert!(insert_page_after(src, Some(0), "not-a-page")
+        .unwrap_err()
+        .message
+        .contains("insert_page form"));
+    assert!(insert_page_after(src, Some(0), "(page")
+        .unwrap_err()
+        .message
+        .contains("insert_page form"));
+    assert!(insert_page_after(src, Some(99), "(page a4)")
+        .unwrap_err()
+        .message
+        .contains("out of range"));
+    assert!(count_pages("(").is_err());
+    assert!(delete_page("(", 0).is_err());
+    assert!(insert_page_after("(", None, "(page a4)").is_err());
+}
+
+#[test]
+fn pages_skip_non_page_forms() {
+    let src = "(src ignored)\n(page a4 (circle 1 2 3))\n(doc x)\n(page letter)";
+    assert_eq!(count_pages(src).unwrap(), 2);
+    let page0 = find_page(&parse_root(src).unwrap(), 0).unwrap();
+    assert!(is_headed(&page0, "page"));
+    let trimmed = delete_page(src, 1).unwrap();
+    assert_eq!(count_pages(&trimmed).unwrap(), 1);
+    assert!(trimmed.contains("a4"));
+    assert!(!trimmed.contains("letter"));
+}
+
+#[test]
+fn extent_with_leading_ws_strips_crlf() {
+    let src = "  \r\n  (circle 1 2 3)";
+    let circle_start = src.find("(circle").unwrap();
+    let (s, e) = extent_with_leading_ws(src, circle_start, src.len());
+    assert!(s < circle_start);
+    assert_eq!(&src[s..circle_start], "\r\n  ");
+    assert_eq!(e, src.len());
+}
+
+#[test]
+fn insert_page_pads_when_adjacent_without_newline() {
+    let src = "(page a4)(page letter)";
+    let (out, idx) = insert_page_after(src, Some(0), "(page 100 100)").unwrap();
+    assert_eq!(idx, 1);
+    assert!(out.contains("\n(page 100 100)\n") || out.contains("(page 100 100)"));
 }

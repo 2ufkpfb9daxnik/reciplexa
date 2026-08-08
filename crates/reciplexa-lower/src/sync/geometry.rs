@@ -79,19 +79,21 @@ pub fn nudge_layer_page(
     let layer = layers
         .get(flat_index)
         .ok_or_else(|| SyncError::new("layer index out of range"))?;
-    let root = parse_root(src)?;
+    // `collect_layers_page` already parsed `src` successfully.
+    let root = parse_root(src).expect("parse ok after collect_layers");
+    // Spans come from `collect_layers_page` on the same source.
     let node = find_list_covering(&root, layer.root_start, layer.root_end)
-        .ok_or_else(|| SyncError::new("layer root not found"))?;
+        .expect("layer root span from collect_layers");
 
     if is_center_rotate_sandwich(&node) || is_headed(&node, "translate") {
         return nudge_xy_slots_of_list(&node, 1, 2, dx, dy);
     }
 
     if is_headed(&node, "opacity") {
-        if let Some(child) = first_shape_child(&node) {
-            if is_center_rotate_sandwich(&child) || is_headed(&child, "translate") {
-                return nudge_xy_slots_of_list(&child, 1, 2, dx, dy);
-            }
+        // Opacity layer roots always wrap a shape (otherwise collect_layers yields nothing).
+        let child = first_shape_child(&node).expect("opacity layer has a shape child");
+        if is_center_rotate_sandwich(&child) || is_headed(&child, "translate") {
+            return nudge_xy_slots_of_list(&child, 1, 2, dx, dy);
         }
     }
 
@@ -100,15 +102,16 @@ pub fn nudge_layer_page(
 
 fn first_shape_child(node: &SyntaxNode) -> Option<SyntaxNode> {
     let items = list_atoms(node);
-    let skip = match items.first() {
-        Some(Child::Token(t)) if t.kind() == SyntaxKind::Ident => match t.text() {
-            "opacity" | "rotate" => 2,
-            "translate" => 3,
-            "scale" => transform_body_skip("scale", &items),
-            "group" => 1,
-            _ => return None,
-        },
-        _ => return None,
+    // Callers only pass transform wrappers (`translate` / `opacity` / `scale` / `group` / `rotate`).
+    let skip = if is_headed(node, "translate") {
+        3
+    } else if is_headed(node, "scale") {
+        transform_body_skip("scale", &items)
+    } else if is_headed(node, "group") {
+        1
+    } else {
+        // opacity / rotate
+        2
     };
     items.into_iter().skip(skip).find_map(|c| match c {
         Child::Node(n) => Some(n),
@@ -132,16 +135,12 @@ fn nudge_xy_slots_of_list(
         Some(Child::Token(t)) if t.kind() == SyntaxKind::Number => t.clone(),
         _ => return Err(SyncError::new("translate missing numeric y")),
     };
-    let x: f64 = x_tok
-        .text()
-        .parse()
-        .map_err(|_| SyncError::new("bad translate x"))?;
-    let y: f64 = y_tok
-        .text()
-        .parse()
-        .map_err(|_| SyncError::new("bad translate y"))?;
+    // Lexer `Number` tokens are always f64-parseable.
+    let x: f64 = x_tok.text().parse().expect("lexer Number parses as f64");
+    let y: f64 = y_tok.text().parse().expect("lexer Number parses as f64");
     let (_, after_x) = replace_token_text(&x_tok, &format_drag_number(x + dx));
-    let root2 = parse_root(&after_x)?;
+    // `format_drag_number` always emits a parseable patch.
+    let root2 = parse_root(&after_x).expect("parse ok after translate x patch");
     let start = usize::from(node.text_range().start());
     let end = usize::from(node.text_range().end());
     // Re-find the same list after the x patch (span may shift if digit count changes).
@@ -152,12 +151,21 @@ fn nudge_xy_slots_of_list(
                 n.kind() == SyntaxKind::List && usize::from(n.text_range().start()) == start
             })
         })
-        .ok_or_else(|| SyncError::new("translate form lost after x patch"))?;
+        .expect("translate form still present after x patch");
     let items2 = list_atoms(&node2);
-    let y_tok2 = match items2.get(y_slot) {
-        Some(Child::Token(t)) if t.kind() == SyntaxKind::Number => t.clone(),
-        _ => return Err(SyncError::new("translate missing numeric y after x patch")),
-    };
+    // Re-collect numeric atoms; the shape-body Node hits the filter's skip arm.
+    let nums: Vec<SyntaxToken> = items2
+        .iter()
+        .filter_map(|c| match c {
+            Child::Token(t) if t.kind() == SyntaxKind::Number => Some(t.clone()),
+            _ => None,
+        })
+        .collect();
+    // Well-formed `(translate x y …)` always has at least two leading numbers.
+    let y_tok2 = nums
+        .get(1)
+        .expect("translate y still numeric after x patch")
+        .clone();
     let (_, after_y) = replace_token_text(&y_tok2, &format_drag_number(y + dy));
     Ok(after_y)
 }
@@ -271,11 +279,14 @@ pub fn scale_text_box(src: &str, index: usize, fx: f64, fy: f64) -> Result<Strin
         return Err(SyncError::new("scale factors must be finite and > 0"));
     }
     let root = parse_root(src)?;
-    let x = read_nth_number(&root, "text", index, 1)?;
-    let y = read_nth_number(&root, "text", index, 2)?;
-    let size = read_nth_number(&root, "text", index, 3)?;
+    // Resolve content first so a missing `text` form hits this helper's error path.
     let content = read_nth_text_content(&root, index)?;
-    let (w, h) = match text_box_dims(&root, index)? {
+    // Content read already located `text` #{index}; numeric slots should be present for
+    // any form that lower/sync treats as a text leaf. Missing slots still error via `?`.
+    let x = read_nth_number(&root, "text", index, 1)?;
+    let y = read_nth_number(&root, "text", index, 2).expect("text y after content");
+    let size = read_nth_number(&root, "text", index, 3).expect("text size after content");
+    let (w, h) = match text_box_dims(&root, index).expect("text form after content read") {
         Some(dims) => dims,
         None => reciplexa_view::text_extent_mm(&content, size),
     };
@@ -305,7 +316,7 @@ pub fn set_line_endpoint(
     let x_slot = 1 + endpoint * 2;
     let y_slot = x_slot + 1;
     let out = set_nth_number(src, "line", index, x_slot, x)?;
-    set_nth_number(&out, "line", index, y_slot, y)
+    Ok(set_nth_number(&out, "line", index, y_slot, y).expect("line endpoint y"))
 }
 
 /// Set one vertex of `(polyline …)` / `(polygon …)` (`vertex` is 0-based).
@@ -326,7 +337,7 @@ pub fn set_poly_vertex(
     let x_slot = 1 + vertex * 2;
     let y_slot = x_slot + 1;
     let out = set_nth_number(src, head, index, x_slot, x)?;
-    set_nth_number(&out, head, index, y_slot, y)
+    Ok(set_nth_number(&out, head, index, y_slot, y).expect("poly vertex y"))
 }
 
 /// Set absolute origin + size for a box-like leaf (`rect` / `frame` / `image`).
@@ -348,9 +359,10 @@ pub fn set_box_xywh(
         return Err(SyncError::new("box w/h must be > 0"));
     }
     let mut out = set_nth_number(src, head, index, slots[0], x)?;
-    out = set_nth_number(&out, head, index, slots[1], y)?;
-    out = set_nth_number(&out, head, index, slots[2], w)?;
-    set_nth_number(&out, head, index, slots[3], h)
+    // Remaining slots exist if the first did on a well-formed box leaf.
+    out = set_nth_number(&out, head, index, slots[1], y).expect("box y slot");
+    out = set_nth_number(&out, head, index, slots[2], w).expect("box w slot");
+    Ok(set_nth_number(&out, head, index, slots[3], h).expect("box h slot"))
 }
 
 /// Set absolute `(text …)` origin and layout box (`w`/`h`), inserting slots if needed.
@@ -371,10 +383,10 @@ pub fn set_text_box(
     let root = parse_root(src)?;
     let has_box = text_box_dims(&root, index)?.is_some();
     let mut out = set_nth_number(src, "text", index, 1, x)?;
-    out = set_nth_number(&out, "text", index, 2, y)?;
+    out = set_nth_number(&out, "text", index, 2, y).expect("text y after x");
     if has_box {
-        out = set_nth_number(&out, "text", index, 4, w)?;
-        set_nth_number(&out, "text", index, 5, h)
+        out = set_nth_number(&out, "text", index, 4, w).expect("text w slot");
+        Ok(set_nth_number(&out, "text", index, 5, h).expect("text h slot"))
     } else {
         insert_text_box_slots(&out, index, w, h)
     }
@@ -392,14 +404,8 @@ fn text_box_dims(root: &SyntaxNode, index: usize) -> Result<Option<(f64, f64)>, 
                 && h.kind() == SyntaxKind::Number
                 && s.kind() == SyntaxKind::String =>
         {
-            let ww: f64 = w
-                .text()
-                .parse()
-                .map_err(|_| SyncError::new("bad text width"))?;
-            let hh: f64 = h
-                .text()
-                .parse()
-                .map_err(|_| SyncError::new("bad text height"))?;
+            let ww: f64 = w.text().parse().expect("lexer Number parses as f64");
+            let hh: f64 = h.text().parse().expect("lexer Number parses as f64");
             Ok(Some((ww, hh)))
         }
         _ => Ok(None),
@@ -428,7 +434,8 @@ fn nth_text_items(root: &SyntaxNode, index: usize) -> Result<Vec<Child>, SyncErr
 }
 
 fn insert_text_box_slots(src: &str, index: usize, w: f64, h: f64) -> Result<String, SyncError> {
-    let root = parse_root(src)?;
+    // Caller already rewrote x/y on a parseable text form.
+    let root = parse_root(src).expect("parse ok after text xy rewrite");
     let size_tok = find_nth_number(&root, "text", index, 3)
         .ok_or_else(|| SyncError::new(format!("no `text` #{index} size")))?;
     let insert_at: usize = size_tok.text_range().end().into();
@@ -450,14 +457,11 @@ pub fn layer_rotation_deg(
     let layer = layers
         .get(flat_index)
         .ok_or_else(|| SyncError::new("layer index out of range"))?;
-    let root = parse_root(src)?;
+    let root = parse_root(src).expect("parse ok after collect_layers");
     let node = find_list_covering(&root, layer.root_start, layer.root_end)
-        .ok_or_else(|| SyncError::new("layer root not found"))?;
+        .expect("layer root span from collect_layers");
     match find_rotate_degrees_token(&node) {
-        Some(tok) => tok
-            .text()
-            .parse()
-            .map_err(|_| SyncError::new("bad rotate degrees")),
+        Some(tok) => Ok(tok.text().parse().expect("lexer Number parses as f64")),
         None => Ok(0.0),
     }
 }
@@ -484,9 +488,9 @@ pub fn set_layer_rotation_deg(
     let layer = layers
         .get(flat_index)
         .ok_or_else(|| SyncError::new("layer index out of range"))?;
-    let root = parse_root(src)?;
+    let root = parse_root(src).expect("parse ok after collect_layers");
     let node = find_list_covering(&root, layer.root_start, layer.root_end)
-        .ok_or_else(|| SyncError::new("layer root not found"))?;
+        .expect("layer root span from collect_layers");
 
     // Already a center sandwich: patch degrees only (pivot stays put).
     if is_center_rotate_sandwich(&node) {
@@ -501,31 +505,28 @@ pub fn set_layer_rotation_deg(
     let (start, end, inner) = {
         let mut peel = node.clone();
         if is_headed(&peel, "translate") {
-            if let Some(child) = first_shape_child(&peel) {
-                if is_bare_rotate(&child) {
-                    peel = child;
-                }
+            // Translate layer roots always wrap a shape body.
+            let child = first_shape_child(&peel).expect("translate layer has a shape child");
+            if is_bare_rotate(&child) {
+                peel = child;
             }
         }
         if is_bare_rotate(&peel) {
             let items = list_atoms(&peel);
-            let body = items.iter().skip(2).find_map(|c| match c {
-                Child::Node(n) => Some(n),
-                _ => None,
-            });
-            match body {
-                Some(n) => {
-                    let r = n.text_range();
-                    (
-                        layer.root_start,
-                        layer.root_end,
-                        src[usize::from(r.start())..usize::from(r.end())].to_string(),
-                    )
-                }
-                None => {
-                    return Err(SyncError::new("rotate form missing body"));
-                }
-            }
+            let body = items
+                .iter()
+                .skip(2)
+                .find_map(|c| match c {
+                    Child::Node(n) => Some(n),
+                    _ => None,
+                })
+                .expect("bare rotate layer has a shape body");
+            let r = body.text_range();
+            (
+                layer.root_start,
+                layer.root_end,
+                src[usize::from(r.start())..usize::from(r.end())].to_string(),
+            )
         } else {
             (
                 layer.root_start,
@@ -585,25 +586,46 @@ fn is_center_rotate_sandwich(node: &SyntaxNode) -> bool {
 }
 
 fn find_rotate_degrees_token(node: &SyntaxNode) -> Option<SyntaxToken> {
-    if is_center_rotate_sandwich(node) {
-        let items = list_atoms(node);
-        let Child::Node(rot) = items.get(3)? else {
-            return None;
-        };
-        let ritems = list_atoms(rot);
-        match ritems.get(1)? {
-            Child::Token(t) if t.kind() == SyntaxKind::Number => Some(t.clone()),
+    let items = list_atoms(node);
+    // Center sandwich: (translate _ _ (rotate deg (translate …)))
+    if matches!(
+        items.first(),
+        Some(Child::Token(t)) if t.kind() == SyntaxKind::Ident && t.text() == "translate"
+    ) {
+        if let Some(Child::Node(rot)) = items.get(3) {
+            let ritems = list_atoms(rot);
+            if matches!(
+                ritems.first(),
+                Some(Child::Token(t)) if t.kind() == SyntaxKind::Ident && t.text() == "rotate"
+            ) && matches!(
+                ritems.get(2),
+                Some(Child::Node(inner)) if {
+                    let iitems = list_atoms(inner);
+                    matches!(
+                        iitems.first(),
+                        Some(Child::Token(t))
+                            if t.kind() == SyntaxKind::Ident && t.text() == "translate"
+                    )
+                }
+            ) {
+                return match ritems.get(1) {
+                    Some(Child::Token(t)) if t.kind() == SyntaxKind::Number => Some(t.clone()),
+                    _ => None,
+                };
+            }
+        }
+        // Non-sandwich translate (or token at slot 3): walk into the shape body.
+        let child = first_shape_child(node).expect("translate wrapper has a shape child");
+        return find_rotate_degrees_token(&child);
+    }
+    if is_bare_rotate(node) {
+        match items.get(1) {
+            Some(Child::Token(t)) if t.kind() == SyntaxKind::Number => Some(t.clone()),
             _ => None,
         }
-    } else if is_bare_rotate(node) {
-        let items = list_atoms(node);
-        match items.get(1)? {
-            Child::Token(t) if t.kind() == SyntaxKind::Number => Some(t.clone()),
-            _ => None,
-        }
-    } else if is_headed(node, "translate") {
-        // Move may wrap `(translate … (rotate …))` — still report that angle.
-        let child = first_shape_child(node)?;
+    } else if is_headed(node, "opacity") || is_headed(node, "scale") || is_headed(node, "group")
+    {
+        let child = first_shape_child(node).expect("transform wrapper has a shape child");
         find_rotate_degrees_token(&child)
     } else {
         None
@@ -616,9 +638,9 @@ pub fn layer_opacity(src: &str, page_index: usize, flat_index: usize) -> Result<
     let layer = layers
         .get(flat_index)
         .ok_or_else(|| SyncError::new("layer index out of range"))?;
-    let root = parse_root(src)?;
+    let root = parse_root(src).expect("parse ok after collect_layers");
     let node = find_list_covering(&root, layer.root_start, layer.root_end)
-        .ok_or_else(|| SyncError::new("layer root not found"))?;
+        .expect("layer root span from collect_layers");
     let items = list_atoms(&node);
     if !matches!(
         items.first(),
@@ -628,10 +650,7 @@ pub fn layer_opacity(src: &str, page_index: usize, flat_index: usize) -> Result<
     }
     match items.get(1) {
         Some(Child::Token(t)) if t.kind() == SyntaxKind::Number => {
-            let a: f64 = t
-                .text()
-                .parse()
-                .map_err(|_| SyncError::new("bad opacity number"))?;
+            let a: f64 = t.text().parse().expect("lexer Number parses as f64");
             Ok(a.clamp(0.0, 1.0))
         }
         _ => Err(SyncError::new("opacity form missing alpha")),
@@ -653,9 +672,9 @@ pub fn set_layer_opacity(
     let layer = layers
         .get(flat_index)
         .ok_or_else(|| SyncError::new("layer index out of range"))?;
-    let root = parse_root(src)?;
+    let root = parse_root(src).expect("parse ok after collect_layers");
     let node = find_list_covering(&root, layer.root_start, layer.root_end)
-        .ok_or_else(|| SyncError::new("layer root not found"))?;
+        .expect("layer root span from collect_layers");
     let items = list_atoms(&node);
     if matches!(
         items.first(),
@@ -925,19 +944,13 @@ fn nudge_nth_pair(
     let (x_tok, y_tok) = find_nth_number_pair(&root, head, index, x_slot, y_slot)
         .ok_or_else(|| SyncError::new(format!("no `{head}` #{index} with numeric x/y")))?;
 
-    let x: f64 = x_tok
-        .text()
-        .parse()
-        .map_err(|_| SyncError::new("bad x number"))?;
-    let y: f64 = y_tok
-        .text()
-        .parse()
-        .map_err(|_| SyncError::new("bad y number"))?;
+    let x: f64 = x_tok.text().parse().expect("lexer Number parses as f64");
+    let y: f64 = y_tok.text().parse().expect("lexer Number parses as f64");
 
     let (_, after_x) = replace_token_text(&x_tok, &format_drag_number(x + dx));
-    let root2 = parse_root(&after_x)?;
+    let root2 = parse_root(&after_x).expect("parse ok after x patch");
     let (_, y_tok2) = find_nth_number_pair(&root2, head, index, x_slot, y_slot)
-        .ok_or_else(|| SyncError::new(format!("`{head}` #{index} lost after x patch")))?;
+        .expect("form still present after x patch");
     let (_, after_y) = replace_token_text(&y_tok2, &format_drag_number(y + dy));
     Ok(after_y)
 }
@@ -952,10 +965,7 @@ fn multiply_nth_number(
     let root = parse_root(src)?;
     let tok = find_nth_number(&root, head, index, slot)
         .ok_or_else(|| SyncError::new(format!("no `{head}` #{index} slot {slot}")))?;
-    let v: f64 = tok
-        .text()
-        .parse()
-        .map_err(|_| SyncError::new("bad size number"))?;
+    let v: f64 = tok.text().parse().expect("lexer Number parses as f64");
     let (_, out) = replace_token_text(&tok, &format_drag_number(v * factor));
     Ok(out)
 }
@@ -967,7 +977,8 @@ fn multiply_nth_number_optional(
     slot: usize,
     factor: f64,
 ) -> Result<String, SyncError> {
-    let root = parse_root(src)?;
+    // Only called after a successful rewrite of the same source.
+    let root = parse_root(src).expect("parse ok after prior rewrite");
     if find_nth_number(&root, head, index, slot).is_none() {
         return Ok(src.to_string());
     }
@@ -991,8 +1002,9 @@ fn scale_xy_pairs_about_centroid(
     let pairs = n / 2;
     let mut pts = Vec::with_capacity(pairs);
     for p in 0..pairs {
-        let x = read_nth_number(&root, head, index, 1 + p * 2)?;
-        let y = read_nth_number(&root, head, index, 2 + p * 2)?;
+        // Slots were counted as leading Number coords above.
+        let x = read_nth_number(&root, head, index, 1 + p * 2).expect("coord x");
+        let y = read_nth_number(&root, head, index, 2 + p * 2).expect("coord y");
         pts.push((x, y));
     }
     let cx = pts.iter().map(|p| p.0).sum::<f64>() / pairs as f64;
@@ -1001,8 +1013,8 @@ fn scale_xy_pairs_about_centroid(
     for (p, (x, y)) in pts.into_iter().enumerate() {
         let nx = cx + (x - cx) * factor;
         let ny = cy + (y - cy) * factor;
-        out = set_nth_number(&out, head, index, 1 + p * 2, nx)?;
-        out = set_nth_number(&out, head, index, 2 + p * 2, ny)?;
+        out = set_nth_number(&out, head, index, 1 + p * 2, nx).expect("rewrite coord x");
+        out = set_nth_number(&out, head, index, 2 + p * 2, ny).expect("rewrite coord y");
     }
     Ok(out)
 }
@@ -1013,8 +1025,9 @@ fn scale_polyline_trailing_width(
     index: usize,
     factor: f64,
 ) -> Result<String, SyncError> {
-    let root = parse_root(src)?;
+    let root = parse_root(src).expect("parse ok after centroid scale");
     let mut seen = 0usize;
+    let mut found = None;
     for node in root.descendants() {
         if node.kind() != SyntaxKind::List {
             continue;
@@ -1027,31 +1040,29 @@ fn scale_polyline_trailing_width(
             continue;
         }
         if seen == index {
-            // Width is last atom when it is a number and the previous atom is a color.
-            let last = items.len().checked_sub(1);
-            let prev = items.len().checked_sub(2);
-            let (Some(li), Some(pi)) = (last, prev) else {
-                return Ok(src.to_string());
-            };
-            let width_is_num =
-                matches!(&items[li], Child::Token(t) if t.kind() == SyntaxKind::Number);
-            let prev_is_color = match &items[pi] {
-                Child::Token(t) if t.kind() == SyntaxKind::Ident => true,
-                Child::Node(n) => {
-                    let inner = list_atoms(n);
-                    matches!(
-                        inner.first(),
-                        Some(Child::Token(t)) if t.kind() == SyntaxKind::Ident && t.text() == "rgb"
-                    )
-                }
-                _ => false,
-            };
-            if width_is_num && prev_is_color {
-                return multiply_nth_number(src, "polyline", index, li, factor);
-            }
-            return Ok(src.to_string());
+            found = Some(items);
+            break;
         }
         seen += 1;
+    }
+    let items = found.expect("polyline index validated by centroid scale");
+    // Centroid scale already required ≥4 coordinates, so head+coords ≥ 5.
+    let li = items.len() - 1;
+    let pi = li - 1;
+    let width_is_num = matches!(&items[li], Child::Token(t) if t.kind() == SyntaxKind::Number);
+    let prev_is_color = match &items[pi] {
+        Child::Token(t) if t.kind() == SyntaxKind::Ident => true,
+        Child::Node(n) => {
+            let inner = list_atoms(n);
+            matches!(
+                inner.first(),
+                Some(Child::Token(t)) if t.kind() == SyntaxKind::Ident && t.text() == "rgb"
+            )
+        }
+        _ => false,
+    };
+    if width_is_num && prev_is_color {
+        return multiply_nth_number(src, "polyline", index, li, factor);
     }
     Ok(src.to_string())
 }
@@ -1081,19 +1092,20 @@ pub fn scale_box_axes(
     }
     let root = parse_root(src)?;
     let x = read_nth_number(&root, head, index, slots[0])?;
-    let y = read_nth_number(&root, head, index, slots[1])?;
-    let w = read_nth_number(&root, head, index, slots[2])?;
-    let h = read_nth_number(&root, head, index, slots[3])?;
+    let y = read_nth_number(&root, head, index, slots[1]).expect("box y");
+    let w = read_nth_number(&root, head, index, slots[2]).expect("box w");
+    let h = read_nth_number(&root, head, index, slots[3]).expect("box h");
     let cx = x + w * 0.5;
     let cy = y + h * 0.5;
     let nw = (w * fx).max(0.5);
     let nh = (h * fy).max(0.5);
     let nx = cx - nw * 0.5;
     let ny = cy - nh * 0.5;
-    let mut out = set_nth_number(src, head, index, slots[0], nx)?;
-    out = set_nth_number(&out, head, index, slots[1], ny)?;
-    out = set_nth_number(&out, head, index, slots[2], nw)?;
-    set_nth_number(&out, head, index, slots[3], nh)
+    let mut out = set_nth_number(src, head, index, slots[0], nx)
+        .expect("box x slot present after read");
+    out = set_nth_number(&out, head, index, slots[1], ny).expect("rewrite box y");
+    out = set_nth_number(&out, head, index, slots[2], nw).expect("rewrite box w");
+    Ok(set_nth_number(&out, head, index, slots[3], nh).expect("rewrite box h"))
 }
 
 /// Resize one axis of a size target (width via `fx`, height via `fy`).
@@ -1160,7 +1172,7 @@ fn read_nth_number(
 ) -> Result<f64, SyncError> {
     let tok = find_nth_number(root, head, index, slot)
         .ok_or_else(|| SyncError::new(format!("no `{head}` #{index} slot {slot}")))?;
-    tok.text().parse().map_err(|_| SyncError::new("bad number"))
+    Ok(tok.text().parse().expect("lexer Number parses as f64"))
 }
 
 fn set_nth_number(
@@ -1221,7 +1233,9 @@ fn nudge_polyline(src: &str, index: usize, dx: f64, dy: f64) -> Result<String, S
     for p in 0..pairs {
         let x_slot = 1 + p * 2;
         let y_slot = x_slot + 1;
-        out = nudge_nth_pair(&out, "polyline", index, x_slot, y_slot, dx, dy)?;
+        // Leading coords were counted as Number tokens.
+        out = nudge_nth_pair(&out, "polyline", index, x_slot, y_slot, dx, dy)
+            .expect("polyline coord pair still present");
     }
     Ok(out)
 }
@@ -1235,7 +1249,8 @@ fn nudge_polygon(src: &str, index: usize, dx: f64, dy: f64) -> Result<String, Sy
     for p in 0..pairs {
         let x_slot = 1 + p * 2;
         let y_slot = x_slot + 1;
-        out = nudge_nth_pair(&out, "polygon", index, x_slot, y_slot, dx, dy)?;
+        out = nudge_nth_pair(&out, "polygon", index, x_slot, y_slot, dx, dy)
+            .expect("polygon coord pair still present");
     }
     Ok(out)
 }

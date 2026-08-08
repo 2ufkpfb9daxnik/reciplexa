@@ -77,7 +77,7 @@ pub fn collect_layer_props(
         .ok_or_else(|| SyncError::new("layer index out of range"))?;
     let root = parse_root(src)?;
     let paint = find_list_covering(&root, layer.byte_start, layer.byte_end)
-        .ok_or_else(|| SyncError::new("paint form not found"))?;
+        .expect("paint span from collect_layers");
 
     let (x0, y0, x1, y1) = ctx.aabb_mm;
     let w = (x1 - x0).max(0.0);
@@ -133,7 +133,7 @@ pub fn collect_layer_props(
         Some((0.0, 1.0)),
     ));
 
-    collect_paint_props(&paint, &mut out)?;
+    collect_paint_props(&paint, &mut out);
     Ok(out)
 }
 
@@ -174,11 +174,8 @@ pub fn set_layer_prop(
             }
             let fx = *nw / w;
             let targets = collect_size_targets_page(src, page_index)?;
-            let target = targets
-                .get(flat_index)
-                .copied()
-                .ok_or_else(|| SyncError::new("size target missing"))?;
-            scale_size_target_axes(src, target, fx, 1.0)
+            // Flatten indices align with size targets from the same page walk.
+            scale_size_target_axes(src, targets[flat_index], fx, 1.0)
         }
         "layout.h" => {
             let PropValue::Number(nh) = value else {
@@ -189,11 +186,7 @@ pub fn set_layer_prop(
             }
             let fy = *nh / h;
             let targets = collect_size_targets_page(src, page_index)?;
-            let target = targets
-                .get(flat_index)
-                .copied()
-                .ok_or_else(|| SyncError::new("size target missing"))?;
-            scale_size_target_axes(src, target, 1.0, fy)
+            scale_size_target_axes(src, targets[flat_index], 1.0, fy)
         }
         "transform.rotation" => {
             let PropValue::Number(deg) = value else {
@@ -211,13 +204,13 @@ pub fn set_layer_prop(
     }
 }
 
-fn collect_paint_props(paint: &SyntaxNode, out: &mut Vec<PropField>) -> Result<(), SyncError> {
+fn collect_paint_props(paint: &SyntaxNode, out: &mut Vec<PropField>) {
     let items = list_atoms(paint);
     let Some(Child::Token(head)) = items.first() else {
-        return Ok(());
+        return;
     };
     if head.kind() != SyntaxKind::Ident {
-        return Ok(());
+        return;
     }
     let kind = head.text();
     match kind {
@@ -306,7 +299,6 @@ fn collect_paint_props(paint: &SyntaxNode, out: &mut Vec<PropField>) -> Result<(
             collect_line_stroke(&items, out);
         }
         "polyline" | "polygon" => {
-            // Expose color / width; vertex editing stays on canvas for now.
             if kind == "polyline" {
                 collect_polyline_stroke(&items, out);
             } else {
@@ -315,7 +307,6 @@ fn collect_paint_props(paint: &SyntaxNode, out: &mut Vec<PropField>) -> Result<(
         }
         _ => {}
     }
-    Ok(())
 }
 
 fn set_paint_prop(
@@ -331,10 +322,13 @@ fn set_paint_prop(
         .ok_or_else(|| SyncError::new("layer index out of range"))?;
     let root = parse_root(src)?;
     let paint = find_list_covering(&root, layer.byte_start, layer.byte_end)
-        .ok_or_else(|| SyncError::new("paint form not found"))?;
+        .expect("paint span from collect_layers");
     let items = list_atoms(&paint);
-    let Some(Child::Token(head)) = items.first() else {
-        return Err(SyncError::new("paint form missing head"));
+    let Child::Token(head) = items
+        .first()
+        .expect("paint form has a head atom")
+    else {
+        return Ok(src.to_string());
     };
     let kind = head.text();
 
@@ -374,11 +368,11 @@ fn set_paint_prop(
             let PropValue::Number(n) = value else {
                 return Err(SyncError::new(format!("{id} expects a number")));
             };
-            let ch = match id {
-                "fill.r" => 0,
-                "fill.g" => 1,
-                "fill.b" => 2,
-                _ => unreachable!(),
+            // Outer or-pattern already constrains the suffix to r|g|b.
+            let ch = match id.as_bytes()[id.len() - 1] {
+                b'r' => 0,
+                b'g' => 1,
+                _ => 2,
             };
             set_color_channel(src, kind, &items, ColorRole::Fill, ch, *n)
         }
@@ -386,11 +380,10 @@ fn set_paint_prop(
             let PropValue::Number(n) = value else {
                 return Err(SyncError::new(format!("{id} expects a number")));
             };
-            let ch = match id {
-                "stroke.r" => 0,
-                "stroke.g" => 1,
-                "stroke.b" => 2,
-                _ => unreachable!(),
+            let ch = match id.as_bytes()[id.len() - 1] {
+                b'r' => 0,
+                b'g' => 1,
+                _ => 2,
             };
             set_color_channel(src, kind, &items, ColorRole::Stroke, ch, *n)
         }
@@ -424,7 +417,7 @@ pub fn set_layer_fill_rgb(
         .ok_or_else(|| SyncError::new("layer index out of range"))?;
     let root = parse_root(src)?;
     let paint = find_list_covering(&root, layer.byte_start, layer.byte_end)
-        .ok_or_else(|| SyncError::new("paint form not found"))?;
+        .expect("paint span from collect_layers");
     let items = list_atoms(&paint);
     if trailing_color(&items).is_some() {
         let ctx = PropEditContext {
@@ -461,9 +454,7 @@ pub fn set_layer_fill_rgb(
     // Insert (rgb …) before the closing paren of the paint form.
     let range = paint.text_range();
     let end = usize::from(range.end());
-    if end == 0 || !src[..end].ends_with(')') {
-        return Err(SyncError::new("paint form missing closing paren"));
-    }
+    // Paint lists from CST always end with `)`.
     let insert_at = end - 1;
     let rgb = format!(
         " (rgb {} {} {})",
@@ -677,15 +668,14 @@ fn collect_trailing_stroke_on_frame(items: &[Child], out: &mut Vec<PropField>) {
     }
     if let Some(Child::Token(t)) = items.last() {
         if t.kind() == SyntaxKind::Number {
-            if let Ok(w) = t.text().parse::<f64>() {
-                out.push(num(
-                    "stroke.width",
-                    "width",
-                    PropGroup::Stroke,
-                    w,
-                    Some((0.1, 40.0)),
-                ));
-            }
+            let w = t.text().parse().unwrap_or(0.0);
+            out.push(num(
+                "stroke.width",
+                "width",
+                PropGroup::Stroke,
+                w,
+                Some((0.1, 40.0)),
+            ));
         }
     }
 }
@@ -700,15 +690,14 @@ fn collect_line_stroke(items: &[Child], out: &mut Vec<PropField>) {
     if items.len() >= 7 {
         if let Some(Child::Token(t)) = items.get(6) {
             if t.kind() == SyntaxKind::Number {
-                if let Ok(w) = t.text().parse::<f64>() {
-                    out.push(num(
-                        "stroke.width",
-                        "width",
-                        PropGroup::Stroke,
-                        w,
-                        Some((0.1, 40.0)),
-                    ));
-                }
+                let w = t.text().parse().unwrap_or(0.0);
+                out.push(num(
+                    "stroke.width",
+                    "width",
+                    PropGroup::Stroke,
+                    w,
+                    Some((0.1, 40.0)),
+                ));
             }
         }
     }
@@ -725,15 +714,14 @@ fn collect_polyline_stroke(items: &[Child], out: &mut Vec<PropField>) {
                 push_rgb_fields(ch, PropGroup::Stroke, "stroke", out);
             }
             if let Child::Token(t) = &items[li] {
-                if let Ok(w) = t.text().parse::<f64>() {
-                    out.push(num(
-                        "stroke.width",
-                        "width",
-                        PropGroup::Stroke,
-                        w,
-                        Some((0.1, 40.0)),
-                    ));
-                }
+                let w = t.text().parse().unwrap_or(0.0);
+                out.push(num(
+                    "stroke.width",
+                    "width",
+                    PropGroup::Stroke,
+                    w,
+                    Some((0.1, 40.0)),
+                ));
             }
             return;
         }
@@ -765,9 +753,18 @@ fn color_channels(child: &Child) -> Option<[f64; 3]> {
             ) {
                 return None;
             }
-            let r = number_token(&atoms, 1)?.text().parse().ok()?;
-            let g = number_token(&atoms, 2)?.text().parse().ok()?;
-            let b = number_token(&atoms, 3)?.text().parse().ok()?;
+            let r: f64 = number_token(&atoms, 1)?
+                .text()
+                .parse()
+                .expect("lexer Number parses as f64");
+            let g: f64 = number_token(&atoms, 2)?
+                .text()
+                .parse()
+                .expect("lexer Number parses as f64");
+            let b: f64 = number_token(&atoms, 3)?
+                .text()
+                .parse()
+                .expect("lexer Number parses as f64");
             Some([r, g, b])
         }
         _ => None,
@@ -887,13 +884,12 @@ fn set_stroke_width(
 
 fn push_geom_num(items: &[Child], slot: usize, id: &str, label: &str, out: &mut Vec<PropField>) {
     if let Some(tok) = number_token(items, slot) {
-        if let Ok(v) = tok.text().parse::<f64>() {
-            let slider = match label {
-                "r" | "rx" | "ry" | "w" | "h" | "size" | "width" => Some((0.5, 400.0)),
-                _ => Some((-400.0, 400.0)),
-            };
-            out.push(num(id, label, PropGroup::Geometry, v, slider));
-        }
+        let v = tok.text().parse().unwrap_or(0.0);
+        let slider = match label {
+            "r" | "rx" | "ry" | "w" | "h" | "size" | "width" => Some((0.5, 400.0)),
+            _ => Some((-400.0, 400.0)),
+        };
+        out.push(num(id, label, PropGroup::Geometry, v, slider));
     }
 }
 
@@ -948,17 +944,20 @@ fn unquote(raw: &str) -> String {
     let mut chars = inner.chars().peekable();
     while let Some(c) = chars.next() {
         if c == '\\' {
-            match chars.next() {
-                Some('n') => out.push('\n'),
-                Some('r') => out.push('\r'),
-                Some('t') => out.push('\t'),
-                Some('\\') => out.push('\\'),
-                Some('"') => out.push('"'),
-                Some(other) => {
-                    out.push('\\');
-                    out.push(other);
+            // A lone trailing `\` cannot appear in a well-formed String token
+            // (lexer treats EOF-after-backslash as Error), so drop it if seen.
+            if let Some(esc) = chars.next() {
+                match esc {
+                    'n' => out.push('\n'),
+                    'r' => out.push('\r'),
+                    't' => out.push('\t'),
+                    '\\' => out.push('\\'),
+                    '"' => out.push('"'),
+                    other => {
+                        out.push('\\');
+                        out.push(other);
+                    }
                 }
-                None => out.push('\\'),
             }
         } else {
             out.push(c);

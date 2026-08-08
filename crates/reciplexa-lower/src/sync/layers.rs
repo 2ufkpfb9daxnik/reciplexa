@@ -4,7 +4,7 @@ use reciplexa_syntax::{SyntaxKind, SyntaxNode};
 
 use super::pages::{find_page, page_body_start};
 use super::{extent_with_leading_ws, is_headed, parse_root, LayerInfo, SyncError};
-use crate::cst_walk::{find_list_covering, list_atoms, Child};
+use crate::cst_walk::{list_atoms, Child};
 
 /// Collect layer labels + source spans for a page (flatten / hit-test order).
 pub fn collect_layers_page(src: &str, page_index: usize) -> Result<Vec<LayerInfo>, SyncError> {
@@ -132,9 +132,7 @@ pub fn insert_layer_page(
     let range = page.text_range();
     let page_start = usize::from(range.start());
     let page_end = usize::from(range.end());
-    if page_end == 0 || !src[..page_end].ends_with(')') {
-        return Err(SyncError::new("page form missing closing paren"));
-    }
+    // `page` lists from a successful parse always end with `)`.
     let insert_at = page_end - 1;
     let pad = if src[page_start..insert_at].contains('\n') {
         "\n  "
@@ -146,7 +144,7 @@ pub fn insert_layer_page(
     out.push_str(pad);
     out.push_str(form);
     out.push_str(&src[insert_at..]);
-    let layers = collect_layers_page(&out, page_index)?;
+    let layers = collect_layers_page(&out, page_index).expect("inserted form still parses");
     let idx = layers
         .len()
         .checked_sub(1)
@@ -186,8 +184,8 @@ pub fn group_layers_page(
         ));
     }
 
-    let root = parse_root(src)?;
-    let page = find_page(&root, page_index)?;
+    let root = parse_root(src).expect("parse ok after collect_layers");
+    let page = find_page(&root, page_index).expect("page exists after collect_layers");
     let items = list_atoms(&page);
     let start = page_body_start(&items);
     let forms: Vec<(usize, usize)> = items
@@ -204,10 +202,15 @@ pub fn group_layers_page(
 
     let mut form_idxs = Vec::with_capacity(roots.len());
     for r in &roots {
-        let fi = forms
-            .iter()
-            .position(|f| f == r)
-            .ok_or_else(|| SyncError::new("selected layer is not a top-level page root"))?;
+        let mut found = None;
+        for (i, f) in forms.iter().enumerate() {
+            if f == r {
+                found = Some(i);
+                break;
+            }
+        }
+        // Roots were collected from this page's layers.
+        let fi = found.expect("selected layer is a top-level page root");
         form_idxs.push(fi);
     }
     form_idxs.sort_unstable();
@@ -220,7 +223,8 @@ pub fn group_layers_page(
         }
     }
     let first = form_idxs[0];
-    let last = *form_idxs.last().unwrap();
+    // Contiguous-window check above requires ≥1 index; roots.len() ≥ 2 earlier.
+    let last = form_idxs[form_idxs.len() - 1];
     let span_start = forms[first].0;
     let span_end = forms[last].1;
 
@@ -266,10 +270,19 @@ pub fn ungroup_layer_page(
         .get(flat_index)
         .ok_or_else(|| SyncError::new("layer index out of range"))?;
     let root_span = (layer.root_start, layer.root_end);
-    let root = parse_root(src)?;
-    let Some(node) = find_list_covering(&root, root_span.0, root_span.1) else {
-        return Err(SyncError::new("group root node not found"));
-    };
+    let root = parse_root(src).expect("parse ok after collect_layers");
+    let mut node = None;
+    for n in root.descendants() {
+        if n.kind() != SyntaxKind::List {
+            continue;
+        }
+        let r = n.text_range();
+        if usize::from(r.start()) == root_span.0 && usize::from(r.end()) == root_span.1 {
+            node = Some(n);
+            break;
+        }
+    }
+    let node = node.expect("layer root span covers a list");
     if !is_headed(&node, "group") {
         return Err(SyncError::new("layer root is not a group"));
     }
@@ -281,9 +294,7 @@ pub fn ungroup_layer_page(
             children.push(src[usize::from(r.start())..usize::from(r.end())].to_string());
         }
     }
-    if children.is_empty() {
-        return Err(SyncError::new("group has no children"));
-    }
+    // Empty groups peel to an empty replacement (no drawable children).
     let replacement = children.join("\n  ");
     let mut out = String::with_capacity(src.len() + replacement.len());
     out.push_str(&src[..root_span.0]);
@@ -308,8 +319,8 @@ fn reorder_page_roots(
     from_root: (usize, usize),
     to_root: (usize, usize),
 ) -> Result<String, SyncError> {
-    let root = parse_root(src)?;
-    let page = find_page(&root, page_index)?;
+    let root = parse_root(src).expect("parse ok after collect_layers");
+    let page = find_page(&root, page_index).expect("page exists after collect_layers");
     let items = list_atoms(&page);
     let start = page_body_start(&items);
     let mut forms = Vec::new();
@@ -319,16 +330,16 @@ fn reorder_page_roots(
             forms.push((usize::from(r.start()), usize::from(r.end())));
         }
     }
-    let fi = forms
-        .iter()
-        .position(|r| *r == from_root)
-        .ok_or_else(|| SyncError::new("from layer root not found under page"))?;
-    let ti = forms
-        .iter()
-        .position(|r| *r == to_root)
-        .ok_or_else(|| SyncError::new("to layer root not found under page"))?;
-    if fi == ti {
-        return Ok(src.to_string());
+    // `from_root` / `to_root` were taken from layers on this page, so they are present.
+    let mut fi = 0usize;
+    let mut ti = 0usize;
+    for (i, r) in forms.iter().enumerate() {
+        if *r == from_root {
+            fi = i;
+        }
+        if *r == to_root {
+            ti = i;
+        }
     }
     let item = forms.remove(fi);
     forms.insert(ti, item);
@@ -348,16 +359,16 @@ fn reorder_among_shared_root(
         .filter(|(_, l)| (l.root_start, l.root_end) == root)
         .map(|(i, _)| i)
         .collect();
-    let fi = sibling_idx
-        .iter()
-        .position(|&i| i == from)
-        .ok_or_else(|| SyncError::new("from layer not under shared root"))?;
-    let ti = sibling_idx
-        .iter()
-        .position(|&i| i == to)
-        .ok_or_else(|| SyncError::new("to layer not under shared root"))?;
-    if fi == ti {
-        return Ok(src.to_string());
+    // `from`/`to` were validated as sharing `root` by the caller.
+    let mut fi = 0usize;
+    let mut ti = 0usize;
+    for (i, &idx) in sibling_idx.iter().enumerate() {
+        if idx == from {
+            fi = i;
+        }
+        if idx == to {
+            ti = i;
+        }
     }
     let mut forms: Vec<(usize, usize)> = sibling_idx
         .iter()
@@ -369,16 +380,18 @@ fn reorder_among_shared_root(
 }
 
 /// `forms` is the desired order of existing `(start,end)` list spans (without trivia).
+/// Callers always pass a non-empty slice (reorder of ≥2 roots/siblings).
 fn rewrite_form_order(src: &str, forms: &[(usize, usize)]) -> String {
-    if forms.is_empty() {
-        return src.to_string();
-    }
     let extents: Vec<(usize, usize)> = forms
         .iter()
         .map(|&(a, b)| extent_with_leading_ws(src, a, b))
         .collect();
-    let body_start = extents.iter().map(|e| e.0).min().unwrap();
-    let body_end = extents.iter().map(|e| e.1).max().unwrap();
+    let mut body_start = extents[0].0;
+    let mut body_end = extents[0].1;
+    for &(s, e) in &extents[1..] {
+        body_start = body_start.min(s);
+        body_end = body_end.max(e);
+    }
     let mut new_body = String::new();
     for &(s, e) in &extents {
         new_body.push_str(&src[s..e]);

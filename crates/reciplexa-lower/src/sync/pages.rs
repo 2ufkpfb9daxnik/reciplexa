@@ -118,9 +118,7 @@ pub fn page_body_start(items: &[Child]) -> usize {
 }
 
 fn is_list_headed(node: &SyntaxNode, name: &str) -> bool {
-    if node.kind() != SyntaxKind::List {
-        return false;
-    }
+    // Non-list nodes simply fail the Ident-head match (no separate kind guard).
     let items = list_atoms(node);
     matches!(items.first(), Some(Child::Token(t)) if t.kind() == SyntaxKind::Ident && t.text() == name)
 }

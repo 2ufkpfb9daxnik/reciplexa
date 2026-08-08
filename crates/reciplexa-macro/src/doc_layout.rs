@@ -40,12 +40,6 @@ pub enum LaidItem {
     PageBreak,
 }
 
-impl LaidItem {
-    fn is_pagebreak(&self) -> bool {
-        matches!(self, LaidItem::PageBreak)
-    }
-}
-
 pub const TITLE_SIZE_MM: f64 = 14.0;
 pub const TITLE_GAP_MM: f64 = 18.0;
 pub const H2_SIZE_MM: f64 = 11.0;
@@ -164,33 +158,38 @@ pub fn place_items(items: &[LaidItem], frame: DocFrame) -> Vec<PlacedItem> {
     let mut force_new_page = false;
     let mut prev_gap = 0.0_f64;
     let mut have_prev = false;
-    for item in items {
-        if item.is_pagebreak() {
-            force_new_page = true;
-            have_prev = false;
-            continue;
-        }
-        let item_height = match item {
-            LaidItem::Image { height_mm, .. } => *height_mm,
-            _ => 0.0,
-        };
-        if force_new_page {
-            page += 1;
-            y = frame.top_mm;
-            force_new_page = false;
+
+    let advance = |item_height: f64,
+                       page: &mut usize,
+                       y: &mut f64,
+                       force_new_page: &mut bool,
+                       have_prev: bool,
+                       prev_gap: f64| {
+        if *force_new_page {
+            *page += 1;
+            *y = frame.top_mm;
+            *force_new_page = false;
         } else if have_prev {
-            let next_y = y - prev_gap;
+            let next_y = *y - prev_gap;
             if next_y - item_height < frame.bottom_mm {
-                page += 1;
-                y = frame.top_mm;
+                *page += 1;
+                *y = frame.top_mm;
             } else {
-                y = next_y;
+                *y = next_y;
             }
-        } else if y - item_height < frame.bottom_mm && item_height > 0.0 {
+        } else if *y - item_height < frame.bottom_mm && item_height > 0.0 {
             // First item on a page that still cannot fit: place at top anyway.
         }
+    };
+
+    for item in items {
         match item {
+            LaidItem::PageBreak => {
+                force_new_page = true;
+                have_prev = false;
+            }
             LaidItem::Text(line) => {
+                advance(0.0, &mut page, &mut y, &mut force_new_page, have_prev, prev_gap);
                 out.push(PlacedItem::Text(PlacedText {
                     page_index: page,
                     x_mm: frame.left_mm + line.indent_mm,
@@ -202,10 +201,12 @@ pub fn place_items(items: &[LaidItem], frame: DocFrame) -> Vec<PlacedItem> {
                 have_prev = true;
             }
             LaidItem::VSpace { mm } => {
+                advance(0.0, &mut page, &mut y, &mut force_new_page, have_prev, prev_gap);
                 prev_gap = *mm;
                 have_prev = true;
             }
             LaidItem::Hr { y_gap_after } => {
+                advance(0.0, &mut page, &mut y, &mut force_new_page, have_prev, prev_gap);
                 out.push(PlacedItem::Line {
                     page_index: page,
                     x1_mm: frame.left_mm,
@@ -223,6 +224,14 @@ pub fn place_items(items: &[LaidItem], frame: DocFrame) -> Vec<PlacedItem> {
                 height_mm,
                 y_gap_after,
             } => {
+                advance(
+                    *height_mm,
+                    &mut page,
+                    &mut y,
+                    &mut force_new_page,
+                    have_prev,
+                    prev_gap,
+                );
                 out.push(PlacedItem::Image {
                     page_index: page,
                     path: path.clone(),
@@ -234,7 +243,6 @@ pub fn place_items(items: &[LaidItem], frame: DocFrame) -> Vec<PlacedItem> {
                 prev_gap = *y_gap_after;
                 have_prev = true;
             }
-            LaidItem::PageBreak => unreachable!("handled above"),
         }
     }
     out
@@ -468,8 +476,9 @@ fn parse_image_bracket(s: &str) -> Option<(String, f64, f64)> {
         let rest = after_quote[end + 1..].trim().to_string();
         (path, rest)
     } else {
+        // Non-empty trimmed input always yields at least one whitespace-separated token.
         let mut parts = s.split_whitespace();
-        let path = parts.next()?.to_string();
+        let path = parts.next().unwrap_or_default().to_string();
         let rest = parts.collect::<Vec<_>>().join(" ");
         (path, rest)
     };
@@ -506,9 +515,6 @@ fn push_styled_block_indent(
     out: &mut Vec<LaidItem>,
 ) {
     for line in flatten_lines(body) {
-        if line.is_empty() {
-            continue;
-        }
         push_wrapped(&line, size_mm, y_gap_after, wrap_chars, indent_mm, out);
     }
 }
@@ -656,9 +662,6 @@ fn append_marked_lines(parts: &[DocPart], lines: &mut Vec<String>, cur: &mut Str
 /// `@center{…}` — approximate horizontal centering via indent (char-width heuristic).
 fn push_centered_block(body: &[DocPart], out: &mut Vec<LaidItem>) {
     for line in flatten_lines_marked(body) {
-        if line.is_empty() {
-            continue;
-        }
         let n = line.chars().count().min(BODY_WRAP_CHARS);
         let content_w = DocFrame::A4.right_mm() - DocFrame::A4.left_mm;
         let char_w = content_w / BODY_WRAP_CHARS as f64;
@@ -678,9 +681,6 @@ fn push_centered_block(body: &[DocPart], out: &mut Vec<LaidItem>) {
 /// `@li{…}` → body-sized lines prefixed with a bullet (package meaning, not font glyphs).
 fn push_list_items(body: &[DocPart], out: &mut Vec<LaidItem>) {
     for line in flatten_lines_marked(body) {
-        if line.is_empty() {
-            continue;
-        }
         let bulleted = format!("• {line}");
         push_wrapped(
             &bulleted,
@@ -738,9 +738,6 @@ fn push_unordered_list(body: &[DocPart], out: &mut Vec<LaidItem>) {
 /// `@code` / `@pre` — preserve internal spaces; soft-wrap still applies.
 fn push_code_block(body: &[DocPart], out: &mut Vec<LaidItem>) {
     for line in flatten_code_lines(body) {
-        if line.is_empty() {
-            continue;
-        }
         push_wrapped(
             &line,
             CODE_SIZE_MM,
@@ -874,10 +871,9 @@ pub fn wrap_line(text: &str, max_chars: usize) -> Vec<String> {
             .iter()
             .rposition(|c| is_prefer_break_after(*c))
         {
-            let after = start + rel + 1;
-            if after > start && after < chars.len() {
-                end = after;
-            }
+            // `rel` is in-window and the wrap branch has remaining text after `end`,
+            // so `start + rel + 1` is always a valid forward break.
+            end = start + rel + 1;
         }
         // Line-end kinsoku: don't finish a line on an opening bracket.
         while end > start + 1 && is_not_line_end(chars[end - 1]) {

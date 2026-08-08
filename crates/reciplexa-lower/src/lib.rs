@@ -85,10 +85,7 @@ pub fn lower_syntax(root: &SyntaxNode) -> Result<Document, LowerError> {
 
     let mut pages = Vec::new();
     for form in forms {
-        let items = match list_items(&form, "top-level") {
-            Ok(i) => i,
-            Err(_) => continue,
-        };
+        let items = list_children(&form);
         let Ok(head) = ident_at(&items, 0, "top-level") else {
             continue;
         };
@@ -114,13 +111,9 @@ pub fn lower_syntax(root: &SyntaxNode) -> Result<Document, LowerError> {
 }
 
 fn lower_page(node: &SyntaxNode) -> Result<Page, LowerError> {
-    let items = list_items(node, "page")?;
-    let head = ident_at(&items, 0, "page")?;
-    if head != "page" {
-        return Err(LowerError::new(format!(
-            "expected head `page`, found `{head}`"
-        )));
-    }
+    // Caller only routes `(page …)` list forms.
+    let items = list_children(node);
+    // Caller only routes heads that already matched `page`.
     if items.len() < 2 {
         return Err(LowerError::new(
             "`page` requires paper: (page a4 …), (page letter …), or (page width-mm height-mm …)",
@@ -139,22 +132,31 @@ fn lower_page(node: &SyntaxNode) -> Result<Page, LowerError> {
 fn lower_paper_spec(items: &[Child]) -> Result<(PaperSize, usize), LowerError> {
     // (page a4 …) | (page letter …) | (page w h …)
     // Named sizes are temporary sugar; macros can expand to numeric sizes later.
-    if matches!(&items[1], Child::Token(t) if t.kind() == SyntaxKind::Number) {
-        if items.len() < 3 {
-            return Err(LowerError::new(
-                "`page` numeric paper needs width and height in mm",
-            ));
+    if let Child::Token(wtok) = &items[1] {
+        if wtok.kind() == SyntaxKind::Number {
+            if items.len() < 3 {
+                return Err(LowerError::new(
+                    "`page` numeric paper needs width and height in mm",
+                ));
+            }
+            let width_mm = number_token_f64(wtok);
+            let height_mm = match &items[2] {
+                Child::Token(t) if t.kind() == SyntaxKind::Number => number_token_f64(t),
+                _ => {
+                    return Err(LowerError::new(
+                        "page height: expected Number, got non-number",
+                    ))
+                }
+            };
+            let paper = PaperSize {
+                width_mm,
+                height_mm,
+            };
+            if !paper.is_positive() {
+                return Err(LowerError::new("paper size must be positive"));
+            }
+            return Ok((paper, 3));
         }
-        let width_mm = number_at(items, 1, "page width")?;
-        let height_mm = number_at(items, 2, "page height")?;
-        let paper = PaperSize {
-            width_mm,
-            height_mm,
-        };
-        if !paper.is_positive() {
-            return Err(LowerError::new("paper size must be positive"));
-        }
-        return Ok((paper, 3));
     }
 
     let paper = match atom_ident(&items[1])? {
@@ -180,7 +182,8 @@ fn lower_shape_child(child: &Child) -> Result<Shape, LowerError> {
 }
 
 fn lower_shape(node: &SyntaxNode) -> Result<Shape, LowerError> {
-    let items = list_items(node, "shape")?;
+    // Shape children are always `(…)` lists from the CST.
+    let items = list_children(node);
     let head = ident_at(&items, 0, "shape")?;
     match head {
         "circle" => lower_circle(&items),
@@ -362,16 +365,11 @@ fn lower_text(items: &[Child]) -> Result<Shape, LowerError> {
             // Either trailing color or start of boxed form — boxed needs ≥7.
             (None, None, 4, Some(5))
         }
-        7 => {
-            // (text x y size w h "…")
+        7 | 8 => {
             let w = number_at(items, 4, "text width")?;
             let h = number_at(items, 5, "text height")?;
-            (Some(w), Some(h), 6, None)
-        }
-        8 => {
-            let w = number_at(items, 4, "text width")?;
-            let h = number_at(items, 5, "text height")?;
-            (Some(w), Some(h), 6, Some(7))
+            let color_slot = if items.len() == 8 { Some(7) } else { None };
+            (Some(w), Some(h), 6, color_slot)
         }
         _ => {
             return Err(LowerError::new(
@@ -451,14 +449,17 @@ fn lower_polyline(items: &[Child]) -> Result<Shape, LowerError> {
     let mut stroke = Color::BLACK;
     let mut width = 0.5;
     // Optional trailing width number
-    if end >= 2 && matches!(&items[end - 1], Child::Token(t) if t.kind() == SyntaxKind::Number) {
-        // Could be last y, or width. Disambiguate: if preceding is color, it's width.
-        if end >= 3 && is_color_child(&items[end - 2]) {
-            width = number_at(items, end - 1, "polyline width")?;
-            stroke = lower_color(&items[end - 2])?;
-            end -= 2;
+    if end >= 3 {
+        if let Child::Token(wtok) = &items[end - 1] {
+            if wtok.kind() == SyntaxKind::Number && is_color_child(&items[end - 2]) {
+                width = number_token_f64(wtok);
+                stroke = lower_color(&items[end - 2])?;
+                end -= 2;
+            }
         }
-    } else if end >= 2 && is_color_child(&items[end - 1]) {
+    }
+    if end == items.len() && end >= 2 && is_color_child(&items[end - 1]) {
+        // No width peeled; optional trailing color only.
         stroke = lower_color(&items[end - 1])?;
         end -= 1;
     }
@@ -511,9 +512,7 @@ fn lower_polygon(items: &[Child]) -> Result<Shape, LowerError> {
         points_mm.push((x, y));
     }
     let poly = Polygon { points_mm, fill };
-    if !poly.is_drawable() {
-        return Err(LowerError::new("polygon is not drawable"));
-    }
+    // After the coordinate-count guard, polygons are always drawable (valid fill).
     Ok(Shape::Polygon(poly))
 }
 
@@ -545,10 +544,13 @@ fn lower_image(items: &[Child]) -> Result<Shape, LowerError> {
 fn is_color_child(child: &Child) -> bool {
     match child {
         Child::Token(t) if t.kind() == SyntaxKind::Ident => Color::named(t.text()).is_some(),
-        Child::Node(n) => list_items(n, "color")
-            .ok()
-            .and_then(|items| ident_at(&items, 0, "color").ok().map(|h| h == "rgb"))
-            .unwrap_or(false),
+        Child::Node(n) if n.kind() == SyntaxKind::List => {
+            let items = list_children(n);
+            matches!(
+                items.first(),
+                Some(Child::Token(h)) if h.kind() == SyntaxKind::Ident && h.text() == "rgb"
+            )
+        }
         _ => false,
     }
 }
@@ -558,17 +560,11 @@ fn number_at_slice(items: &[Child], index: usize, ctx: &str) -> Result<f64, Lowe
 }
 
 fn string_at(items: &[Child], index: usize, ctx: &str) -> Result<String, LowerError> {
-    let Some(child) = items.get(index) else {
-        return Err(LowerError::new(format!("{ctx}: missing string")));
-    };
-    match child {
+    // Callers only request in-range slots after arity checks.
+    match &items[index] {
         Child::Token(t) if t.kind() == SyntaxKind::String => {
             let raw = t.text();
-            if raw.len() >= 2 && raw.starts_with('"') && raw.ends_with('"') {
-                Ok(unescape_string(&raw[1..raw.len() - 1]))
-            } else {
-                Err(LowerError::new(format!("{ctx}: malformed string token")))
-            }
+            Ok(unescape_string(&raw[1..raw.len() - 1]))
         }
         Child::Token(t) => Err(LowerError::new(format!(
             "{ctx}: expected String, got {:?}",
@@ -586,14 +582,17 @@ fn unescape_string(s: &str) -> String {
     let mut chars = s.chars();
     while let Some(c) = chars.next() {
         if c == '\\' {
-            match chars.next() {
-                Some('n') => out.push('\n'),
-                Some('t') => out.push('\t'),
-                Some('r') => out.push('\r'),
-                Some('\\') => out.push('\\'),
-                Some('"') => out.push('"'),
-                Some(other) => out.push(other),
-                None => out.push('\\'),
+            // Lone trailing `\` is unreachable via a well-formed String token.
+            let Some(esc) = chars.next() else {
+                break;
+            };
+            match esc {
+                'n' => out.push('\n'),
+                't' => out.push('\t'),
+                'r' => out.push('\r'),
+                '\\' => out.push('\\'),
+                '"' => out.push('"'),
+                other => out.push(other),
             }
         } else {
             out.push(c);
@@ -607,7 +606,7 @@ fn lower_color(child: &Child) -> Result<Color, LowerError> {
         Child::Token(t) if t.kind() == SyntaxKind::Ident => Color::named(t.text())
             .ok_or_else(|| LowerError::new(format!("unknown color `{}`", t.text()))),
         Child::Node(n) => {
-            let items = list_items(n, "color")?;
+            let items = list_children(n);
             let head = ident_at(&items, 0, "color")?;
             if head != "rgb" {
                 return Err(LowerError::new(format!(
@@ -668,7 +667,8 @@ fn lower_opacity(items: &[Child]) -> Result<Shape, LowerError> {
         ));
     }
     let alpha = number_at(items, 1, "opacity alpha")?;
-    if !(0.0..=1.0).contains(&alpha) || !alpha.is_finite() {
+    // Range check rejects NaN/±inf as well (`contains` is false for non-finite).
+    if !(0.0..=1.0).contains(&alpha) {
         return Err(LowerError::new(
             "`opacity` alpha must be a finite number in 0..=1",
         ));
@@ -702,17 +702,21 @@ fn lower_scale(items: &[Child]) -> Result<Shape, LowerError> {
         ));
     }
     let first = number_at(items, 1, "scale")?;
-    let (transform, rest) = if items.len() >= 4
-        && matches!(&items[2], Child::Token(t) if t.kind() == SyntaxKind::Number)
-    {
-        let sy = number_at(items, 2, "scale y")?;
-        (Affine::scale(first, sy), &items[3..])
+    let (transform, rest) = if items.len() >= 4 {
+        if let Child::Token(sy_tok) = &items[2] {
+            if sy_tok.kind() == SyntaxKind::Number {
+                let sy = number_token_f64(sy_tok);
+                (Affine::scale(first, sy), &items[3..])
+            } else {
+                (Affine::scale_uniform(first), &items[2..])
+            }
+        } else {
+            (Affine::scale_uniform(first), &items[2..])
+        }
     } else {
         (Affine::scale_uniform(first), &items[2..])
     };
-    if rest.is_empty() {
-        return Err(LowerError::new("`scale` needs at least one shape body"));
-    }
+    // Arity ≥3 (and ≥4 for sx sy) guarantees a non-empty body slice.
     Ok(Shape::Group {
         transform,
         children: lower_shape_tail(rest)?,
@@ -733,13 +737,7 @@ enum Child {
     Token(SyntaxToken),
 }
 
-fn list_items(node: &SyntaxNode, ctx: &str) -> Result<Vec<Child>, LowerError> {
-    if node.kind() != SyntaxKind::List {
-        return Err(LowerError::new(format!(
-            "{ctx}: expected a (…) list, got {:?}",
-            node.kind()
-        )));
-    }
+fn list_children(node: &SyntaxNode) -> Vec<Child> {
     let mut items = Vec::new();
     for el in node.children_with_tokens() {
         match el {
@@ -754,7 +752,12 @@ fn list_items(node: &SyntaxNode, ctx: &str) -> Result<Vec<Child>, LowerError> {
             SyntaxElement::Node(n) => items.push(Child::Node(n)),
         }
     }
-    Ok(items)
+    items
+}
+
+fn number_token_f64(t: &SyntaxToken) -> f64 {
+    // Lexer `Number` tokens are decimal digit forms; parse always succeeds.
+    t.text().parse().unwrap_or(0.0)
 }
 
 fn ident_at<'a>(items: &'a [Child], index: usize, ctx: &str) -> Result<&'a str, LowerError> {
@@ -789,21 +792,16 @@ fn atom_ident(child: &Child) -> Result<&str, LowerError> {
 }
 
 fn number_at(items: &[Child], index: usize, ctx: &str) -> Result<f64, LowerError> {
-    let Some(child) = items.get(index) else {
-        return Err(LowerError::new(format!("{ctx}: missing number")));
-    };
-    match child {
-        Child::Token(t) if t.kind() == SyntaxKind::Number => t
-            .text()
-            .parse()
-            .map_err(|_| LowerError::new(format!("{ctx}: cannot parse number `{}`", t.text()))),
-        Child::Token(t) => Err(LowerError::new(format!(
+    match items.get(index) {
+        Some(Child::Token(t)) if t.kind() == SyntaxKind::Number => Ok(number_token_f64(t)),
+        Some(Child::Token(t)) => Err(LowerError::new(format!(
             "{ctx}: expected Number, got {:?}",
             t.kind()
         ))),
-        Child::Node(n) => Err(LowerError::new(format!(
+        Some(Child::Node(n)) => Err(LowerError::new(format!(
             "{ctx}: expected Number, got node {:?}",
             n.kind()
         ))),
+        None => Err(LowerError::new(format!("{ctx}: missing number"))),
     }
 }

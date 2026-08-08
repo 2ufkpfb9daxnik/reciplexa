@@ -893,3 +893,134 @@ fn set_color_channel_named_to_rgb_replacement() {
     assert!(out.contains("(rgb"), "{out}");
     assert!(!out.contains(" red)"), "{out}");
 }
+
+#[test]
+fn set_layer_fill_rgb_rewrites_existing_rgb() {
+    let src = "(page a4 (circle 0 0 5 (rgb 0.1 0.2 0.3)))";
+    let out = set_layer_fill_rgb(src, 0, 0, 0.7, 0.8, 0.9).unwrap();
+    assert!(out.contains("(rgb 0.7 0.8 0.9)"), "{out}");
+}
+
+#[test]
+fn set_fill_and_stroke_all_channels() {
+    let ctx = test_ctx((0.0, 0.0, 10.0, 10.0));
+    let src = "(page a4 (circle 0 0 5 (rgb 0.1 0.2 0.3)) (line 0 0 1 1 (rgb 0.4 0.5 0.6) 1))";
+    let out = set_layer_prop(src, 0, 0, "fill.r", &PropValue::Number(0.0), &ctx).unwrap();
+    let out = set_layer_prop(&out, 0, 0, "fill.b", &PropValue::Number(1.0), &ctx).unwrap();
+    assert!(out.contains("(rgb 0"), "{out}");
+    let out = set_layer_prop(&out, 0, 1, "stroke.r", &PropValue::Number(0.1), &ctx).unwrap();
+    let out = set_layer_prop(&out, 0, 1, "stroke.g", &PropValue::Number(0.2), &ctx).unwrap();
+    let out = set_layer_prop(&out, 0, 1, "stroke.b", &PropValue::Number(0.3), &ctx).unwrap();
+    assert!(out.contains("(rgb 0.1 0.2 0.3)"), "{out}");
+}
+
+#[test]
+fn collect_text_image_without_string_slots() {
+    let ctx = test_ctx((0.0, 0.0, 10.0, 10.0));
+    let text = "(page a4 (text 1 2 3))";
+    let props = collect_layer_props(text, 0, 0, &ctx).unwrap();
+    assert!(!props.iter().any(|p| p.id == "content.text"));
+    let boxed = "(page a4 (text 1 2 3 4 5))";
+    let props = collect_layer_props(boxed, 0, 0, &ctx).unwrap();
+    assert!(!props.iter().any(|p| p.id == "content.text"));
+    let img = "(page a4 (image 1 2 3 4 5))";
+    let props = collect_layer_props(img, 0, 0, &ctx).unwrap();
+    assert!(!props.iter().any(|p| p.id == "content.path"));
+}
+
+#[test]
+fn set_layers_opacity_batch() {
+    let src = "(page a4 (circle 0 0 5) (rect 0 0 1 1))";
+    let out = set_layers_opacity(src, 0, &[0, 1], 0.4).unwrap();
+    assert!(out.contains("(opacity 0.4"), "{out}");
+}
+
+#[test]
+fn collect_layer_props_bad_index_and_page() {
+    let ctx = test_ctx((0.0, 0.0, 10.0, 10.0));
+    let src = "(page a4 (circle 0 0 5))";
+    assert!(collect_layer_props(src, 0, 9, &ctx)
+        .unwrap_err()
+        .message
+        .contains("out of range"));
+    assert!(collect_layer_props(src, 3, 0, &ctx).is_err());
+}
+
+#[test]
+fn layout_prop_type_errors_and_geom_on_ellipse_image_line() {
+    let ctx = test_ctx((0.0, 0.0, 10.0, 10.0));
+    let src = "(page a4 (ellipse 1 2 3 4) (image \"a.png\" 1 2 3 4) (line 0 0 5 5))";
+    let err = set_layer_prop(src, 0, 0, "layout.x", &PropValue::Text("x".into()), &ctx)
+        .unwrap_err();
+    assert!(err.message.contains("expects a number"));
+    let out = set_layer_prop(src, 0, 0, "geom.rx", &PropValue::Number(8.0), &ctx).unwrap();
+    assert!(out.contains("8"), "{out}");
+    let out = set_layer_prop(src, 0, 1, "geom.w", &PropValue::Number(9.0), &ctx).unwrap();
+    assert!(out.contains("9"), "{out}");
+    let out = set_layer_prop(src, 0, 2, "geom.x2", &PropValue::Number(7.0), &ctx).unwrap();
+    assert!(out.contains("7"), "{out}");
+}
+
+#[test]
+fn set_content_path_type_error() {
+    let ctx = test_ctx((0.0, 0.0, 10.0, 10.0));
+    let src = "(page a4 (image \"a.png\" 1 2 3 4))";
+    let err = set_layer_prop(src, 0, 0, "content.path", &PropValue::Number(1.0), &ctx)
+        .unwrap_err();
+    assert!(err.message.contains("expects text"));
+}
+
+#[test]
+fn geom_slots_cover_or_pattern_kinds() {
+    let ctx = test_ctx((0.0, 0.0, 20.0, 20.0));
+    let cases = [
+        ("(page a4 (circle 1 2 3))", "geom.x", 9.0),
+        ("(page a4 (circle 1 2 3))", "geom.y", 8.0),
+        ("(page a4 (circle 1 2 3))", "geom.r", 7.0),
+        ("(page a4 (ring 1 2 3 0.5))", "geom.x", 4.0),
+        ("(page a4 (ring 1 2 3 0.5))", "geom.y", 5.0),
+        ("(page a4 (ring 1 2 3 0.5))", "geom.r", 6.0),
+        ("(page a4 (ring 1 2 3 0.5))", "geom.width", 1.5),
+        ("(page a4 (ellipse 1 2 3 4))", "geom.x", 2.0),
+        ("(page a4 (ellipse 1 2 3 4))", "geom.y", 3.0),
+        ("(page a4 (ellipse 1 2 3 4))", "geom.rx", 5.0),
+        ("(page a4 (ellipse 1 2 3 4))", "geom.ry", 6.0),
+        ("(page a4 (rect 1 2 3 4))", "geom.x", 0.0),
+        ("(page a4 (rect 1 2 3 4))", "geom.y", 0.5),
+        ("(page a4 (rect 1 2 3 4))", "geom.w", 8.0),
+        ("(page a4 (rect 1 2 3 4))", "geom.h", 9.0),
+        ("(page a4 (frame 1 2 3 4 1))", "geom.x", 1.5),
+        ("(page a4 (frame 1 2 3 4 1))", "geom.y", 2.5),
+        ("(page a4 (frame 1 2 3 4 1))", "geom.w", 7.0),
+        ("(page a4 (frame 1 2 3 4 1))", "geom.h", 8.0),
+        ("(page a4 (text 1 2 3 \"hi\"))", "geom.x", 4.0),
+        ("(page a4 (text 1 2 3 \"hi\"))", "geom.y", 5.0),
+        ("(page a4 (text 1 2 3 \"hi\"))", "geom.size", 6.0),
+        ("(page a4 (text 1 2 3 10 8 \"hi\"))", "geom.w", 12.0),
+        ("(page a4 (text 1 2 3 10 8 \"hi\"))", "geom.h", 9.0),
+        ("(page a4 (image \"a.png\" 1 2 3 4))", "geom.x", 5.0),
+        ("(page a4 (image \"a.png\" 1 2 3 4))", "geom.y", 6.0),
+        ("(page a4 (image \"a.png\" 1 2 3 4))", "geom.w", 7.0),
+        ("(page a4 (image \"a.png\" 1 2 3 4))", "geom.h", 8.0),
+        ("(page a4 (line 0 0 5 5))", "geom.x1", 1.0),
+        ("(page a4 (line 0 0 5 5))", "geom.y1", 2.0),
+        ("(page a4 (line 0 0 5 5))", "geom.x2", 3.0),
+        ("(page a4 (line 0 0 5 5))", "geom.y2", 4.0),
+    ];
+    for (src, id, n) in cases {
+        let out = set_layer_prop(src, 0, 0, id, &PropValue::Number(n), &ctx).unwrap();
+        assert!(
+            out.contains(&format_drag_ish(n)) || out.contains(&n.to_string()),
+            "failed {id} on {src} → {out}"
+        );
+    }
+}
+
+fn format_drag_ish(n: f64) -> String {
+    // format_drag_number may trim trailing zeros; accept either form.
+    if n.fract() == 0.0 {
+        format!("{}", n as i64)
+    } else {
+        format!("{n}")
+    }
+}

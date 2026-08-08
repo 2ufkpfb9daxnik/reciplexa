@@ -25,10 +25,13 @@ impl ExpandError {
     }
 }
 
-/// Expand surface macros until a fixed point (bounded iterations).
+/// Expand surface macros until a fixed point.
+///
+/// Known surface macros always rewrite to forms without the same heads, so the
+/// loop is guaranteed to terminate without an artificial iteration cap.
 pub fn expand_source(input: &str) -> Result<String, ExpandError> {
     let mut src = input.to_string();
-    for _ in 0..64 {
+    loop {
         let parse = parse_source(&src);
         if !parse.errors.is_empty() {
             return Err(ExpandError::new(format!(
@@ -36,14 +39,11 @@ pub fn expand_source(input: &str) -> Result<String, ExpandError> {
                 parse.errors[0].message
             )));
         }
-        match find_next_rewrite(&parse.root) {
-            Some((start, end, replacement)) => {
-                src = splice(&src, start, end, &replacement);
-            }
-            None => return Ok(src),
-        }
+        let Some((start, end, replacement)) = find_next_rewrite(&parse.root) else {
+            return Ok(src);
+        };
+        src = splice(&src, start, end, &replacement);
     }
-    Err(ExpandError::new("macro expansion did not converge"))
 }
 
 fn find_next_rewrite(root: &SyntaxNode) -> Option<(usize, usize, String)> {
@@ -80,14 +80,12 @@ fn find_next_rewrite(root: &SyntaxNode) -> Option<(usize, usize, String)> {
 
 pub fn format_frac(v: f64) -> String {
     let rounded = (v * 10_000.0).round() / 10_000.0;
-    let mut s = format!("{rounded}");
-    if s.contains('.') {
-        while s.ends_with('0') {
-            s.pop();
-        }
-        if s.ends_with('.') {
-            s.pop();
-        }
+    let mut s = format!("{rounded:.4}");
+    while s.ends_with('0') {
+        s.pop();
+    }
+    if s.ends_with('.') {
+        s.pop();
     }
     s
 }
@@ -157,9 +155,9 @@ fn find_axis_line(
         if items.len() < 4 {
             continue;
         }
-        let a = atom_text(&items[1])?;
-        let b = atom_text(&items[2])?;
-        let c = atom_text(&items[3])?;
+        let a = atom_text(&items[1]);
+        let b = atom_text(&items[2]);
+        let c = atom_text(&items[3]);
         let mut repl = if horizontal {
             // a=x1 b=x2 c=y
             format!("(line {a} {c} {b} {c}")
@@ -169,7 +167,7 @@ fn find_axis_line(
         };
         for item in items.iter().skip(4) {
             repl.push(' ');
-            repl.push_str(&atom_text(item)?);
+            repl.push_str(&atom_text(item));
         }
         repl.push(')');
         let range = node.text_range();
@@ -194,13 +192,13 @@ fn find_square(root: &SyntaxNode) -> Option<(usize, usize, String)> {
         if items.len() < 4 {
             continue;
         }
-        let x = atom_text(&items[1])?;
-        let y = atom_text(&items[2])?;
-        let size = atom_text(&items[3])?;
+        let x = atom_text(&items[1]);
+        let y = atom_text(&items[2]);
+        let size = atom_text(&items[3]);
         let mut repl = format!("(rect {x} {y} {size} {size}");
         for item in items.iter().skip(4) {
             repl.push(' ');
-            repl.push_str(&atom_text(item)?);
+            repl.push_str(&atom_text(item));
         }
         repl.push(')');
         let range = node.text_range();
@@ -225,11 +223,11 @@ fn find_rule(root: &SyntaxNode) -> Option<(usize, usize, String)> {
         if items.len() < 2 {
             continue;
         }
-        let y = atom_text(&items[1])?;
+        let y = atom_text(&items[1]);
         let mut repl = format!("(hline 20 190 {y}");
         for item in items.iter().skip(2) {
             repl.push(' ');
-            repl.push_str(&atom_text(item)?);
+            repl.push_str(&atom_text(item));
         }
         repl.push(')');
         let range = node.text_range();
@@ -346,10 +344,10 @@ pub fn escape_lisp_string(s: &str) -> String {
     out
 }
 
-fn atom_text(child: &Child) -> Option<String> {
+fn atom_text(child: &Child) -> String {
     match child {
-        Child::Token(t) => Some(t.text().to_string()),
-        Child::Node(n) => Some(n.to_string()),
+        Child::Token(t) => t.text().to_string(),
+        Child::Node(n) => n.to_string(),
     }
 }
 

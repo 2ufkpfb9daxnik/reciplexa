@@ -718,3 +718,64 @@ fn atom_text_node_child_in_square() {
     let out = expand_source("(page a4 (square 1 2 (rgb 1 0 0)))").unwrap();
     assert!(out.contains("(rect 1 2 (rgb 1 0 0) (rgb 1 0 0))"), "{out}");
 }
+
+#[test]
+fn find_skip_empty_lists_and_non_token_heads() {
+    // Empty / nested-head lists exercise `items.first()` continue arms across find_*.
+    let src = "{brace} () ((nested)) (page a4 (circle 1 2 3 red))";
+    let out = expand_source(src).unwrap();
+    assert!(out.contains("(circle 1 2 3 red)"), "{out}");
+    assert!(!out.contains("color-byte"));
+}
+
+#[test]
+fn gray_wrong_arity_not_expanded() {
+    let src = "(page a4 (circle 0 0 1 (gray 0.5 0.5)))";
+    assert_eq!(expand_source(src).unwrap(), src);
+    let bare = "(page a4 (gray))";
+    assert_eq!(expand_source(bare).unwrap(), bare);
+}
+
+#[test]
+fn rule_too_short_not_expanded() {
+    let src = "(page a4 (rule))";
+    assert_eq!(expand_source(src).unwrap(), src);
+}
+
+#[test]
+fn color_byte_non_number_not_expanded() {
+    let src = "(page a4 (circle 0 0 1 (color-byte foo 0 0)))";
+    assert_eq!(expand_source(src).unwrap(), src);
+    let nested = "(page a4 (gray (rgb 1 0 0)))";
+    assert_eq!(expand_source(nested).unwrap(), nested);
+    // Fail on later channels after the first number parses.
+    assert_eq!(
+        expand_source("(page a4 (color-byte 1 foo 0))").unwrap(),
+        "(page a4 (color-byte 1 foo 0))"
+    );
+    assert_eq!(
+        expand_source("(page a4 (color-byte 1 2 foo))").unwrap(),
+        "(page a4 (color-byte 1 2 foo))"
+    );
+}
+
+#[test]
+fn doc_parts_error_skips_rewrite() {
+    // Parses, but doc_parts rejects `@()` → find_doc yields no rewrite.
+    let src = "(doc @())";
+    assert_eq!(expand_source(src).unwrap(), src);
+}
+
+#[test]
+fn doc_skip_non_doc_and_empty_list_siblings() {
+    let out = expand_source("() ((x)) (doc Hi)").unwrap();
+    assert!(out.contains("(text 25 270 8 \"Hi\" black)"), "{out}");
+}
+
+#[test]
+fn format_frac_strips_fixed_precision_zeros() {
+    assert_eq!(format_frac(1.5), "1.5");
+    assert_eq!(format_frac(2.0), "2");
+    assert_eq!(format_frac(0.1), "0.1");
+}
+

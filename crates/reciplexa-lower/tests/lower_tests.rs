@@ -638,6 +638,13 @@ fn scale_two_factors_without_body_fails() {
 }
 
 #[test]
+fn scale_uniform_with_node_after_factor() {
+    // items[2] is a shape list, not a second factor number.
+    let doc = lower_source("(page a4 (scale 2 (circle 0 0 5) (circle 1 1 1)))").unwrap();
+    assert_eq!(doc.pages[0].shapes.len(), 1);
+}
+
+#[test]
 fn shape_list_expected_not_token() {
     let err = lower_source("(page a4 42)").unwrap_err();
     assert!(err.message.contains("shape list"));
@@ -829,4 +836,162 @@ fn lower_line_width_and_image_path() {
     let img = lower_source(r#"(page a4 (image "p.png" 0 0 10 20))"#).unwrap();
     assert!(matches!(img.pages[0].shapes[0], Shape::Image(_)));
     assert!(lower_source(r#"(page a4 (image "" 0 0 10 20))"#).is_err());
+}
+
+#[test]
+fn unescape_unknown_escape_keeps_char() {
+    let doc = lower_source(r#"(page a4 (text 0 0 3 "a\qb\\z"))"#).unwrap();
+    match &doc.pages[0].shapes[0] {
+        Shape::Text(t) => assert_eq!(t.content, "aqb\\z"),
+        _ => panic!("expected text"),
+    }
+}
+
+#[test]
+fn opacity_nan_ident_and_out_of_range() {
+    // Lexer has no NaN number literal; Ident `nan` fails number_at.
+    assert!(lower_source("(page a4 (opacity nan (circle 0 0 1)))").is_err());
+    assert!(lower_source("(page a4 (opacity 1.5 (circle 0 0 1)))").is_err());
+}
+
+#[test]
+fn lower_skips_empty_list_and_number_headed_list() {
+    let src = "()\n(1 2 3)\n(page a4 (circle 1 2 3))";
+    let doc = lower_source(src).unwrap();
+    assert_eq!(doc.pages.len(), 1);
+}
+
+#[test]
+fn lower_shape_head_must_be_ident() {
+    assert!(lower_source("(page a4 (1 2 3))").is_err());
+    assert!(lower_source("(page a4 ((circle 0 0 1)))").is_err());
+}
+
+#[test]
+fn string_at_wrong_kinds_and_image_path() {
+    assert!(lower_source("(page a4 (image 1 2 3 4 5))").is_err());
+    assert!(lower_source("(page a4 (image (p) 1 2 3 4))").is_err());
+    assert!(lower_source(r#"(page a4 (text 1 2 3 40))"#).is_err());
+}
+
+#[test]
+fn paper_node_and_polyline_polygon_not_drawable() {
+    assert!(lower_source("(page (a4) (circle 0 0 1))").is_err());
+    // Two coincident points → polyline not drawable.
+    assert!(lower_source("(page a4 (polyline 0 0 0 0))").is_err());
+    // Zero stroke width via trailing color+width peel.
+    assert!(lower_source("(page a4 (polyline 0 0 1 0 red 0))").is_err());
+}
+
+#[test]
+fn transform_number_and_body_errors() {
+    assert!(lower_source("(page a4 (translate x 1 (circle 0 0 1)))").is_err());
+    assert!(lower_source("(page a4 (rotate deg (circle 0 0 1)))").is_err());
+    assert!(lower_source("(page a4 (scale x (circle 0 0 1)))").is_err());
+    assert!(lower_source("(page a4 (scale 2 y (circle 0 0 1)))").is_err());
+    assert!(lower_source("(page a4 (opacity 0.5 x))").is_err());
+}
+
+#[test]
+fn color_rgb_channel_number_errors() {
+    assert!(lower_source("(page a4 (circle 0 0 1 (rgb x 0 0)))").is_err());
+    assert!(lower_source("(page a4 (circle 0 0 1 (rgb 0 y 0)))").is_err());
+    assert!(lower_source("(page a4 (circle 0 0 1 (rgb 0 0 z)))").is_err());
+}
+
+#[test]
+fn polyline_odd_coords_after_color_peel() {
+    // After peeling trailing color, three numbers remain → odd.
+    assert!(lower_source("(page a4 (polyline 0 0 1 red))").is_err());
+    // Polygon with odd coords after color.
+    assert!(lower_source("(page a4 (polygon 0 0 1 0 0 red))").is_err());
+}
+
+#[test]
+fn shape_numeric_slot_type_errors() {
+    assert!(lower_source("(page a4 (circle 1 x 3))").is_err());
+    assert!(lower_source("(page a4 (circle 1 2 x))").is_err());
+    assert!(lower_source("(page a4 (rect x 0 1 1))").is_err());
+    assert!(lower_source("(page a4 (rect 0 y 1 1))").is_err());
+    assert!(lower_source("(page a4 (rect 0 0 w 1))").is_err());
+    assert!(lower_source("(page a4 (rect 0 0 1 h))").is_err());
+    assert!(lower_source("(page a4 (rect 0 0 1 1 puce))").is_err());
+    assert!(lower_source("(page a4 (ellipse x 0 1 1))").is_err());
+    assert!(lower_source("(page a4 (ellipse 0 y 1 1))").is_err());
+    assert!(lower_source("(page a4 (ellipse 0 0 rx 1))").is_err());
+    assert!(lower_source("(page a4 (ellipse 0 0 1 ry))").is_err());
+    assert!(lower_source("(page a4 (ellipse 0 0 1 1 puce))").is_err());
+    assert!(lower_source("(page a4 (ring x 0 1 1))").is_err());
+    assert!(lower_source("(page a4 (ring 0 y 1 1))").is_err());
+    assert!(lower_source("(page a4 (ring 0 0 r 1))").is_err());
+    assert!(lower_source("(page a4 (ring 0 0 1 w))").is_err());
+    assert!(lower_source("(page a4 (ring 0 0 1 1 puce))").is_err());
+    assert!(lower_source("(page a4 (frame x 0 1 1 1))").is_err());
+    assert!(lower_source("(page a4 (frame 0 y 1 1 1))").is_err());
+    assert!(lower_source("(page a4 (frame 0 0 w 1 1))").is_err());
+    assert!(lower_source("(page a4 (frame 0 0 1 h 1))").is_err());
+    assert!(lower_source("(page a4 (frame 0 0 1 1 sw))").is_err());
+    assert!(lower_source("(page a4 (frame 0 0 1 1 1 puce))").is_err());
+    assert!(lower_source(r#"(page a4 (text x 0 3 "a"))"#).is_err());
+    assert!(lower_source(r#"(page a4 (text 0 y 3 "a"))"#).is_err());
+    assert!(lower_source(r#"(page a4 (text 0 0 s "a"))"#).is_err());
+    assert!(lower_source(r#"(page a4 (text 0 0 3 w 5 "a"))"#).is_err());
+    assert!(lower_source(r#"(page a4 (text 0 0 3 4 h "a"))"#).is_err());
+    assert!(lower_source(r#"(page a4 (text 0 0 3 "a" puce))"#).is_err());
+    assert!(lower_source(r#"(page a4 (text 0 0 3 4 5 "a" puce))"#).is_err());
+    assert!(lower_source("(page a4 (line x 0 1 1))").is_err());
+    assert!(lower_source("(page a4 (line 0 y 1 1))").is_err());
+    assert!(lower_source("(page a4 (line 0 0 x 1))").is_err());
+    assert!(lower_source("(page a4 (line 0 0 1 y))").is_err());
+    assert!(lower_source("(page a4 (line 0 0 1 1))").is_ok());
+    assert!(lower_source("(page a4 (line 0 0))").is_err());
+    assert!(lower_source("(page a4 (line 0 0 1 1 red w))").is_err());
+    assert!(lower_source(r#"(page a4 (image "p" x 0 1 1))"#).is_err());
+    assert!(lower_source(r#"(page a4 (image "p" 0 y 1 1))"#).is_err());
+    assert!(lower_source(r#"(page a4 (image "p" 0 0 w 1))"#).is_err());
+    assert!(lower_source(r#"(page a4 (image "p" 0 0 1 h))"#).is_err());
+    assert!(lower_source("(page a4 (translate 1 y (circle 0 0 1)))").is_err());
+}
+
+#[test]
+fn numeric_paper_slot_type_errors() {
+    assert!(lower_source("(page x 100 (circle 0 0 1))").is_err());
+    // First is Number so numeric branch; second must be Number too.
+    assert!(lower_source("(page 100 y (circle 0 0 1))").is_err());
+}
+
+#[test]
+fn line_color_and_text_boxed_color_errors() {
+    assert!(lower_source("(page a4 (line 0 0 1 1 puce))").is_err());
+    assert!(lower_source(r#"(page a4 (text 0 0 3 4 5 "a" puce))"#).is_err());
+    assert!(lower_source(r#"(page a4 (text 0 0 3 w 5 "a" red))"#).is_err());
+    assert!(lower_source("(page a4 (polyline 0 0 1 0 puce 1))").is_err());
+    assert!(lower_source("(page a4 (polygon 0 0 1 0 0 1 puce))").is_err());
+    assert!(lower_source("(page a4 (polyline 0 0 x 1))").is_err());
+    assert!(lower_source("(page a4 (polygon 0 0 1 0 0 y))").is_err());
+    // rgb node recognized as color but channels invalid → lower_color Err while peeling.
+    assert!(lower_source("(page a4 (polyline 0 0 1 0 (rgb 2 0 0) 1))").is_err());
+    assert!(lower_source("(page a4 (polyline 0 0 1 0 (rgb 2 0 0)))").is_err());
+    assert!(lower_source("(page a4 (polygon 0 0 1 0 0 1 (rgb 2 0 0)))").is_err());
+    assert!(lower_source("(page a4 (polyline 0 0 1 (2)))").is_err());
+    assert!(lower_source("(page a4 (polygon 0 0 1 0 (0) 1))").is_err());
+    assert!(lower_source("(page a4 (scale 2 foo (circle 0 0 1)))").is_err());
+    assert!(lower_source("(page a4 (scale 2 (circle 0 0 1) (rect 0 0 1 1)))").is_ok());
+}
+
+#[test]
+fn transform_tail_shape_errors() {
+    assert!(lower_source("(page a4 (translate 1 2 bad))").is_err());
+    assert!(lower_source("(page a4 (group bad))").is_err());
+    assert!(lower_source("(page a4 (rotate 10 bad))").is_err());
+    assert!(lower_source("(page a4 (scale 2 3))").is_err());
+    // Paper slot is a string token (not Ident).
+    assert!(lower_source(r#"(page "a4" (circle 0 0 1))"#).is_err());
+}
+
+#[test]
+fn number_as_node_in_shape_slots() {
+    assert!(lower_source("(page a4 (circle (1) 2 3))").is_err());
+    assert!(lower_source("(page a4 (rect 0 0 (1) 1))").is_err());
+    assert!(lower_source(r#"(page a4 (text 0 0 3))"#).is_err()); // missing string
 }
