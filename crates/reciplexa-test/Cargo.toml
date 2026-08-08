@@ -11,3 +11,4 @@ reciplexa-diagnostic = { workspace = true }
 reciplexa-outcome = { workspace = true }
 
 [dev-dependencies]
+reciplexa-source = { workspace = true }
