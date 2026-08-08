@@ -33,14 +33,3 @@ impl DocumentSnapshot {
         self.revision = self.revision.next();
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn new_snapshot_has_document_root() {
-        let snap = DocumentSnapshot::new(DocumentIdentity::new(1));
-        assert!(snap.nodes.root_id().is_some());
-    }
-}

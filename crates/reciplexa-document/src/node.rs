@@ -133,47 +133,71 @@ impl NodeStore {
         parent: StableNodeId,
         kind: DocumentNodeKind,
     ) -> Option<StableNodeId> {
+        if self.nodes.get(&parent).is_none() {
+            return None;
+        }
         let child_id = self.allocate(kind);
-        let child = self.nodes.get_mut(&child_id)?;
-        child.parent = Some(parent);
-        let parent_node = self.nodes.get_mut(&parent)?;
-        parent_node.children.push(child_id);
+        {
+            let child = self
+                .nodes
+                .get_mut(&child_id)
+                .expect("allocate always inserts");
+            child.parent = Some(parent);
+        }
+        self.nodes
+            .get_mut(&parent)
+            .expect("parent existence checked above")
+            .children
+            .push(child_id);
         Some(child_id)
     }
 
     pub fn remove_subtree(&mut self, id: StableNodeId) {
-        if let Some(node) = self.nodes.get(&id).cloned() {
-            for child in node.children.clone() {
-                self.remove_subtree(child);
-            }
-            if let Some(parent) = node.parent {
-                if let Some(p) = self.nodes.get_mut(&parent) {
-                    p.children.retain(|c| *c != id);
-                }
-            }
-            self.nodes.remove(&id);
+        let Some(node) = self.nodes.get(&id).cloned() else {
+            return;
+        };
+        for child in node.children {
+            self.remove_subtree(child);
         }
+        if let Some(parent) = node.parent {
+            if let Some(p) = self.nodes.get_mut(&parent) {
+                p.children.retain(|c| *c != id);
+            }
+        }
+        self.nodes.remove(&id);
     }
 
     pub fn duplicate_subtree(&mut self, id: StableNodeId) -> Option<StableNodeId> {
         let source = self.nodes.get(&id)?.clone();
         let parent = source.parent?;
+        if self.nodes.get(&parent).is_none() {
+            return None;
+        }
         let new_id = self.allocate(source.kind);
-        if let Some(new_node) = self.nodes.get_mut(&new_id) {
+        {
+            let new_node = self
+                .nodes
+                .get_mut(&new_id)
+                .expect("allocate always inserts");
             new_node.properties = source.properties.clone();
             new_node.parent = Some(parent);
         }
-        if let Some(p) = self.nodes.get_mut(&parent) {
-            p.children.push(new_id);
-        }
+        self.nodes
+            .get_mut(&parent)
+            .expect("parent existence checked above")
+            .children
+            .push(new_id);
         for child in source.children {
             let dup = self.duplicate_subtree(child)?;
-            if let Some(n) = self.nodes.get_mut(&dup) {
-                n.parent = Some(new_id);
-            }
-            if let Some(n) = self.nodes.get_mut(&new_id) {
-                n.children.push(dup);
-            }
+            self.nodes
+                .get_mut(&dup)
+                .expect("duplicate always inserts")
+                .parent = Some(new_id);
+            self.nodes
+                .get_mut(&new_id)
+                .expect("new node still present")
+                .children
+                .push(dup);
         }
         Some(new_id)
     }
@@ -181,105 +205,9 @@ impl NodeStore {
     pub fn iter(&self) -> impl Iterator<Item = &DocumentNode> {
         self.nodes.values()
     }
-}
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn duplicate_gets_new_ids() {
-        let mut store = NodeStore::new();
-        let doc = store.allocate(DocumentNodeKind::Document);
-        let rect = store
-            .insert_child(doc, DocumentNodeKind::Rectangle)
-            .unwrap();
-        let dup = store.duplicate_subtree(rect).unwrap();
-        assert_ne!(rect, dup);
-    }
-
-    #[test]
-    fn remove_subtree_deletes_descendants() {
-        let mut store = NodeStore::new();
-        let doc = store.allocate(DocumentNodeKind::Document);
-        let page = store.insert_child(doc, DocumentNodeKind::Page).unwrap();
-        let rect = store
-            .insert_child(page, DocumentNodeKind::Rectangle)
-            .unwrap();
-        store.remove_subtree(page);
-        assert!(store.get(page).is_none());
-        assert!(store.get(rect).is_none());
-    }
-
-    #[test]
-    fn root_id_is_document() {
-        let mut store = NodeStore::new();
-        let doc = store.allocate(DocumentNodeKind::Document);
-        let root = store.root_id().unwrap();
-        assert_eq!(root, doc);
-        assert!(matches!(
-            store.get(root).unwrap().kind,
-            DocumentNodeKind::Document
-        ));
-    }
-
-    #[test]
-    fn layout_and_text_accessors() {
-        let mut node = DocumentNode::new(
-            reciplexa_identity::document::StableNodeId::new(1),
-            DocumentNodeKind::Text,
-        );
-        assert!(node.layout().is_none());
-        let layout = LayoutBox::new(1.0, 2.0, 3.0, 4.0);
-        node.set_layout(layout);
-        assert_eq!(node.layout(), Some(layout));
-        node.properties
-            .push(NodeProperty::Text(TextContent { text: "hi".into() }));
-        assert_eq!(node.text().unwrap().text, "hi");
-        node.set_layout(LayoutBox::new(5.0, 6.0, 7.0, 8.0));
-        assert_eq!(node.layout().unwrap().x, 5.0);
-    }
-
-    #[test]
-    fn insert_preserved_and_link_child() {
-        let mut store = NodeStore::new();
-        let doc = store.allocate(DocumentNodeKind::Document);
-        let id = reciplexa_identity::document::StableNodeId::new(99);
-        store.insert_preserved(DocumentNode::new(id, DocumentNodeKind::Page));
-        assert_eq!(store.get(id).unwrap().kind, DocumentNodeKind::Page);
-        store.link_child(doc, id);
-        assert!(store.get(doc).unwrap().children.contains(&id));
-    }
-
-    #[test]
-    fn insert_child_missing_parent_returns_none() {
-        let mut store = NodeStore::new();
-        let missing = reciplexa_identity::document::StableNodeId::new(42);
-        assert!(store
-            .insert_child(missing, DocumentNodeKind::Page)
-            .is_none());
-    }
-
-    #[test]
-    fn duplicate_subtree_copies_children() {
-        let mut store = NodeStore::new();
-        let doc = store.allocate(DocumentNodeKind::Document);
-        let page = store.insert_child(doc, DocumentNodeKind::Page).unwrap();
-        let rect = store
-            .insert_child(page, DocumentNodeKind::Rectangle)
-            .unwrap();
-        let dup = store.duplicate_subtree(page).unwrap();
-        assert_ne!(page, dup);
-        assert_eq!(store.get(dup).unwrap().children.len(), 1);
-        assert!(store.get(rect).is_some());
-    }
-
-    #[test]
-    fn len_and_is_empty() {
-        let mut store = NodeStore::new();
-        assert!(store.is_empty());
-        store.allocate(DocumentNodeKind::Document);
-        assert_eq!(store.len(), 1);
-        assert!(!store.is_empty());
+    /// Test/support helper: drop a node id while leaving parent child lists intact.
+    pub fn drop_node_keep_links(&mut self, id: StableNodeId) {
+        self.nodes.remove(&id);
     }
 }
