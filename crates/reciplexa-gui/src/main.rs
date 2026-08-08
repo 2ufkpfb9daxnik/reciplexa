@@ -1,11 +1,9 @@
 //! Paper preview with drag → CST sync, plus a live `.rpx` source pane.
 
-mod document_state;
 mod fonts;
-mod prefs;
 mod preview_paint;
 
-use document_state::DocumentPathState;
+use reciplexa_gui::document_state::DocumentPathState;
 
 use std::env;
 use std::fs;
@@ -36,7 +34,7 @@ use reciplexa_view::{
 };
 
 use fonts::install_cjk_fonts;
-use prefs::{apply_ui_theme, GuiPrefs, UiTheme};
+use reciplexa_gui::prefs::{apply_ui_theme, GuiPrefs, UiTheme};
 use preview_paint::{
     apply_aspect_lock, box_from_grab, hit_line_endpoint, hit_rotate_handle, hit_scale_grab,
     paint_hover_frame, paint_line_endpoints, paint_paper_grid, paint_selection_frame, paint_shape,

@@ -6,6 +6,10 @@ license.workspace = true
 description = "egui paper preview for reciplexa (view-only in M6)"
 publish = false
 
+[lib]
+name = "reciplexa_gui"
+path = "src/lib.rs"
+
 [[bin]]
 name = "reciplexa-gui"
 path = "src/main.rs"
