@@ -99,6 +99,35 @@ impl NodeStore {
         id
     }
 
+    pub fn len(&self) -> usize {
+        self.nodes.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.nodes.is_empty()
+    }
+
+    /// Insert a node preserving its stable ID (codec round-trip).
+    pub fn insert_preserved(&mut self, node: DocumentNode) {
+        let id = node.id;
+        if node.kind == DocumentNodeKind::Document {
+            self.root = Some(id);
+        }
+        self.alloc.ensure_next_above(id.get());
+        self.nodes.insert(id, node);
+    }
+
+    pub fn link_child(&mut self, parent: StableNodeId, child: StableNodeId) {
+        if let Some(c) = self.nodes.get_mut(&child) {
+            c.parent = Some(parent);
+        }
+        if let Some(p) = self.nodes.get_mut(&parent) {
+            if !p.children.contains(&child) {
+                p.children.push(child);
+            }
+        }
+    }
+
     pub fn insert_child(
         &mut self,
         parent: StableNodeId,

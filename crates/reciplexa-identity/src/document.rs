@@ -110,6 +110,12 @@ impl StableNodeIdAllocator {
     pub fn peek_next(&self) -> StableNodeId {
         StableNodeId::new(self.next)
     }
+
+    pub fn ensure_next_above(&mut self, value: u64) {
+        if self.next <= value {
+            self.next = value.saturating_add(1);
+        }
+    }
 }
 
 #[cfg(test)]
