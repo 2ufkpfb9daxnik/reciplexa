@@ -64,6 +64,17 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_subject_label_includes_ids() {
+        let subject = TestSubject::new("TEST-X", "SYN-001");
+        assert!(subject.label().contains("TEST-X"));
+    }
+
+    #[test]
+    fn test_outcome_passed_flag() {
+        assert!(TestOutcome::Passed(()).is_passed());
+    }
+
+    #[test]
     fn assert_subject_failure_matches() {
         assert_subject_failure::<&str, ()>(SubjectOutcome::Failure("err"), "err");
     }
