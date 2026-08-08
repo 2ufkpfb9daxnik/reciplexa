@@ -10,6 +10,7 @@ pub mod profile;
 pub mod verify;
 
 pub use capability::{BackendCapability, CapabilityMismatch, PlanningError};
+pub use emit::EmitError;
 pub use pipeline::{export_scene_to_svg, ExportError, VerifiedSvgArtifact};
 pub use plan::{BackendPlan, BackendTarget, PlannedNode, Representation};
 pub use profile::OutputProfile;

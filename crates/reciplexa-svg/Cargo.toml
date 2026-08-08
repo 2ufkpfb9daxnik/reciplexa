@@ -8,4 +8,4 @@ publish = false
 
 [dependencies]
 reciplexa-scene = { workspace = true }
-reciplexa-view = { workspace = true }
+reciplexa-backend = { workspace = true }

@@ -7,8 +7,23 @@ use reciplexa_visual_ir::{RenderDocument, RenderNode};
 
 use crate::plan::{BackendPlan, PlannedNode, Representation};
 
+/// Emission refused to invent geometry outside the plan.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum EmitError {
+    PlanNodeMismatch {
+        render_id: u64,
+        representation: String,
+    },
+    MissingRenderNode {
+        render_id: u64,
+    },
+}
+
 /// Emit SVG from a validated plan — no unplanned fallbacks.
-pub fn emit_svg_from_plan(plan: &BackendPlan, render: &RenderDocument) -> String {
+pub fn emit_svg_from_plan(
+    plan: &BackendPlan,
+    render: &RenderDocument,
+) -> Result<String, EmitError> {
     const GAP_MM: f64 = 10.0;
     let mut total_w = 0.0_f64;
     let mut total_h = 0.0_f64;
@@ -59,32 +74,51 @@ pub fn emit_svg_from_plan(plan: &BackendPlan, render: &RenderDocument) -> String
             .filter(|n| n.page_index == page_index)
             .collect();
         for pn in planned {
-            if let Some(node) = page.nodes.iter().find(|n| n.id() == pn.render_id) {
-                write_planned_node(&mut s, pn, node);
-            }
+            let node = page.nodes.iter().find(|n| n.id() == pn.render_id).ok_or(
+                EmitError::MissingRenderNode {
+                    render_id: pn.render_id.0,
+                },
+            )?;
+            write_planned_node(&mut s, pn, node)?;
         }
         let _ = writeln!(s, "    </g>");
         let _ = writeln!(s, "  </g>");
     }
     let _ = writeln!(s, "</svg>");
-    s
+    Ok(s)
 }
 
-fn write_planned_node(s: &mut String, planned: &PlannedNode, node: &RenderNode) {
+fn write_planned_node(
+    s: &mut String,
+    planned: &PlannedNode,
+    node: &RenderNode,
+) -> Result<(), EmitError> {
     let id = &planned.artifact_element_id;
     match (planned.representation, node) {
-        (Representation::SvgRect, RenderNode::Rect { x_mm, y_mm, width_mm, height_mm, fill, stroke_width_mm, alpha, .. }) => {
+        (
+            Representation::SvgRect,
+            RenderNode::Rect {
+                x_mm,
+                y_mm,
+                width_mm,
+                height_mm,
+                fill,
+                stroke_width_mm,
+                alpha,
+                ..
+            },
+        ) => {
             if let Some(sw) = stroke_width_mm {
                 let _ = writeln!(
                     s,
-                    r#"      <rect id="{id}" x="{}" y="{}" width="{}" height="{}" {} stroke="{}" stroke-width="{}"/>"#,
+                    r#"      <rect id="{id}" x="{}" y="{}" width="{}" height="{}" fill="none" stroke="{}" stroke-width="{}" opacity="{}"/>"#,
                     fmt_num(*x_mm),
                     fmt_num(*y_mm),
                     fmt_num(*width_mm),
                     fmt_num(*height_mm),
-                    color_attr(*fill, *alpha),
                     color_hex(*fill),
-                    fmt_num(*sw)
+                    fmt_num(*sw),
+                    fmt_num(*alpha)
                 );
             } else {
                 let _ = writeln!(
@@ -97,43 +131,123 @@ fn write_planned_node(s: &mut String, planned: &PlannedNode, node: &RenderNode) 
                     color_attr(*fill, *alpha)
                 );
             }
+            Ok(())
         }
-        (Representation::SvgCircle, RenderNode::Circle { x_mm, y_mm, radius_mm, fill, alpha, .. }) => {
-            let _ = writeln!(
-                s,
-                r#"      <circle id="{id}" cx="{}" cy="{}" r="{}" {}/>"#,
-                fmt_num(*x_mm),
-                fmt_num(*y_mm),
-                fmt_num(*radius_mm),
-                color_attr(*fill, *alpha)
-            );
+        (
+            Representation::SvgCircle,
+            RenderNode::Circle {
+                x_mm,
+                y_mm,
+                radius_mm,
+                fill,
+                stroke_width_mm,
+                alpha,
+                ..
+            },
+        ) => {
+            match stroke_width_mm {
+                None => {
+                    let _ = writeln!(
+                        s,
+                        r#"      <circle id="{id}" cx="{}" cy="{}" r="{}" {}/>"#,
+                        fmt_num(*x_mm),
+                        fmt_num(*y_mm),
+                        fmt_num(*radius_mm),
+                        color_attr(*fill, *alpha)
+                    );
+                }
+                Some(w) => {
+                    let _ = writeln!(
+                        s,
+                        r#"      <circle id="{id}" cx="{}" cy="{}" r="{}" fill="none" stroke="{}" stroke-width="{}" opacity="{}"/>"#,
+                        fmt_num(*x_mm),
+                        fmt_num(*y_mm),
+                        fmt_num(*radius_mm),
+                        color_hex(*fill),
+                        fmt_num(*w),
+                        fmt_num(*alpha)
+                    );
+                }
+            }
+            Ok(())
         }
-        (Representation::SvgPolygon, RenderNode::Polygon { points_mm, fill, alpha, .. }) => {
+        (
+            Representation::SvgPolygon,
+            RenderNode::Polygon {
+                points_mm,
+                fill,
+                stroke_width_mm,
+                alpha,
+                ..
+            },
+        ) => {
             let pts: String = points_mm
                 .iter()
                 .map(|(x, y)| format!("{},{}", fmt_num(*x), fmt_num(*y)))
                 .collect::<Vec<_>>()
                 .join(" ");
-            let _ = writeln!(
-                s,
-                r#"      <polygon id="{id}" points="{pts}" {}/>"#,
-                color_attr(*fill, *alpha)
-            );
+            match stroke_width_mm {
+                None => {
+                    let _ = writeln!(
+                        s,
+                        r#"      <polygon id="{id}" points="{pts}" {}/>"#,
+                        color_attr(*fill, *alpha)
+                    );
+                }
+                Some(w) => {
+                    let _ = writeln!(
+                        s,
+                        r#"      <polygon id="{id}" points="{pts}" fill="none" stroke="{}" stroke-width="{}" opacity="{}"/>"#,
+                        color_hex(*fill),
+                        fmt_num(*w),
+                        fmt_num(*alpha)
+                    );
+                }
+            }
+            Ok(())
         }
-        (Representation::SvgText, RenderNode::Text { x_mm, y_mm, size_mm, content, fill, alpha, .. }) => {
+        (
+            Representation::SvgText,
+            RenderNode::Text {
+                x_mm,
+                y_mm,
+                size_mm,
+                rotation_deg,
+                content,
+                fill,
+                alpha,
+                ..
+            },
+        ) => {
+            // Inside Y-flip group; counter-flip text so glyphs stay upright.
             let font = planned.font_family.as_deref().unwrap_or("sans-serif");
+            let escape = xml_escape(content);
+            let angle = -*rotation_deg;
             let _ = writeln!(
                 s,
-                r#"      <text id="{id}" x="{}" y="{}" font-size="{}" font-family="{font}" {fill}>{content}</text>"#,
+                r#"      <text id="{id}" x="0" y="0" font-size="{}" font-family="{font}" {} transform="translate({} {}) scale(1 -1) rotate({})">{}</text>"#,
+                fmt_num(*size_mm),
+                color_attr(*fill, *alpha),
                 fmt_num(*x_mm),
                 fmt_num(*y_mm),
-                fmt_num(*size_mm),
-                fill = color_attr(*fill, *alpha)
+                fmt_num(angle),
+                escape
             );
+            Ok(())
         }
-        (Representation::SvgPath, RenderNode::Path { points_mm, stroke, width_mm, closed, alpha, .. }) => {
+        (
+            Representation::SvgPath,
+            RenderNode::Path {
+                points_mm,
+                stroke,
+                width_mm,
+                closed,
+                alpha,
+                ..
+            },
+        ) => {
             if points_mm.is_empty() {
-                return;
+                return Ok(());
             }
             let mut d = format!("M {} {}", fmt_num(points_mm[0].0), fmt_num(points_mm[0].1));
             for (x, y) in &points_mm[1..] {
@@ -149,19 +263,43 @@ fn write_planned_node(s: &mut String, planned: &PlannedNode, node: &RenderNode) 
                 fmt_num(*width_mm),
                 fmt_num(*alpha)
             );
+            Ok(())
         }
-        (Representation::SvgImage, RenderNode::Image { path, corners_mm, alpha, .. }) => {
+        (
+            Representation::SvgImage,
+            RenderNode::Image {
+                path,
+                corners_mm,
+                alpha,
+                ..
+            },
+        ) => {
+            let min_x = corners_mm.iter().map(|c| c.0).fold(f64::INFINITY, f64::min);
+            let max_x = corners_mm
+                .iter()
+                .map(|c| c.0)
+                .fold(f64::NEG_INFINITY, f64::max);
+            let min_y = corners_mm.iter().map(|c| c.1).fold(f64::INFINITY, f64::min);
+            let max_y = corners_mm
+                .iter()
+                .map(|c| c.1)
+                .fold(f64::NEG_INFINITY, f64::max);
+            let href = xml_escape(path);
             let _ = writeln!(
                 s,
-                r#"      <image id="{id}" href="{path}" opacity="{}" x="{}" y="{}" width="{}" height="{}"/>"#,
+                r#"      <image id="{id}" href="{href}" opacity="{}" x="{}" y="{}" width="{}" height="{}" preserveAspectRatio="none"/>"#,
                 fmt_num(*alpha),
-                fmt_num(corners_mm[0].0),
-                fmt_num(corners_mm[0].1),
-                fmt_num((corners_mm[1].0 - corners_mm[0].0).abs()),
-                fmt_num((corners_mm[2].1 - corners_mm[0].1).abs())
+                fmt_num(min_x),
+                fmt_num(min_y),
+                fmt_num((max_x - min_x).max(0.1)),
+                fmt_num((max_y - min_y).max(0.1))
             );
+            Ok(())
         }
-        _ => {}
+        (repr, _) => Err(EmitError::PlanNodeMismatch {
+            render_id: planned.render_id.0,
+            representation: format!("{repr:?}"),
+        }),
     }
 }
 
@@ -181,5 +319,102 @@ fn color_hex(c: Color) -> String {
 }
 
 fn color_attr(c: Color, alpha: f64) -> String {
-    format!(r#"fill="{}" opacity="{}""#, color_hex(c), fmt_num(alpha.clamp(0.0, 1.0)))
+    format!(
+        r#"fill="{}" opacity="{}""#,
+        color_hex(c),
+        fmt_num(alpha.clamp(0.0, 1.0))
+    )
+}
+
+fn xml_escape(s: &str) -> String {
+    s.chars()
+        .map(|c| match c {
+            '&' => "&amp;".into(),
+            '<' => "&lt;".into(),
+            '>' => "&gt;".into(),
+            '"' => "&quot;".into(),
+            '\'' => "&apos;".into(),
+            c => c.to_string(),
+        })
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use reciplexa_scene::Color;
+    use reciplexa_visual_ir::render::{RenderNode, RenderNodeId, RenderPage};
+
+    use crate::plan::{BackendTarget, PlannedNode};
+    use crate::profile::OutputProfile;
+
+    #[test]
+    fn emits_upright_text_with_counter_flip() {
+        let render = RenderDocument {
+            pages: vec![RenderPage {
+                width_mm: 210.0,
+                height_mm: 297.0,
+                nodes: vec![RenderNode::Text {
+                    id: RenderNodeId::new(1),
+                    x_mm: 10.0,
+                    y_mm: 20.0,
+                    size_mm: 12.0,
+                    width_mm: 40.0,
+                    height_mm: 14.0,
+                    rotation_deg: 0.0,
+                    content: "hi&<>".into(),
+                    fill: Color::BLACK,
+                    alpha: 1.0,
+                }],
+            }],
+        };
+        let plan = BackendPlan {
+            target: BackendTarget::Svg,
+            profile: OutputProfile::svg_default(),
+            nodes: vec![PlannedNode {
+                render_id: RenderNodeId::new(1),
+                page_index: 0,
+                representation: Representation::SvgText,
+                artifact_element_id: "rpx-1".into(),
+                font_family: Some("sans-serif".into()),
+                polygon_sides: None,
+            }],
+        };
+        let svg = emit_svg_from_plan(&plan, &render).unwrap();
+        assert!(svg.contains("scale(1 -1)"));
+        assert!(svg.contains("hi&amp;&lt;&gt;"));
+    }
+
+    #[test]
+    fn rejects_plan_node_mismatch() {
+        let render = RenderDocument {
+            pages: vec![RenderPage {
+                width_mm: 210.0,
+                height_mm: 297.0,
+                nodes: vec![RenderNode::Circle {
+                    id: RenderNodeId::new(1),
+                    x_mm: 1.0,
+                    y_mm: 2.0,
+                    radius_mm: 3.0,
+                    fill: Color::BLACK,
+                    stroke_width_mm: None,
+                    alpha: 1.0,
+                }],
+            }],
+        };
+        let plan = BackendPlan {
+            target: BackendTarget::Svg,
+            profile: OutputProfile::svg_default(),
+            nodes: vec![PlannedNode {
+                render_id: RenderNodeId::new(1),
+                page_index: 0,
+                representation: Representation::SvgRect,
+                artifact_element_id: "rpx-1".into(),
+                font_family: None,
+                polygon_sides: None,
+            }],
+        };
+        let err = emit_svg_from_plan(&plan, &render).unwrap_err();
+        assert!(matches!(err, EmitError::PlanNodeMismatch { .. }));
+    }
 }

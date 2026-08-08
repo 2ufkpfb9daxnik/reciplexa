@@ -7,7 +7,7 @@ use reciplexa_visual_ir::{
 };
 
 use crate::capability::{BackendCapability, PlanningError};
-use crate::emit::emit_svg_from_plan;
+use crate::emit::{emit_svg_from_plan, EmitError};
 use crate::plan::plan_svg;
 use crate::profile::OutputProfile;
 use crate::verify::{validate_svg_artifact, ArtifactValidationError};
@@ -22,6 +22,7 @@ pub struct VerifiedSvgArtifact {
 pub enum ExportError {
     Render(RenderValidationError),
     Planning(PlanningError),
+    Emit(EmitError),
     Artifact(ArtifactValidationError),
 }
 
@@ -34,7 +35,7 @@ pub fn export_scene_to_svg(
     let (render, prov) = lower_scene_document(doc);
     validate_render_document(&render).map_err(ExportError::Render)?;
     let plan = plan_svg(&render, cap, profile).map_err(ExportError::Planning)?;
-    let svg = emit_svg_from_plan(&plan, &render);
+    let svg = emit_svg_from_plan(&plan, &render).map_err(ExportError::Emit)?;
     validate_svg_artifact(&svg).map_err(ExportError::Artifact)?;
     let provenance = build_artifact_provenance(&plan, &prov);
     Ok(VerifiedSvgArtifact { svg, provenance })

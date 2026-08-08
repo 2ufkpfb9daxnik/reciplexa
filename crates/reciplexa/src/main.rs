@@ -195,6 +195,10 @@ mod tests {
         let svg = fs::read_to_string(&svg_out).unwrap();
         assert!(svg.contains("<svg"));
         assert!(svg.contains("<circle"));
+        assert!(
+            svg.contains("id=\"rpx-"),
+            "planned artifact element ids required"
+        );
         let pptx = fs::read(&pptx_out).unwrap();
         assert_eq!(&pptx[0..2], b"PK");
     }
