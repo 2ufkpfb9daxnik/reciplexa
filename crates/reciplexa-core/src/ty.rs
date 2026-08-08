@@ -26,6 +26,12 @@ pub enum CoreType {
         ret: Box<CoreType>,
         effects: EffectRow,
     },
+    Record {
+        fields: Vec<(String, CoreType)>,
+    },
+    Variant {
+        variants: Vec<(String, Option<CoreType>)>,
+    },
 }
 
 /// Thin effect row — grows in Phase 5 lowering.

@@ -22,6 +22,36 @@ pub enum CoreExpr {
         value: Box<CoreExpr>,
         body: Box<CoreExpr>,
     },
+    Lambda {
+        param: String,
+        body: Box<CoreExpr>,
+    },
+    App {
+        fun: Box<CoreExpr>,
+        arg: Box<CoreExpr>,
+    },
+    Record {
+        fields: Vec<(String, CoreExpr)>,
+    },
+    RecordGet {
+        record: Box<CoreExpr>,
+        field: String,
+    },
+    Variant {
+        tag: String,
+        payload: Option<Box<CoreExpr>>,
+    },
+    Match {
+        scrutinee: Box<CoreExpr>,
+        arms: Vec<MatchArm>,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct MatchArm {
+    pub tag: String,
+    pub bind: Option<String>,
+    pub body: CoreExpr,
 }
 
 #[derive(Debug, Clone, PartialEq)]
