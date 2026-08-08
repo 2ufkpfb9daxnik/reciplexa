@@ -3,7 +3,7 @@
 use std::fs;
 use std::io::{self, Write};
 
-use reciplexa_diagnostic::{push_parse_errors, DiagnosticCollector, ParseDiagnosticInput};
+use reciplexa_diagnostic::{push_syntax_parse_errors, render_diagnostic_line, DiagnosticCollector};
 use reciplexa_identity::package::{ModuleId, PackageInstanceId};
 use reciplexa_source::line_index::LineIndex;
 use reciplexa_source::resource::{SourceResource, SourceResourceId};
@@ -57,22 +57,18 @@ fn emit_parse_diagnostics(
     errors: &[reciplexa_syntax::ParseError],
 ) -> Result<(), String> {
     let mut collector = DiagnosticCollector::new();
-    let inputs: Vec<_> = errors
-        .iter()
-        .map(|e| ParseDiagnosticInput::new(e.message.clone(), e.start as u32, e.end as u32))
-        .collect();
-    push_parse_errors(
+    push_syntax_parse_errors(
         &mut collector,
         PackageInstanceId::new(1),
         ModuleId::new(1),
         SourceResourceId::new(1),
-        &inputs,
+        errors,
     );
     let index = LineIndex::new(src);
     for line in collector
         .diagnostics()
         .iter()
-        .map(|d| reciplexa_diagnostic::render_diagnostic_line(&index, d))
+        .map(|d| render_diagnostic_line(&index, d))
     {
         let mut out = io::stderr();
         writeln!(out, "{line}").map_err(|e| e.to_string())?;
