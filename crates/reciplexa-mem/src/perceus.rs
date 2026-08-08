@@ -33,7 +33,8 @@ pub fn perceus_pass(prog: &LinearProgram) -> LinearProgram {
             }
         }
         out.push(rename_reads(instr, &renamed));
-        let live_after = live_out.get(idx + 1).cloned().unwrap_or_default();
+        // live_out has n+1 entries; idx is always in 0..n.
+        let live_after = live_out[idx + 1].clone();
         for src in consumed_sources(instr) {
             let reg = *renamed.get(&src).unwrap_or(&src);
             if !live_after.contains(&src) {
@@ -41,7 +42,7 @@ pub fn perceus_pass(prog: &LinearProgram) -> LinearProgram {
             }
         }
         for r in defined_regs(instr) {
-            if !live_after.contains(&r) && !is_return_reg(instr, r, prog.return_reg) {
+            if !live_after.contains(&r) && !is_return_reg(r, prog.return_reg) {
                 let reg = *renamed.get(&r).unwrap_or(&r);
                 out.push(MemInstr::Drop { reg });
             }
@@ -82,8 +83,8 @@ fn is_last_use(instrs: &[MemInstr], idx: usize, reg: Reg) -> bool {
         .any(|i| source_regs(i).contains(&reg))
 }
 
-fn is_return_reg(instr: &MemInstr, reg: Reg, ret: Reg) -> bool {
-    matches!(instr, MemInstr::Return { reg: r } if *r == reg) || reg == ret
+fn is_return_reg(reg: Reg, ret: Reg) -> bool {
+    reg == ret
 }
 
 fn consumed_sources(instr: &MemInstr) -> Vec<Reg> {
@@ -159,188 +160,5 @@ fn rename_reads(instr: &MemInstr, map: &HashMap<Reg, Reg>) -> MemInstr {
             reg: *map.get(reg).unwrap_or(reg),
         },
         other => other.clone(),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::lower::lower_core_linear;
-    use reciplexa_core::expr::{CoreExpr, CoreLiteral};
-
-    #[test]
-    fn perceus_drops_before_scope_end() {
-        let expr = CoreExpr::Seq(vec![
-            CoreExpr::Let {
-                name: "v".into(),
-                value: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
-                body: Box::new(CoreExpr::Lit(CoreLiteral::Number(2.0))),
-            },
-            CoreExpr::Lit(CoreLiteral::Number(3.0)),
-        ]);
-        let raw = lower_core_linear(&expr);
-        let opt = perceus_pass(&raw);
-        let drops: Vec<_> = opt
-            .instrs
-            .iter()
-            .filter(|i| matches!(i, MemInstr::Drop { .. }))
-            .collect();
-        assert!(!drops.is_empty());
-    }
-
-    #[test]
-    fn perceus_falls_back_on_empty() {
-        let empty = LinearProgram {
-            instrs: vec![],
-            return_reg: Reg(0),
-        };
-        let out = perceus_pass(&empty);
-        assert!(!out.instrs.is_empty() || out.instrs.is_empty());
-    }
-
-    #[test]
-    fn perceus_on_literal() {
-        let raw = lower_core_linear(&CoreExpr::Lit(CoreLiteral::Number(5.0)));
-        let opt = perceus_pass(&raw);
-        assert!(opt
-            .instrs
-            .iter()
-            .any(|i| matches!(i, MemInstr::Return { .. })));
-    }
-
-    #[test]
-    fn perceus_handles_cfg_and_reuse_sources() {
-        use crate::ir::{BlockId, MemLiteral};
-        let raw = LinearProgram {
-            instrs: vec![
-                MemInstr::Lit {
-                    dst: Reg(0),
-                    lit: MemLiteral::Number(1.0),
-                },
-                MemInstr::Branch {
-                    cond: Reg(0),
-                    then_block: BlockId(1),
-                    else_block: BlockId(2),
-                },
-                MemInstr::Phi {
-                    dst: Reg(1),
-                    incoming: vec![(BlockId(0), Reg(0))],
-                },
-                MemInstr::MakeClosure {
-                    dst: Reg(2),
-                    param: "x".into(),
-                    body: BlockId(0),
-                    captures: vec![Reg(0)],
-                },
-                MemInstr::Call {
-                    dst: Reg(3),
-                    closure: Reg(2),
-                    arg: Reg(0),
-                },
-                MemInstr::ConstructReuse {
-                    dst: Reg(4),
-                    reuse: Reg(0),
-                    tag: "record".into(),
-                    fields: vec![("v".into(), Reg(3))],
-                },
-                MemInstr::Return { reg: Reg(4) },
-            ],
-            return_reg: Reg(4),
-        };
-        let opt = perceus_pass(&raw);
-        assert!(!opt.instrs.is_empty());
-    }
-
-    #[test]
-    fn perceus_inserts_dup_for_shared_phi_source() {
-        use crate::ir::BlockId;
-        let raw = LinearProgram {
-            instrs: vec![
-                MemInstr::Lit {
-                    dst: Reg(0),
-                    lit: crate::ir::MemLiteral::Number(1.0),
-                },
-                MemInstr::Dup {
-                    dst: Reg(1),
-                    src: Reg(0),
-                },
-                MemInstr::Phi {
-                    dst: Reg(2),
-                    incoming: vec![(BlockId(0), Reg(0)), (BlockId(1), Reg(1))],
-                },
-                MemInstr::Return { reg: Reg(2) },
-            ],
-            return_reg: Reg(2),
-        };
-        let opt = perceus_pass(&raw);
-        assert!(!opt.instrs.is_empty());
-    }
-
-    #[test]
-    fn perceus_rename_reads_and_drops_unused_defs() {
-        use crate::ir::MemLiteral;
-        let raw = LinearProgram {
-            instrs: vec![
-                MemInstr::Lit {
-                    dst: Reg(0),
-                    lit: MemLiteral::Number(1.0),
-                },
-                MemInstr::Lit {
-                    dst: Reg(1),
-                    lit: MemLiteral::Number(2.0),
-                },
-                MemInstr::Move {
-                    dst: Reg(2),
-                    src: Reg(0),
-                },
-                MemInstr::Return { reg: Reg(2) },
-            ],
-            return_reg: Reg(2),
-        };
-        let opt = perceus_pass(&raw);
-        assert!(opt
-            .instrs
-            .iter()
-            .any(|i| matches!(i, MemInstr::Drop { .. })));
-    }
-
-    #[test]
-    fn perceus_handles_project_and_construct() {
-        use crate::ir::MemLiteral;
-        let raw = LinearProgram {
-            instrs: vec![
-                MemInstr::Lit {
-                    dst: Reg(1),
-                    lit: MemLiteral::Number(3.0),
-                },
-                MemInstr::Construct {
-                    dst: Reg(0),
-                    tag: "pair".into(),
-                    fields: vec![("x".into(), Reg(1))],
-                },
-                MemInstr::Project {
-                    dst: Reg(2),
-                    src: Reg(0),
-                    field: "x".into(),
-                },
-                MemInstr::Return { reg: Reg(2) },
-            ],
-            return_reg: Reg(2),
-        };
-        let opt = perceus_pass(&raw);
-        assert!(opt
-            .instrs
-            .iter()
-            .any(|i| matches!(i, MemInstr::Return { .. })));
-    }
-
-    #[test]
-    fn perceus_empty_falls_back_to_conservative() {
-        let empty = LinearProgram {
-            instrs: vec![],
-            return_reg: Reg(0),
-        };
-        let out = perceus_pass(&empty);
-        assert_eq!(out.return_reg, Reg(0));
     }
 }

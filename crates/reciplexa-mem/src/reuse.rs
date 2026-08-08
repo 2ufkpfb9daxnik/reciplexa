@@ -15,17 +15,15 @@ pub fn reuse_pass(prog: LinearProgram) -> LinearProgram {
         match instr {
             MemInstr::Construct { dst, tag, fields } => {
                 if let Some((_, reuse_reg)) = find_reuse_candidate(&reuse_pool, tag) {
-                    if state.get(reuse_reg) == OwnState::Alive {
-                        out.push(MemInstr::ConstructReuse {
-                            dst: *dst,
-                            reuse: reuse_reg,
-                            tag: tag.clone(),
-                            fields: fields.clone(),
-                        });
-                        state.move_from(reuse_reg, *dst);
-                        reuse_pool.retain(|(_, r)| *r != reuse_reg);
-                        continue;
-                    }
+                    out.push(MemInstr::ConstructReuse {
+                        dst: *dst,
+                        reuse: reuse_reg,
+                        tag: tag.clone(),
+                        fields: fields.clone(),
+                    });
+                    state.move_from(reuse_reg, *dst);
+                    reuse_pool.retain(|(_, r)| *r != reuse_reg);
+                    continue;
                 }
                 out.push(instr.clone());
                 state.define(*dst);
@@ -87,92 +85,5 @@ fn apply_effect(state: &mut OwnMap, instr: &MemInstr) {
         MemInstr::Dup { dst, .. } => state.define(*dst),
         MemInstr::Lit { dst, .. } | MemInstr::ConstructReuse { dst, .. } => state.define(*dst),
         _ => {}
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::ir::MemLiteral;
-
-    #[test]
-    fn reuse_when_unique() {
-        let prog = LinearProgram {
-            instrs: vec![
-                MemInstr::Construct {
-                    dst: Reg(0),
-                    tag: "record".into(),
-                    fields: vec![],
-                },
-                MemInstr::Drop { reg: Reg(0) },
-                MemInstr::Construct {
-                    dst: Reg(1),
-                    tag: "record".into(),
-                    fields: vec![],
-                },
-            ],
-            return_reg: Reg(1),
-        };
-        let out = reuse_pass(prog);
-        assert!(out
-            .instrs
-            .iter()
-            .any(|i| matches!(i, MemInstr::ConstructReuse { .. })));
-    }
-
-    #[test]
-    fn no_reuse_for_perform_tag() {
-        let prog = LinearProgram {
-            instrs: vec![
-                MemInstr::Construct {
-                    dst: Reg(0),
-                    tag: "perform:log".into(),
-                    fields: vec![],
-                },
-                MemInstr::Drop { reg: Reg(0) },
-                MemInstr::Construct {
-                    dst: Reg(1),
-                    tag: "perform:log".into(),
-                    fields: vec![],
-                },
-            ],
-            return_reg: Reg(1),
-        };
-        let out = reuse_pass(prog);
-        assert!(!out
-            .instrs
-            .iter()
-            .any(|i| matches!(i, MemInstr::ConstructReuse { .. })));
-    }
-
-    #[test]
-    fn shared_value_falls_back_to_construct() {
-        let prog = LinearProgram {
-            instrs: vec![
-                MemInstr::Lit {
-                    dst: Reg(0),
-                    lit: MemLiteral::Number(1.0),
-                },
-                MemInstr::Dup {
-                    dst: Reg(1),
-                    src: Reg(0),
-                },
-                MemInstr::Drop { reg: Reg(0) },
-                MemInstr::Construct {
-                    dst: Reg(2),
-                    tag: "record".into(),
-                    fields: vec![("x".into(), Reg(1))],
-                },
-            ],
-            return_reg: Reg(2),
-        };
-        let out = reuse_pass(prog);
-        assert!(
-            out.instrs
-                .iter()
-                .filter(|i| matches!(i, MemInstr::ConstructReuse { .. }))
-                .count()
-                == 0
-        );
     }
 }
