@@ -27,6 +27,10 @@ impl ByteOffset {
     pub fn saturating_add(self, delta: u32) -> Self {
         Self(self.0.saturating_add(delta))
     }
+
+    pub fn saturating_sub(self, delta: u32) -> Self {
+        Self(self.0.saturating_sub(delta))
+    }
 }
 
 impl From<u32> for ByteOffset {
