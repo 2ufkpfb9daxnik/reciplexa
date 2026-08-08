@@ -1,0 +1,10 @@
+[package]
+name = "reciplexa-native"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Foreign boundary, native adapter registry, lifecycle (Phase 11)"
+publish = false
+
+[dependencies]
+reciplexa-outcome = { workspace = true }
