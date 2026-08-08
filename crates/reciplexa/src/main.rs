@@ -42,6 +42,13 @@ fn main() -> ExitCode {
                 ExitCode::from(2)
             }
         },
+        "inspect-document" => match args.next() {
+            Some(path) => run_cli(reciplexa::cli::cmd_inspect_document(&path)),
+            None => {
+                eprintln!("usage: reciplexa inspect-document <input.rpx>");
+                ExitCode::from(2)
+            }
+        },
         input => {
             let Some(output) = args.next() else {
                 eprintln!("usage: reciplexa <input.rpx> <output.pdf|svg|pptx>");
@@ -74,6 +81,7 @@ fn print_usage() {
     eprintln!("  reciplexa parse <input.rpx>");
     eprintln!("  reciplexa format <input.rpx>");
     eprintln!("  reciplexa inspect-syntax <input.rpx>");
+    eprintln!("  reciplexa inspect-document <input.rpx>");
 }
 
 struct CliHandler {

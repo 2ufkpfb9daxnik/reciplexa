@@ -17,5 +17,5 @@ pub use property::{FillColor, LayoutBox, NodeProperty, TextContent};
 pub use provenance::{NodeProvenance, SourceProvenance};
 pub use snapshot::DocumentSnapshot;
 pub use transaction::{
-    DocumentTransaction, TransactionBuilder, TransactionError, TransactionOutcome,
+    DocumentEdit, DocumentTransaction, TransactionBuilder, TransactionError, TransactionOutcome,
 };

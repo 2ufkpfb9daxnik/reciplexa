@@ -16,4 +16,7 @@ reciplexa-core = { workspace = true }
 reciplexa-eval = { workspace = true }
 reciplexa-ir = { workspace = true }
 reciplexa-runtime = { workspace = true }
+reciplexa-document = { workspace = true }
+reciplexa-identity = { workspace = true }
+reciplexa = { path = "../reciplexa" }
 reciplexa-syntax = { workspace = true }

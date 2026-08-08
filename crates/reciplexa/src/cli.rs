@@ -38,6 +38,24 @@ pub fn cmd_format(path: &str) -> Result<(), String> {
     Ok(())
 }
 
+pub fn cmd_inspect_document(path: &str) -> Result<(), String> {
+    let src = std::fs::read_to_string(path).map_err(|e| format!("read {path}: {e}"))?;
+    let snap = crate::document_pipeline::document_snapshot_from_source(
+        &src,
+        reciplexa_identity::document::DocumentIdentity::new(1),
+    )?;
+    println!(
+        "document {} rev {} nodes {}",
+        snap.identity.get(),
+        snap.revision.get(),
+        snap.nodes.iter().count()
+    );
+    for node in snap.nodes.iter() {
+        println!("  {:?} id={}", node.kind, node.id.get());
+    }
+    Ok(())
+}
+
 pub fn cmd_inspect_syntax(path: &str) -> Result<(), String> {
     let src = fs::read_to_string(path).map_err(|e| format!("read {path}: {e}"))?;
     let parse = parse_source(&src);
