@@ -1,0 +1,12 @@
+[package]
+name = "reciplexa-identity"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Stable identity types for documents, packages, and syntax nodes"
+publish = false
+
+[dependencies]
+reciplexa-source = { workspace = true }
+
+[dev-dependencies]
