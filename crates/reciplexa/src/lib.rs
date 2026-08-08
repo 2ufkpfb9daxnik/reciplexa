@@ -9,4 +9,7 @@ pub mod cli;
 pub mod document_pipeline;
 pub mod pipeline;
 
-pub use pipeline::{document_from_source, expand, lower, run_effects, typecheck, PipelineError};
+pub use pipeline::{
+    document_for_export, document_from_source, document_from_source_with_snapshot, expand, lower,
+    run_effects, PipelineDocument, PipelineError,
+};

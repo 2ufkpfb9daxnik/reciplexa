@@ -92,8 +92,7 @@ fn emit_parse_diagnostics(
     );
     if json {
         let mut out = io::stdout();
-        writeln!(out, "{{\"status\":\"error\",\"diagnostics\":[")
-            .map_err(|e| e.to_string())?;
+        writeln!(out, "{{\"status\":\"error\",\"diagnostics\":[").map_err(|e| e.to_string())?;
         for (i, d) in collector.diagnostics().iter().enumerate() {
             if i > 0 {
                 write!(out, ",").map_err(|e| e.to_string())?;

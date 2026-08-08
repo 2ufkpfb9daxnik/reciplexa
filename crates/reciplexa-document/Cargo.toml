@@ -10,5 +10,6 @@ publish = false
 reciplexa-identity = { workspace = true }
 reciplexa-source = { workspace = true }
 reciplexa-scene = { workspace = true }
+reciplexa-syntax = { workspace = true }
 
 [dev-dependencies]

@@ -44,8 +44,14 @@ impl SyntaxIdentityMap {
         self.by_range.get(&key).copied()
     }
 
+    pub fn get_byte_offsets(&self, start: u32, end: u32) -> Option<SyntaxNodeId> {
+        self.by_range.get(&(start, end)).copied()
+    }
+
     pub fn get_by_id(&self, id: SyntaxNodeId) -> Option<TextRange> {
-        self.by_id.get(&id).map(|(s, e)| TextRange::new((*s).into(), (*e).into()))
+        self.by_id
+            .get(&id)
+            .map(|(s, e)| TextRange::new((*s).into(), (*e).into()))
     }
 
     pub fn len(&self) -> usize {
@@ -136,9 +142,14 @@ mod tests {
 
     #[test]
     fn build_identity_map_covers_subtrees() {
-        let parse = parse_source("(page a4 (rect 1 2 3 4))");
+        let parse = parse_source("(page a4 (circle 1 2 3) (text 1 2 12 \"hi\"))");
+        assert!(parse.errors.is_empty(), "{:?}", parse.errors);
         let map = build_identity_map(&parse.root);
-        assert!(map.len() >= 3);
+        assert!(
+            map.len() >= 3,
+            "expected multiple syntax subtrees, got {}",
+            map.len()
+        );
     }
 
     #[test]

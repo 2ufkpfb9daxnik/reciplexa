@@ -3,6 +3,7 @@
 use reciplexa_identity::document::DocumentIdentity;
 use reciplexa_identity::package::ModuleId;
 use reciplexa_scene::{Color, Page, Rect, Shape, Text};
+use reciplexa_source::offset::ByteOffset;
 use reciplexa_source::range::TextRange;
 use reciplexa_source::resource::SourceResourceId;
 
@@ -10,6 +11,14 @@ use crate::node::{DocumentNodeKind, NodeStore};
 use crate::property::{FillColor, LayoutBox, NodeProperty, TextContent};
 use crate::provenance::SourceProvenance;
 use crate::snapshot::DocumentSnapshot;
+
+/// Layer span from CST sync (byte range + label).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LayerSpan {
+    pub byte_start: usize,
+    pub byte_end: usize,
+    pub label: String,
+}
 
 /// High-level GUI edit mapped to document transactions.
 #[derive(Debug, Clone, PartialEq)]
@@ -36,14 +45,37 @@ pub fn document_from_scene_page(
     page: &Page,
     source_resource_id: SourceResourceId,
 ) -> DocumentSnapshot {
+    document_from_scene_page_with_layers(identity, page, &[], source_resource_id, &[])
+}
+
+/// Build snapshot with CST layer provenance aligned to drawable paint order.
+pub fn document_from_scene_page_with_layers(
+    identity: DocumentIdentity,
+    page: &Page,
+    layers: &[LayerSpan],
+    source_resource_id: SourceResourceId,
+    syntax_ids: &[Option<reciplexa_identity::syntax::SyntaxNodeId>],
+) -> DocumentSnapshot {
     let mut snap = DocumentSnapshot::new(identity);
     let root = snap.nodes.root_id().unwrap();
     let page_id = snap
         .nodes
         .insert_child(root, DocumentNodeKind::Page)
         .unwrap();
+    snap.references.link(root, page_id);
+    let mut layer_idx = 0usize;
     for shape in &page.shapes {
-        ingest_shape(&mut snap, page_id, shape, source_resource_id);
+        ingest_shape(
+            &mut snap,
+            page_id,
+            shape,
+            source_resource_id,
+            layers.get(layer_idx),
+            syntax_ids.get(layer_idx).and_then(|o| *o),
+        );
+        if matches!(shape, Shape::Rect(_) | Shape::Text(_)) {
+            layer_idx += 1;
+        }
     }
     snap
 }
@@ -53,6 +85,8 @@ fn ingest_shape(
     parent: reciplexa_identity::document::StableNodeId,
     shape: &Shape,
     source_id: SourceResourceId,
+    layer: Option<&LayerSpan>,
+    syntax_node_id: Option<reciplexa_identity::syntax::SyntaxNodeId>,
 ) {
     match shape {
         Shape::Rect(Rect {
@@ -72,15 +106,9 @@ fn ingest_shape(
                     NodeProperty::Fill(FillColor(*fill)),
                 ];
             }
-            snap.provenance.insert(
-                id,
-                SourceProvenance {
-                    source_resource_id: source_id,
-                    module_id: ModuleId::new(1),
-                    text_range: TextRange::EMPTY,
-                    syntax_node_id: None,
-                },
-            );
+            snap.provenance
+                .insert(id, provenance_for_layer(source_id, layer, syntax_node_id));
+            snap.references.link(parent, id);
         }
         Shape::Text(Text {
             x_mm,
@@ -106,15 +134,9 @@ fn ingest_shape(
                     }),
                 ];
             }
-            snap.provenance.insert(
-                id,
-                SourceProvenance {
-                    source_resource_id: source_id,
-                    module_id: ModuleId::new(1),
-                    text_range: TextRange::EMPTY,
-                    syntax_node_id: None,
-                },
-            );
+            snap.provenance
+                .insert(id, provenance_for_layer(source_id, layer, syntax_node_id));
+            snap.references.link(parent, id);
         }
         Shape::Group { children, .. } => {
             let gid = snap
@@ -122,10 +144,60 @@ fn ingest_shape(
                 .insert_child(parent, DocumentNodeKind::Group)
                 .unwrap();
             for child in children {
-                ingest_shape(snap, gid, child, source_id);
+                ingest_shape(snap, gid, child, source_id, None, None);
             }
+            snap.references.link(parent, gid);
         }
         _ => {}
+    }
+}
+
+fn provenance_for_layer(
+    source_id: SourceResourceId,
+    layer: Option<&LayerSpan>,
+    syntax_node_id: Option<reciplexa_identity::syntax::SyntaxNodeId>,
+) -> SourceProvenance {
+    let text_range = layer
+        .and_then(|l| {
+            TextRange::try_new(
+                ByteOffset::new(l.byte_start as u32),
+                ByteOffset::new(l.byte_end as u32),
+            )
+            .ok()
+        })
+        .unwrap_or(TextRange::EMPTY);
+    SourceProvenance {
+        source_resource_id: source_id,
+        module_id: ModuleId::new(1),
+        text_range,
+        syntax_node_id,
+    }
+}
+
+/// Collect stable node ids for drawable shapes in paint order.
+pub fn drawable_node_ids(store: &NodeStore) -> Vec<reciplexa_identity::document::StableNodeId> {
+    let mut out = Vec::new();
+    if let Some(root) = store.root_id() {
+        collect_drawable_ids(store, root, &mut out);
+    }
+    out
+}
+
+fn collect_drawable_ids(
+    store: &NodeStore,
+    id: reciplexa_identity::document::StableNodeId,
+    out: &mut Vec<reciplexa_identity::document::StableNodeId>,
+) {
+    let Some(node) = store.get(id) else {
+        return;
+    };
+    match node.kind {
+        DocumentNodeKind::Rectangle | DocumentNodeKind::Text => out.push(id),
+        DocumentNodeKind::Group | DocumentNodeKind::Page | DocumentNodeKind::Document => {
+            for child in &node.children.clone() {
+                collect_drawable_ids(store, *child, out);
+            }
+        }
     }
 }
 
@@ -217,5 +289,33 @@ mod tests {
             document_from_scene_page(DocumentIdentity::new(1), &page, SourceResourceId::new(1));
         let shapes = scene_shapes_from_document(&snap.nodes);
         assert_eq!(shapes.len(), 1);
+    }
+
+    #[test]
+    fn drawable_ids_match_shape_count() {
+        let page = Page {
+            paper: PaperSize::a4(),
+            shapes: vec![
+                Shape::Rect(Rect {
+                    x_mm: 1.0,
+                    y_mm: 2.0,
+                    width_mm: 3.0,
+                    height_mm: 4.0,
+                    fill: Color::BLACK,
+                }),
+                Shape::Text(Text {
+                    x_mm: 5.0,
+                    y_mm: 6.0,
+                    size_mm: 12.0,
+                    width_mm: None,
+                    height_mm: None,
+                    content: "hi".into(),
+                    fill: Color::BLACK,
+                }),
+            ],
+        };
+        let snap =
+            document_from_scene_page(DocumentIdentity::new(1), &page, SourceResourceId::new(1));
+        assert_eq!(drawable_node_ids(&snap.nodes).len(), 2);
     }
 }

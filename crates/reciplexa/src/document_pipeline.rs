@@ -2,13 +2,32 @@
 
 use reciplexa_bind::resolve_source;
 use reciplexa_document::{
-    document_from_scene_page, scene_shapes_from_document, DocumentSnapshot, TransactionBuilder,
+    document_from_scene_page_with_layers, scene_shapes_from_document, DocumentSnapshot, LayerSpan,
+    TransactionBuilder,
 };
 use reciplexa_identity::document::DocumentIdentity;
-use reciplexa_lower::lower_source;
+use reciplexa_lower::{collect_layers_page, lower_source};
 use reciplexa_source::resource::SourceResourceId;
+use reciplexa_syntax::{build_identity_map, parse_source};
 
-/// Parse, lower, and build an editable document snapshot.
+/// Build snapshot from lowered scene only (no source provenance).
+pub fn document_snapshot_from_lowered(
+    scene: &reciplexa_scene::Document,
+) -> Result<DocumentSnapshot, String> {
+    let page = scene
+        .pages
+        .first()
+        .ok_or_else(|| "document has no pages".to_string())?;
+    Ok(document_from_scene_page_with_layers(
+        DocumentIdentity::new(1),
+        page,
+        &[],
+        SourceResourceId::new(1),
+        &[],
+    ))
+}
+
+/// Parse, lower, and build an editable document snapshot with provenance.
 pub fn document_snapshot_from_source(
     source: &str,
     identity: DocumentIdentity,
@@ -17,15 +36,35 @@ pub fn document_snapshot_from_source(
     if !resolve.is_ok() {
         return Err(resolve.errors[0].message.clone());
     }
+    let parse = parse_source(source);
+    if parse.has_errors() {
+        return Err(parse.errors[0].message.clone());
+    }
+    let id_map = build_identity_map(&parse.root);
     let scene = lower_source(source).map_err(|e| e.message)?;
     let page = scene
         .pages
         .first()
         .ok_or_else(|| "document has no pages".to_string())?;
-    Ok(document_from_scene_page(
+    let layers = collect_layers_page(source, 0).map_err(|e| e.message)?;
+    let layer_spans: Vec<LayerSpan> = layers
+        .iter()
+        .map(|l| LayerSpan {
+            byte_start: l.byte_start,
+            byte_end: l.byte_end,
+            label: l.label.clone(),
+        })
+        .collect();
+    let syntax_ids: Vec<_> = layer_spans
+        .iter()
+        .map(|l| id_map.get_byte_offsets(l.byte_start as u32, l.byte_end as u32))
+        .collect();
+    Ok(document_from_scene_page_with_layers(
         identity,
         page,
+        &layer_spans,
         SourceResourceId::new(1),
+        &syntax_ids,
     ))
 }
 
@@ -41,6 +80,7 @@ pub fn move_node_in_snapshot(
         .get(node)
         .and_then(|n| n.layout())
         .ok_or_else(|| "node has no layout".to_string())?;
+    let rev_before = snap.revision.get();
     let mut tx = TransactionBuilder::new();
     tx.set_layout(
         node,
@@ -50,7 +90,10 @@ pub fn move_node_in_snapshot(
         .root_id()
         .ok_or_else(|| "missing root".to_string())?;
     match tx.into_transaction().apply(snap) {
-        Ok(_) => Ok(()),
+        Ok(_) => {
+            assert!(snap.revision.get() > rev_before);
+            Ok(())
+        }
         Err(e) => Err(format!("{e:?}")),
     }
 }
@@ -69,5 +112,18 @@ mod tests {
         let src = "(page a4 (circle 105 148.5 40))";
         let snap = document_snapshot_from_source(src, DocumentIdentity::new(1)).unwrap();
         assert!(snap.nodes.iter().count() > 1);
+    }
+
+    #[test]
+    fn populates_provenance_for_rect() {
+        let src = "(page a4 (rect 10 20 30 40))";
+        let snap = document_snapshot_from_source(src, DocumentIdentity::new(2)).unwrap();
+        let rect = snap
+            .nodes
+            .iter()
+            .find(|n| matches!(n.kind, reciplexa_document::DocumentNodeKind::Rectangle))
+            .unwrap();
+        let prov = snap.provenance.get(rect.id).unwrap();
+        assert!(!prov.text_range.is_empty());
     }
 }
