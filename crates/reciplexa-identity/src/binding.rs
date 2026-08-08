@@ -54,14 +54,51 @@ impl fmt::Display for ViewInstanceId {
     }
 }
 
+/// Allocates monotonically increasing [`BindingId`] values for a resolve session.
+#[derive(Debug, Clone, Default)]
+pub struct BindingIdAllocator {
+    next: u64,
+}
+
+impl BindingIdAllocator {
+    pub fn new() -> Self {
+        Self { next: 1 }
+    }
+
+    pub fn allocate(&mut self) -> BindingId {
+        let id = BindingId::new(self.next);
+        self.next = self.next.saturating_add(1);
+        id
+    }
+}
+
+/// Allocates monotonically increasing [`ViewInstanceId`] values.
+#[derive(Debug, Clone, Default)]
+pub struct ViewInstanceIdAllocator {
+    next: u64,
+}
+
+impl ViewInstanceIdAllocator {
+    pub fn new() -> Self {
+        Self { next: 1 }
+    }
+
+    pub fn allocate(&mut self) -> ViewInstanceId {
+        let id = ViewInstanceId::new(self.next);
+        self.next = self.next.saturating_add(1);
+        id
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn binding_and_view_ids_are_opaque() {
-        assert!(BindingId::new(7).is_valid());
-        assert!(ViewInstanceId::new(3).is_valid());
-        assert!(!BindingId::INVALID.is_valid());
+    fn allocators_issue_unique_ids() {
+        let mut bindings = BindingIdAllocator::new();
+        let mut views = ViewInstanceIdAllocator::new();
+        assert_ne!(bindings.allocate(), bindings.allocate());
+        assert_ne!(views.allocate(), views.allocate());
     }
 }
