@@ -2847,6 +2847,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "reciplexa-diagnostic"
+version = "0.1.0"
+dependencies = [
+ "reciplexa-identity",
+ "reciplexa-source",
+]
+
+[[package]]
 name = "reciplexa-effect"
 version = "0.1.0"
 dependencies = [
@@ -2873,6 +2881,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "reciplexa-identity"
+version = "0.1.0"
+dependencies = [
+ "reciplexa-source",
+]
+
+[[package]]
 name = "reciplexa-lower"
 version = "0.1.0"
 dependencies = [
@@ -2887,6 +2902,14 @@ name = "reciplexa-macro"
 version = "0.1.0"
 dependencies = [
  "reciplexa-syntax",
+]
+
+[[package]]
+name = "reciplexa-outcome"
+version = "0.1.0"
+dependencies = [
+ "reciplexa-identity",
+ "reciplexa-source",
 ]
 
 [[package]]
@@ -2915,6 +2938,10 @@ name = "reciplexa-scene"
 version = "0.1.0"
 
 [[package]]
+name = "reciplexa-source"
+version = "0.1.0"
+
+[[package]]
 name = "reciplexa-svg"
 version = "0.1.0"
 dependencies = [
@@ -2927,6 +2954,14 @@ name = "reciplexa-syntax"
 version = "0.1.0"
 dependencies = [
  "rowan",
+]
+
+[[package]]
+name = "reciplexa-test"
+version = "0.1.0"
+dependencies = [
+ "reciplexa-diagnostic",
+ "reciplexa-outcome",
 ]
 
 [[package]]
