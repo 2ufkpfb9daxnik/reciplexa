@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use reciplexa_core::expr::{CoreExpr, CoreLiteral};
+use reciplexa_core::expr::{CoreExpr, CoreLiteral, MatchArm};
 
 use crate::value::RuntimeValue;
 
@@ -55,7 +55,94 @@ pub fn eval_expr<H: EffectHost>(
             child.insert(name.clone(), v);
             eval_expr(body, &child, host)
         }
+        CoreExpr::Lambda { param, body } => Ok(RuntimeValue::Closure {
+            param: param.clone(),
+            body: *body.clone(),
+            env: env.clone(),
+        }),
+        CoreExpr::App { fun, arg } => {
+            let fun_v = eval_expr(fun, env, host)?;
+            let arg_v = eval_expr(arg, env, host)?;
+            match fun_v {
+                RuntimeValue::Closure {
+                    param,
+                    body,
+                    env: closure_env,
+                } => {
+                    let mut child = closure_env;
+                    child.insert(param, arg_v);
+                    eval_expr(&body, &child, host)
+                }
+                other => Err(EvalError {
+                    message: format!("expected closure, got {other:?}"),
+                }),
+            }
+        }
+        CoreExpr::Record { fields } => {
+            let mut out = Vec::new();
+            for (k, v) in fields {
+                out.push((k.clone(), eval_expr(v, env, host)?));
+            }
+            Ok(RuntimeValue::Record(out))
+        }
+        CoreExpr::RecordGet { record, field } => {
+            let v = eval_expr(record, env, host)?;
+            match v {
+                RuntimeValue::Record(fields) => fields
+                    .into_iter()
+                    .find(|(k, _)| k == field)
+                    .map(|(_, v)| v)
+                    .ok_or_else(|| EvalError {
+                        message: format!("unknown field `{field}`"),
+                    }),
+                other => Err(EvalError {
+                    message: format!("expected record, got {other:?}"),
+                }),
+            }
+        }
+        CoreExpr::Variant { tag, payload } => {
+            let p = if let Some(e) = payload {
+                Some(Box::new(eval_expr(e, env, host)?))
+            } else {
+                None
+            };
+            Ok(RuntimeValue::Variant {
+                tag: tag.clone(),
+                payload: p,
+            })
+        }
+        CoreExpr::Match { scrutinee, arms } => {
+            let v = eval_expr(scrutinee, env, host)?;
+            eval_match(&v, arms, env, host)
+        }
     }
+}
+
+fn eval_match<H: EffectHost>(
+    value: &RuntimeValue,
+    arms: &[MatchArm],
+    env: &HashMap<String, RuntimeValue>,
+    host: &mut H,
+) -> EvalResult {
+    let RuntimeValue::Variant { tag, payload } = value else {
+        return Err(EvalError {
+            message: "match scrutinee must be variant".into(),
+        });
+    };
+    for arm in arms {
+        if &arm.tag == tag {
+            let mut child = env.clone();
+            if let Some(bind) = &arm.bind {
+                if let Some(p) = payload {
+                    child.insert(bind.clone(), (**p).clone());
+                }
+            }
+            return eval_expr(&arm.body, &child, host);
+        }
+    }
+    Err(EvalError {
+        message: format!("no match arm for tag `{tag}`"),
+    })
 }
 
 fn eval_lit(lit: &CoreLiteral) -> EvalResult {
@@ -95,5 +182,35 @@ mod tests {
             body: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
         };
         let _ = eval_expr(&expr, &HashMap::new(), &mut UnitHost).unwrap();
+    }
+
+    #[test]
+    fn lambda_application() {
+        let expr = CoreExpr::App {
+            fun: Box::new(CoreExpr::Lambda {
+                param: "x".into(),
+                body: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
+            }),
+            arg: Box::new(CoreExpr::Lit(CoreLiteral::Number(2.0))),
+        };
+        let v = eval_expr(&expr, &HashMap::new(), &mut UnitHost).unwrap();
+        assert_eq!(v, RuntimeValue::Number(1.0));
+    }
+
+    #[test]
+    fn pattern_match_variant() {
+        let expr = CoreExpr::Match {
+            scrutinee: Box::new(CoreExpr::Variant {
+                tag: "some".into(),
+                payload: Some(Box::new(CoreExpr::Lit(CoreLiteral::Number(42.0)))),
+            }),
+            arms: vec![MatchArm {
+                tag: "some".into(),
+                bind: Some("n".into()),
+                body: CoreExpr::Lit(CoreLiteral::Number(0.0)),
+            }],
+        };
+        let v = eval_expr(&expr, &HashMap::new(), &mut UnitHost).unwrap();
+        assert_eq!(v, RuntimeValue::Number(0.0));
     }
 }
