@@ -45,6 +45,11 @@ impl CancellationReport {
             document_id: None,
         }
     }
+
+    pub fn with_document_id(mut self, document_id: DocumentIdentity) -> Self {
+        self.document_id = Some(document_id);
+        self
+    }
 }
 
 impl fmt::Display for CancellationReport {
