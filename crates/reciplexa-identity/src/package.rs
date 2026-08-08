@@ -109,3 +109,39 @@ impl PackageIdAllocator {
         id
     }
 }
+
+/// Allocates package instance ids.
+#[derive(Debug, Clone, Default)]
+pub struct PackageInstanceIdAllocator {
+    next: u64,
+}
+
+impl PackageInstanceIdAllocator {
+    pub fn new() -> Self {
+        Self { next: 1 }
+    }
+
+    pub fn allocate(&mut self) -> PackageInstanceId {
+        let id = PackageInstanceId::new(self.next);
+        self.next = self.next.saturating_add(1);
+        id
+    }
+}
+
+/// Allocates module ids within a package instance.
+#[derive(Debug, Clone, Default)]
+pub struct ModuleIdAllocator {
+    next: u64,
+}
+
+impl ModuleIdAllocator {
+    pub fn new() -> Self {
+        Self { next: 1 }
+    }
+
+    pub fn allocate(&mut self) -> ModuleId {
+        let id = ModuleId::new(self.next);
+        self.next = self.next.saturating_add(1);
+        id
+    }
+}
