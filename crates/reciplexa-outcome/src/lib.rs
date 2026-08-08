@@ -6,10 +6,12 @@
 
 pub mod cancellation;
 pub mod defect;
+pub mod failure;
 pub mod job;
 pub mod subject;
 
 pub use cancellation::{CancellationReason, CancellationReport, CleanupStatus};
 pub use defect::{DefectCode, DefectReport, DefectScope, RecoveryStatus, RuntimeTrustStatus};
+pub use failure::{FailureCode, FailureReport};
 pub use job::JobResult;
 pub use subject::{ApplicationOutcome, SubjectOutcome};
