@@ -34,6 +34,15 @@ impl RuntimeProfile {
 }
 
 impl BuildTarget {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Document => "document",
+            Self::Slide => "slide",
+            Self::Preview => "preview",
+            Self::Native => "native",
+        }
+    }
+
     pub fn validate_entry(&self, entry: &str) -> Result<(), String> {
         if entry.is_empty() {
             return Err("entry module name must not be empty".into());

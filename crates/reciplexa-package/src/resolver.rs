@@ -86,8 +86,20 @@ mod tests {
         let mut sources = BTreeMap::new();
         sources.insert("a".into(), vec![("main".into(), "(page a4)")]);
         sources.insert("b".into(), vec![("main".into(), "(page a4)")]);
-        let g1 = resolve_packages(vec![m1.clone(), m2.clone()], &sources, BuildTarget::Document, &RuntimeProfile::document()).unwrap();
-        let g2 = resolve_packages(vec![m2, m1], &sources, BuildTarget::Document, &RuntimeProfile::document()).unwrap();
+        let g1 = resolve_packages(
+            vec![m1.clone(), m2.clone()],
+            &sources,
+            BuildTarget::Document,
+            &RuntimeProfile::document(),
+        )
+        .unwrap();
+        let g2 = resolve_packages(
+            vec![m2, m1],
+            &sources,
+            BuildTarget::Document,
+            &RuntimeProfile::document(),
+        )
+        .unwrap();
         assert_eq!(g1.lockfile, g2.lockfile);
     }
 }
