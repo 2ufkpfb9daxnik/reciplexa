@@ -46,6 +46,10 @@ impl SyntaxNodeIdAllocator {
         self.next = self.next.saturating_add(1);
         id
     }
+
+    pub fn peek_next(&self) -> SyntaxNodeId {
+        SyntaxNodeId::new(self.next)
+    }
 }
 
 #[cfg(test)]
