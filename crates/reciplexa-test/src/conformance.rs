@@ -50,5 +50,6 @@ mod tests {
     fn conformance_id_formats() {
         let id = ConformanceId::new("TEST-SYN-001");
         assert_eq!(id.to_string(), "TEST-SYN-001");
+        assert_eq!(id.as_str(), "TEST-SYN-001");
     }
 }
