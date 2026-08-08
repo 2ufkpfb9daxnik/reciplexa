@@ -2958,6 +2958,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "reciplexa-mem"
+version = "0.1.0"
+dependencies = [
+ "reciplexa-core",
+ "reciplexa-eval",
+ "reciplexa-ir",
+ "reciplexa-test",
+]
+
+[[package]]
 name = "reciplexa-outcome"
 version = "0.1.0"
 dependencies = [
@@ -3029,6 +3039,7 @@ dependencies = [
  "reciplexa-eval",
  "reciplexa-identity",
  "reciplexa-ir",
+ "reciplexa-mem",
  "reciplexa-outcome",
  "reciplexa-runtime",
  "reciplexa-scene",

@@ -1,0 +1,15 @@
+[package]
+name = "reciplexa-mem"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Perceus ownership, reference counting, and reuse (Phase 6)"
+publish = false
+
+[dependencies]
+reciplexa-core = { workspace = true }
+reciplexa-eval = { workspace = true }
+reciplexa-ir = { workspace = true }
+
+[dev-dependencies]
+reciplexa-test = { workspace = true }

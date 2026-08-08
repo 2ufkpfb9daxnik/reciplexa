@@ -14,6 +14,7 @@ reciplexa-outcome = { workspace = true }
 reciplexa-source = { workspace = true }
 reciplexa-core = { workspace = true }
 reciplexa-eval = { workspace = true }
+reciplexa-mem = { workspace = true }
 reciplexa-ir = { workspace = true }
 reciplexa-runtime = { workspace = true }
 reciplexa-document = { workspace = true }

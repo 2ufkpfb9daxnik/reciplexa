@@ -12,6 +12,7 @@ members = [
     "crates/reciplexa-document",
     "crates/reciplexa-ir",
     "crates/reciplexa-runtime",
+    "crates/reciplexa-mem",
     "crates/reciplexa-syntax",
     "crates/reciplexa-scene",
     "crates/reciplexa-pdf",
@@ -49,6 +50,7 @@ reciplexa-eval = { path = "crates/reciplexa-eval" }
 reciplexa-document = { path = "crates/reciplexa-document" }
 reciplexa-ir = { path = "crates/reciplexa-ir" }
 reciplexa-runtime = { path = "crates/reciplexa-runtime" }
+reciplexa-mem = { path = "crates/reciplexa-mem" }
 reciplexa-syntax = { path = "crates/reciplexa-syntax" }
 reciplexa-scene = { path = "crates/reciplexa-scene" }
 reciplexa-pdf = { path = "crates/reciplexa-pdf" }
