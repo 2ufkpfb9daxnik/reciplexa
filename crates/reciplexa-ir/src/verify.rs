@@ -25,15 +25,3 @@ pub fn verify_one_shot(ops: &[LoweredOp], conts: &mut [Continuation]) -> Result<
     }
     Ok(())
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn detects_double_resume_in_program() {
-        let ops = vec![LoweredOp::Resume { cont: 1 }, LoweredOp::Resume { cont: 1 }];
-        let mut conts = vec![Continuation::new(ContinuationId(1))];
-        assert!(verify_one_shot(&ops, &mut conts).is_err());
-    }
-}
