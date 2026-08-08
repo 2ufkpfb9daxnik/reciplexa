@@ -4,7 +4,10 @@ use reciplexa_identity::document::DocumentRevision;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum UndoAction {
-    ApplySnapshot { before_revision: DocumentRevision, after_revision: DocumentRevision },
+    ApplySnapshot {
+        before_revision: DocumentRevision,
+        after_revision: DocumentRevision,
+    },
 }
 
 #[derive(Debug, Clone, Default)]

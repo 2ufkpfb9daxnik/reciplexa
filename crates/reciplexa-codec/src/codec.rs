@@ -48,6 +48,11 @@ pub fn decode_snapshot(bytes: &[u8]) -> Result<DocumentSnapshot, CodecError> {
 }
 
 fn snapshot_to_portable(snap: &DocumentSnapshot) -> PortableSnapshot {
+    snapshot_to_portable_public(snap)
+}
+
+/// Public helper for envelope encoding.
+pub fn snapshot_to_portable_public(snap: &DocumentSnapshot) -> PortableSnapshot {
     let nodes = snap
         .nodes
         .iter()
@@ -74,7 +79,10 @@ fn portable_to_snapshot(p: &PortableSnapshot) -> Result<DocumentSnapshot, CodecE
         .map(|n| (n.id, StableNodeId::new(n.id)))
         .collect();
     for pn in &p.nodes {
-        let id = id_map.get(&pn.id).copied().ok_or(CodecError::StableIdLost)?;
+        let id = id_map
+            .get(&pn.id)
+            .copied()
+            .ok_or(CodecError::StableIdLost)?;
         let kind = parse_kind(&pn.kind);
         let mut node = DocumentNode::new(id, kind);
         node.parent = pn.parent.and_then(|pid| id_map.get(&pid).copied());
@@ -113,7 +121,10 @@ mod tests {
     fn roundtrip_preserves_stable_ids() {
         let mut snap = DocumentSnapshot::new(DocumentIdentity::new(42));
         let root = snap.nodes.root_id().unwrap();
-        let child = snap.nodes.insert_child(root, DocumentNodeKind::Rectangle).unwrap();
+        let child = snap
+            .nodes
+            .insert_child(root, DocumentNodeKind::Rectangle)
+            .unwrap();
         let child_id = child;
         let bytes = encode_snapshot(&snap).unwrap();
         let decoded = decode_snapshot(&bytes).unwrap();

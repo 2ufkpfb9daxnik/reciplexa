@@ -1,6 +1,6 @@
 //! Schema migration graph.
 
-use crate::codec::{decode_snapshot, encode_snapshot, SCHEMA_VERSION, CodecError};
+use crate::codec::{decode_snapshot, encode_snapshot, CodecError, SCHEMA_VERSION};
 use reciplexa_document::snapshot::DocumentSnapshot;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
