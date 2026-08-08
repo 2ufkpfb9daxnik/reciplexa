@@ -19,7 +19,7 @@ fn phase9_stable_id_roundtrip() {
         .nodes
         .insert_child(root, DocumentNodeKind::Rectangle)
         .unwrap();
-    let bytes = encode_snapshot(&snap).unwrap();
+    let bytes = encode_snapshot(&snap);
     let decoded = decode_snapshot(&bytes).unwrap();
     assert_eq!(decoded.nodes.get(rect).unwrap().id, rect);
 }
@@ -27,7 +27,7 @@ fn phase9_stable_id_roundtrip() {
 #[test]
 fn phase9_atomic_write_and_read() {
     let snap = DocumentSnapshot::new(DocumentIdentity::new(1));
-    let bytes = encode_snapshot(&snap).unwrap();
+    let bytes = encode_snapshot(&snap);
     let path = std::env::temp_dir().join(format!(
         "rpx-phase9-{}.rpxsnap",
         std::time::SystemTime::now()
@@ -44,9 +44,9 @@ fn phase9_atomic_write_and_read() {
 #[test]
 fn phase9_undo_redo_revision_log() {
     let mut log = RevisionUndoLog::new(50);
-    let v1 = encode_snapshot(&DocumentSnapshot::new(DocumentIdentity::new(1))).unwrap();
+    let v1 = encode_snapshot(&DocumentSnapshot::new(DocumentIdentity::new(1)));
     log.push_undo(v1);
-    let v2 = encode_snapshot(&DocumentSnapshot::new(DocumentIdentity::new(2))).unwrap();
+    let v2 = encode_snapshot(&DocumentSnapshot::new(DocumentIdentity::new(2)));
     let restored = log.undo(v2).unwrap();
     let snap = decode_snapshot(&restored).unwrap();
     assert_eq!(snap.identity.get(), 1);
@@ -55,7 +55,7 @@ fn phase9_undo_redo_revision_log() {
 #[test]
 fn phase9_migration_preserves_schema() {
     let snap = DocumentSnapshot::new(DocumentIdentity::new(7));
-    let bytes = encode_snapshot(&snap).unwrap();
+    let bytes = encode_snapshot(&snap);
     let migrated = migrate_snapshot(&bytes).unwrap();
     assert_eq!(migrated.identity.get(), 7);
     assert_eq!(SCHEMA_VERSION, 1);
@@ -109,7 +109,7 @@ fn phase9_resource_manifest_no_secrets() {
 #[test]
 fn phase9_partial_recovery_keeps_snapshot() {
     let snap = DocumentSnapshot::new(DocumentIdentity::new(1));
-    let bytes = encode_snapshot(&snap).unwrap();
+    let bytes = encode_snapshot(&snap);
     let env = partial_recover(&bytes).unwrap();
     assert_eq!(env.snapshot.document_id, 1);
 }
@@ -139,14 +139,14 @@ fn phase9_nested_parent_child_encoding() {
         .nodes
         .insert_child(group, DocumentNodeKind::Rectangle)
         .unwrap();
-    let decoded = decode_snapshot(&encode_snapshot(&snap).unwrap()).unwrap();
+    let decoded = decode_snapshot(&encode_snapshot(&snap)).unwrap();
     assert_eq!(decoded.nodes.get(rect).unwrap().parent, Some(group));
 }
 
 #[test]
 fn phase9_envelope_with_extensions() {
     let snap = DocumentSnapshot::new(DocumentIdentity::new(4));
-    let bytes = encode_snapshot(&snap).unwrap();
+    let bytes = encode_snapshot(&snap);
     let bare = decode_envelope(&bytes).unwrap();
     assert_eq!(bare.snapshot.document_id, 4);
 }
@@ -154,7 +154,7 @@ fn phase9_envelope_with_extensions() {
 #[test]
 fn phase9_partial_recovery_drops_unknown_extensions() {
     let snap = DocumentSnapshot::new(DocumentIdentity::new(1));
-    let base = encode_snapshot(&snap).unwrap();
+    let base = encode_snapshot(&snap);
     let bare = partial_recover(&base).unwrap();
     let env_json = format!(
         r#"{{"snapshot":{},"extensions":[{{"name":"vendor.x","version":50,"payload":null}},{{"name":"rpx.safe","version":50,"payload":{{}}}}]}}"#,
@@ -200,7 +200,7 @@ fn phase9_txnlog_encode_decode_roundtrip() {
     let mut seg = TransactionLogSegment::open(3);
     seg.append(b"rec".to_vec()).unwrap();
     seg.commit().unwrap();
-    let bytes = encode_segment(&seg).unwrap();
+    let bytes = encode_segment(&seg);
     let decoded = decode_segment(&bytes).unwrap();
     assert_eq!(decoded.records.len(), 1);
 }
