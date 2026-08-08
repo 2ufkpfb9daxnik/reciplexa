@@ -19,4 +19,5 @@ reciplexa-runtime = { workspace = true }
 reciplexa-document = { workspace = true }
 reciplexa-identity = { workspace = true }
 reciplexa = { path = "../reciplexa" }
+reciplexa-scene = { workspace = true }
 reciplexa-syntax = { workspace = true }

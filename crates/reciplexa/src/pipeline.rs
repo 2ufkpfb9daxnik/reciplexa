@@ -9,6 +9,8 @@ use reciplexa_macro::expand_source;
 use reciplexa_scene::Document;
 use reciplexa_types::typecheck_source;
 
+use crate::document_pipeline::document_snapshot_from_source;
+
 /// Fail-fast error from one pipeline stage (macro / type / effect / lower).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PipelineError {
@@ -58,6 +60,35 @@ pub fn document_from_source(src: &str) -> Result<Document, PipelineError> {
     let expanded = expand(src)?;
     typecheck(&expanded)?;
     lower(&expanded)
+}
+
+/// Pipeline output with optional editable document snapshot (Phase 4).
+#[derive(Debug)]
+pub struct PipelineDocument {
+    pub scene: Document,
+    pub editable: Option<reciplexa_document::DocumentSnapshot>,
+}
+
+/// Expand + typecheck + lower, optionally building an editable snapshot in parallel.
+pub fn document_from_source_with_snapshot(
+    src: &str,
+    with_editable: bool,
+) -> Result<PipelineDocument, PipelineError> {
+    let expanded = expand(src)?;
+    typecheck(&expanded)?;
+    let scene = lower(&expanded)?;
+    let editable = if with_editable {
+        Some(
+            document_snapshot_from_source(
+                &expanded,
+                reciplexa_identity::document::DocumentIdentity::new(1),
+            )
+            .map_err(|e| PipelineError::new("document", e))?,
+        )
+    } else {
+        None
+    };
+    Ok(PipelineDocument { scene, editable })
 }
 
 /// Run top-level `(src …)` / `(handle …)` forms against a host handler.
@@ -171,6 +202,20 @@ mod tests {
         let err = document_from_source("(page a4 (circle (circle 0 0 1) 0 1))").unwrap_err();
         assert_eq!(err.stage, "type");
         assert!(err.message.contains("type mismatch"));
+    }
+
+    #[test]
+    fn optional_snapshot_path_builds_editable() {
+        let out = document_from_source_with_snapshot("(page a4 (rect 1 2 3 4))", true).unwrap();
+        assert_eq!(out.scene.pages.len(), 1);
+        let snap = out.editable.expect("snapshot");
+        assert!(snap.nodes.iter().count() > 2);
+    }
+
+    #[test]
+    fn optional_snapshot_skipped_by_default() {
+        let out = document_from_source_with_snapshot("(page a4)", false).unwrap();
+        assert!(out.editable.is_none());
     }
 
     #[test]
