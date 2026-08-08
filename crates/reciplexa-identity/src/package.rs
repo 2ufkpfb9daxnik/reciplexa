@@ -91,3 +91,21 @@ mod tests {
         assert!(!ModuleId::INVALID.is_valid());
     }
 }
+
+/// Allocates monotonically increasing package ids.
+#[derive(Debug, Clone, Default)]
+pub struct PackageIdAllocator {
+    next: u64,
+}
+
+impl PackageIdAllocator {
+    pub fn new() -> Self {
+        Self { next: 1 }
+    }
+
+    pub fn allocate(&mut self) -> PackageId {
+        let id = PackageId::new(self.next);
+        self.next = self.next.saturating_add(1);
+        id
+    }
+}
