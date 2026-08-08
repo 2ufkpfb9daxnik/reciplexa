@@ -101,4 +101,47 @@ mod tests {
         assert_ne!(bindings.allocate(), bindings.allocate());
         assert_ne!(views.allocate(), views.allocate());
     }
+
+    #[test]
+    fn binding_id_boundaries_and_display() {
+        assert!(!BindingId::INVALID.is_valid());
+        assert_eq!(BindingId::INVALID.get(), 0);
+        assert!(!BindingId::new(0).is_valid());
+        assert!(BindingId::new(1).is_valid());
+        assert!(BindingId::new(u64::MAX).is_valid());
+        assert_eq!(BindingId::new(5).to_string(), "binding:5");
+        assert!(BindingId::new(1) < BindingId::new(2));
+    }
+
+    #[test]
+    fn view_instance_id_boundaries_and_display() {
+        assert!(!ViewInstanceId::INVALID.is_valid());
+        assert_eq!(ViewInstanceId::INVALID.get(), 0);
+        assert!(!ViewInstanceId::new(0).is_valid());
+        assert!(ViewInstanceId::new(1).is_valid());
+        assert!(ViewInstanceId::new(u64::MAX).is_valid());
+        assert_eq!(ViewInstanceId::new(8).to_string(), "view:8");
+    }
+
+    #[test]
+    fn binding_allocator_default_and_saturate() {
+        let mut a = BindingIdAllocator::default();
+        assert_eq!(a.allocate().get(), 0);
+        let mut a = BindingIdAllocator::new();
+        assert_eq!(a.allocate().get(), 1);
+        a.next = u64::MAX;
+        assert_eq!(a.allocate().get(), u64::MAX);
+        assert_eq!(a.allocate().get(), u64::MAX);
+    }
+
+    #[test]
+    fn view_allocator_default_and_saturate() {
+        let mut a = ViewInstanceIdAllocator::default();
+        assert_eq!(a.allocate().get(), 0);
+        let mut a = ViewInstanceIdAllocator::new();
+        assert_eq!(a.allocate().get(), 1);
+        a.next = u64::MAX;
+        assert_eq!(a.allocate().get(), u64::MAX);
+        assert_eq!(a.allocate().get(), u64::MAX);
+    }
 }

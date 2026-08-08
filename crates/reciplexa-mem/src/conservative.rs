@@ -269,7 +269,10 @@ mod tests {
     fn conservative_handles_cfg_instrs() {
         let rc = conservative_rc(&cfg_fixture());
         assert!(rc.instrs.iter().any(|i| matches!(i, MemInstr::Dup { .. })));
-        assert!(rc.instrs.iter().any(|i| matches!(i, MemInstr::Return { .. })));
+        assert!(rc
+            .instrs
+            .iter()
+            .any(|i| matches!(i, MemInstr::Return { .. })));
     }
 
     #[test]
@@ -299,5 +302,61 @@ mod tests {
             .instrs
             .iter()
             .any(|i| matches!(i, MemInstr::ConstructReuse { .. })));
+    }
+
+    #[test]
+    fn conservative_covers_move_project_branch_jump_phi() {
+        use crate::ir::BlockId;
+        let prog = LinearProgram {
+            instrs: vec![
+                MemInstr::Lit {
+                    dst: Reg(0),
+                    lit: crate::ir::MemLiteral::Number(1.0),
+                },
+                MemInstr::Move {
+                    dst: Reg(1),
+                    src: Reg(0),
+                },
+                MemInstr::Construct {
+                    dst: Reg(2),
+                    tag: "pair".into(),
+                    fields: vec![("a".into(), Reg(1))],
+                },
+                MemInstr::Project {
+                    dst: Reg(3),
+                    src: Reg(2),
+                    field: "a".into(),
+                },
+                MemInstr::MakeClosure {
+                    dst: Reg(4),
+                    param: "x".into(),
+                    body: BlockId(0),
+                    captures: vec![Reg(3)],
+                },
+                MemInstr::Branch {
+                    cond: Reg(3),
+                    then_block: BlockId(1),
+                    else_block: BlockId(2),
+                },
+                MemInstr::Jump { target: BlockId(3) },
+                MemInstr::Phi {
+                    dst: Reg(5),
+                    incoming: vec![(BlockId(1), Reg(3)), (BlockId(2), Reg(0))],
+                },
+                MemInstr::Raise { tag: "log".into() },
+                MemInstr::RegisterCleanup { label: "c".into() },
+                MemInstr::RunCleanup,
+                MemInstr::Resume { cont: 1 },
+                MemInstr::DiscardCont { cont: 1 },
+                MemInstr::Return { reg: Reg(5) },
+            ],
+            return_reg: Reg(5),
+        };
+        let rc = conservative_rc(&prog);
+        assert!(!rc.instrs.is_empty());
+        assert!(rc
+            .instrs
+            .iter()
+            .any(|i| matches!(i, MemInstr::Return { .. })));
     }
 }

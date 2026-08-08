@@ -644,4 +644,141 @@ mod tests {
             run_source_effects(&mut TestHandler::default(), "(src (define x 1))").unwrap_err();
         assert!(err.message.contains("unsupported"));
     }
+
+    #[test]
+    fn effect_op_display_roundtrip() {
+        assert_eq!(EffectOp::Log.to_string(), "log");
+        assert_eq!(EffectOp::Random.to_string(), "random");
+        assert_eq!(EffectOp::WritePath.to_string(), "write-path");
+    }
+
+    #[test]
+    fn collect_performs_parse_error() {
+        let err = collect_performs("(src (perform log").unwrap_err();
+        assert!(err.message.contains("parse error"));
+    }
+
+    #[test]
+    fn perform_unknown_op_errors() {
+        let err = run_source_effects(&mut TestHandler::default(), r#"(src (perform draw "x"))"#)
+            .unwrap_err();
+        assert!(err.message.contains("unknown effect op"));
+    }
+
+    #[test]
+    fn perform_missing_payload_errors() {
+        let err =
+            run_source_effects(&mut TestHandler::default(), "(src (perform log))").unwrap_err();
+        assert!(err.message.contains("string payload"));
+    }
+
+    #[test]
+    fn perform_malformed_string_errors() {
+        let err = run_source_effects(&mut TestHandler::default(), r#"(src (perform log bad))"#)
+            .unwrap_err();
+        assert!(err.message.contains("malformed") || err.message.contains("payload"));
+    }
+
+    #[test]
+    fn run_src_forms_rejects_non_src() {
+        use reciplexa_syntax::parse_source;
+        let root = parse_source("(page a4)").into_result().unwrap();
+        let page = root.children().next().unwrap();
+        let err = run_src_forms(&mut TestHandler::default(), &page).unwrap_err();
+        assert!(err.message.contains("src"));
+    }
+
+    #[test]
+    fn handle_unknown_op_errors() {
+        let err = run_source_effects(
+            &mut TestHandler::default(),
+            "(src (handle bogus (perform log \"x\")))",
+        )
+        .unwrap_err();
+        assert!(err.message.contains("unknown effect op"));
+    }
+
+    #[test]
+    fn handle_missing_op_name_errors() {
+        let err = run_source_effects(&mut TestHandler::default(), "(src (handle))").unwrap_err();
+        assert!(err.message.contains("effect op name"));
+    }
+
+    #[test]
+    fn unescape_string_all_escapes() {
+        let src = r#"(src (perform log "a\nb\tc\\d\"e"))"#;
+        let ps = collect_performs(src).unwrap();
+        assert_eq!(ps[0].payload, "a\nb\tc\\d\"e");
+    }
+
+    #[test]
+    fn random_defaults_to_zero_when_sequence_exhausted() {
+        let mut h = TestHandler::default();
+        assert_eq!(
+            run_perform(
+                &mut h,
+                &Perform {
+                    op: EffectOp::Random,
+                    payload: String::new(),
+                }
+            )
+            .unwrap(),
+            Value::Number(0.0)
+        );
+    }
+
+    #[test]
+    fn lcg_seed_zero_uses_fallback_state() {
+        let mut rng = LcgRng::new(0);
+        assert!(rng.next_unit() >= 0.0);
+    }
+
+    #[test]
+    fn collect_performs_nested_in_handle() {
+        let src = r#"(src (handle log (perform log "nested")))"#;
+        let ps = collect_performs(src).unwrap();
+        assert_eq!(ps.len(), 1);
+        assert_eq!(ps[0].payload, "nested");
+    }
+
+    #[test]
+    fn effect_error_and_value_equality() {
+        let e = EffectError::new("boom");
+        assert_eq!(e.message, "boom");
+        assert_eq!(Value::Unit, Value::Unit);
+        assert_ne!(Value::Number(1.0), Value::Number(2.0));
+    }
+
+    #[test]
+    fn effect_op_display_and_parse_partitions() {
+        assert_eq!(EffectOp::Log.to_string(), "log");
+        assert_eq!(EffectOp::Random.to_string(), "random");
+        assert_eq!(EffectOp::WritePath.to_string(), "write-path");
+        assert_eq!(EffectOp::parse("random"), Some(EffectOp::Random));
+        assert_eq!(EffectOp::parse("nope"), None);
+        assert_eq!(EffectOp::parse(""), None);
+    }
+
+    #[test]
+    fn value_debug_and_string_variant() {
+        let s = Value::String("x".into());
+        assert!(format!("{s:?}").contains("x"));
+        assert_eq!(s, Value::String("x".into()));
+    }
+
+    #[test]
+    fn run_source_effects_empty_src_and_unknown_op() {
+        let mut h = TestHandler::default();
+        assert!(run_source_effects(&mut h, "(src)").is_ok());
+        let err = run_source_effects(&mut h, "(src (perform nope))").unwrap_err();
+        assert!(!err.message.is_empty());
+    }
+
+    #[test]
+    fn collect_performs_empty_and_write_path() {
+        assert!(collect_performs("(src)").unwrap().is_empty());
+        let ps = collect_performs(r#"(src (perform write-path "a.pdf"))"#).unwrap();
+        assert_eq!(ps.len(), 1);
+        assert_eq!(ps[0].op, EffectOp::WritePath);
+    }
 }

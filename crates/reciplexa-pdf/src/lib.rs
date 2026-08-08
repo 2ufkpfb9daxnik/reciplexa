@@ -1876,4 +1876,156 @@ mod tests {
         let err = write_document(&sample_doc(), FailWrite).unwrap_err();
         assert!(matches!(err, PdfError::Write(_)));
     }
+
+    #[test]
+    fn invalid_page_height_errors() {
+        let doc = Document::single_page(Page {
+            paper: PaperSize {
+                width_mm: 210.0,
+                height_mm: -1.0,
+            },
+            shapes: vec![],
+        });
+        assert!(matches!(
+            document_to_pdf(&doc),
+            Err(PdfError::InvalidPage(_))
+        ));
+    }
+
+    #[test]
+    fn nested_opacity_stacks_extgstate() {
+        let doc = Document::single_page(Page {
+            paper: PaperSize::a4(),
+            shapes: vec![Shape::Opacity {
+                alpha: 0.5,
+                children: vec![Shape::Opacity {
+                    alpha: 0.5,
+                    children: vec![Shape::Circle(Circle {
+                        x_mm: 50.0,
+                        y_mm: 50.0,
+                        radius_mm: 10.0,
+                        fill: Color::RED,
+                    })],
+                }],
+            }],
+        });
+        let bytes = document_to_pdf(&doc).unwrap();
+        let text = String::from_utf8_lossy(&bytes);
+        assert!(text.contains("/GS25") || text.contains("/GS50"));
+    }
+
+    #[test]
+    fn indexed_png_is_unsupported() {
+        let dir = std::env::temp_dir().join("reciplexa-pdf-indexed");
+        let _ = std::fs::create_dir_all(&dir);
+        let path = dir.join("idx.png");
+        {
+            let file = std::fs::File::create(&path).unwrap();
+            let mut enc = png::Encoder::new(file, 2, 2);
+            enc.set_color(png::ColorType::Indexed);
+            enc.set_depth(png::BitDepth::Eight);
+            enc.set_palette(vec![0, 0, 0, 255, 0, 0]);
+            let mut w = enc.write_header().unwrap();
+            w.write_image_data(&[0, 1, 1, 0]).unwrap();
+        }
+        let doc = Document::single_page(Page {
+            paper: PaperSize::a4(),
+            shapes: vec![Shape::Image(Image {
+                path: "idx.png".into(),
+                x_mm: 0.0,
+                y_mm: 0.0,
+                width_mm: 5.0,
+                height_mm: 5.0,
+            })],
+        });
+        assert!(matches!(
+            document_to_pdf_with_base(&doc, Some(&dir)),
+            Err(PdfError::InvalidShape(_))
+        ));
+    }
+
+    #[test]
+    fn relative_image_path_without_base() {
+        let dir = std::env::temp_dir().join("reciplexa-pdf-rel");
+        let _ = std::fs::create_dir_all(&dir);
+        let png_path = dir.join("rel.png");
+        write_temp_png(&png_path, 1, 1, &[255, 0, 0]);
+        let prev = std::env::current_dir().unwrap();
+        std::env::set_current_dir(&dir).unwrap();
+        let doc = Document::single_page(Page {
+            paper: PaperSize::a4(),
+            shapes: vec![Shape::Image(Image {
+                path: "rel.png".into(),
+                x_mm: 0.0,
+                y_mm: 0.0,
+                width_mm: 5.0,
+                height_mm: 5.0,
+            })],
+        });
+        document_to_pdf(&doc).unwrap();
+        std::env::set_current_dir(prev).unwrap();
+    }
+
+    #[test]
+    fn non_drawable_text_size_errors() {
+        let doc = Document::single_page(Page {
+            paper: PaperSize::a4(),
+            shapes: vec![Shape::Text(Text {
+                x_mm: 10.0,
+                y_mm: 10.0,
+                size_mm: 0.0,
+                width_mm: None,
+                height_mm: None,
+                content: "x".into(),
+                fill: Color::BLACK,
+            })],
+        });
+        assert!(matches!(
+            document_to_pdf(&doc),
+            Err(PdfError::InvalidShape(_))
+        ));
+    }
+
+    #[test]
+    fn load_jpeg_rejects_incomplete_scan_data() {
+        // Truncated / incomplete JPEG headers should surface a decode error (not panic).
+        let gray_jpeg = [
+            0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x01, 0x01, 0x00,
+            0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0xFF, 0xDB, 0x00, 0x43, 0x00, 0x08, 0x06, 0x06,
+            0x07, 0x06, 0x05, 0x08, 0x07, 0x07, 0x07, 0x09, 0x09, 0x08, 0x0A, 0x0C, 0x14, 0x0D,
+            0x0C, 0x0B, 0x0B, 0x0C, 0x19, 0x12, 0x13, 0x0F, 0x14, 0x1D, 0x1A, 0x1F, 0x1E, 0x1D,
+            0x1A, 0x1C, 0x1C, 0x20, 0x24, 0x2E, 0x27, 0x20, 0x22, 0x2C, 0x23, 0x1C, 0x1C, 0x28,
+            0x37, 0x29, 0x2C, 0x30, 0x31, 0x34, 0x34, 0x34, 0x1F, 0x27, 0x39, 0x3D, 0x38, 0x32,
+            0x3C, 0x2E, 0x33, 0x34, 0x32, 0xFF, 0xC0, 0x00, 0x0B, 0x08, 0x00, 0x01, 0x00, 0x01,
+            0x01, 0x01, 0x11, 0x00, 0xFF, 0xC4, 0x00, 0x14, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08, 0xFF, 0xC4,
+            0x00, 0x14, 0x10, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xDA, 0x00, 0x08, 0x01, 0x01, 0x00, 0x00, 0x3F,
+            0x00, 0x7F, 0xFF, 0xD9,
+        ];
+        let err = match load_jpeg_rgb(&gray_jpeg) {
+            Ok(_) => panic!("expected incomplete JPEG to fail"),
+            Err(e) => e,
+        };
+        assert!(err.contains("JPEG") || err.contains("jpeg") || err.contains("component"));
+    }
+
+    #[test]
+    fn pdf_escape_carriage_return() {
+        let doc = Document::single_page(Page {
+            paper: PaperSize::a4(),
+            shapes: vec![Shape::Text(Text {
+                x_mm: 10.0,
+                y_mm: 200.0,
+                size_mm: 5.0,
+                width_mm: None,
+                height_mm: None,
+                content: "a\rb".into(),
+                fill: Color::BLACK,
+            })],
+        });
+        let bytes = document_to_pdf(&doc).unwrap();
+        let text = String::from_utf8_lossy(&bytes);
+        assert!(text.contains("\\r"));
+    }
 }

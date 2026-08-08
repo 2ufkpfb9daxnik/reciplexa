@@ -152,14 +152,17 @@ fn escape_string(s: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::bridge::{document_from_scene_page, document_from_scene_page_with_layers, drawable_node_ids, LayerSpan};
+    use crate::bridge::{
+        document_from_scene_page, document_from_scene_page_with_layers, drawable_node_ids,
+        LayerSpan,
+    };
+    use reciplexa_identity::document::DocumentIdentity;
     use reciplexa_identity::package::ModuleId;
+    use reciplexa_scene::{Color, Page, PaperSize, Rect, Shape};
     use reciplexa_source::offset::ByteOffset;
     use reciplexa_source::range::TextRange;
-    use reciplexa_syntax::parse_source;
-    use reciplexa_identity::document::DocumentIdentity;
-    use reciplexa_scene::{Color, Page, PaperSize, Rect, Shape};
     use reciplexa_source::resource::SourceResourceId;
+    use reciplexa_syntax::parse_source;
 
     fn rect_page() -> Page {
         Page {
@@ -174,7 +177,10 @@ mod tests {
         }
     }
 
-    fn snap_with_rect_layer(byte_start: usize, byte_end: usize) -> (DocumentSnapshot, reciplexa_identity::document::StableNodeId) {
+    fn snap_with_rect_layer(
+        byte_start: usize,
+        byte_end: usize,
+    ) -> (DocumentSnapshot, reciplexa_identity::document::StableNodeId) {
         let page = rect_page();
         let layers = vec![LayerSpan {
             byte_start,
@@ -326,5 +332,71 @@ mod tests {
             }
             other => panic!("expected SourceUpdated, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn set_text_with_provenance_escapes_quotes() {
+        let text_src = r#"(page a4 (text 1 2 12 "old"))"#;
+        let start = text_src.find("\"old\"").unwrap();
+        let end = start + "\"old\"".len();
+        let page = Page {
+            paper: PaperSize::a4(),
+            shapes: vec![Shape::Text(reciplexa_scene::Text {
+                x_mm: 1.0,
+                y_mm: 2.0,
+                size_mm: 12.0,
+                width_mm: None,
+                height_mm: None,
+                content: "old".into(),
+                fill: Color::BLACK,
+            })],
+        };
+        let layers = vec![LayerSpan {
+            byte_start: start,
+            byte_end: end,
+            label: "text".into(),
+        }];
+        let mut snap = document_from_scene_page_with_layers(
+            DocumentIdentity::new(9),
+            &page,
+            &layers,
+            SourceResourceId::new(1),
+            &[],
+        );
+        let node = drawable_node_ids(&snap.nodes)[0];
+        let outcome = apply_provenance_edit(
+            &mut snap,
+            text_src,
+            ApplyEdit::SetText {
+                node,
+                text: "say \"hi\"".into(),
+            },
+        )
+        .unwrap();
+        match outcome {
+            SourceSyncOutcome::SourceUpdated { new_source, .. } => {
+                assert!(new_source.contains(r#""say \"hi\""#));
+            }
+            other => panic!("expected SourceUpdated, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn unknown_node_errors_before_sync() {
+        let page = rect_page();
+        let mut snap =
+            document_from_scene_page(DocumentIdentity::new(10), &page, SourceResourceId::new(1));
+        let missing = reciplexa_identity::document::StableNodeId::new(9999);
+        let err = apply_provenance_edit(
+            &mut snap,
+            "(page a4 (rect 1 2 3 4))",
+            ApplyEdit::Move {
+                node: missing,
+                x: 1.0,
+                y: 2.0,
+            },
+        )
+        .unwrap_err();
+        assert!(format!("{err:?}").contains("UnknownNode"));
     }
 }

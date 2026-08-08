@@ -33,7 +33,9 @@ impl VirtualWindow {
     }
 
     pub fn end_index(&self) -> usize {
-        self.first_index.saturating_add(self.visible_count).min(self.total)
+        self.first_index
+            .saturating_add(self.visible_count)
+            .min(self.total)
     }
 
     pub fn iter_indices(&self) -> impl Iterator<Item = usize> {

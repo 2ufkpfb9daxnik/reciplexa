@@ -369,4 +369,25 @@ mod tests {
             let _ = std::fs::remove_file(&bad);
         });
     }
+
+    #[test]
+    fn subset_tag_empty_input_still_deterministic() {
+        let a = subset_tag(b"");
+        let b = subset_tag(b"");
+        assert_eq!(a, b);
+        assert_eq!(a.len(), 6);
+    }
+
+    #[test]
+    fn control_chars_skipped_in_build_when_font_available() {
+        let _guard = lock_cjk_test_env();
+        if system_cjk_font_path().is_none() {
+            return;
+        }
+        let mut chars = BTreeSet::new();
+        chars.insert('あ');
+        chars.insert('\u{0009}');
+        let embed = CjkFontEmbed::build(&chars).unwrap();
+        assert!(embed.encode_hex("あ").is_ok());
+    }
 }

@@ -42,9 +42,9 @@ mod tests {
 
     #[test]
     fn migrate_valid_snapshot_roundtrips() {
+        use crate::codec::encode_snapshot;
         use reciplexa_document::snapshot::DocumentSnapshot;
         use reciplexa_identity::document::DocumentIdentity;
-        use crate::codec::encode_snapshot;
 
         let snap = DocumentSnapshot::new(DocumentIdentity::new(11));
         let bytes = encode_snapshot(&snap).unwrap();
@@ -56,5 +56,19 @@ mod tests {
     fn unsupported_migration_variant_is_documented() {
         let err = MigrationError::Unsupported(99);
         assert!(matches!(err, MigrationError::Unsupported(99)));
+    }
+
+    #[test]
+    fn migration_graph_roundtrips_current_schema() {
+        use crate::codec::encode_snapshot;
+        use reciplexa_document::snapshot::DocumentSnapshot;
+        use reciplexa_identity::document::DocumentIdentity;
+
+        let snap = DocumentSnapshot::new(DocumentIdentity::new(7));
+        let bytes = encode_snapshot(&snap).unwrap();
+        let graph = MigrationGraph;
+        let migrated = graph.migrate_to_current(&bytes).unwrap();
+        let decoded = decode_snapshot(&migrated).unwrap();
+        assert_eq!(decoded.identity.get(), 7);
     }
 }

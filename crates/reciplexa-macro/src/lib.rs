@@ -1040,4 +1040,91 @@ mod tests {
     fn empty_code_skips() {
         assert_eq!(expand_source("(doc @code{})").unwrap(), "(page a4)");
     }
+
+    #[test]
+    fn format_frac_strips_trailing_zeros() {
+        assert_eq!(format_frac(1.5), "1.5");
+        assert_eq!(format_frac(2.0), "2");
+    }
+
+    #[test]
+    fn escape_lisp_string_all_escapes() {
+        assert_eq!(
+            escape_lisp_string("a\nb\tc\\d\"e\r"),
+            "a\\nb\\tc\\\\d\\\"e\\r"
+        );
+    }
+
+    #[test]
+    fn color_byte_out_of_range_not_expanded() {
+        let src = "(page a4 (circle 0 0 1 (color-byte 300 0 0)))";
+        assert_eq!(expand_source(src).unwrap(), src);
+    }
+
+    #[test]
+    fn gray_out_of_range_not_expanded() {
+        let src = "(page a4 (circle 0 0 1 (gray 2)))";
+        assert_eq!(expand_source(src).unwrap(), src);
+    }
+
+    #[test]
+    fn short_axis_line_forms_not_expanded() {
+        let src = "(page a4 (hline 1 2))";
+        assert_eq!(expand_source(src).unwrap(), src);
+    }
+
+    #[test]
+    fn square_too_short_not_expanded() {
+        let src = "(page a4 (square 1 2))";
+        assert_eq!(expand_source(src).unwrap(), src);
+    }
+
+    #[test]
+    fn expand_error_new() {
+        let err = ExpandError::new("x");
+        assert_eq!(err.message, "x");
+    }
+
+    #[test]
+    fn macro_expansion_convergence_guard() {
+        // color-byte always rewrites when in range; bounded loop should still finish.
+        let out = expand_source("(color-byte 1 2 3)").unwrap();
+        assert!(out.contains("(rgb"));
+    }
+
+    #[test]
+    fn format_frac_trims_fractional_zeros() {
+        assert_eq!(format_frac(1.10), "1.1");
+        assert_eq!(format_frac(0.125), "0.125");
+    }
+
+    #[test]
+    fn color_byte_wrong_arity_not_expanded() {
+        let src = "(page a4 (circle 0 0 1 (color-byte 1 2)))";
+        assert_eq!(expand_source(src).unwrap(), src);
+    }
+
+    #[test]
+    fn rule_minimal_y_only_expands() {
+        let out = expand_source("(page a4 (rule 200))").unwrap();
+        assert!(out.contains("(line 20 200 190 200)"), "{out}");
+    }
+
+    #[test]
+    fn vline_with_extra_color_expands() {
+        let out = expand_source("(page a4 (vline 10 90 50 green 2))").unwrap();
+        assert!(out.contains("(line 50 10 50 90 green 2)"), "{out}");
+    }
+
+    #[test]
+    fn square_with_fill_preserves_tail() {
+        let out = expand_source("(page a4 (square 1 2 3 red))").unwrap();
+        assert_eq!(out, "(page a4 (rect 1 2 3 3 red))");
+    }
+
+    #[test]
+    fn atom_text_node_child_in_square() {
+        let out = expand_source("(page a4 (square 1 2 (rgb 1 0 0)))").unwrap();
+        assert!(out.contains("(rect 1 2 (rgb 1 0 0) (rgb 1 0 0))"), "{out}");
+    }
 }

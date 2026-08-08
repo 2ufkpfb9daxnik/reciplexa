@@ -84,4 +84,30 @@ mod tests {
     fn assert_subject_failure_rejects_success() {
         assert_subject_failure::<&str, i32>(SubjectOutcome::Success(1), "err");
     }
+
+    #[test]
+    fn assert_subject_success_matches() {
+        assert_subject_success::<(), i32>(SubjectOutcome::Success(42), 42);
+    }
+
+    #[test]
+    #[should_panic]
+    fn assert_subject_success_rejects_failure() {
+        assert_subject_success::<&str, i32>(SubjectOutcome::Failure("nope"), 42);
+    }
+
+    #[test]
+    fn test_outcome_failed_and_defected() {
+        assert!(!TestOutcome::<()>::Failed("msg".into()).is_passed());
+        use reciplexa_outcome::defect::{DefectCode, DefectReport, DefectScope};
+        let report = DefectReport::new(
+            1,
+            DefectCode::new("test", "D"),
+            "inv",
+            DefectScope::Task,
+            "sub",
+            "msg",
+        );
+        assert!(!TestOutcome::<()>::Defected(Box::new(report)).is_passed());
+    }
 }

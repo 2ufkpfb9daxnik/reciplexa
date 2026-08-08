@@ -59,7 +59,10 @@ mod tests {
             source_byte_end: Some(2),
         };
         map.insert(entry);
-        assert_eq!(map.get(RenderNodeId::new(1)).unwrap().source_byte_start, Some(1));
+        assert_eq!(
+            map.get(RenderNodeId::new(1)).unwrap().source_byte_start,
+            Some(1)
+        );
         assert_eq!(map.iter().count(), 1);
     }
 

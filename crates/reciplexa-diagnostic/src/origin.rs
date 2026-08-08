@@ -43,3 +43,26 @@ impl SourceOrigin {
         self
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use reciplexa_source::offset::ByteOffset;
+
+    #[test]
+    fn source_origin_without_and_with_syntax_node() {
+        let range = TextRange::new(ByteOffset::new(0), ByteOffset::new(1));
+        let origin = SourceOrigin::new(
+            PackageInstanceId::new(1),
+            ModuleId::new(2),
+            SourceResourceId::new(3),
+            range,
+        );
+        assert!(origin.syntax_node_id.is_none());
+        let with = origin.clone().with_syntax_node_id(SyntaxNodeId::new(9));
+        assert_eq!(with.syntax_node_id, Some(SyntaxNodeId::new(9)));
+        let wrapped = DiagnosticOrigin::Source(with);
+        assert_ne!(wrapped, DiagnosticOrigin::Unknown);
+        let _ = format!("{:?}", DiagnosticOrigin::Unknown);
+    }
+}

@@ -113,9 +113,12 @@ fn test_slice_text_both_ways() {
 
 #[test]
 fn test_slice_empty_page() {
-    let snap = document_snapshot_from_source("(page a4)", DocumentIdentity::new(7))
-        .expect("empty page");
-    assert!(snap.nodes.iter().any(|n| matches!(n.kind, reciplexa_document::DocumentNodeKind::Page)));
+    let snap =
+        document_snapshot_from_source("(page a4)", DocumentIdentity::new(7)).expect("empty page");
+    assert!(snap
+        .nodes
+        .iter()
+        .any(|n| matches!(n.kind, reciplexa_document::DocumentNodeKind::Page)));
 }
 
 #[test]
@@ -164,11 +167,9 @@ fn test_slice_blocked_edit_without_provenance() {
 
 #[test]
 fn test_slice_color_rect() {
-    let snap = document_snapshot_from_source(
-        "(page a4 (rect 0 0 10 10 red))",
-        DocumentIdentity::new(10),
-    )
-    .unwrap();
+    let snap =
+        document_snapshot_from_source("(page a4 (rect 0 0 10 10 red))", DocumentIdentity::new(10))
+            .unwrap();
     let shapes = scene_shapes_from_document(&snap.nodes);
     assert_eq!(shapes.len(), 1);
 }

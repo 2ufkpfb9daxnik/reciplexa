@@ -284,4 +284,95 @@ mod tests {
         };
         assert!(eval_expr(&expr, &HashMap::new(), &mut UnitHost).is_err());
     }
+
+    #[test]
+    fn eval_empty_seq_is_unit() {
+        let v = eval_expr(&CoreExpr::Seq(vec![]), &HashMap::new(), &mut UnitHost).unwrap();
+        assert_eq!(v, RuntimeValue::Unit);
+    }
+
+    #[test]
+    fn eval_record_get_errors() {
+        let missing = CoreExpr::RecordGet {
+            record: Box::new(CoreExpr::Record {
+                fields: vec![("a".into(), CoreExpr::Lit(CoreLiteral::Number(1.0)))],
+            }),
+            field: "b".into(),
+        };
+        assert!(eval_expr(&missing, &HashMap::new(), &mut UnitHost).is_err());
+
+        let not_rec = CoreExpr::RecordGet {
+            record: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
+            field: "a".into(),
+        };
+        assert!(eval_expr(&not_rec, &HashMap::new(), &mut UnitHost).is_err());
+    }
+
+    #[test]
+    fn eval_match_no_arm_and_bind_payload() {
+        let no_arm = CoreExpr::Match {
+            scrutinee: Box::new(CoreExpr::Variant {
+                tag: "none".into(),
+                payload: None,
+            }),
+            arms: vec![MatchArm {
+                tag: "some".into(),
+                bind: None,
+                body: CoreExpr::Lit(CoreLiteral::Number(0.0)),
+            }],
+        };
+        assert!(eval_expr(&no_arm, &HashMap::new(), &mut UnitHost).is_err());
+
+        let with_bind = CoreExpr::Match {
+            scrutinee: Box::new(CoreExpr::Variant {
+                tag: "some".into(),
+                payload: Some(Box::new(CoreExpr::Lit(CoreLiteral::Number(7.0)))),
+            }),
+            arms: vec![MatchArm {
+                tag: "some".into(),
+                bind: Some("n".into()),
+                body: CoreExpr::Lit(CoreLiteral::Number(1.0)),
+            }],
+        };
+        assert_eq!(
+            eval_expr(&with_bind, &HashMap::new(), &mut UnitHost).unwrap(),
+            RuntimeValue::Number(1.0)
+        );
+    }
+
+    #[test]
+    fn eval_color_literal_and_let_uses_binding() {
+        let color = CoreExpr::Lit(CoreLiteral::Color("red".into()));
+        assert_eq!(
+            eval_expr(&color, &HashMap::new(), &mut UnitHost).unwrap(),
+            RuntimeValue::String("red".into())
+        );
+
+        // Let binds value even if body ignores it — exercise insert path.
+        let expr = CoreExpr::Let {
+            name: "x".into(),
+            value: Box::new(CoreExpr::Lit(CoreLiteral::Number(3.0))),
+            body: Box::new(CoreExpr::Lit(CoreLiteral::Number(9.0))),
+        };
+        assert_eq!(
+            eval_expr(&expr, &HashMap::new(), &mut UnitHost).unwrap(),
+            RuntimeValue::Number(9.0)
+        );
+    }
+
+    #[test]
+    fn eval_variant_without_payload() {
+        let expr = CoreExpr::Variant {
+            tag: "none".into(),
+            payload: None,
+        };
+        let v = eval_expr(&expr, &HashMap::new(), &mut UnitHost).unwrap();
+        assert!(matches!(
+            v,
+            RuntimeValue::Variant {
+                tag,
+                payload: None
+            } if tag == "none"
+        ));
+    }
 }

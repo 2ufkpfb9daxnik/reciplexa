@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 
 use reciplexa_package::{
     diagnose_manifest, parse_rpxm, resolve_packages, BuildGraph, BuildNodeId, BuildTarget,
-    IncrementalCache, InvalidationKind, Lockfile, PackageManifest, RuntimeProfile, RpxmError,
+    IncrementalCache, InvalidationKind, Lockfile, PackageManifest, RpxmError, RuntimeProfile,
 };
 
 #[test]
@@ -171,7 +171,12 @@ fn phase10_resolve_duplicate_and_missing() {
     let mut sources = BTreeMap::new();
     sources.insert("dup".into(), vec![("main".into(), "(page a4)")]);
     assert!(matches!(
-        resolve_packages(vec![m.clone(), m], &sources, BuildTarget::Document, &RuntimeProfile::document()),
+        resolve_packages(
+            vec![m.clone(), m],
+            &sources,
+            BuildTarget::Document,
+            &RuntimeProfile::document()
+        ),
         Err(ResolveError::DuplicateName(_))
     ));
     let orphan = PackageManifest {
@@ -182,7 +187,12 @@ fn phase10_resolve_duplicate_and_missing() {
         targets: vec![],
     };
     assert!(matches!(
-        resolve_packages(vec![orphan], &BTreeMap::new(), BuildTarget::Document, &RuntimeProfile::document()),
+        resolve_packages(
+            vec![orphan],
+            &BTreeMap::new(),
+            BuildTarget::Document,
+            &RuntimeProfile::document()
+        ),
         Err(ResolveError::MissingEntry(_))
     ));
 }
@@ -215,7 +225,10 @@ fn phase10_diagnose_manifest_codes() {
         entry: "".into(),
         targets: vec![],
     };
-    let codes: Vec<_> = diagnose_manifest(&bad).into_iter().map(|d| d.code).collect();
+    let codes: Vec<_> = diagnose_manifest(&bad)
+        .into_iter()
+        .map(|d| d.code)
+        .collect();
     assert!(codes.contains(&"PKG001".to_string()));
     assert!(codes.contains(&"PKG002".to_string()));
     assert!(codes.contains(&"PKG003".to_string()));

@@ -811,6 +811,7 @@ mod tests {
     use super::*;
     use reciplexa_pdf::document_to_pdf;
     use reciplexa_scene::Shape;
+    use reciplexa_syntax::parse_source;
 
     const BLACK_CIRCLE: &str = r#"
 ; A4 black circle (M3)
@@ -1151,5 +1152,492 @@ mod tests {
         assert!(lower_source("(page a4 (translate 1 2))").is_err());
         assert!(lower_source("(page a4 (rotate 90))").is_err());
         assert!(lower_source("(page a4 (scale 2))").is_err());
+    }
+
+    #[test]
+    fn lowers_image_and_polygon_without_color() {
+        let doc =
+            lower_source(r#"(page a4 (image "pic.png" 10 20 30 40) (polygon 0 0 10 0 0 10))"#)
+                .unwrap();
+        match &doc.pages[0].shapes[0] {
+            Shape::Image(i) => {
+                assert_eq!(i.path, "pic.png");
+                assert_eq!(i.width_mm, 30.0);
+            }
+            _ => panic!("expected image"),
+        }
+        match &doc.pages[0].shapes[1] {
+            Shape::Polygon(p) => assert_eq!(p.points_mm.len(), 3),
+            _ => panic!("expected polygon"),
+        }
+    }
+
+    #[test]
+    fn lowers_polyline_without_color() {
+        let doc = lower_source("(page a4 (polyline 0 0 10 10 20 0))").unwrap();
+        match &doc.pages[0].shapes[0] {
+            Shape::Polyline(p) => {
+                assert_eq!(p.points_mm.len(), 3);
+                assert_eq!(p.width_mm, 0.5);
+            }
+            _ => panic!("expected polyline"),
+        }
+    }
+
+    #[test]
+    fn lowers_uniform_scale_single_factor() {
+        let doc = lower_source("(page a4 (scale 2 (circle 0 0 5)))").unwrap();
+        match &doc.pages[0].shapes[0] {
+            Shape::Group { transform, .. } => {
+                assert_eq!(*transform, Affine::scale_uniform(2.0));
+            }
+            _ => panic!("expected group"),
+        }
+    }
+
+    #[test]
+    fn lowers_string_escapes_in_text() {
+        let doc = lower_source(r#"(page a4 (text 1 2 3 "a\nb"))"#).unwrap();
+        match &doc.pages[0].shapes[0] {
+            Shape::Text(t) => assert_eq!(t.content, "a\nb"),
+            _ => panic!("expected text"),
+        }
+    }
+
+    #[test]
+    fn negative_paper_size_fails() {
+        let err = lower_source("(page -1 100 (circle 1 2 3))").unwrap_err();
+        assert!(err.message.contains("positive"));
+    }
+
+    #[test]
+    fn page_missing_paper_fails() {
+        assert!(lower_source("(page)").is_err());
+        assert!(lower_source("(page 100)").is_err());
+    }
+
+    #[test]
+    fn opacity_out_of_range_fails() {
+        assert!(lower_source("(page a4 (opacity 2 (circle 1 2 3)))").is_err());
+        assert!(lower_source("(page a4 (opacity -0.1 (circle 1 2 3)))").is_err());
+    }
+
+    #[test]
+    fn empty_group_fails() {
+        assert!(lower_source("(page a4 (group))").is_err());
+    }
+
+    #[test]
+    fn wrong_top_level_head_fails() {
+        let err = lower_source("(bogus a4)").unwrap_err();
+        assert!(err.message.contains("expected head"));
+    }
+
+    #[test]
+    fn lower_syntax_rejects_non_source_file() {
+        let parse = parse_source("(page a4)").into_result().unwrap();
+        let list = parse.children().next().unwrap();
+        let err = lower_syntax(&list).unwrap_err();
+        assert!(err.message.contains("SourceFile"));
+    }
+
+    #[test]
+    fn shape_token_instead_of_list_fails() {
+        let err = lower_source("(page a4 1)").unwrap_err();
+        assert!(err.message.contains("shape list"));
+    }
+
+    #[test]
+    fn zero_rect_dimensions_fail() {
+        assert!(lower_source("(page a4 (rect 0 0 0 10))").is_err());
+        assert!(lower_source("(page a4 (ellipse 0 0 0 1))").is_err());
+    }
+
+    #[test]
+    fn malformed_string_in_text_fails() {
+        assert!(lower_source(r#"(page a4 (text 1 2 3 bad))"#).is_err());
+    }
+
+    #[test]
+    fn unknown_color_form_fails() {
+        assert!(lower_source("(page a4 (circle 0 0 1 (hue 1 0 0)))").is_err());
+    }
+
+    // --- boundary/median: additional lowering arms ---
+
+    #[test]
+    fn lowers_text_len_six_with_trailing_color() {
+        let doc = lower_source(r#"(page a4 (text 1 2 3 "hi" red))"#).unwrap();
+        match &doc.pages[0].shapes[0] {
+            Shape::Text(t) => {
+                assert_eq!(t.content, "hi");
+                assert_eq!(t.fill, Color::RED);
+                assert_eq!(t.width_mm, None);
+            }
+            _ => panic!("expected text"),
+        }
+    }
+
+    #[test]
+    fn lowers_text_boxed_with_color() {
+        let doc = lower_source(r#"(page a4 (text 1 2 3 40 20 "hi" blue))"#).unwrap();
+        match &doc.pages[0].shapes[0] {
+            Shape::Text(t) => {
+                assert_eq!(t.width_mm, Some(40.0));
+                assert_eq!(t.height_mm, Some(20.0));
+                assert_eq!(t.fill, Color::BLUE);
+            }
+            _ => panic!("expected text"),
+        }
+    }
+
+    #[test]
+    fn lowers_line_with_color_only() {
+        let doc = lower_source("(page a4 (line 0 0 10 10 green))").unwrap();
+        match &doc.pages[0].shapes[0] {
+            Shape::Line(l) => {
+                assert_eq!(l.stroke, Color::GREEN);
+                assert_eq!(l.width_mm, 0.5);
+            }
+            _ => panic!("expected line"),
+        }
+    }
+
+    #[test]
+    fn lowers_polyline_with_rgb_color_node() {
+        let doc = lower_source("(page a4 (polyline 0 0 10 10 20 0 (rgb 0.1 0.2 0.3) 2))").unwrap();
+        match &doc.pages[0].shapes[0] {
+            Shape::Polyline(p) => {
+                assert_eq!(p.stroke, Color::new(0.1, 0.2, 0.3));
+                assert_eq!(p.width_mm, 2.0);
+            }
+            _ => panic!("expected polyline"),
+        }
+    }
+
+    #[test]
+    fn lowers_polygon_with_named_color() {
+        let doc = lower_source("(page a4 (polygon 0 0 10 0 5 10 red))").unwrap();
+        match &doc.pages[0].shapes[0] {
+            Shape::Polygon(p) => assert_eq!(p.fill, Color::RED),
+            _ => panic!("expected polygon"),
+        }
+    }
+
+    #[test]
+    fn string_unescape_all_sequences() {
+        let doc = lower_source(r#"(page a4 (text 0 0 3 "a\nb\tc\\d\"e\r"))"#).unwrap();
+        match &doc.pages[0].shapes[0] {
+            Shape::Text(t) => assert_eq!(t.content, "a\nb\tc\\d\"e\r"),
+            _ => panic!("expected text"),
+        }
+        let doc2 = lower_source(r#"(page a4 (text 0 0 3 "trail\\"))"#).unwrap();
+        match &doc2.pages[0].shapes[0] {
+            Shape::Text(t) => assert_eq!(t.content, "trail\\"),
+            _ => panic!("expected text"),
+        }
+    }
+
+    #[test]
+    fn lower_skips_doc_form_at_top_level() {
+        let src = "(doc ignored)\n(page a4 (circle 1 2 3))";
+        let doc = lower_source(src).unwrap();
+        assert_eq!(doc.pages.len(), 1);
+    }
+
+    #[test]
+    fn lower_image_and_ring_errors() {
+        assert!(lower_source(r#"(page a4 (image "p" 1 2 3))"#).is_err());
+        assert!(lower_source("(page a4 (ring 1 2 3))").is_err());
+    }
+
+    #[test]
+    fn lower_color_token_and_node_errors() {
+        assert!(lower_source("(page a4 (circle 0 0 1 123))").is_err());
+        assert!(lower_source("(page a4 (circle 0 0 1 (rgb 0 0)))").is_err());
+    }
+
+    #[test]
+    fn lower_error_new_and_display() {
+        let err = LowerError::new("msg");
+        assert_eq!(err.message, "msg");
+    }
+
+    #[test]
+    fn lowers_opacity_nested_shapes() {
+        let doc =
+            lower_source("(page a4 (opacity 0.25 (group (circle 0 0 1) (rect 1 1 1 1))))").unwrap();
+        match &doc.pages[0].shapes[0] {
+            Shape::Opacity { alpha, children } => {
+                assert_eq!(*alpha, 0.25);
+                assert_eq!(children.len(), 1);
+                match &children[0] {
+                    Shape::Group { children, .. } => assert_eq!(children.len(), 2),
+                    _ => panic!("expected group inside opacity"),
+                }
+            }
+            _ => panic!("expected opacity"),
+        }
+    }
+
+    // --- boundary: lowering error arms and helpers ---
+
+    #[test]
+    fn skips_non_list_top_level_forms() {
+        let src = "123\n(page a4 (circle 1 2 3))";
+        let doc = lower_source(src).unwrap();
+        assert_eq!(doc.pages.len(), 1);
+    }
+
+    #[test]
+    fn ellipse_bad_arity_fails() {
+        assert!(lower_source("(page a4 (ellipse 1 2 3))").is_err());
+    }
+
+    #[test]
+    fn ring_not_drawable_fails() {
+        assert!(lower_source("(page a4 (ring 1 2 3 0))").is_err());
+    }
+
+    #[test]
+    fn frame_not_drawable_fails() {
+        assert!(lower_source("(page a4 (frame 0 0 1 1 0))").is_err());
+    }
+
+    #[test]
+    fn text_zero_size_not_drawable() {
+        assert!(lower_source(r#"(page a4 (text 1 2 0 "x"))"#).is_err());
+    }
+
+    #[test]
+    fn line_coincident_points_not_drawable() {
+        assert!(lower_source("(page a4 (line 1 1 1 1))").is_err());
+    }
+
+    #[test]
+    fn polyline_too_few_coords_fails() {
+        // Odd coordinate count after optional trailing color/width peel.
+        assert!(lower_source("(page a4 (polyline 0 0 1))").is_err());
+        // A single point is not enough (≥2 points required).
+        assert!(lower_source("(page a4 (polyline 0 0))").is_err());
+    }
+
+    #[test]
+    fn polygon_too_few_points_fails() {
+        assert!(lower_source("(page a4 (polygon 0 0 1 1))").is_err());
+    }
+
+    #[test]
+    fn image_zero_size_not_drawable() {
+        assert!(lower_source(r#"(page a4 (image "p" 1 2 0 5))"#).is_err());
+    }
+
+    #[test]
+    fn malformed_string_literal_fails() {
+        assert!(lower_source(r#"(page a4 (text 1 2 3 unquoted))"#).is_err());
+    }
+
+    #[test]
+    fn lower_color_bad_token_kind_fails() {
+        assert!(lower_source("(page a4 (circle 0 0 1 123))").is_err());
+    }
+
+    #[test]
+    fn scale_two_factors_without_body_fails() {
+        assert!(lower_source("(page a4 (scale 2 3))").is_err());
+    }
+
+    #[test]
+    fn shape_list_expected_not_token() {
+        let err = lower_source("(page a4 42)").unwrap_err();
+        assert!(err.message.contains("shape list"));
+    }
+
+    #[test]
+    fn paper_ident_expected_not_number_atom() {
+        assert!(lower_source("(page 100)").is_err());
+    }
+
+    #[test]
+    fn number_at_wrong_token_kind_fails() {
+        assert!(lower_source("(page a4 (circle x 2 3))").is_err());
+    }
+
+    #[test]
+    fn unescape_trailing_backslash_only() {
+        let doc = lower_source(r#"(page a4 (text 0 0 3 "x\\"))"#).unwrap();
+        match &doc.pages[0].shapes[0] {
+            Shape::Text(t) => assert_eq!(t.content, "x\\"),
+            _ => panic!("expected text"),
+        }
+    }
+
+    #[test]
+    fn lowers_polyline_color_without_width() {
+        let doc = lower_source("(page a4 (polyline 0 0 10 0 10 10 green))").unwrap();
+        match &doc.pages[0].shapes[0] {
+            Shape::Polyline(p) => {
+                assert_eq!(p.stroke, Color::GREEN);
+                assert_eq!(p.width_mm, 0.5);
+            }
+            _ => panic!("expected polyline"),
+        }
+    }
+
+    #[test]
+    fn lowers_polygon_rgb_color_node() {
+        let doc = lower_source("(page a4 (polygon 0 0 10 0 5 10 (rgb 0.2 0.4 0.6)))").unwrap();
+        match &doc.pages[0].shapes[0] {
+            Shape::Polygon(p) => assert_eq!(p.fill, Color::new(0.2, 0.4, 0.6)),
+            _ => panic!("expected polygon"),
+        }
+    }
+
+    #[test]
+    fn lowers_ring_without_color() {
+        let doc = lower_source("(page a4 (ring 1 2 3 0.5))").unwrap();
+        match &doc.pages[0].shapes[0] {
+            Shape::Ring(r) => assert_eq!(r.stroke, Color::BLACK),
+            _ => panic!("expected ring"),
+        }
+    }
+
+    #[test]
+    fn lowers_frame_without_color() {
+        let doc = lower_source("(page a4 (frame 0 0 10 20 1))").unwrap();
+        match &doc.pages[0].shapes[0] {
+            Shape::Frame(f) => assert_eq!(f.stroke, Color::BLACK),
+            _ => panic!("expected frame"),
+        }
+    }
+
+    #[test]
+    fn lower_error_display_matches_message() {
+        let err = LowerError::new("boom");
+        assert_eq!(format!("{err:?}"), "LowerError { message: \"boom\" }");
+    }
+
+    #[test]
+    fn lower_paper_letter_and_numeric_boundaries() {
+        let letter = lower_source("(page letter (circle 0 0 1))").unwrap();
+        assert_eq!(letter.pages.len(), 1);
+        let tiny = lower_source("(page 1 1 (circle 0 0 0.5))").unwrap();
+        assert_eq!(tiny.pages[0].paper.width_mm, 1.0);
+        assert!(lower_source("(page 0 10 (circle 0 0 1))").is_err());
+        assert!(lower_source("(page 10 0 (circle 0 0 1))").is_err());
+        assert!(lower_source("(page -1 10 (circle 0 0 1))").is_err());
+    }
+
+    #[test]
+    fn lower_all_named_colors() {
+        for color in ["black", "white", "red", "green", "blue"] {
+            let src = format!("(page a4 (circle 0 0 1 {color}))");
+            assert!(lower_source(&src).is_ok(), "{color}");
+        }
+    }
+
+    #[test]
+    fn lower_transform_stacks_and_group() {
+        let src = r#"(page a4
+  (opacity 0.5
+    (rotate 45
+      (scale 2 3
+        (group
+          (circle 0 0 1)
+          (rect 0 0 1 1)
+          (translate 1 2 (ellipse 0 0 1 2)))))))"#;
+        let doc = lower_source(src).unwrap();
+        assert!(!doc.pages[0].shapes.is_empty());
+    }
+
+    #[test]
+    fn lower_text_variants_and_escapes() {
+        let plain = lower_source(r#"(page a4 (text 1 2 12 "hi"))"#).unwrap();
+        assert!(matches!(plain.pages[0].shapes[0], Shape::Text(_)));
+        let boxed = lower_source(r#"(page a4 (text 1 2 12 40 20 "box" red))"#).unwrap();
+        assert!(matches!(boxed.pages[0].shapes[0], Shape::Text(_)));
+        let esc = lower_source(r#"(page a4 (text 1 2 12 "a\"b\\c\n\t"))"#).unwrap();
+        match &esc.pages[0].shapes[0] {
+            Shape::Text(t) => {
+                assert!(
+                    t.content.contains('"')
+                        || t.content.contains('\\')
+                        || t.content.contains('\n')
+                        || t.content.contains('\t')
+                        || !t.content.is_empty()
+                );
+            }
+            _ => panic!("expected text"),
+        }
+    }
+
+    #[test]
+    fn lower_line_polyline_polygon_partitions() {
+        assert!(lower_source("(page a4 (line 0 0 10 10))").is_ok());
+        assert!(lower_source("(page a4 (line 0 0 10 10 blue))").is_ok());
+        assert!(lower_source("(page a4 (line 0 0 10 10 blue 2))").is_ok());
+        assert!(lower_source("(page a4 (polyline 0 0 1 1 2 0))").is_ok());
+        assert!(lower_source("(page a4 (polyline 0 0 1 1 2 0 red))").is_ok());
+        assert!(lower_source("(page a4 (polyline 0 0 1 1 2 0 red 1.5))").is_ok());
+        assert!(lower_source("(page a4 (polygon 0 0 1 0 0 1))").is_ok());
+        assert!(lower_source("(page a4 (polygon 0 0 1 0 0 1 green))").is_ok());
+    }
+
+    #[test]
+    fn lower_shape_arity_and_type_errors() {
+        assert!(lower_source("(page a4 (circle 1 2))").is_err());
+        assert!(lower_source("(page a4 (rect 1 2 3))").is_err());
+        assert!(lower_source("(page a4 (ellipse 1 2 3))").is_err());
+        assert!(lower_source("(page a4 (ring 1 2 3))").is_err());
+        assert!(lower_source("(page a4 (frame 1 2 3 4))").is_err());
+        assert!(lower_source("(page a4 (image \"x\" 0 0 1))").is_err());
+        assert!(lower_source("(page a4 (translate 1))").is_err());
+        assert!(lower_source("(page a4 (rotate))").is_err());
+        assert!(lower_source("(page a4 (scale 2))").is_err());
+        assert!(lower_source("(page a4 (group))").is_err());
+        assert!(lower_source("(page a4 (opacity 0.5))").is_err());
+        assert!(lower_source("(page a4 (circle 0 0 0))").is_err());
+        assert!(lower_source("(page a4 (rect 0 0 0 1))").is_err());
+        assert!(lower_source("(page a4 (unknown 1))").is_err());
+        assert!(lower_source("(page a4 (circle x 0 1))").is_err());
+        assert!(lower_source(r#"(page a4 (text 1 2 3))"#).is_err());
+    }
+
+    #[test]
+    fn lower_multi_page_and_empty_page() {
+        let doc = lower_source("(page a4)\n(page letter (circle 1 2 3))").unwrap();
+        assert_eq!(doc.pages.len(), 2);
+        assert!(doc.pages[0].shapes.is_empty());
+        assert_eq!(doc.pages[1].shapes.len(), 1);
+    }
+
+    #[test]
+    fn lower_rgb_color_on_shapes() {
+        let src = "(page a4 (circle 0 0 1 (rgb 0.1 0.2 0.3)) (rect 0 0 1 1 (rgb 1 0 0)))";
+        let doc = lower_source(src).unwrap();
+        assert_eq!(doc.pages[0].shapes.len(), 2);
+    }
+
+    #[test]
+    fn lower_paper_and_color_error_partitions() {
+        assert!(lower_source("(page)").is_err());
+        assert!(lower_source("(page 210)").is_err());
+        assert!(lower_source("(page 0 10)").is_err());
+        assert!(lower_source("(page foo)").is_err());
+        assert!(lower_source("(page a4 (circle 0 0 1 puce))").is_err());
+        assert!(lower_source("(page a4 (circle 0 0 1 (hsv 1 2 3)))").is_err());
+        assert!(lower_source("(page a4 (circle 0 0 1 (rgb 1 2)))").is_err());
+        assert!(lower_source("(page a4 (circle 0 0 1 (rgb 2 0 0)))").is_err());
+        assert!(lower_source("(page a4 42)").is_err());
+        assert!(lower_source("(doc hi)").is_err()); // doc is not lowered as page
+    }
+
+    #[test]
+    fn lower_line_width_and_image_path() {
+        let line = lower_source("(page a4 (line 0 0 1 1 red 2.5))").unwrap();
+        assert!(matches!(line.pages[0].shapes[0], Shape::Line(_)));
+        let img = lower_source(r#"(page a4 (image "p.png" 0 0 10 20))"#).unwrap();
+        assert!(matches!(img.pages[0].shapes[0], Shape::Image(_)));
+        assert!(lower_source(r#"(page a4 (image "" 0 0 10 20))"#).is_err());
     }
 }

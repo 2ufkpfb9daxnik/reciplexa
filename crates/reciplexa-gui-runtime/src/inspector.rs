@@ -45,10 +45,7 @@ pub fn layer_tree_description(
 }
 
 /// Flatten layer rows for virtualization / accessibility.
-pub fn layer_rows(
-    layers: &[(StableNodeId, String)],
-    selection: &NodeSelection,
-) -> Vec<LayerRow> {
+pub fn layer_rows(layers: &[(StableNodeId, String)], selection: &NodeSelection) -> Vec<LayerRow> {
     layers
         .iter()
         .enumerate()
@@ -151,11 +148,18 @@ mod tests {
         sel.select_only(StableNodeId::new(42));
         let model = InspectorModel::for_selection(
             &sel,
-            vec![("width".into(), "100".into()), ("height".into(), "50".into())],
+            vec![
+                ("width".into(), "100".into()),
+                ("height".into(), "50".into()),
+            ],
         );
         let desc = model.description();
         assert_eq!(desc.roots.len(), 3);
         assert_eq!(desc.roots[0].stable_id, Some(StableNodeId::new(42)));
-        assert!(desc.roots.iter().skip(1).all(|n| n.kind == GuiNodeKind::TextField));
+        assert!(desc
+            .roots
+            .iter()
+            .skip(1)
+            .all(|n| n.kind == GuiNodeKind::TextField));
     }
 }

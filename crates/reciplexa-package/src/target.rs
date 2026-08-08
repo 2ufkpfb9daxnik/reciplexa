@@ -69,7 +69,9 @@ mod tests {
 
     #[test]
     fn native_entry_containing_native_is_ok() {
-        assert!(BuildTarget::Native.validate_entry("main_native.rpx").is_ok());
+        assert!(BuildTarget::Native
+            .validate_entry("main_native.rpx")
+            .is_ok());
         assert!(BuildTarget::Native.validate_entry("native").is_ok());
     }
 
@@ -93,7 +95,11 @@ mod tests {
 
     #[test]
     fn document_slide_preview_accept_any_nonempty_entry() {
-        for target in [BuildTarget::Document, BuildTarget::Slide, BuildTarget::Preview] {
+        for target in [
+            BuildTarget::Document,
+            BuildTarget::Slide,
+            BuildTarget::Preview,
+        ] {
             assert!(target.validate_entry("main.rpx").is_ok());
         }
     }

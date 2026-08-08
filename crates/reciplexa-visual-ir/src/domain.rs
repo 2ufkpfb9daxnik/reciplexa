@@ -184,16 +184,8 @@ mod tests {
     use super::*;
     use reciplexa_identity::document::StableNodeId;
 
-    fn base_fields() -> (
-        Option<StableNodeId>,
-        Option<u32>,
-        Option<u32>,
-    ) {
-        (
-            Some(StableNodeId::new(7)),
-            Some(10),
-            Some(20),
-        )
+    fn base_fields() -> (Option<StableNodeId>, Option<u32>, Option<u32>) {
+        (Some(StableNodeId::new(7)), Some(10), Some(20))
     }
 
     #[test]

@@ -180,4 +180,30 @@ mod tests {
         let map2 = preserve_identity_on_reparse(&map1, &p1.root, &p2.root);
         assert_eq!(map1.len(), map2.len());
     }
+
+    #[test]
+    fn identity_map_get_by_id_and_is_empty() {
+        let mut map = SyntaxIdentityMap::new();
+        assert!(map.is_empty());
+        let parse = parse_source("(page a4)");
+        let range = parse.root.text_range();
+        let id = map.intern(range);
+        assert_eq!(map.len(), 1);
+        assert_eq!(map.get_by_id(id), Some(range));
+        assert_eq!(
+            map.get_byte_offsets(u32::from(range.start()), u32::from(range.end())),
+            Some(id)
+        );
+    }
+
+    #[test]
+    fn insert_known_roundtrip() {
+        let mut map = SyntaxIdentityMap::new();
+        let parse = parse_source("(doc hi)");
+        let range = parse.root.text_range();
+        let id = map.intern(range);
+        let mut map2 = SyntaxIdentityMap::new();
+        map2.insert_known(range, id);
+        assert_eq!(map2.get(range), Some(id));
+    }
 }

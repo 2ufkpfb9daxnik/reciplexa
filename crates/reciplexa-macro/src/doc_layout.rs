@@ -1189,4 +1189,250 @@ mod tests {
             other => panic!("expected line, got {other:?}"),
         }
     }
+
+    #[test]
+    fn layout_doc_macros_cover_flow_items() {
+        let src = r#"(doc
+@title{T}
+@h2{S}
+@p{Body}
+@quote{Q}
+@note{N}
+@warn{W}
+@todo{T}
+@code{fn main}
+@ol{@li{a} @li{b}}
+@ul{@li{x}}
+@center{C}
+@link["https://x"]{L}
+@cite[1]
+@image["fig.png"]
+@hr
+@br{}
+@vspace{5}
+@pagebreak
+@p{After})"#;
+        let laid = layout_doc_parts(&parts(src));
+        assert!(laid.iter().any(|i| matches!(i, LaidItem::Hr { .. })));
+        assert!(laid.iter().any(|i| matches!(i, LaidItem::Image { .. })));
+        assert!(laid.iter().any(|i| matches!(i, LaidItem::PageBreak)));
+        assert!(laid.iter().any(|i| matches!(i, LaidItem::VSpace { .. })));
+        let placed = place_items(&laid, DocFrame::A4);
+        assert!(!placed.is_empty());
+    }
+
+    #[test]
+    fn layout_inline_marks_and_unknown_at() {
+        let laid = layout_doc_parts(&parts("(doc @em{hi} @strong{b} @tt{t} @unknown[args])"));
+        let text = laid
+            .iter()
+            .filter_map(|i| match i {
+                LaidItem::Text(t) => Some(t.content.as_str()),
+                _ => None,
+            })
+            .collect::<Vec<_>>()
+            .join(" ");
+        assert!(text.contains("*hi*"));
+        assert!(text.contains("**b**"));
+        assert!(text.contains("`t`"));
+        assert!(text.contains("args"));
+    }
+
+    #[test]
+    fn parse_image_bracket_custom_size() {
+        let laid = layout_doc_parts(&parts(r#"(doc @image["pic.png" 40 30])"#));
+        match laid.iter().find(|i| matches!(i, LaidItem::Image { .. })) {
+            Some(LaidItem::Image {
+                path,
+                width_mm,
+                height_mm,
+                ..
+            }) => {
+                assert_eq!(path, "pic.png");
+                assert_eq!(*width_mm, 40.0);
+                assert_eq!(*height_mm, 30.0);
+            }
+            _ => panic!("expected image"),
+        }
+    }
+
+    #[test]
+    fn place_items_empty_returns_empty() {
+        assert!(place_items(&[], DocFrame::A4).is_empty());
+    }
+
+    #[test]
+    fn doc_frame_right_margin() {
+        assert_eq!(DocFrame::A4.right_mm(), 185.0);
+    }
+
+    #[test]
+    fn layout_bold_alias_and_subsection() {
+        let laid = layout_doc_parts(&parts("(doc @bold{hi} @subsubsection{sub})"));
+        let text = text_items(&laid)
+            .iter()
+            .map(|l| l.content.as_str())
+            .collect::<Vec<_>>()
+            .join("|");
+        assert!(text.contains("**hi**"));
+        assert!(laid
+            .iter()
+            .any(|i| matches!(i, LaidItem::Text(t) if t.size_mm == H3_SIZE_MM)));
+    }
+
+    #[test]
+    fn layout_link_cite_edge_partitions() {
+        let laid = layout_doc_parts(&parts(r#"(doc @link[]{only-url} @cite[] @link["u"]{})"#));
+        let text = laid
+            .iter()
+            .filter_map(|i| match i {
+                LaidItem::Text(t) => Some(t.content.as_str()),
+                _ => None,
+            })
+            .collect::<Vec<_>>()
+            .join(" ");
+        assert!(text.contains("only-url"));
+    }
+
+    #[test]
+    fn layout_image_unquoted_path_and_bad_size() {
+        let laid = layout_doc_parts(&parts("(doc @image[assets/pic.png 0 0])"));
+        match laid.iter().find(|i| matches!(i, LaidItem::Image { .. })) {
+            Some(LaidItem::Image {
+                path,
+                width_mm,
+                height_mm,
+                ..
+            }) => {
+                assert_eq!(path, "assets/pic.png");
+                assert_eq!(*width_mm, FIGURE_WIDTH_MM);
+                assert_eq!(*height_mm, FIGURE_HEIGHT_MM);
+            }
+            _ => panic!("expected default-sized image"),
+        }
+    }
+
+    #[test]
+    fn place_items_first_tall_image_still_places() {
+        let items = vec![LaidItem::Image {
+            path: "x.png".into(),
+            width_mm: 200.0,
+            height_mm: 300.0,
+            y_gap_after: 10.0,
+        }];
+        let placed = place_items(&items, DocFrame::A4);
+        assert_eq!(placed.len(), 1);
+        match &placed[0] {
+            PlacedItem::Image { y_mm, .. } => assert!(*y_mm <= DocFrame::A4.top_mm),
+            _ => panic!("expected image"),
+        }
+    }
+
+    #[test]
+    fn place_items_pagebreak_then_vspace() {
+        let items = vec![
+            LaidItem::Text(LaidLine {
+                size_mm: BODY_SIZE_MM,
+                y_gap_after: BODY_GAP_MM,
+                indent_mm: 0.0,
+                content: "A".into(),
+            }),
+            LaidItem::PageBreak,
+            LaidItem::VSpace { mm: 5.0 },
+            LaidItem::Text(LaidLine {
+                size_mm: BODY_SIZE_MM,
+                y_gap_after: BODY_GAP_MM,
+                indent_mm: 0.0,
+                content: "B".into(),
+            }),
+        ];
+        let placed = place_items(&items, DocFrame::A4);
+        assert!(placed.iter().any(|p| p.page_index() == 1));
+    }
+
+    #[test]
+    fn wrap_mid_word_hard_break() {
+        let lines = wrap_line("abcdefghij", 4);
+        assert!(lines.len() >= 2);
+        assert!(lines.iter().all(|l| l.chars().count() <= 4));
+    }
+
+    #[test]
+    fn collapse_ws_trims_edges() {
+        assert_eq!(collapse_ws("  a   b  "), "a b");
+    }
+
+    #[test]
+    fn layout_skips_empty_quote_and_todo_lines() {
+        assert!(layout_doc_parts(&parts("(doc @quote{})")).is_empty());
+        assert!(layout_doc_parts(&parts("(doc @todo{})")).is_empty());
+        let laid = layout_doc_parts(&parts("(doc @quote{Line one\n\nLine two})"));
+        // Blank lines between quote paragraphs may collapse; at least one text item remains.
+        assert!(!text_items(&laid).is_empty());
+    }
+
+    #[test]
+    fn layout_code_keeps_nonblank_content() {
+        let laid = layout_doc_parts(&parts("(doc @code{line1\n\nline2})"));
+        let texts = text_items(&laid);
+        assert!(!texts.is_empty());
+        let joined = texts
+            .iter()
+            .map(|l| l.content.as_str())
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert!(
+            joined.contains("line1") || joined.contains("line2"),
+            "{joined}"
+        );
+    }
+
+    #[test]
+    fn layout_marked_lines_with_inline_newline() {
+        let laid = layout_doc_parts(&parts("(doc @li{plain\n@em{hi}})"));
+        let text = text_items(&laid)
+            .iter()
+            .map(|l| l.content.as_str())
+            .collect::<Vec<_>>()
+            .join("|");
+        assert!(text.contains("• plain"), "{text}");
+        assert!(text.contains("*hi*"), "{text}");
+    }
+
+    #[test]
+    fn layout_unknown_at_bracket_args_only() {
+        let laid = layout_doc_parts(&parts("(doc @foo[only-bracket])"));
+        let text = text_items(&laid)
+            .iter()
+            .map(|l| l.content.as_str())
+            .collect::<Vec<_>>()
+            .join(" ");
+        assert!(text.contains("only-bracket"), "{text}");
+    }
+
+    #[test]
+    fn layout_center_skips_empty_marked_line() {
+        let laid = layout_doc_parts(&parts("(doc @center{\n@em{}\nHi})"));
+        assert!(text_items(&laid).iter().any(|l| l.content == "Hi"));
+    }
+
+    #[test]
+    fn push_wrapped_multi_chunk_uses_body_gap() {
+        let mut out = Vec::new();
+        push_wrapped(
+            "one two three four",
+            BODY_SIZE_MM,
+            TITLE_GAP_MM,
+            4,
+            0.0,
+            &mut out,
+        );
+        assert!(out.len() >= 2);
+    }
+
+    #[test]
+    fn wrap_line_empty_max_zero_returns_single() {
+        assert_eq!(wrap_line("abc", 0), vec!["abc".to_string()]);
+        assert!(wrap_line("", 5).is_empty());
+    }
 }

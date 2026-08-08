@@ -217,6 +217,69 @@ mod tests {
         let doc = store.allocate(DocumentNodeKind::Document);
         let root = store.root_id().unwrap();
         assert_eq!(root, doc);
-        assert!(matches!(store.get(root).unwrap().kind, DocumentNodeKind::Document));
+        assert!(matches!(
+            store.get(root).unwrap().kind,
+            DocumentNodeKind::Document
+        ));
+    }
+
+    #[test]
+    fn layout_and_text_accessors() {
+        let mut node = DocumentNode::new(
+            reciplexa_identity::document::StableNodeId::new(1),
+            DocumentNodeKind::Text,
+        );
+        assert!(node.layout().is_none());
+        let layout = LayoutBox::new(1.0, 2.0, 3.0, 4.0);
+        node.set_layout(layout);
+        assert_eq!(node.layout(), Some(layout));
+        node.properties
+            .push(NodeProperty::Text(TextContent { text: "hi".into() }));
+        assert_eq!(node.text().unwrap().text, "hi");
+        node.set_layout(LayoutBox::new(5.0, 6.0, 7.0, 8.0));
+        assert_eq!(node.layout().unwrap().x, 5.0);
+    }
+
+    #[test]
+    fn insert_preserved_and_link_child() {
+        let mut store = NodeStore::new();
+        let doc = store.allocate(DocumentNodeKind::Document);
+        let id = reciplexa_identity::document::StableNodeId::new(99);
+        store.insert_preserved(DocumentNode::new(id, DocumentNodeKind::Page));
+        assert_eq!(store.get(id).unwrap().kind, DocumentNodeKind::Page);
+        store.link_child(doc, id);
+        assert!(store.get(doc).unwrap().children.contains(&id));
+    }
+
+    #[test]
+    fn insert_child_missing_parent_returns_none() {
+        let mut store = NodeStore::new();
+        let missing = reciplexa_identity::document::StableNodeId::new(42);
+        assert!(store
+            .insert_child(missing, DocumentNodeKind::Page)
+            .is_none());
+    }
+
+    #[test]
+    fn duplicate_subtree_copies_children() {
+        let mut store = NodeStore::new();
+        let doc = store.allocate(DocumentNodeKind::Document);
+        let page = store.insert_child(doc, DocumentNodeKind::Page).unwrap();
+        let rect = store
+            .insert_child(page, DocumentNodeKind::Rectangle)
+            .unwrap();
+        let dup = store.duplicate_subtree(page).unwrap();
+        assert_ne!(page, dup);
+        assert_eq!(store.get(dup).unwrap().children.len(), 1);
+        assert!(store.get(rect).is_some());
+    }
+
+    #[test]
+    fn len_and_is_empty() {
+        let mut store = NodeStore::new();
+        assert!(store.is_empty());
+        store.allocate(DocumentNodeKind::Document);
+        assert_eq!(store.len(), 1);
+        assert!(!store.is_empty());
     }
 }

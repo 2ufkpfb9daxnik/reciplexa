@@ -62,4 +62,27 @@ mod tests {
         let mut alloc = ScopeIdAllocator::new();
         assert_ne!(alloc.allocate(), alloc.allocate());
     }
+
+    #[test]
+    fn scope_id_boundaries_and_display() {
+        assert!(!ScopeId::INVALID.is_valid());
+        assert_eq!(ScopeId::INVALID.get(), 0);
+        assert_eq!(ScopeId::ROOT.get(), 1);
+        assert!(!ScopeId::new(0).is_valid());
+        assert!(ScopeId::new(1).is_valid());
+        assert!(ScopeId::new(u64::MAX).is_valid());
+        assert_eq!(ScopeId::new(4).to_string(), "scope:4");
+        assert!(ScopeId::new(1) < ScopeId::new(2));
+    }
+
+    #[test]
+    fn scope_allocator_default_and_saturate() {
+        let mut alloc = ScopeIdAllocator::default();
+        assert_eq!(alloc.allocate().get(), 0);
+        let mut alloc = ScopeIdAllocator::new();
+        assert_eq!(alloc.allocate().get(), 2);
+        alloc.next = u64::MAX;
+        assert_eq!(alloc.allocate().get(), u64::MAX);
+        assert_eq!(alloc.allocate().get(), u64::MAX);
+    }
 }

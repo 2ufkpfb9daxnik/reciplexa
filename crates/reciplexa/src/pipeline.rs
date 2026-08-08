@@ -247,4 +247,56 @@ mod tests {
         let expanded = expand("(doc @title{Hi})").unwrap();
         assert!(expanded.contains("Hi"));
     }
+
+    #[test]
+    fn document_from_source_with_effects_in_src_only() {
+        let h = TestHandler::default();
+        let doc = document_from_source(
+            r#"(src (perform log "skip"))
+(page a4 (circle 1 2 3))"#,
+        )
+        .unwrap();
+        assert_eq!(doc.pages.len(), 1);
+        assert!(h.logs.is_empty());
+    }
+
+    #[test]
+    fn run_effects_unknown_op_uses_effect_stage() {
+        let expanded = expand(
+            r#"(src (perform draw "x"))
+(page a4 (circle 1 2 3))"#,
+        )
+        .unwrap();
+        let err = run_effects(&mut TestHandler::default(), &expanded).unwrap_err();
+        assert_eq!(err.stage, "effect");
+    }
+
+    #[test]
+    fn expand_empty_doc_still_parses() {
+        let expanded = expand("(doc)").unwrap();
+        assert!(expanded.contains("(page"));
+    }
+
+    #[test]
+    fn document_for_export_type_error() {
+        let err = document_for_export(&mut TestHandler::default(), "(page a4 (circle x 2 3))")
+            .unwrap_err();
+        assert_eq!(err.stage, "type");
+    }
+
+    #[test]
+    fn document_snapshot_failure_surfaces_document_stage() {
+        let err = document_from_source_with_snapshot("(page a4 (circle x 2 3))", true).unwrap_err();
+        assert_eq!(err.stage, "type");
+    }
+
+    #[test]
+    fn pipeline_error_from_effect_error() {
+        let e = EffectError {
+            message: "boom".into(),
+        };
+        let err = PipelineError::from(e);
+        assert_eq!(err.stage, "effect");
+        assert!(err.message.contains("boom"));
+    }
 }

@@ -249,8 +249,11 @@ mod tests {
 
     #[test]
     fn document_snapshot_rejects_bind_errors() {
-        let err = document_snapshot_from_source("(page a4 (circle 0 0 1 puce))", DocumentIdentity::new(7))
-            .unwrap_err();
+        let err = document_snapshot_from_source(
+            "(page a4 (circle 0 0 1 puce))",
+            DocumentIdentity::new(7),
+        )
+        .unwrap_err();
         assert!(!err.is_empty());
     }
 
@@ -259,5 +262,43 @@ mod tests {
         let scene = reciplexa_scene::Document { pages: vec![] };
         let err = document_snapshot_from_lowered(&scene).unwrap_err();
         assert!(err.contains("no pages"));
+    }
+
+    #[test]
+    fn provenance_hints_none_for_non_document_shapes() {
+        let src = "(page a4 (circle 1 2 3))";
+        let snap = document_snapshot_from_source(src, DocumentIdentity::new(8)).unwrap();
+        let scene = reciplexa_lower::lower_source(src).unwrap();
+        let hints = provenance_hints_for_scene(&scene, &snap);
+        assert_eq!(hints, vec![None]);
+    }
+
+    #[test]
+    fn provenance_hint_maps_byte_range_for_rect() {
+        let src = "(page a4 (rect 10 20 30 40))";
+        let snap = document_snapshot_from_source(src, DocumentIdentity::new(9)).unwrap();
+        let scene = reciplexa_lower::lower_source(src).unwrap();
+        let hints = provenance_hints_for_scene(&scene, &snap);
+        assert_eq!(hints.len(), 1);
+        let hint = hints[0].as_ref().unwrap();
+        assert!(hint.source_byte_end > hint.source_byte_start);
+    }
+
+    #[test]
+    fn provenance_hints_walk_group_and_opacity() {
+        let src = "(page a4 (group (opacity 0.5 (rect 1 2 3 4))))";
+        let snap = document_snapshot_from_source(src, DocumentIdentity::new(10)).unwrap();
+        let scene = reciplexa_lower::lower_source(src).unwrap();
+        let hints = provenance_hints_for_scene(&scene, &snap);
+        assert_eq!(hints.len(), 1);
+    }
+
+    #[test]
+    fn move_node_unknown_id_errors() {
+        let src = "(page a4 (rect 1 2 3 4))";
+        let mut snap = document_snapshot_from_source(src, DocumentIdentity::new(11)).unwrap();
+        let bogus = reciplexa_identity::document::StableNodeId::new(9999);
+        let err = move_node_in_snapshot(&mut snap, bogus, 1.0, 2.0).unwrap_err();
+        assert!(err.contains("layout") || err.contains("node"));
     }
 }

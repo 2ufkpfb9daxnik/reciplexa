@@ -4,8 +4,8 @@ use reciplexa_gui_runtime::{
     access_label, commit_reconcile, layer_rows, layer_tree_description, lifecycle_events,
     rebase_caret, reconcile, role_for_kind, AccessRole, DragPayload, DragSession, FocusState,
     GestureArena, GestureClaim, GestureKind, GuiDescription, GuiNodeKind, GuiRuntimeHost, ImeState,
-    InspectorModel, LifecycleEvent, NodeSelection, ReconcileError, ReconcileOp, Timeline,
-    TimeMs, TimelineTrack, VirtualWindow, WidgetState,
+    InspectorModel, LifecycleEvent, NodeSelection, ReconcileError, ReconcileOp, TimeMs, Timeline,
+    TimelineTrack, VirtualWindow, WidgetState,
 };
 use reciplexa_identity::document::StableNodeId;
 use reciplexa_identity::gui::WidgetKeyPath;
@@ -243,15 +243,9 @@ fn phase8_a11y_roles_and_labels() {
 fn phase8_inspector_and_layer_tree() {
     let mut sel = NodeSelection::default();
     sel.select_only(StableNodeId::new(5));
-    let rows = layer_rows(
-        &[(StableNodeId::new(5), "Rect".into())],
-        &sel,
-    );
+    let rows = layer_rows(&[(StableNodeId::new(5), "Rect".into())], &sel);
     assert!(rows[0].selected);
-    let desc = layer_tree_description(
-        &[(StableNodeId::new(1), "A".into())],
-        &sel,
-    );
+    let desc = layer_tree_description(&[(StableNodeId::new(1), "A".into())], &sel);
     assert!(!desc.roots.is_empty());
     let model = InspectorModel::for_selection(&sel, vec![("x".into(), "1".into())]);
     let idesc = model.description();

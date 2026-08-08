@@ -147,7 +147,10 @@ fn test_doc_insert_child_with_properties() {
         properties: vec![],
     });
     tx.into_transaction().apply(&mut snap).unwrap();
-    assert!(snap.nodes.iter().any(|n| matches!(n.kind, DocumentNodeKind::Page)));
+    assert!(snap
+        .nodes
+        .iter()
+        .any(|n| matches!(n.kind, DocumentNodeKind::Page)));
 }
 
 #[test]

@@ -143,7 +143,11 @@ mod tests {
         let result = commit_reconcile(&host.mounted, &good_desc, &bad);
         host.apply_reconcile(&good_desc, &bad, result);
         assert_eq!(host.description, good_desc);
-        assert!(host.mounted.get(&WidgetKeyPath::new().push_named("layer").push_index(0)).is_some()
-            || host.mounted.instances.len() == 1);
+        assert!(
+            host.mounted
+                .get(&WidgetKeyPath::new().push_named("layer").push_index(0))
+                .is_some()
+                || host.mounted.instances.len() == 1
+        );
     }
 }

@@ -249,12 +249,12 @@ mod tests {
                 .contains("render")
         );
         assert!(
-            fmt_export_error(ExportError::Planning(PlanningError::CapabilityMismatch(vec![
-                CapabilityMismatch {
+            fmt_export_error(ExportError::Planning(PlanningError::CapabilityMismatch(
+                vec![CapabilityMismatch {
                     feature: "text".into(),
                     required_by_profile: true,
-                }
-            ])))
+                }]
+            )))
             .contains("planning")
         );
         assert!(

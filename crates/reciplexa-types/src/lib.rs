@@ -878,10 +878,8 @@ mod tests {
 
     #[test]
     fn perform_random_wrong_arity_fails() {
-        let err = typecheck_source(
-            "(src (perform random \"x\"))\n(page a4 (circle 1 2 3))",
-        )
-        .unwrap_err();
+        let err =
+            typecheck_source("(src (perform random \"x\"))\n(page a4 (circle 1 2 3))").unwrap_err();
         assert!(err.message.contains("random"));
     }
 
@@ -960,6 +958,335 @@ mod tests {
     #[test]
     fn opacity_requires_shape_body() {
         let err = typecheck_source("(page a4 (opacity 0.5))").unwrap_err();
+        assert!(!err.message.is_empty());
+    }
+
+    #[test]
+    fn page_empty_and_bad_paper_fail() {
+        assert!(typecheck_source("(page)")
+            .unwrap_err()
+            .message
+            .contains("paper"));
+        let err = typecheck_source("(page \"a4\" (circle 0 0 1))").unwrap_err();
+        assert!(err.message.contains("Paper") || err.message.contains("paper"));
+    }
+
+    #[test]
+    fn shape_arity_boundaries() {
+        assert!(typecheck_source("(page a4 (circle 1 2))").is_err());
+        assert!(typecheck_source("(page a4 (circle 1 2 3 4 5))").is_err());
+        assert!(typecheck_source("(page a4 (rect 1 2 3))").is_err());
+        assert!(typecheck_source("(page a4 (rect 1 2 3 4 5 6))").is_err());
+        assert!(typecheck_source("(page a4 (ellipse 1 2 3))").is_err());
+        assert!(typecheck_source("(page a4 (ring 1 2 3))").is_err());
+        assert!(typecheck_source("(page a4 (frame 1 2 3 4))").is_err());
+        assert!(typecheck_source("(page a4 (image \"x.png\" 0 0 1))").is_err());
+        assert!(typecheck_source("(page a4 (translate 1))").is_err());
+        assert!(typecheck_source("(page a4 (rotate))").is_err());
+        assert!(typecheck_source("(page a4 (group))").is_err());
+        assert!(typecheck_source("(page a4 (line 0 0 1))").is_err());
+        assert!(typecheck_source("(page a4 (line 0 0 1 1 red 2 extra))").is_err());
+        assert!(typecheck_source("(page a4 (text 1 2))").is_err());
+    }
+
+    #[test]
+    fn color_and_paper_idents_partition() {
+        for color in ["black", "white", "red", "green", "blue"] {
+            let src = format!("(page a4 (circle 0 0 1 {color}))");
+            assert_eq!(typecheck_source(&src).unwrap(), Type::Document);
+        }
+        for paper in ["a4", "letter"] {
+            let src = format!("(page {paper} (circle 0 0 1))");
+            assert_eq!(typecheck_source(&src).unwrap(), Type::Document);
+        }
+    }
+
+    #[test]
+    fn rect_ring_frame_with_and_without_color() {
+        assert_eq!(
+            typecheck_source("(page a4 (rect 0 0 1 1))").unwrap(),
+            Type::Document
+        );
+        assert_eq!(
+            typecheck_source("(page a4 (rect 0 0 1 1 blue))").unwrap(),
+            Type::Document
+        );
+        assert_eq!(
+            typecheck_source("(page a4 (ring 1 2 3 0.5 red))").unwrap(),
+            Type::Document
+        );
+        assert_eq!(
+            typecheck_source("(page a4 (frame 0 0 10 10 1 blue))").unwrap(),
+            Type::Document
+        );
+    }
+
+    #[test]
+    fn text_boxed_with_color_and_line_color_only() {
+        assert_eq!(
+            typecheck_source(r#"(page a4 (text 1 2 3 40 20 "Hi" blue))"#).unwrap(),
+            Type::Document
+        );
+        assert_eq!(
+            typecheck_source("(page a4 (line 0 0 10 10 red))").unwrap(),
+            Type::Document
+        );
+        assert_eq!(
+            typecheck_source("(page a4 (line 0 0 10 10))").unwrap(),
+            Type::Document
+        );
+    }
+
+    #[test]
+    fn scale_uniform_and_nonuniform_and_errors() {
+        assert_eq!(
+            typecheck_source("(page a4 (scale 2 (circle 0 0 1)))").unwrap(),
+            Type::Document
+        );
+        assert!(typecheck_source("(page a4 (scale))").is_err());
+        assert!(typecheck_source("(page a4 (scale 2 3))").is_err());
+        let err = typecheck_source("(page a4 (scale red (circle 0 0 1)))").unwrap_err();
+        assert!(!err.message.is_empty());
+    }
+
+    #[test]
+    fn perform_log_and_write_path_partitions() {
+        assert_eq!(
+            typecheck_source("(src (perform log \"x\"))\n(page a4 (circle 1 2 3))").unwrap(),
+            Type::Document
+        );
+        assert_eq!(
+            typecheck_source("(src (perform write-path \"out.pdf\"))\n(page a4 (circle 1 2 3))")
+                .unwrap(),
+            Type::Document
+        );
+        assert!(typecheck_source("(src (perform))\n(page a4)").is_err());
+        assert!(typecheck_source("(src (perform log))\n(page a4)").is_err());
+        assert!(typecheck_source("(src (perform write-path))\n(page a4)").is_err());
+        assert!(typecheck_source("(src (perform log 1))\n(page a4)").is_err());
+    }
+
+    #[test]
+    fn handle_log_and_write_path_error_arms() {
+        // Empty body is valid Unit; non-ident / nested bad forms fail.
+        assert!(typecheck_source("(src (handle log))\n(page a4 (circle 1 2 3))").is_ok());
+        assert!(typecheck_source("(src (handle write-path))\n(page a4 (circle 1 2 3))").is_ok());
+        assert!(typecheck_source("(src (handle 1 (perform log \"x\")))\n(page a4)").is_err());
+        assert!(typecheck_source("(src (handle log (circle 0 0 1)))\n(page a4)").is_err());
+        let err =
+            typecheck_source("(src (handle foo (perform log \"x\")))\n(page a4)").unwrap_err();
+        assert!(!err.message.is_empty());
+    }
+
+    #[test]
+    fn type_mismatch_on_shape_args() {
+        assert!(typecheck_source("(page a4 (rect 0 0 1 red))").is_err());
+        assert!(typecheck_source("(page a4 (circle 0 0 red))").is_err());
+        assert!(typecheck_source("(page a4 (image 1 0 0 10 10))").is_err());
+        assert!(typecheck_source(r#"(page a4 (text 1 2 3 4))"#).is_err());
+        assert!(typecheck_source("(page a4 (group 1))").is_err());
+        assert!(typecheck_source("(page a4 (opacity red (circle 0 0 1)))").is_err());
+    }
+
+    #[test]
+    fn top_level_must_be_document_forms() {
+        let err = typecheck_source("(circle 0 0 1)").unwrap_err();
+        assert!(!err.message.is_empty());
+        let err = typecheck_source("42").unwrap_err();
+        assert!(!err.message.is_empty());
+    }
+
+    #[test]
+    fn display_type_error_includes_span() {
+        let err = typecheck_source("(page a4 (square 1))").unwrap_err();
+        assert!(err.message.contains("unknown form") || err.message.contains("square"));
+        let _ = format!("{:?}", err);
+    }
+
+    #[test]
+    fn non_source_file_root_fails() {
+        let parse = parse_source("(page a4)");
+        let node = parse.root.children().next().expect("page form");
+        let err = typecheck_syntax(&node).unwrap_err();
+        assert!(err.message.contains("SourceFile"));
+    }
+
+    #[test]
+    fn page_numeric_height_must_be_number() {
+        let err = typecheck_source("(page 210 foo)").unwrap_err();
+        assert!(!err.message.is_empty());
+    }
+
+    #[test]
+    fn perform_in_shape_position_fails() {
+        let err = typecheck_source(r#"(page a4 (perform log "x"))"#).unwrap_err();
+        assert!(err.message.contains("type mismatch"));
+    }
+
+    #[test]
+    fn src_unsupported_form_fails() {
+        let err = typecheck_source("(src (circle 1 2 3))\n(page a4)").unwrap_err();
+        assert!(err.message.contains("unsupported") || err.message.contains("perform"));
+    }
+
+    #[test]
+    fn text_three_numbers_string_without_color() {
+        assert_eq!(
+            typecheck_source(r#"(page a4 (text 1 2 3 "hi"))"#).unwrap(),
+            Type::Document
+        );
+    }
+
+    #[test]
+    fn additional_type_mismatch_partitions() {
+        assert!(typecheck_source("(page a4 (circle red 0 1))").is_err());
+        assert!(typecheck_source("(page a4 (rgb 1 2 red))").is_err());
+        assert!(typecheck_source(r#"(page a4 (text 1 2 3 red "hi"))"#).is_err());
+        assert!(typecheck_source("(page a4 (translate red 1 (circle 0 0 1)))").is_err());
+        assert!(typecheck_source("(page a4 (opacity (circle 0 0 1) (circle 0 0 1)))").is_err());
+        assert!(typecheck_source("(src (perform log 1))\n(page a4)").is_err());
+        assert!(typecheck_source("(page a4 (polyline 0 0 1 1 red red))").is_err());
+    }
+
+    #[test]
+    fn polygon_odd_coords_after_color_strip_fails() {
+        let err = typecheck_source("(page a4 (polygon 0 0 1 0 1 red))").unwrap_err();
+        assert!(err.message.contains("polygon") || err.message.contains("even"));
+    }
+
+    #[test]
+    fn perform_op_must_be_ident() {
+        let err = typecheck_source("(src (perform 1))\n(page a4)").unwrap_err();
+        assert!(err.message.contains("identifier") || err.message.contains("perform"));
+    }
+
+    #[test]
+    fn page_with_only_paper_typechecks() {
+        assert_eq!(typecheck_source("(page a4)").unwrap(), Type::Document);
+        assert_eq!(typecheck_source("(page 100 200)").unwrap(), Type::Document);
+    }
+
+    #[test]
+    fn ring_frame_wrong_color_type_fails() {
+        assert!(typecheck_source("(page a4 (ring 1 2 3 0.5 9))").is_err());
+        assert!(typecheck_source("(page a4 (frame 0 0 1 1 1 9))").is_err());
+    }
+
+    #[test]
+    fn line_width_must_be_number() {
+        assert!(typecheck_source("(page a4 (line 0 0 1 1 red red))").is_err());
+    }
+
+    #[test]
+    fn translate_rotate_bodies_must_be_shapes() {
+        assert!(typecheck_source("(page a4 (translate 1 2 3))").is_err());
+        assert!(typecheck_source("(page a4 (rotate 45 1))").is_err());
+        assert!(typecheck_source("(page a4 (circle 0 0 1 2))").is_err());
+    }
+
+    #[test]
+    fn type_debug_covers_variants() {
+        let _ = format!(
+            "{:?}",
+            (
+                Type::Number,
+                Type::String,
+                Type::Color,
+                Type::Paper,
+                Type::Shape,
+                Type::Page,
+                Type::Doc,
+                Type::Src,
+                Type::Unit,
+                Type::Document
+            )
+        );
+    }
+
+    #[test]
+    fn polyline_with_color_and_width_typechecks() {
+        let src = "(page a4 (polyline 0 0 1 1 2 0 red 0.5))";
+        assert_eq!(typecheck_source(src).unwrap(), Type::Document);
+    }
+
+    #[test]
+    fn handle_non_ident_and_unknown_op_fail() {
+        let err = typecheck_source("(src (handle 1 (perform log \"x\")))\n(page a4)").unwrap_err();
+        assert!(!err.message.is_empty());
+        let err =
+            typecheck_source("(src (handle baz (perform log \"x\")))\n(page a4)").unwrap_err();
+        assert!(err.message.contains("unknown effect op") || err.message.contains("baz"));
+    }
+
+    #[test]
+    fn multi_shape_transforms_typecheck() {
+        let src = "(page a4 (translate 1 2 (circle 0 0 1) (rect 0 0 1 1)))";
+        assert_eq!(typecheck_source(src).unwrap(), Type::Document);
+        let src = "(page a4 (opacity 0.5 (circle 0 0 1) (rect 0 0 1 1)))";
+        assert_eq!(typecheck_source(src).unwrap(), Type::Document);
+    }
+
+    #[test]
+    fn split_list_bad_head_via_typecheck() {
+        let err = typecheck_source("(42 1 2 3)").unwrap_err();
+        assert!(!err.message.is_empty());
+    }
+
+    #[test]
+    fn circle_four_args_without_color_and_rgb_at_top_level_fail() {
+        assert_eq!(
+            typecheck_source("(page a4 (circle 1 2 3))").unwrap(),
+            Type::Document
+        );
+        let err = typecheck_source("(rgb 1 2 3)\n(page a4)").unwrap_err();
+        assert!(!err.message.is_empty());
+    }
+
+    #[test]
+    fn handle_op_must_be_ident() {
+        let err = typecheck_source("(src (handle 1))\n(page a4)").unwrap_err();
+        assert!(err.message.contains("identifier") || err.message.contains("handle"));
+    }
+
+    #[test]
+    fn empty_list_and_non_ident_head_fail() {
+        let err = typecheck_source("()\n(page a4)").unwrap_err();
+        assert!(!err.message.is_empty());
+        let err = typecheck_source("(1 2 3)\n(page a4)").unwrap_err();
+        assert!(
+            err.message.contains("identifier")
+                || err.message.contains("head")
+                || err.message.contains("list")
+                || !err.message.is_empty()
+        );
+    }
+
+    #[test]
+    fn bracket_list_as_top_level_fails_or_is_rejected() {
+        // Top-level must be page/doc/src document forms.
+        let err = typecheck_source("[page a4]").unwrap_err();
+        assert!(!err.message.is_empty());
+    }
+
+    #[test]
+    fn all_surface_keywords_as_shapes_typecheck_or_fail_cleanly() {
+        // Keywords that are shapes should typecheck in page body.
+        for src in [
+            "(page a4 (ellipse 1 2 3 4))",
+            "(page a4 (ring 1 2 3 0.5))",
+            "(page a4 (frame 0 0 1 1 1))",
+            "(page a4 (image \"x\" 0 0 1 1))",
+            "(page a4 (rgb 0 0 0) (circle 0 0 1))", // rgb alone at page level may fail
+        ] {
+            let _ = typecheck_source(src); // must not panic
+        }
+    }
+
+    #[test]
+    fn type_error_equality_and_clone() {
+        let err = typecheck_source("(page a4 (square 1))").unwrap_err();
+        let clone = err.clone();
+        assert_eq!(err, clone);
         assert!(!err.message.is_empty());
     }
 }

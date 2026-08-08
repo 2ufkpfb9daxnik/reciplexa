@@ -31,70 +31,70 @@ pub fn document_to_pptx(doc: &Document) -> Result<Vec<u8>, String> {
 /// Write PPTX zip bytes to `out` (used by tests to inject I/O failures mid-stream).
 pub fn document_to_pptx_write(doc: &Document, out: &mut (impl Write + Seek)) -> Result<(), String> {
     let mut zip = ZipWriter::new(out);
-        let opts = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
+    let opts = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
 
-        zip.start_file("[Content_Types].xml", opts)
-            .map_err(|e| e.to_string())?;
-        zip.write_all(content_types(doc.pages.len()).as_bytes())
-            .map_err(|e| e.to_string())?;
+    zip.start_file("[Content_Types].xml", opts)
+        .map_err(|e| e.to_string())?;
+    zip.write_all(content_types(doc.pages.len()).as_bytes())
+        .map_err(|e| e.to_string())?;
 
-        zip.start_file("_rels/.rels", opts)
-            .map_err(|e| e.to_string())?;
-        zip.write_all(ROOT_RELS.as_bytes())
-            .map_err(|e| e.to_string())?;
+    zip.start_file("_rels/.rels", opts)
+        .map_err(|e| e.to_string())?;
+    zip.write_all(ROOT_RELS.as_bytes())
+        .map_err(|e| e.to_string())?;
 
-        zip.start_file("ppt/presentation.xml", opts)
-            .map_err(|e| e.to_string())?;
-        zip.write_all(presentation_xml(doc).as_bytes())
-            .map_err(|e| e.to_string())?;
+    zip.start_file("ppt/presentation.xml", opts)
+        .map_err(|e| e.to_string())?;
+    zip.write_all(presentation_xml(doc).as_bytes())
+        .map_err(|e| e.to_string())?;
 
-        zip.start_file("ppt/_rels/presentation.xml.rels", opts)
-            .map_err(|e| e.to_string())?;
-        zip.write_all(presentation_rels(doc.pages.len()).as_bytes())
-            .map_err(|e| e.to_string())?;
+    zip.start_file("ppt/_rels/presentation.xml.rels", opts)
+        .map_err(|e| e.to_string())?;
+    zip.write_all(presentation_rels(doc.pages.len()).as_bytes())
+        .map_err(|e| e.to_string())?;
 
-        zip.start_file("ppt/slideLayouts/slideLayout1.xml", opts)
-            .map_err(|e| e.to_string())?;
-        zip.write_all(SLIDE_LAYOUT.as_bytes())
-            .map_err(|e| e.to_string())?;
+    zip.start_file("ppt/slideLayouts/slideLayout1.xml", opts)
+        .map_err(|e| e.to_string())?;
+    zip.write_all(SLIDE_LAYOUT.as_bytes())
+        .map_err(|e| e.to_string())?;
 
-        zip.start_file("ppt/slideLayouts/_rels/slideLayout1.xml.rels", opts)
-            .map_err(|e| e.to_string())?;
-        zip.write_all(SLIDE_LAYOUT_RELS.as_bytes())
-            .map_err(|e| e.to_string())?;
+    zip.start_file("ppt/slideLayouts/_rels/slideLayout1.xml.rels", opts)
+        .map_err(|e| e.to_string())?;
+    zip.write_all(SLIDE_LAYOUT_RELS.as_bytes())
+        .map_err(|e| e.to_string())?;
 
-        zip.start_file("ppt/slideMasters/slideMaster1.xml", opts)
-            .map_err(|e| e.to_string())?;
-        zip.write_all(SLIDE_MASTER.as_bytes())
-            .map_err(|e| e.to_string())?;
+    zip.start_file("ppt/slideMasters/slideMaster1.xml", opts)
+        .map_err(|e| e.to_string())?;
+    zip.write_all(SLIDE_MASTER.as_bytes())
+        .map_err(|e| e.to_string())?;
 
-        zip.start_file("ppt/slideMasters/_rels/slideMaster1.xml.rels", opts)
-            .map_err(|e| e.to_string())?;
-        zip.write_all(SLIDE_MASTER_RELS.as_bytes())
-            .map_err(|e| e.to_string())?;
+    zip.start_file("ppt/slideMasters/_rels/slideMaster1.xml.rels", opts)
+        .map_err(|e| e.to_string())?;
+    zip.write_all(SLIDE_MASTER_RELS.as_bytes())
+        .map_err(|e| e.to_string())?;
 
-        zip.start_file("ppt/theme/theme1.xml", opts)
-            .map_err(|e| e.to_string())?;
-        zip.write_all(THEME.as_bytes()).map_err(|e| e.to_string())?;
+    zip.start_file("ppt/theme/theme1.xml", opts)
+        .map_err(|e| e.to_string())?;
+    zip.write_all(THEME.as_bytes()).map_err(|e| e.to_string())?;
 
-        for i in 0..doc.pages.len() {
-            let xml = slide_xml(doc, i)?;
-            let name = format!("ppt/slides/slide{}.xml", i + 1);
-            zip.start_file(&name, opts).map_err(|e| e.to_string())?;
-            zip.write_all(xml.as_bytes()).map_err(|e| e.to_string())?;
+    for i in 0..doc.pages.len() {
+        let xml = slide_xml(doc, i)?;
+        let name = format!("ppt/slides/slide{}.xml", i + 1);
+        zip.start_file(&name, opts).map_err(|e| e.to_string())?;
+        zip.write_all(xml.as_bytes()).map_err(|e| e.to_string())?;
 
-            let rels = r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        let rels = r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
   <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout1.xml"/>
 </Relationships>"#
                 .to_string();
-            let rels_name = format!("ppt/slides/_rels/slide{}.xml.rels", i + 1);
-            zip.start_file(&rels_name, opts)
-                .map_err(|e| e.to_string())?;
-            zip.write_all(rels.as_bytes()).map_err(|e| e.to_string())?;
-        }
+        let rels_name = format!("ppt/slides/_rels/slide{}.xml.rels", i + 1);
+        zip.start_file(&rels_name, opts)
+            .map_err(|e| e.to_string())?;
+        zip.write_all(rels.as_bytes()).map_err(|e| e.to_string())?;
+    }
 
-        zip.finish().map_err(|e| e.to_string())?;
+    zip.finish().map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -855,6 +855,80 @@ mod tests {
         }
         let doc = Document::single_page(a4_page(vec![]));
         assert!(write_document(&doc, FailWrite).is_err());
+        let mut w = FailWrite;
+        assert!(std::io::Write::flush(&mut w).is_ok());
+    }
+
+    #[test]
+    fn xml_escape_covers_all_special_chars() {
+        assert_eq!(xml_escape("a>b"), "a&gt;b");
+        assert_eq!(xml_escape("it's"), "it&apos;s");
+        assert_eq!(xml_escape("a&b<c\"d'"), "a&amp;b&lt;c&quot;d&apos;");
+    }
+
+    #[test]
+    fn shape_xml_circle_with_stroke_emits_line() {
+        use reciplexa_view::{WorldCircle, WorldShape};
+        let shape = WorldShape::Circle(WorldCircle {
+            x_mm: 30.0,
+            y_mm: 30.0,
+            radius_mm: 10.0,
+            color: Color::RED,
+            stroke_width_mm: Some(0.5),
+            alpha: 1.0,
+        });
+        let xml = shape_xml(&shape, 2, 297.0).unwrap();
+        assert!(xml.contains("<a:ln w="));
+        assert!(xml.contains("FF0000"));
+    }
+
+    #[test]
+    fn shape_xml_polygon_stroke_branch() {
+        use reciplexa_view::{WorldPolygon, WorldShape};
+        let shape = WorldShape::Polygon(WorldPolygon {
+            points_mm: vec![(0.0, 0.0), (20.0, 0.0), (10.0, 20.0)],
+            color: Color::BLUE,
+            stroke_width_mm: Some(0.3),
+            alpha: 1.0,
+        });
+        let xml = shape_xml(&shape, 3, 297.0).unwrap();
+        assert!(xml.contains("<a:noFill/>"));
+        assert!(xml.contains("<a:ln w="));
+    }
+
+    #[test]
+    fn opaque_solid_fill_has_no_alpha_element() {
+        let fill = solid_fill(Color::GREEN, 1.0);
+        assert!(fill.contains("00FF00"));
+        assert!(!fill.contains("<a:alpha"));
+    }
+
+    #[test]
+    fn plain_text_shape_emits_txbody() {
+        let doc = Document::single_page(a4_page(vec![Shape::Text(Text {
+            x_mm: 20.0,
+            y_mm: 200.0,
+            size_mm: 8.0,
+            width_mm: None,
+            height_mm: None,
+            content: "Plain".into(),
+            fill: Color::BLACK,
+        })]));
+        let slide = slide_xml_from_zip(&document_to_pptx(&doc).unwrap(), 1);
+        assert!(slide.contains("<a:t>Plain</a:t>"));
+        assert!(slide.contains("txBox=\"1\""));
+    }
+
+    #[test]
+    fn three_slides_update_presentation_rels() {
+        let page = a4_page(vec![]);
+        let doc = Document {
+            pages: vec![page.clone(), page.clone(), page],
+        };
+        let bytes = document_to_pptx(&doc).unwrap();
+        let text = String::from_utf8_lossy(&bytes);
+        assert!(text.contains("slide3.xml"));
+        assert!(text.contains("rId4"));
     }
 
     #[test]
@@ -889,5 +963,6 @@ mod tests {
             limit: 64,
         };
         assert!(super::document_to_pptx_write(&doc, &mut buf).is_err());
+        assert!(std::io::Write::flush(&mut buf).is_ok());
     }
 }

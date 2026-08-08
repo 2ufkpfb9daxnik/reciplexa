@@ -63,4 +63,29 @@ mod tests {
         assert!(TypeId::new(1).is_valid());
         assert!(ConstructorId::new(2).is_valid());
     }
+
+    #[test]
+    fn type_id_boundaries_and_display() {
+        assert!(!TypeId::INVALID.is_valid());
+        assert_eq!(TypeId::INVALID.get(), 0);
+        assert_eq!(TypeId::new(0).get(), 0);
+        assert!(!TypeId::new(0).is_valid());
+        assert!(TypeId::new(1).is_valid());
+        assert!(TypeId::new(u64::MAX / 2).is_valid());
+        assert!(TypeId::new(u64::MAX).is_valid());
+        assert_eq!(TypeId::new(42).to_string(), "type:42");
+        assert!(TypeId::new(1) < TypeId::new(2));
+        assert_eq!(format!("{:?}", TypeId::new(7)), "TypeId(7)");
+    }
+
+    #[test]
+    fn constructor_id_boundaries_and_display() {
+        assert!(!ConstructorId::INVALID.is_valid());
+        assert_eq!(ConstructorId::INVALID.get(), 0);
+        assert!(!ConstructorId::new(0).is_valid());
+        assert!(ConstructorId::new(1).is_valid());
+        assert!(ConstructorId::new(u64::MAX).is_valid());
+        assert_eq!(ConstructorId::new(9).to_string(), "constructor:9");
+        assert!(ConstructorId::new(1) < ConstructorId::new(2));
+    }
 }

@@ -136,4 +136,53 @@ mod tests {
     fn revision_increments() {
         assert_eq!(DocumentRevision::ZERO.next().get(), 1);
     }
+
+    #[test]
+    fn document_identity_boundaries_and_display() {
+        assert!(!DocumentIdentity::INVALID.is_valid());
+        assert_eq!(DocumentIdentity::INVALID.get(), 0);
+        assert!(!DocumentIdentity::new(0).is_valid());
+        assert!(DocumentIdentity::new(1).is_valid());
+        assert!(DocumentIdentity::new(u128::MAX).is_valid());
+        assert_eq!(DocumentIdentity::new(11).to_string(), "document:11");
+        assert!(DocumentIdentity::new(1) < DocumentIdentity::new(2));
+    }
+
+    #[test]
+    fn revision_boundaries_and_display() {
+        assert!(DocumentRevision::ZERO.is_zero());
+        assert!(!DocumentRevision::new(1).is_zero());
+        assert_eq!(DocumentRevision::new(0).get(), 0);
+        assert_eq!(DocumentRevision::default().get(), 0);
+        assert_eq!(DocumentRevision::new(u64::MAX).next().get(), u64::MAX);
+        assert_eq!(DocumentRevision::new(4).to_string(), "rev:4");
+        assert!(DocumentRevision::new(1) < DocumentRevision::new(2));
+    }
+
+    #[test]
+    fn stable_node_id_boundaries_and_display() {
+        assert!(!StableNodeId::INVALID.is_valid());
+        assert_eq!(StableNodeId::INVALID.get(), 0);
+        assert!(!StableNodeId::new(0).is_valid());
+        assert!(StableNodeId::new(1).is_valid());
+        assert!(StableNodeId::new(u64::MAX).is_valid());
+        assert_eq!(StableNodeId::new(6).to_string(), "node:6");
+    }
+
+    #[test]
+    fn stable_node_allocator_peek_ensure_and_saturate() {
+        let mut alloc = StableNodeIdAllocator::default();
+        assert_eq!(alloc.peek_next().get(), 0);
+        let mut alloc = StableNodeIdAllocator::new();
+        assert_eq!(alloc.peek_next().get(), 1);
+        assert_eq!(alloc.allocate().get(), 1);
+        alloc.ensure_next_above(1); // next already 2 > 1: no-op
+        assert_eq!(alloc.peek_next().get(), 2);
+        alloc.ensure_next_above(10);
+        assert_eq!(alloc.peek_next().get(), 11);
+        alloc.ensure_next_above(u64::MAX);
+        assert_eq!(alloc.peek_next().get(), u64::MAX);
+        assert_eq!(alloc.allocate().get(), u64::MAX);
+        assert_eq!(alloc.allocate().get(), u64::MAX);
+    }
 }

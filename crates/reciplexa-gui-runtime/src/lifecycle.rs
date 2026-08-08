@@ -9,9 +9,17 @@ use crate::state::MountedTree;
 /// Lifecycle events emitted when applying a reconcile plan.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum LifecycleEvent {
-    Mounted { key: WidgetKeyPath, kind: GuiNodeKind },
-    Updated { key: WidgetKeyPath, kind: GuiNodeKind },
-    Unmounted { key: WidgetKeyPath },
+    Mounted {
+        key: WidgetKeyPath,
+        kind: GuiNodeKind,
+    },
+    Updated {
+        key: WidgetKeyPath,
+        kind: GuiNodeKind,
+    },
+    Unmounted {
+        key: WidgetKeyPath,
+    },
 }
 
 /// Apply reconciliation behind a commit barrier.
@@ -214,7 +222,9 @@ mod tests {
         ]);
         let result = reconcile(&prev, &old, &new).unwrap();
         let events = lifecycle_events(&old, &new, &result);
-        assert!(!events.iter().any(|e| matches!(e, LifecycleEvent::Unmounted { .. })));
+        assert!(!events
+            .iter()
+            .any(|e| matches!(e, LifecycleEvent::Unmounted { .. })));
         let move_count = result
             .plan
             .ops

@@ -248,7 +248,10 @@ mod tests {
             arg: Box::new(CoreExpr::Lit(CoreLiteral::Number(2.0))),
         };
         let prog = lower_core_linear(&expr);
-        assert!(prog.instrs.iter().any(|i| matches!(i, MemInstr::Call { .. })));
+        assert!(prog
+            .instrs
+            .iter()
+            .any(|i| matches!(i, MemInstr::Call { .. })));
     }
 
     #[test]
@@ -281,10 +284,13 @@ mod tests {
     #[test]
     fn lowers_empty_seq_to_unit() {
         let prog = lower_core_linear(&CoreExpr::Seq(vec![]));
-        assert!(prog
-            .instrs
-            .iter()
-            .any(|i| matches!(i, MemInstr::Lit { lit: MemLiteral::Unit, .. })));
+        assert!(prog.instrs.iter().any(|i| matches!(
+            i,
+            MemInstr::Lit {
+                lit: MemLiteral::Unit,
+                ..
+            }
+        )));
     }
 
     #[test]
@@ -305,7 +311,10 @@ mod tests {
             ],
         };
         let prog = lower_core_linear(&expr);
-        assert!(prog.instrs.iter().any(|i| matches!(i, MemInstr::Dup { .. })));
+        assert!(prog
+            .instrs
+            .iter()
+            .any(|i| matches!(i, MemInstr::Dup { .. })));
     }
 
     #[test]

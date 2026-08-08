@@ -146,4 +146,35 @@ mod tests {
         a.extend(b);
         assert_eq!(a.len(), 2);
     }
+
+    #[test]
+    fn collector_counts_and_push_with_origin() {
+        let mut c = DiagnosticCollector::new();
+        assert!(c.is_empty());
+        assert_eq!(c.len(), 0);
+        c.push_with_origin(
+            DiagnosticCode::new("compiler", "syntax", "SYN-0003"),
+            DiagnosticSeverity::Warning,
+            DiagnosticCategory::Syntax,
+            DiagnosticLifecycleStage::Parse,
+            DiagnosticMessage::new("warn"),
+            DiagnosticOrigin::Unknown,
+        );
+        assert_eq!(c.len(), 1);
+        assert_eq!(c.warning_count(), 1);
+        assert_eq!(c.error_count(), 0);
+        assert!(!c.has_errors());
+        c.push(
+            DiagnosticCode::new("compiler", "syntax", "SYN-0004"),
+            DiagnosticSeverity::Fatal,
+            DiagnosticCategory::Syntax,
+            DiagnosticLifecycleStage::Parse,
+            DiagnosticMessage::new("fatal"),
+        );
+        assert_eq!(c.error_count(), 1);
+        assert!(c.has_errors());
+        assert_eq!(c.diagnostics().len(), 2);
+        let all = c.into_diagnostics();
+        assert_eq!(all.len(), 2);
+    }
 }

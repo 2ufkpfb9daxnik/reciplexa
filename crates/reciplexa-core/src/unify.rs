@@ -271,7 +271,9 @@ mod tests {
         let a = CoreType::Fun {
             args: vec![],
             ret: Box::new(CoreType::Unit),
-            effects: EffectRow { ops: vec!["log".into()] },
+            effects: EffectRow {
+                ops: vec!["log".into()],
+            },
         };
         let b = CoreType::Fun {
             args: vec![],

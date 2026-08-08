@@ -62,10 +62,7 @@ pub fn parse_rpxm(src: &str) -> Result<PackageManifest, RpxmError> {
                     let ver = tokens[i + 3].clone();
                     let mut path = None;
                     let mut j = i + 4;
-                    if j + 3 < tokens.len()
-                        && tokens[j] == "("
-                        && tokens[j + 1] == "path"
-                    {
+                    if j + 3 < tokens.len() && tokens[j] == "(" && tokens[j + 1] == "path" {
                         path = Some(tokens[j + 2].clone());
                         j += 4;
                     }
@@ -252,12 +249,19 @@ mod tests {
         .unwrap();
         assert_eq!(
             m.targets,
-            vec!["document".to_string(), "slide".to_string(), "preview".to_string()]
+            vec![
+                "document".to_string(),
+                "slide".to_string(),
+                "preview".to_string()
+            ]
         );
     }
 
     #[test]
     fn rejects_unclosed_string_syntax() {
-        assert!(matches!(parse_rpxm(r#"(name "broken)"#), Err(RpxmError::Syntax(_))));
+        assert!(matches!(
+            parse_rpxm(r#"(name "broken)"#),
+            Err(RpxmError::Syntax(_))
+        ));
     }
 }

@@ -3,9 +3,9 @@
 use reciplexa_codec::{
     atomic_write, compact_after_save, decode_envelope, decode_segment, decode_snapshot,
     encode_segment, encode_snapshot, migrate_snapshot, partial_recover, recover_from_journal,
-    write_journal, LogError, MigrationError, PartialRecoveryError,
-    RecoveryError, RevisionUndoLog, TransactionLogSegment, RecoveryPaths, ResourceEntry,
-    ResourceManifest, SCHEMA_VERSION, CodecError,
+    write_journal, CodecError, LogError, MigrationError, PartialRecoveryError, RecoveryError,
+    RecoveryPaths, ResourceEntry, ResourceManifest, RevisionUndoLog, TransactionLogSegment,
+    SCHEMA_VERSION,
 };
 use reciplexa_document::node::DocumentNodeKind;
 use reciplexa_document::snapshot::DocumentSnapshot;
@@ -175,10 +175,7 @@ fn phase9_partial_recovery_unusable_bytes() {
 #[test]
 fn phase9_txnlog_already_closed_and_empty_commit() {
     let mut seg = TransactionLogSegment::open(1);
-    assert!(matches!(
-        seg.commit().unwrap_err(),
-        LogError::EmptyCommit
-    ));
+    assert!(matches!(seg.commit().unwrap_err(), LogError::EmptyCommit));
     seg.append(b"a".to_vec()).unwrap();
     seg.commit().unwrap();
     assert!(matches!(
@@ -314,6 +311,9 @@ fn phase9_atomic_write_overwrite() {
 fn phase9_parse_unknown_kind_as_document() {
     let json = r#"{"schema_version":1,"document_id":1,"revision":0,"nodes":[{"id":1,"kind":"Weird","parent":null,"children":[]}]}"#;
     let snap = decode_snapshot(json.as_bytes()).unwrap();
-    let node = snap.nodes.get(reciplexa_identity::document::StableNodeId::new(1)).unwrap();
+    let node = snap
+        .nodes
+        .get(reciplexa_identity::document::StableNodeId::new(1))
+        .unwrap();
     assert_eq!(node.kind, DocumentNodeKind::Document);
 }

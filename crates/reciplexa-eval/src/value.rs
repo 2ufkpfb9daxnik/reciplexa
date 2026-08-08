@@ -85,7 +85,10 @@ mod tests {
         assert_eq!(RuntimeValue::Unit.to_string(), "unit");
         assert_eq!(RuntimeValue::Number(3.5).to_string(), "3.5");
         assert_eq!(RuntimeValue::String("hi".into()).to_string(), "\"hi\"");
-        assert_eq!(RuntimeValue::ShapeTag("circle".into()).to_string(), "shape:circle");
+        assert_eq!(
+            RuntimeValue::ShapeTag("circle".into()).to_string(),
+            "shape:circle"
+        );
         assert_eq!(
             RuntimeValue::Closure {
                 param: "x".into(),

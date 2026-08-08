@@ -372,10 +372,7 @@ mod tests {
             return_reg: Reg(0),
         };
         let mut trace = RcTrace::default();
-        assert_eq!(
-            exec_linear(&prog, &mut trace).unwrap(),
-            RuntimeValue::Unit
-        );
+        assert_eq!(exec_linear(&prog, &mut trace).unwrap(), RuntimeValue::Unit);
     }
 
     #[test]
@@ -455,9 +452,7 @@ mod tests {
                 MemInstr::RegisterCleanup {
                     label: "scope".into(),
                 },
-                MemInstr::Raise {
-                    tag: "fail".into(),
-                },
+                MemInstr::Raise { tag: "fail".into() },
             ],
             return_reg: Reg(0),
         };
@@ -611,12 +606,8 @@ mod tests {
     fn exec_run_cleanup_drains_labels() {
         let prog = LinearProgram {
             instrs: vec![
-                MemInstr::RegisterCleanup {
-                    label: "a".into(),
-                },
-                MemInstr::RegisterCleanup {
-                    label: "b".into(),
-                },
+                MemInstr::RegisterCleanup { label: "a".into() },
+                MemInstr::RegisterCleanup { label: "b".into() },
                 MemInstr::RunCleanup,
                 MemInstr::Lit {
                     dst: Reg(0),

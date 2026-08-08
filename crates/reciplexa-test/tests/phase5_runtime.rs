@@ -141,10 +141,7 @@ fn root_scope_shutdown_with_cleanup() {
 fn lowered_ir_resume_then_return() {
     let mut interp = Interpreter::new();
     interp.register_continuation(ContinuationId(3));
-    let ops = vec![
-        LoweredOp::Resume { cont: 3 },
-        LoweredOp::Return,
-    ];
+    let ops = vec![LoweredOp::Resume { cont: 3 }, LoweredOp::Return];
     assert!(interp.run(&ops).is_ok());
 }
 

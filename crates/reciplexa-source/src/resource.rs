@@ -163,8 +163,9 @@ mod tests {
 
     #[test]
     fn shebang_without_bom_is_ok() {
-        let src = SourceResource::from_utf8(SourceResourceId::new(2), "#!/usr/bin/env rpx\n(page a4)")
-            .unwrap();
+        let src =
+            SourceResource::from_utf8(SourceResourceId::new(2), "#!/usr/bin/env rpx\n(page a4)")
+                .unwrap();
         assert!(src.has_shebang());
         assert!(!src.has_bom());
     }

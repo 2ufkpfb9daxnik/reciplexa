@@ -223,4 +223,153 @@ mod tests {
         prefs.apply_prefs_text("zoom=99\n");
         assert!((prefs.zoom - 8.0).abs() < 1e-4);
     }
+
+    #[test]
+    fn ui_theme_label_toggle_and_partitions() {
+        assert_eq!(UiTheme::Light.label(), "Light");
+        assert_eq!(UiTheme::Dark.label(), "Dark");
+        assert_eq!(UiTheme::Light.toggle(), UiTheme::Dark);
+        assert_eq!(UiTheme::Dark.toggle(), UiTheme::Light);
+    }
+
+    #[test]
+    fn prefs_boolean_equivalence_and_legacy_dark() {
+        let mut prefs = GuiPrefs::default_prefs();
+        prefs.apply_prefs_text(
+            "grid=true\npane_source=on\npane_layers=false\nfloat_layers=1\nfloat_props=true\n",
+        );
+        assert!(prefs.show_grid);
+        assert!(prefs.show_source);
+        assert!(!prefs.show_layers);
+        assert!(prefs.float_layers);
+        assert!(prefs.float_props);
+
+        let mut prefs = GuiPrefs::default_prefs();
+        prefs.apply_prefs_text("DARK\n");
+        assert_eq!(prefs.theme, UiTheme::Dark);
+
+        let mut prefs = GuiPrefs::default_prefs();
+        prefs.apply_prefs_text("theme=LIGHT\nzoom=0.01\nzoom=not-a-number\npan_x=abc\npan_y=\n");
+        assert_eq!(prefs.theme, UiTheme::Light);
+        assert!((prefs.zoom - 0.2).abs() < 1e-4);
+        assert_eq!(prefs.pan_x, 0.0);
+    }
+
+    #[test]
+    fn prefs_roundtrip_via_apply_of_save_format() {
+        let mut prefs = GuiPrefs::default_prefs();
+        prefs.theme = UiTheme::Dark;
+        prefs.show_grid = true;
+        prefs.zoom = 3.5;
+        prefs.pan_x = -1.25;
+        prefs.pan_y = 4.5;
+        prefs.show_source = false;
+        prefs.float_props = true;
+        let body = format!(
+            "theme={}\ngrid={}\nzoom={:.4}\npan_x={:.2}\npan_y={:.2}\npane_source={}\npane_layers={}\npane_preview={}\npane_props={}\nfloat_source={}\nfloat_layers={}\nfloat_preview={}\nfloat_props={}\n",
+            "dark",
+            "1",
+            prefs.zoom.clamp(0.2, 8.0),
+            prefs.pan_x,
+            prefs.pan_y,
+            "0",
+            "1",
+            "1",
+            "1",
+            "0",
+            "0",
+            "0",
+            "1",
+        );
+        let mut loaded = GuiPrefs::default_prefs();
+        loaded.apply_prefs_text(&body);
+        assert_eq!(loaded.theme, UiTheme::Dark);
+        assert!(loaded.show_grid);
+        assert!((loaded.zoom - 3.5).abs() < 1e-3);
+        assert!(!loaded.show_source);
+        assert!(loaded.float_props);
+    }
+
+    #[test]
+    fn prefs_save_load_roundtrip_via_temp_config_home() {
+        let dir = std::env::temp_dir().join(format!("reciplexa-prefs-test-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let prev_local = env::var_os("LOCALAPPDATA");
+        let prev_xdg = env::var_os("XDG_CONFIG_HOME");
+        let prev_home = env::var_os("HOME");
+        unsafe {
+            env::set_var("LOCALAPPDATA", &dir);
+            env::remove_var("XDG_CONFIG_HOME");
+            env::remove_var("HOME");
+        }
+
+        let mut prefs = GuiPrefs::default_prefs();
+        prefs.theme = UiTheme::Dark;
+        prefs.show_grid = true;
+        prefs.zoom = 2.0;
+        prefs.pan_x = 1.5;
+        prefs.pan_y = -2.5;
+        prefs.show_source = false;
+        prefs.float_layers = true;
+        prefs.save();
+
+        let loaded = GuiPrefs::load();
+        assert_eq!(loaded.theme, UiTheme::Dark);
+        assert!(loaded.show_grid);
+        assert!((loaded.zoom - 2.0).abs() < 1e-3);
+        assert!((loaded.pan_x - 1.5).abs() < 1e-3);
+        assert!(!loaded.show_source);
+        assert!(loaded.float_layers);
+
+        UiTheme::Light.save_prefs();
+        assert_eq!(GuiPrefs::load().theme, UiTheme::Light);
+
+        unsafe {
+            match prev_local {
+                Some(v) => env::set_var("LOCALAPPDATA", v),
+                None => env::remove_var("LOCALAPPDATA"),
+            }
+            match prev_xdg {
+                Some(v) => env::set_var("XDG_CONFIG_HOME", v),
+                None => env::remove_var("XDG_CONFIG_HOME"),
+            }
+            match prev_home {
+                Some(v) => env::set_var("HOME", v),
+                None => env::remove_var("HOME"),
+            }
+        }
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn prefs_load_missing_file_returns_defaults() {
+        let dir =
+            std::env::temp_dir().join(format!("reciplexa-prefs-missing-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let prev = env::var_os("LOCALAPPDATA");
+        unsafe {
+            env::set_var("LOCALAPPDATA", &dir);
+        }
+        let prefs = GuiPrefs::load();
+        assert_eq!(prefs.theme, UiTheme::Light);
+        assert!((prefs.zoom - 1.0).abs() < 1e-6);
+        unsafe {
+            match prev {
+                Some(v) => env::set_var("LOCALAPPDATA", v),
+                None => env::remove_var("LOCALAPPDATA"),
+            }
+        }
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn apply_ui_theme_light_and_dark() {
+        let ctx = egui::Context::default();
+        apply_ui_theme(&ctx, UiTheme::Light);
+        assert!(!ctx.style().visuals.dark_mode);
+        apply_ui_theme(&ctx, UiTheme::Dark);
+        assert!(ctx.style().visuals.dark_mode);
+    }
 }

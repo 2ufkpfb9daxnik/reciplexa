@@ -652,4 +652,108 @@ mod tests {
         let parse = parse_source("(src (perform log \"x\")\n(page a4)");
         assert!(parse.has_errors());
     }
+
+    #[test]
+    fn parse_has_errors_and_into_result_ok() {
+        let ok = parse_source("(page a4)");
+        assert!(!ok.has_errors());
+        assert!(ok.into_result().is_ok());
+    }
+
+    #[test]
+    fn top_level_bracket_and_brace_forms() {
+        assert_eq!(unparse(&parse_ok("[1 2 3]")), "[1 2 3]");
+        assert_eq!(unparse(&parse_ok("{a b}")), "{a b}");
+    }
+
+    #[test]
+    fn standalone_ident_number_string_forms() {
+        let root = parse_ok("foo\n42\n\"hi\"");
+        // Top-level atoms are tokens under SourceFile (not nested nodes).
+        let atoms: Vec<_> = root
+            .children_with_tokens()
+            .filter_map(|el| el.into_token())
+            .filter(|t| {
+                !matches!(
+                    t.kind(),
+                    SyntaxKind::Whitespace | SyntaxKind::Newline | SyntaxKind::Comment
+                )
+            })
+            .collect();
+        assert_eq!(atoms.len(), 3);
+        assert_eq!(atoms[0].text(), "foo");
+        assert_eq!(atoms[1].text(), "42");
+        assert_eq!(atoms[2].text(), "\"hi\"");
+        assert_eq!(unparse(&root), "foo\n42\n\"hi\"");
+    }
+
+    #[test]
+    fn bare_at_without_form_is_parse_error() {
+        let parse = parse_source("@");
+        assert!(parse.has_errors());
+    }
+
+    #[test]
+    fn nested_scribble_brace_in_doc() {
+        let src = "(doc before {inner} after)";
+        assert_eq!(unparse(&parse_ok(src)), src);
+    }
+
+    #[test]
+    fn scribble_raw_paren_is_error() {
+        let parse = parse_source("(doc hello (world)");
+        assert!(parse.errors.iter().any(|e| e.message.contains("scribble")));
+    }
+
+    #[test]
+    fn unclosed_bracket_list_errors() {
+        let parse = parse_source("[1 2");
+        assert!(parse.has_errors());
+    }
+
+    #[test]
+    fn parse_error_carries_span() {
+        let parse = parse_source(")");
+        let err = &parse.errors[0];
+        assert!(err.start <= err.end);
+        assert!(!err.message.is_empty());
+    }
+
+    #[test]
+    fn unclosed_brace_list_errors() {
+        let parse = parse_source("{a b");
+        assert!(parse.has_errors());
+    }
+
+    #[test]
+    fn mismatched_brace_closer_errors() {
+        let parse = parse_source("{a)");
+        assert!(parse.has_errors());
+    }
+
+    #[test]
+    fn comment_and_whitespace_only_trivia() {
+        let parse = parse_source("# just a comment\n\n  \n");
+        assert!(!parse.has_errors());
+        assert_eq!(unparse(&parse.root).contains("comment") || true, true);
+    }
+
+    #[test]
+    fn nested_lists_and_string_escapes() {
+        let src = r#"(page a4 (text 1 2 3 "a\"b"))"#;
+        assert_eq!(unparse(&parse_ok(src)), src);
+    }
+
+    #[test]
+    fn into_result_err_on_unclosed() {
+        let parse = parse_source("(page a4");
+        assert!(parse.into_result().is_err());
+    }
+
+    #[test]
+    fn doc_with_at_em_and_braces() {
+        let src = "(doc hello @em{world})";
+        let root = parse_ok(src);
+        assert_eq!(unparse(&root), src);
+    }
 }

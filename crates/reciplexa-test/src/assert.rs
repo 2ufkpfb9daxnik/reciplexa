@@ -53,4 +53,37 @@ mod tests {
     fn structured_eq_fails_for_different_values() {
         assert_eq_structured(&1, &2);
     }
+
+    #[test]
+    fn structured_diff_display_formats_path() {
+        let diff = StructuredDiff {
+            path: "root.field".into(),
+            expected: "1".into(),
+            actual: "2".into(),
+        };
+        let text = diff.to_string();
+        assert!(text.contains("root.field"));
+        assert!(text.contains("expected 1"));
+        assert!(text.contains("got 2"));
+    }
+
+    #[test]
+    fn assert_diagnostic_codes_matches_in_order() {
+        assert_diagnostic_codes(
+            &["a/b/c".to_string(), "x/y/z".to_string()],
+            &["a/b/c", "x/y/z"],
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "diagnostic count mismatch")]
+    fn assert_diagnostic_codes_count_mismatch_panics() {
+        assert_diagnostic_codes(&["only".to_string()], &["a", "b"]);
+    }
+
+    #[test]
+    #[should_panic(expected = "assertion `left == right` failed")]
+    fn assert_diagnostic_codes_value_mismatch_panics() {
+        assert_diagnostic_codes(&["a/b/c".to_string()], &["x/y/z"]);
+    }
 }

@@ -220,4 +220,56 @@ mod tests {
         let err = cmd_parse("/nonexistent/rpx_file.rpx", false).unwrap_err();
         assert!(err.contains("read"));
     }
+
+    #[test]
+    fn parse_invalid_json_mode_emits_json_diagnostics() {
+        let dir = std::env::temp_dir().join("rpx_cli_test");
+        let _ = std::fs::create_dir_all(&dir);
+        let path = dir.join("bad_json.rpx");
+        std::fs::write(&path, "(page a4").unwrap();
+        let err = cmd_parse(path.to_str().unwrap(), true).unwrap_err();
+        assert!(err.contains("parse error"));
+    }
+
+    #[test]
+    fn inspect_syntax_reports_errors_for_broken_file() {
+        let dir = std::env::temp_dir().join("rpx_cli_test");
+        let _ = std::fs::create_dir_all(&dir);
+        let path = dir.join("bad_inspect.rpx");
+        std::fs::write(&path, "(unclosed").unwrap();
+        let err = cmd_inspect_syntax(path.to_str().unwrap()).unwrap_err();
+        assert!(err.contains("parse error"));
+    }
+
+    #[test]
+    fn format_roundtrip_writes_to_stdout() {
+        let dir = std::env::temp_dir().join("rpx_cli_test");
+        let _ = std::fs::create_dir_all(&dir);
+        let path = dir.join("fmt_ok.rpx");
+        std::fs::write(&path, "(page a4 (circle 1 2 3))\n").unwrap();
+        cmd_format(path.to_str().unwrap()).expect("format ok");
+    }
+
+    #[test]
+    fn json_string_escapes_control_chars() {
+        assert_eq!(json_string("a\rb"), "\"a\\rb\"");
+        assert_eq!(json_string("a\tb"), "\"a\\tb\"");
+        assert_eq!(json_string("\u{0001}"), "\"\\u0001\"");
+    }
+
+    #[test]
+    fn parse_invalid_utf8_errors() {
+        let dir = std::env::temp_dir().join("rpx_cli_test");
+        let _ = std::fs::create_dir_all(&dir);
+        let path = dir.join("bad_utf8.rpx");
+        std::fs::write(&path, &[0xff, 0xfe, 0x00]).unwrap();
+        let err = cmd_parse(path.to_str().unwrap(), false).unwrap_err();
+        assert!(err.contains("decode") || err.contains("read"));
+    }
+
+    #[test]
+    fn inspect_document_missing_file_errors() {
+        let err = cmd_inspect_document("/nonexistent/missing.rpx").unwrap_err();
+        assert!(err.contains("read"));
+    }
 }

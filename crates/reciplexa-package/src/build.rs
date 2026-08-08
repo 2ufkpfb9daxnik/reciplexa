@@ -60,8 +60,7 @@ impl BuildGraph {
 
     /// Deterministic topological order (sorted ids, Kahn).
     pub fn topo_order(&self) -> Vec<BuildNodeId> {
-        let mut indeg: BTreeMap<&BuildNodeId, usize> =
-            self.nodes.keys().map(|k| (k, 0)).collect();
+        let mut indeg: BTreeMap<&BuildNodeId, usize> = self.nodes.keys().map(|k| (k, 0)).collect();
         for n in self.nodes.values() {
             for d in &n.deps {
                 if let Some(e) = indeg.get_mut(d) {
@@ -72,11 +71,8 @@ impl BuildGraph {
         }
         // Recompute: for each node, indegree = number of deps present in graph
         for (id, n) in &self.nodes {
-            *indeg.get_mut(id).unwrap() = n
-                .deps
-                .iter()
-                .filter(|d| self.nodes.contains_key(d))
-                .count();
+            *indeg.get_mut(id).unwrap() =
+                n.deps.iter().filter(|d| self.nodes.contains_key(d)).count();
         }
         let mut ready: BTreeSet<BuildNodeId> = indeg
             .iter()
@@ -100,7 +96,11 @@ impl BuildGraph {
         out
     }
 
-    pub fn invalidate(&self, changed: &BuildNodeId, kind: InvalidationKind) -> BTreeSet<BuildNodeId> {
+    pub fn invalidate(
+        &self,
+        changed: &BuildNodeId,
+        kind: InvalidationKind,
+    ) -> BTreeSet<BuildNodeId> {
         let mut out = BTreeSet::new();
         out.insert(changed.clone());
         if kind == InvalidationKind::Contract {
@@ -262,7 +262,9 @@ mod tests {
             targets: vec![],
         };
         let diags = diagnose_manifest(&m);
-        assert!(diags.iter().any(|d| d.code == "PKG002" && d.package == Some("app".into())));
+        assert!(diags
+            .iter()
+            .any(|d| d.code == "PKG002" && d.package == Some("app".into())));
     }
 
     #[test]

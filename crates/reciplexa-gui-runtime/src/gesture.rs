@@ -45,9 +45,7 @@ impl GestureArena {
             .iter()
             .enumerate()
             .max_by(|(i, a), (j, b)| {
-                a.priority
-                    .cmp(&b.priority)
-                    .then_with(|| j.cmp(i)) // earlier claim wins on tie
+                a.priority.cmp(&b.priority).then_with(|| j.cmp(i)) // earlier claim wins on tie
             })
             .map(|(_, c)| c.clone());
     }

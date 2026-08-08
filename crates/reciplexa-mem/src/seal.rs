@@ -126,6 +126,9 @@ mod tests {
             return_reg: Reg(4),
         };
         let sealed = seal_before_return(prog);
-        assert!(sealed.instrs.iter().any(|i| matches!(i, MemInstr::Drop { .. })));
+        assert!(sealed
+            .instrs
+            .iter()
+            .any(|i| matches!(i, MemInstr::Drop { .. })));
     }
 }

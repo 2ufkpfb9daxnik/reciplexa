@@ -74,7 +74,9 @@ mod tests {
     fn effect_row_default_is_empty() {
         let row = EffectRow::default();
         assert!(row.ops.is_empty());
-        let row2 = EffectRow { ops: vec!["log".into()] };
+        let row2 = EffectRow {
+            ops: vec!["log".into()],
+        };
         assert_ne!(row, row2);
     }
 

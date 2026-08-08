@@ -15,7 +15,9 @@ impl NodeSelection {
     }
 
     pub fn ids(&self) -> impl Iterator<Item = StableNodeId> + '_ {
-        self.primary.into_iter().chain(self.additional.iter().copied())
+        self.primary
+            .into_iter()
+            .chain(self.additional.iter().copied())
     }
 
     pub fn clear(&mut self) {

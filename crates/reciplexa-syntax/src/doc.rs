@@ -362,4 +362,53 @@ mod tests {
         let part = DocPart::Text("x".into());
         assert!(format!("{part:?}").contains("Text"));
     }
+
+    #[test]
+    fn non_list_node_errors() {
+        let root = parse_source("(doc hi)").into_result().unwrap();
+        let err = doc_parts(&root).unwrap_err();
+        assert!(err.message.contains("List"));
+    }
+
+    #[test]
+    fn wrong_head_errors() {
+        let list = doc_list("(page a4)");
+        let err = doc_parts(&list).unwrap_err();
+        assert!(err.message.contains("doc"));
+    }
+
+    #[test]
+    fn error_node_in_body_errors() {
+        let parse = parse_source("(doc @em{hi)");
+        let list = parse.root.children().next().unwrap();
+        assert!(doc_parts(&list).is_err());
+    }
+
+    #[test]
+    fn nested_brace_list_at_top_level() {
+        let parts = doc_parts(&doc_list("(doc {nested})")).unwrap();
+        assert_eq!(flatten_readable(&parts), "nested");
+    }
+
+    #[test]
+    fn flatten_lines_skips_empty_lines() {
+        let parts = vec![
+            DocPart::Text("  ".into()),
+            DocPart::Newline,
+            DocPart::Text("ok".into()),
+        ];
+        assert_eq!(flatten_lines(&parts), vec!["ok"]);
+    }
+
+    #[test]
+    fn at_with_only_bracket_args() {
+        let parts = doc_parts(&doc_list("(doc prefix @unknown[args-only])")).unwrap();
+        assert_eq!(flatten_readable(&parts), "prefix args-only");
+    }
+
+    #[test]
+    fn doc_walk_error_debug() {
+        let err = DocWalkError::new("msg");
+        assert!(format!("{err:?}").contains("msg"));
+    }
 }

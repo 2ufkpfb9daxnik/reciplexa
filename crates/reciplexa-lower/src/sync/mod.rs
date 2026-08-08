@@ -631,4 +631,243 @@ mod tests {
         assert!(out.contains("(translate 12 23 (rotate 30 (translate -10 -20"));
         assert!(out.contains("(circle 10 20 5)"));
     }
+
+    #[test]
+    fn collect_all_drag_and_size_target_kinds() {
+        let src = r#"(page a4
+  (ring 1 2 3 0.5)
+  (frame 0 0 10 20 1)
+  (ellipse 5 6 7 8)
+  (polyline 0 0 10 0 10 10)
+  (polygon 0 0 10 0 0 10)
+  (image "a.png" 1 2 30 40)
+  (scale 2 3 (rect 1 2 3 4)))"#;
+        let drag = collect_drag_targets_page(src, 0).unwrap();
+        assert_eq!(drag.len(), 7);
+        assert!(drag.contains(&DragTarget::RingXy(0)));
+        assert!(drag.contains(&DragTarget::FrameXy(0)));
+        assert!(drag.contains(&DragTarget::EllipseXy(0)));
+        assert!(drag.contains(&DragTarget::PolylineXy(0)));
+        assert!(drag.contains(&DragTarget::PolygonXy(0)));
+        assert!(drag.contains(&DragTarget::ImageXy(0)));
+        assert!(drag.contains(&DragTarget::RectXy(0)));
+
+        let sizes = collect_size_targets_page(src, 0).unwrap();
+        assert_eq!(
+            sizes,
+            vec![
+                SizeTarget::RingR(0),
+                SizeTarget::FrameWh(0),
+                SizeTarget::EllipseRxRy(0),
+                SizeTarget::PolylinePoints(0),
+                SizeTarget::PolygonPoints(0),
+                SizeTarget::ImageWh(0),
+                SizeTarget::RectWh(0),
+            ]
+        );
+    }
+
+    #[test]
+    fn inherited_translate_binds_all_leaf_kinds() {
+        let src = "(page a4 (translate 1 2 (ring 0 0 3 0.5) (frame 0 0 1 1 1)))";
+        let t = collect_drag_targets_page(src, 0).unwrap();
+        assert_eq!(t, vec![DragTarget::Translate(0), DragTarget::Translate(0)]);
+    }
+
+    #[test]
+    fn nudge_layer_zero_delta_is_noop() {
+        let src = "(page a4 (circle 1 2 3))";
+        let out = nudge_layer_page(src, 0, 0, 0.0, 0.0).unwrap();
+        assert_eq!(out, src);
+    }
+
+    #[test]
+    fn nudge_layer_opacity_wrapped_translate() {
+        let src = "(page a4 (opacity 0.5 (translate 1 2 (circle 0 0 3))))";
+        let out = nudge_layer_page(src, 0, 0, 5.0, 0.0).unwrap();
+        assert!(out.contains("(translate 6 2 (circle 0 0 3))"), "{out}");
+    }
+
+    #[test]
+    fn scale_uniform_identity_is_noop() {
+        let src = "(page a4 (circle 1 2 3))";
+        assert_eq!(scale_layer_uniform(src, 0, 0, 1.0).unwrap(), src);
+    }
+
+    #[test]
+    fn scale_unsupported_target_is_noop() {
+        let src = "(page a4 (circle 1 2 3))";
+        assert_eq!(
+            scale_size_target(src, SizeTarget::Unsupported, 2.0).unwrap(),
+            src
+        );
+    }
+
+    #[test]
+    fn scale_ring_and_frame_and_image() {
+        let src = "(page a4 (ring 10 20 5 1) (frame 0 0 10 20 1) (image \"x.png\" 1 2 40 30))";
+        let out = scale_size_target(src, SizeTarget::RingR(0), 2.0).unwrap();
+        assert!(out.contains("(ring 10 20 10 1)"), "{out}");
+        let out = scale_size_target(&out, SizeTarget::FrameWh(0), 0.5).unwrap();
+        assert!(out.contains("(frame 2.5 5 5 10 1)"), "{out}");
+        let out = scale_size_target(&out, SizeTarget::ImageWh(0), 2.0).unwrap();
+        assert!(out.contains("80"), "{out}");
+    }
+
+    #[test]
+    fn set_polygon_vertex() {
+        let src = "(page a4 (polygon 0 0 10 0 0 10))";
+        let out = set_poly_vertex(src, "polygon", 0, 2, 1.0, 2.0).unwrap();
+        assert!(out.contains("(polygon 0 0 10 0 1 2)"), "{out}");
+    }
+
+    #[test]
+    fn set_box_and_text_validation_errors() {
+        let src = "(page a4 (rect 1 2 3 4))";
+        assert!(set_box_xywh(src, "rect", 0, [1, 2, 3, 4], f64::NAN, 1.0, 2.0, 3.0).is_err());
+        assert!(set_box_xywh(src, "rect", 0, [1, 2, 3, 4], 0.0, 0.0, 0.0, 1.0).is_err());
+        assert!(set_text_box(src, 0, 0.0, 0.0, -1.0, 2.0).is_err());
+        assert!(set_line_endpoint(src, 0, 2, 1.0, 1.0).is_err());
+        assert!(set_poly_vertex(src, "circle", 0, 0, 1.0, 1.0).is_err());
+    }
+
+    #[test]
+    fn layer_index_errors() {
+        let src = "(page a4 (circle 1 2 3))";
+        assert!(nudge_layer_page(src, 0, 9, 1.0, 0.0).is_err());
+        assert!(layer_opacity(src, 0, 9).is_err());
+        assert!(set_layer_opacity(src, 0, 9, 0.5).is_err());
+        assert!(layer_rotation_deg(src, 0, 9).is_err());
+        assert!(delete_layer_page(src, 0, 9).is_err());
+    }
+
+    #[test]
+    fn bad_opacity_form_errors() {
+        let src = "(page a4 (opacity (circle 1 2 3)))";
+        assert!(layer_opacity(src, 0, 0).is_err());
+    }
+
+    #[test]
+    fn layer_labels_for_text_and_image() {
+        let src = r#"(page a4 (text 1 2 3 "hello world") (image "dir/pic.png" 0 0 1 1))"#;
+        let layers = collect_layers_page(src, 0).unwrap();
+        assert_eq!(layers[0].label, "text \"hello world\"");
+        assert_eq!(layers[1].label, "image pic.png");
+    }
+
+    #[test]
+    fn reorder_same_index_is_noop() {
+        let src = "(page a4 (circle 1 2 3) (rect 0 0 1 1))";
+        assert_eq!(reorder_layer_page(src, 0, 1, 1).unwrap(), src);
+    }
+
+    #[test]
+    fn duplicate_leaf_inside_shared_translate() {
+        let src = "(page a4 (translate 0 0 (circle 1 2 3) (rect 0 0 1 1)))";
+        let out = duplicate_layer_page(src, 0, 0).unwrap();
+        assert_eq!(collect_layers_page(&out, 0).unwrap().len(), 3);
+    }
+
+    #[test]
+    fn group_needs_two_layers_and_contiguous_roots() {
+        let src = "(page a4 (circle 1 2 3))";
+        assert!(group_layers_page(src, 0, &[0])
+            .unwrap_err()
+            .message
+            .contains("two"));
+        let src2 = "(page a4 (circle 1 2 3) (rect 0 0 1 1) (ellipse 1 1 2 2))";
+        assert!(group_layers_page(src2, 0, &[0, 0])
+            .unwrap_err()
+            .message
+            .contains("two"));
+    }
+
+    #[test]
+    fn ungroup_non_group_errors() {
+        let src = "(page a4 (circle 1 2 3))";
+        assert!(ungroup_layer_page(src, 0, 0)
+            .unwrap_err()
+            .message
+            .contains("group"));
+    }
+
+    #[test]
+    fn insert_layer_rejects_bad_form() {
+        let src = "(page a4)";
+        assert!(insert_layer_page(src, 0, "not a list").is_err());
+        assert!(insert_layer_page(src, 0, "").is_err());
+    }
+
+    #[test]
+    fn insert_page_into_empty_source() {
+        let (out, idx) = insert_page_after("", None, "(page a4)").unwrap();
+        assert_eq!(idx, 0);
+        assert_eq!(out.trim(), "(page a4)");
+    }
+
+    #[test]
+    fn insert_page_after_last_and_before_first() {
+        let src = "(page a4)\n(page letter)";
+        let (out, idx) = insert_page_after(src, Some(1), "(page 100 150)").unwrap();
+        assert_eq!(idx, 2);
+        assert!(out.contains("(page 100 150)"));
+        let (out2, idx2) = insert_page_after(src, None, "(page a4)").unwrap();
+        assert_eq!(idx2, 0);
+        assert!(out2.starts_with("(page a4)"));
+    }
+
+    #[test]
+    fn delete_page_out_of_range_errors() {
+        let src = "(page a4)\n(page letter)";
+        assert!(delete_page(src, 9).unwrap_err().message.contains("range"));
+    }
+
+    #[test]
+    fn page_body_start_numeric_paper() {
+        use super::pages::{find_page, page_body_start};
+        use crate::cst_walk::{list_atoms, Child};
+        let root = parse_root("(page 100 150 (circle 1 2 3))").unwrap();
+        let page = find_page(&root, 0).unwrap();
+        let items = list_atoms(&page);
+        assert_eq!(page_body_start(&items), 3);
+        assert!(matches!(items.get(3), Some(Child::Node(_))));
+    }
+
+    #[test]
+    fn sync_error_and_extent_helpers() {
+        let err = SyncError::new("test");
+        assert_eq!(err.message, "test");
+        let src = "  \n  (circle 1 2 3)";
+        let circle_start = src.find("(circle").unwrap();
+        let (s, e) = extent_with_leading_ws(src, circle_start, src.len());
+        assert!(s < circle_start);
+        assert_eq!(e, src.len());
+        let root = parse_root("(translate 1 2 (circle 0 0 1))").unwrap();
+        let translate = root
+            .descendants()
+            .find(|n| is_headed(n, "translate"))
+            .unwrap();
+        assert!(is_headed(&translate, "translate"));
+    }
+
+    #[test]
+    fn set_rotation_non_finite_errors() {
+        let src = "(page a4 (circle 1 2 3))";
+        assert!(set_layer_rotation_deg(src, 0, 0, f64::NAN, (1.0, 2.0)).is_err());
+        assert!(set_layer_opacity(src, 0, 0, f64::INFINITY).is_err());
+    }
+
+    #[test]
+    fn polyline_without_trailing_width_still_scales() {
+        let src = "(page a4 (polyline 0 0 10 0 10 10))";
+        let out = scale_size_target(src, SizeTarget::PolylinePoints(0), 2.0).unwrap();
+        assert!(!out.contains("(polyline 0 0 10 0 10 10)"), "{out}");
+    }
+
+    #[test]
+    fn scale_axes_circle_uses_max_factor() {
+        let src = "(page a4 (circle 10 20 5))";
+        let out = scale_size_target_axes(src, SizeTarget::CircleR(0), 1.0, 3.0).unwrap();
+        assert!(out.contains("(circle 10 20 15)"), "{out}");
+    }
 }

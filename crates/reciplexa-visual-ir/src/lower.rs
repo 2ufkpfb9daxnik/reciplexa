@@ -407,7 +407,10 @@ mod tests {
             })],
         });
         let (render, _) = lower_scene_document(&doc);
-        assert!(matches!(render.pages[0].nodes[0], RenderNode::Circle { .. }));
+        assert!(matches!(
+            render.pages[0].nodes[0],
+            RenderNode::Circle { .. }
+        ));
     }
 
     #[test]
@@ -471,9 +474,15 @@ mod tests {
             })],
         });
         let domain = scene_to_domain(&doc, &LowerOptions::with_ellipse_sides(32));
-        assert!(matches!(domain.pages[0].nodes[0], DomainNode::Polygon { .. }));
+        assert!(matches!(
+            domain.pages[0].nodes[0],
+            DomainNode::Polygon { .. }
+        ));
         let (render, _) = layout_to_render(&layout_identity(&domain));
-        assert!(matches!(render.pages[0].nodes[0], RenderNode::Polygon { .. }));
+        assert!(matches!(
+            render.pages[0].nodes[0],
+            RenderNode::Polygon { .. }
+        ));
     }
 
     #[test]
@@ -508,7 +517,10 @@ mod tests {
             }],
         });
         let domain = scene_to_domain(&doc, &LowerOptions::with_ellipse_sides(32));
-        assert!(matches!(domain.pages[0].nodes[0], DomainNode::Polygon { .. }));
+        assert!(matches!(
+            domain.pages[0].nodes[0],
+            DomainNode::Polygon { .. }
+        ));
     }
 
     #[test]
@@ -521,7 +533,10 @@ mod tests {
             })],
         });
         let domain = scene_to_domain(&doc, &LowerOptions::with_ellipse_sides(32));
-        assert!(matches!(domain.pages[0].nodes[0], DomainNode::Polygon { .. }));
+        assert!(matches!(
+            domain.pages[0].nodes[0],
+            DomainNode::Polygon { .. }
+        ));
     }
 
     #[test]
@@ -537,7 +552,10 @@ mod tests {
             })],
         });
         let domain = scene_to_domain(&doc, &LowerOptions::with_ellipse_sides(32));
-        assert!(matches!(domain.pages[0].nodes[0], DomainNode::Polygon { .. }));
+        assert!(matches!(
+            domain.pages[0].nodes[0],
+            DomainNode::Polygon { .. }
+        ));
     }
 
     #[test]

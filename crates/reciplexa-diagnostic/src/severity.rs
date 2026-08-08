@@ -41,4 +41,25 @@ mod tests {
         assert!(DiagnosticSeverity::Error.is_error_or_worse());
         assert!(!DiagnosticSeverity::Warning.is_error_or_worse());
     }
+
+    #[test]
+    fn severity_partitions_and_display() {
+        assert!(DiagnosticSeverity::Fatal.is_error_or_worse());
+        assert!(DiagnosticSeverity::Error.is_error_or_worse());
+        for s in [
+            DiagnosticSeverity::Warning,
+            DiagnosticSeverity::Notice,
+            DiagnosticSeverity::Info,
+            DiagnosticSeverity::Hint,
+        ] {
+            assert!(!s.is_error_or_worse());
+        }
+        assert_eq!(DiagnosticSeverity::Fatal.to_string(), "fatal");
+        assert_eq!(DiagnosticSeverity::Error.to_string(), "error");
+        assert_eq!(DiagnosticSeverity::Warning.to_string(), "warning");
+        assert_eq!(DiagnosticSeverity::Notice.to_string(), "notice");
+        assert_eq!(DiagnosticSeverity::Info.to_string(), "info");
+        assert_eq!(DiagnosticSeverity::Hint.to_string(), "hint");
+        assert!(DiagnosticSeverity::Fatal < DiagnosticSeverity::Hint);
+    }
 }

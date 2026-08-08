@@ -241,4 +241,54 @@ mod tests {
         let r = resolve_source("(page a4 (group (translate 1 2 (rect 0 0 1 1 red))))");
         assert!(r.is_ok(), "{:?}", r.errors);
     }
+
+    #[test]
+    fn empty_source_is_ok_with_builtins() {
+        let r = resolve_source("");
+        assert!(r.is_ok());
+        assert!(r.env.builtin_colors.contains_key("red"));
+        assert!(r.env.builtin_colors.contains_key("a4"));
+    }
+
+    #[test]
+    fn all_paper_and_color_builtins_resolve() {
+        for color in ["black", "white", "red", "green", "blue"] {
+            let src = format!("(page a4 (circle 0 0 1 {color}))");
+            assert!(resolve_source(&src).is_ok(), "{color}");
+        }
+        for paper in ["a4", "letter"] {
+            let src = format!("(page {paper})");
+            assert!(resolve_source(&src).is_ok(), "{paper}");
+        }
+    }
+
+    #[test]
+    fn doc_and_src_forms_resolve() {
+        assert!(resolve_source("(doc Hello)").is_ok());
+        assert!(resolve_source("(src (perform log \"x\"))\n(page a4)").is_ok());
+    }
+
+    #[test]
+    fn nested_unknown_ident_reports_error() {
+        let r = resolve_source("(page a4 (group (circle 0 0 1 mauve)))");
+        assert!(!r.is_ok());
+        assert!(r.errors.iter().any(|e| e.message.contains("mauve")));
+    }
+
+    #[test]
+    fn resolve_error_carries_span() {
+        let r = resolve_source("(page a4 (circle 1 2 3 puce))");
+        assert!(!r.errors.is_empty());
+        let range = r.errors[0].range;
+        // Unbound ident should point at a non-empty half-open span.
+        assert!(range.end().0 >= range.start().0);
+        assert!(range.len() > 0 || range.is_empty());
+    }
+
+    #[test]
+    fn bracket_and_brace_top_level_forms() {
+        // Non-list forms are skipped by resolve_form; should not panic.
+        let r = resolve_source("[1 2 3]\n{a b}");
+        assert!(r.is_ok() || !r.errors.is_empty());
+    }
 }

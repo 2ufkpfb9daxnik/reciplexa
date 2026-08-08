@@ -74,4 +74,51 @@ mod tests {
         assert!(line.contains("error"));
         assert!(line.contains("SYN-0001"));
     }
+
+    #[test]
+    fn renders_unknown_origin_and_multiple_lines() {
+        let index = LineIndex::new("x");
+        let diag = Diagnostic::new(
+            DiagnosticId::new(2),
+            DiagnosticCode::new("compiler", "internal", "INT-0001"),
+            DiagnosticSeverity::Warning,
+            DiagnosticCategory::Internal,
+            DiagnosticLifecycleStage::Verify,
+            DiagnosticMessage::new("no.origin"),
+        );
+        let line = render_diagnostic_line(&index, &diag);
+        assert!(line.starts_with("-:"));
+        let multi = render_diagnostics(
+            &index,
+            &[
+                diag.clone(),
+                Diagnostic::new(
+                    DiagnosticId::new(3),
+                    DiagnosticCode::new("compiler", "internal", "INT-0002"),
+                    DiagnosticSeverity::Hint,
+                    DiagnosticCategory::Internal,
+                    DiagnosticLifecycleStage::Test,
+                    DiagnosticMessage::new("second"),
+                ),
+            ],
+        );
+        assert!(multi.contains('\n'));
+        assert!(multi.contains("INT-0002"));
+    }
+
+    #[test]
+    fn renders_source_unknown_origin_branch() {
+        let index = LineIndex::new("x");
+        let diag = Diagnostic::new(
+            DiagnosticId::new(4),
+            DiagnosticCode::new("compiler", "internal", "INT-0003"),
+            DiagnosticSeverity::Info,
+            DiagnosticCategory::Internal,
+            DiagnosticLifecycleStage::Test,
+            DiagnosticMessage::new("unknown.origin"),
+        )
+        .with_primary_origin(DiagnosticOrigin::Unknown);
+        let line = render_diagnostic_line(&index, &diag);
+        assert!(line.starts_with("-:"));
+    }
 }

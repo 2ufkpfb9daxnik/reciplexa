@@ -220,7 +220,9 @@ mod tests {
         use crate::emit::emit_svg_from_plan;
         use crate::plan::{plan_svg, Representation};
         use reciplexa_scene::Circle;
-        use reciplexa_visual_ir::{lower_scene_document_with_options, validate_render_document, LowerOptions};
+        use reciplexa_visual_ir::{
+            lower_scene_document_with_options, validate_render_document, LowerOptions,
+        };
 
         let doc = Document::single_page(Page {
             paper: PaperSize::a4(),

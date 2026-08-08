@@ -310,4 +310,72 @@ mod tests {
         b2.set_layout(StableNodeId::new(1), LayoutBox::new(0.0, 0.0, 1.0, 1.0));
         assert!(!b2.is_empty());
     }
+
+    #[test]
+    fn set_text_and_remove_node_succeed() {
+        let mut snap = DocumentSnapshot::new(DocumentIdentity::new(1));
+        let root = snap.nodes.root_id().unwrap();
+        let text = snap
+            .nodes
+            .insert_child(root, DocumentNodeKind::Text)
+            .unwrap();
+        let mut tx = TransactionBuilder::new();
+        tx.set_text(text, "hello");
+        assert_eq!(
+            tx.into_transaction().apply(&mut snap).unwrap(),
+            TransactionOutcome::Applied
+        );
+        assert_eq!(
+            snap.nodes
+                .get(text)
+                .unwrap()
+                .text()
+                .map(|t| t.text.as_str()),
+            Some("hello")
+        );
+
+        let mut tx = TransactionBuilder::new();
+        tx.push(DocumentEdit::RemoveNode { node: text });
+        tx.into_transaction().apply(&mut snap).unwrap();
+        assert!(snap.nodes.get(text).is_none());
+    }
+
+    #[test]
+    fn insert_child_and_set_property_roundtrip() {
+        let mut snap = DocumentSnapshot::new(DocumentIdentity::new(1));
+        let root = snap.nodes.root_id().unwrap();
+        let mut tx = TransactionBuilder::new();
+        tx.push(DocumentEdit::InsertChild {
+            parent: root,
+            kind: DocumentNodeKind::Rectangle,
+            properties: vec![],
+        });
+        let outcome = tx.into_transaction().apply(&mut snap).unwrap();
+        assert!(matches!(
+            outcome,
+            TransactionOutcome::Applied | TransactionOutcome::AppliedNoChange
+        ));
+        assert!(snap.nodes.root_id().is_some());
+    }
+
+    #[test]
+    fn move_unknown_node_fails() {
+        let mut snap = DocumentSnapshot::new(DocumentIdentity::new(1));
+        let root = snap.nodes.root_id().unwrap();
+        let mut tx = TransactionBuilder::new();
+        tx.push(DocumentEdit::MoveNode {
+            node: StableNodeId::new(9999),
+            parent: root,
+            index: 0,
+        });
+        assert!(tx.into_transaction().apply(&mut snap).is_err());
+    }
+
+    #[test]
+    fn transaction_error_debug_covers_variants() {
+        let _ = format!("{:?}", TransactionError::EmptyBatch);
+        let _ = format!("{:?}", TransactionError::UnknownNode(StableNodeId::new(1)));
+        let _ = format!("{:?}", TransactionOutcome::Applied);
+        let _ = format!("{:?}", TransactionOutcome::AppliedNoChange);
+    }
 }

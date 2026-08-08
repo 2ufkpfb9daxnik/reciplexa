@@ -65,4 +65,25 @@ mod tests {
         let code = DiagnosticCode::new("compiler", "type", "TYPE-0012");
         assert_eq!(code.as_path(), "compiler/type/TYPE-0012");
     }
+
+    #[test]
+    fn diagnostic_id_boundaries_and_display() {
+        assert_eq!(DiagnosticId::INVALID.get(), 0);
+        assert_eq!(DiagnosticId::new(0).get(), 0);
+        assert_eq!(DiagnosticId::new(1).get(), 1);
+        assert_eq!(DiagnosticId::new(u64::MAX).get(), u64::MAX);
+        assert_eq!(DiagnosticId::new(42).to_string(), "diag:42");
+        assert!(DiagnosticId::new(1) < DiagnosticId::new(2));
+        assert_eq!(format!("{:?}", DiagnosticId::new(3)), "DiagnosticId(3)");
+    }
+
+    #[test]
+    fn diagnostic_code_empty_and_display() {
+        let empty = DiagnosticCode::new("", "", "");
+        assert_eq!(empty.as_path(), "//");
+        assert_eq!(empty.to_string(), "//");
+        let mid = DiagnosticCode::new("ns", "cat", "CODE");
+        assert_eq!(mid.to_string(), "ns/cat/CODE");
+        assert_eq!(mid, DiagnosticCode::new("ns", "cat", "CODE"));
+    }
 }

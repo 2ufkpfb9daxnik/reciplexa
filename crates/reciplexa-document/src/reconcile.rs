@@ -40,4 +40,16 @@ mod tests {
         g.leave();
         assert!(g.enter());
     }
+
+    #[test]
+    fn leave_saturates_and_is_active_tracks_depth() {
+        let mut g = ReconcileGuard::new();
+        assert!(!g.is_active());
+        assert!(g.enter());
+        assert!(g.is_active());
+        g.leave();
+        g.leave();
+        assert!(!g.is_active());
+        assert!(g.enter());
+    }
 }

@@ -202,7 +202,10 @@ mod tests {
     fn perceus_on_literal() {
         let raw = lower_core_linear(&CoreExpr::Lit(CoreLiteral::Number(5.0)));
         let opt = perceus_pass(&raw);
-        assert!(opt.instrs.iter().any(|i| matches!(i, MemInstr::Return { .. })));
+        assert!(opt
+            .instrs
+            .iter()
+            .any(|i| matches!(i, MemInstr::Return { .. })));
     }
 
     #[test]
@@ -271,5 +274,73 @@ mod tests {
         };
         let opt = perceus_pass(&raw);
         assert!(!opt.instrs.is_empty());
+    }
+
+    #[test]
+    fn perceus_rename_reads_and_drops_unused_defs() {
+        use crate::ir::MemLiteral;
+        let raw = LinearProgram {
+            instrs: vec![
+                MemInstr::Lit {
+                    dst: Reg(0),
+                    lit: MemLiteral::Number(1.0),
+                },
+                MemInstr::Lit {
+                    dst: Reg(1),
+                    lit: MemLiteral::Number(2.0),
+                },
+                MemInstr::Move {
+                    dst: Reg(2),
+                    src: Reg(0),
+                },
+                MemInstr::Return { reg: Reg(2) },
+            ],
+            return_reg: Reg(2),
+        };
+        let opt = perceus_pass(&raw);
+        assert!(opt
+            .instrs
+            .iter()
+            .any(|i| matches!(i, MemInstr::Drop { .. })));
+    }
+
+    #[test]
+    fn perceus_handles_project_and_construct() {
+        use crate::ir::MemLiteral;
+        let raw = LinearProgram {
+            instrs: vec![
+                MemInstr::Lit {
+                    dst: Reg(1),
+                    lit: MemLiteral::Number(3.0),
+                },
+                MemInstr::Construct {
+                    dst: Reg(0),
+                    tag: "pair".into(),
+                    fields: vec![("x".into(), Reg(1))],
+                },
+                MemInstr::Project {
+                    dst: Reg(2),
+                    src: Reg(0),
+                    field: "x".into(),
+                },
+                MemInstr::Return { reg: Reg(2) },
+            ],
+            return_reg: Reg(2),
+        };
+        let opt = perceus_pass(&raw);
+        assert!(opt
+            .instrs
+            .iter()
+            .any(|i| matches!(i, MemInstr::Return { .. })));
+    }
+
+    #[test]
+    fn perceus_empty_falls_back_to_conservative() {
+        let empty = LinearProgram {
+            instrs: vec![],
+            return_reg: Reg(0),
+        };
+        let out = perceus_pass(&empty);
+        assert_eq!(out.return_reg, Reg(0));
     }
 }

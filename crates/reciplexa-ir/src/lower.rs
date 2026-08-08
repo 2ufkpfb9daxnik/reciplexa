@@ -49,4 +49,30 @@ mod tests {
         let p = lower_expr(&expr);
         assert!(matches!(p.ops[0], LoweredOp::Perform { .. }));
     }
+
+    #[test]
+    fn literal_and_seq_lower_to_return() {
+        let lit = lower_expr(&CoreExpr::Lit(CoreLiteral::Number(1.0)));
+        assert_eq!(lit.ops, vec![LoweredOp::Return]);
+
+        let seq = lower_expr(&CoreExpr::Seq(vec![
+            CoreExpr::Perform {
+                op: "log".into(),
+                arg: Box::new(CoreExpr::Lit(CoreLiteral::String("a".into()))),
+            },
+            CoreExpr::Lit(CoreLiteral::Number(2.0)),
+        ]));
+        assert_eq!(seq.ops.len(), 2);
+        assert!(matches!(seq.ops[0], LoweredOp::Perform { .. }));
+        assert!(matches!(seq.ops[1], LoweredOp::Return));
+    }
+
+    #[test]
+    fn unsupported_expr_lowers_to_return() {
+        let lambda = lower_expr(&CoreExpr::Lambda {
+            param: "x".into(),
+            body: Box::new(CoreExpr::Lit(CoreLiteral::Number(0.0))),
+        });
+        assert_eq!(lambda.ops, vec![LoweredOp::Return]);
+    }
 }

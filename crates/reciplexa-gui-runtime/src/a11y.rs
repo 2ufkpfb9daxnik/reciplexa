@@ -56,7 +56,10 @@ mod tests {
     fn all_gui_node_kinds_map_to_roles() {
         assert_eq!(role_for_kind(GuiNodeKind::Canvas), AccessRole::Canvas);
         assert_eq!(role_for_kind(GuiNodeKind::LayerList), AccessRole::List);
-        assert_eq!(role_for_kind(GuiNodeKind::Properties), AccessRole::Properties);
+        assert_eq!(
+            role_for_kind(GuiNodeKind::Properties),
+            AccessRole::Properties
+        );
         assert_eq!(role_for_kind(GuiNodeKind::TextField), AccessRole::TextBox);
         assert_eq!(role_for_kind(GuiNodeKind::Button), AccessRole::Button);
         assert_eq!(role_for_kind(GuiNodeKind::Group), AccessRole::Group);

@@ -147,7 +147,9 @@ mod tests {
         .with_source_range(TextRange::try_new(ByteOffset::new(4), ByteOffset::new(9)).unwrap());
         report.recovery_status = RecoveryStatus::ShutdownRequired;
         report.runtime_trust_status = RuntimeTrustStatus::Untrusted;
-        report.suppressed_cleanup_failures.push("flush failed".into());
+        report
+            .suppressed_cleanup_failures
+            .push("flush failed".into());
         assert_eq!(report.origin.source_range.unwrap().len(), 5);
         assert_eq!(report.recovery_status, RecoveryStatus::ShutdownRequired);
         assert_eq!(report.runtime_trust_status, RuntimeTrustStatus::Untrusted);

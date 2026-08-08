@@ -405,9 +405,7 @@ mod tests {
                 MemInstr::RegisterCleanup {
                     label: "scope".into(),
                 },
-                MemInstr::Raise {
-                    tag: "fail".into(),
-                },
+                MemInstr::Raise { tag: "fail".into() },
             ],
             return_reg: Reg(0),
         };
@@ -449,20 +447,31 @@ mod tests {
     }
 
     #[test]
-    fn verify_dup_of_unowned_reg() {
+    fn verify_drop_uninit_is_use_after_drop() {
         let prog = LinearProgram {
-            instrs: vec![
-                MemInstr::Dup {
-                    dst: Reg(1),
-                    src: Reg(0),
-                },
-                MemInstr::Return { reg: Reg(1) },
-            ],
-            return_reg: Reg(1),
+            instrs: vec![MemInstr::Drop { reg: Reg(0) }],
+            return_reg: Reg(0),
         };
         assert!(matches!(
             verify_ownership(&prog),
             Err(VerifyError::UseAfterDrop(_))
         ));
+    }
+
+    #[test]
+    fn verify_resume_and_cleanup_do_not_panic() {
+        let prog = LinearProgram {
+            instrs: vec![
+                MemInstr::Lit {
+                    dst: Reg(0),
+                    lit: MemLiteral::Number(1.0),
+                },
+                MemInstr::Resume { cont: 1 },
+                MemInstr::RunCleanup,
+                MemInstr::Return { reg: Reg(0) },
+            ],
+            return_reg: Reg(0),
+        };
+        assert!(verify_ownership(&prog).is_ok());
     }
 }

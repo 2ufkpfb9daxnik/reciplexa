@@ -50,7 +50,10 @@ pub fn recover_from_journal(paths: &RecoveryPaths) -> Result<DocumentSnapshot, R
 }
 
 /// Compact: keep only the latest committed snapshot bytes (drops journal after success).
-pub fn compact_after_save(paths: &RecoveryPaths, snap: &DocumentSnapshot) -> Result<(), RecoveryError> {
+pub fn compact_after_save(
+    paths: &RecoveryPaths,
+    snap: &DocumentSnapshot,
+) -> Result<(), RecoveryError> {
     let bytes = encode_snapshot(snap).map_err(RecoveryError::Codec)?;
     atomic_write(&paths.primary, &bytes).map_err(|e| RecoveryError::Io(e.to_string()))?;
     let _ = std::fs::remove_file(&paths.journal);
@@ -141,5 +144,20 @@ mod tests {
         let err = recover_from_journal(&paths).unwrap_err();
         assert!(matches!(err, RecoveryError::Codec(_)));
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn recovery_paths_for_primary_sets_sidecars() {
+        let primary = std::path::PathBuf::from("docs/snap.rpxsnap");
+        let paths = RecoveryPaths::for_primary(&primary);
+        assert_eq!(paths.primary, primary);
+        assert_eq!(
+            paths.journal,
+            std::path::PathBuf::from("docs/snap.rpxjournal")
+        );
+        assert_eq!(
+            paths.recovered,
+            std::path::PathBuf::from("docs/snap.rpxrecovered")
+        );
     }
 }

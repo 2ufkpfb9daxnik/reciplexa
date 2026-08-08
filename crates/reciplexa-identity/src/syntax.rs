@@ -61,4 +61,35 @@ mod tests {
         let mut alloc = SyntaxNodeIdAllocator::new();
         assert_ne!(alloc.allocate(), alloc.allocate());
     }
+
+    #[test]
+    fn syntax_node_id_boundaries_and_display() {
+        assert!(!SyntaxNodeId::INVALID.is_valid());
+        assert_eq!(SyntaxNodeId::INVALID.get(), 0);
+        assert!(!SyntaxNodeId::new(0).is_valid());
+        assert!(SyntaxNodeId::new(1).is_valid());
+        assert!(SyntaxNodeId::new(u64::MAX).is_valid());
+        assert_eq!(SyntaxNodeId::new(3).to_string(), "syntax-node:3");
+        assert!(SyntaxNodeId::new(1) < SyntaxNodeId::new(2));
+    }
+
+    #[test]
+    fn allocator_starts_at_one_and_peeks() {
+        let mut alloc = SyntaxNodeIdAllocator::default();
+        assert_eq!(alloc.peek_next().get(), 0);
+        let mut alloc = SyntaxNodeIdAllocator::new();
+        assert_eq!(alloc.peek_next().get(), 1);
+        let a = alloc.allocate();
+        assert_eq!(a.get(), 1);
+        assert_eq!(alloc.peek_next().get(), 2);
+        assert_eq!(alloc.allocate().get(), 2);
+    }
+
+    #[test]
+    fn allocator_saturates_at_u64_max() {
+        let mut alloc = SyntaxNodeIdAllocator { next: u64::MAX };
+        assert_eq!(alloc.allocate().get(), u64::MAX);
+        assert_eq!(alloc.allocate().get(), u64::MAX);
+        assert_eq!(alloc.peek_next().get(), u64::MAX);
+    }
 }

@@ -245,14 +245,8 @@ mod tests {
             .ops
             .iter()
             .any(|o| matches!(o, ReconcileOp::Update { .. })));
-        assert_eq!(
-            result.mounted.get(&k).unwrap().kind,
-            GuiNodeKind::TextField
-        );
-        assert_eq!(
-            result.mounted.get(&k).unwrap().widget.text_buffer,
-            "saved"
-        );
+        assert_eq!(result.mounted.get(&k).unwrap().kind, GuiNodeKind::TextField);
+        assert_eq!(result.mounted.get(&k).unwrap().widget.text_buffer, "saved");
     }
 
     #[test]
