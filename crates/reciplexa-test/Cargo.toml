@@ -12,4 +12,8 @@ reciplexa-outcome = { workspace = true }
 
 [dev-dependencies]
 reciplexa-source = { workspace = true }
+reciplexa-core = { workspace = true }
+reciplexa-eval = { workspace = true }
+reciplexa-ir = { workspace = true }
+reciplexa-runtime = { workspace = true }
 reciplexa-syntax = { workspace = true }

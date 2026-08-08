@@ -19,6 +19,8 @@ reciplexa-diagnostic = { workspace = true, features = ["syntax"] }
 reciplexa-identity = { workspace = true }
 reciplexa-source = { workspace = true }
 reciplexa-syntax = { workspace = true }
+reciplexa-bind = { workspace = true }
+reciplexa-document = { workspace = true }
 reciplexa-lower = { workspace = true }
 reciplexa-macro = { workspace = true }
 reciplexa-effect = { workspace = true }

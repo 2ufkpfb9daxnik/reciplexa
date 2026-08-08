@@ -2836,7 +2836,9 @@ dependencies = [
 name = "reciplexa"
 version = "0.1.0"
 dependencies = [
+ "reciplexa-bind",
  "reciplexa-diagnostic",
+ "reciplexa-document",
  "reciplexa-effect",
  "reciplexa-identity",
  "reciplexa-lower",
@@ -2851,6 +2853,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "reciplexa-bind"
+version = "0.1.0"
+dependencies = [
+ "reciplexa-identity",
+ "reciplexa-source",
+ "reciplexa-syntax",
+]
+
+[[package]]
+name = "reciplexa-core"
+version = "0.1.0"
+dependencies = [
+ "reciplexa-identity",
+ "reciplexa-source",
+]
+
+[[package]]
 name = "reciplexa-diagnostic"
 version = "0.1.0"
 dependencies = [
@@ -2860,10 +2879,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "reciplexa-document"
+version = "0.1.0"
+dependencies = [
+ "reciplexa-identity",
+ "reciplexa-scene",
+ "reciplexa-source",
+]
+
+[[package]]
 name = "reciplexa-effect"
 version = "0.1.0"
 dependencies = [
  "reciplexa-syntax",
+]
+
+[[package]]
+name = "reciplexa-eval"
+version = "0.1.0"
+dependencies = [
+ "reciplexa-core",
+ "reciplexa-outcome",
 ]
 
 [[package]]
@@ -2890,6 +2926,14 @@ name = "reciplexa-identity"
 version = "0.1.0"
 dependencies = [
  "reciplexa-source",
+]
+
+[[package]]
+name = "reciplexa-ir"
+version = "0.1.0"
+dependencies = [
+ "reciplexa-core",
+ "reciplexa-outcome",
 ]
 
 [[package]]
@@ -2939,6 +2983,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "reciplexa-runtime"
+version = "0.1.0"
+dependencies = [
+ "reciplexa-ir",
+ "reciplexa-outcome",
+]
+
+[[package]]
 name = "reciplexa-scene"
 version = "0.1.0"
 
@@ -2958,6 +3010,7 @@ dependencies = [
 name = "reciplexa-syntax"
 version = "0.1.0"
 dependencies = [
+ "reciplexa-identity",
  "rowan",
 ]
 
@@ -2965,8 +3018,12 @@ dependencies = [
 name = "reciplexa-test"
 version = "0.1.0"
 dependencies = [
+ "reciplexa-core",
  "reciplexa-diagnostic",
+ "reciplexa-eval",
+ "reciplexa-ir",
  "reciplexa-outcome",
+ "reciplexa-runtime",
  "reciplexa-source",
  "reciplexa-syntax",
 ]
