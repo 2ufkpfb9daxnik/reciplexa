@@ -67,6 +67,13 @@ mod tests {
     use super::*;
 
     #[test]
+    fn cancellation_with_document_id() {
+        let report = CancellationReport::new(1, CancellationReason::UserRequested)
+            .with_document_id(DocumentIdentity::new(99));
+        assert_eq!(report.document_id, Some(DocumentIdentity::new(99)));
+    }
+
+    #[test]
     fn report_formats_without_panic() {
         let report = CancellationReport::new(1, CancellationReason::UserRequested);
         assert!(report.to_string().contains("cancellation:1"));
