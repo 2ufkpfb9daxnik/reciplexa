@@ -56,4 +56,10 @@ mod tests {
         assert!(ScopeId::ROOT.is_valid());
         assert_eq!(ScopeIdAllocator::new().allocate().get(), 2);
     }
+
+    #[test]
+    fn allocator_issues_unique_scopes() {
+        let mut alloc = ScopeIdAllocator::new();
+        assert_ne!(alloc.allocate(), alloc.allocate());
+    }
 }
