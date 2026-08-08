@@ -1,0 +1,12 @@
+[package]
+name = "reciplexa-visual-ir"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Layered visual IR: domain, layout, render (Phase 7)"
+publish = false
+
+[dependencies]
+reciplexa-identity = { workspace = true }
+reciplexa-scene = { workspace = true }
+reciplexa-view = { workspace = true }

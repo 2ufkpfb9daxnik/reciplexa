@@ -1768,6 +1768,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "itoa"
+version = "1.0.18"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8f42a60cbdf9a97f5d2305f08a87dc4e09308d1276d28c869c684d7777685682"
+
+[[package]]
 name = "jni"
 version = "0.22.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2853,12 +2859,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "reciplexa-backend"
+version = "0.1.0"
+dependencies = [
+ "reciplexa-scene",
+ "reciplexa-visual-ir",
+]
+
+[[package]]
 name = "reciplexa-bind"
 version = "0.1.0"
 dependencies = [
  "reciplexa-identity",
  "reciplexa-source",
  "reciplexa-syntax",
+]
+
+[[package]]
+name = "reciplexa-codec"
+version = "0.1.0"
+dependencies = [
+ "reciplexa-document",
+ "reciplexa-identity",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -2925,6 +2949,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "reciplexa-gui-runtime"
+version = "0.1.0"
+dependencies = [
+ "reciplexa-document",
+ "reciplexa-identity",
+]
+
+[[package]]
 name = "reciplexa-identity"
 version = "0.1.0"
 dependencies = [
@@ -2968,11 +3000,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "reciplexa-native"
+version = "0.1.0"
+dependencies = [
+ "reciplexa-outcome",
+]
+
+[[package]]
 name = "reciplexa-outcome"
 version = "0.1.0"
 dependencies = [
  "reciplexa-identity",
  "reciplexa-source",
+]
+
+[[package]]
+name = "reciplexa-package"
+version = "0.1.0"
+dependencies = [
+ "reciplexa-bind",
+ "reciplexa-identity",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -3033,18 +3082,24 @@ name = "reciplexa-test"
 version = "0.1.0"
 dependencies = [
  "reciplexa",
+ "reciplexa-backend",
+ "reciplexa-codec",
  "reciplexa-core",
  "reciplexa-diagnostic",
  "reciplexa-document",
  "reciplexa-eval",
+ "reciplexa-gui-runtime",
  "reciplexa-identity",
  "reciplexa-ir",
  "reciplexa-mem",
+ "reciplexa-native",
  "reciplexa-outcome",
+ "reciplexa-package",
  "reciplexa-runtime",
  "reciplexa-scene",
  "reciplexa-source",
  "reciplexa-syntax",
+ "reciplexa-visual-ir",
 ]
 
 [[package]]
@@ -3060,6 +3115,15 @@ name = "reciplexa-view"
 version = "0.1.0"
 dependencies = [
  "reciplexa-scene",
+]
+
+[[package]]
+name = "reciplexa-visual-ir"
+version = "0.1.0"
+dependencies = [
+ "reciplexa-identity",
+ "reciplexa-scene",
+ "reciplexa-view",
 ]
 
 [[package]]
@@ -3252,6 +3316,19 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "serde_json"
+version = "1.0.151"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c841b55ecdae098c80dcae9cf767f6f8a0c2cdb3416bbef72181df4d0fe73f14"
+dependencies = [
+ "itoa",
+ "memchr",
+ "serde",
+ "serde_core",
+ "zmij",
 ]
 
 [[package]]
@@ -4902,6 +4979,12 @@ dependencies = [
  "zopfli",
  "zstd",
 ]
+
+[[package]]
+name = "zmij"
+version = "1.0.23"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "29666d0abbfad1e3dc4dcf6144730dd3a3ab225bbbdac83319345b1b44ccfc1b"
 
 [[package]]
 name = "zopfli"

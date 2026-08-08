@@ -1,0 +1,11 @@
+[package]
+name = "reciplexa-backend"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Backend capability, planning, emission, artifact validation (Phase 7)"
+publish = false
+
+[dependencies]
+reciplexa-scene = { workspace = true }
+reciplexa-visual-ir = { workspace = true }

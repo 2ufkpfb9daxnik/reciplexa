@@ -13,6 +13,12 @@ members = [
     "crates/reciplexa-ir",
     "crates/reciplexa-runtime",
     "crates/reciplexa-mem",
+    "crates/reciplexa-visual-ir",
+    "crates/reciplexa-backend",
+    "crates/reciplexa-gui-runtime",
+    "crates/reciplexa-codec",
+    "crates/reciplexa-package",
+    "crates/reciplexa-native",
     "crates/reciplexa-syntax",
     "crates/reciplexa-scene",
     "crates/reciplexa-pdf",
@@ -51,6 +57,14 @@ reciplexa-document = { path = "crates/reciplexa-document" }
 reciplexa-ir = { path = "crates/reciplexa-ir" }
 reciplexa-runtime = { path = "crates/reciplexa-runtime" }
 reciplexa-mem = { path = "crates/reciplexa-mem" }
+reciplexa-visual-ir = { path = "crates/reciplexa-visual-ir" }
+reciplexa-backend = { path = "crates/reciplexa-backend" }
+reciplexa-gui-runtime = { path = "crates/reciplexa-gui-runtime" }
+reciplexa-codec = { path = "crates/reciplexa-codec" }
+reciplexa-package = { path = "crates/reciplexa-package" }
+reciplexa-native = { path = "crates/reciplexa-native" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 reciplexa-syntax = { path = "crates/reciplexa-syntax" }
 reciplexa-scene = { path = "crates/reciplexa-scene" }
 reciplexa-pdf = { path = "crates/reciplexa-pdf" }
