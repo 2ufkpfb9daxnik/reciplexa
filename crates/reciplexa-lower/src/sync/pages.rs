@@ -124,4 +124,3 @@ fn is_list_headed(node: &SyntaxNode, name: &str) -> bool {
     let items = list_atoms(node);
     matches!(items.first(), Some(Child::Token(t)) if t.kind() == SyntaxKind::Ident && t.text() == name)
 }
-

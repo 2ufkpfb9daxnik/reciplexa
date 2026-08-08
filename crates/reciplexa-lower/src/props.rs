@@ -10,8 +10,8 @@ use reciplexa_syntax::{
 use crate::cst_walk::{find_list_covering, list_atoms, Child};
 use crate::sync::{
     collect_layers_page, collect_size_targets_page, layer_opacity, layer_rotation_deg,
-    nudge_layer_page, parse_root, scale_size_target_axes, set_layer_opacity, set_layer_rotation_deg,
-    SyncError,
+    nudge_layer_page, parse_root, scale_size_target_axes, set_layer_opacity,
+    set_layer_rotation_deg, SyncError,
 };
 
 /// UI grouping for the properties panel.

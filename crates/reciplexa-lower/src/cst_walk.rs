@@ -25,7 +25,11 @@ pub(crate) fn list_atoms(node: &SyntaxNode) -> Vec<Child> {
     items
 }
 
-pub(crate) fn find_list_covering(root: &SyntaxNode, start: usize, end: usize) -> Option<SyntaxNode> {
+pub(crate) fn find_list_covering(
+    root: &SyntaxNode,
+    start: usize,
+    end: usize,
+) -> Option<SyntaxNode> {
     root.descendants().find(|n| {
         if n.kind() != SyntaxKind::List {
             return false;

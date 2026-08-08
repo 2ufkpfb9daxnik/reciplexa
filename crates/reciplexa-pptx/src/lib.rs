@@ -70,8 +70,7 @@ pub fn document_to_pptx(doc: &Document) -> Result<Vec<u8>, String> {
 
         zip.start_file("ppt/theme/theme1.xml", opts)
             .map_err(|e| e.to_string())?;
-        zip.write_all(THEME.as_bytes())
-            .map_err(|e| e.to_string())?;
+        zip.write_all(THEME.as_bytes()).map_err(|e| e.to_string())?;
 
         for i in 0..doc.pages.len() {
             let xml = slide_xml(doc, i)?;
@@ -175,14 +174,19 @@ fn shape_xml(shape: &WorldShape, id: usize, paper_h_mm: f64) -> Result<String, S
                 let px = (((x - min_x) / w) * 21600.0).round() as i64;
                 let py = (((y - min_y) / h) * 21600.0).round() as i64;
                 if i == 0 {
-                    path.push_str(&format!(r#"<a:moveTo><a:pt x="{px}" y="{py}"/></a:moveTo>"#));
+                    path.push_str(&format!(
+                        r#"<a:moveTo><a:pt x="{px}" y="{py}"/></a:moveTo>"#
+                    ));
                 } else {
                     path.push_str(&format!(r#"<a:lnTo><a:pt x="{px}" y="{py}"/></a:lnTo>"#));
                 }
             }
             path.push_str(r#"<a:close/>"#);
             let fill = match p.stroke_width_mm {
-                None => format!("<a:solidFill>{}</a:solidFill>", fill_inner(p.color, p.alpha)),
+                None => format!(
+                    "<a:solidFill>{}</a:solidFill>",
+                    fill_inner(p.color, p.alpha)
+                ),
                 Some(_) => r#"<a:noFill/>"#.to_string(),
             };
             let line = match p.stroke_width_mm {
@@ -223,11 +227,7 @@ fn shape_xml(shape: &WorldShape, id: usize, paper_h_mm: f64) -> Result<String, S
                 return Ok(String::new());
             }
             // Represent as a thin freeform stroke similar to polygon outline.
-            let pts: Vec<(f64, f64)> = p
-                .points_mm
-                .iter()
-                .map(|&(x, y)| (x, flip_y(y)))
-                .collect();
+            let pts: Vec<(f64, f64)> = p.points_mm.iter().map(|&(x, y)| (x, flip_y(y))).collect();
             let min_x = pts.iter().map(|p| p.0).fold(f64::INFINITY, f64::min);
             let max_x = pts.iter().map(|p| p.0).fold(f64::NEG_INFINITY, f64::max);
             let min_y = pts.iter().map(|p| p.1).fold(f64::INFINITY, f64::min);
@@ -239,7 +239,9 @@ fn shape_xml(shape: &WorldShape, id: usize, paper_h_mm: f64) -> Result<String, S
                 let px = (((x - min_x) / w) * 21600.0).round() as i64;
                 let py = (((y - min_y) / h) * 21600.0).round() as i64;
                 if i == 0 {
-                    path.push_str(&format!(r#"<a:moveTo><a:pt x="{px}" y="{py}"/></a:moveTo>"#));
+                    path.push_str(&format!(
+                        r#"<a:moveTo><a:pt x="{px}" y="{py}"/></a:moveTo>"#
+                    ));
                 } else {
                     path.push_str(&format!(r#"<a:lnTo><a:pt x="{px}" y="{py}"/></a:lnTo>"#));
                 }
@@ -308,7 +310,9 @@ fn shape_xml(shape: &WorldShape, id: usize, paper_h_mm: f64) -> Result<String, S
                 oy = (y * EMU_PER_MM).round() as i64,
                 cx = (w * EMU_PER_MM).round() as i64,
                 cy = (h * EMU_PER_MM).round() as i64,
-                sz = (t.size_mm * 100.0 * 72.0 / 25.4).round().clamp(100.0, 4000.0) as i64, // half-points approx from mm
+                sz = (t.size_mm * 100.0 * 72.0 / 25.4)
+                    .round()
+                    .clamp(100.0, 4000.0) as i64, // half-points approx from mm
             ))
         }
         WorldShape::Image(_) => {

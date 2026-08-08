@@ -39,10 +39,7 @@ pub fn document_to_svg(doc: &Document) -> String {
     }
 
     let mut s = String::new();
-    let _ = writeln!(
-        s,
-        r#"<?xml version="1.0" encoding="UTF-8"?>"#
-    );
+    let _ = writeln!(s, r#"<?xml version="1.0" encoding="UTF-8"?>"#);
     let _ = writeln!(
         s,
         r#"<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="{total_w}mm" height="{total_h}mm" viewBox="0 0 {total_w} {total_h}">"#
