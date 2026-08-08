@@ -29,6 +29,15 @@ impl<A, E> JobResult<A, E> {
             Self::Defected(d) => JobResult::Defected(d),
         }
     }
+
+    pub fn map_err<F>(self, f: impl FnOnce(E) -> F) -> JobResult<A, F> {
+        match self {
+            Self::Completed(a) => JobResult::Completed(a),
+            Self::Failed(e) => JobResult::Failed(f(e)),
+            Self::Cancelled(c) => JobResult::Cancelled(c),
+            Self::Defected(d) => JobResult::Defected(d),
+        }
+    }
 }
 
 #[cfg(test)]
