@@ -7,10 +7,19 @@ use crate::state::{MountedInstance, MountedTree, ViewState, WidgetState};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ReconcileOp {
-    Mount { key: WidgetKeyPath },
-    Unmount { key: WidgetKeyPath },
-    Update { key: WidgetKeyPath },
-    MoveState { from: WidgetKeyPath, to: WidgetKeyPath },
+    Mount {
+        key: WidgetKeyPath,
+    },
+    Unmount {
+        key: WidgetKeyPath,
+    },
+    Update {
+        key: WidgetKeyPath,
+    },
+    MoveState {
+        from: WidgetKeyPath,
+        to: WidgetKeyPath,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -37,6 +46,13 @@ pub fn reconcile(
     old_desc: &GuiDescription,
     new_desc: &GuiDescription,
 ) -> Result<ReconcileResult, ReconcileError> {
+    let mut seen = std::collections::HashSet::new();
+    for node in &new_desc.roots {
+        if !seen.insert(node.key.clone()) {
+            return Err(ReconcileError::KeyCollision(node.key.clone()));
+        }
+    }
+
     let mut ops = Vec::new();
     let mut mounted = previous.clone();
     let old_keys: Vec<_> = old_desc.roots.iter().map(|n| n.key.clone()).collect();
@@ -51,11 +67,26 @@ pub fn reconcile(
 
     for node in &new_desc.roots {
         if old_keys.contains(&node.key) {
-            ops.push(ReconcileOp::Update {
-                key: node.key.clone(),
-            });
-            if let Some(inst) = mounted.instances.get_mut(&node.key) {
-                inst.kind = node.kind;
+            if mounted.instances.contains_key(&node.key) {
+                ops.push(ReconcileOp::Update {
+                    key: node.key.clone(),
+                });
+                if let Some(inst) = mounted.instances.get_mut(&node.key) {
+                    inst.kind = node.kind;
+                }
+            } else {
+                ops.push(ReconcileOp::Mount {
+                    key: node.key.clone(),
+                });
+                mounted.instances.insert(
+                    node.key.clone(),
+                    MountedInstance {
+                        key: node.key.clone(),
+                        kind: node.kind,
+                        view: ViewState::default(),
+                        widget: WidgetState::default(),
+                    },
+                );
             }
         } else {
             ops.push(ReconcileOp::Mount {
@@ -75,12 +106,16 @@ pub fn reconcile(
 
     // Detect list reorder: same keys, different order — move state with key
     if old_keys.len() == new_keys.len() && old_keys != new_keys {
-        for (old_k, new_k) in old_keys.iter().zip(new_keys.iter()) {
-            if old_k != new_k {
-                ops.push(ReconcileOp::MoveState {
-                    from: old_k.clone(),
-                    to: new_k.clone(),
-                });
+        let old_set: std::collections::HashSet<_> = old_keys.iter().cloned().collect();
+        let new_set: std::collections::HashSet<_> = new_keys.iter().cloned().collect();
+        if old_set == new_set {
+            for (old_k, new_k) in old_keys.iter().zip(new_keys.iter()) {
+                if old_k != new_k {
+                    ops.push(ReconcileOp::MoveState {
+                        from: old_k.clone(),
+                        to: new_k.clone(),
+                    });
+                }
             }
         }
     }
@@ -93,7 +128,13 @@ pub fn reconcile(
 }
 
 /// Rebase text caret after a document transaction.
-pub fn rebase_caret(state: &mut WidgetState, old_text: &str, new_text: &str, edit_at: usize, delta: isize) {
+pub fn rebase_caret(
+    state: &mut WidgetState,
+    old_text: &str,
+    new_text: &str,
+    edit_at: usize,
+    delta: isize,
+) {
     let _ = (old_text, new_text);
     if state.caret_offset >= edit_at {
         state.caret_offset = (state.caret_offset as isize + delta).max(0) as usize;
@@ -125,7 +166,11 @@ mod tests {
             GuiNodeKind::LayerList,
         )]);
         let result = reconcile(&prev, &old, &new).unwrap();
-        assert!(result.plan.ops.iter().any(|o| matches!(o, ReconcileOp::Mount { .. })));
+        assert!(result
+            .plan
+            .ops
+            .iter()
+            .any(|o| matches!(o, ReconcileOp::Mount { .. })));
         assert!(result.mounted.get(&key("layer-1")).is_some());
     }
 
@@ -142,10 +187,18 @@ mod tests {
                 widget: WidgetState::default(),
             },
         );
-        let old = GuiDescription::from_stable_nodes(&[(k.clone(), StableNodeId::new(1), GuiNodeKind::Button)]);
+        let old = GuiDescription::from_stable_nodes(&[(
+            k.clone(),
+            StableNodeId::new(1),
+            GuiNodeKind::Button,
+        )]);
         let new = GuiDescription { roots: vec![] };
         let result = reconcile(&prev, &old, &new).unwrap();
-        assert!(result.plan.ops.iter().any(|o| matches!(o, ReconcileOp::Unmount { .. })));
+        assert!(result
+            .plan
+            .ops
+            .iter()
+            .any(|o| matches!(o, ReconcileOp::Unmount { .. })));
         assert!(result.mounted.get(&k).is_none());
     }
 

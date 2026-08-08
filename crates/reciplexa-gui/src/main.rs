@@ -14,8 +14,12 @@ use std::process::ExitCode;
 
 use eframe::egui;
 use eframe::egui::text::{CCursor, CCursorRange};
+use reciplexa::document_pipeline::document_snapshot_from_source;
 use reciplexa::pipeline::{document_for_export, document_from_source};
+use reciplexa_codec::{compact_after_save, write_journal, RecoveryPaths};
 use reciplexa_effect::{seed_from_env, EffectError, EffectHandler, LcgRng, Value};
+use reciplexa_gui_runtime::GuiRuntimeHost;
+use reciplexa_identity::document::{DocumentIdentity, StableNodeId};
 use reciplexa_lower::{
     collect_layer_props, collect_layers_page, collect_size_targets_page, delete_layer_page,
     delete_page, duplicate_layer_page, group_layers_page, insert_layer_page, insert_page_after,
@@ -238,6 +242,7 @@ fn main() -> ExitCode {
                 collapse_preview: false,
                 collapse_props: false,
                 document_path: DocumentPathState::from_env(),
+                gui_runtime: GuiRuntimeHost::new(),
             }))
         }),
     ) {
@@ -307,6 +312,8 @@ struct PreviewApp {
     collapse_props: bool,
     /// Optional document-model path (Phase 4 strangler); CST sync remains default.
     document_path: DocumentPathState,
+    /// Phase 8 GUI runtime host (ephemeral widget state — not document truth).
+    gui_runtime: GuiRuntimeHost,
 }
 
 #[derive(Clone, Copy)]
@@ -443,6 +450,44 @@ impl PreviewApp {
             self.document_path.rebuild(&self.source);
             self.document_path.sync_selection_indices(&self.selected);
         }
+        self.sync_gui_runtime();
+    }
+
+    /// Push layer identities into the Phase 8 runtime and reconcile.
+    fn sync_gui_runtime(&mut self) {
+        let layers: Vec<(StableNodeId, String)> = if !self.document_path.layer_to_node.is_empty() {
+            self.document_path
+                .layer_to_node
+                .iter()
+                .enumerate()
+                .map(|(i, id)| (*id, format!("layer-{i}")))
+                .collect()
+        } else if let Ok(doc) = pipeline_doc(&self.source) {
+            flatten_page(&doc, self.page_index)
+                .map(|(_, shapes)| {
+                    (0..shapes.len())
+                        .map(|i| {
+                            (
+                                StableNodeId::new((i as u64).saturating_add(1)),
+                                format!("layer-{i}"),
+                            )
+                        })
+                        .collect()
+                })
+                .unwrap_or_default()
+        } else {
+            Vec::new()
+        };
+        self.gui_runtime.sync_layers(&layers);
+        if let Some(&idx) = self.selected.last() {
+            if let Some((id, _)) = layers.get(idx) {
+                self.gui_runtime.select_node(*id);
+            }
+        } else {
+            self.gui_runtime.selection.clear();
+        }
+        let known: Vec<StableNodeId> = layers.iter().map(|(id, _)| *id).collect();
+        self.gui_runtime.prune_selection(|id| known.contains(&id));
     }
 
     fn primary_selected(&self) -> Option<usize> {
@@ -2310,7 +2355,28 @@ impl PreviewApp {
             self.error = Some(format!("save: {e}"));
         } else {
             self.error = None;
+            self.persist_codec_snapshot();
             self.mark_saved();
+        }
+    }
+
+    /// Phase 9: write portable snapshot sidecar (never replaces recovery into primary silently).
+    fn persist_codec_snapshot(&mut self) {
+        match document_snapshot_from_source(&self.source, DocumentIdentity::new(1)) {
+            Ok(snap) => {
+                let paths = RecoveryPaths::for_primary(self.path.with_extension("rpxsnap"));
+                if let Err(e) = write_journal(&paths, &snap) {
+                    self.error = Some(format!("journal: {e:?}"));
+                    return;
+                }
+                if let Err(e) = compact_after_save(&paths, &snap) {
+                    self.error = Some(format!("snapshot: {e:?}"));
+                }
+            }
+            Err(e) => {
+                // Source may be temporarily invalid while typing; keep .rpx save.
+                let _ = e;
+            }
         }
     }
 
@@ -2866,6 +2932,7 @@ impl eframe::App for PreviewApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         suppress_ime_confirm_newline(ctx, &mut self.ime_enter_hold);
         self.refresh_window_title(ctx);
+        self.sync_gui_runtime();
 
         // Ctrl+Z / Ctrl+Y for source undo/redo (IME mistakes, layer moves, etc.).
         if ctx.input(|i| i.modifiers.command && i.key_pressed(egui::Key::Z) && !i.modifiers.shift) {

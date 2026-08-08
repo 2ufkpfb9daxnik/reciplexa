@@ -26,3 +26,5 @@ reciplexa-scene = { workspace = true }
 reciplexa-types = { workspace = true }
 reciplexa-view = { workspace = true }
 reciplexa-effect = { workspace = true }
+reciplexa-gui-runtime = { workspace = true }
+reciplexa-codec = { workspace = true }

@@ -1,9 +1,9 @@
 //! GUI description tree (immutable per frame).
 
-use reciplexa_identity::gui::WidgetKeyPath;
 use reciplexa_identity::document::StableNodeId;
+use reciplexa_identity::gui::WidgetKeyPath;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct GuiDescription {
     pub roots: Vec<GuiNode>,
 }
