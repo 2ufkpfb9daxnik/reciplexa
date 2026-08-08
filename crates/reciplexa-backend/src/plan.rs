@@ -46,6 +46,24 @@ pub fn plan_svg(
     cap: &BackendCapability,
     profile: &OutputProfile,
 ) -> Result<BackendPlan, PlanningError> {
+    plan_for_target(render, cap, profile, BackendTarget::Svg)
+}
+
+/// Interactive Preview Backend planning (same node decisions, distinct target).
+pub fn plan_preview(
+    render: &RenderDocument,
+    cap: &BackendCapability,
+    profile: &OutputProfile,
+) -> Result<BackendPlan, PlanningError> {
+    plan_for_target(render, cap, profile, BackendTarget::Preview)
+}
+
+fn plan_for_target(
+    render: &RenderDocument,
+    cap: &BackendCapability,
+    profile: &OutputProfile,
+    target: BackendTarget,
+) -> Result<BackendPlan, PlanningError> {
     check_capability_profile(cap, profile)?;
     let mut nodes = Vec::new();
     for (page_index, page) in render.pages.iter().enumerate() {
@@ -75,7 +93,7 @@ pub fn plan_svg(
         }
     }
     Ok(BackendPlan {
-        target: BackendTarget::Svg,
+        target,
         profile: profile.clone(),
         nodes,
     })

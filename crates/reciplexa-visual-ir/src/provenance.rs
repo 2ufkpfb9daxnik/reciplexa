@@ -40,4 +40,7 @@ impl ProvenanceMap {
 pub struct ArtifactProvenance {
     pub render_id: RenderNodeId,
     pub artifact_element_id: String,
+    pub stable_node_id: Option<StableNodeId>,
+    pub source_byte_start: Option<u32>,
+    pub source_byte_end: Option<u32>,
 }

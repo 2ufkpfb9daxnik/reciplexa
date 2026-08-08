@@ -29,3 +29,5 @@ reciplexa-svg = { workspace = true }
 reciplexa-pptx = { workspace = true }
 reciplexa-types = { workspace = true }
 reciplexa-scene = { workspace = true }
+reciplexa-visual-ir = { workspace = true }
+reciplexa-backend = { workspace = true }

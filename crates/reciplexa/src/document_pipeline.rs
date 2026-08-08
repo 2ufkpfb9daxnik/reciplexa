@@ -2,8 +2,8 @@
 
 use reciplexa_bind::resolve_source;
 use reciplexa_document::{
-    document_from_scene_page_with_layers, scene_shapes_from_document, DocumentSnapshot, LayerSpan,
-    TransactionBuilder,
+    document_from_scene_page_with_layers, drawable_node_ids, scene_shapes_from_document,
+    DocumentSnapshot, LayerSpan, TransactionBuilder,
 };
 use reciplexa_identity::document::DocumentIdentity;
 use reciplexa_lower::{collect_layers_page, lower_source};
@@ -101,6 +101,60 @@ pub fn move_node_in_snapshot(
 /// Rebuild drawable shapes from the current snapshot (preview path).
 pub fn preview_shapes(snap: &DocumentSnapshot) -> Vec<reciplexa_scene::Shape> {
     scene_shapes_from_document(&snap.nodes)
+}
+
+/// Build paint-order provenance hints aligned with flatten leaf order.
+pub fn provenance_hints_for_scene(
+    scene: &reciplexa_scene::Document,
+    snap: &DocumentSnapshot,
+) -> Vec<Option<reciplexa_visual_ir::NodeSourceHint>> {
+    let mut drawables = drawable_node_ids(&snap.nodes).into_iter();
+    let mut out = Vec::new();
+    for page in &scene.pages {
+        collect_shape_hints(&page.shapes, snap, &mut drawables, &mut out);
+    }
+    out
+}
+
+fn collect_shape_hints(
+    shapes: &[reciplexa_scene::Shape],
+    snap: &DocumentSnapshot,
+    drawables: &mut impl Iterator<Item = reciplexa_identity::document::StableNodeId>,
+    out: &mut Vec<Option<reciplexa_visual_ir::NodeSourceHint>>,
+) {
+    use reciplexa_scene::Shape;
+    for shape in shapes {
+        match shape {
+            Shape::Rect(_) | Shape::Text(_) => {
+                out.push(drawables.next().and_then(|id| hint_for_node(snap, id)));
+            }
+            Shape::Opacity { children, .. } | Shape::Group { children, .. } => {
+                collect_shape_hints(children, snap, drawables, out);
+            }
+            Shape::Circle(_)
+            | Shape::Ellipse(_)
+            | Shape::Ring(_)
+            | Shape::Frame(_)
+            | Shape::Line(_)
+            | Shape::Polyline(_)
+            | Shape::Polygon(_)
+            | Shape::Image(_) => {
+                out.push(None);
+            }
+        }
+    }
+}
+
+fn hint_for_node(
+    snap: &DocumentSnapshot,
+    id: reciplexa_identity::document::StableNodeId,
+) -> Option<reciplexa_visual_ir::NodeSourceHint> {
+    let prov = snap.provenance.get(id)?;
+    Some(reciplexa_visual_ir::NodeSourceHint {
+        stable_node_id: id,
+        source_byte_start: prov.text_range.start().get(),
+        source_byte_end: prov.text_range.end().get(),
+    })
 }
 
 #[cfg(test)]

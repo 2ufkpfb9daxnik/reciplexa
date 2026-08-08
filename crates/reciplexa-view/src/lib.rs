@@ -74,6 +74,19 @@ pub enum WorldShape {
     Image(WorldImage),
 }
 
+/// Options controlling flatten (Phase 7 output profile inputs).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FlattenOptions {
+    /// Polygon side count used when approximating ellipses.
+    pub ellipse_sides: u32,
+}
+
+impl Default for FlattenOptions {
+    fn default() -> Self {
+        Self { ellipse_sides: 32 }
+    }
+}
+
 /// Flatten a document's first page (preview shows page 0).
 pub fn flatten_first_page(doc: &Document) -> Option<(&Page, Vec<WorldShape>)> {
     flatten_page(doc, 0)
@@ -81,19 +94,45 @@ pub fn flatten_first_page(doc: &Document) -> Option<(&Page, Vec<WorldShape>)> {
 
 /// Flatten page `index` (0-based).
 pub fn flatten_page(doc: &Document, index: usize) -> Option<(&Page, Vec<WorldShape>)> {
+    flatten_page_with_options(doc, index, FlattenOptions::default())
+}
+
+/// Flatten page `index` with profile-driven options.
+pub fn flatten_page_with_options(
+    doc: &Document,
+    index: usize,
+    options: FlattenOptions,
+) -> Option<(&Page, Vec<WorldShape>)> {
     let page = doc.pages.get(index)?;
-    Some((page, flatten_shapes(&page.shapes, Affine::identity())))
+    Some((
+        page,
+        flatten_shapes_with_options(&page.shapes, Affine::identity(), options),
+    ))
 }
 
 pub fn flatten_shapes(shapes: &[Shape], parent: Affine) -> Vec<WorldShape> {
+    flatten_shapes_with_options(shapes, parent, FlattenOptions::default())
+}
+
+pub fn flatten_shapes_with_options(
+    shapes: &[Shape],
+    parent: Affine,
+    options: FlattenOptions,
+) -> Vec<WorldShape> {
     let mut out = Vec::new();
     for shape in shapes {
-        flatten_shape(shape, parent, 1.0, &mut out);
+        flatten_shape(shape, parent, 1.0, options, &mut out);
     }
     out
 }
 
-fn flatten_shape(shape: &Shape, parent: Affine, alpha: f64, out: &mut Vec<WorldShape>) {
+fn flatten_shape(
+    shape: &Shape,
+    parent: Affine,
+    alpha: f64,
+    options: FlattenOptions,
+    out: &mut Vec<WorldShape>,
+) {
     match shape {
         Shape::Circle(c) => {
             let (x, y) = parent.transform_point(c.x_mm, c.y_mm);
@@ -126,10 +165,10 @@ fn flatten_shape(shape: &Shape, parent: Affine, alpha: f64, out: &mut Vec<WorldS
             }));
         }
         Shape::Ellipse(e) => {
-            const N: usize = 32;
-            let mut points_mm = Vec::with_capacity(N);
-            for i in 0..N {
-                let t = std::f64::consts::TAU * (i as f64) / (N as f64);
+            let n = options.ellipse_sides.max(3) as usize;
+            let mut points_mm = Vec::with_capacity(n);
+            for i in 0..n {
+                let t = std::f64::consts::TAU * (i as f64) / (n as f64);
                 let lx = e.x_mm + e.rx_mm * t.cos();
                 let ly = e.y_mm + e.ry_mm * t.sin();
                 points_mm.push(parent.transform_point(lx, ly));
@@ -259,7 +298,7 @@ fn flatten_shape(shape: &Shape, parent: Affine, alpha: f64, out: &mut Vec<WorldS
         } => {
             let combined = alpha * (*child_alpha);
             for child in children {
-                flatten_shape(child, parent, combined, out);
+                flatten_shape(child, parent, combined, options, out);
             }
         }
         Shape::Group {
@@ -268,7 +307,7 @@ fn flatten_shape(shape: &Shape, parent: Affine, alpha: f64, out: &mut Vec<WorldS
         } => {
             let combined = transform.then(parent);
             for child in children {
-                flatten_shape(child, combined, alpha, out);
+                flatten_shape(child, combined, alpha, options, out);
             }
         }
     }

@@ -7,11 +7,13 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
+use reciplexa::document_pipeline::{document_snapshot_from_source, provenance_hints_for_scene};
 use reciplexa::pipeline::{document_for_export, PipelineError};
 use reciplexa_effect::{seed_from_env, EffectError, EffectHandler, LcgRng, Value};
+use reciplexa_identity::document::DocumentIdentity;
 use reciplexa_pdf::write_document_with_base;
 use reciplexa_pptx::write_document as write_pptx;
-use reciplexa_svg::write_document as write_svg;
+use reciplexa_svg::write_document_with_hints;
 
 fn main() -> ExitCode {
     let mut args = env::args().skip(1);
@@ -137,7 +139,12 @@ fn render(input: &str, output: &str) -> Result<(), String> {
     match export_kind(&path) {
         ExportKind::Pdf => write_document_with_base(&doc, base.as_deref(), file)
             .map_err(|e| format!("pdf: {e:?}"))?,
-        ExportKind::Svg => write_svg(&doc, file).map_err(|e| format!("svg: {e}"))?,
+        ExportKind::Svg => {
+            let hints = document_snapshot_from_source(&src, DocumentIdentity::new(1))
+                .map(|snap| provenance_hints_for_scene(&doc, &snap))
+                .unwrap_or_default();
+            write_document_with_hints(&doc, &hints, file).map_err(|e| format!("svg: {e}"))?
+        }
         ExportKind::Pptx => write_pptx(&doc, file).map_err(|e| format!("pptx: {e}"))?,
     }
     Ok(())

@@ -2842,6 +2842,7 @@ dependencies = [
 name = "reciplexa"
 version = "0.1.0"
 dependencies = [
+ "reciplexa-backend",
  "reciplexa-bind",
  "reciplexa-diagnostic",
  "reciplexa-document",
@@ -2856,12 +2857,14 @@ dependencies = [
  "reciplexa-svg",
  "reciplexa-syntax",
  "reciplexa-types",
+ "reciplexa-visual-ir",
 ]
 
 [[package]]
 name = "reciplexa-backend"
 version = "0.1.0"
 dependencies = [
+ "reciplexa-identity",
  "reciplexa-scene",
  "reciplexa-visual-ir",
 ]
@@ -3067,6 +3070,7 @@ version = "0.1.0"
 dependencies = [
  "reciplexa-backend",
  "reciplexa-scene",
+ "reciplexa-visual-ir",
 ]
 
 [[package]]
