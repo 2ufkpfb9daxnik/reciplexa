@@ -1,13 +1,13 @@
-//! Shared private CST walk helpers for sync/props (trivia-skipping list atoms).
+//! Shared CST walk helpers for sync/props (trivia-skipping list atoms).
 
 use reciplexa_syntax::{SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken};
 
-pub(crate) enum Child {
+pub enum Child {
     Token(SyntaxToken),
     Node(SyntaxNode),
 }
 
-pub(crate) fn list_atoms(node: &SyntaxNode) -> Vec<Child> {
+pub fn list_atoms(node: &SyntaxNode) -> Vec<Child> {
     let mut items = Vec::new();
     for el in node.children_with_tokens() {
         match el {
@@ -25,7 +25,7 @@ pub(crate) fn list_atoms(node: &SyntaxNode) -> Vec<Child> {
     items
 }
 
-pub(crate) fn find_list_covering(
+pub fn find_list_covering(
     root: &SyntaxNode,
     start: usize,
     end: usize,

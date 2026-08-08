@@ -5,7 +5,7 @@ use reciplexa_syntax::{SyntaxKind, SyntaxNode};
 use super::{extent_with_leading_ws, parse_root, SyncError};
 use crate::cst_walk::{list_atoms, Child};
 
-pub(crate) fn find_page(root: &SyntaxNode, page_index: usize) -> Result<SyntaxNode, SyncError> {
+pub fn find_page(root: &SyntaxNode, page_index: usize) -> Result<SyntaxNode, SyncError> {
     let mut page_i = 0usize;
     for form in root.children() {
         if !is_list_headed(&form, "page") {
@@ -106,7 +106,7 @@ pub fn delete_page(src: &str, page_index: usize) -> Result<String, SyncError> {
 }
 
 /// Index of the first shape child under `(page …)`.
-pub(crate) fn page_body_start(items: &[Child]) -> usize {
+pub fn page_body_start(items: &[Child]) -> usize {
     if items.len() >= 3
         && matches!(&items[1], Child::Token(t) if t.kind() == SyntaxKind::Number)
         && matches!(&items[2], Child::Token(t) if t.kind() == SyntaxKind::Number)
