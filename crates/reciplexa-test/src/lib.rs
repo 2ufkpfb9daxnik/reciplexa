@@ -11,5 +11,5 @@ pub mod runner;
 
 pub use assert::{assert_diagnostic_codes, assert_eq_structured, StructuredDiff};
 pub use conformance::{ConformanceId, SpecSection};
-pub use outcome::{assert_subject_failure, TestOutcome, TestSubject};
+pub use outcome::{assert_subject_failure, assert_subject_success, TestOutcome, TestSubject};
 pub use runner::{run_conformance, ConformanceCase};

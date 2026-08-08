@@ -11,6 +11,12 @@ pub enum TestOutcome<A> {
     Defected(Box<DefectReport>),
 }
 
+impl<A> TestOutcome<A> {
+    pub fn is_passed(&self) -> bool {
+        matches!(self, Self::Passed(_))
+    }
+}
+
 /// Wrapper pairing a conformance id with subject execution.
 #[derive(Debug, Clone)]
 pub struct TestSubject {
@@ -24,6 +30,21 @@ impl TestSubject {
             conformance_id: crate::conformance::ConformanceId::new(conformance_id),
             spec_section: crate::conformance::SpecSection::new(spec_section),
         }
+    }
+
+    pub fn label(&self) -> String {
+        format!("{} {}", self.conformance_id, self.spec_section)
+    }
+}
+
+/// Assert the subject succeeded.
+pub fn assert_subject_success<E, A: PartialEq + std::fmt::Debug>(
+    outcome: SubjectOutcome<A, E>,
+    expected: A,
+) {
+    match outcome {
+        SubjectOutcome::Success(value) => assert_eq!(value, expected),
+        other => panic!("expected SubjectOutcome::Success, got {other:?}"),
     }
 }
 
