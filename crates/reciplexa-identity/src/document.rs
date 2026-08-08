@@ -49,6 +49,10 @@ impl DocumentRevision {
     pub fn next(self) -> Self {
         Self(self.0.saturating_add(1))
     }
+
+    pub const fn is_zero(self) -> bool {
+        self.0 == 0
+    }
 }
 
 impl fmt::Display for DocumentRevision {
