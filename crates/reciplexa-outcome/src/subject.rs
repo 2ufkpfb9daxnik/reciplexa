@@ -17,6 +17,24 @@ impl<A, E> SubjectOutcome<A, E> {
     pub fn is_success(&self) -> bool {
         matches!(self, Self::Success(_))
     }
+
+    pub fn map<B>(self, f: impl FnOnce(A) -> B) -> SubjectOutcome<B, E> {
+        match self {
+            Self::Success(a) => SubjectOutcome::Success(f(a)),
+            Self::Failure(e) => SubjectOutcome::Failure(e),
+            Self::Cancelled => SubjectOutcome::Cancelled,
+            Self::Defect(d) => SubjectOutcome::Defect(d),
+        }
+    }
+
+    pub fn map_err<F>(self, f: impl FnOnce(E) -> F) -> SubjectOutcome<A, F> {
+        match self {
+            Self::Success(a) => SubjectOutcome::Success(a),
+            Self::Failure(e) => SubjectOutcome::Failure(f(e)),
+            Self::Cancelled => SubjectOutcome::Cancelled,
+            Self::Defect(d) => SubjectOutcome::Defect(d),
+        }
+    }
 }
 
 /// Root scope outcome after shutdown (`specification.md` CON-001 §61).
@@ -28,6 +46,16 @@ pub enum ApplicationOutcome<A, E> {
     Cancelled(CancellationReport),
     Defected(Box<DefectReport>),
     Aborted(InfrastructureAbort),
+}
+
+impl<A, E> ApplicationOutcome<A, E> {
+    pub fn is_defected(&self) -> bool {
+        matches!(self, Self::Defected(_))
+    }
+
+    pub fn is_completed(&self) -> bool {
+        matches!(self, Self::Completed(_))
+    }
 }
 
 /// User-visible exit intent — not an OS exit code.
@@ -55,6 +83,13 @@ pub struct InfrastructureAbort {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn subject_map_preserves_failure() {
+        let outcome: SubjectOutcome<i32, &str> = SubjectOutcome::Failure("err");
+        let mapped = outcome.map_err(|e| e.len());
+        assert!(matches!(mapped, SubjectOutcome::Failure(3)));
+    }
 
     #[test]
     fn subject_success_is_distinct_from_test_pass() {
