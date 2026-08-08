@@ -97,6 +97,10 @@ impl DefectReport {
             suppressed_cleanup_failures: Vec::new(),
         }
     }
+    pub fn with_source_range(mut self, range: TextRange) -> Self {
+        self.origin.source_range = Some(range);
+        self
+    }
 }
 
 impl fmt::Display for DefectReport {
