@@ -110,6 +110,14 @@ mod tests {
     }
 
     #[test]
+    fn const_new_builds_unchecked_range() {
+        let r = TextRange::new(off(2), off(5));
+        assert_eq!(r.start(), off(2));
+        assert_eq!(r.end(), off(5));
+        assert_eq!(r.len(), 3);
+    }
+
+    #[test]
     fn rejects_end_before_start() {
         assert!(matches!(
             TextRange::try_new(off(5), off(3)),

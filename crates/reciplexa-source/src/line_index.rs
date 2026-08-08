@@ -122,4 +122,14 @@ mod tests {
         let pos = idx.position(ByteOffset::new(12));
         assert_eq!(pos.line.get(), 2);
     }
+
+    #[test]
+    fn line_start_returns_offsets_and_none_past_end() {
+        let idx = LineIndex::new("a\nb\nc");
+        assert_eq!(idx.line_start(LineNumber::ONE), Some(ByteOffset::ZERO));
+        assert_eq!(idx.line_start(LineNumber::new(2)), Some(ByteOffset::new(2)));
+        assert_eq!(idx.line_start(LineNumber::new(3)), Some(ByteOffset::new(4)));
+        assert!(idx.line_start(LineNumber::new(99)).is_none());
+        assert_eq!(idx.line_start(LineNumber::new(0)), Some(ByteOffset::ZERO));
+    }
 }

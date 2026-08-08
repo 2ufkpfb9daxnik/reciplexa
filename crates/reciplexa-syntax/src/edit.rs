@@ -25,20 +25,17 @@ pub fn format_drag_number(value: f64) -> String {
         return "0".into();
     }
     let rounded = (value * 1000.0).round() / 1000.0;
-    if (rounded - rounded.round()).abs() < 1e-9 {
-        format!("{}", rounded.round() as i64)
-    } else {
-        let mut s = format!("{rounded}");
-        if s.contains('.') {
-            while s.ends_with('0') {
-                s.pop();
-            }
-            if s.ends_with('.') {
-                s.pop();
-            }
+    // Fixed decimals then trim so GUI edits stay compact (`1.500` → `1.5`, `10.000` → `10`).
+    let mut s = format!("{rounded:.3}");
+    if s.contains('.') {
+        while s.ends_with('0') {
+            s.pop();
         }
-        s
+        if s.ends_with('.') {
+            s.pop();
+        }
     }
+    s
 }
 
 /// Find the first token covering `byte_offset` with the given kind.
@@ -94,6 +91,8 @@ mod tests {
         assert_eq!(format_drag_number(10.0), "10");
         assert_eq!(format_drag_number(1.5), "1.5");
         assert_eq!(format_drag_number(1.500_000_1), "1.5");
+        assert_eq!(format_drag_number(1.25), "1.25");
+        assert_eq!(format_drag_number(1.2), "1.2");
     }
 
     // --- defect ---
@@ -109,5 +108,15 @@ mod tests {
         let root = parse_source("(a 1)").into_result().unwrap();
         // whitespace between a and 1
         assert!(token_at_offset(&root, 2, SyntaxKind::Number).is_none());
+    }
+
+    #[test]
+    fn token_at_offset_hits_interior_and_end() {
+        let root = parse_source("(a 12)").into_result().unwrap();
+        let interior = token_at_offset(&root, 4, SyntaxKind::Number).unwrap();
+        assert_eq!(interior.text(), "12");
+        // caret at end of the number token
+        let at_end = token_at_offset(&root, 5, SyntaxKind::Number).unwrap();
+        assert_eq!(at_end.text(), "12");
     }
 }

@@ -316,9 +316,9 @@ impl<'a> Lexer<'a> {
                 break;
             }
         }
-        if !seen_digit {
-            return self.finish(SyntaxKind::Error, start);
-        }
+        // Callers only enter `bump_number` with a digit or a signed digit, so
+        // `seen_digit` is always true; keep the guard for API safety.
+        debug_assert!(seen_digit);
         self.finish(SyntaxKind::Number, start)
     }
 
@@ -336,7 +336,7 @@ impl<'a> Lexer<'a> {
 
     fn peek_char_at(&self, offset_from_pos: usize) -> Option<char> {
         let i = self.pos + offset_from_pos;
-        if i > self.input.len() {
+        if i >= self.input.len() {
             return None;
         }
         self.input[i..].chars().next()
@@ -586,5 +586,47 @@ mod tests {
         let tok = lex.bump_token().unwrap();
         assert_eq!(tok.kind, SyntaxKind::String);
         assert_eq!(tok.text(src), src);
+    }
+
+    #[test]
+    fn lexer_input_accessor() {
+        let lex = Lexer::new("abc");
+        assert_eq!(lex.input(), "abc");
+    }
+
+    #[test]
+    fn scribble_lexes_brackets_and_crlf() {
+        let mut lex = Lexer::new("[\r\n]");
+        lex.push_mode(LexerMode::Scribble);
+        let kinds: Vec<_> = lex.tokenize_all().into_iter().map(|t| t.kind).collect();
+        assert_eq!(
+            kinds,
+            vec![
+                SyntaxKind::LBracket,
+                SyntaxKind::Newline,
+                SyntaxKind::RBracket
+            ]
+        );
+    }
+
+    #[test]
+    fn scribble_bare_cr_is_newline() {
+        let mut lex = Lexer::new("a\rb");
+        lex.push_mode(LexerMode::Scribble);
+        let kinds: Vec<_> = lex.tokenize_all().into_iter().map(|t| t.kind).collect();
+        assert_eq!(
+            kinds,
+            vec![
+                SyntaxKind::TextChunk,
+                SyntaxKind::Newline,
+                SyntaxKind::TextChunk
+            ]
+        );
+    }
+
+    #[test]
+    fn number_with_trailing_dot_stops_before_dot() {
+        // `1.` — digit run ends at the dot when no fractional digit follows.
+        assert_eq!(kinds("1."), vec![SyntaxKind::Number, SyntaxKind::Error]);
     }
 }

@@ -59,5 +59,12 @@ mod tests {
     fn path_formats_named_and_index_segments() {
         let path = WidgetKeyPath::new().push_named("toolbar").push_index(2);
         assert_eq!(path.to_string(), "toolbar/2");
+        assert_eq!(
+            path.segments(),
+            &[
+                WidgetKeySegment::Named("toolbar".into()),
+                WidgetKeySegment::Index(2)
+            ]
+        );
     }
 }

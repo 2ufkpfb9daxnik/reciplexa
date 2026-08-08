@@ -75,7 +75,7 @@ pub fn doc_parts(doc_list: &SyntaxNode) -> Result<Vec<DocPart>, DocWalkError> {
                 body_started = true;
                 match t.kind() {
                     SyntaxKind::TextChunk => parts.push(DocPart::Text(t.text().to_string())),
-                    SyntaxKind::Newline => parts.push(DocPart::Newline),
+                    // Newline is trivia and handled above; any other non-trivia token is invalid.
                     other => {
                         return Err(DocWalkError::new(format!(
                             "unexpected token `{other:?}` in doc body"
@@ -239,7 +239,7 @@ fn walk_scribble_container(node: &SyntaxNode) -> Result<Vec<DocPart>, DocWalkErr
                 }
                 match t.kind() {
                     SyntaxKind::TextChunk => parts.push(DocPart::Text(t.text().to_string())),
-                    SyntaxKind::Newline => parts.push(DocPart::Newline),
+                    // Newline is trivia and handled above; any other non-trivia token is invalid.
                     other => {
                         return Err(DocWalkError::new(format!(
                             "unexpected token `{other:?}` in scribble brace"
@@ -379,9 +379,16 @@ mod tests {
 
     #[test]
     fn error_node_in_body_errors() {
-        let parse = parse_source("(doc @em{hi)");
-        let list = parse.root.children().next().unwrap();
-        assert!(doc_parts(&list).is_err());
+        let list = green_list(|b| {
+            b.token(SyntaxKind::LParen.into(), "(");
+            b.token(SyntaxKind::Ident.into(), "doc");
+            b.start_node(SyntaxKind::ErrorNode.into());
+            b.token(SyntaxKind::Error.into(), "(");
+            b.finish_node();
+            b.token(SyntaxKind::RParen.into(), ")");
+        });
+        let err = doc_parts(&list).unwrap_err();
+        assert!(err.message.contains("error node"), "{}", err.message);
     }
 
     #[test]
@@ -410,5 +417,234 @@ mod tests {
     fn doc_walk_error_debug() {
         let err = DocWalkError::new("msg");
         assert!(format!("{err:?}").contains("msg"));
+    }
+
+    fn green_list(build: impl FnOnce(&mut rowan::GreenNodeBuilder<'_>)) -> SyntaxNode {
+        let mut b = rowan::GreenNodeBuilder::new();
+        b.start_node(SyntaxKind::List.into());
+        build(&mut b);
+        b.finish_node();
+        SyntaxNode::new_root(b.finish())
+    }
+
+    #[test]
+    fn whitespace_and_comment_after_body_started() {
+        let list = green_list(|b| {
+            b.token(SyntaxKind::LParen.into(), "(");
+            b.token(SyntaxKind::Ident.into(), "doc");
+            b.token(SyntaxKind::TextChunk.into(), "hi");
+            b.token(SyntaxKind::Whitespace.into(), " ");
+            b.token(SyntaxKind::Comment.into(), ";c");
+            b.token(SyntaxKind::RParen.into(), ")");
+        });
+        let parts = doc_parts(&list).unwrap();
+        assert!(parts
+            .iter()
+            .any(|p| matches!(p, DocPart::Text(t) if t == " ")));
+    }
+
+    #[test]
+    fn unexpected_ident_token_in_doc_body() {
+        let list = green_list(|b| {
+            b.token(SyntaxKind::LParen.into(), "(");
+            b.token(SyntaxKind::Ident.into(), "doc");
+            b.token(SyntaxKind::Ident.into(), "nope");
+            b.token(SyntaxKind::RParen.into(), ")");
+        });
+        let err = doc_parts(&list).unwrap_err();
+        assert!(err.message.contains("unexpected token"));
+    }
+
+    #[test]
+    fn node_before_doc_head_errors() {
+        let list = green_list(|b| {
+            b.token(SyntaxKind::LParen.into(), "(");
+            b.start_node(SyntaxKind::BraceList.into());
+            b.token(SyntaxKind::LBrace.into(), "{");
+            b.token(SyntaxKind::RBrace.into(), "}");
+            b.finish_node();
+            b.token(SyntaxKind::Ident.into(), "doc");
+            b.token(SyntaxKind::RParen.into(), ")");
+        });
+        let err = doc_parts(&list).unwrap_err();
+        assert!(err.message.contains("before body"));
+    }
+
+    #[test]
+    fn unexpected_list_node_in_doc_body() {
+        let list = green_list(|b| {
+            b.token(SyntaxKind::LParen.into(), "(");
+            b.token(SyntaxKind::Ident.into(), "doc");
+            b.start_node(SyntaxKind::List.into());
+            b.token(SyntaxKind::LParen.into(), "(");
+            b.token(SyntaxKind::RParen.into(), ")");
+            b.finish_node();
+            b.token(SyntaxKind::RParen.into(), ")");
+        });
+        let err = doc_parts(&list).unwrap_err();
+        assert!(err.message.contains("unexpected node"));
+    }
+
+    #[test]
+    fn empty_parens_without_doc_head() {
+        let list = green_list(|b| {
+            b.token(SyntaxKind::LParen.into(), "(");
+            b.token(SyntaxKind::RParen.into(), ")");
+        });
+        let err = doc_parts(&list).unwrap_err();
+        assert!(err.message.contains("expected head `doc`"));
+    }
+
+    #[test]
+    fn at_list_form_is_rejected() {
+        let err = doc_parts(&doc_list("(doc @())")).unwrap_err();
+        assert!(err.message.contains("list form"));
+    }
+
+    #[test]
+    fn at_without_ident_errors() {
+        let list = green_list(|b| {
+            b.token(SyntaxKind::LParen.into(), "(");
+            b.token(SyntaxKind::Ident.into(), "doc");
+            b.start_node(SyntaxKind::AtExpr.into());
+            b.token(SyntaxKind::At.into(), "@");
+            b.finish_node();
+            b.token(SyntaxKind::RParen.into(), ")");
+        });
+        let err = doc_parts(&list).unwrap_err();
+        assert!(err.message.contains("identifier after `@`"));
+    }
+
+    #[test]
+    fn at_ignores_unknown_nested_nodes() {
+        let list = green_list(|b| {
+            b.token(SyntaxKind::LParen.into(), "(");
+            b.token(SyntaxKind::Ident.into(), "doc");
+            b.start_node(SyntaxKind::AtExpr.into());
+            b.token(SyntaxKind::At.into(), "@");
+            b.token(SyntaxKind::Ident.into(), "em");
+            b.start_node(SyntaxKind::ErrorNode.into());
+            b.token(SyntaxKind::Error.into(), "?");
+            b.finish_node();
+            b.finish_node();
+            b.token(SyntaxKind::RParen.into(), ")");
+        });
+        let parts = doc_parts(&list).unwrap();
+        assert!(matches!(parts[0], DocPart::At { ref name, .. } if name == "em"));
+    }
+
+    #[test]
+    fn brace_with_nested_at_expr() {
+        let parts = doc_parts(&doc_list("(doc {@em{x} y})")).unwrap();
+        assert_eq!(flatten_readable(&parts), "x y");
+    }
+
+    #[test]
+    fn brace_whitespace_token_is_kept() {
+        let list = green_list(|b| {
+            b.token(SyntaxKind::LParen.into(), "(");
+            b.token(SyntaxKind::Ident.into(), "doc");
+            b.start_node(SyntaxKind::BraceList.into());
+            b.token(SyntaxKind::LBrace.into(), "{");
+            b.token(SyntaxKind::Whitespace.into(), " ");
+            b.token(SyntaxKind::TextChunk.into(), "x");
+            b.token(SyntaxKind::RBrace.into(), "}");
+            b.finish_node();
+            b.token(SyntaxKind::RParen.into(), ")");
+        });
+        let parts = doc_parts(&list).unwrap();
+        assert!(parts
+            .iter()
+            .any(|p| matches!(p, DocPart::Text(t) if t == " ")));
+    }
+
+    #[test]
+    fn unexpected_token_and_node_in_brace() {
+        let bad_tok = green_list(|b| {
+            b.token(SyntaxKind::LParen.into(), "(");
+            b.token(SyntaxKind::Ident.into(), "doc");
+            b.start_node(SyntaxKind::BraceList.into());
+            b.token(SyntaxKind::LBrace.into(), "{");
+            b.token(SyntaxKind::Ident.into(), "bad");
+            b.token(SyntaxKind::RBrace.into(), "}");
+            b.finish_node();
+            b.token(SyntaxKind::RParen.into(), ")");
+        });
+        assert!(doc_parts(&bad_tok)
+            .unwrap_err()
+            .message
+            .contains("scribble brace"));
+
+        let bad_node = green_list(|b| {
+            b.token(SyntaxKind::LParen.into(), "(");
+            b.token(SyntaxKind::Ident.into(), "doc");
+            b.start_node(SyntaxKind::BraceList.into());
+            b.token(SyntaxKind::LBrace.into(), "{");
+            b.start_node(SyntaxKind::List.into());
+            b.token(SyntaxKind::LParen.into(), "(");
+            b.token(SyntaxKind::RParen.into(), ")");
+            b.finish_node();
+            b.token(SyntaxKind::RBrace.into(), "}");
+            b.finish_node();
+            b.token(SyntaxKind::RParen.into(), ")");
+        });
+        assert!(doc_parts(&bad_node)
+            .unwrap_err()
+            .message
+            .contains("unexpected node"));
+    }
+
+    #[test]
+    fn error_node_in_scribble_brace() {
+        let list = green_list(|b| {
+            b.token(SyntaxKind::LParen.into(), "(");
+            b.token(SyntaxKind::Ident.into(), "doc");
+            b.start_node(SyntaxKind::BraceList.into());
+            b.token(SyntaxKind::LBrace.into(), "{");
+            b.start_node(SyntaxKind::ErrorNode.into());
+            b.token(SyntaxKind::Error.into(), "(");
+            b.finish_node();
+            b.token(SyntaxKind::RBrace.into(), "}");
+            b.finish_node();
+            b.token(SyntaxKind::RParen.into(), ")");
+        });
+        let err = doc_parts(&list).unwrap_err();
+        assert!(err.message.contains("scribble body contains an error node"));
+    }
+
+    #[test]
+    fn nested_brace_lists_unwrap() {
+        let parts = doc_parts(&doc_list("(doc {{inner}})")).unwrap();
+        assert_eq!(flatten_readable(&parts), "inner");
+    }
+
+    #[test]
+    fn short_bracket_args_use_full_text() {
+        let list = green_list(|b| {
+            b.token(SyntaxKind::LParen.into(), "(");
+            b.token(SyntaxKind::Ident.into(), "doc");
+            b.start_node(SyntaxKind::AtExpr.into());
+            b.token(SyntaxKind::At.into(), "@");
+            b.token(SyntaxKind::Ident.into(), "cite");
+            b.start_node(SyntaxKind::BracketList.into());
+            b.token(SyntaxKind::LBracket.into(), "[");
+            b.finish_node();
+            b.finish_node();
+            b.token(SyntaxKind::RParen.into(), ")");
+        });
+        let parts = doc_parts(&list).unwrap();
+        assert_eq!(flatten_readable(&parts), "[");
+    }
+
+    #[test]
+    fn leading_trivia_before_doc_head_is_skipped() {
+        let list = green_list(|b| {
+            b.token(SyntaxKind::LParen.into(), "(");
+            b.token(SyntaxKind::Whitespace.into(), " ");
+            b.token(SyntaxKind::Ident.into(), "doc");
+            b.token(SyntaxKind::TextChunk.into(), "x");
+            b.token(SyntaxKind::RParen.into(), ")");
+        });
+        assert_eq!(flatten_readable(&doc_parts(&list).unwrap()), "x");
     }
 }

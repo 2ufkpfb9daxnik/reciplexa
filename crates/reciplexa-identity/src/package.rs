@@ -80,39 +80,6 @@ impl fmt::Display for ModuleId {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn invalid_sentinel_is_zero() {
-        assert!(!PackageId::INVALID.is_valid());
-        assert!(!PackageInstanceId::INVALID.is_valid());
-        assert!(!ModuleId::INVALID.is_valid());
-    }
-
-    #[test]
-    fn allocators_issue_monotonic_ids() {
-        let mut pkg = PackageIdAllocator::new();
-        let a = pkg.allocate();
-        let b = pkg.allocate();
-        assert!(a.get() < b.get());
-
-        let mut inst = PackageInstanceIdAllocator::new();
-        assert!(inst.allocate().is_valid());
-
-        let mut mod_alloc = ModuleIdAllocator::new();
-        assert_eq!(mod_alloc.allocate().get(), 1);
-    }
-
-    #[test]
-    fn display_formats_ids() {
-        assert_eq!(PackageId::new(7).to_string(), "package:7");
-        assert_eq!(PackageInstanceId::new(3).to_string(), "package-instance:3");
-        assert_eq!(ModuleId::new(9).to_string(), "module:9");
-    }
-}
-
 /// Allocates monotonically increasing package ids.
 #[derive(Debug, Clone, Default)]
 pub struct PackageIdAllocator {
@@ -164,5 +131,43 @@ impl ModuleIdAllocator {
         let id = ModuleId::new(self.next);
         self.next = self.next.saturating_add(1);
         id
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn invalid_sentinel_is_zero() {
+        assert!(!PackageId::INVALID.is_valid());
+        assert!(!PackageInstanceId::INVALID.is_valid());
+        assert!(!ModuleId::INVALID.is_valid());
+    }
+
+    #[test]
+    fn allocators_issue_monotonic_ids() {
+        let mut pkg = PackageIdAllocator::new();
+        let a = pkg.allocate();
+        let b = pkg.allocate();
+        assert!(a.get() < b.get());
+        let _ = PackageIdAllocator::default();
+
+        let mut inst = PackageInstanceIdAllocator::new();
+        assert!(inst.allocate().is_valid());
+        assert_eq!(inst.allocate().get(), 2);
+        let _ = PackageInstanceIdAllocator::default();
+
+        let mut mod_alloc = ModuleIdAllocator::new();
+        assert_eq!(mod_alloc.allocate().get(), 1);
+        let _ = ModuleIdAllocator::default();
+    }
+
+    #[test]
+    fn display_formats_ids() {
+        assert_eq!(PackageId::new(7).to_string(), "package:7");
+        assert_eq!(PackageInstanceId::new(3).to_string(), "package-instance:3");
+        assert_eq!(PackageInstanceId::new(3).get(), 3);
+        assert_eq!(ModuleId::new(9).to_string(), "module:9");
     }
 }

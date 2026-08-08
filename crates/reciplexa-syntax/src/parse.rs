@@ -125,14 +125,17 @@ impl<'a> Parser<'a> {
                 self.bump();
                 self.builder.finish_node();
             }
-            other if other.is_trivia() => {
-                self.bump();
-            }
             other => {
-                self.push_error(format!("unexpected token `{other:?}`"), tok.start, tok.end);
-                self.builder.start_node(SyntaxKind::ErrorNode.into());
-                self.bump();
-                self.builder.finish_node();
+                // Trivia is normally eaten before `parse_form`; treat anything else
+                // (including stray trivia) as a recoverable error token.
+                if other.is_trivia() {
+                    self.bump();
+                } else {
+                    self.push_error(format!("unexpected token `{other:?}`"), tok.start, tok.end);
+                    self.builder.start_node(SyntaxKind::ErrorNode.into());
+                    self.bump();
+                    self.builder.finish_node();
+                }
             }
         }
     }
@@ -755,5 +758,59 @@ mod tests {
         let src = "(doc hello @em{world})";
         let root = parse_ok(src);
         assert_eq!(unparse(&root), src);
+    }
+
+    #[test]
+    fn stray_close_brace_or_bracket_in_scribble() {
+        let brace = parse_source("(doc })");
+        assert!(brace
+            .errors
+            .iter()
+            .any(|e| e.message.contains("unexpected")));
+        let bracket = parse_source("(doc ])");
+        assert!(bracket
+            .errors
+            .iter()
+            .any(|e| e.message.contains("unexpected")));
+    }
+
+    #[test]
+    fn unclosed_nested_scribble_brace_errors() {
+        let parse = parse_source("(doc {hi");
+        assert!(parse.errors.iter().any(|e| e.message.contains("unclosed")));
+    }
+
+    #[test]
+    fn defensive_parser_edges_via_private_api() {
+        // EOF: parse_form / bump no-ops.
+        let mut p = Parser::new("");
+        p.parse_form();
+        p.bump();
+        p.pop_mode_relex();
+        assert!(
+            p.errors.iter().any(|e| e.message.contains("underflow")),
+            "{:?}",
+            p.errors
+        );
+
+        // Trivia still sitting in `current` (normally eaten first).
+        let mut p = Parser::new(" ");
+        assert!(p.current.as_ref().is_some_and(|t| t.kind.is_trivia()));
+        p.parse_form();
+        assert!(p.current.is_none());
+
+        // Non-token kind injected to exercise the unexpected-token recovery arm.
+        let mut p = Parser::new("x");
+        p.current = Some(crate::Token {
+            kind: SyntaxKind::List,
+            start: 0,
+            end: 0,
+        });
+        p.parse_form();
+        assert!(
+            p.errors.iter().any(|e| e.message.contains("unexpected")),
+            "{:?}",
+            p.errors
+        );
     }
 }

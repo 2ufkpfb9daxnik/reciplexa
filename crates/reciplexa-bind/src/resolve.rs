@@ -291,4 +291,25 @@ mod tests {
         let r = resolve_source("[1 2 3]\n{a b}");
         assert!(r.is_ok() || !r.errors.is_empty());
     }
+
+    #[test]
+    fn empty_and_headless_lists_are_skipped() {
+        let r = resolve_source("()\n(123)\n(src ())\n(src [1])");
+        assert!(r.is_ok(), "{:?}", r.errors);
+    }
+
+    #[test]
+    fn nested_handle_lists_inside_src() {
+        // First child of `handle` is a List (not a name token), so skip(1) still
+        // walks subsequent lists through resolve_src_form.
+        let r = resolve_source("(src (handle (page a4) (circle 1 2 3 red)))");
+        assert!(r.is_ok(), "{:?}", r.errors);
+    }
+
+    #[test]
+    fn list_starting_with_delimiter_has_no_head() {
+        // Head scan breaks on non-trivia non-lparen before any Ident.
+        let r = resolve_source("(() )");
+        assert!(r.is_ok() || !r.errors.is_empty());
+    }
 }

@@ -138,6 +138,7 @@ mod tests {
     fn accepts_valid_utf8() {
         let src = SourceResource::from_utf8(SourceResourceId::new(1), "(page a4)").unwrap();
         assert_eq!(src.text(), "(page a4)");
+        assert_eq!(src.id(), SourceResourceId::new(1));
         assert!(!src.has_bom());
     }
 
