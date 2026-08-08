@@ -6,8 +6,14 @@ license.workspace = true
 description = "Structured diagnostic schema for reciplexa"
 publish = false
 
+[features]
+default = []
+syntax = ["dep:reciplexa-syntax"]
+
 [dependencies]
 reciplexa-identity = { workspace = true }
 reciplexa-source = { workspace = true }
+reciplexa-syntax = { workspace = true, optional = true }
 
 [dev-dependencies]
+reciplexa-syntax = { workspace = true }

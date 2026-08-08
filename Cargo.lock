@@ -2836,13 +2836,17 @@ dependencies = [
 name = "reciplexa"
 version = "0.1.0"
 dependencies = [
+ "reciplexa-diagnostic",
  "reciplexa-effect",
+ "reciplexa-identity",
  "reciplexa-lower",
  "reciplexa-macro",
  "reciplexa-pdf",
  "reciplexa-pptx",
  "reciplexa-scene",
+ "reciplexa-source",
  "reciplexa-svg",
+ "reciplexa-syntax",
  "reciplexa-types",
 ]
 
@@ -2852,6 +2856,7 @@ version = "0.1.0"
 dependencies = [
  "reciplexa-identity",
  "reciplexa-source",
+ "reciplexa-syntax",
 ]
 
 [[package]]

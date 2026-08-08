@@ -14,6 +14,9 @@ pub mod parse_adapter;
 pub mod render;
 pub mod severity;
 
+#[cfg(feature = "syntax")]
+pub mod syntax_bridge;
+
 pub use code::DiagnosticCode;
 pub use collector::DiagnosticCollector;
 pub use kind::{Diagnostic, DiagnosticCategory, DiagnosticId, DiagnosticLifecycleStage};
@@ -22,3 +25,5 @@ pub use origin::{DiagnosticOrigin, SourceOrigin};
 pub use parse_adapter::{push_parse_errors, ParseDiagnosticInput};
 pub use render::{render_diagnostic_line, render_diagnostics};
 pub use severity::DiagnosticSeverity;
+#[cfg(feature = "syntax")]
+pub use syntax_bridge::push_syntax_parse_errors;
