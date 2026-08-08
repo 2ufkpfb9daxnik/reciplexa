@@ -93,4 +93,11 @@ mod tests {
         let path = manifest.join("examples/black_circle.rpx");
         cmd_format(path.to_str().unwrap()).expect("format");
     }
+
+    #[test]
+    fn inspect_syntax_lists_forms() {
+        let manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let path = manifest.join("examples/black_circle.rpx");
+        cmd_inspect_syntax(path.to_str().unwrap()).expect("inspect");
+    }
 }
