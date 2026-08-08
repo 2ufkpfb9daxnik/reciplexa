@@ -1,0 +1,13 @@
+[package]
+name = "reciplexa-ir"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Effect-lowering IR and verification for reciplexa"
+publish = false
+
+[dependencies]
+reciplexa-core = { workspace = true }
+reciplexa-outcome = { workspace = true }
+
+[dev-dependencies]
