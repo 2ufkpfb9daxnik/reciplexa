@@ -35,6 +35,31 @@ impl DiagnosticCollector {
             .any(|d| d.severity.is_error_or_worse())
     }
 
+    pub fn len(&self) -> usize {
+        self.diagnostics.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.diagnostics.is_empty()
+    }
+
+    pub fn error_count(&self) -> usize {
+        self.diagnostics
+            .iter()
+            .filter(|d| d.severity.is_error_or_worse())
+            .count()
+    }
+
+    pub fn extend(&mut self, other: DiagnosticCollector) {
+        for diagnostic in other.diagnostics {
+            let id = DiagnosticId::new(self.next_id);
+            self.next_id = self.next_id.saturating_add(1);
+            let mut d = diagnostic;
+            d.id = id;
+            self.diagnostics.push(d);
+        }
+    }
+
     pub fn push(
         &mut self,
         code: DiagnosticCode,
@@ -91,5 +116,27 @@ mod tests {
         );
         assert_ne!(a, b);
         assert!(c.has_errors());
+    }
+
+    #[test]
+    fn extend_reassigns_ids() {
+        let mut a = DiagnosticCollector::new();
+        a.push(
+            DiagnosticCode::new("compiler", "syntax", "SYN-0001"),
+            DiagnosticSeverity::Error,
+            DiagnosticCategory::Syntax,
+            DiagnosticLifecycleStage::Parse,
+            DiagnosticMessage::new("a"),
+        );
+        let mut b = DiagnosticCollector::new();
+        b.push(
+            DiagnosticCode::new("compiler", "syntax", "SYN-0002"),
+            DiagnosticSeverity::Warning,
+            DiagnosticCategory::Syntax,
+            DiagnosticLifecycleStage::Parse,
+            DiagnosticMessage::new("b"),
+        );
+        a.extend(b);
+        assert_eq!(a.len(), 2);
     }
 }

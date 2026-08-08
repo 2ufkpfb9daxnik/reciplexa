@@ -88,4 +88,9 @@ impl Diagnostic {
         self.primary_origin = Some(origin);
         self
     }
+
+    pub fn with_related_origin(mut self, origin: DiagnosticOrigin) -> Self {
+        self.related_origins.push(origin);
+        self
+    }
 }
