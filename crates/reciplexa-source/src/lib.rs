@@ -6,6 +6,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod line_index;
 pub mod offset;
 pub mod range;
 pub mod resource;
