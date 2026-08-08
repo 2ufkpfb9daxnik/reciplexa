@@ -51,6 +51,12 @@ mod tests {
     use super::*;
 
     #[test]
+    fn semantic_allocator_issues_unique_ids() {
+        let mut alloc = SemanticNodeIdAllocator::new();
+        assert_ne!(alloc.allocate(), alloc.allocate());
+    }
+
+    #[test]
     fn semantic_id_is_opaque() {
         assert!(SemanticNodeId::new(10).is_valid());
     }
