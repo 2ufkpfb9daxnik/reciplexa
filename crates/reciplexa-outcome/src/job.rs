@@ -47,6 +47,13 @@ mod tests {
     use crate::defect::{DefectCode, DefectReport, DefectScope};
 
     #[test]
+    fn map_err_on_failed_job() {
+        let result: JobResult<(), &str> = JobResult::Failed("err");
+        let mapped = result.map_err(|e| e.len());
+        assert!(matches!(mapped, JobResult::Failed(3)));
+    }
+
+    #[test]
     fn completed_job_is_not_defected() {
         let result: JobResult<(), ()> = JobResult::Completed(());
         assert!(result.is_completed());
