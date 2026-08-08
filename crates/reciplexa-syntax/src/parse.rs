@@ -577,4 +577,51 @@ mod tests {
         let parse = parse_source("(doc @)");
         assert!(parse.has_errors());
     }
+
+    #[test]
+    fn doc_raw_lparen_in_scribble_is_recovered_error() {
+        let parse = parse_source("(doc hello (world)");
+        assert!(parse.has_errors());
+        let _ = unparse(&parse.root);
+    }
+
+    #[test]
+    fn unclosed_brace_in_at_expr_is_error() {
+        let parse = parse_source("(doc @em{hi)");
+        assert!(parse.has_errors());
+        assert!(parse.errors.iter().any(|e| e.message.contains("unclosed")));
+    }
+
+    #[test]
+    fn error_recovery_still_yields_source_file_root() {
+        let parse = parse_source("(a (b]");
+        assert!(parse.has_errors());
+        assert_eq!(parse.root.kind(), SyntaxKind::SourceFile);
+    }
+
+    #[test]
+    fn multiple_top_level_forms() {
+        let src = "(page a4)\n(doc hi)\n(src (perform log \"x\"))";
+        let root = parse_ok(src);
+        assert_eq!(root.children().count(), 3);
+    }
+
+    #[test]
+    fn hash_comment_only_file() {
+        let src = "; just a comment\n";
+        let root = parse_ok(src);
+        assert_eq!(root.children().count(), 0);
+    }
+
+    #[test]
+    fn string_escape_roundtrip() {
+        let src = r#"(text 1 2 3 "say \"hi\"")"#;
+        assert_eq!(unparse(&parse_ok(src)), src);
+    }
+
+    #[test]
+    fn color_ident_in_list() {
+        let src = "(circle 1 2 3 red)";
+        assert_eq!(unparse(&parse_ok(src)), src);
+    }
 }

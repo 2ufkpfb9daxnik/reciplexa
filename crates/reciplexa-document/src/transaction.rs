@@ -244,4 +244,70 @@ mod tests {
         tx.into_transaction().apply(&mut snap).unwrap();
         assert!(snap.nodes.get(rect).is_some());
     }
+
+    #[test]
+    fn empty_batch_rejected() {
+        let mut snap = DocumentSnapshot::new(DocumentIdentity::new(1));
+        let tx = TransactionBuilder::new().into_transaction();
+        assert_eq!(tx.apply(&mut snap), Err(TransactionError::EmptyBatch));
+    }
+
+    #[test]
+    fn applied_no_change_when_layout_identical() {
+        let mut snap = DocumentSnapshot::new(DocumentIdentity::new(1));
+        let root = snap.nodes.root_id().unwrap();
+        let rect = snap
+            .nodes
+            .insert_child(root, DocumentNodeKind::Rectangle)
+            .unwrap();
+        let layout = LayoutBox::new(1.0, 2.0, 3.0, 4.0);
+        let mut tx = TransactionBuilder::new();
+        tx.set_layout(rect, layout);
+        tx.into_transaction().apply(&mut snap).unwrap();
+        let rev = snap.revision.get();
+        let mut tx2 = TransactionBuilder::new();
+        tx2.set_layout(rect, layout);
+        assert_eq!(
+            tx2.into_transaction().apply(&mut snap).unwrap(),
+            TransactionOutcome::AppliedNoChange
+        );
+        assert_eq!(snap.revision.get(), rev);
+    }
+
+    #[test]
+    fn remove_unknown_node_fails() {
+        let mut snap = DocumentSnapshot::new(DocumentIdentity::new(1));
+        let mut tx = TransactionBuilder::new();
+        tx.push(DocumentEdit::RemoveNode {
+            node: StableNodeId::new(9999),
+        });
+        assert!(matches!(
+            tx.into_transaction().apply(&mut snap),
+            Err(TransactionError::UnknownNode(_))
+        ));
+    }
+
+    #[test]
+    fn insert_child_unknown_parent_fails() {
+        let mut snap = DocumentSnapshot::new(DocumentIdentity::new(1));
+        let mut tx = TransactionBuilder::new();
+        tx.push(DocumentEdit::InsertChild {
+            parent: StableNodeId::new(9999),
+            kind: DocumentNodeKind::Rectangle,
+            properties: vec![],
+        });
+        assert!(matches!(
+            tx.into_transaction().apply(&mut snap),
+            Err(TransactionError::UnknownNode(_))
+        ));
+    }
+
+    #[test]
+    fn builder_is_empty_initially() {
+        let b = TransactionBuilder::new();
+        assert!(b.is_empty());
+        let mut b2 = TransactionBuilder::new();
+        b2.set_layout(StableNodeId::new(1), LayoutBox::new(0.0, 0.0, 1.0, 1.0));
+        assert!(!b2.is_empty());
+    }
 }

@@ -271,7 +271,7 @@ fn collect_shapes(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use reciplexa_scene::PaperSize;
+    use reciplexa_scene::{Affine, PaperSize};
 
     #[test]
     fn roundtrip_rect_through_document() {
@@ -317,5 +317,25 @@ mod tests {
         let snap =
             document_from_scene_page(DocumentIdentity::new(1), &page, SourceResourceId::new(1));
         assert_eq!(drawable_node_ids(&snap.nodes).len(), 2);
+    }
+
+    #[test]
+    fn group_children_project_to_shapes() {
+        let page = Page {
+            paper: PaperSize::a4(),
+            shapes: vec![Shape::Group {
+                transform: Affine::identity(),
+                children: vec![Shape::Rect(Rect {
+                    x_mm: 1.0,
+                    y_mm: 2.0,
+                    width_mm: 3.0,
+                    height_mm: 4.0,
+                    fill: Color::BLACK,
+                })],
+            }],
+        };
+        let snap =
+            document_from_scene_page(DocumentIdentity::new(2), &page, SourceResourceId::new(1));
+        assert_eq!(scene_shapes_from_document(&snap.nodes).len(), 1);
     }
 }

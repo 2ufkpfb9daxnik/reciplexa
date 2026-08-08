@@ -197,4 +197,26 @@ mod tests {
         let dup = store.duplicate_subtree(rect).unwrap();
         assert_ne!(rect, dup);
     }
+
+    #[test]
+    fn remove_subtree_deletes_descendants() {
+        let mut store = NodeStore::new();
+        let doc = store.allocate(DocumentNodeKind::Document);
+        let page = store.insert_child(doc, DocumentNodeKind::Page).unwrap();
+        let rect = store
+            .insert_child(page, DocumentNodeKind::Rectangle)
+            .unwrap();
+        store.remove_subtree(page);
+        assert!(store.get(page).is_none());
+        assert!(store.get(rect).is_none());
+    }
+
+    #[test]
+    fn root_id_is_document() {
+        let mut store = NodeStore::new();
+        let doc = store.allocate(DocumentNodeKind::Document);
+        let root = store.root_id().unwrap();
+        assert_eq!(root, doc);
+        assert!(matches!(store.get(root).unwrap().kind, DocumentNodeKind::Document));
+    }
 }

@@ -3071,6 +3071,7 @@ name = "reciplexa-svg"
 version = "0.1.0"
 dependencies = [
  "reciplexa-backend",
+ "reciplexa-identity",
  "reciplexa-scene",
  "reciplexa-visual-ir",
 ]

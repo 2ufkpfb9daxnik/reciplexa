@@ -223,4 +223,28 @@ mod tests {
         let err = expand("(page").unwrap_err();
         assert_eq!(err.stage, "macro");
     }
+
+    #[test]
+    fn pipeline_error_display() {
+        let err = PipelineError::new("test", "message");
+        assert_eq!(err.display(), "test: message");
+    }
+
+    #[test]
+    fn lower_error_surfaces() {
+        let err = lower("(page a4 (bogus 1))").unwrap_err();
+        assert_eq!(err.stage, "lower");
+    }
+
+    #[test]
+    fn typecheck_standalone() {
+        assert!(typecheck("(page a4 (circle 1 2 3))").is_ok());
+        assert!(typecheck("(page a4 (circle x 2 3))").is_err());
+    }
+
+    #[test]
+    fn expand_doc_title() {
+        let expanded = expand("(doc @title{Hi})").unwrap();
+        assert!(expanded.contains("Hi"));
+    }
 }

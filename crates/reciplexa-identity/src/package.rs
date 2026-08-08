@@ -90,6 +90,27 @@ mod tests {
         assert!(!PackageInstanceId::INVALID.is_valid());
         assert!(!ModuleId::INVALID.is_valid());
     }
+
+    #[test]
+    fn allocators_issue_monotonic_ids() {
+        let mut pkg = PackageIdAllocator::new();
+        let a = pkg.allocate();
+        let b = pkg.allocate();
+        assert!(a.get() < b.get());
+
+        let mut inst = PackageInstanceIdAllocator::new();
+        assert!(inst.allocate().is_valid());
+
+        let mut mod_alloc = ModuleIdAllocator::new();
+        assert_eq!(mod_alloc.allocate().get(), 1);
+    }
+
+    #[test]
+    fn display_formats_ids() {
+        assert_eq!(PackageId::new(7).to_string(), "package:7");
+        assert_eq!(PackageInstanceId::new(3).to_string(), "package-instance:3");
+        assert_eq!(ModuleId::new(9).to_string(), "module:9");
+    }
 }
 
 /// Allocates monotonically increasing package ids.

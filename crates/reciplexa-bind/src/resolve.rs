@@ -221,4 +221,24 @@ mod tests {
         assert!(!r.is_ok());
         assert!(r.errors[0].message.contains("puce"));
     }
+
+    #[test]
+    fn parse_error_prevents_binding() {
+        let r = resolve_source("(page a4 (rect");
+        assert!(!r.is_ok());
+        assert!(r.errors.iter().all(|e| e.message.contains("parse error")));
+        assert!(r.env.bindings.is_empty() || r.env.builtin_colors.len() >= 6);
+    }
+
+    #[test]
+    fn src_handle_scope_allows_inner_names() {
+        let r = resolve_source("(src (handle inner (circle 1 2 3 red)))");
+        assert!(r.is_ok(), "{:?}", r.errors);
+    }
+
+    #[test]
+    fn surface_keywords_are_not_unbound_errors() {
+        let r = resolve_source("(page a4 (group (translate 1 2 (rect 0 0 1 1 red))))");
+        assert!(r.is_ok(), "{:?}", r.errors);
+    }
 }

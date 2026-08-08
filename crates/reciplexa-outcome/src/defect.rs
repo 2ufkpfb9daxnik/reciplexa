@@ -130,4 +130,42 @@ mod tests {
         assert_eq!(report.violated_invariant, "continuation resumed twice");
         assert!(report.to_string().contains("defect:1"));
     }
+
+    #[test]
+    fn defect_report_with_source_range_and_trust_status() {
+        use reciplexa_source::offset::ByteOffset;
+        use reciplexa_source::range::TextRange;
+
+        let mut report = DefectReport::new(
+            2,
+            DefectCode::new("codec", "CORRUPT"),
+            "snapshot checksum mismatch",
+            DefectScope::Service,
+            "persist",
+            "document state may be inconsistent",
+        )
+        .with_source_range(TextRange::try_new(ByteOffset::new(4), ByteOffset::new(9)).unwrap());
+        report.recovery_status = RecoveryStatus::ShutdownRequired;
+        report.runtime_trust_status = RuntimeTrustStatus::Untrusted;
+        report.suppressed_cleanup_failures.push("flush failed".into());
+        assert_eq!(report.origin.source_range.unwrap().len(), 5);
+        assert_eq!(report.recovery_status, RecoveryStatus::ShutdownRequired);
+        assert_eq!(report.runtime_trust_status, RuntimeTrustStatus::Untrusted);
+        assert_eq!(report.suppressed_cleanup_failures.len(), 1);
+    }
+
+    #[test]
+    fn defect_scope_and_trust_enums_are_exhaustive() {
+        let scopes = [
+            DefectScope::Task,
+            DefectScope::Service,
+            DefectScope::RootScope,
+            DefectScope::RuntimeInstance,
+            DefectScope::WorkerProcess,
+            DefectScope::Process,
+        ];
+        assert_eq!(scopes.len(), 6);
+        assert_ne!(RuntimeTrustStatus::Trusted, RuntimeTrustStatus::Degraded);
+        assert_ne!(RecoveryStatus::NotAttempted, RecoveryStatus::Isolated);
+    }
 }

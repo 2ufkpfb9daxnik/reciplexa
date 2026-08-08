@@ -42,9 +42,7 @@ impl Lowerer {
                 let dst = self.alloc.fresh();
                 let mem_lit = match lit {
                     CoreLiteral::Number(n) => MemLiteral::Number(*n),
-                    CoreLiteral::String(s) | CoreLiteral::Color(s) => {
-                        MemLiteral::String(s.clone())
-                    }
+                    CoreLiteral::String(s) | CoreLiteral::Color(s) => MemLiteral::String(s.clone()),
                 };
                 self.emit(MemInstr::Lit { dst, lit: mem_lit });
                 dst
@@ -196,7 +194,7 @@ impl Lowerer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use reciplexa_core::expr::CoreExpr;
+    use reciplexa_core::expr::{CoreExpr, MatchArm};
 
     #[test]
     fn lowers_literal() {
@@ -210,6 +208,59 @@ mod tests {
             fields: vec![("x".into(), CoreExpr::Lit(CoreLiteral::Number(1.0)))],
         };
         let prog = lower_core_linear(&expr);
-        assert!(prog.instrs.iter().any(|i| matches!(i, MemInstr::Construct { .. })));
+        assert!(prog
+            .instrs
+            .iter()
+            .any(|i| matches!(i, MemInstr::Construct { .. })));
+    }
+
+    #[test]
+    fn lowers_variant_and_match() {
+        let expr = CoreExpr::Variant {
+            tag: "Ok".into(),
+            payload: Some(Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0)))),
+        };
+        let prog = lower_core_linear(&expr);
+        assert!(prog
+            .instrs
+            .iter()
+            .any(|i| matches!(i, MemInstr::Construct { .. })));
+
+        let m = CoreExpr::Match {
+            scrutinee: Box::new(expr),
+            arms: vec![MatchArm {
+                tag: "Ok".into(),
+                bind: Some("v".into()),
+                body: CoreExpr::Lit(CoreLiteral::Number(0.0)),
+            }],
+        };
+        let prog2 = lower_core_linear(&m);
+        assert!(!prog2.instrs.is_empty());
+    }
+
+    #[test]
+    fn lowers_lambda_and_app() {
+        let expr = CoreExpr::App {
+            fun: Box::new(CoreExpr::Lambda {
+                param: "x".into(),
+                body: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
+            }),
+            arg: Box::new(CoreExpr::Lit(CoreLiteral::Number(2.0))),
+        };
+        let prog = lower_core_linear(&expr);
+        assert!(prog.instrs.iter().any(|i| matches!(i, MemInstr::Call { .. })));
+    }
+
+    #[test]
+    fn lowers_perform() {
+        let expr = CoreExpr::Perform {
+            op: "log".into(),
+            arg: Box::new(CoreExpr::Lit(CoreLiteral::String("x".into()))),
+        };
+        let prog = lower_core_linear(&expr);
+        assert!(prog
+            .instrs
+            .iter()
+            .any(|i| matches!(i, MemInstr::Construct { .. })));
     }
 }

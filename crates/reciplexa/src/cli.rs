@@ -180,4 +180,44 @@ mod tests {
         let path = manifest.join("examples/black_circle.rpx");
         cmd_inspect_syntax(path.to_str().unwrap()).expect("inspect");
     }
+
+    #[test]
+    fn parse_json_mode_ok() {
+        let dir = std::env::temp_dir().join("rpx_cli_test");
+        let _ = std::fs::create_dir_all(&dir);
+        let path = dir.join("ok.rpx");
+        std::fs::write(&path, "(page a4 (circle 1 2 3))").unwrap();
+        cmd_parse(path.to_str().unwrap(), true).expect("json parse");
+    }
+
+    #[test]
+    fn parse_invalid_emits_error() {
+        let dir = std::env::temp_dir().join("rpx_cli_test");
+        let _ = std::fs::create_dir_all(&dir);
+        let path = dir.join("bad.rpx");
+        std::fs::write(&path, "(page a4").unwrap();
+        let err = cmd_parse(path.to_str().unwrap(), false).unwrap_err();
+        assert!(err.contains("parse error"));
+    }
+
+    #[test]
+    fn format_invalid_returns_error() {
+        let dir = std::env::temp_dir().join("rpx_cli_test");
+        let _ = std::fs::create_dir_all(&dir);
+        let path = dir.join("bad_fmt.rpx");
+        std::fs::write(&path, "(unclosed").unwrap();
+        assert!(cmd_format(path.to_str().unwrap()).is_err());
+    }
+
+    #[test]
+    fn json_string_escapes() {
+        assert_eq!(json_string("a\"b"), "\"a\\\"b\"");
+        assert_eq!(json_string("line\n"), "\"line\\n\"");
+    }
+
+    #[test]
+    fn read_missing_file_errors() {
+        let err = cmd_parse("/nonexistent/rpx_file.rpx", false).unwrap_err();
+        assert!(err.contains("read"));
+    }
 }

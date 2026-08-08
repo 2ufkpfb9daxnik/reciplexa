@@ -146,4 +146,28 @@ mod tests {
         let b = TextRange::try_new(off(3), off(5)).unwrap();
         assert!(a.intersect(b).is_none());
     }
+
+    #[test]
+    fn contains_range_and_cover() {
+        let outer = TextRange::try_new(off(0), off(10)).unwrap();
+        let inner = TextRange::try_new(off(2), off(5)).unwrap();
+        assert!(outer.contains_range(inner));
+        assert!(!inner.contains_range(outer));
+        let covered = outer.cover(off(12)).unwrap();
+        assert_eq!(covered, TextRange::try_new(off(0), off(12)).unwrap());
+    }
+
+    #[test]
+    fn at_offset_is_zero_width() {
+        let r = TextRange::at(off(7));
+        assert!(r.is_empty());
+        assert!(!r.contains_offset(off(7)));
+        assert!(!r.contains_offset(off(8)));
+    }
+
+    #[test]
+    fn display_formats_half_open_range() {
+        let r = TextRange::try_new(off(1), off(4)).unwrap();
+        assert_eq!(r.to_string(), "[1, 4)");
+    }
 }

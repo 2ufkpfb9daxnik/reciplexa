@@ -88,3 +88,87 @@ fn failure_raise_without_handler_errors() {
     }];
     assert!(interp.run(&ops).is_err());
 }
+
+#[test]
+fn interpreter_return_without_value() {
+    let mut interp = Interpreter::new();
+    let ops = vec![LoweredOp::Return];
+    assert!(interp.run(&ops).is_ok());
+}
+
+#[test]
+fn one_shot_verifier_accepts_single_resume() {
+    let ops = vec![LoweredOp::Resume { cont: 1 }, LoweredOp::Return];
+    let mut conts = vec![Continuation::new(ContinuationId(1))];
+    assert!(verify_one_shot(&ops, &mut conts).is_ok());
+}
+
+#[test]
+fn scheduler_empty_run() {
+    let mut sched = TestScheduler::new();
+    assert!(sched.run_to_completion().is_empty());
+}
+
+#[test]
+fn spawn_fail_fast_without_finish_errors_on_shutdown() {
+    let mut root = RootScope::new();
+    let (_scope, _handle) = root.spawn(SpawnPolicy::FailFast);
+    assert!(root.shutdown().is_err());
+}
+
+#[test]
+fn cancellation_token_cancel_flag() {
+    let mut token = CancellationTokenSource::new(1);
+    assert!(!token.is_cancelled());
+    token.cancel();
+    assert!(token.is_cancelled());
+    assert_eq!(token.token().id(), 1);
+}
+
+#[test]
+fn root_scope_shutdown_with_cleanup() {
+    let mut root = RootScope::new();
+    let (_scope, _handle) = root.spawn(SpawnPolicy::FailFast);
+    let report = root.shutdown_with_cleanup();
+    assert!(root.cleanup_ran());
+    assert_eq!(
+        report.cleanup_status,
+        reciplexa_outcome::CleanupStatus::Completed
+    );
+}
+
+#[test]
+fn lowered_ir_resume_then_return() {
+    let mut interp = Interpreter::new();
+    interp.register_continuation(ContinuationId(3));
+    let ops = vec![
+        LoweredOp::Resume { cont: 3 },
+        LoweredOp::Return,
+    ];
+    assert!(interp.run(&ops).is_ok());
+}
+
+#[test]
+fn eval_number_literal_pipeline() {
+    let expr = CoreExpr::Lit(CoreLiteral::Number(7.5));
+    let v = eval_expr(&expr, &HashMap::new(), &mut UnitHost).unwrap();
+    assert_eq!(format!("{v:?}"), "Number(7.5)");
+}
+
+#[test]
+fn interpreter_unknown_resume_errors() {
+    let mut interp = Interpreter::new();
+    let ops = vec![LoweredOp::Resume { cont: 99 }];
+    assert!(interp.run(&ops).is_err());
+}
+
+#[test]
+fn root_scope_double_cancel_is_idempotent() {
+    let mut root = RootScope::new();
+    let mut token = CancellationTokenSource::new(2);
+    let (_scope, handle) = root.spawn(SpawnPolicy::FailFast);
+    root.child_finished(handle.task_id);
+    let _ = root.cancel_all(&mut token);
+    let _ = root.cancel_all(&mut token);
+    assert!(token.is_cancelled());
+}

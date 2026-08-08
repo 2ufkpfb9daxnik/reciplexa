@@ -213,4 +213,75 @@ mod tests {
         let v = eval_expr(&expr, &HashMap::new(), &mut UnitHost).unwrap();
         assert_eq!(v, RuntimeValue::Number(0.0));
     }
+
+    #[test]
+    fn eval_perform_log() {
+        let expr = CoreExpr::Perform {
+            op: "log".into(),
+            arg: Box::new(CoreExpr::Lit(CoreLiteral::String("x".into()))),
+        };
+        let v = eval_expr(&expr, &HashMap::new(), &mut UnitHost).unwrap();
+        assert_eq!(v, RuntimeValue::Unit);
+    }
+
+    #[test]
+    fn eval_perform_random() {
+        let expr = CoreExpr::Perform {
+            op: "random".into(),
+            arg: Box::new(CoreExpr::Lit(CoreLiteral::String("".into()))),
+        };
+        let v = eval_expr(&expr, &HashMap::new(), &mut UnitHost).unwrap();
+        assert_eq!(v, RuntimeValue::Number(0.5));
+    }
+
+    #[test]
+    fn eval_unknown_op_errors() {
+        let expr = CoreExpr::Perform {
+            op: "draw".into(),
+            arg: Box::new(CoreExpr::Lit(CoreLiteral::String("".into()))),
+        };
+        assert!(eval_expr(&expr, &HashMap::new(), &mut UnitHost).is_err());
+    }
+
+    #[test]
+    fn eval_shape_literal_tags() {
+        for tag in ["circle", "rect", "text"] {
+            let expr = CoreExpr::Lit(CoreLiteral::String(tag.into()));
+            let v = eval_expr(&expr, &HashMap::new(), &mut UnitHost).unwrap();
+            assert_eq!(v, RuntimeValue::ShapeTag(tag.into()));
+        }
+        let expr = CoreExpr::Lit(CoreLiteral::String("other".into()));
+        let v = eval_expr(&expr, &HashMap::new(), &mut UnitHost).unwrap();
+        assert_eq!(v, RuntimeValue::String("other".into()));
+    }
+
+    #[test]
+    fn eval_app_non_closure_errors() {
+        let expr = CoreExpr::App {
+            fun: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
+            arg: Box::new(CoreExpr::Lit(CoreLiteral::Number(2.0))),
+        };
+        assert!(eval_expr(&expr, &HashMap::new(), &mut UnitHost).is_err());
+    }
+
+    #[test]
+    fn eval_record_and_get() {
+        let expr = CoreExpr::RecordGet {
+            record: Box::new(CoreExpr::Record {
+                fields: vec![("k".into(), CoreExpr::Lit(CoreLiteral::Number(9.0)))],
+            }),
+            field: "k".into(),
+        };
+        let v = eval_expr(&expr, &HashMap::new(), &mut UnitHost).unwrap();
+        assert_eq!(v, RuntimeValue::Number(9.0));
+    }
+
+    #[test]
+    fn eval_match_non_variant_errors() {
+        let expr = CoreExpr::Match {
+            scrutinee: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
+            arms: vec![],
+        };
+        assert!(eval_expr(&expr, &HashMap::new(), &mut UnitHost).is_err());
+    }
 }

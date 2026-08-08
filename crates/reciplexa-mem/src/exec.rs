@@ -73,7 +73,12 @@ pub fn exec_linear(prog: &LinearProgram, trace: &mut RcTrace) -> Result<RuntimeV
                 heap_insert(&mut heap, *dst, v, trace);
                 reg_map.insert(*dst, *dst);
             }
-            MemInstr::ConstructReuse { dst, reuse, tag, fields } => {
+            MemInstr::ConstructReuse {
+                dst,
+                reuse,
+                tag,
+                fields,
+            } => {
                 let reuse = resolve(*reuse, &reg_map);
                 let cell = heap.get(&reuse).ok_or(ExecError::UnboundReg(reuse))?;
                 if !cell.unique && cell.refcount > 1 {
@@ -130,8 +135,7 @@ pub fn exec_linear(prog: &LinearProgram, trace: &mut RcTrace) -> Result<RuntimeV
                     .iter()
                     .map(|r| {
                         let r = resolve(*r, &reg_map);
-                        heap
-                            .get(&r)
+                        heap.get(&r)
                             .ok_or(ExecError::UnboundReg(r))
                             .map(|c| c.value.clone())
                     })
@@ -214,22 +218,14 @@ fn construct_value(
         let mut rec = Vec::new();
         for (k, r) in fields {
             let r = resolve(*r, map);
-            let v = heap
-                .get(&r)
-                .ok_or(ExecError::UnboundReg(r))?
-                .value
-                .clone();
+            let v = heap.get(&r).ok_or(ExecError::UnboundReg(r))?.value.clone();
             rec.push((k.clone(), v));
         }
         return Ok(RuntimeValue::Record(rec));
     }
     if let Some(payload) = fields.first() {
         let r = resolve(payload.1, map);
-        let v = heap
-            .get(&r)
-            .ok_or(ExecError::UnboundReg(r))?
-            .value
-            .clone();
+        let v = heap.get(&r).ok_or(ExecError::UnboundReg(r))?.value.clone();
         return Ok(RuntimeValue::Variant {
             tag: tag.to_string(),
             payload: Some(Box::new(v)),
@@ -248,12 +244,10 @@ fn project_value(value: &RuntimeValue, field: &str) -> Result<RuntimeValue, Exec
             .find(|(k, _)| k == field)
             .map(|(_, v)| v.clone())
             .ok_or(ExecError::UnboundReg(Reg(0))),
-        RuntimeValue::Variant { payload, .. } if field == "payload" => {
-            payload
-                .as_ref()
-                .map(|b| (**b).clone())
-                .ok_or(ExecError::UnboundReg(Reg(0)))
-        }
+        RuntimeValue::Variant { payload, .. } if field == "payload" => payload
+            .as_ref()
+            .map(|b| (**b).clone())
+            .ok_or(ExecError::UnboundReg(Reg(0))),
         _ => Err(ExecError::UnboundReg(Reg(0))),
     }
 }
@@ -363,5 +357,147 @@ mod tests {
         exec_linear(&prog, &mut trace).unwrap();
         assert_eq!(trace.dups.len(), 1);
         assert_eq!(trace.drops.len(), 1);
+    }
+
+    #[test]
+    fn exec_unit_literal() {
+        let prog = LinearProgram {
+            instrs: vec![
+                MemInstr::Lit {
+                    dst: Reg(0),
+                    lit: MemLiteral::Unit,
+                },
+                MemInstr::Return { reg: Reg(0) },
+            ],
+            return_reg: Reg(0),
+        };
+        let mut trace = RcTrace::default();
+        assert_eq!(
+            exec_linear(&prog, &mut trace).unwrap(),
+            RuntimeValue::Unit
+        );
+    }
+
+    #[test]
+    fn exec_string_literal() {
+        let prog = LinearProgram {
+            instrs: vec![
+                MemInstr::Lit {
+                    dst: Reg(0),
+                    lit: MemLiteral::String("hi".into()),
+                },
+                MemInstr::Return { reg: Reg(0) },
+            ],
+            return_reg: Reg(0),
+        };
+        let mut trace = RcTrace::default();
+        assert_eq!(
+            exec_linear(&prog, &mut trace).unwrap(),
+            RuntimeValue::String("hi".into())
+        );
+    }
+
+    #[test]
+    fn exec_variant_construct() {
+        let prog = LinearProgram {
+            instrs: vec![
+                MemInstr::Lit {
+                    dst: Reg(1),
+                    lit: MemLiteral::Number(7.0),
+                },
+                MemInstr::Construct {
+                    dst: Reg(0),
+                    tag: "Some".into(),
+                    fields: vec![("payload".into(), Reg(1))],
+                },
+                MemInstr::Return { reg: Reg(0) },
+            ],
+            return_reg: Reg(0),
+        };
+        let mut trace = RcTrace::default();
+        let v = exec_linear(&prog, &mut trace).unwrap();
+        assert!(matches!(v, RuntimeValue::Variant { .. }));
+    }
+
+    #[test]
+    fn exec_project_record_field() {
+        let prog = LinearProgram {
+            instrs: vec![
+                MemInstr::Lit {
+                    dst: Reg(1),
+                    lit: MemLiteral::Number(9.0),
+                },
+                MemInstr::Construct {
+                    dst: Reg(0),
+                    tag: "record".into(),
+                    fields: vec![("x".into(), Reg(1))],
+                },
+                MemInstr::Project {
+                    dst: Reg(2),
+                    src: Reg(0),
+                    field: "x".into(),
+                },
+                MemInstr::Return { reg: Reg(2) },
+            ],
+            return_reg: Reg(2),
+        };
+        let mut trace = RcTrace::default();
+        assert_eq!(
+            exec_linear(&prog, &mut trace).unwrap(),
+            RuntimeValue::Number(9.0)
+        );
+    }
+
+    #[test]
+    fn exec_raise_runs_cleanups() {
+        let prog = LinearProgram {
+            instrs: vec![
+                MemInstr::RegisterCleanup {
+                    label: "scope".into(),
+                },
+                MemInstr::Raise {
+                    tag: "fail".into(),
+                },
+            ],
+            return_reg: Reg(0),
+        };
+        let mut trace = RcTrace::default();
+        let err = exec_linear(&prog, &mut trace).unwrap_err();
+        assert!(matches!(err, ExecError::UnhandledRaise(_)));
+        assert_eq!(trace.cleanups, vec!["scope"]);
+    }
+
+    #[test]
+    fn exec_unbound_reg_errors() {
+        let prog = LinearProgram {
+            instrs: vec![MemInstr::Return { reg: Reg(99) }],
+            return_reg: Reg(99),
+        };
+        let mut trace = RcTrace::default();
+        assert!(matches!(
+            exec_linear(&prog, &mut trace),
+            Err(ExecError::UnboundReg(_))
+        ));
+    }
+
+    #[test]
+    fn exec_perform_tag_returns_unit() {
+        let prog = LinearProgram {
+            instrs: vec![
+                MemInstr::Lit {
+                    dst: Reg(1),
+                    lit: MemLiteral::String("msg".into()),
+                },
+                MemInstr::Construct {
+                    dst: Reg(0),
+                    tag: "perform:log".into(),
+                    fields: vec![("arg".into(), Reg(1))],
+                },
+                MemInstr::Return { reg: Reg(0) },
+            ],
+            return_reg: Reg(0),
+        };
+        let mut trace = RcTrace::default();
+        assert_eq!(exec_linear(&prog, &mut trace).unwrap(), RuntimeValue::Unit);
     }
 }

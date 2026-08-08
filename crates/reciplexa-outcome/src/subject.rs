@@ -110,4 +110,61 @@ mod tests {
         let outcome: ApplicationOutcome<(), ()> = ApplicationOutcome::Completed(());
         assert!(matches!(outcome, ApplicationOutcome::Completed(())));
     }
+
+    #[test]
+    fn subject_cancelled_and_defect_branches() {
+        use crate::defect::{DefectCode, DefectReport, DefectScope};
+
+        let cancelled: SubjectOutcome<i32, ()> = SubjectOutcome::Cancelled;
+        assert!(!cancelled.is_success());
+        assert!(!cancelled.is_failure());
+
+        let defect = DefectReport::new(
+            1,
+            DefectCode::new("test", "X"),
+            "broken",
+            DefectScope::Task,
+            "sub",
+            "safe",
+        );
+        let defected: SubjectOutcome<(), ()> = SubjectOutcome::Defect(Box::new(defect));
+        assert!(!defected.is_success());
+
+        let mapped: SubjectOutcome<i32, ()> = SubjectOutcome::Success(7).map(|n| n * 2);
+        assert!(matches!(mapped, SubjectOutcome::Success(14)));
+    }
+
+    #[test]
+    fn application_outcome_variants_are_distinct() {
+        use crate::cancellation::{CancellationReason, CancellationReport};
+        use crate::defect::{DefectCode, DefectReport, DefectScope};
+
+        let cancelled: ApplicationOutcome<(), ()> =
+            ApplicationOutcome::Cancelled(CancellationReport::new(1, CancellationReason::Timeout));
+        assert!(cancelled.is_cancelled());
+
+        let defected: ApplicationOutcome<(), ()> = ApplicationOutcome::Defected(Box::new(
+            DefectReport::new(
+                1,
+                DefectCode::new("t", "D"),
+                "inv",
+                DefectScope::Process,
+                "s",
+                "m",
+            ),
+        ));
+        assert!(defected.is_defected());
+
+        let requested: ApplicationOutcome<(), ()> = ApplicationOutcome::Requested(ExitIntent {
+            category: ExitCategory::UserCancelledOperation,
+            user_message: Some("bye".into()),
+        });
+        assert!(!requested.is_completed());
+
+        let aborted: ApplicationOutcome<(), ()> =
+            ApplicationOutcome::Aborted(InfrastructureAbort {
+                reason: "host lost".into(),
+            });
+        assert!(!aborted.is_cancelled());
+    }
 }

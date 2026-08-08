@@ -986,7 +986,8 @@ fn xobject_dict(ids: &BTreeSet<usize>, image_obj0: usize) -> String {
 mod tests {
     use super::*;
     use reciplexa_scene::{
-        Circle, Color, Document, Ellipse, Image, Line, Page, PaperSize, Rect, Shape, Text,
+        Circle, Color, Document, Ellipse, Frame, Image, Line, Page, PaperSize, Polygon, Polyline,
+        Rect, Ring, Shape, Text,
     };
     use std::io::Write;
 
@@ -1334,5 +1335,542 @@ mod tests {
         });
         let bytes = document_to_pdf_with_base(&doc, Some(&examples)).unwrap();
         assert!(String::from_utf8_lossy(&bytes).contains("/Subtype /Image"));
+    }
+
+    #[test]
+    fn invalid_page_size_errors() {
+        let doc = Document::single_page(Page {
+            paper: PaperSize {
+                width_mm: 0.0,
+                height_mm: 297.0,
+            },
+            shapes: vec![],
+        });
+        assert!(matches!(
+            document_to_pdf(&doc),
+            Err(PdfError::InvalidPage(_))
+        ));
+    }
+
+    #[test]
+    fn non_drawable_circle_errors() {
+        let doc = Document::single_page(Page {
+            paper: PaperSize::a4(),
+            shapes: vec![Shape::Circle(Circle {
+                x_mm: 0.0,
+                y_mm: 0.0,
+                radius_mm: 0.0,
+                fill: Color::BLACK,
+            })],
+        });
+        assert!(matches!(
+            document_to_pdf(&doc),
+            Err(PdfError::InvalidShape(_))
+        ));
+    }
+
+    #[test]
+    fn ring_frame_polyline_polygon_emit() {
+        let doc = Document::single_page(Page {
+            paper: PaperSize::a4(),
+            shapes: vec![
+                Shape::Ring(Ring {
+                    x_mm: 50.0,
+                    y_mm: 50.0,
+                    radius_mm: 20.0,
+                    width_mm: 1.0,
+                    stroke: Color::RED,
+                }),
+                Shape::Frame(Frame {
+                    x_mm: 10.0,
+                    y_mm: 10.0,
+                    width_mm: 40.0,
+                    height_mm: 30.0,
+                    stroke_width_mm: 0.5,
+                    stroke: Color::BLUE,
+                }),
+                Shape::Polyline(Polyline {
+                    points_mm: vec![(0.0, 0.0), (30.0, 10.0), (60.0, 0.0)],
+                    stroke: Color::GREEN,
+                    width_mm: 0.4,
+                }),
+                Shape::Polygon(Polygon {
+                    points_mm: vec![(70.0, 70.0), (90.0, 70.0), (80.0, 90.0)],
+                    fill: Color::BLACK,
+                }),
+            ],
+        });
+        let bytes = document_to_pdf(&doc).unwrap();
+        let text = String::from_utf8_lossy(&bytes);
+        assert!(text.contains(" RG\n"));
+        assert!(text.contains("s\n") || text.contains("S\n"));
+        assert!(text.contains("f\n"));
+    }
+
+    #[test]
+    fn group_affine_wraps_content() {
+        let doc = Document::single_page(Page {
+            paper: PaperSize::a4(),
+            shapes: vec![Shape::Group {
+                transform: reciplexa_scene::Affine::translate(10.0, 20.0),
+                children: vec![Shape::Rect(Rect {
+                    x_mm: 0.0,
+                    y_mm: 0.0,
+                    width_mm: 20.0,
+                    height_mm: 10.0,
+                    fill: Color::RED,
+                })],
+            }],
+        });
+        let bytes = document_to_pdf(&doc).unwrap();
+        let text = String::from_utf8_lossy(&bytes);
+        assert!(text.contains(" cm\n"));
+        assert!(text.contains(" re\n"));
+    }
+
+    #[test]
+    fn invalid_opacity_errors() {
+        let doc = Document::single_page(Page {
+            paper: PaperSize::a4(),
+            shapes: vec![Shape::Opacity {
+                alpha: 2.0,
+                children: vec![Shape::Circle(Circle {
+                    x_mm: 10.0,
+                    y_mm: 10.0,
+                    radius_mm: 5.0,
+                    fill: Color::BLACK,
+                })],
+            }],
+        });
+        assert!(matches!(
+            document_to_pdf(&doc),
+            Err(PdfError::InvalidShape(_))
+        ));
+    }
+
+    #[test]
+    fn non_finite_group_transform_errors() {
+        let doc = Document::single_page(Page {
+            paper: PaperSize::a4(),
+            shapes: vec![Shape::Group {
+                transform: reciplexa_scene::Affine {
+                    a: f64::NAN,
+                    b: 0.0,
+                    c: 0.0,
+                    d: 1.0,
+                    e: 0.0,
+                    f: 0.0,
+                },
+                children: vec![Shape::Circle(Circle {
+                    x_mm: 0.0,
+                    y_mm: 0.0,
+                    radius_mm: 5.0,
+                    fill: Color::BLACK,
+                })],
+            }],
+        });
+        assert!(matches!(
+            document_to_pdf(&doc),
+            Err(PdfError::InvalidShape(_))
+        ));
+    }
+
+    #[test]
+    fn empty_text_emits_nothing() {
+        let doc = Document::single_page(Page {
+            paper: PaperSize::a4(),
+            shapes: vec![Shape::Text(Text {
+                x_mm: 0.0,
+                y_mm: 0.0,
+                size_mm: 5.0,
+                width_mm: None,
+                height_mm: None,
+                content: String::new(),
+                fill: Color::BLACK,
+            })],
+        });
+        assert!(matches!(
+            document_to_pdf(&doc),
+            Err(PdfError::InvalidShape(_))
+        ));
+    }
+
+    #[test]
+    fn pdf_escape_special_ascii_chars() {
+        let doc = Document::single_page(Page {
+            paper: PaperSize::a4(),
+            shapes: vec![Shape::Text(Text {
+                x_mm: 10.0,
+                y_mm: 200.0,
+                size_mm: 5.0,
+                width_mm: None,
+                height_mm: None,
+                content: "(path)\\n\t".into(),
+                fill: Color::BLACK,
+            })],
+        });
+        let bytes = document_to_pdf(&doc).unwrap();
+        let text = String::from_utf8_lossy(&bytes);
+        assert!(text.contains("\\(path\\)"));
+        assert!(text.contains("\\\\n"));
+    }
+
+    #[test]
+    fn control_char_in_text_errors() {
+        let doc = Document::single_page(Page {
+            paper: PaperSize::a4(),
+            shapes: vec![Shape::Text(Text {
+                x_mm: 10.0,
+                y_mm: 200.0,
+                size_mm: 5.0,
+                width_mm: None,
+                height_mm: None,
+                content: "bad\u{0001}char".into(),
+                fill: Color::BLACK,
+            })],
+        });
+        assert!(matches!(
+            document_to_pdf(&doc),
+            Err(PdfError::InvalidShape(_))
+        ));
+    }
+
+    #[test]
+    fn write_document_and_load_raster_file() {
+        let dir = std::env::temp_dir().join("reciplexa-pdf-write-test");
+        let _ = std::fs::create_dir_all(&dir);
+        let png_path = dir.join("px.png");
+        write_temp_png(&png_path, 1, 1, &[255, 0, 0]);
+
+        let raster = load_raster_file(&png_path).unwrap();
+        assert_eq!(raster.width, 1);
+        assert_eq!(raster.rgb.len(), 3);
+
+        let doc = Document::single_page(Page {
+            paper: PaperSize::a4(),
+            shapes: vec![Shape::Image(Image {
+                path: "px.png".into(),
+                x_mm: 0.0,
+                y_mm: 0.0,
+                width_mm: 10.0,
+                height_mm: 10.0,
+            })],
+        });
+        let mut out = Vec::new();
+        write_document_with_base(&doc, Some(&dir), &mut out).unwrap();
+        assert!(out.starts_with(b"%PDF-"));
+    }
+
+    #[test]
+    fn grayscale_and_rgba_png_embed() {
+        let dir = std::env::temp_dir().join("reciplexa-pdf-gray-test");
+        let _ = std::fs::create_dir_all(&dir);
+
+        let gray_path = dir.join("g.png");
+        {
+            let file = std::fs::File::create(&gray_path).unwrap();
+            let mut enc = png::Encoder::new(file, 2, 1);
+            enc.set_color(png::ColorType::Grayscale);
+            enc.set_depth(png::BitDepth::Eight);
+            let mut w = enc.write_header().unwrap();
+            w.write_image_data(&[128, 64]).unwrap();
+        }
+
+        let rgba_path = dir.join("ga.png");
+        {
+            let file = std::fs::File::create(&rgba_path).unwrap();
+            let mut enc = png::Encoder::new(file, 1, 1);
+            enc.set_color(png::ColorType::Rgba);
+            enc.set_depth(png::BitDepth::Eight);
+            let mut w = enc.write_header().unwrap();
+            w.write_image_data(&[10, 20, 30, 255]).unwrap();
+        }
+
+        for name in ["g.png", "ga.png"] {
+            let doc = Document::single_page(Page {
+                paper: PaperSize::a4(),
+                shapes: vec![Shape::Image(Image {
+                    path: name.into(),
+                    x_mm: 0.0,
+                    y_mm: 0.0,
+                    width_mm: 5.0,
+                    height_mm: 5.0,
+                })],
+            });
+            document_to_pdf_with_base(&doc, Some(&dir)).unwrap();
+        }
+    }
+
+    #[test]
+    fn duplicate_image_path_reuses_xobject() {
+        let dir = std::env::temp_dir().join("reciplexa-pdf-dedup");
+        let _ = std::fs::create_dir_all(&dir);
+        let png_path = dir.join("one.png");
+        write_temp_png(&png_path, 1, 1, &[0, 255, 0]);
+
+        let doc = Document::single_page(Page {
+            paper: PaperSize::a4(),
+            shapes: vec![
+                Shape::Image(Image {
+                    path: "one.png".into(),
+                    x_mm: 0.0,
+                    y_mm: 0.0,
+                    width_mm: 10.0,
+                    height_mm: 10.0,
+                }),
+                Shape::Image(Image {
+                    path: "one.png".into(),
+                    x_mm: 20.0,
+                    y_mm: 0.0,
+                    width_mm: 10.0,
+                    height_mm: 10.0,
+                }),
+            ],
+        });
+        let bytes = document_to_pdf_with_base(&doc, Some(&dir)).unwrap();
+        let text = String::from_utf8_lossy(&bytes);
+        assert_eq!(text.matches("/Subtype /Image").count(), 1);
+        assert_eq!(text.matches("/Im0 Do").count(), 2);
+    }
+
+    #[test]
+    fn unsupported_image_bytes_fail() {
+        let dir = std::env::temp_dir().join("reciplexa-pdf-bad-img");
+        let _ = std::fs::create_dir_all(&dir);
+        let bad = dir.join("data.bin");
+        std::fs::write(&bad, b"not an image").unwrap();
+        let doc = Document::single_page(Page {
+            paper: PaperSize::a4(),
+            shapes: vec![Shape::Image(Image {
+                path: "data.bin".into(),
+                x_mm: 0.0,
+                y_mm: 0.0,
+                width_mm: 5.0,
+                height_mm: 5.0,
+            })],
+        });
+        assert!(matches!(
+            document_to_pdf_with_base(&doc, Some(&dir)),
+            Err(PdfError::InvalidShape(_))
+        ));
+    }
+
+    #[test]
+    fn multipage_pdf_has_two_pages() {
+        let doc = Document {
+            pages: vec![
+                Page {
+                    paper: PaperSize::a4(),
+                    shapes: vec![Shape::Circle(Circle {
+                        x_mm: 10.0,
+                        y_mm: 10.0,
+                        radius_mm: 5.0,
+                        fill: Color::BLACK,
+                    })],
+                },
+                Page {
+                    paper: PaperSize::letter(),
+                    shapes: vec![Shape::Rect(Rect {
+                        x_mm: 5.0,
+                        y_mm: 5.0,
+                        width_mm: 50.0,
+                        height_mm: 30.0,
+                        fill: Color::BLUE,
+                    })],
+                },
+            ],
+        };
+        let bytes = document_to_pdf(&doc).unwrap();
+        let text = String::from_utf8_lossy(&bytes);
+        assert!(text.contains("/Count 2"));
+        assert!(text.matches("/MediaBox").count() >= 2);
+    }
+
+    #[test]
+    fn write_document_public_wrapper() {
+        let mut out = Vec::new();
+        write_document(&sample_doc(), &mut out).unwrap();
+        assert!(out.starts_with(b"%PDF-"));
+    }
+
+    #[test]
+    fn absolute_image_path_resolves() {
+        let dir = std::env::temp_dir().join("reciplexa-pdf-abs");
+        let _ = std::fs::create_dir_all(&dir);
+        let png_path = dir.join("abs.png");
+        write_temp_png(&png_path, 1, 1, &[0, 0, 255]);
+        let doc = Document::single_page(Page {
+            paper: PaperSize::a4(),
+            shapes: vec![Shape::Image(Image {
+                path: png_path.to_string_lossy().into(),
+                x_mm: 0.0,
+                y_mm: 0.0,
+                width_mm: 5.0,
+                height_mm: 5.0,
+            })],
+        });
+        document_to_pdf(&doc).unwrap();
+    }
+
+    #[test]
+    fn invalid_shapes_for_each_kind() {
+        let bad_rect = Document::single_page(Page {
+            paper: PaperSize::a4(),
+            shapes: vec![Shape::Rect(Rect {
+                x_mm: 0.0,
+                y_mm: 0.0,
+                width_mm: 0.0,
+                height_mm: 10.0,
+                fill: Color::BLACK,
+            })],
+        });
+        assert!(matches!(
+            document_to_pdf(&bad_rect),
+            Err(PdfError::InvalidShape(_))
+        ));
+        let bad_ellipse = Document::single_page(Page {
+            paper: PaperSize::a4(),
+            shapes: vec![Shape::Ellipse(Ellipse {
+                x_mm: 0.0,
+                y_mm: 0.0,
+                rx_mm: 0.0,
+                ry_mm: 5.0,
+                fill: Color::BLACK,
+            })],
+        });
+        assert!(document_to_pdf(&bad_ellipse).is_err());
+        let bad_ring = Document::single_page(Page {
+            paper: PaperSize::a4(),
+            shapes: vec![Shape::Ring(Ring {
+                x_mm: 0.0,
+                y_mm: 0.0,
+                radius_mm: 5.0,
+                width_mm: 0.0,
+                stroke: Color::BLACK,
+            })],
+        });
+        assert!(document_to_pdf(&bad_ring).is_err());
+        let bad_frame = Document::single_page(Page {
+            paper: PaperSize::a4(),
+            shapes: vec![Shape::Frame(Frame {
+                x_mm: 0.0,
+                y_mm: 0.0,
+                width_mm: 1.0,
+                height_mm: 1.0,
+                stroke_width_mm: 0.0,
+                stroke: Color::BLACK,
+            })],
+        });
+        assert!(document_to_pdf(&bad_frame).is_err());
+        let bad_line = Document::single_page(Page {
+            paper: PaperSize::a4(),
+            shapes: vec![Shape::Line(Line {
+                x1_mm: 1.0,
+                y1_mm: 1.0,
+                x2_mm: 1.0,
+                y2_mm: 1.0,
+                stroke: Color::BLACK,
+                width_mm: 1.0,
+            })],
+        });
+        assert!(document_to_pdf(&bad_line).is_err());
+        let bad_polyline = Document::single_page(Page {
+            paper: PaperSize::a4(),
+            shapes: vec![Shape::Polyline(Polyline {
+                points_mm: vec![(0.0, 0.0), (0.0, 0.0)],
+                stroke: Color::BLACK,
+                width_mm: 1.0,
+            })],
+        });
+        assert!(document_to_pdf(&bad_polyline).is_err());
+        let bad_polygon = Document::single_page(Page {
+            paper: PaperSize::a4(),
+            shapes: vec![Shape::Polygon(Polygon {
+                points_mm: vec![(0.0, 0.0), (1.0, 0.0)],
+                fill: Color::BLACK,
+            })],
+        });
+        assert!(document_to_pdf(&bad_polygon).is_err());
+        let bad_image = Document::single_page(Page {
+            paper: PaperSize::a4(),
+            shapes: vec![Shape::Image(Image {
+                path: String::new(),
+                x_mm: 0.0,
+                y_mm: 0.0,
+                width_mm: 1.0,
+                height_mm: 1.0,
+            })],
+        });
+        assert!(document_to_pdf(&bad_image).is_err());
+    }
+
+    #[test]
+    fn grayscale_alpha_png_and_jpeg_extension_fallback() {
+        let dir = std::env::temp_dir().join("reciplexa-pdf-formats");
+        let _ = std::fs::create_dir_all(&dir);
+
+        let ga_path = dir.join("ga.png");
+        {
+            let file = std::fs::File::create(&ga_path).unwrap();
+            let mut enc = png::Encoder::new(file, 1, 1);
+            enc.set_color(png::ColorType::GrayscaleAlpha);
+            enc.set_depth(png::BitDepth::Eight);
+            let mut w = enc.write_header().unwrap();
+            w.write_image_data(&[100, 200]).unwrap();
+        }
+
+        let doc = Document::single_page(Page {
+            paper: PaperSize::a4(),
+            shapes: vec![Shape::Image(Image {
+                path: "ga.png".into(),
+                x_mm: 0.0,
+                y_mm: 0.0,
+                width_mm: 5.0,
+                height_mm: 5.0,
+            })],
+        });
+        document_to_pdf_with_base(&doc, Some(&dir)).unwrap();
+    }
+
+    #[test]
+    fn cjk_in_nested_group_collects_chars() {
+        let doc = Document::single_page(Page {
+            paper: PaperSize::a4(),
+            shapes: vec![Shape::Group {
+                transform: reciplexa_scene::Affine::identity(),
+                children: vec![Shape::Opacity {
+                    alpha: 1.0,
+                    children: vec![Shape::Text(Text {
+                        x_mm: 10.0,
+                        y_mm: 10.0,
+                        size_mm: 5.0,
+                        width_mm: None,
+                        height_mm: None,
+                        content: "漢".into(),
+                        fill: Color::BLACK,
+                    })],
+                }],
+            }],
+        });
+        if cjk_font::system_cjk_font_path().is_none() {
+            assert!(document_to_pdf(&doc).is_err());
+        } else {
+            document_to_pdf(&doc).unwrap();
+        }
+    }
+
+    #[test]
+    fn write_document_io_failure_maps_to_pdf_error() {
+        struct FailWrite;
+        impl std::io::Write for FailWrite {
+            fn write(&mut self, _: &[u8]) -> std::io::Result<usize> {
+                Err(std::io::Error::new(std::io::ErrorKind::Other, "disk full"))
+            }
+            fn flush(&mut self) -> std::io::Result<()> {
+                Ok(())
+            }
+        }
+        let err = write_document(&sample_doc(), FailWrite).unwrap_err();
+        assert!(matches!(err, PdfError::Write(_)));
     }
 }

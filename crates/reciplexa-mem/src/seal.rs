@@ -48,7 +48,9 @@ fn apply_track(alive: &mut HashSet<Reg>, instr: &MemInstr) {
             }
             alive.insert(*dst);
         }
-        MemInstr::ConstructReuse { dst, reuse, fields, .. } => {
+        MemInstr::ConstructReuse {
+            dst, reuse, fields, ..
+        } => {
             alive.remove(reuse);
             for (_, r) in fields {
                 alive.remove(r);
@@ -84,11 +86,9 @@ mod tests {
             return_reg: Reg(1),
         };
         let sealed = seal_before_return(prog);
-        assert!(
-            sealed
-                .instrs
-                .iter()
-                .any(|i| matches!(i, MemInstr::Drop { reg: Reg(0) }))
-        );
+        assert!(sealed
+            .instrs
+            .iter()
+            .any(|i| matches!(i, MemInstr::Drop { reg: Reg(0) })));
     }
 }

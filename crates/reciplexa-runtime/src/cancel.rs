@@ -49,4 +49,10 @@ mod tests {
         src.cancel();
         assert!(src.is_cancelled());
     }
+
+    #[test]
+    fn cancellation_token_id() {
+        assert_eq!(CancellationToken::NONE.id(), 0);
+        assert_eq!(CancellationTokenSource::new(42).token().id(), 42);
+    }
 }

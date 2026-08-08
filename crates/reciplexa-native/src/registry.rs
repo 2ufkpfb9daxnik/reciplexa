@@ -115,4 +115,63 @@ mod tests {
             Err(NegotiationError::AbiMismatch { .. })
         ));
     }
+
+    #[test]
+    fn rejects_not_registered() {
+        let mut reg = AdapterRegistry::default();
+        assert!(matches!(
+            reg.negotiate("missing-provider", 1),
+            Err(NegotiationError::NotRegistered(_))
+        ));
+    }
+
+    #[test]
+    fn abi_mismatch_quarantines_subsequent_negotiate() {
+        let mut reg = AdapterRegistry::with_portable_defaults();
+        let _ = reg.negotiate("portable-image-decode", 99);
+        assert!(matches!(
+            reg.negotiate("portable-image-decode", 1),
+            Err(NegotiationError::Quarantined(_))
+        ));
+    }
+
+    #[test]
+    fn call_unknown_instance_id() {
+        let reg = AdapterRegistry::with_portable_defaults();
+        assert!(matches!(
+            reg.call(9999, "decode_header", &[]),
+            Err(NegotiationError::NotReady(9999))
+        ));
+    }
+
+    #[test]
+    fn provider_error_maps_to_quarantined() {
+        let mut reg = AdapterRegistry::with_portable_defaults();
+        let id = reg.negotiate("portable-image-decode", 1).unwrap();
+        assert!(matches!(
+            reg.call(id, "unknown-op", &[]),
+            Err(NegotiationError::Quarantined(_))
+        ));
+    }
+
+    #[test]
+    fn shutdown_unknown_instance_is_noop() {
+        let mut reg = AdapterRegistry::with_portable_defaults();
+        reg.shutdown(4242);
+        assert!(matches!(
+            reg.call(4242, "decode_header", &[]),
+            Err(NegotiationError::NotReady(4242))
+        ));
+    }
+
+    #[test]
+    fn shutdown_makes_instance_unusable() {
+        let mut reg = AdapterRegistry::with_portable_defaults();
+        let id = reg.negotiate("portable-image-decode", 1).unwrap();
+        reg.shutdown(id);
+        assert!(matches!(
+            reg.call(id, "decode_header", &[]),
+            Err(NegotiationError::NotReady(_))
+        ));
+    }
 }

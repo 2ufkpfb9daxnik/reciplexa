@@ -55,7 +55,9 @@ pub fn verify_ownership(prog: &LinearProgram) -> Result<(), VerifyError> {
                 }
                 state.define(*dst);
             }
-            MemInstr::ConstructReuse { dst, reuse, fields, .. } => {
+            MemInstr::ConstructReuse {
+                dst, reuse, fields, ..
+            } => {
                 state.drop_reg(*reuse);
                 for (_, r) in fields {
                     state.drop_reg(*r);
@@ -101,7 +103,10 @@ pub fn verify_reuse(prog: &LinearProgram) -> Result<(), VerifyError> {
         if let MemInstr::Dup { src, .. } = instr {
             dupped.insert(*src);
         }
-        if let MemInstr::ConstructReuse { dst, reuse, tag, .. } = instr {
+        if let MemInstr::ConstructReuse {
+            dst, reuse, tag, ..
+        } = instr
+        {
             if dupped.contains(reuse) || state.get(*reuse) != OwnState::Alive {
                 return Err(VerifyError::ReuseOfShared(*reuse));
             }
@@ -117,9 +122,9 @@ pub fn verify_reuse(prog: &LinearProgram) -> Result<(), VerifyError> {
 
 fn apply_instr_state(state: &mut OwnMap, instr: &MemInstr) {
     match instr {
-        MemInstr::Lit { dst, .. }
-        | MemInstr::Construct { dst, .. }
-        | MemInstr::Dup { dst, .. } => state.define(*dst),
+        MemInstr::Lit { dst, .. } | MemInstr::Construct { dst, .. } | MemInstr::Dup { dst, .. } => {
+            state.define(*dst)
+        }
         MemInstr::Move { src, dst } => state.move_from(*src, *dst),
         MemInstr::Drop { reg } => state.drop_reg(*reg),
         MemInstr::ConstructReuse { dst, reuse, .. } => state.move_from(*reuse, *dst),
@@ -227,5 +232,83 @@ mod tests {
             return_reg: Reg(0),
         };
         assert!(verify_ownership(&prog).is_ok());
+    }
+
+    #[test]
+    fn detects_use_after_move() {
+        let prog = LinearProgram {
+            instrs: vec![
+                MemInstr::Lit {
+                    dst: Reg(0),
+                    lit: MemLiteral::Number(1.0),
+                },
+                MemInstr::Move {
+                    src: Reg(0),
+                    dst: Reg(1),
+                },
+                MemInstr::Dup {
+                    dst: Reg(2),
+                    src: Reg(0),
+                },
+            ],
+            return_reg: Reg(1),
+        };
+        assert!(matches!(
+            verify_ownership(&prog),
+            Err(VerifyError::UseAfterMove(_))
+        ));
+    }
+
+    #[test]
+    fn verify_reuse_rejects_shared() {
+        let prog = LinearProgram {
+            instrs: vec![
+                MemInstr::Lit {
+                    dst: Reg(0),
+                    lit: MemLiteral::Number(1.0),
+                },
+                MemInstr::Dup {
+                    dst: Reg(1),
+                    src: Reg(0),
+                },
+                MemInstr::ConstructReuse {
+                    dst: Reg(2),
+                    reuse: Reg(0),
+                    tag: "record".into(),
+                    fields: vec![],
+                },
+                MemInstr::Drop { reg: Reg(1) },
+                MemInstr::Return { reg: Reg(2) },
+            ],
+            return_reg: Reg(2),
+        };
+        assert!(matches!(
+            verify_reuse(&prog),
+            Err(VerifyError::ReuseOfShared(_))
+        ));
+    }
+
+    #[test]
+    fn verify_reuse_rejects_perform_tag() {
+        let prog = LinearProgram {
+            instrs: vec![
+                MemInstr::Lit {
+                    dst: Reg(0),
+                    lit: MemLiteral::Number(1.0),
+                },
+                MemInstr::ConstructReuse {
+                    dst: Reg(1),
+                    reuse: Reg(0),
+                    tag: "perform:log".into(),
+                    fields: vec![],
+                },
+                MemInstr::Return { reg: Reg(1) },
+            ],
+            return_reg: Reg(1),
+        };
+        assert!(matches!(
+            verify_reuse(&prog),
+            Err(VerifyError::InvalidReuseClass { .. })
+        ));
     }
 }

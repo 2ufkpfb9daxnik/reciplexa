@@ -204,4 +204,170 @@ mod tests {
         assert!(unify(&CoreType::Var(v), &CoreType::Number, &mut s).is_ok());
         assert_eq!(s.apply(&CoreType::Var(v)), CoreType::Number);
     }
+
+    #[test]
+    fn unifies_primitives() {
+        let mut s = Subst::new();
+        for ty in [
+            CoreType::Number,
+            CoreType::String,
+            CoreType::Color,
+            CoreType::Shape,
+            CoreType::Unit,
+        ] {
+            assert!(unify(&ty, &ty, &mut s).is_ok());
+        }
+    }
+
+    #[test]
+    fn primitive_mismatch() {
+        let mut s = Subst::new();
+        let err = unify(&CoreType::Number, &CoreType::String, &mut s).unwrap_err();
+        assert!(matches!(err, UnifyError::Mismatch { .. }));
+    }
+
+    #[test]
+    fn occurs_check_rejects_infinite_type() {
+        let mut s = Subst::new();
+        let v = s.fresh_var();
+        let fun = CoreType::Fun {
+            args: vec![CoreType::Var(v)],
+            ret: Box::new(CoreType::Var(v)),
+            effects: EffectRow::default(),
+        };
+        let err = unify(&CoreType::Var(v), &fun, &mut s).unwrap_err();
+        assert!(matches!(err, UnifyError::OccursCheck(_, _)));
+    }
+
+    #[test]
+    fn self_bind_var_is_ok() {
+        let mut s = Subst::new();
+        let v = s.fresh_var();
+        assert!(s.bind(v, CoreType::Var(v)).is_ok());
+    }
+
+    #[test]
+    fn function_arg_count_mismatch() {
+        let mut s = Subst::new();
+        let a = CoreType::Fun {
+            args: vec![CoreType::Number],
+            ret: Box::new(CoreType::Unit),
+            effects: EffectRow::default(),
+        };
+        let b = CoreType::Fun {
+            args: vec![CoreType::Number, CoreType::Number],
+            ret: Box::new(CoreType::Unit),
+            effects: EffectRow::default(),
+        };
+        assert!(matches!(
+            unify(&a, &b, &mut s),
+            Err(UnifyError::Mismatch { .. })
+        ));
+    }
+
+    #[test]
+    fn function_effect_mismatch() {
+        let mut s = Subst::new();
+        let a = CoreType::Fun {
+            args: vec![],
+            ret: Box::new(CoreType::Unit),
+            effects: EffectRow { ops: vec!["log".into()] },
+        };
+        let b = CoreType::Fun {
+            args: vec![],
+            ret: Box::new(CoreType::Unit),
+            effects: EffectRow::default(),
+        };
+        assert!(matches!(
+            unify(&a, &b, &mut s),
+            Err(UnifyError::Mismatch { .. })
+        ));
+    }
+
+    #[test]
+    fn record_field_name_mismatch() {
+        let mut s = Subst::new();
+        let a = CoreType::Record {
+            fields: vec![("x".into(), CoreType::Number)],
+        };
+        let b = CoreType::Record {
+            fields: vec![("y".into(), CoreType::Number)],
+        };
+        assert!(matches!(
+            unify(&a, &b, &mut s),
+            Err(UnifyError::Mismatch { .. })
+        ));
+    }
+
+    #[test]
+    fn record_unifies_fields() {
+        let mut s = Subst::new();
+        let a = CoreType::Record {
+            fields: vec![("x".into(), CoreType::Number)],
+        };
+        let b = CoreType::Record {
+            fields: vec![("x".into(), CoreType::Number)],
+        };
+        assert!(unify(&a, &b, &mut s).is_ok());
+    }
+
+    #[test]
+    fn variant_payload_mismatch() {
+        let mut s = Subst::new();
+        let a = CoreType::Variant {
+            variants: vec![("Some".into(), Some(CoreType::Number))],
+        };
+        let b = CoreType::Variant {
+            variants: vec![("Some".into(), None)],
+        };
+        assert!(matches!(
+            unify(&a, &b, &mut s),
+            Err(UnifyError::Mismatch { .. })
+        ));
+    }
+
+    #[test]
+    fn variant_unifies_nullary() {
+        let mut s = Subst::new();
+        let a = CoreType::Variant {
+            variants: vec![("Done".into(), None)],
+        };
+        let b = CoreType::Variant {
+            variants: vec![("Done".into(), None)],
+        };
+        assert!(unify(&a, &b, &mut s).is_ok());
+    }
+
+    #[test]
+    fn apply_traverses_nested_types() {
+        let mut s = Subst::new();
+        let v = s.fresh_var();
+        s.bind(v, CoreType::String).unwrap();
+        let ty = CoreType::Fun {
+            args: vec![CoreType::Var(v)],
+            ret: Box::new(CoreType::Record {
+                fields: vec![("f".into(), CoreType::Var(v))],
+            }),
+            effects: EffectRow::default(),
+        };
+        let applied = s.apply(&ty);
+        assert_eq!(
+            applied,
+            CoreType::Fun {
+                args: vec![CoreType::String],
+                ret: Box::new(CoreType::Record {
+                    fields: vec![("f".into(), CoreType::String)],
+                }),
+                effects: EffectRow::default(),
+            }
+        );
+    }
+
+    #[test]
+    fn fresh_var_ids_increment() {
+        let mut s = Subst::new();
+        let a = s.fresh_var();
+        let b = s.fresh_var();
+        assert_ne!(a, b);
+    }
 }

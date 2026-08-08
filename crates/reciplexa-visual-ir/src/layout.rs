@@ -64,4 +64,12 @@ mod tests {
         let layout = layout_identity(&domain);
         assert_eq!(layout.pages[0].nodes.len(), 1);
     }
+
+    #[test]
+    fn empty_domain_produces_empty_layout() {
+        let domain = DomainDocument { pages: vec![] };
+        let layout = layout_identity(&domain);
+        assert!(layout.pages.is_empty());
+        assert!(layout_pages(&layout).is_empty());
+    }
 }

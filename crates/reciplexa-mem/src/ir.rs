@@ -22,24 +22,13 @@ pub enum MemLiteral {
 #[derive(Debug, Clone, PartialEq)]
 pub enum MemInstr {
     /// `dst = lit`
-    Lit {
-        dst: Reg,
-        lit: MemLiteral,
-    },
+    Lit { dst: Reg, lit: MemLiteral },
     /// `dst = dup src` — share ownership (refcount++)
-    Dup {
-        dst: Reg,
-        src: Reg,
-    },
+    Dup { dst: Reg, src: Reg },
     /// `drop reg` — release if refcount hits zero
-    Drop {
-        reg: Reg,
-    },
+    Drop { reg: Reg },
     /// `dst = move src` — transfer unique ownership; `src` is invalidated
-    Move {
-        dst: Reg,
-        src: Reg,
-    },
+    Move { dst: Reg, src: Reg },
     /// `dst = record { fields }`
     Construct {
         dst: Reg,
@@ -54,11 +43,7 @@ pub enum MemInstr {
         fields: Vec<(String, Reg)>,
     },
     /// `dst = src.field`
-    Project {
-        dst: Reg,
-        src: Reg,
-        field: String,
-    },
+    Project { dst: Reg, src: Reg, field: String },
     /// `dst = closure(param, body_block, captures)`
     MakeClosure {
         dst: Reg,
@@ -67,11 +52,7 @@ pub enum MemInstr {
         captures: Vec<Reg>,
     },
     /// `dst = call closure arg`
-    Call {
-        dst: Reg,
-        closure: Reg,
-        arg: Reg,
-    },
+    Call { dst: Reg, closure: Reg, arg: Reg },
     /// Branch on numeric zero/nonzero.
     Branch {
         cond: Reg,
@@ -79,31 +60,19 @@ pub enum MemInstr {
         else_block: BlockId,
     },
     /// Unconditional jump.
-    Jump {
-        target: BlockId,
-    },
+    Jump { target: BlockId },
     /// Return value from function body.
-    Return {
-        reg: Reg,
-    },
+    Return { reg: Reg },
     /// Failure path — run cleanup then raise.
-    Raise {
-        tag: String,
-    },
+    Raise { tag: String },
     /// Register a cleanup label (bracket / scope).
-    RegisterCleanup {
-        label: String,
-    },
+    RegisterCleanup { label: String },
     /// Run pending cleanups LIFO.
     RunCleanup,
     /// Resume one-shot continuation.
-    Resume {
-        cont: u64,
-    },
+    Resume { cont: u64 },
     /// Mark continuation discarded — run cleanups, drop captures.
-    DiscardCont {
-        cont: u64,
-    },
+    DiscardCont { cont: u64 },
     /// Phi at join: `dst` merges values from predecessor blocks.
     Phi {
         dst: Reg,
@@ -169,10 +138,7 @@ pub(crate) fn collect_regs_instr(instr: &MemInstr, out: &mut Vec<Reg>) {
             }
         }
         MemInstr::ConstructReuse {
-            dst,
-            reuse,
-            fields,
-            ..
+            dst, reuse, fields, ..
         } => {
             push_reg(out, *dst);
             push_reg(out, *reuse);
@@ -190,11 +156,7 @@ pub(crate) fn collect_regs_instr(instr: &MemInstr, out: &mut Vec<Reg>) {
                 push_reg(out, *r);
             }
         }
-        MemInstr::Call {
-            dst,
-            closure,
-            arg,
-        } => {
+        MemInstr::Call { dst, closure, arg } => {
             push_reg(out, *dst);
             push_reg(out, *closure);
             push_reg(out, *arg);
@@ -218,5 +180,88 @@ pub(crate) fn collect_regs_instr(instr: &MemInstr, out: &mut Vec<Reg>) {
 fn push_reg(out: &mut Vec<Reg>, r: Reg) {
     if !out.contains(&r) {
         out.push(r);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::linear::LinearProgram;
+
+    fn lit_instr(dst: Reg) -> MemInstr {
+        MemInstr::Lit {
+            dst,
+            lit: MemLiteral::Number(1.0),
+        }
+    }
+
+    #[test]
+    fn block_id_entry_is_zero() {
+        assert_eq!(BlockId::ENTRY, BlockId(0));
+    }
+
+    #[test]
+    fn mem_literal_eq() {
+        assert_eq!(MemLiteral::Unit, MemLiteral::Unit);
+        assert_ne!(MemLiteral::Number(1.0), MemLiteral::Number(2.0));
+    }
+
+    #[test]
+    fn owning_program_block_lookup() {
+        let bb = BasicBlock {
+            id: BlockId(0),
+            instrs: vec![lit_instr(Reg(0))],
+            terminator: MemInstr::Return { reg: Reg(0) },
+        };
+        let prog = OwningProgram {
+            blocks: vec![bb],
+            entry: BlockId::ENTRY,
+            return_reg: Some(Reg(0)),
+        };
+        assert!(prog.block(BlockId(0)).is_some());
+        assert!(prog.block(BlockId(1)).is_none());
+        let mut mut_prog = prog.clone();
+        assert!(mut_prog.block_mut(BlockId(0)).is_some());
+    }
+
+    #[test]
+    fn all_regs_collects_unique_sorted() {
+        let prog = LinearProgram {
+            instrs: vec![
+                lit_instr(Reg(2)),
+                MemInstr::Dup {
+                    dst: Reg(1),
+                    src: Reg(2),
+                },
+                MemInstr::Return { reg: Reg(1) },
+            ],
+            return_reg: Reg(1),
+        };
+        let owning = OwningProgram {
+            blocks: vec![BasicBlock {
+                id: BlockId(0),
+                instrs: prog.instrs.clone(),
+                terminator: MemInstr::Return { reg: Reg(1) },
+            }],
+            entry: BlockId::ENTRY,
+            return_reg: Some(Reg(1)),
+        };
+        let regs = owning.all_regs();
+        assert_eq!(regs, vec![Reg(1), Reg(2)]);
+    }
+
+    #[test]
+    fn collect_regs_skips_control_only_instrs() {
+        let mut out = Vec::new();
+        collect_regs_instr(&MemInstr::Jump { target: BlockId(1) }, &mut out);
+        assert!(out.is_empty());
+        collect_regs_instr(
+            &MemInstr::Phi {
+                dst: Reg(0),
+                incoming: vec![(BlockId(0), Reg(1))],
+            },
+            &mut out,
+        );
+        assert_eq!(out, vec![Reg(0), Reg(1)]);
     }
 }

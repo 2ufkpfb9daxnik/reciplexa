@@ -28,3 +28,33 @@ pub fn migrate_snapshot(bytes: &[u8]) -> Result<DocumentSnapshot, MigrationError
     let current = graph.migrate_to_current(bytes)?;
     decode_snapshot(&current).map_err(MigrationError::Codec)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::codec::CodecError;
+
+    #[test]
+    fn migrate_corrupt_bytes_fails() {
+        let err = migrate_snapshot(b"not valid json").unwrap_err();
+        assert!(matches!(err, MigrationError::Codec(CodecError::Decode(_))));
+    }
+
+    #[test]
+    fn migrate_valid_snapshot_roundtrips() {
+        use reciplexa_document::snapshot::DocumentSnapshot;
+        use reciplexa_identity::document::DocumentIdentity;
+        use crate::codec::encode_snapshot;
+
+        let snap = DocumentSnapshot::new(DocumentIdentity::new(11));
+        let bytes = encode_snapshot(&snap).unwrap();
+        let migrated = migrate_snapshot(&bytes).unwrap();
+        assert_eq!(migrated.identity.get(), 11);
+    }
+
+    #[test]
+    fn unsupported_migration_variant_is_documented() {
+        let err = MigrationError::Unsupported(99);
+        assert!(matches!(err, MigrationError::Unsupported(99)));
+    }
+}

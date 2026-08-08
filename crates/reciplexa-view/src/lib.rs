@@ -722,7 +722,8 @@ fn point_in_polygon(x: f64, y: f64, pts: &[(f64, f64)]) -> bool {
 mod tests {
     use super::*;
     use reciplexa_scene::{
-        Circle, Color, Document, Ellipse, Image, Page, PaperSize, Rect, Shape, Text,
+        Circle, Color, Document, Ellipse, Frame, Image, Line, Page, PaperSize, Polygon, Polyline,
+        Rect, Ring, Shape, Text,
     };
 
     // --- validity ---
@@ -1170,5 +1171,368 @@ mod tests {
             WorldShape::Circle(c) => assert_eq!(c.radius_mm, 0.0),
             _ => panic!("expected circle"),
         }
+    }
+
+    fn ellipse_polygon_sides(options: FlattenOptions) -> usize {
+        let shapes = flatten_shapes_with_options(
+            &[Shape::Ellipse(Ellipse {
+                x_mm: 0.0,
+                y_mm: 0.0,
+                rx_mm: 10.0,
+                ry_mm: 5.0,
+                fill: Color::BLUE,
+            })],
+            Affine::identity(),
+            options,
+        );
+        match &shapes[0] {
+            WorldShape::Polygon(p) => p.points_mm.len(),
+            _ => panic!("expected polygon"),
+        }
+    }
+
+    #[test]
+    fn ellipse_sides_zero_clamps_to_three() {
+        assert_eq!(
+            ellipse_polygon_sides(FlattenOptions { ellipse_sides: 0 }),
+            3
+        );
+    }
+
+    #[test]
+    fn ellipse_sides_three_is_minimum() {
+        assert_eq!(
+            ellipse_polygon_sides(FlattenOptions { ellipse_sides: 3 }),
+            3
+        );
+    }
+
+    #[test]
+    fn ellipse_sides_default_is_thirty_two() {
+        assert_eq!(ellipse_polygon_sides(FlattenOptions::default()), 32);
+    }
+
+    #[test]
+    fn ellipse_sides_sixty_four_is_supported() {
+        assert_eq!(
+            ellipse_polygon_sides(FlattenOptions { ellipse_sides: 64 }),
+            64
+        );
+    }
+
+    #[test]
+    fn flatten_page_out_of_range_returns_none() {
+        let doc = Document::single_page(Page {
+            paper: PaperSize::a4(),
+            shapes: vec![],
+        });
+        assert!(flatten_page(&doc, 1).is_none());
+    }
+
+    #[test]
+    fn ring_and_frame_flatten_with_stroke() {
+        let shapes = flatten_shapes(
+            &[
+                Shape::Ring(Ring {
+                    x_mm: 10.0,
+                    y_mm: 10.0,
+                    radius_mm: 5.0,
+                    width_mm: 0.5,
+                    stroke: Color::RED,
+                }),
+                Shape::Frame(Frame {
+                    x_mm: 0.0,
+                    y_mm: 0.0,
+                    width_mm: 20.0,
+                    height_mm: 10.0,
+                    stroke_width_mm: 0.3,
+                    stroke: Color::BLUE,
+                }),
+            ],
+            Affine::identity(),
+        );
+        match &shapes[0] {
+            WorldShape::Circle(c) => assert!(c.stroke_width_mm.is_some()),
+            _ => panic!("expected stroked circle"),
+        }
+        match &shapes[1] {
+            WorldShape::Polygon(p) => assert!(p.stroke_width_mm.is_some()),
+            _ => panic!("expected stroked polygon"),
+        }
+    }
+
+    #[test]
+    fn line_and_polyline_flatten_to_paths() {
+        let shapes = flatten_shapes(
+            &[
+                Shape::Line(Line {
+                    x1_mm: 0.0,
+                    y1_mm: 0.0,
+                    x2_mm: 10.0,
+                    y2_mm: 0.0,
+                    stroke: Color::BLACK,
+                    width_mm: 0.2,
+                }),
+                Shape::Polyline(Polyline {
+                    points_mm: vec![(0.0, 0.0), (5.0, 5.0), (10.0, 0.0)],
+                    stroke: Color::GREEN,
+                    width_mm: 0.1,
+                }),
+            ],
+            Affine::identity(),
+        );
+        for s in &shapes {
+            match s {
+                WorldShape::Path(p) => assert!(!p.closed),
+                _ => panic!("expected path"),
+            }
+        }
+    }
+
+    #[test]
+    fn polygon_flatten_fills() {
+        let shapes = flatten_shapes(
+            &[Shape::Polygon(Polygon {
+                points_mm: vec![(0.0, 0.0), (10.0, 0.0), (5.0, 10.0)],
+                fill: Color::RED,
+            })],
+            Affine::identity(),
+        );
+        match &shapes[0] {
+            WorldShape::Polygon(p) => assert!(p.stroke_width_mm.is_none()),
+            _ => panic!("expected polygon"),
+        }
+    }
+
+    #[test]
+    fn text_with_explicit_box_dimensions() {
+        let shapes = flatten_shapes(
+            &[Shape::Text(Text {
+                x_mm: 5.0,
+                y_mm: 5.0,
+                size_mm: 10.0,
+                width_mm: Some(50.0),
+                height_mm: Some(30.0),
+                content: "boxed".into(),
+                fill: Color::BLACK,
+            })],
+            Affine::identity(),
+        );
+        match &shapes[0] {
+            WorldShape::Text(t) => {
+                assert!((t.width_mm - 50.0).abs() < 1e-9);
+                assert!((t.height_mm - 30.0).abs() < 1e-9);
+            }
+            _ => panic!("expected text"),
+        }
+    }
+
+    #[test]
+    fn hit_test_stroked_ring_near_outline() {
+        let shapes = flatten_shapes(
+            &[Shape::Ring(Ring {
+                x_mm: 0.0,
+                y_mm: 0.0,
+                radius_mm: 10.0,
+                width_mm: 2.0,
+                stroke: Color::BLACK,
+            })],
+            Affine::identity(),
+        );
+        assert_eq!(hit_test_shapes(&shapes, 10.0, 0.0), Some(0));
+        assert_eq!(hit_test_shapes(&shapes, 0.0, 0.0), None);
+    }
+
+    #[test]
+    fn hit_test_line_segment() {
+        let shapes = flatten_shapes(
+            &[Shape::Line(Line {
+                x1_mm: 0.0,
+                y1_mm: 0.0,
+                x2_mm: 100.0,
+                y2_mm: 0.0,
+                stroke: Color::BLACK,
+                width_mm: 1.0,
+            })],
+            Affine::identity(),
+        );
+        assert_eq!(hit_test_shapes(&shapes, 50.0, 0.0), Some(0));
+        assert_eq!(hit_test_shapes(&shapes, 50.0, 50.0), None);
+    }
+
+    #[test]
+    fn hit_test_stroked_frame_border() {
+        let shapes = flatten_shapes(
+            &[Shape::Frame(Frame {
+                x_mm: 0.0,
+                y_mm: 0.0,
+                width_mm: 20.0,
+                height_mm: 20.0,
+                stroke_width_mm: 2.0,
+                stroke: Color::BLACK,
+            })],
+            Affine::identity(),
+        );
+        assert_eq!(hit_test_shapes(&shapes, 1.0, 1.0), Some(0));
+        assert_eq!(hit_test_shapes(&shapes, 10.0, 10.0), None);
+    }
+
+    #[test]
+    fn wrapped_text_height_matches_line_count() {
+        let h = wrapped_text_height_mm("one two three four", 10.0, 25.0);
+        assert!(h >= 20.0);
+    }
+
+    #[test]
+    fn wrap_prefers_whitespace_break() {
+        let lines = wrap_text_to_width("hello world", 10.0, 30.0);
+        assert!(lines.len() >= 2);
+        assert!(lines[0].ends_with("hello") || lines[0] == "hello");
+    }
+
+    #[test]
+    fn radius_mm_to_px_scales_with_layout() {
+        let layout = PaperLayout::fit(210.0, 297.0, 0.0, 210.0, 297.0);
+        let r = layout.radius_mm_to_px(10.0);
+        assert!((r - 10.0).abs() < 1e-3);
+    }
+
+    #[test]
+    fn pan_for_zoom_anchor_direct() {
+        let base = PaperLayout::fit(400.0, 400.0, 0.0, 210.0, 297.0);
+        let (px, py) = PaperLayout::pan_for_zoom_anchor(&base, 2.0, (100.0, 100.0), (50.0, 50.0));
+        let layout = base.with_view(2.0, px, py);
+        let (mx, my) = layout.px_to_mm(100.0, 100.0);
+        assert!((mx - 50.0).abs() < 0.1);
+        assert!((my - 50.0).abs() < 0.1);
+    }
+
+    #[test]
+    fn shape_bounds_cover_all_kinds() {
+        let shapes = flatten_shapes(
+            &[
+                Shape::Circle(Circle {
+                    x_mm: 10.0,
+                    y_mm: 10.0,
+                    radius_mm: 5.0,
+                    fill: Color::BLACK,
+                }),
+                Shape::Image(Image {
+                    path: "x.png".into(),
+                    x_mm: 0.0,
+                    y_mm: 0.0,
+                    width_mm: 10.0,
+                    height_mm: 10.0,
+                }),
+            ],
+            Affine::identity(),
+        );
+        for s in &shapes {
+            assert!(PaperLayout::shape_bounds_mm(s).is_some());
+        }
+        let path = WorldShape::Path(WorldPath {
+            points_mm: vec![(0.0, 0.0), (5.0, 5.0)],
+            stroke: Color::BLACK,
+            width_mm: 1.0,
+            closed: true,
+            alpha: 1.0,
+        });
+        assert!(PaperLayout::shape_bounds_mm(&path).is_some());
+        assert_eq!(hit_test_shapes(&[path], 2.0, 2.0), Some(0));
+    }
+
+    #[test]
+    fn marquee_normalizes_reversed_aabb() {
+        let shapes = flatten_shapes(
+            &[Shape::Circle(Circle {
+                x_mm: 10.0,
+                y_mm: 10.0,
+                radius_mm: 5.0,
+                fill: Color::BLACK,
+            })],
+            Affine::identity(),
+        );
+        let hit = shapes_intersecting_aabb(&shapes, (20.0, 20.0, 0.0, 0.0));
+        assert_eq!(hit, vec![0]);
+    }
+
+    #[test]
+    fn paper_layout_wide_page_uses_width_constraint() {
+        let layout = PaperLayout::fit(400.0, 200.0, 10.0, 400.0, 100.0);
+        assert!(layout.width_px > layout.height_px);
+    }
+
+    #[test]
+    fn shape_bounds_polygon_text_and_image_hit() {
+        let poly = WorldShape::Polygon(WorldPolygon {
+            points_mm: vec![(0.0, 0.0), (10.0, 0.0), (5.0, 10.0)],
+            color: Color::RED,
+            stroke_width_mm: None,
+            alpha: 1.0,
+        });
+        let text = WorldShape::Text(WorldText {
+            x_mm: 0.0,
+            y_mm: 0.0,
+            size_mm: 10.0,
+            width_mm: 20.0,
+            height_mm: 10.0,
+            rotation_deg: 0.0,
+            content: "x".into(),
+            fill: Color::BLACK,
+            alpha: 1.0,
+        });
+        let img = WorldShape::Image(WorldImage {
+            path: "a.png".into(),
+            corners_mm: [(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0)],
+            alpha: 1.0,
+        });
+        assert!(PaperLayout::shape_bounds_mm(&poly).is_some());
+        assert!(PaperLayout::shape_bounds_mm(&text).is_some());
+        assert_eq!(hit_test_shapes(&[img], 5.0, 5.0), Some(0));
+    }
+
+    #[test]
+    fn char_width_tab_and_empty_text_extent() {
+        assert!((char_width_mm('\t', 10.0) - 20.0).abs() < 1e-9);
+        let (w, h) = text_extent_mm("", 10.0);
+        assert!(w > 0.0 && h > 0.0);
+    }
+
+    #[test]
+    fn wrap_blank_line_in_paragraph() {
+        let lines = wrap_text_to_width("\n", 10.0, 50.0);
+        assert_eq!(lines.len(), 2);
+        assert!(lines[0].is_empty());
+    }
+
+    #[test]
+    fn hit_test_degenerate_path_and_polygon() {
+        let one_pt = WorldShape::Path(WorldPath {
+            points_mm: vec![(0.0, 0.0)],
+            stroke: Color::BLACK,
+            width_mm: 1.0,
+            closed: false,
+            alpha: 1.0,
+        });
+        assert_eq!(hit_test_shapes(&[one_pt], 0.0, 0.0), None);
+        let two_pt = WorldShape::Polygon(WorldPolygon {
+            points_mm: vec![(0.0, 0.0), (1.0, 0.0)],
+            color: Color::BLACK,
+            stroke_width_mm: None,
+            alpha: 1.0,
+        });
+        assert_eq!(hit_test_shapes(&[two_pt], 0.5, 0.0), None);
+    }
+
+    #[test]
+    fn near_polyline_zero_length_segment() {
+        let path = WorldShape::Path(WorldPath {
+            points_mm: vec![(0.0, 0.0), (0.0, 0.0), (10.0, 0.0)],
+            stroke: Color::BLACK,
+            width_mm: 2.0,
+            closed: false,
+            alpha: 1.0,
+        });
+        assert_eq!(hit_test_shapes(&[path], 0.0, 0.0), Some(0));
     }
 }

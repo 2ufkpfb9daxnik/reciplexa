@@ -80,4 +80,18 @@ mod tests {
     fn converts_to_usize() {
         assert_eq!(usize::from(ByteOffset::new(42)), 42);
     }
+
+    #[test]
+    fn saturating_add_caps_at_max() {
+        assert_eq!(
+            ByteOffset::new(u32::MAX - 1).saturating_add(5),
+            ByteOffset::new(u32::MAX)
+        );
+    }
+
+    #[test]
+    fn from_u32_roundtrip() {
+        let off: ByteOffset = 99u32.into();
+        assert_eq!(u32::from(off), 99);
+    }
 }

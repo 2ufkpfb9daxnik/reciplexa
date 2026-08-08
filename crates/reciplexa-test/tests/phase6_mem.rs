@@ -34,7 +34,10 @@ fn mem01_drop_before_unrelated_work() {
         .iter()
         .filter(|i| matches!(i, MemInstr::Drop { .. }))
         .collect();
-    assert!(!drops.is_empty(), "binding must be dropped before unrelated work");
+    assert!(
+        !drops.is_empty(),
+        "binding must be dropped before unrelated work"
+    );
 }
 
 // --- MEM-02: shared value requires dup, no early drop ---
@@ -123,12 +126,10 @@ fn mem04_reuse_success_same_observable_result() {
     let v_reuse = exec_linear(&with_reuse, &mut trace).unwrap();
     let v_plain = exec_linear(&without_reuse, &mut RcTrace::default()).unwrap();
     assert!(observably_equal(&v_reuse, &v_plain));
-    assert!(
-        with_reuse
-            .instrs
-            .iter()
-            .any(|i| matches!(i, MemInstr::ConstructReuse { .. }))
-    );
+    assert!(with_reuse
+        .instrs
+        .iter()
+        .any(|i| matches!(i, MemInstr::ConstructReuse { .. })));
 }
 
 #[test]
@@ -196,12 +197,8 @@ fn mem10_resume_one_shot() {
 fn mem11_discard_cont_runs_cleanup_lifo() {
     let prog = LinearProgram {
         instrs: vec![
-            MemInstr::RegisterCleanup {
-                label: "a".into(),
-            },
-            MemInstr::RegisterCleanup {
-                label: "b".into(),
-            },
+            MemInstr::RegisterCleanup { label: "a".into() },
+            MemInstr::RegisterCleanup { label: "b".into() },
             MemInstr::DiscardCont { cont: 0 },
             MemInstr::Lit {
                 dst: Reg(0),
@@ -345,8 +342,14 @@ fn equiv_conservative_matches_reference() {
         let reference = eval_ref(&expr);
         let conservative = compile_and_run_conservative(&expr).unwrap();
         let optimized = compile_and_run(&expr).unwrap();
-        assert!(observably_equal(&reference, &conservative), "conservative: {expr:?}");
-        assert!(observably_equal(&reference, &optimized), "optimized: {expr:?}");
+        assert!(
+            observably_equal(&reference, &conservative),
+            "conservative: {expr:?}"
+        );
+        assert!(
+            observably_equal(&reference, &optimized),
+            "optimized: {expr:?}"
+        );
     }
 }
 
@@ -430,4 +433,144 @@ fn refcount_trace_records_dup_and_drop() {
     let mut trace = RcTrace::default();
     exec_linear(&sealed, &mut trace).unwrap();
     assert!(!trace.drops.is_empty());
+}
+
+#[test]
+fn mem_dup_drop_order_observable() {
+    let prog = LinearProgram {
+        instrs: vec![
+            MemInstr::Lit {
+                dst: Reg(0),
+                lit: MemLiteral::Number(1.0),
+            },
+            MemInstr::Dup {
+                dst: Reg(1),
+                src: Reg(0),
+            },
+            MemInstr::Drop { reg: Reg(1) },
+            MemInstr::Return { reg: Reg(0) },
+        ],
+        return_reg: Reg(0),
+    };
+    verify_ownership(&prog).unwrap();
+    let mut trace = RcTrace::default();
+    exec_linear(&prog, &mut trace).unwrap();
+    assert_eq!(trace.drops.len(), 1);
+}
+
+#[test]
+fn mem_construct_record_fields() {
+    let expr = CoreExpr::Record {
+        fields: vec![
+            ("x".into(), CoreExpr::Lit(CoreLiteral::Number(1.0))),
+            ("y".into(), CoreExpr::Lit(CoreLiteral::String("z".into()))),
+        ],
+    };
+    assert_observational_equiv(&expr).unwrap();
+}
+
+#[test]
+fn mem_lambda_no_capture_drop() {
+    let expr = CoreExpr::Lambda {
+        param: "x".into(),
+        body: Box::new(CoreExpr::Lit(CoreLiteral::Number(0.0))),
+    };
+    assert_observational_equiv(&expr).unwrap();
+}
+
+#[test]
+fn mem_variant_none_arm() {
+    let expr = CoreExpr::Match {
+        scrutinee: Box::new(CoreExpr::Variant {
+            tag: "None".into(),
+            payload: None,
+        }),
+        arms: vec![
+            MatchArm {
+                tag: "Some".into(),
+                bind: Some("v".into()),
+                body: CoreExpr::Lit(CoreLiteral::Number(1.0)),
+            },
+            MatchArm {
+                tag: "None".into(),
+                bind: None,
+                body: CoreExpr::Lit(CoreLiteral::Number(0.0)),
+            },
+        ],
+    };
+    assert_observational_equiv(&expr).unwrap();
+}
+
+#[test]
+fn mem_verifier_rejects_dup_of_unowned() {
+    let bad = LinearProgram {
+        instrs: vec![
+            MemInstr::Dup {
+                dst: Reg(1),
+                src: Reg(0),
+            },
+            MemInstr::Return { reg: Reg(0) },
+        ],
+        return_reg: Reg(0),
+    };
+    assert!(verify_ownership(&bad).is_err());
+}
+
+#[test]
+fn mem_empty_seq_unit_equiv() {
+    let expr = CoreExpr::Seq(vec![]);
+    assert_observational_equiv(&expr).unwrap();
+}
+
+#[test]
+fn mem_color_literal_equiv() {
+    let expr = CoreExpr::Lit(CoreLiteral::Color("blue".into()));
+    assert_observational_equiv(&expr).unwrap();
+}
+
+#[test]
+fn mem_string_literal_equiv() {
+    let expr = CoreExpr::Lit(CoreLiteral::String("mem-test".into()));
+    assert_observational_equiv(&expr).unwrap();
+}
+
+#[test]
+fn mem_observably_equal_detects_difference() {
+    let a = eval_ref(&CoreExpr::Lit(CoreLiteral::Number(1.0)));
+    let b = eval_ref(&CoreExpr::Lit(CoreLiteral::Number(2.0)));
+    assert!(!observably_equal(&a, &b));
+}
+
+#[test]
+fn mem_reg_display_and_alloc() {
+    use reciplexa_mem::{Reg, RegAlloc};
+    let mut alloc = RegAlloc::default();
+    assert_eq!(alloc.fresh().to_string(), "r0");
+    assert_eq!(Reg(1).to_string(), "r1");
+}
+
+#[test]
+fn mem_own_map_merge() {
+    use reciplexa_mem::{OwnMap, OwnState, Reg};
+    let mut m = OwnMap::new();
+    m.define(Reg(0));
+    assert_eq!(m.get(Reg(0)), OwnState::Alive);
+    m.drop_reg(Reg(0));
+    assert_eq!(m.get(Reg(0)), OwnState::Dropped);
+}
+
+#[test]
+fn mem_linear_program_regs() {
+    use reciplexa_mem::{LinearProgram, MemInstr, MemLiteral, Reg};
+    let prog = LinearProgram {
+        instrs: vec![
+            MemInstr::Lit {
+                dst: Reg(0),
+                lit: MemLiteral::Number(1.0),
+            },
+            MemInstr::Return { reg: Reg(0) },
+        ],
+        return_reg: Reg(0),
+    };
+    assert_eq!(prog.regs(), vec![Reg(0)]);
 }

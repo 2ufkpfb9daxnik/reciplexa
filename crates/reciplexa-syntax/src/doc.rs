@@ -343,4 +343,23 @@ mod tests {
         let parts = doc_parts(&doc_list("(doc see @ref)")).unwrap();
         assert_eq!(flatten_readable(&parts), "see");
     }
+
+    #[test]
+    fn at_with_brace_only_body() {
+        let parts = doc_parts(&doc_list("(doc @em{emphasis})")).unwrap();
+        assert_eq!(flatten_readable(&parts), "emphasis");
+    }
+
+    #[test]
+    fn empty_doc_body() {
+        let parts = doc_parts(&doc_list("(doc)")).unwrap();
+        assert!(parts.is_empty());
+        assert_eq!(flatten_readable(&parts), "");
+    }
+
+    #[test]
+    fn doc_part_debug() {
+        let part = DocPart::Text("x".into());
+        assert!(format!("{part:?}").contains("Text"));
+    }
 }

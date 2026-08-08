@@ -17,6 +17,7 @@ pub mod state;
 pub mod timeline;
 pub mod virtualize;
 
+pub use a11y::{access_label, role_for_kind, AccessRole};
 pub use description::{GuiDescription, GuiNode, GuiNodeKind};
 pub use dragdrop::{DragPayload, DragSession};
 pub use focus::{FocusOwner, FocusState};

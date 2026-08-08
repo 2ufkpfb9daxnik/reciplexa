@@ -69,4 +69,17 @@ mod tests {
             FailureReport::new(1, FailureCode::new("compiler", "TYPE-001"), "type mismatch");
         assert!(report.to_string().contains("failure:1"));
     }
+
+    #[test]
+    fn failure_code_path_and_source_range() {
+        use reciplexa_source::offset::ByteOffset;
+        use reciplexa_source::range::TextRange;
+
+        let code = FailureCode::new("bind", "UNBOUND");
+        assert_eq!(code.as_path(), "bind/UNBOUND");
+        let report = FailureReport::new(2, code, "unbound `foo`")
+            .with_source_range(TextRange::try_new(ByteOffset::new(1), ByteOffset::new(4)).unwrap());
+        assert_eq!(report.source_range.unwrap().len(), 3);
+        assert!(report.to_string().contains("failure:2"));
+    }
 }

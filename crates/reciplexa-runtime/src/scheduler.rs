@@ -67,4 +67,30 @@ mod tests {
         }
         assert_eq!(a.run_to_completion(), b.run_to_completion());
     }
+
+    #[test]
+    fn default_scheduler_starts_empty() {
+        let mut s = TestScheduler::default();
+        assert!(s.step().is_none());
+        assert!(s.schedule_log().is_empty());
+    }
+
+    #[test]
+    fn step_returns_tick_and_logs_order() {
+        let mut s = TestScheduler::new();
+        s.enqueue(TaskId(7));
+        s.enqueue(TaskId(8));
+        let t1 = s.step().unwrap();
+        assert_eq!(t1, Tick(1));
+        let t2 = s.step().unwrap();
+        assert_eq!(t2, Tick(2));
+        assert_eq!(s.schedule_log(), &[TaskId(7), TaskId(8)]);
+        assert!(s.step().is_none());
+    }
+
+    #[test]
+    fn run_to_completion_on_empty_queue() {
+        let mut s = TestScheduler::new();
+        assert!(s.run_to_completion().is_empty());
+    }
 }

@@ -152,10 +152,45 @@ fn escape_string(s: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::document_from_scene_page;
+    use crate::bridge::{document_from_scene_page, document_from_scene_page_with_layers, drawable_node_ids, LayerSpan};
+    use reciplexa_identity::package::ModuleId;
+    use reciplexa_source::offset::ByteOffset;
+    use reciplexa_source::range::TextRange;
+    use reciplexa_syntax::parse_source;
     use reciplexa_identity::document::DocumentIdentity;
     use reciplexa_scene::{Color, Page, PaperSize, Rect, Shape};
     use reciplexa_source::resource::SourceResourceId;
+
+    fn rect_page() -> Page {
+        Page {
+            paper: PaperSize::a4(),
+            shapes: vec![Shape::Rect(Rect {
+                x_mm: 10.0,
+                y_mm: 20.0,
+                width_mm: 30.0,
+                height_mm: 40.0,
+                fill: Color::BLACK,
+            })],
+        }
+    }
+
+    fn snap_with_rect_layer(byte_start: usize, byte_end: usize) -> (DocumentSnapshot, reciplexa_identity::document::StableNodeId) {
+        let page = rect_page();
+        let layers = vec![LayerSpan {
+            byte_start,
+            byte_end,
+            label: "rect".into(),
+        }];
+        let snap = document_from_scene_page_with_layers(
+            DocumentIdentity::new(1),
+            &page,
+            &layers,
+            SourceResourceId::new(1),
+            &[],
+        );
+        let node = drawable_node_ids(&snap.nodes)[0];
+        (snap, node)
+    }
 
     #[test]
     fn move_without_provenance_updates_document_only() {
@@ -191,5 +226,105 @@ mod tests {
         let layout = snap.nodes.get(rect).unwrap().layout().unwrap();
         assert_eq!(layout.x, 5.0);
         assert_eq!(layout.y, 6.0);
+    }
+
+    #[test]
+    fn move_with_provenance_updates_source_literals() {
+        let src = "(page a4 (rect 10 20 30 40))";
+        let (mut snap, node) = snap_with_rect_layer(15, 20);
+        let outcome = apply_provenance_edit(
+            &mut snap,
+            src,
+            ApplyEdit::Move {
+                node,
+                x: 50.0,
+                y: 60.0,
+            },
+        )
+        .unwrap();
+        match outcome {
+            SourceSyncOutcome::SourceUpdated { new_source, .. } => {
+                assert!(new_source.contains("50"));
+                assert!(new_source.contains("60"));
+                assert!(parse_source(&new_source).errors.is_empty());
+            }
+            other => panic!("expected SourceUpdated, got {other:?}"),
+        }
+        let layout = snap.nodes.get(node).unwrap().layout().unwrap();
+        assert_eq!(layout.x, 50.0);
+        assert_eq!(layout.y, 60.0);
+    }
+
+    #[test]
+    fn non_invertible_expression_keeps_document_only() {
+        let src = "(page a4 (rect 10 20 30 40))";
+        let (mut snap, node) = snap_with_rect_layer(15, 20);
+        // Provenance range extends past source end → non-invertible literal rewrite.
+        snap.provenance.insert(
+            node,
+            crate::provenance::SourceProvenance {
+                source_resource_id: SourceResourceId::new(1),
+                module_id: ModuleId::new(1),
+                text_range: TextRange::try_new(ByteOffset::new(15), ByteOffset::new(200)).unwrap(),
+                syntax_node_id: None,
+            },
+        );
+        let outcome = apply_provenance_edit(
+            &mut snap,
+            src,
+            ApplyEdit::Move {
+                node,
+                x: 50.0,
+                y: 60.0,
+            },
+        )
+        .unwrap();
+        assert!(matches!(outcome, SourceSyncOutcome::DocumentOnly(_)));
+        let layout = snap.nodes.get(node).unwrap().layout().unwrap();
+        assert_eq!(layout.x, 50.0);
+        assert_eq!(layout.y, 60.0);
+    }
+
+    #[test]
+    fn parse_error_blocks_source_sync() {
+        let broken_src = "(page a4 (rect 10 20 30 40)";
+        let (mut snap, node) = snap_with_rect_layer(15, 20);
+        let outcome = apply_provenance_edit(
+            &mut snap,
+            broken_src,
+            ApplyEdit::Move {
+                node,
+                x: 50.0,
+                y: 60.0,
+            },
+        )
+        .unwrap();
+        assert!(matches!(
+            outcome,
+            SourceSyncOutcome::Blocked(SourceSyncBlockReason::ParseError)
+        ));
+    }
+
+    #[test]
+    fn resize_with_provenance_updates_width_height_literals() {
+        let src = "(page a4 (rect 10 20 30 40))";
+        let (mut snap, node) = snap_with_rect_layer(21, 26);
+        let outcome = apply_provenance_edit(
+            &mut snap,
+            src,
+            ApplyEdit::Resize {
+                node,
+                width: 99.0,
+                height: 88.0,
+            },
+        )
+        .unwrap();
+        match outcome {
+            SourceSyncOutcome::SourceUpdated { new_source, .. } => {
+                assert!(new_source.contains("99"));
+                assert!(new_source.contains("88"));
+            }
+            other => panic!("expected SourceUpdated, got {other:?}"),
+        }
     }
 }

@@ -855,4 +855,63 @@ mod tests {
     fn empty_source_fails() {
         assert!(typecheck_source("").is_err());
     }
+
+    #[test]
+    fn polygon_and_image_typecheck() {
+        let src = "(page a4 (polygon 0 0 1 0 1 1 red) (image \"x.png\" 0 0 10 10))";
+        assert_eq!(typecheck_source(src).unwrap(), Type::Document);
+    }
+
+    #[test]
+    fn group_and_translate_typecheck() {
+        let src = "(page a4 (translate 1 2 (group (circle 0 0 1) (rect 1 2 3 4))))";
+        assert_eq!(typecheck_source(src).unwrap(), Type::Document);
+    }
+
+    #[test]
+    fn rotate_typecheck() {
+        assert_eq!(
+            typecheck_source("(page a4 (rotate 45 (circle 0 0 1)))").unwrap(),
+            Type::Document
+        );
+    }
+
+    #[test]
+    fn perform_random_wrong_arity_fails() {
+        let err = typecheck_source(
+            "(src (perform random \"x\"))\n(page a4 (circle 1 2 3))",
+        )
+        .unwrap_err();
+        assert!(err.message.contains("random"));
+    }
+
+    #[test]
+    fn src_token_body_fails() {
+        let err = typecheck_source("(src 42)\n(page a4)").unwrap_err();
+        assert!(err.message.contains("list forms") || err.message.contains("type mismatch"));
+    }
+
+    #[test]
+    fn page_numeric_paper_needs_height() {
+        let err = typecheck_source("(page 210)").unwrap_err();
+        assert!(!err.message.is_empty());
+    }
+
+    #[test]
+    fn polyline_odd_coords_fails() {
+        let err = typecheck_source("(page a4 (polyline 0 0 1))").unwrap_err();
+        assert!(!err.message.is_empty());
+    }
+
+    #[test]
+    fn rgb_wrong_arity_fails() {
+        let err = typecheck_source("(page a4 (rgb 1 2))").unwrap_err();
+        assert!(err.message.contains("rgb"));
+    }
+
+    #[test]
+    fn handle_missing_op_fails() {
+        let err = typecheck_source("(src (handle))\n(page a4)").unwrap_err();
+        assert!(!err.message.is_empty());
+    }
 }

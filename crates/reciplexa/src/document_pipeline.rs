@@ -180,4 +180,45 @@ mod tests {
         let prov = snap.provenance.get(rect.id).unwrap();
         assert!(!prov.text_range.is_empty());
     }
+
+    #[test]
+    fn rejects_parse_errors() {
+        let err = document_snapshot_from_source("(page a4", DocumentIdentity::new(1)).unwrap_err();
+        assert!(!err.is_empty());
+    }
+
+    #[test]
+    fn preview_shapes_from_snapshot() {
+        let src = "(page a4 (rect 10 20 30 40))";
+        let snap = document_snapshot_from_source(src, DocumentIdentity::new(3)).unwrap();
+        let shapes = preview_shapes(&snap);
+        assert!(!shapes.is_empty());
+    }
+
+    #[test]
+    fn lowered_scene_builds_snapshot() {
+        use reciplexa_scene::{Circle, Color, Document, Page, PaperSize, Shape};
+        let scene = Document {
+            pages: vec![Page {
+                paper: PaperSize::a4(),
+                shapes: vec![Shape::Circle(Circle {
+                    x_mm: 1.0,
+                    y_mm: 2.0,
+                    radius_mm: 3.0,
+                    fill: Color::BLACK,
+                })],
+            }],
+        };
+        let snap = super::document_snapshot_from_lowered(&scene).unwrap();
+        assert!(snap.nodes.iter().count() > 0);
+    }
+
+    #[test]
+    fn provenance_hints_for_rect_scene() {
+        let src = "(page a4 (rect 1 2 3 4))";
+        let snap = document_snapshot_from_source(src, DocumentIdentity::new(4)).unwrap();
+        let scene = reciplexa_lower::lower_source(src).unwrap();
+        let hints = provenance_hints_for_scene(&scene, &snap);
+        assert!(!hints.is_empty());
+    }
 }

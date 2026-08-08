@@ -216,4 +216,107 @@ mod tests {
         let ty = infer_expr(&expr, &TypeEnv::new(), &mut subst, range()).unwrap();
         assert_eq!(ty, CoreType::Number);
     }
+
+    #[test]
+    fn perform_requires_string_arg() {
+        let expr = CoreExpr::Perform {
+            op: "log".into(),
+            arg: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
+        };
+        let mut subst = Subst::new();
+        let err = infer_expr(&expr, &TypeEnv::new(), &mut subst, range()).unwrap_err();
+        assert!(err.message.contains("string"));
+    }
+
+    #[test]
+    fn record_get_unknown_field_errors() {
+        let expr = CoreExpr::RecordGet {
+            record: Box::new(CoreExpr::Record {
+                fields: vec![("a".into(), CoreExpr::Lit(CoreLiteral::Number(1.0)))],
+            }),
+            field: "missing".into(),
+        };
+        let mut subst = Subst::new();
+        let err = infer_expr(&expr, &TypeEnv::new(), &mut subst, range()).unwrap_err();
+        assert!(err.message.contains("unknown field"));
+    }
+
+    #[test]
+    fn record_get_on_non_record_errors() {
+        let expr = CoreExpr::RecordGet {
+            record: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
+            field: "x".into(),
+        };
+        let mut subst = Subst::new();
+        let err = infer_expr(&expr, &TypeEnv::new(), &mut subst, range()).unwrap_err();
+        assert!(err.message.contains("expected record"));
+    }
+
+    #[test]
+    fn infers_seq_returns_last() {
+        let expr = CoreExpr::Seq(vec![
+            CoreExpr::Lit(CoreLiteral::String("a".into())),
+            CoreExpr::Lit(CoreLiteral::Number(2.0)),
+        ]);
+        let mut subst = Subst::new();
+        let ty = infer_expr(&expr, &TypeEnv::new(), &mut subst, range()).unwrap();
+        assert_eq!(ty, CoreType::Number);
+    }
+
+    #[test]
+    fn infers_let_and_variant() {
+        let expr = CoreExpr::Let {
+            name: "v".into(),
+            value: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
+            body: Box::new(CoreExpr::Variant {
+                tag: "Ok".into(),
+                payload: Some(Box::new(CoreExpr::Lit(CoreLiteral::Number(2.0)))),
+            }),
+        };
+        let mut subst = Subst::new();
+        let ty = infer_expr(&expr, &TypeEnv::new(), &mut subst, range()).unwrap();
+        assert!(matches!(ty, CoreType::Variant { .. }));
+    }
+
+    #[test]
+    fn typecheck_value_wraps_expr() {
+        let expr = CoreExpr::Lit(CoreLiteral::Color("red".into()));
+        let cv = typecheck_value(expr, &TypeEnv::new(), range()).unwrap();
+        assert_eq!(cv.ty, CoreType::Color);
+    }
+
+    #[test]
+    fn type_env_insert() {
+        let mut env = TypeEnv::new();
+        env.insert("x", CoreType::Number);
+        let expr = CoreExpr::Lit(CoreLiteral::Number(1.0));
+        let mut subst = Subst::new();
+        let ty = infer_expr(&expr, &env, &mut subst, range()).unwrap();
+        assert_eq!(ty, CoreType::Number);
+    }
+
+    #[test]
+    fn match_arm_unifies_return_types() {
+        let expr = CoreExpr::Match {
+            scrutinee: Box::new(CoreExpr::Variant {
+                tag: "A".into(),
+                payload: None,
+            }),
+            arms: vec![
+                MatchArm {
+                    tag: "A".into(),
+                    bind: None,
+                    body: CoreExpr::Lit(CoreLiteral::Number(1.0)),
+                },
+                MatchArm {
+                    tag: "B".into(),
+                    bind: None,
+                    body: CoreExpr::Lit(CoreLiteral::Number(2.0)),
+                },
+            ],
+        };
+        let mut subst = Subst::new();
+        let ty = infer_expr(&expr, &TypeEnv::new(), &mut subst, range()).unwrap();
+        assert_eq!(subst.apply(&ty), CoreType::Number);
+    }
 }

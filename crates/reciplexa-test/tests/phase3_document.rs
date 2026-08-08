@@ -86,11 +86,10 @@ fn test_doc_provenance_from_source() {
             .unwrap();
         let prov = snap.provenance.get(rect.id).unwrap();
         assert!(!prov.text_range.is_empty());
-        assert!(
-            !snap.references
-                .children_of(snap.nodes.root_id().unwrap())
-                .is_empty()
-        );
+        assert!(!snap
+            .references
+            .children_of(snap.nodes.root_id().unwrap())
+            .is_empty());
     });
 }
 
@@ -100,4 +99,98 @@ fn conformance_links_phase3() {
     let section = reciplexa_test::SpecSection::new("Phase 3");
     assert!(id.as_str().starts_with("TEST-DOC"));
     assert_eq!(section.as_str(), "Phase 3");
+}
+
+#[test]
+fn test_doc_empty_transaction_rejected() {
+    let mut snap = DocumentSnapshot::new(DocumentIdentity::new(10));
+    let tx = TransactionBuilder::new().into_transaction();
+    assert!(tx.apply(&mut snap).is_err());
+}
+
+#[test]
+fn test_doc_set_text_on_rectangle() {
+    let mut snap = DocumentSnapshot::new(DocumentIdentity::new(11));
+    let root = snap.nodes.root_id().unwrap();
+    let rect = snap
+        .nodes
+        .insert_child(root, DocumentNodeKind::Rectangle)
+        .unwrap();
+    let mut tx = TransactionBuilder::new();
+    tx.set_text(rect, "label");
+    tx.into_transaction().apply(&mut snap).unwrap();
+    assert_eq!(snap.nodes.get(rect).unwrap().text().unwrap().text, "label");
+}
+
+#[test]
+fn test_doc_remove_node() {
+    let mut snap = DocumentSnapshot::new(DocumentIdentity::new(12));
+    let root = snap.nodes.root_id().unwrap();
+    let rect = snap
+        .nodes
+        .insert_child(root, DocumentNodeKind::Rectangle)
+        .unwrap();
+    let mut tx = TransactionBuilder::new();
+    tx.push(DocumentEdit::RemoveNode { node: rect });
+    tx.into_transaction().apply(&mut snap).unwrap();
+    assert!(snap.nodes.get(rect).is_none());
+}
+
+#[test]
+fn test_doc_insert_child_with_properties() {
+    let mut snap = DocumentSnapshot::new(DocumentIdentity::new(13));
+    let root = snap.nodes.root_id().unwrap();
+    let mut tx = TransactionBuilder::new();
+    tx.push(DocumentEdit::InsertChild {
+        parent: root,
+        kind: DocumentNodeKind::Page,
+        properties: vec![],
+    });
+    tx.into_transaction().apply(&mut snap).unwrap();
+    assert!(snap.nodes.iter().any(|n| matches!(n.kind, DocumentNodeKind::Page)));
+}
+
+#[test]
+fn test_doc_applied_no_change_idempotent_layout() {
+    let mut snap = DocumentSnapshot::new(DocumentIdentity::new(14));
+    let root = snap.nodes.root_id().unwrap();
+    let rect = snap
+        .nodes
+        .insert_child(root, DocumentNodeKind::Rectangle)
+        .unwrap();
+    let layout = LayoutBox::new(1.0, 2.0, 3.0, 4.0);
+    let mut tx = TransactionBuilder::new();
+    tx.set_layout(rect, layout);
+    tx.into_transaction().apply(&mut snap).unwrap();
+    let rev = snap.revision.get();
+    let mut tx2 = TransactionBuilder::new();
+    tx2.set_layout(rect, layout);
+    assert_eq!(
+        tx2.into_transaction().apply(&mut snap).unwrap(),
+        TransactionOutcome::AppliedNoChange
+    );
+    assert_eq!(snap.revision.get(), rev);
+}
+
+#[test]
+fn test_doc_invalid_move_parent() {
+    let mut snap = DocumentSnapshot::new(DocumentIdentity::new(15));
+    let root = snap.nodes.root_id().unwrap();
+    let rect = snap
+        .nodes
+        .insert_child(root, DocumentNodeKind::Rectangle)
+        .unwrap();
+    let mut tx = TransactionBuilder::new();
+    tx.push(DocumentEdit::MoveNode {
+        node: rect,
+        parent: StableNodeId::new(9999),
+        index: 0,
+    });
+    assert!(tx.into_transaction().apply(&mut snap).is_err());
+}
+
+#[test]
+fn test_doc_provenance_missing_node() {
+    let snap = DocumentSnapshot::new(DocumentIdentity::new(16));
+    assert!(snap.provenance.get(StableNodeId::new(404)).is_none());
 }

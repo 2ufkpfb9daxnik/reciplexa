@@ -143,6 +143,7 @@ impl TaskScope {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::cancel::CancellationTokenSource;
 
     #[test]
     fn root_scope_rejects_shutdown_with_children() {
@@ -161,5 +162,91 @@ mod tests {
         let report = root.shutdown_with_cleanup();
         assert_eq!(report.cleanup_status, CleanupStatus::Completed);
         assert!(root.cleanup_ran());
+    }
+
+    #[test]
+    fn cancel_all_children_without_tasks() {
+        let mut root = RootScope::new();
+        let report = root.cancel_all_children();
+        assert_ne!(report.cleanup_status, CleanupStatus::Completed);
+        assert!(root.shutdown().is_ok());
+    }
+
+    #[test]
+    fn cancel_all_runs_cleanup_hooks() {
+        let mut root = RootScope::new();
+        root.on_cleanup("disk");
+        root.on_cleanup("gpu");
+        assert_eq!(root.cleanup_hook_count(), 2);
+        let mut token = CancellationTokenSource::new(9);
+        let report = root.cancel_all(&mut token);
+        assert!(token.is_cancelled());
+        assert_eq!(report.reason, CancellationReason::UserRequested);
+        assert_eq!(root.cleanup_hook_count(), 0);
+        assert!(root.cleanup_ran());
+    }
+
+    #[test]
+    fn spawn_increments_task_ids() {
+        let mut root = RootScope::new();
+        let (scope_a, _) = root.spawn(SpawnPolicy::CollectAll);
+        let (scope_b, _) = root.spawn(SpawnPolicy::FailFast);
+        assert_eq!(scope_a.task_id, TaskId(1));
+        assert_eq!(scope_b.task_id, TaskId(2));
+    }
+
+    #[test]
+    fn task_scope_cancel_and_complete() {
+        let mut scope = TaskScope {
+            parent: Some(TaskId(0)),
+            task_id: TaskId(5),
+            policy: SpawnPolicy::CollectAll,
+            state: TaskState::Pending,
+            token: CancellationToken::NONE,
+        };
+        let report = scope.cancel();
+        assert_eq!(scope.state, TaskState::Cancelled);
+        assert_eq!(report.cleanup_status, CleanupStatus::Completed);
+
+        scope.state = TaskState::Pending;
+        match scope.complete(42) {
+            TaskOutcome::Completed(v) => assert_eq!(v, 42),
+            _ => panic!("expected completed"),
+        }
+        assert_eq!(scope.state, TaskState::Completed);
+    }
+
+    #[test]
+    fn await_child_passes_through_for_both_policies() {
+        let scope_ff = TaskScope {
+            parent: None,
+            task_id: TaskId(1),
+            policy: SpawnPolicy::FailFast,
+            state: TaskState::Running,
+            token: CancellationToken::NONE,
+        };
+        let scope_ca = TaskScope {
+            parent: None,
+            task_id: TaskId(2),
+            policy: SpawnPolicy::CollectAll,
+            state: TaskState::Running,
+            token: CancellationToken::NONE,
+        };
+        assert_eq!(
+            scope_ff.await_child(TaskOutcome::Completed("ok")),
+            TaskOutcome::Completed("ok")
+        );
+        assert_eq!(
+            scope_ca.await_child::<&str>(TaskOutcome::Failed("x".into())),
+            TaskOutcome::Failed("x".into())
+        );
+    }
+
+    #[test]
+    fn root_scope_default_and_on_cleanup_before_shutdown() {
+        let mut root = RootScope::default();
+        root.on_cleanup("a");
+        assert_eq!(root.cleanup_hook_count(), 1);
+        assert!(root.shutdown().is_ok());
     }
 }

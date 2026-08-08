@@ -10,3 +10,6 @@ publish = false
 reciplexa-scene = { workspace = true }
 reciplexa-backend = { workspace = true }
 reciplexa-visual-ir = { workspace = true }
+
+[dev-dependencies]
+reciplexa-identity = { workspace = true }

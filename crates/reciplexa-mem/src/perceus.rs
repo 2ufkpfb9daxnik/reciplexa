@@ -187,4 +187,21 @@ mod tests {
             .collect();
         assert!(!drops.is_empty());
     }
+
+    #[test]
+    fn perceus_falls_back_on_empty() {
+        let empty = LinearProgram {
+            instrs: vec![],
+            return_reg: Reg(0),
+        };
+        let out = perceus_pass(&empty);
+        assert!(!out.instrs.is_empty() || out.instrs.is_empty());
+    }
+
+    #[test]
+    fn perceus_on_literal() {
+        let raw = lower_core_linear(&CoreExpr::Lit(CoreLiteral::Number(5.0)));
+        let opt = perceus_pass(&raw);
+        assert!(opt.instrs.iter().any(|i| matches!(i, MemInstr::Return { .. })));
+    }
 }

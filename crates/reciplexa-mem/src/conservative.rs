@@ -21,7 +21,10 @@ pub fn conservative_rc(prog: &LinearProgram) -> LinearProgram {
                 *count = count.saturating_sub(1);
                 if *count > 0 {
                     let dup = alloc.fresh();
-                    out.push(MemInstr::Dup { dst: dup, src: *src });
+                    out.push(MemInstr::Dup {
+                        dst: dup,
+                        src: *src,
+                    });
                     remap.insert(*src, dup);
                 }
             }
@@ -104,8 +107,14 @@ fn write_targets(instr: &MemInstr) -> Vec<Reg> {
 fn remap_instr(instr: &MemInstr, map: &HashMap<Reg, Reg>) -> MemInstr {
     let r = |x: Reg| *map.get(&x).unwrap_or(&x);
     match instr {
-        MemInstr::Dup { dst, src } => MemInstr::Dup { dst: *dst, src: r(*src) },
-        MemInstr::Move { dst, src } => MemInstr::Move { dst: *dst, src: r(*src) },
+        MemInstr::Dup { dst, src } => MemInstr::Dup {
+            dst: *dst,
+            src: r(*src),
+        },
+        MemInstr::Move { dst, src } => MemInstr::Move {
+            dst: *dst,
+            src: r(*src),
+        },
         MemInstr::Drop { reg } => MemInstr::Drop { reg: r(*reg) },
         MemInstr::Construct { dst, tag, fields } => MemInstr::Construct {
             dst: *dst,
@@ -199,5 +208,15 @@ mod tests {
         ]));
         let rc = conservative_rc(&raw);
         assert!(rc.instrs.iter().any(|i| matches!(i, MemInstr::Drop { .. })));
+    }
+
+    #[test]
+    fn conservative_on_shared_literal_seq() {
+        let raw = lower_core_linear(&CoreExpr::Seq(vec![
+            CoreExpr::Lit(CoreLiteral::Number(1.0)),
+            CoreExpr::Lit(CoreLiteral::Number(1.0)),
+        ]));
+        let rc = conservative_rc(&raw);
+        assert!(!rc.instrs.is_empty());
     }
 }

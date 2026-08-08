@@ -233,3 +233,86 @@ pub fn system_cjk_font_path() -> Option<PathBuf> {
 pub fn cjk_font_path() -> Option<PathBuf> {
     system_cjk_font_path()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::BTreeSet;
+
+    #[test]
+    fn subset_tag_is_six_uppercase_letters() {
+        let tag = subset_tag(b"hello");
+        assert_eq!(tag.len(), 6);
+        assert!(tag.chars().all(|c| c.is_ascii_uppercase()));
+        assert_eq!(tag, subset_tag(b"hello"));
+        assert_ne!(tag, subset_tag(b"world"));
+    }
+
+    #[test]
+    fn utf16_hex_bmp_and_supplementary() {
+        assert_eq!(utf16_hex(0x0041), "<0041>");
+        assert_eq!(utf16_hex(0x1F600), "<D83DDE00>");
+    }
+
+    #[test]
+    fn build_rejects_empty_char_set() {
+        let err = match CjkFontEmbed::build(&BTreeSet::new()) {
+            Err(e) => e,
+            Ok(_) => panic!("expected error"),
+        };
+        assert!(matches!(err, PdfError::InvalidShape(_)));
+    }
+
+    #[test]
+    fn encode_hex_rejects_embedded_newlines() {
+        if system_cjk_font_path().is_none() {
+            return;
+        }
+        let mut chars = BTreeSet::new();
+        chars.insert('日');
+        let embed = CjkFontEmbed::build(&chars).unwrap();
+        let err = embed.encode_hex("a\nb").unwrap_err();
+        assert!(matches!(err, PdfError::InvalidShape(_)));
+    }
+
+    #[test]
+    fn cjk_roundtrip_widths_and_cmap_when_font_available() {
+        if system_cjk_font_path().is_none() {
+            return;
+        }
+        let mut chars = BTreeSet::new();
+        chars.insert('あ');
+        chars.insert('語');
+        let embed = CjkFontEmbed::build(&chars).unwrap();
+        let hex = embed.encode_hex("あ").unwrap();
+        assert!(!hex.is_empty());
+        let cmap = embed.to_unicode_cmap();
+        assert!(cmap.contains("begincmap"));
+        assert!(cmap.contains("endbfchar"));
+        let widths = embed.widths_array();
+        assert!(widths.starts_with("[ "));
+        assert!(widths.ends_with(']'));
+        assert!(!embed.base_name.is_empty());
+        assert!(embed.font_bbox[2] >= embed.font_bbox[0]);
+    }
+
+    #[test]
+    fn cjk_font_path_alias_matches_system() {
+        assert_eq!(cjk_font_path(), system_cjk_font_path());
+    }
+
+    #[test]
+    fn encode_hex_unknown_char_errors_when_font_available() {
+        if system_cjk_font_path().is_none() {
+            return;
+        }
+        let mut chars = BTreeSet::new();
+        chars.insert('あ');
+        let embed = CjkFontEmbed::build(&chars).unwrap();
+        let err = match embed.encode_hex("あX") {
+            Err(e) => e,
+            Ok(_) => panic!("expected missing CID error"),
+        };
+        assert!(matches!(err, PdfError::InvalidShape(_)));
+    }
+}

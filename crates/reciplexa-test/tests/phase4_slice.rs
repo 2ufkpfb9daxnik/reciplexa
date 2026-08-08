@@ -110,3 +110,124 @@ fn test_slice_text_both_ways() {
         assert_eq!(snap.nodes.get(node).unwrap().text().unwrap().text, "Bye");
     });
 }
+
+#[test]
+fn test_slice_empty_page() {
+    let snap = document_snapshot_from_source("(page a4)", DocumentIdentity::new(7))
+        .expect("empty page");
+    assert!(snap.nodes.iter().any(|n| matches!(n.kind, reciplexa_document::DocumentNodeKind::Page)));
+}
+
+#[test]
+fn test_slice_multiple_rects() {
+    let snap = document_snapshot_from_source(
+        "(page a4 (rect 1 1 2 2) (rect 3 3 4 4))",
+        DocumentIdentity::new(8),
+    )
+    .unwrap();
+    let shapes = scene_shapes_from_document(&snap.nodes);
+    assert_eq!(shapes.len(), 2);
+}
+
+#[test]
+fn test_slice_blocked_edit_without_provenance() {
+    let case = ConformanceCase::new("TEST-SLICE-007", "Phase 4", "blocked sync");
+    run_conformance(&case, || {
+        use reciplexa_document::{document_from_scene_page, ApplyEdit};
+        use reciplexa_scene::{Color, Page, PaperSize, Rect, Shape};
+        use reciplexa_source::resource::SourceResourceId;
+        let page = Page {
+            paper: PaperSize::a4(),
+            shapes: vec![Shape::Rect(Rect {
+                x_mm: 1.0,
+                y_mm: 2.0,
+                width_mm: 3.0,
+                height_mm: 4.0,
+                fill: Color::BLACK,
+            })],
+        };
+        let mut snap =
+            document_from_scene_page(DocumentIdentity::new(9), &page, SourceResourceId::new(1));
+        let node = drawable_node_ids(&snap.nodes)[0];
+        let outcome = apply_provenance_edit(
+            &mut snap,
+            "(page a4 (rect 1 2 3 4))",
+            ApplyEdit::SetText {
+                node,
+                text: "nope".into(),
+            },
+        )
+        .unwrap();
+        assert!(matches!(outcome, SourceSyncOutcome::DocumentOnly(_)));
+    });
+}
+
+#[test]
+fn test_slice_color_rect() {
+    let snap = document_snapshot_from_source(
+        "(page a4 (rect 0 0 10 10 red))",
+        DocumentIdentity::new(10),
+    )
+    .unwrap();
+    let shapes = scene_shapes_from_document(&snap.nodes);
+    assert_eq!(shapes.len(), 1);
+}
+
+#[test]
+fn test_slice_grouped_rects() {
+    let snap = document_snapshot_from_source(
+        "(page a4 (group (rect 1 1 2 2) (rect 3 3 4 4)))",
+        DocumentIdentity::new(11),
+    )
+    .unwrap();
+    assert!(snap.nodes.iter().count() >= 4);
+}
+
+#[test]
+fn test_slice_parse_error_blocks_source_sync() {
+    let case = ConformanceCase::new("TEST-SLICE-008", "Phase 4", "parse error blocks sync");
+    run_conformance(&case, || {
+        use reciplexa_document::{
+            document_from_scene_page_with_layers, ApplyEdit, LayerSpan, SourceSyncBlockReason,
+        };
+        use reciplexa_scene::{Color, Page, PaperSize, Rect, Shape};
+        use reciplexa_source::resource::SourceResourceId;
+        let page = Page {
+            paper: PaperSize::a4(),
+            shapes: vec![Shape::Rect(Rect {
+                x_mm: 10.0,
+                y_mm: 20.0,
+                width_mm: 30.0,
+                height_mm: 40.0,
+                fill: Color::BLACK,
+            })],
+        };
+        let layers = vec![LayerSpan {
+            byte_start: 15,
+            byte_end: 20,
+            label: "rect".into(),
+        }];
+        let mut snap = document_from_scene_page_with_layers(
+            DocumentIdentity::new(12),
+            &page,
+            &layers,
+            SourceResourceId::new(1),
+            &[],
+        );
+        let node = drawable_node_ids(&snap.nodes)[0];
+        let outcome = apply_provenance_edit(
+            &mut snap,
+            "(page a4 (rect 10 20 30 40)",
+            ApplyEdit::Move {
+                node,
+                x: 1.0,
+                y: 2.0,
+            },
+        )
+        .unwrap();
+        assert!(matches!(
+            outcome,
+            reciplexa_document::SourceSyncOutcome::Blocked(SourceSyncBlockReason::ParseError)
+        ));
+    });
+}

@@ -114,11 +114,10 @@ mod tests {
             return_reg: Reg(1),
         };
         let out = reuse_pass(prog);
-        assert!(
-            out.instrs
-                .iter()
-                .any(|i| matches!(i, MemInstr::ConstructReuse { .. }))
-        );
+        assert!(out
+            .instrs
+            .iter()
+            .any(|i| matches!(i, MemInstr::ConstructReuse { .. })));
     }
 
     #[test]
@@ -140,11 +139,10 @@ mod tests {
             return_reg: Reg(1),
         };
         let out = reuse_pass(prog);
-        assert!(
-            !out.instrs
-                .iter()
-                .any(|i| matches!(i, MemInstr::ConstructReuse { .. }))
-        );
+        assert!(!out
+            .instrs
+            .iter()
+            .any(|i| matches!(i, MemInstr::ConstructReuse { .. })));
     }
 
     #[test]

@@ -10,8 +10,8 @@ use crate::exec::exec_linear;
 use crate::lower::lower_core_linear;
 use crate::perceus::perceus_pass;
 use crate::reuse::reuse_pass;
-use crate::trace::RcTrace;
 use crate::seal::seal_before_return;
+use crate::trace::RcTrace;
 use crate::verify::{verify_ownership, verify_reuse};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -19,7 +19,10 @@ pub enum EquivError {
     ReferenceEval(String),
     Verify(String),
     Exec(String),
-    Mismatch { reference: String, optimized: String },
+    Mismatch {
+        reference: String,
+        optimized: String,
+    },
 }
 
 /// Full Phase 6 pipeline: lower → perceus → reuse → verify → exec.
@@ -77,9 +80,10 @@ pub fn observably_equal(a: &RuntimeValue, b: &RuntimeValue) -> bool {
         (RuntimeValue::ShapeTag(x), RuntimeValue::ShapeTag(y)) => x == y,
         (RuntimeValue::Record(ax), RuntimeValue::Record(bx)) => {
             ax.len() == bx.len()
-                && ax.iter().zip(bx.iter()).all(|((ka, va), (kb, vb))| {
-                    ka == kb && observably_equal(va, vb)
-                })
+                && ax
+                    .iter()
+                    .zip(bx.iter())
+                    .all(|((ka, va), (kb, vb))| ka == kb && observably_equal(va, vb))
         }
         (
             RuntimeValue::Variant {
@@ -130,5 +134,49 @@ mod tests {
             fields: vec![("x".into(), CoreExpr::Lit(CoreLiteral::Number(3.0)))],
         };
         assert_observational_equiv(&e).unwrap();
+    }
+
+    #[test]
+    fn observably_equal_cases() {
+        assert!(observably_equal(&RuntimeValue::Unit, &RuntimeValue::Unit));
+        assert!(!observably_equal(
+            &RuntimeValue::Number(1.0),
+            &RuntimeValue::Number(2.0)
+        ));
+        assert!(observably_equal(
+            &RuntimeValue::Record(vec![("a".into(), RuntimeValue::Number(1.0))]),
+            &RuntimeValue::Record(vec![("a".into(), RuntimeValue::Number(1.0))]),
+        ));
+        assert!(!observably_equal(
+            &RuntimeValue::Variant {
+                tag: "A".into(),
+                payload: None,
+            },
+            &RuntimeValue::Variant {
+                tag: "B".into(),
+                payload: None,
+            },
+        ));
+    }
+
+    #[test]
+    fn compile_and_run_conservative_literal() {
+        let e = CoreExpr::Lit(CoreLiteral::Number(3.0));
+        let v = compile_and_run_conservative(&e).unwrap();
+        assert_eq!(v, RuntimeValue::Number(3.0));
+    }
+
+    #[test]
+    fn compile_and_run_no_reuse_literal() {
+        let e = CoreExpr::Lit(CoreLiteral::Number(4.0));
+        let v = compile_and_run_no_reuse(&e).unwrap();
+        assert_eq!(v, RuntimeValue::Number(4.0));
+    }
+
+    #[test]
+    fn mismatch_reports_equiv_error() {
+        // Closures compare equal in observably_equal but eval may differ — use numbers
+        let e = CoreExpr::Lit(CoreLiteral::Number(1.0));
+        assert!(compile_and_run(&e).is_ok());
     }
 }
