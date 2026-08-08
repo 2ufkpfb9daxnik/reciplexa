@@ -1,0 +1,13 @@
+//! Lexical scope and name resolution over syntax trees.
+//!
+//! Phase 1 binding layer — does not mutate the CST.
+
+#![forbid(unsafe_code)]
+
+pub mod module;
+pub mod resolve;
+pub mod scope;
+
+pub use module::{ModuleSkeleton, ModuleUnit};
+pub use resolve::{resolve_source, BindingEnv, ResolveError, ResolveResult};
+pub use scope::{ScopeStack, ScopeTree};

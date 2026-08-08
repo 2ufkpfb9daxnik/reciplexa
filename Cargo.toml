@@ -6,6 +6,12 @@ members = [
     "crates/reciplexa-outcome",
     "crates/reciplexa-diagnostic",
     "crates/reciplexa-test",
+    "crates/reciplexa-bind",
+    "crates/reciplexa-core",
+    "crates/reciplexa-eval",
+    "crates/reciplexa-document",
+    "crates/reciplexa-ir",
+    "crates/reciplexa-runtime",
     "crates/reciplexa-syntax",
     "crates/reciplexa-scene",
     "crates/reciplexa-pdf",
@@ -37,6 +43,12 @@ reciplexa-identity = { path = "crates/reciplexa-identity" }
 reciplexa-outcome = { path = "crates/reciplexa-outcome" }
 reciplexa-diagnostic = { path = "crates/reciplexa-diagnostic" }
 reciplexa-test = { path = "crates/reciplexa-test" }
+reciplexa-bind = { path = "crates/reciplexa-bind" }
+reciplexa-core = { path = "crates/reciplexa-core" }
+reciplexa-eval = { path = "crates/reciplexa-eval" }
+reciplexa-document = { path = "crates/reciplexa-document" }
+reciplexa-ir = { path = "crates/reciplexa-ir" }
+reciplexa-runtime = { path = "crates/reciplexa-runtime" }
 reciplexa-syntax = { path = "crates/reciplexa-syntax" }
 reciplexa-scene = { path = "crates/reciplexa-scene" }
 reciplexa-pdf = { path = "crates/reciplexa-pdf" }
