@@ -1,0 +1,13 @@
+[package]
+name = "reciplexa-test"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Conformance test utilities and structured assertions for reciplexa"
+publish = false
+
+[dependencies]
+reciplexa-diagnostic = { workspace = true }
+reciplexa-outcome = { workspace = true }
+
+[dev-dependencies]
