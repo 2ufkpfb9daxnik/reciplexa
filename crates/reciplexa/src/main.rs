@@ -15,22 +15,65 @@ use reciplexa_svg::write_document as write_svg;
 
 fn main() -> ExitCode {
     let mut args = env::args().skip(1);
-    let Some(input) = args.next() else {
-        eprintln!("usage: reciplexa <input.rpx> <output.pdf|svg|pptx>");
-        return ExitCode::from(2);
-    };
-    let Some(output) = args.next() else {
-        eprintln!("usage: reciplexa <input.rpx> <output.pdf|svg|pptx>");
+    let Some(first) = args.next() else {
+        print_usage();
         return ExitCode::from(2);
     };
 
-    match render(&input, &output) {
+    match first.as_str() {
+        "parse" => match args.next() {
+            Some(path) => run_cli(reciplexa::cli::cmd_parse(&path)),
+            None => {
+                eprintln!("usage: reciplexa parse <input.rpx>");
+                ExitCode::from(2)
+            }
+        },
+        "format" => match args.next() {
+            Some(path) => run_cli(reciplexa::cli::cmd_format(&path)),
+            None => {
+                eprintln!("usage: reciplexa format <input.rpx>");
+                ExitCode::from(2)
+            }
+        },
+        "inspect-syntax" => match args.next() {
+            Some(path) => run_cli(reciplexa::cli::cmd_inspect_syntax(&path)),
+            None => {
+                eprintln!("usage: reciplexa inspect-syntax <input.rpx>");
+                ExitCode::from(2)
+            }
+        },
+        input => {
+            let Some(output) = args.next() else {
+                eprintln!("usage: reciplexa <input.rpx> <output.pdf|svg|pptx>");
+                return ExitCode::from(2);
+            };
+            match render(input, &output) {
+                Ok(()) => ExitCode::SUCCESS,
+                Err(e) => {
+                    eprintln!("error: {e}");
+                    ExitCode::FAILURE
+                }
+            }
+        }
+    }
+}
+
+fn run_cli(result: Result<(), String>) -> ExitCode {
+    match result {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
             eprintln!("error: {e}");
             ExitCode::FAILURE
         }
     }
+}
+
+fn print_usage() {
+    eprintln!("usage:");
+    eprintln!("  reciplexa <input.rpx> <output.pdf|svg|pptx>");
+    eprintln!("  reciplexa parse <input.rpx>");
+    eprintln!("  reciplexa format <input.rpx>");
+    eprintln!("  reciplexa inspect-syntax <input.rpx>");
 }
 
 struct CliHandler {

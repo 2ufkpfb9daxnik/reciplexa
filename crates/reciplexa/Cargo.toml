@@ -15,6 +15,10 @@ name = "reciplexa"
 path = "src/main.rs"
 
 [dependencies]
+reciplexa-diagnostic = { workspace = true }
+reciplexa-identity = { workspace = true }
+reciplexa-source = { workspace = true }
+reciplexa-syntax = { workspace = true }
 reciplexa-lower = { workspace = true }
 reciplexa-macro = { workspace = true }
 reciplexa-effect = { workspace = true }

@@ -5,6 +5,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod cli;
 pub mod pipeline;
 
 pub use pipeline::{document_from_source, expand, lower, run_effects, typecheck, PipelineError};
