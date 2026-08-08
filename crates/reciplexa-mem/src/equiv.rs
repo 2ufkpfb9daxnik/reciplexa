@@ -179,4 +179,86 @@ mod tests {
         let e = CoreExpr::Lit(CoreLiteral::Number(1.0));
         assert!(compile_and_run(&e).is_ok());
     }
+
+    #[test]
+    fn observably_equal_shape_and_closure_tags() {
+        assert!(observably_equal(
+            &RuntimeValue::ShapeTag("circle".into()),
+            &RuntimeValue::ShapeTag("circle".into()),
+        ));
+        assert!(!observably_equal(
+            &RuntimeValue::ShapeTag("circle".into()),
+            &RuntimeValue::ShapeTag("rect".into()),
+        ));
+        assert!(observably_equal(
+            &RuntimeValue::String("a".into()),
+            &RuntimeValue::String("a".into()),
+        ));
+        assert!(observably_equal(
+            &RuntimeValue::Variant {
+                tag: "Ok".into(),
+                payload: Some(Box::new(RuntimeValue::Number(1.0))),
+            },
+            &RuntimeValue::Variant {
+                tag: "Ok".into(),
+                payload: Some(Box::new(RuntimeValue::Number(1.0))),
+            },
+        ));
+        assert!(observably_equal(
+            &RuntimeValue::Closure {
+                param: "x".into(),
+                body: CoreExpr::Lit(CoreLiteral::Number(0.0)),
+                env: HashMap::new(),
+            },
+            &RuntimeValue::Closure {
+                param: "y".into(),
+                body: CoreExpr::Lit(CoreLiteral::Number(1.0)),
+                env: HashMap::new(),
+            },
+        ));
+    }
+
+    #[test]
+    fn compile_and_run_match_variant() {
+        let e = CoreExpr::Match {
+            scrutinee: Box::new(CoreExpr::Variant {
+                tag: "Some".into(),
+                payload: Some(Box::new(CoreExpr::Lit(CoreLiteral::Number(3.0)))),
+            }),
+            arms: vec![reciplexa_core::expr::MatchArm {
+                tag: "Some".into(),
+                bind: Some("v".into()),
+                body: CoreExpr::Lit(CoreLiteral::Number(3.0)),
+            }],
+        };
+        assert_observational_equiv(&e).unwrap();
+    }
+
+    #[test]
+    fn observably_equal_record_length_mismatch() {
+        assert!(!observably_equal(
+            &RuntimeValue::Record(vec![("a".into(), RuntimeValue::Number(1.0))]),
+            &RuntimeValue::Record(vec![]),
+        ));
+    }
+
+    #[test]
+    fn observably_equal_variant_payload_mismatch() {
+        assert!(!observably_equal(
+            &RuntimeValue::Variant {
+                tag: "A".into(),
+                payload: Some(Box::new(RuntimeValue::Number(1.0))),
+            },
+            &RuntimeValue::Variant {
+                tag: "A".into(),
+                payload: None,
+            },
+        ));
+    }
+
+    #[test]
+    fn equiv_error_display() {
+        let err = EquivError::ReferenceEval("boom".into());
+        assert!(format!("{err:?}").contains("boom"));
+    }
 }

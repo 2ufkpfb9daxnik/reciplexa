@@ -221,4 +221,43 @@ mod tests {
         let hints = provenance_hints_for_scene(&scene, &snap);
         assert!(!hints.is_empty());
     }
+
+    #[test]
+    fn move_node_updates_layout() {
+        let src = "(page a4 (rect 10 20 30 40))";
+        let mut snap = document_snapshot_from_source(src, DocumentIdentity::new(5)).unwrap();
+        let rect_id = snap
+            .nodes
+            .iter()
+            .find(|n| matches!(n.kind, reciplexa_document::DocumentNodeKind::Rectangle))
+            .unwrap()
+            .id;
+        move_node_in_snapshot(&mut snap, rect_id, 50.0, 60.0).unwrap();
+        let layout = snap.nodes.get(rect_id).unwrap().layout().unwrap();
+        assert_eq!(layout.x, 50.0);
+        assert_eq!(layout.y, 60.0);
+    }
+
+    #[test]
+    fn move_node_missing_layout_errors() {
+        let src = "(page a4 (rect 1 2 3 4))";
+        let mut snap = document_snapshot_from_source(src, DocumentIdentity::new(6)).unwrap();
+        let root = snap.nodes.root_id().unwrap();
+        let err = move_node_in_snapshot(&mut snap, root, 0.0, 0.0).unwrap_err();
+        assert!(err.contains("layout"));
+    }
+
+    #[test]
+    fn document_snapshot_rejects_bind_errors() {
+        let err = document_snapshot_from_source("(page a4 (circle 0 0 1 puce))", DocumentIdentity::new(7))
+            .unwrap_err();
+        assert!(!err.is_empty());
+    }
+
+    #[test]
+    fn document_snapshot_rejects_empty_pages() {
+        let scene = reciplexa_scene::Document { pages: vec![] };
+        let err = document_snapshot_from_lowered(&scene).unwrap_err();
+        assert!(err.contains("no pages"));
+    }
 }

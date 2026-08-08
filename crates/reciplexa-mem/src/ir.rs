@@ -264,4 +264,18 @@ mod tests {
         );
         assert_eq!(out, vec![Reg(0), Reg(1)]);
     }
+
+    #[test]
+    fn collect_regs_branch_cond() {
+        let mut out = Vec::new();
+        collect_regs_instr(
+            &MemInstr::Branch {
+                cond: Reg(2),
+                then_block: BlockId(0),
+                else_block: BlockId(1),
+            },
+            &mut out,
+        );
+        assert_eq!(out, vec![Reg(2)]);
+    }
 }

@@ -370,4 +370,78 @@ mod tests {
         let b = s.fresh_var();
         assert_ne!(a, b);
     }
+
+    #[test]
+    fn record_length_mismatch() {
+        let mut s = Subst::new();
+        let a = CoreType::Record {
+            fields: vec![("x".into(), CoreType::Number)],
+        };
+        let b = CoreType::Record {
+            fields: vec![
+                ("x".into(), CoreType::Number),
+                ("y".into(), CoreType::Number),
+            ],
+        };
+        assert!(matches!(
+            unify(&a, &b, &mut s),
+            Err(UnifyError::Mismatch { .. })
+        ));
+    }
+
+    #[test]
+    fn variant_length_and_tag_mismatch() {
+        let mut s = Subst::new();
+        let a = CoreType::Variant {
+            variants: vec![("A".into(), None)],
+        };
+        let b = CoreType::Variant {
+            variants: vec![("A".into(), None), ("B".into(), None)],
+        };
+        assert!(matches!(
+            unify(&a, &b, &mut s),
+            Err(UnifyError::Mismatch { .. })
+        ));
+        let c = CoreType::Variant {
+            variants: vec![("B".into(), None)],
+        };
+        assert!(matches!(
+            unify(&a, &c, &mut s),
+            Err(UnifyError::Mismatch { .. })
+        ));
+    }
+
+    #[test]
+    fn occurs_check_in_record_and_variant() {
+        let mut s = Subst::new();
+        let v = s.fresh_var();
+        let rec = CoreType::Record {
+            fields: vec![("f".into(), CoreType::Var(v))],
+        };
+        assert!(matches!(
+            unify(&CoreType::Var(v), &rec, &mut s),
+            Err(UnifyError::OccursCheck(_, _))
+        ));
+        let mut s2 = Subst::new();
+        let v2 = s2.fresh_var();
+        let var = CoreType::Variant {
+            variants: vec![("Some".into(), Some(CoreType::Var(v2)))],
+        };
+        assert!(matches!(
+            unify(&CoreType::Var(v2), &var, &mut s2),
+            Err(UnifyError::OccursCheck(_, _))
+        ));
+    }
+
+    #[test]
+    fn unifies_variant_with_payload() {
+        let mut s = Subst::new();
+        let a = CoreType::Variant {
+            variants: vec![("Some".into(), Some(CoreType::Number))],
+        };
+        let b = CoreType::Variant {
+            variants: vec![("Some".into(), Some(CoreType::Number))],
+        };
+        assert!(unify(&a, &b, &mut s).is_ok());
+    }
 }

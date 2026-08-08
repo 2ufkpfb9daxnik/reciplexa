@@ -201,4 +201,10 @@ mod tests {
         assert!(err.to_string().contains("7"));
         assert!(SourceDecodeError::BomAndShebang.to_string().contains("BOM"));
     }
+
+    #[test]
+    fn range_for_rejects_inverted_offsets() {
+        let src = SourceResource::from_utf8(SourceResourceId::new(1), "abcdef").unwrap();
+        assert!(src.range_for(4, 2).is_err());
+    }
 }

@@ -574,3 +574,68 @@ fn mem_linear_program_regs() {
     };
     assert_eq!(prog.regs(), vec![Reg(0)]);
 }
+
+#[test]
+fn mem_cfg_fixture_pipeline() {
+    use reciplexa_mem::ir::{BlockId, MemLiteral};
+    let prog = LinearProgram {
+        instrs: vec![
+            MemInstr::Lit {
+                dst: Reg(0),
+                lit: MemLiteral::Number(1.0),
+            },
+            MemInstr::Branch {
+                cond: Reg(0),
+                then_block: BlockId(1),
+                else_block: BlockId(2),
+            },
+            MemInstr::Jump { target: BlockId(0) },
+            MemInstr::Phi {
+                dst: Reg(1),
+                incoming: vec![(BlockId(0), Reg(0))],
+            },
+            MemInstr::MakeClosure {
+                dst: Reg(2),
+                param: "x".into(),
+                body: BlockId(0),
+                captures: vec![Reg(0)],
+            },
+            MemInstr::Call {
+                dst: Reg(3),
+                closure: Reg(2),
+                arg: Reg(0),
+            },
+            MemInstr::ConstructReuse {
+                dst: Reg(4),
+                reuse: Reg(0),
+                tag: "record".into(),
+                fields: vec![("v".into(), Reg(3))],
+            },
+            MemInstr::Return { reg: Reg(4) },
+        ],
+        return_reg: Reg(4),
+    };
+    let rc = conservative_rc(&prog);
+    let perceus = perceus_pass(&prog);
+    let sealed = seal_before_return(reuse_pass(perceus));
+    assert!(!rc.instrs.is_empty());
+    assert!(!sealed.instrs.is_empty());
+    let mut trace = RcTrace::default();
+    let exec_prog = LinearProgram {
+        instrs: vec![
+            MemInstr::Lit {
+                dst: Reg(0),
+                lit: MemLiteral::Number(1.0),
+            },
+            MemInstr::MakeClosure {
+                dst: Reg(1),
+                param: "x".into(),
+                body: BlockId(0),
+                captures: vec![Reg(0)],
+            },
+            MemInstr::Return { reg: Reg(1) },
+        ],
+        return_reg: Reg(1),
+    };
+    exec_linear(&exec_prog, &mut trace).unwrap();
+}

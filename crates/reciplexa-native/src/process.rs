@@ -219,4 +219,71 @@ mod tests {
     fn native_launch_error_eq() {
         assert_eq!(NativeLaunchError::MissingBinary, NativeLaunchError::MissingBinary);
     }
+
+    #[test]
+    fn abi_probe_failure_exits_nonzero() {
+        let dir = std::env::temp_dir();
+        let helper = dir.join(format!("rpx_bad_abi_{}.cmd", std::process::id()));
+        std::fs::write(&helper, "@echo off\r\nif \"%1\"==\"--abi\" exit /b 1\r\nexit /b 0\r\n")
+            .unwrap();
+        let err = ProcessNativeImageDecode::negotiate(&helper).unwrap_err();
+        assert!(matches!(
+            err,
+            NativeLaunchError::Spawn(_) | NativeLaunchError::AbiMismatch { .. }
+        ));
+        let _ = std::fs::remove_file(&helper);
+    }
+
+    #[test]
+    fn call_with_non_bytes_arg_uses_empty_input() {
+        let helper = std::env::var_os("CARGO_BIN_EXE_rpx-native-image")
+            .map(std::path::PathBuf::from);
+        if let Some(helper) = helper {
+            if let Ok(native) = ProcessNativeImageDecode::negotiate(&helper) {
+                let out = native
+                    .call("decode_header", &[ForeignValue::Float(1.0)])
+                    .unwrap();
+                assert!(matches!(out, ForeignValue::Bytes(_)));
+            }
+        }
+    }
+
+    #[test]
+    fn differential_detects_mismatch() {
+        use crate::adapter::{AdapterContract, NativeProvider, PortableImageDecode};
+        struct AlwaysEmpty;
+        impl NativeProvider for AlwaysEmpty {
+            fn contract(&self) -> AdapterContract {
+                PortableImageDecode.contract()
+            }
+            fn call(&self, _: &str, _: &[ForeignValue]) -> Result<ForeignValue, String> {
+                Ok(ForeignValue::Bytes(vec![]))
+            }
+        }
+        let portable = PortableImageDecode;
+        let empty = AlwaysEmpty;
+        assert!(!differential_decode_header(&empty, &portable, b"sample").unwrap());
+    }
+
+    #[test]
+    fn negotiate_success_with_stub_helper() {
+        let dir = std::env::temp_dir();
+        let helper = dir.join(format!("rpx_stub_abi_{}.cmd", std::process::id()));
+        std::fs::write(
+            &helper,
+            "@echo off\r\nif \"%1\"==\"--abi\" (echo RPX_NATIVE_IMAGE_V1:1& exit /b 0)\r\nexit /b 0\r\n",
+        )
+        .unwrap();
+        let native = ProcessNativeImageDecode::negotiate(&helper).unwrap();
+        assert_eq!(native.contract().name, "native-image-decode");
+        let out = native.call("decode_header", &[]).unwrap();
+        assert!(matches!(out, ForeignValue::Bytes(_)));
+        let _ = std::fs::remove_file(&helper);
+    }
+
+    #[test]
+    fn native_launch_error_debug() {
+        let msg = format!("{:?}", NativeLaunchError::Spawn("x".into()));
+        assert!(msg.contains("Spawn"));
+    }
 }

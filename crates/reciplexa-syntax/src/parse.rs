@@ -624,4 +624,32 @@ mod tests {
         let src = "(circle 1 2 3 red)";
         assert_eq!(unparse(&parse_ok(src)), src);
     }
+
+    #[test]
+    fn nested_unclosed_list_recovers_root() {
+        let parse = parse_source("(page a4 (circle 1 2 (rect 1 2 3 4))");
+        assert!(parse.has_errors());
+        assert_eq!(parse.root.kind(), SyntaxKind::SourceFile);
+        let _ = unparse(&parse.root);
+    }
+
+    #[test]
+    fn doc_unclosed_at_brace_recovers() {
+        let parse = parse_source("(doc @section{title)");
+        assert!(parse.has_errors());
+        assert_eq!(parse.root.kind(), SyntaxKind::SourceFile);
+    }
+
+    #[test]
+    fn stray_bracket_in_list_is_error() {
+        let parse = parse_source("(page a4 (circle 1 2 3])");
+        assert!(parse.has_errors());
+        let _ = unparse(&parse.root);
+    }
+
+    #[test]
+    fn src_form_with_unclosed_list_errors() {
+        let parse = parse_source("(src (perform log \"x\")\n(page a4)");
+        assert!(parse.has_errors());
+    }
 }

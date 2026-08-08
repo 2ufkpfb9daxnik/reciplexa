@@ -311,4 +311,158 @@ mod tests {
             Err(VerifyError::InvalidReuseClass { .. })
         ));
     }
+
+    #[test]
+    fn verify_accepts_make_closure_and_call() {
+        let prog = LinearProgram {
+            instrs: vec![
+                MemInstr::Lit {
+                    dst: Reg(0),
+                    lit: MemLiteral::Number(1.0),
+                },
+                MemInstr::MakeClosure {
+                    dst: Reg(1),
+                    param: "x".into(),
+                    body: crate::ir::BlockId(0),
+                    captures: vec![],
+                },
+                MemInstr::Drop { reg: Reg(0) },
+                MemInstr::Lit {
+                    dst: Reg(2),
+                    lit: MemLiteral::Number(2.0),
+                },
+                MemInstr::Call {
+                    dst: Reg(3),
+                    closure: Reg(1),
+                    arg: Reg(2),
+                },
+                MemInstr::Drop { reg: Reg(1) },
+                MemInstr::Drop { reg: Reg(2) },
+                MemInstr::Return { reg: Reg(3) },
+            ],
+            return_reg: Reg(3),
+        };
+        assert!(verify_ownership(&prog).is_ok());
+    }
+
+    #[test]
+    fn verify_construct_reuse_drops_field_regs() {
+        let prog = LinearProgram {
+            instrs: vec![
+                MemInstr::Lit {
+                    dst: Reg(0),
+                    lit: MemLiteral::Number(1.0),
+                },
+                MemInstr::Lit {
+                    dst: Reg(1),
+                    lit: MemLiteral::Number(2.0),
+                },
+                MemInstr::ConstructReuse {
+                    dst: Reg(2),
+                    reuse: Reg(0),
+                    tag: "record".into(),
+                    fields: vec![("f".into(), Reg(1))],
+                },
+                MemInstr::Return { reg: Reg(2) },
+            ],
+            return_reg: Reg(2),
+        };
+        assert!(verify_ownership(&prog).is_ok());
+    }
+
+    #[test]
+    fn verify_reuse_rejects_closure_tag() {
+        let prog = LinearProgram {
+            instrs: vec![
+                MemInstr::Lit {
+                    dst: Reg(0),
+                    lit: MemLiteral::Number(1.0),
+                },
+                MemInstr::ConstructReuse {
+                    dst: Reg(1),
+                    reuse: Reg(0),
+                    tag: "closure".into(),
+                    fields: vec![],
+                },
+                MemInstr::Return { reg: Reg(1) },
+            ],
+            return_reg: Reg(1),
+        };
+        assert!(matches!(
+            verify_reuse(&prog),
+            Err(VerifyError::InvalidReuseClass { .. })
+        ));
+    }
+
+    #[test]
+    fn verify_raise_and_discard_paths_do_not_leak() {
+        let prog = LinearProgram {
+            instrs: vec![
+                MemInstr::Lit {
+                    dst: Reg(0),
+                    lit: MemLiteral::Number(1.0),
+                },
+                MemInstr::RegisterCleanup {
+                    label: "scope".into(),
+                },
+                MemInstr::Raise {
+                    tag: "fail".into(),
+                },
+            ],
+            return_reg: Reg(0),
+        };
+        assert!(verify_ownership(&prog).is_ok());
+
+        let prog2 = LinearProgram {
+            instrs: vec![
+                MemInstr::Lit {
+                    dst: Reg(0),
+                    lit: MemLiteral::Number(1.0),
+                },
+                MemInstr::DiscardCont { cont: 0 },
+                MemInstr::Return { reg: Reg(0) },
+            ],
+            return_reg: Reg(0),
+        };
+        assert!(verify_ownership(&prog2).is_ok());
+    }
+
+    #[test]
+    fn verify_reuse_accepts_valid_record_reuse() {
+        let prog = LinearProgram {
+            instrs: vec![
+                MemInstr::Lit {
+                    dst: Reg(0),
+                    lit: MemLiteral::Number(1.0),
+                },
+                MemInstr::ConstructReuse {
+                    dst: Reg(1),
+                    reuse: Reg(0),
+                    tag: "record".into(),
+                    fields: vec![],
+                },
+                MemInstr::Return { reg: Reg(1) },
+            ],
+            return_reg: Reg(1),
+        };
+        assert!(verify_reuse(&prog).is_ok());
+    }
+
+    #[test]
+    fn verify_dup_of_unowned_reg() {
+        let prog = LinearProgram {
+            instrs: vec![
+                MemInstr::Dup {
+                    dst: Reg(1),
+                    src: Reg(0),
+                },
+                MemInstr::Return { reg: Reg(1) },
+            ],
+            return_reg: Reg(1),
+        };
+        assert!(matches!(
+            verify_ownership(&prog),
+            Err(VerifyError::UseAfterDrop(_))
+        ));
+    }
 }

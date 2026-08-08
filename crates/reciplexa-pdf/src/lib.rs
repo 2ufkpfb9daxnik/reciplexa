@@ -1125,6 +1125,7 @@ mod tests {
 
     #[test]
     fn multiline_cjk_text_emits_tstar_when_font_present() {
+        let _guard = cjk_font::lock_cjk_test_env();
         let doc = Document::single_page(Page {
             paper: PaperSize::a4(),
             shapes: vec![Shape::Text(Text {
@@ -1150,6 +1151,7 @@ mod tests {
 
     #[test]
     fn non_ascii_text_embeds_selectable_cid_font() {
+        let _guard = cjk_font::lock_cjk_test_env();
         let doc = Document::single_page(Page {
             paper: PaperSize::a4(),
             shapes: vec![Shape::Text(Text {
@@ -1834,6 +1836,7 @@ mod tests {
 
     #[test]
     fn cjk_in_nested_group_collects_chars() {
+        let _guard = cjk_font::lock_cjk_test_env();
         let doc = Document::single_page(Page {
             paper: PaperSize::a4(),
             shapes: vec![Shape::Group {

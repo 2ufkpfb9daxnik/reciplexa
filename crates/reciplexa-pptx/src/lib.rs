@@ -5,7 +5,7 @@
 
 #![forbid(unsafe_code)]
 
-use std::io::{Cursor, Write};
+use std::io::{Cursor, Seek, Write};
 
 use reciplexa_scene::{Color, Document};
 use reciplexa_view::{flatten_page, WorldShape};
@@ -24,8 +24,13 @@ pub fn write_document(doc: &Document, mut out: impl Write) -> Result<(), String>
 /// Build PPTX bytes in memory.
 pub fn document_to_pptx(doc: &Document) -> Result<Vec<u8>, String> {
     let mut buf = Cursor::new(Vec::new());
-    {
-        let mut zip = ZipWriter::new(&mut buf);
+    document_to_pptx_write(doc, &mut buf)?;
+    Ok(buf.into_inner())
+}
+
+/// Write PPTX zip bytes to `out` (used by tests to inject I/O failures mid-stream).
+pub fn document_to_pptx_write(doc: &Document, out: &mut (impl Write + Seek)) -> Result<(), String> {
+    let mut zip = ZipWriter::new(out);
         let opts = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
 
         zip.start_file("[Content_Types].xml", opts)
@@ -90,8 +95,7 @@ pub fn document_to_pptx(doc: &Document) -> Result<Vec<u8>, String> {
         }
 
         zip.finish().map_err(|e| e.to_string())?;
-    }
-    Ok(buf.into_inner())
+    Ok(())
 }
 
 fn slide_xml(doc: &Document, index: usize) -> Result<String, String> {
@@ -851,5 +855,39 @@ mod tests {
         }
         let doc = Document::single_page(a4_page(vec![]));
         assert!(write_document(&doc, FailWrite).is_err());
+    }
+
+    #[test]
+    fn document_to_pptx_write_errors_on_limited_buffer() {
+        use std::io::{Seek, SeekFrom};
+        struct FailAfterWrite {
+            inner: Cursor<Vec<u8>>,
+            limit: usize,
+        }
+        impl Write for FailAfterWrite {
+            fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+                if self.inner.position() as usize + buf.len() > self.limit {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::StorageFull,
+                        "capacity",
+                    ));
+                }
+                self.inner.write(buf)
+            }
+            fn flush(&mut self) -> std::io::Result<()> {
+                self.inner.flush()
+            }
+        }
+        impl Seek for FailAfterWrite {
+            fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
+                self.inner.seek(pos)
+            }
+        }
+        let doc = Document::single_page(a4_page(vec![]));
+        let mut buf = FailAfterWrite {
+            inner: Cursor::new(Vec::new()),
+            limit: 64,
+        };
+        assert!(super::document_to_pptx_write(&doc, &mut buf).is_err());
     }
 }

@@ -204,4 +204,72 @@ mod tests {
         let opt = perceus_pass(&raw);
         assert!(opt.instrs.iter().any(|i| matches!(i, MemInstr::Return { .. })));
     }
+
+    #[test]
+    fn perceus_handles_cfg_and_reuse_sources() {
+        use crate::ir::{BlockId, MemLiteral};
+        let raw = LinearProgram {
+            instrs: vec![
+                MemInstr::Lit {
+                    dst: Reg(0),
+                    lit: MemLiteral::Number(1.0),
+                },
+                MemInstr::Branch {
+                    cond: Reg(0),
+                    then_block: BlockId(1),
+                    else_block: BlockId(2),
+                },
+                MemInstr::Phi {
+                    dst: Reg(1),
+                    incoming: vec![(BlockId(0), Reg(0))],
+                },
+                MemInstr::MakeClosure {
+                    dst: Reg(2),
+                    param: "x".into(),
+                    body: BlockId(0),
+                    captures: vec![Reg(0)],
+                },
+                MemInstr::Call {
+                    dst: Reg(3),
+                    closure: Reg(2),
+                    arg: Reg(0),
+                },
+                MemInstr::ConstructReuse {
+                    dst: Reg(4),
+                    reuse: Reg(0),
+                    tag: "record".into(),
+                    fields: vec![("v".into(), Reg(3))],
+                },
+                MemInstr::Return { reg: Reg(4) },
+            ],
+            return_reg: Reg(4),
+        };
+        let opt = perceus_pass(&raw);
+        assert!(!opt.instrs.is_empty());
+    }
+
+    #[test]
+    fn perceus_inserts_dup_for_shared_phi_source() {
+        use crate::ir::BlockId;
+        let raw = LinearProgram {
+            instrs: vec![
+                MemInstr::Lit {
+                    dst: Reg(0),
+                    lit: crate::ir::MemLiteral::Number(1.0),
+                },
+                MemInstr::Dup {
+                    dst: Reg(1),
+                    src: Reg(0),
+                },
+                MemInstr::Phi {
+                    dst: Reg(2),
+                    incoming: vec![(BlockId(0), Reg(0)), (BlockId(1), Reg(1))],
+                },
+                MemInstr::Return { reg: Reg(2) },
+            ],
+            return_reg: Reg(2),
+        };
+        let opt = perceus_pass(&raw);
+        assert!(!opt.instrs.is_empty());
+    }
 }

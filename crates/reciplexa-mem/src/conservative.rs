@@ -219,4 +219,85 @@ mod tests {
         let rc = conservative_rc(&raw);
         assert!(!rc.instrs.is_empty());
     }
+
+    fn cfg_fixture() -> LinearProgram {
+        use crate::ir::{BlockId, MemLiteral};
+        LinearProgram {
+            instrs: vec![
+                MemInstr::Lit {
+                    dst: Reg(0),
+                    lit: MemLiteral::Number(1.0),
+                },
+                MemInstr::Lit {
+                    dst: Reg(1),
+                    lit: MemLiteral::Number(0.0),
+                },
+                MemInstr::Branch {
+                    cond: Reg(1),
+                    then_block: BlockId(1),
+                    else_block: BlockId(2),
+                },
+                MemInstr::Jump { target: BlockId(3) },
+                MemInstr::Phi {
+                    dst: Reg(2),
+                    incoming: vec![(BlockId(0), Reg(0)), (BlockId(1), Reg(0))],
+                },
+                MemInstr::MakeClosure {
+                    dst: Reg(3),
+                    param: "x".into(),
+                    body: BlockId(1),
+                    captures: vec![Reg(0)],
+                },
+                MemInstr::Call {
+                    dst: Reg(4),
+                    closure: Reg(3),
+                    arg: Reg(0),
+                },
+                MemInstr::ConstructReuse {
+                    dst: Reg(5),
+                    reuse: Reg(0),
+                    tag: "record".into(),
+                    fields: vec![("x".into(), Reg(4))],
+                },
+                MemInstr::Return { reg: Reg(5) },
+            ],
+            return_reg: Reg(5),
+        }
+    }
+
+    #[test]
+    fn conservative_handles_cfg_instrs() {
+        let rc = conservative_rc(&cfg_fixture());
+        assert!(rc.instrs.iter().any(|i| matches!(i, MemInstr::Dup { .. })));
+        assert!(rc.instrs.iter().any(|i| matches!(i, MemInstr::Return { .. })));
+    }
+
+    #[test]
+    fn conservative_remaps_construct_reuse_fields() {
+        let prog = LinearProgram {
+            instrs: vec![
+                MemInstr::Lit {
+                    dst: Reg(0),
+                    lit: crate::ir::MemLiteral::Number(1.0),
+                },
+                MemInstr::Dup {
+                    dst: Reg(1),
+                    src: Reg(0),
+                },
+                MemInstr::ConstructReuse {
+                    dst: Reg(2),
+                    reuse: Reg(0),
+                    tag: "record".into(),
+                    fields: vec![("f".into(), Reg(1))],
+                },
+                MemInstr::Return { reg: Reg(2) },
+            ],
+            return_reg: Reg(2),
+        };
+        let rc = conservative_rc(&prog);
+        assert!(rc
+            .instrs
+            .iter()
+            .any(|i| matches!(i, MemInstr::ConstructReuse { .. })));
+    }
 }

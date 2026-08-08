@@ -319,4 +319,57 @@ mod tests {
         let ty = infer_expr(&expr, &TypeEnv::new(), &mut subst, range()).unwrap();
         assert_eq!(subst.apply(&ty), CoreType::Number);
     }
+
+    #[test]
+    fn perform_with_string_ok() {
+        let expr = CoreExpr::Perform {
+            op: "log".into(),
+            arg: Box::new(CoreExpr::Lit(CoreLiteral::String("ok".into()))),
+        };
+        let mut subst = Subst::new();
+        let ty = infer_expr(&expr, &TypeEnv::new(), &mut subst, range()).unwrap();
+        assert_eq!(ty, CoreType::Unit);
+    }
+
+    #[test]
+    fn match_arm_return_type_mismatch() {
+        let expr = CoreExpr::Match {
+            scrutinee: Box::new(CoreExpr::Variant {
+                tag: "A".into(),
+                payload: None,
+            }),
+            arms: vec![
+                MatchArm {
+                    tag: "A".into(),
+                    bind: None,
+                    body: CoreExpr::Lit(CoreLiteral::Number(1.0)),
+                },
+                MatchArm {
+                    tag: "B".into(),
+                    bind: None,
+                    body: CoreExpr::Lit(CoreLiteral::String("no".into())),
+                },
+            ],
+        };
+        let mut subst = Subst::new();
+        assert!(infer_expr(&expr, &TypeEnv::new(), &mut subst, range()).is_err());
+    }
+
+    #[test]
+    fn match_binds_payload_in_arm() {
+        let expr = CoreExpr::Match {
+            scrutinee: Box::new(CoreExpr::Variant {
+                tag: "Some".into(),
+                payload: Some(Box::new(CoreExpr::Lit(CoreLiteral::Number(5.0)))),
+            }),
+            arms: vec![MatchArm {
+                tag: "Some".into(),
+                bind: Some("v".into()),
+                body: CoreExpr::Lit(CoreLiteral::Number(5.0)),
+            }],
+        };
+        let mut subst = Subst::new();
+        let ty = infer_expr(&expr, &TypeEnv::new(), &mut subst, range()).unwrap();
+        assert_eq!(subst.apply(&ty), CoreType::Number);
+    }
 }

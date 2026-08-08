@@ -914,4 +914,52 @@ mod tests {
         let err = typecheck_source("(src (handle))\n(page a4)").unwrap_err();
         assert!(!err.message.is_empty());
     }
+
+    #[test]
+    fn polyline_color_only_typechecks() {
+        let src = "(page a4 (polyline 0 0 1 1 2 0 red))";
+        assert_eq!(typecheck_source(src).unwrap(), Type::Document);
+    }
+
+    #[test]
+    fn polyline_too_few_args_fails() {
+        let err = typecheck_source("(page a4 (polyline 0 0))").unwrap_err();
+        assert!(err.message.contains("polyline"));
+    }
+
+    #[test]
+    fn polygon_without_color_typechecks() {
+        let src = "(page a4 (polygon 0 0 1 0 1 1 0 1))";
+        assert_eq!(typecheck_source(src).unwrap(), Type::Document);
+    }
+
+    #[test]
+    fn polygon_too_few_points_fails() {
+        let err = typecheck_source("(page a4 (polygon 0 0 1 0))").unwrap_err();
+        assert!(err.message.contains("polygon"));
+    }
+
+    #[test]
+    fn line_with_width_and_color_typechecks() {
+        let src = "(page a4 (line 0 0 10 10 blue 2))";
+        assert_eq!(typecheck_source(src).unwrap(), Type::Document);
+    }
+
+    #[test]
+    fn ellipse_without_color_typechecks() {
+        let src = "(page a4 (ellipse 1 2 3 4))";
+        assert_eq!(typecheck_source(src).unwrap(), Type::Document);
+    }
+
+    #[test]
+    fn rgb_color_in_circle_typechecks() {
+        let src = "(page a4 (circle 1 2 3 (rgb 1 0 0)))";
+        assert_eq!(typecheck_source(src).unwrap(), Type::Document);
+    }
+
+    #[test]
+    fn opacity_requires_shape_body() {
+        let err = typecheck_source("(page a4 (opacity 0.5))").unwrap_err();
+        assert!(!err.message.is_empty());
+    }
 }

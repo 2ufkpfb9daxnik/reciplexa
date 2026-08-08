@@ -235,9 +235,31 @@ pub fn cjk_font_path() -> Option<PathBuf> {
 }
 
 #[cfg(test)]
+static CJK_TEST_ENV_LOCK: std::sync::OnceLock<std::sync::Mutex<()>> = std::sync::OnceLock::new();
+
+#[cfg(test)]
+pub(crate) fn lock_cjk_test_env() -> std::sync::MutexGuard<'static, ()> {
+    CJK_TEST_ENV_LOCK
+        .get_or_init(|| std::sync::Mutex::new(()))
+        .lock()
+        .unwrap()
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use std::collections::BTreeSet;
+
+    fn with_saved_cjk_font_env<F: FnOnce()>(f: F) {
+        let _guard = lock_cjk_test_env();
+        let saved = std::env::var_os("RECIPLEXA_CJK_FONT");
+        f();
+        if let Some(v) = saved {
+            std::env::set_var("RECIPLEXA_CJK_FONT", v);
+        } else {
+            std::env::remove_var("RECIPLEXA_CJK_FONT");
+        }
+    }
 
     #[test]
     fn subset_tag_is_six_uppercase_letters() {
@@ -265,6 +287,7 @@ mod tests {
 
     #[test]
     fn encode_hex_rejects_embedded_newlines() {
+        let _guard = lock_cjk_test_env();
         if system_cjk_font_path().is_none() {
             return;
         }
@@ -277,6 +300,7 @@ mod tests {
 
     #[test]
     fn cjk_roundtrip_widths_and_cmap_when_font_available() {
+        let _guard = lock_cjk_test_env();
         if system_cjk_font_path().is_none() {
             return;
         }
@@ -303,6 +327,7 @@ mod tests {
 
     #[test]
     fn encode_hex_unknown_char_errors_when_font_available() {
+        let _guard = lock_cjk_test_env();
         if system_cjk_font_path().is_none() {
             return;
         }
@@ -314,5 +339,34 @@ mod tests {
             Ok(_) => panic!("expected missing CID error"),
         };
         assert!(matches!(err, PdfError::InvalidShape(_)));
+    }
+
+    #[test]
+    fn nonexistent_reciplexa_cjk_font_falls_through() {
+        with_saved_cjk_font_env(|| {
+            std::env::set_var("RECIPLEXA_CJK_FONT", r"D:\__reciplexa_no_such_font__.ttf");
+            let path = system_cjk_font_path();
+            if let Some(p) = &path {
+                assert!(!p.to_string_lossy().contains("__reciplexa_no_such_font__"));
+            }
+        });
+    }
+
+    #[test]
+    fn invalid_font_file_errors_on_build() {
+        with_saved_cjk_font_env(|| {
+            let dir = std::env::temp_dir();
+            let bad = dir.join(format!("reciplexa_bad_font_{}.ttf", std::process::id()));
+            std::fs::write(&bad, b"not-a-font").unwrap();
+            std::env::set_var("RECIPLEXA_CJK_FONT", &bad);
+            let mut chars = BTreeSet::new();
+            chars.insert('日');
+            let err = match CjkFontEmbed::build(&chars) {
+                Err(e) => e,
+                Ok(_) => panic!("expected invalid font error"),
+            };
+            assert!(matches!(err, PdfError::InvalidShape(_)));
+            let _ = std::fs::remove_file(&bad);
+        });
     }
 }
