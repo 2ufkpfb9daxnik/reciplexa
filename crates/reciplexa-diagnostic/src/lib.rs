@@ -11,6 +11,7 @@ pub mod kind;
 pub mod message;
 pub mod origin;
 pub mod parse_adapter;
+pub mod render;
 pub mod severity;
 
 pub use code::DiagnosticCode;
@@ -19,4 +20,5 @@ pub use kind::{Diagnostic, DiagnosticCategory, DiagnosticId, DiagnosticLifecycle
 pub use message::DiagnosticMessage;
 pub use origin::{DiagnosticOrigin, SourceOrigin};
 pub use parse_adapter::{push_parse_errors, ParseDiagnosticInput};
+pub use render::{render_diagnostic_line, render_diagnostics};
 pub use severity::DiagnosticSeverity;
