@@ -1,0 +1,13 @@
+[package]
+name = "reciplexa-eval"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Reference evaluator for reciplexa Core IR"
+publish = false
+
+[dependencies]
+reciplexa-core = { workspace = true }
+reciplexa-outcome = { workspace = true }
+
+[dev-dependencies]
