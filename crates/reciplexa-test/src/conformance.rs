@@ -10,6 +10,10 @@ impl SpecSection {
     pub fn new(value: impl Into<String>) -> Self {
         Self(value.into())
     }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
 }
 
 impl fmt::Display for SpecSection {
@@ -25,6 +29,10 @@ pub struct ConformanceId(pub String);
 impl ConformanceId {
     pub fn new(value: impl Into<String>) -> Self {
         Self(value.into())
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
     }
 }
 
