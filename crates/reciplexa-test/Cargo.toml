@@ -12,6 +12,13 @@ reciplexa-outcome = { workspace = true }
 
 [dev-dependencies]
 reciplexa-source = { workspace = true }
+reciplexa-visual-ir = { workspace = true }
+reciplexa-backend = { workspace = true }
+reciplexa-gui-runtime = { workspace = true }
+reciplexa-codec = { workspace = true }
+reciplexa-package = { workspace = true }
+reciplexa-native = { workspace = true }
+reciplexa-scene = { workspace = true }
 reciplexa-core = { workspace = true }
 reciplexa-eval = { workspace = true }
 reciplexa-mem = { workspace = true }
@@ -20,5 +27,4 @@ reciplexa-runtime = { workspace = true }
 reciplexa-document = { workspace = true }
 reciplexa-identity = { workspace = true }
 reciplexa = { path = "../reciplexa" }
-reciplexa-scene = { workspace = true }
 reciplexa-syntax = { workspace = true }
