@@ -9,19 +9,26 @@ use reciplexa_source::line_index::LineIndex;
 use reciplexa_source::resource::{SourceResource, SourceResourceId};
 use reciplexa_syntax::{parse_source, unparse};
 
-pub fn cmd_parse(path: &str) -> Result<(), String> {
+pub fn cmd_parse(path: &str, json: bool) -> Result<(), String> {
     let bytes = fs::read(path).map_err(|e| format!("read {path}: {e}"))?;
     let resource = SourceResource::from_bytes(SourceResourceId::new(1), &bytes)
         .map_err(|e| format!("decode: {e}"))?;
     let parse = parse_source(resource.text());
     if parse.errors.is_empty() {
-        println!(
-            "ok: parsed {} top-level forms",
-            parse.root.children().count()
-        );
+        if json {
+            println!(
+                "{{\"status\":\"ok\",\"forms\":{}}}",
+                parse.root.children().count()
+            );
+        } else {
+            println!(
+                "ok: parsed {} top-level forms",
+                parse.root.children().count()
+            );
+        }
         Ok(())
     } else {
-        emit_parse_diagnostics(resource.text(), &parse.errors)?;
+        emit_parse_diagnostics(resource.text(), &parse.errors, json)?;
         Err(format!("{} parse error(s)", parse.errors.len()))
     }
 }
@@ -30,7 +37,7 @@ pub fn cmd_format(path: &str) -> Result<(), String> {
     let src = fs::read_to_string(path).map_err(|e| format!("read {path}: {e}"))?;
     let parse = parse_source(&src);
     if !parse.errors.is_empty() {
-        emit_parse_diagnostics(&src, &parse.errors)?;
+        emit_parse_diagnostics(&src, &parse.errors, false)?;
         return Err(format!("{} parse error(s)", parse.errors.len()));
     }
     let formatted = unparse(&parse.root);
@@ -64,7 +71,7 @@ pub fn cmd_inspect_syntax(path: &str) -> Result<(), String> {
         println!("  form {:?}", child.kind());
     }
     if !parse.errors.is_empty() {
-        emit_parse_diagnostics(&src, &parse.errors)?;
+        emit_parse_diagnostics(&src, &parse.errors, false)?;
         return Err(format!("{} parse error(s)", parse.errors.len()));
     }
     Ok(())
@@ -73,6 +80,7 @@ pub fn cmd_inspect_syntax(path: &str) -> Result<(), String> {
 fn emit_parse_diagnostics(
     src: &str,
     errors: &[reciplexa_syntax::ParseError],
+    json: bool,
 ) -> Result<(), String> {
     let mut collector = DiagnosticCollector::new();
     push_syntax_parse_errors(
@@ -82,6 +90,19 @@ fn emit_parse_diagnostics(
         SourceResourceId::new(1),
         errors,
     );
+    if json {
+        let mut out = io::stdout();
+        writeln!(out, "{{\"status\":\"error\",\"diagnostics\":[")
+            .map_err(|e| e.to_string())?;
+        for (i, d) in collector.diagnostics().iter().enumerate() {
+            if i > 0 {
+                write!(out, ",").map_err(|e| e.to_string())?;
+            }
+            write!(out, "{}", diagnostic_to_json(d)).map_err(|e| e.to_string())?;
+        }
+        writeln!(out, "]}}").map_err(|e| e.to_string())?;
+        return Ok(());
+    }
     let index = LineIndex::new(src);
     for line in collector
         .diagnostics()
@@ -94,6 +115,41 @@ fn emit_parse_diagnostics(
     Ok(())
 }
 
+fn diagnostic_to_json(d: &reciplexa_diagnostic::Diagnostic) -> String {
+    let severity = format!("{}", d.severity);
+    let code = format!("{}", d.code);
+    let message = d.message.fallback_summary();
+    let (start, end) = match &d.primary_origin {
+        Some(reciplexa_diagnostic::DiagnosticOrigin::Source(o)) => {
+            (o.text_range.start().get(), o.text_range.end().get())
+        }
+        _ => (0, 0),
+    };
+    format!(
+        "{{\"id\":{},\"severity\":\"{severity}\",\"code\":\"{code}\",\"message\":{msg},\"start\":{start},\"end\":{end}}}",
+        d.id.get(),
+        msg = json_string(&message),
+    )
+}
+
+fn json_string(s: &str) -> String {
+    let mut out = String::with_capacity(s.len() + 2);
+    out.push('"');
+    for ch in s.chars() {
+        match ch {
+            '"' => out.push_str("\\\""),
+            '\\' => out.push_str("\\\\"),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            c if c.is_control() => out.push_str(&format!("\\u{:04x}", c as u32)),
+            c => out.push(c),
+        }
+    }
+    out.push('"');
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -102,7 +158,7 @@ mod tests {
     fn parse_valid_example() {
         let manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
         let path = manifest.join("examples/black_circle.rpx");
-        cmd_parse(path.to_str().unwrap()).expect("parse");
+        cmd_parse(path.to_str().unwrap(), false).expect("parse");
     }
 
     #[test]
@@ -110,6 +166,13 @@ mod tests {
         let manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
         let path = manifest.join("examples/black_circle.rpx");
         cmd_format(path.to_str().unwrap()).expect("format");
+    }
+
+    #[test]
+    fn inspect_document_lists_nodes() {
+        let manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let path = manifest.join("examples/black_circle.rpx");
+        cmd_inspect_document(path.to_str().unwrap()).expect("inspect-document");
     }
 
     #[test]

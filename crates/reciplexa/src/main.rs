@@ -21,13 +21,20 @@ fn main() -> ExitCode {
     };
 
     match first.as_str() {
-        "parse" => match args.next() {
-            Some(path) => run_cli(reciplexa::cli::cmd_parse(&path)),
-            None => {
-                eprintln!("usage: reciplexa parse <input.rpx>");
-                ExitCode::from(2)
+        "parse" => {
+            let mut paths: Vec<String> = args.collect();
+            let json = paths.first().is_some_and(|p| p == "--json");
+            if json {
+                paths.remove(0);
             }
-        },
+            match paths.first() {
+                Some(path) => run_cli(reciplexa::cli::cmd_parse(path, json)),
+                None => {
+                    eprintln!("usage: reciplexa parse [--json] <input.rpx>");
+                    ExitCode::from(2)
+                }
+            }
+        }
         "format" => match args.next() {
             Some(path) => run_cli(reciplexa::cli::cmd_format(&path)),
             None => {
