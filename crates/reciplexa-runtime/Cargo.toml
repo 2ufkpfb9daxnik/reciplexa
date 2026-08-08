@@ -1,0 +1,13 @@
+[package]
+name = "reciplexa-runtime"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Structured concurrency runtime for reciplexa"
+publish = false
+
+[dependencies]
+reciplexa-ir = { workspace = true }
+reciplexa-outcome = { workspace = true }
+
+[dev-dependencies]
