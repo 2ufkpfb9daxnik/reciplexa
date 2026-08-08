@@ -38465,66 +38465,86 @@ Fallback試行へBudgetを設定する
 PERF-NATIVE-PKG-10:
 Candidate SelectionをFilesystem順やThread順へ依存させない
 
-# 第VII部 実装開始条件と残る設計課題
+# 第VII部 実装開始条件と残る作業
 
-## 実装前に解消する既知の問題
+## 1. この部の位置付け
 
-1. 主要Surface、型、Effect、module、package、編集、失敗、memory設計は解決済みだが、形式規則と機械検証は未完成である。
-2. Semantic subtyping、RecordRow、EffectRow、recursive data、constraint solverの性質は未証明である。
-3. Perceus pass、Effect lowering、ownership／reuse verifierの参照実装が必要である。
-4. Structured concurrency、foreign boundary、layered IR、test、native package置換は未決定である。
-5. 現行実装は最終pipelineより単純であり、段階移行が必要である。
+本仕様の主要な意味論とSubsystem契約は、本文ですでに確定している。構造化並行処理、Foreign Boundary、段階化IR、Test基盤、Native Packageは未決定事項ではない。これらは第III部から第VI部の規範仕様に従って実装する。
 
-## 未証明の性質
+この部では、未決定の仕様、未実装の参照Pass、後続の証明を区別する。未実装であることを、仕様未決定と表現してはならない。
 
-以下はすべて未証明である。
+## 2. 仕様が確定済みで実装を待つ領域
 
-- parser round-tripの全入力範囲
-- reader/macro elaboration correctness
-- hygiene
-- Progress、Preservation、型安全性
-- semantic subtyping algorithmのsoundness/completeness/termination
-- gradual guarantee、blame theorem
-- value restrictionの十分性
-- handler/effect row safety
-- module representation independence
-- Editable lens/transaction law
-- IR lowering/optimization correctness
-- backend間の描画同値性
-- memory/race/deadlock safety
+次の領域は主要仕様が確定済みである。
 
-## 追加で確定する事項
+- 構造化並行処理、Task Scope、Cancellation、Task間共有
+- Package Target、Entry Binding、Runtime Profile、Application Lifetime
+- Kernel、Foreign Value、Trusted Adapter、Foreign Boundary
+- Failure、Defect、Diagnostic、Privacy、Diagnostic Lifecycle
+- Domain IR、Visual IR、Motion IR、Render IR、Backend Planning IR
+- Backend Capability、Output Profile、Loss、Artifact Verification
+- Stable Key、GUI State、Reconciliation、Focus、Selection、IME、Gesture
+- Test Runtime、Property Test、Shrinking、Conformance Test
+- Native Package、Implementation選定、ABI Negotiation、Fallback、Quarantine
 
-#### 高
+これらの実装中に仕様上の矛盾が見つかった場合は、第VIII部の変更手順に従って本文を改訂する。
 
-1. `OPEN-CON-001`: Structured concurrency、Cancellation、Task failure、値の移送、atomic reference count。
-2. `OPEN-KER-001`: ForeignValue、validator、trusted adapter ABI、ownership metadata。
-3. `OPEN-IR-001`: Domain／Visual／Motion／Render IR、色、filter、timing、backend tolerance。
-4. `OPEN-TST-001`: Test構文、Fault boundary、Failure／Defect、許容Effect。
+## 3. 参照実装を作るCompiler Pass
 
-#### 中
+### 3.1 Effect Lowering
 
-5. `OPEN-PKG-ENTRY-001`: Entry profile。
-6. `OPEN-ERR-DIAG-001`: Diagnostic schemaとprivacy。
-7. `OPEN-EDT-CODEC-001`: 文書・Transaction codecとmigration。
-8. `OPEN-GUI-STATE-001`: Stable Keyとstate継承。
-9. `OPEN-NATIVE-PKG-001`: Native packageの選定、独立package原則、fallback、version／ABI契約。
+Effect Loweringは、型検査済みCoreに含まれるEffect Handler、Operation、Continuationを、明示的なControl Flowを持つ内部IRへ変換するPassである。RPX固有のDeep Handler、One-shot Continuation、Failure、Cancellation、Task Scopeの契約を満たすことを正本とする。
 
-#### 将来
+KokaのEffect Handler実装とCompiler構成を主要参考にできるが、RPXの意味論をKokaの実装詳細へ従属させてはならない。
 
-一般`cell`／`ref`、borrow、cycle、macro package／procedural macro、package feature、registry公開、任意build step、CRDT／OT、派生node override、GADT、lazy、runtime reflection。
+### 3.2 Perceus Pass
 
-## 実装開始までの作業
+Perceus Passは、明示的Control Flowを持つFunctional Coreへ精密なReference Counting命令を挿入し、一意所有を利用したMemory Reuseを可能にするPassである。
 
-1. Reference parser、resolver、type/effect checkerを整備する。
-2. Deep one-shot handler、Failure、bracket、continuation discardをreference evaluatorへ実装する。
-3. Effect lowering、closure conversion、Perceus `dup`／`drop` insertion、ownership verifierを実装する。
-4. Reuse passとreuse verifierを追加する。
-5. 編集Snapshot／Transactionの参照状態機械と適合試験を実装する。
-6. `OPEN-CON-001`をTask scopeから順に解決する。
-7. `OPEN-KER-001`、`OPEN-IR-001`、`OPEN-TST-001`を順に確定する。
-8. Native package候補とportable版同値性要件を`OPEN-NATIVE-PKG-001`で定義する。
-9. 各解決済み項目の正負適合試験と横断試験を追加する。
+KokaのPerceus実装と論文を主要参考とする。初期実装では最適化を限定してもよいが、外部意味を変えず、Reference CountとOwnershipの正しさを独立Verifierで検査できなければならない。
+
+### 3.3 Ownership／Reuse Verifier
+
+Ownership／Reuse Verifierは、Compilerが生成したMove、Borrow、dup、drop、reuse、release等の命令がIRのすべてのControl-flow Pathで整合することを検査する。
+
+KokaのPerceus invariantsを直接の意味上の参考とし、Rust CompilerのMIR Data-flow、Move解析、Liveness解析、Borrow CheckerのPass構成をVerifier実装の参考にする。ただし、RPXの利用者へRustのBorrow規則をそのまま課すものではない。
+
+Verifierは少なくとも次を検査する。
+
+```text
+- 未初期化値の利用がない
+- Move後の再利用がない
+- 二重releaseがない
+- すべてのPathで所有値が消費または返却される
+- BorrowがOwnerのLifetimeを越えない
+- Reuse対象が一意所有である
+- Effect／Continuation境界で所有権が失われない
+- Cancellation／Failure Pathでもcleanupが成立する
+```
+
+## 4. 後続で行う証明
+
+型安全性、Effect音全性、Perceus Passの音全性、Ownership／Reuse Verifierの完全性、Incremental Compileの意味保存等の形式的証明は、参照実装と適合試験の後に行ってよい。
+
+証明を後回しにすることは、意味論を未定義にしてよいことを意味しない。実装時には本文の規範規則とVerifier、適合試験を満たす。
+
+## 5. 実装前または実装中に具体化する細部
+
+次は上位契約を変更しない範囲で、実装時に具体化できる。
+
+- Rust上の具体的なData StructureとModule分割
+- IR Nodeの物理表現とArena配置
+- Scheduler Queue、Work-stealing等の内部方式
+- ABI DescriptorのBinary LayoutとSymbol名
+- GUI Widgetの見た目とPlatform Adapter
+- CLI OptionとReportの表示様式
+- Cacheの物理StoreとEviction parameter
+
+これらが公開構文、外部API、文書互換性、ABI互換性、決定性へ影響する場合は、実装詳細ではなく仕様変更として扱う。
+
+## 6. 実装開始の判定
+
+実装は開始してよい。ただし、全Subsystemを一度に実装せず、ロードマップ文書に従ってVertical Sliceを積み上げる。最初の重要な到達点は、RPX Sourceと最小GUI Canvasの双方向編集がStable IdentityとDocument Transactionを介して成立することである。
 
 # 第VIII部 仕様の保守
 
