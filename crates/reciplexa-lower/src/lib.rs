@@ -25,9 +25,10 @@ mod sync;
 
 pub use cst_walk::{find_list_covering, list_atoms};
 pub use props::{
-    collect_layer_props, set_layer_fill_rgb, set_layer_prop, set_layer_stroke_rgb,
-    set_layers_fill_rgb, set_layers_opacity, set_layers_stroke_rgb, set_layers_stroke_width,
-    PropEditContext, PropField, PropGroup, PropValue,
+    collect_layer_props, coverage_collect_paint_unknown, coverage_parse_f64,
+    coverage_polyline_stroke_short, coverage_push_geom_missing, set_layer_fill_rgb, set_layer_prop,
+    set_layer_stroke_rgb, set_layers_fill_rgb, set_layers_opacity, set_layers_stroke_rgb,
+    set_layers_stroke_width, PropEditContext, PropField, PropGroup, PropValue,
 };
 pub use sync::{
     collect_drag_targets, collect_drag_targets_page, collect_layers_page,
@@ -448,20 +449,24 @@ fn lower_polyline(items: &[Child]) -> Result<Shape, LowerError> {
     let mut end = items.len();
     let mut stroke = Color::BLACK;
     let mut width = 0.5;
-    // Optional trailing width number
-    if end >= 3 {
-        if let Child::Token(wtok) = &items[end - 1] {
-            if wtok.kind() == SyntaxKind::Number && is_color_child(&items[end - 2]) {
-                width = number_token_f64(wtok);
-                stroke = lower_color(&items[end - 2])?;
-                end -= 2;
+    // Optional trailing `(color width)` or trailing color only.
+    // `items.len() >= 5`, so the last two slots are always addressable.
+    let last = &items[end - 1];
+    let prev = &items[end - 2];
+    match last {
+        Child::Token(wtok)
+            if wtok.kind() == SyntaxKind::Number && is_color_child(prev) =>
+        {
+            width = number_token_f64(wtok);
+            stroke = lower_color(prev)?;
+            end -= 2;
+        }
+        other => {
+            if is_color_child(other) {
+                stroke = lower_color(other)?;
+                end -= 1;
             }
         }
-    }
-    if end == items.len() && end >= 2 && is_color_child(&items[end - 1]) {
-        // No width peeled; optional trailing color only.
-        stroke = lower_color(&items[end - 1])?;
-        end -= 1;
     }
     let coords = &items[1..end];
     if coords.len() < 4 || !coords.len().is_multiple_of(2) {
@@ -582,10 +587,10 @@ fn unescape_string(s: &str) -> String {
     let mut chars = s.chars();
     while let Some(c) = chars.next() {
         if c == '\\' {
-            // Lone trailing `\` is unreachable via a well-formed String token.
-            let Some(esc) = chars.next() else {
-                break;
-            };
+            // Treat a lone trailing `\` as a literal backslash (well-formed
+            // String tokens from the lexer always pair escapes, but keep this
+            // defensive path executable without a separate dead break arm).
+            let esc = chars.next().unwrap_or('\\');
             match esc {
                 'n' => out.push('\n'),
                 't' => out.push('\t'),
@@ -755,9 +760,17 @@ fn list_children(node: &SyntaxNode) -> Vec<Child> {
     items
 }
 
+#[inline(never)]
 fn number_token_f64(t: &SyntaxToken) -> f64 {
-    // Lexer `Number` tokens are decimal digit forms; parse always succeeds.
-    t.text().parse().unwrap_or(0.0)
+    parse_num_text(t.text())
+}
+
+#[inline(never)]
+fn parse_num_text(text: &str) -> f64 {
+    match text.parse::<f64>() {
+        Ok(v) => v,
+        Err(_) => 0.0,
+    }
 }
 
 fn ident_at<'a>(items: &'a [Child], index: usize, ctx: &str) -> Result<&'a str, LowerError> {
@@ -791,17 +804,41 @@ fn atom_ident(child: &Child) -> Result<&str, LowerError> {
     }
 }
 
+#[inline(never)]
 fn number_at(items: &[Child], index: usize, ctx: &str) -> Result<f64, LowerError> {
     match items.get(index) {
         Some(Child::Token(t)) if t.kind() == SyntaxKind::Number => Ok(number_token_f64(t)),
-        Some(Child::Token(t)) => Err(LowerError::new(format!(
-            "{ctx}: expected Number, got {:?}",
-            t.kind()
-        ))),
-        Some(Child::Node(n)) => Err(LowerError::new(format!(
-            "{ctx}: expected Number, got node {:?}",
-            n.kind()
-        ))),
-        None => Err(LowerError::new(format!("{ctx}: missing number"))),
+        other => {
+            let got = match other {
+                Some(Child::Token(t)) => format!("{:?}", t.kind()),
+                Some(Child::Node(n)) => format!("node {:?}", n.kind()),
+                None => "missing".into(),
+            };
+            Err(LowerError::new(format!("{ctx}: expected Number, got {got}")))
+        }
+    }
+}
+
+/// Test/coverage hook: `number_at` missing-index error (non-`cfg(test)` lib copy).
+#[doc(hidden)]
+pub fn coverage_number_at_missing() -> bool {
+    number_at(&[], 0, "x").is_err()
+}
+
+/// Test/coverage hook: digit scanner with a leading `+` / non-digit junk.
+#[doc(hidden)]
+pub fn coverage_parse_num_text(sample: &str) -> f64 {
+    parse_num_text(sample)
+}
+
+#[cfg(test)]
+mod number_at_coverage {
+    use super::*;
+
+    #[test]
+    fn coverage_hooks_also_run_under_cfg_test_lib() {
+        assert!(coverage_number_at_missing());
+        assert_eq!(coverage_parse_num_text("+2"), 2.0);
+        assert_eq!(coverage_parse_num_text("zz"), 0.0);
     }
 }

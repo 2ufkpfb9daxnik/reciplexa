@@ -1,6 +1,5 @@
 use reciplexa_lower::*;
 
-
 const PAGE: &str = "(page a4 ";
 
 fn page(body: &str) -> String {

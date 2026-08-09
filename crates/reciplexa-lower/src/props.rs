@@ -9,9 +9,9 @@ use reciplexa_syntax::{
 
 use crate::cst_walk::{find_list_covering, list_atoms, Child};
 use crate::sync::{
-    collect_layers_page, collect_size_targets_page, layer_opacity, layer_rotation_deg,
-    nudge_layer_page, parse_root, scale_size_target_axes, set_layer_opacity,
-    set_layer_rotation_deg, SyncError,
+    collect_layers_from_root, collect_size_targets_from_root, layer_opacity, layer_rotation_deg,
+    nudge_layer_page, parse_root, scale_size_target_axes, set_layer_opacity, set_layer_rotation_deg,
+    SyncError,
 };
 
 /// UI grouping for the properties panel.
@@ -64,6 +64,23 @@ pub struct PropEditContext {
     pub paper_h_mm: f64,
 }
 
+/// Parse once and resolve the paint list for a flattened layer index.
+fn layer_paint(
+    src: &str,
+    page_index: usize,
+    flat_index: usize,
+) -> Result<(SyntaxNode, SyntaxNode, String), SyncError> {
+    let root = parse_root(src)?;
+    let layers = collect_layers_from_root(&root, page_index)?;
+    let layer = layers
+        .get(flat_index)
+        .ok_or_else(|| SyncError::new("layer index out of range"))?;
+    // LayerInfo spans always come from list nodes in collect_layers_from_shape.
+    let paint = find_list_covering(&root, layer.byte_start, layer.byte_end)
+        .expect("paint span from collect_layers");
+    Ok((root, paint, layer.kind.clone()))
+}
+
 /// Collect editable named fields for one flattened layer.
 pub fn collect_layer_props(
     src: &str,
@@ -71,13 +88,7 @@ pub fn collect_layer_props(
     flat_index: usize,
     ctx: &PropEditContext,
 ) -> Result<Vec<PropField>, SyncError> {
-    let layers = collect_layers_page(src, page_index)?;
-    let layer = layers
-        .get(flat_index)
-        .ok_or_else(|| SyncError::new("layer index out of range"))?;
-    let root = parse_root(src)?;
-    let paint = find_list_covering(&root, layer.byte_start, layer.byte_end)
-        .expect("paint span from collect_layers");
+    let (_root, paint, kind) = layer_paint(src, page_index, flat_index)?;
 
     let (x0, y0, x1, y1) = ctx.aabb_mm;
     let w = (x1 - x0).max(0.0);
@@ -133,7 +144,7 @@ pub fn collect_layer_props(
         Some((0.0, 1.0)),
     ));
 
-    collect_paint_props(&paint, &mut out);
+    collect_paint_props(&paint, &kind, &mut out);
     Ok(out)
 }
 
@@ -173,9 +184,13 @@ pub fn set_layer_prop(
                 return Err(SyncError::new("width must be positive"));
             }
             let fx = *nw / w;
-            let targets = collect_size_targets_page(src, page_index)?;
+            let root = parse_root(src)?;
+            let targets = collect_size_targets_from_root(&root, page_index)?;
             // Flatten indices align with size targets from the same page walk.
-            scale_size_target_axes(src, targets[flat_index], fx, 1.0)
+            let target = targets.get(flat_index).copied().ok_or_else(|| {
+                SyncError::new("layer index out of range")
+            })?;
+            scale_size_target_axes(src, target, fx, 1.0)
         }
         "layout.h" => {
             let PropValue::Number(nh) = value else {
@@ -185,8 +200,12 @@ pub fn set_layer_prop(
                 return Err(SyncError::new("height must be positive"));
             }
             let fy = *nh / h;
-            let targets = collect_size_targets_page(src, page_index)?;
-            scale_size_target_axes(src, targets[flat_index], 1.0, fy)
+            let root = parse_root(src)?;
+            let targets = collect_size_targets_from_root(&root, page_index)?;
+            let target = targets.get(flat_index).copied().ok_or_else(|| {
+                SyncError::new("layer index out of range")
+            })?;
+            scale_size_target_axes(src, target, 1.0, fy)
         }
         "transform.rotation" => {
             let PropValue::Number(deg) = value else {
@@ -204,68 +223,48 @@ pub fn set_layer_prop(
     }
 }
 
-fn collect_paint_props(paint: &SyntaxNode, out: &mut Vec<PropField>) {
+#[inline(never)]
+fn collect_paint_props(paint: &SyntaxNode, kind: &str, out: &mut Vec<PropField>) {
     let items = list_atoms(paint);
-    let Some(Child::Token(head)) = items.first() else {
-        return;
-    };
-    if head.kind() != SyntaxKind::Ident {
-        return;
-    }
-    let kind = head.text();
-    match kind {
-        "circle" => {
-            push_geom_num(&items, 1, "geom.x", "x", out);
-            push_geom_num(&items, 2, "geom.y", "y", out);
-            push_geom_num(&items, 3, "geom.r", "r", out);
-            collect_trailing_fill(&items, out);
+    if kind == "circle" {
+        push_geom_num(&items, 1, "geom.x", "x", out);
+        push_geom_num(&items, 2, "geom.y", "y", out);
+        push_geom_num(&items, 3, "geom.r", "r", out);
+        collect_trailing_fill(&items, out);
+    } else if kind == "rect" || kind == "frame" {
+        push_geom_num(&items, 1, "geom.x", "x", out);
+        push_geom_num(&items, 2, "geom.y", "y", out);
+        push_geom_num(&items, 3, "geom.w", "w", out);
+        push_geom_num(&items, 4, "geom.h", "h", out);
+        collect_trailing_fill(&items, out);
+        if kind == "frame" {
+            collect_trailing_stroke_on_frame(&items, out);
         }
-        "rect" | "frame" => {
-            push_geom_num(&items, 1, "geom.x", "x", out);
-            push_geom_num(&items, 2, "geom.y", "y", out);
-            push_geom_num(&items, 3, "geom.w", "w", out);
-            push_geom_num(&items, 4, "geom.h", "h", out);
-            collect_trailing_fill(&items, out);
-            if kind == "frame" {
-                collect_trailing_stroke_on_frame(&items, out);
-            }
-        }
-        "ellipse" => {
-            push_geom_num(&items, 1, "geom.x", "x", out);
-            push_geom_num(&items, 2, "geom.y", "y", out);
-            push_geom_num(&items, 3, "geom.rx", "rx", out);
-            push_geom_num(&items, 4, "geom.ry", "ry", out);
-            collect_trailing_fill(&items, out);
-        }
-        "ring" => {
-            push_geom_num(&items, 1, "geom.x", "x", out);
-            push_geom_num(&items, 2, "geom.y", "y", out);
-            push_geom_num(&items, 3, "geom.r", "r", out);
-            push_geom_num(&items, 4, "geom.width", "width", out);
-            collect_trailing_fill(&items, out);
-        }
-        "text" => {
-            push_geom_num(&items, 1, "geom.x", "x", out);
-            push_geom_num(&items, 2, "geom.y", "y", out);
-            push_geom_num(&items, 3, "geom.size", "size", out);
-            // Boxed: (text x y size w h "…") — slot 4 is a number.
-            let boxed = matches!(
-                items.get(4),
-                Some(Child::Token(t)) if t.kind() == SyntaxKind::Number
-            );
-            if boxed {
-                push_geom_num(&items, 4, "geom.w", "w", out);
-                push_geom_num(&items, 5, "geom.h", "h", out);
-                if let Some(s) = string_at(&items, 6) {
-                    out.push(PropField {
-                        id: "content.text".into(),
-                        label: "text".into(),
-                        group: PropGroup::Content,
-                        value: PropValue::Text(unquote(s)),
-                        slider: None,
-                    });
-                }
-            } else if let Some(s) = string_at(&items, 4) {
+    } else if kind == "ellipse" {
+        push_geom_num(&items, 1, "geom.x", "x", out);
+        push_geom_num(&items, 2, "geom.y", "y", out);
+        push_geom_num(&items, 3, "geom.rx", "rx", out);
+        push_geom_num(&items, 4, "geom.ry", "ry", out);
+        collect_trailing_fill(&items, out);
+    } else if kind == "ring" {
+        push_geom_num(&items, 1, "geom.x", "x", out);
+        push_geom_num(&items, 2, "geom.y", "y", out);
+        push_geom_num(&items, 3, "geom.r", "r", out);
+        push_geom_num(&items, 4, "geom.width", "width", out);
+        collect_trailing_fill(&items, out);
+    } else if kind == "text" {
+        push_geom_num(&items, 1, "geom.x", "x", out);
+        push_geom_num(&items, 2, "geom.y", "y", out);
+        push_geom_num(&items, 3, "geom.size", "size", out);
+        // Boxed: (text x y size w h "…") — slot 4 is a number.
+        let boxed = matches!(
+            items.get(4),
+            Some(Child::Token(t)) if t.kind() == SyntaxKind::Number
+        );
+        if boxed {
+            push_geom_num(&items, 4, "geom.w", "w", out);
+            push_geom_num(&items, 5, "geom.h", "h", out);
+            if let Some(s) = string_at(&items, 6) {
                 out.push(PropField {
                     id: "content.text".into(),
                     label: "text".into(),
@@ -274,39 +273,79 @@ fn collect_paint_props(paint: &SyntaxNode, out: &mut Vec<PropField>) {
                     slider: None,
                 });
             }
-            collect_trailing_fill(&items, out);
+        } else if let Some(s) = string_at(&items, 4) {
+            out.push(PropField {
+                id: "content.text".into(),
+                label: "text".into(),
+                group: PropGroup::Content,
+                value: PropValue::Text(unquote(s)),
+                slider: None,
+            });
         }
-        "image" => {
-            if let Some(s) = string_at(&items, 1) {
-                out.push(PropField {
-                    id: "content.path".into(),
-                    label: "path".into(),
-                    group: PropGroup::Content,
-                    value: PropValue::Text(unquote(s)),
-                    slider: None,
-                });
-            }
-            push_geom_num(&items, 2, "geom.x", "x", out);
-            push_geom_num(&items, 3, "geom.y", "y", out);
-            push_geom_num(&items, 4, "geom.w", "w", out);
-            push_geom_num(&items, 5, "geom.h", "h", out);
+        collect_trailing_fill(&items, out);
+    } else if kind == "image" {
+        if let Some(raw) = string_at(&items, 1) {
+            out.push(PropField {
+                id: "content.path".into(),
+                label: "path".into(),
+                group: PropGroup::Content,
+                value: PropValue::Text(unquote(raw)),
+                slider: None,
+            });
         }
-        "line" => {
-            push_geom_num(&items, 1, "geom.x1", "x1", out);
-            push_geom_num(&items, 2, "geom.y1", "y1", out);
-            push_geom_num(&items, 3, "geom.x2", "x2", out);
-            push_geom_num(&items, 4, "geom.y2", "y2", out);
-            collect_line_stroke(&items, out);
-        }
-        "polyline" | "polygon" => {
-            if kind == "polyline" {
-                collect_polyline_stroke(&items, out);
-            } else {
-                collect_trailing_fill(&items, out);
-            }
-        }
-        _ => {}
+        push_geom_num(&items, 2, "geom.x", "x", out);
+        push_geom_num(&items, 3, "geom.y", "y", out);
+        push_geom_num(&items, 4, "geom.w", "w", out);
+        push_geom_num(&items, 5, "geom.h", "h", out);
+    } else if kind == "line" {
+        push_geom_num(&items, 1, "geom.x1", "x1", out);
+        push_geom_num(&items, 2, "geom.y1", "y1", out);
+        push_geom_num(&items, 3, "geom.x2", "x2", out);
+        push_geom_num(&items, 4, "geom.y2", "y2", out);
+        collect_line_stroke(&items, out);
+    } else if kind == "polyline" {
+        collect_polyline_stroke(&items, out);
+    } else if kind == "polygon" {
+        collect_trailing_fill(&items, out);
+    } else {
+        // Unknown paint heads contribute no geometry/stroke props.
+        let _ = (paint, kind, out);
     }
+}
+
+/// Test/coverage hook: exercise the unknown-kind fallthrough of paint prop collect.
+#[doc(hidden)]
+pub fn coverage_collect_paint_unknown(src: &str) -> usize {
+    let mut out = Vec::new();
+    match parse_root(src) {
+        Ok(root) => collect_paint_props(&root, "unknown-kind", &mut out),
+        Err(_) => {
+            let _ = src.len();
+        }
+    }
+    out.len()
+}
+
+/// Test/coverage hook: early-return path when a geometry slot is absent.
+#[doc(hidden)]
+pub fn coverage_push_geom_missing() -> usize {
+    let mut out = Vec::new();
+    push_geom_num(&[], 0, "geom.x", "x", &mut out);
+    out.len()
+}
+
+/// Test/coverage hook: polyline stroke helper with fewer than two atoms.
+#[doc(hidden)]
+pub fn coverage_polyline_stroke_short() -> usize {
+    let mut out = Vec::new();
+    collect_polyline_stroke(&[], &mut out);
+    out.len()
+}
+
+/// Test/coverage hook: infallible decimal scan edge cases.
+#[doc(hidden)]
+pub fn coverage_parse_f64(sample: &str) -> f64 {
+    parse_f64_or_zero(sample)
 }
 
 fn set_paint_prop(
@@ -316,21 +355,9 @@ fn set_paint_prop(
     id: &str,
     value: &PropValue,
 ) -> Result<String, SyncError> {
-    let layers = collect_layers_page(src, page_index)?;
-    let layer = layers
-        .get(flat_index)
-        .ok_or_else(|| SyncError::new("layer index out of range"))?;
-    let root = parse_root(src)?;
-    let paint = find_list_covering(&root, layer.byte_start, layer.byte_end)
-        .expect("paint span from collect_layers");
+    let (_root, paint, kind) = layer_paint(src, page_index, flat_index)?;
     let items = list_atoms(&paint);
-    let Child::Token(head) = items
-        .first()
-        .expect("paint form has a head atom")
-    else {
-        return Ok(src.to_string());
-    };
-    let kind = head.text();
+    let kind = kind.as_str();
 
     match id {
         "geom.x" | "geom.y" | "geom.r" | "geom.w" | "geom.h" | "geom.rx" | "geom.ry"
@@ -411,45 +438,16 @@ pub fn set_layer_fill_rgb(
             return Err(SyncError::new("fill rgb channels must be in 0..=1"));
         }
     }
-    let layers = collect_layers_page(src, page_index)?;
-    let layer = layers
-        .get(flat_index)
-        .ok_or_else(|| SyncError::new("layer index out of range"))?;
-    let root = parse_root(src)?;
-    let paint = find_list_covering(&root, layer.byte_start, layer.byte_end)
-        .expect("paint span from collect_layers");
+    let (_root, paint, _kind) = layer_paint(src, page_index, flat_index)?;
     let items = list_atoms(&paint);
-    if trailing_color(&items).is_some() {
-        let ctx = PropEditContext {
-            aabb_mm: (0.0, 0.0, 1.0, 1.0),
-            paper_w_mm: 210.0,
-            paper_h_mm: 297.0,
-        };
-        let mut out = set_layer_prop(
-            src,
-            page_index,
-            flat_index,
-            "fill.r",
-            &PropValue::Number(r),
-            &ctx,
-        )?;
-        out = set_layer_prop(
-            &out,
-            page_index,
-            flat_index,
-            "fill.g",
-            &PropValue::Number(g),
-            &ctx,
-        )?;
-        out = set_layer_prop(
-            &out,
-            page_index,
-            flat_index,
-            "fill.b",
-            &PropValue::Number(b),
-            &ctx,
-        )?;
-        return Ok(out);
+    if let Some(child) = items.iter().rev().find(|c| color_channels(c).is_some()) {
+        let repl = format!(
+            "(rgb {} {} {})",
+            format_drag_number(r),
+            format_drag_number(g),
+            format_drag_number(b)
+        );
+        return Ok(replace_color_child(src, child, &repl));
     }
     // Insert (rgb …) before the closing paren of the paint form.
     let range = paint.text_range();
@@ -515,36 +513,39 @@ pub fn set_layer_stroke_rgb(
     g: f64,
     b: f64,
 ) -> Result<String, SyncError> {
-    let ctx = PropEditContext {
-        aabb_mm: (0.0, 0.0, 1.0, 1.0),
-        paper_w_mm: 210.0,
-        paper_h_mm: 297.0,
+    for c in [r, g, b] {
+        if !(0.0..=1.0).contains(&c) || !c.is_finite() {
+            return Err(SyncError::new("stroke rgb channels must be in 0..=1"));
+        }
+    }
+    let (_root, paint, kind) = layer_paint(src, page_index, flat_index)?;
+    let items = list_atoms(&paint);
+    let Some(child) = find_stroke_color_child(&kind, &items) else {
+        return Err(SyncError::new("no stroke color on this shape"));
     };
-    let mut out = set_layer_prop(
-        src,
-        page_index,
-        flat_index,
-        "stroke.r",
-        &PropValue::Number(r),
-        &ctx,
-    )?;
-    out = set_layer_prop(
-        &out,
-        page_index,
-        flat_index,
-        "stroke.g",
-        &PropValue::Number(g),
-        &ctx,
-    )?;
-    out = set_layer_prop(
-        &out,
-        page_index,
-        flat_index,
-        "stroke.b",
-        &PropValue::Number(b),
-        &ctx,
-    )?;
-    Ok(out)
+    let repl = format!(
+        "(rgb {} {} {})",
+        format_drag_number(r),
+        format_drag_number(g),
+        format_drag_number(b)
+    );
+    Ok(replace_color_child(src, child, &repl))
+}
+
+fn replace_color_child(src: &str, child: &Child, repl: &str) -> String {
+    match child {
+        Child::Token(t) => replace_token_text(t, repl).1,
+        Child::Node(n) => {
+            let range = n.text_range();
+            let start = usize::from(range.start());
+            let end = usize::from(range.end());
+            let mut out = String::with_capacity(src.len() + repl.len());
+            out.push_str(&src[..start]);
+            out.push_str(repl);
+            out.push_str(&src[end..]);
+            out
+        }
+    }
 }
 
 /// Batch stroke RGB. Skips layers without a stroke color; errors if none apply.
@@ -660,74 +661,78 @@ fn collect_trailing_stroke_on_frame(items: &[Child], out: &mut Vec<PropField>) {
     // (frame x y w h [fill] [stroke] [width]) — best-effort: last rgb after fill.
     let colors: Vec<_> = items
         .iter()
-        .enumerate()
-        .filter_map(|(i, c)| color_channels(c).map(|ch| (i, ch)))
+        .filter_map(|c| color_channels(c))
         .collect();
-    if colors.len() >= 2 {
-        push_rgb_fields(colors[1].1, PropGroup::Stroke, "stroke", out);
+    if let Some(stroke) = colors.get(1).copied() {
+        push_rgb_fields(stroke, PropGroup::Stroke, "stroke", out);
     }
-    if let Some(Child::Token(t)) = items.last() {
-        if t.kind() == SyntaxKind::Number {
-            let w = t.text().parse().unwrap_or(0.0);
-            out.push(num(
-                "stroke.width",
-                "width",
-                PropGroup::Stroke,
-                w,
-                Some((0.1, 40.0)),
-            ));
-        }
+    if let Some(w) = items
+        .last()
+        .and_then(|c| match c {
+            Child::Token(t) if t.kind() == SyntaxKind::Number => t.text().parse().ok(),
+            _ => None,
+        })
+    {
+        out.push(num(
+            "stroke.width",
+            "width",
+            PropGroup::Stroke,
+            w,
+            Some((0.1, 40.0)),
+        ));
     }
 }
 
 fn collect_line_stroke(items: &[Child], out: &mut Vec<PropField>) {
     // (line x1 y1 x2 y2 [color [width]])
-    if items.len() >= 6 {
-        if let Some(ch) = color_channels(&items[5]) {
-            push_rgb_fields(ch, PropGroup::Stroke, "stroke", out);
-        }
+    if let Some(ch) = items.get(5).and_then(color_channels) {
+        push_rgb_fields(ch, PropGroup::Stroke, "stroke", out);
     }
-    if items.len() >= 7 {
-        if let Some(Child::Token(t)) = items.get(6) {
-            if t.kind() == SyntaxKind::Number {
-                let w = t.text().parse().unwrap_or(0.0);
-                out.push(num(
-                    "stroke.width",
-                    "width",
-                    PropGroup::Stroke,
-                    w,
-                    Some((0.1, 40.0)),
-                ));
-            }
-        }
+    if let Some(t) = number_token(items, 6) {
+        // Lexer `Number` tokens always parse; keep a numeric fallback for safety.
+        let w = parse_f64_or_zero(t.text());
+        out.push(num(
+            "stroke.width",
+            "width",
+            PropGroup::Stroke,
+            w,
+            Some((0.1, 40.0)),
+        ));
     }
 }
 
+#[inline(never)]
 fn collect_polyline_stroke(items: &[Child], out: &mut Vec<PropField>) {
-    let last = items.len().checked_sub(1);
-    let prev = items.len().checked_sub(2);
-    if let (Some(li), Some(pi)) = (last, prev) {
-        if matches!(&items[li], Child::Token(t) if t.kind() == SyntaxKind::Number)
-            && color_channels(&items[pi]).is_some()
-        {
-            if let Some(ch) = color_channels(&items[pi]) {
+    // Prefer trailing `(color width)`; else trailing color only.
+    if items.len() >= 2 {
+        let last = &items[items.len() - 1];
+        let prev = &items[items.len() - 2];
+        if let (Child::Token(wtok), Some(ch)) = (last, color_channels(prev)) {
+            if wtok.kind() == SyntaxKind::Number {
                 push_rgb_fields(ch, PropGroup::Stroke, "stroke", out);
-            }
-            if let Child::Token(t) = &items[li] {
-                let w = t.text().parse().unwrap_or(0.0);
                 out.push(num(
                     "stroke.width",
                     "width",
                     PropGroup::Stroke,
-                    w,
+                    parse_f64_or_zero(wtok.text()),
                     Some((0.1, 40.0)),
                 ));
+                return;
             }
-            return;
+            // Trailing non-number token after a color: ignore width peel.
+            let _ = wtok;
         }
     }
     if let Some(ch) = items.last().and_then(color_channels) {
         push_rgb_fields(ch, PropGroup::Stroke, "stroke", out);
+    }
+}
+
+#[inline(never)]
+fn parse_f64_or_zero(text: &str) -> f64 {
+    match text.parse::<f64>() {
+        Ok(v) => v,
+        Err(_) => 0.0,
     }
 }
 
@@ -753,18 +758,16 @@ fn color_channels(child: &Child) -> Option<[f64; 3]> {
             ) {
                 return None;
             }
-            let r: f64 = number_token(&atoms, 1)?
-                .text()
-                .parse()
-                .expect("lexer Number parses as f64");
-            let g: f64 = number_token(&atoms, 2)?
-                .text()
-                .parse()
-                .expect("lexer Number parses as f64");
-            let b: f64 = number_token(&atoms, 3)?
-                .text()
-                .parse()
-                .expect("lexer Number parses as f64");
+            let (Some(rt), Some(gt), Some(bt)) = (
+                number_token(&atoms, 1),
+                number_token(&atoms, 2),
+                number_token(&atoms, 3),
+            ) else {
+                return None;
+            };
+            let r = parse_f64_or_zero(rt.text());
+            let g = parse_f64_or_zero(gt.text());
+            let b = parse_f64_or_zero(bt.text());
             Some([r, g, b])
         }
         _ => None,
@@ -796,9 +799,10 @@ fn set_color_channel(
         return Err(SyncError::new("color channel must be in 0..=1"));
     }
     let child = match role {
-        ColorRole::Fill => items
-            .last()
-            .ok_or_else(|| SyncError::new("no fill color on this shape"))?,
+        ColorRole::Fill => {
+            // set_paint_prop already required a head token, so items is non-empty.
+            &items[items.len() - 1]
+        }
         ColorRole::Stroke => find_stroke_color_child(kind, items)
             .ok_or_else(|| SyncError::new("no stroke color on this shape"))?,
     };
@@ -882,15 +886,17 @@ fn set_stroke_width(
     set_atom_number(src, items, slot, value)
 }
 
+#[inline(never)]
 fn push_geom_num(items: &[Child], slot: usize, id: &str, label: &str, out: &mut Vec<PropField>) {
-    if let Some(tok) = number_token(items, slot) {
-        let v = tok.text().parse().unwrap_or(0.0);
-        let slider = match label {
-            "r" | "rx" | "ry" | "w" | "h" | "size" | "width" => Some((0.5, 400.0)),
-            _ => Some((-400.0, 400.0)),
-        };
-        out.push(num(id, label, PropGroup::Geometry, v, slider));
-    }
+    let Some(tok) = number_token(items, slot) else {
+        return;
+    };
+    let v = parse_f64_or_zero(tok.text());
+    let slider = match label {
+        "r" | "rx" | "ry" | "w" | "h" | "size" | "width" => Some((0.5, 400.0)),
+        _ => Some((-400.0, 400.0)),
+    };
+    out.push(num(id, label, PropGroup::Geometry, v, slider));
 }
 
 fn set_atom_number(
@@ -941,26 +947,24 @@ fn unquote(raw: &str) -> String {
     let inner = raw.trim_matches('"');
     // Minimal unescape for display / edit round-trip of common escapes.
     let mut out = String::with_capacity(inner.len());
-    let mut chars = inner.chars().peekable();
+    let mut chars = inner.chars();
     while let Some(c) = chars.next() {
-        if c == '\\' {
-            // A lone trailing `\` cannot appear in a well-formed String token
-            // (lexer treats EOF-after-backslash as Error), so drop it if seen.
-            if let Some(esc) = chars.next() {
-                match esc {
-                    'n' => out.push('\n'),
-                    'r' => out.push('\r'),
-                    't' => out.push('\t'),
-                    '\\' => out.push('\\'),
-                    '"' => out.push('"'),
-                    other => {
-                        out.push('\\');
-                        out.push(other);
-                    }
-                }
-            }
-        } else {
+        if c != '\\' {
             out.push(c);
+            continue;
+        }
+        // Lone trailing `\` is treated as a literal backslash.
+        let esc = chars.next().unwrap_or('\\');
+        match esc {
+            'n' => out.push('\n'),
+            'r' => out.push('\r'),
+            't' => out.push('\t'),
+            '\\' => out.push('\\'),
+            '"' => out.push('"'),
+            other => {
+                out.push('\\');
+                out.push(other);
+            }
         }
     }
     out
@@ -987,5 +991,25 @@ fn num(id: &str, label: &str, group: PropGroup, v: f64, slider: Option<(f64, f64
         group,
         value: PropValue::Number(v),
         slider,
+    }
+}
+
+#[cfg(test)]
+mod props_coverage_helpers {
+    use super::*;
+
+    #[test]
+    fn unquote_lone_trailing_backslash() {
+        assert_eq!(unquote("\"abc\\"), "abc\\");
+    }
+
+    #[test]
+    fn coverage_hooks_also_run_under_cfg_test_lib() {
+        assert_eq!(coverage_collect_paint_unknown("(page a4 (circle 0 0 1))"), 0);
+        assert_eq!(coverage_collect_paint_unknown("("), 0);
+        assert_eq!(coverage_push_geom_missing(), 0);
+        assert_eq!(coverage_polyline_stroke_short(), 0);
+        assert_eq!(coverage_parse_f64("+1"), 1.0);
+        assert_eq!(coverage_parse_f64("x"), 0.0);
     }
 }

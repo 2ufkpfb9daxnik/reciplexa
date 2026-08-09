@@ -197,9 +197,17 @@ pub fn collect_size_targets_page(
     page_index: usize,
 ) -> Result<Vec<SizeTarget>, SyncError> {
     let root = parse_root(src)?;
+    collect_size_targets_from_root(&root, page_index)
+}
+
+/// Collect size targets from an already-parsed CST root.
+pub fn collect_size_targets_from_root(
+    root: &SyntaxNode,
+    page_index: usize,
+) -> Result<Vec<SizeTarget>, SyncError> {
     let mut out = Vec::new();
     let mut counters = Counters::default();
-    let page = find_page(&root, page_index)?;
+    let page = find_page(root, page_index)?;
     let items = list_atoms(&page);
     let start = page_body_start(&items);
     for item in items.iter().skip(start) {
@@ -623,8 +631,7 @@ fn find_rotate_degrees_token(node: &SyntaxNode) -> Option<SyntaxToken> {
             Some(Child::Token(t)) if t.kind() == SyntaxKind::Number => Some(t.clone()),
             _ => None,
         }
-    } else if is_headed(node, "opacity") || is_headed(node, "scale") || is_headed(node, "group")
-    {
+    } else if is_headed(node, "opacity") || is_headed(node, "scale") || is_headed(node, "group") {
         let child = first_shape_child(node).expect("transform wrapper has a shape child");
         find_rotate_degrees_token(&child)
     } else {
@@ -1101,8 +1108,8 @@ pub fn scale_box_axes(
     let nh = (h * fy).max(0.5);
     let nx = cx - nw * 0.5;
     let ny = cy - nh * 0.5;
-    let mut out = set_nth_number(src, head, index, slots[0], nx)
-        .expect("box x slot present after read");
+    let mut out =
+        set_nth_number(src, head, index, slots[0], nx).expect("box x slot present after read");
     out = set_nth_number(&out, head, index, slots[1], ny).expect("rewrite box y");
     out = set_nth_number(&out, head, index, slots[2], nw).expect("rewrite box w");
     Ok(set_nth_number(&out, head, index, slots[3], nh).expect("rewrite box h"))

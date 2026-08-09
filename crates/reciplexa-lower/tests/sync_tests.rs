@@ -686,8 +686,8 @@ fn delete_page_out_of_range_errors() {
 #[test]
 fn page_body_start_numeric_paper() {
     use reciplexa_lower::cst_walk::Child;
-    use reciplexa_lower::{find_page, page_body_start, list_atoms, parse_root};
-    
+    use reciplexa_lower::{find_page, list_atoms, page_body_start, parse_root};
+
     let root = parse_root("(page 100 150 (circle 1 2 3))").unwrap();
     let page = find_page(&root, 0).unwrap();
     let items = list_atoms(&page);

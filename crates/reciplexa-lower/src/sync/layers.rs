@@ -9,8 +9,16 @@ use crate::cst_walk::{list_atoms, Child};
 /// Collect layer labels + source spans for a page (flatten / hit-test order).
 pub fn collect_layers_page(src: &str, page_index: usize) -> Result<Vec<LayerInfo>, SyncError> {
     let root = parse_root(src)?;
+    collect_layers_from_root(&root, page_index)
+}
+
+/// Collect layers using an already-parsed CST root (avoids a redundant reparse).
+pub fn collect_layers_from_root(
+    root: &SyntaxNode,
+    page_index: usize,
+) -> Result<Vec<LayerInfo>, SyncError> {
     let mut out = Vec::new();
-    let page = find_page(&root, page_index)?;
+    let page = find_page(root, page_index)?;
     let items = list_atoms(&page);
     let start = page_body_start(&items);
     for item in items.iter().skip(start) {

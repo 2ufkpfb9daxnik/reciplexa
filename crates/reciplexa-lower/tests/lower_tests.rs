@@ -347,8 +347,7 @@ fn transform_without_body_fails() {
 #[test]
 fn lowers_image_and_polygon_without_color() {
     let doc =
-        lower_source(r#"(page a4 (image "pic.png" 10 20 30 40) (polygon 0 0 10 0 0 10))"#)
-            .unwrap();
+        lower_source(r#"(page a4 (image "pic.png" 10 20 30 40) (polygon 0 0 10 0 0 10))"#).unwrap();
     match &doc.pages[0].shapes[0] {
         Shape::Image(i) => {
             assert_eq!(i.path, "pic.png");
@@ -900,6 +899,25 @@ fn color_rgb_channel_number_errors() {
 }
 
 #[test]
+fn color_unknown_form_and_number_as_node_errors() {
+    assert!(lower_source("(page a4 (circle 0 0 1 (hsl 0.1 0.2 0.3)))").is_err());
+    // Nested list where a Number slot is expected.
+    assert!(lower_source("(page a4 (circle (1) 0 1))").is_err());
+    assert!(lower_source("(page a4 (circle 0 0 1 ()))").is_err());
+    assert!(lower_source("(page a4 (circle 1 2))").is_err());
+}
+
+#[test]
+fn polyline_trailing_number_without_color_does_not_peel() {
+    // end >= 3 with a trailing number that is not (color, width) — keep all coords.
+    let doc = lower_source("(page a4 (polyline 0 0 10 0 10 10 5 5))").unwrap();
+    match &doc.pages[0].shapes[0] {
+        Shape::Polyline(p) => assert_eq!(p.points_mm.len(), 4),
+        _ => panic!("expected polyline"),
+    }
+}
+
+#[test]
 fn polyline_odd_coords_after_color_peel() {
     // After peeling trailing color, three numbers remain → odd.
     assert!(lower_source("(page a4 (polyline 0 0 1 red))").is_err());
@@ -994,4 +1012,12 @@ fn number_as_node_in_shape_slots() {
     assert!(lower_source("(page a4 (circle (1) 2 3))").is_err());
     assert!(lower_source("(page a4 (rect 0 0 (1) 1))").is_err());
     assert!(lower_source(r#"(page a4 (text 0 0 3))"#).is_err()); // missing string
+}
+
+#[test]
+fn coverage_hooks_number_at_and_parse() {
+    assert!(coverage_number_at_missing());
+    assert_eq!(coverage_parse_num_text("+2.5"), 2.5);
+    assert_eq!(coverage_parse_num_text("-1"), -1.0);
+    assert_eq!(coverage_parse_num_text("abc"), 0.0);
 }

@@ -1,6 +1,5 @@
 use reciplexa_lower::*;
 
-
 const PAGE: &str = "(page a4 ";
 
 fn page(body: &str) -> String {
@@ -430,8 +429,7 @@ fn set_layer_rotation_non_finite_errors() {
 
 #[test]
 fn scale_layer_uniform_and_nudge_line_poly() {
-    let src =
-        page("(circle 0 0 5) (line 0 0 10 0) (polyline 0 0 5 5 10 0) (polygon 0 0 1 0 0 1)");
+    let src = page("(circle 0 0 5) (line 0 0 10 0) (polyline 0 0 5 5 10 0) (polygon 0 0 1 0 0 1)");
     let out = scale_layer_uniform(&src, 0, 0, 2.0).unwrap();
     assert_ne!(out, src);
     let out = nudge_drag_target(&src, DragTarget::LineXy(0), 1.0, 2.0).unwrap();
@@ -584,11 +582,7 @@ fn nudge_layer_digit_growth_refinds_translate() {
 fn nudge_layer_translate_missing_y_errors() {
     let src = page("(translate 1 y (circle 0 0 1))");
     let err = nudge_layer_page(&src, 0, 0, 1.0, 0.0).unwrap_err();
-    assert!(
-        err.message.contains("missing numeric y"),
-        "{}",
-        err.message
-    );
+    assert!(err.message.contains("missing numeric y"), "{}", err.message);
 }
 
 #[test]
@@ -603,8 +597,7 @@ fn nudge_layer_index_and_page_errors() {
 
 #[test]
 fn nudge_layer_opacity_center_sandwich() {
-    let src =
-        page("(opacity 0.4 (translate 10 20 (rotate 5 (translate -10 -20 (circle 0 0 2)))))");
+    let src = page("(opacity 0.4 (translate 10 20 (rotate 5 (translate -10 -20 (circle 0 0 2)))))");
     let out = nudge_layer_page(&src, 0, 0, 1.0, 2.0).unwrap();
     assert!(out.contains("(translate 11 22"), "{out}");
 }
@@ -613,10 +606,7 @@ fn nudge_layer_opacity_center_sandwich() {
 fn wrap_span_with_translate_on_bare_leaf() {
     let src = page("(circle 3 4 5)");
     let out = nudge_layer_page(&src, 0, 0, 2.0, 3.0).unwrap();
-    assert!(
-        out.contains("(translate 2 3 (circle 3 4 5))"),
-        "{out}"
-    );
+    assert!(out.contains("(translate 2 3 (circle 3 4 5))"), "{out}");
 }
 
 #[test]
@@ -629,7 +619,9 @@ fn scale_factor_and_axes_guards() {
     assert!(scale_size_target_axes(&src, SizeTarget::CircleR(0), -1.0, 2.0).is_err());
     assert!(scale_size_target_axes(&src, SizeTarget::RingR(0), 1.0, f64::NAN).is_err());
     assert!(scale_size_target_axes(&src, SizeTarget::LineSeg(0), 0.0, 1.0).is_err());
-    assert!(scale_size_target_axes(&src, SizeTarget::PolylinePoints(0), f64::INFINITY, 1.0).is_err());
+    assert!(
+        scale_size_target_axes(&src, SizeTarget::PolylinePoints(0), f64::INFINITY, 1.0).is_err()
+    );
     assert!(scale_size_target_axes(&src, SizeTarget::PolygonPoints(0), 1.0, -0.5).is_err());
     assert!(scale_size_target_axes(&src, SizeTarget::Unsupported, 2.0, 3.0).is_ok());
 }
@@ -855,9 +847,7 @@ fn set_opacity_missing_alpha_on_bad_token() {
 
 #[test]
 fn scale_second_polyline_trailing_width() {
-    let src = page(
-        "(polyline 0 0 1 0 1 1) (polyline 0 0 10 0 10 10 red 2)",
-    );
+    let src = page("(polyline 0 0 1 0 1 1) (polyline 0 0 10 0 10 10 red 2)");
     let out = scale_size_target(&src, SizeTarget::PolylinePoints(1), 2.0).unwrap();
     assert!(out.contains(" 4)"), "{out}");
 }
@@ -969,8 +959,13 @@ fn set_text_box_on_empty_text_form_errors() {
 #[test]
 fn scale_ellipse_and_polyline_missing_errors() {
     assert!(scale_size_target(&page("(ellipse 0 0)"), SizeTarget::EllipseRxRy(0), 2.0).is_err());
-    assert!(scale_size_target(&page("(circle 1 2 3)"), SizeTarget::PolylinePoints(0), 2.0).is_err());
-    assert!(scale_size_target_axes(&page("(ellipse 0 0)"), SizeTarget::EllipseRxRy(0), 2.0, 2.0).is_err());
+    assert!(
+        scale_size_target(&page("(circle 1 2 3)"), SizeTarget::PolylinePoints(0), 2.0).is_err()
+    );
+    assert!(
+        scale_size_target_axes(&page("(ellipse 0 0)"), SizeTarget::EllipseRxRy(0), 2.0, 2.0)
+            .is_err()
+    );
 }
 
 #[test]
