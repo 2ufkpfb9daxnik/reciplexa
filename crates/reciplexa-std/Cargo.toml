@@ -1,0 +1,12 @@
+[package]
+name = "reciplexa-std"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Reference Client standard packages (rpx.std.*) validating RPX APIs (Phase 14)"
+publish = false
+
+[dependencies]
+reciplexa-identity = { workspace = true }
+reciplexa-scene = { workspace = true }
+reciplexa-motion = { workspace = true }

@@ -3096,6 +3096,15 @@ name = "reciplexa-source"
 version = "0.1.0"
 
 [[package]]
+name = "reciplexa-std"
+version = "0.1.0"
+dependencies = [
+ "reciplexa-identity",
+ "reciplexa-motion",
+ "reciplexa-scene",
+]
+
+[[package]]
 name = "reciplexa-svg"
 version = "0.1.0"
 dependencies = [
@@ -3125,13 +3134,16 @@ dependencies = [
  "reciplexa-document",
  "reciplexa-eval",
  "reciplexa-gui-runtime",
+ "reciplexa-harden",
  "reciplexa-identity",
  "reciplexa-ir",
  "reciplexa-mem",
  "reciplexa-motion",
  "reciplexa-native",
+ "reciplexa-opt",
  "reciplexa-outcome",
  "reciplexa-package",
+ "reciplexa-proof",
  "reciplexa-raster",
  "reciplexa-runtime",
  "reciplexa-scene",
