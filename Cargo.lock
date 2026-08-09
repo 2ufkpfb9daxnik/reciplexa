@@ -3058,6 +3058,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "reciplexa-raster"
+version = "0.1.0"
+dependencies = [
+ "png 0.17.16",
+ "reciplexa-scene",
+ "reciplexa-view",
+]
+
+[[package]]
 name = "reciplexa-runtime"
 version = "0.1.0"
 dependencies = [
