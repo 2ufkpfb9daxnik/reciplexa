@@ -1,0 +1,10 @@
+[package]
+name = "reciplexa-motion"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Motion IR: time domain, tracks, timeline, sampling (Phase 12)"
+publish = false
+
+[dependencies]
+reciplexa-identity = { workspace = true }
