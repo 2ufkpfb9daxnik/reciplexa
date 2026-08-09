@@ -4,7 +4,13 @@
 
 #![forbid(unsafe_code)]
 
+pub mod sample;
+
 use reciplexa_motion::SampleMode;
+
+pub use sample::{
+    sample_timeline_sequence, FrameSample, SampledSequence, TrackSample, VideoLoss, VideoLossKind,
+};
 
 /// Video output intent (mirrors backend ProfileKind for Motion sampling).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
