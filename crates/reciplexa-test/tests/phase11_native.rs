@@ -96,7 +96,7 @@ fn phase11_abi_quarantine_blocks_retry() {
 
 #[test]
 fn phase11_call_unknown_instance() {
-    let reg = AdapterRegistry::with_portable_defaults();
+    let mut reg = AdapterRegistry::with_portable_defaults();
     assert!(matches!(
         reg.call(0, "decode_header", &[]),
         Err(NegotiationError::NotReady(0))
