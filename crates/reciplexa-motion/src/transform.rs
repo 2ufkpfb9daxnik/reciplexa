@@ -24,8 +24,12 @@ pub enum TimeTransform {
     Identity,
     Offset(DurationMs),
     /// Multiply child time by `factor` (finite, > 0).
-    Scale { factor: f64 },
-    Reverse { source_len: DurationMs },
+    Scale {
+        factor: f64,
+    },
+    Reverse {
+        source_len: DurationMs,
+    },
     Freeze(TimeMs),
     Compose(Box<TimeTransform>, Box<TimeTransform>),
 }
@@ -97,11 +101,7 @@ pub fn apply_range_policy(
             } else {
                 (t.0 - start.0) % cycle
             };
-            let local = if raw < len {
-                raw
-            } else {
-                cycle - raw
-            };
+            let local = if raw < len { raw } else { cycle - raw };
             Ok(Some(TimeMs(local.min(len - 1))))
         }
         RangePolicy::Failure => Err(RangePolicyError::OutOfRange),

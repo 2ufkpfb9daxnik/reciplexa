@@ -22,7 +22,11 @@ pub enum SampleError {
 }
 
 /// Sample an `f64` track at time `t`.
-pub fn sample_f64(track: &MotionTrack<f64>, t: TimeMs, mode: SampleMode) -> Result<f64, SampleError> {
+pub fn sample_f64(
+    track: &MotionTrack<f64>,
+    t: TimeMs,
+    mode: SampleMode,
+) -> Result<f64, SampleError> {
     match track {
         MotionTrack::Constant(v) => {
             ensure_finite(*v)?;

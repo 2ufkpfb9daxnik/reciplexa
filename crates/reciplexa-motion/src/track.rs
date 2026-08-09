@@ -17,7 +17,10 @@ pub enum MotionTrack<A> {
     Constant(A),
     Keyframes(Vec<Keyframe<A>>),
     /// Uniform samples; `rate_hz` must be finite and > 0.
-    Samples { rate_hz: f64, values: Vec<A> },
+    Samples {
+        rate_hz: f64,
+        values: Vec<A>,
+    },
 }
 
 impl<A: Clone> MotionTrack<A> {

@@ -72,12 +72,10 @@ pub fn compare_preview_final(timeline: &MotionTimeline) -> PreviewFinalDiff {
     let final_sync = sync_playhead(timeline, SyncProfile::Final);
     let mut divergent_track_ids = Vec::new();
     for (p, f) in preview.values.iter().zip(final_sync.values.iter()) {
-        let diverge = match (&p.value, &f.value, &f.error) {
-            (Some(a), Some(b), _) => (a - b).abs() > 1e-9,
-            (Some(_), None, Some(_)) => true,
-            (Some(_), None, None) => true,
-            (None, Some(_), _) => true,
-            _ => p.error != f.error,
+        let diverge = match (&p.value, &f.value) {
+            (Some(a), Some(b)) => (a - b).abs() > 1e-9,
+            (None, None) => p.error != f.error,
+            _ => true,
         };
         if diverge {
             divergent_track_ids.push(p.track_id);

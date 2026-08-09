@@ -634,3 +634,25 @@ fn compare_preview_final_sample_rate_diverges() {
     assert!((diff.preview.values[0].value.unwrap() - 5.0).abs() < 1e-9);
     assert_eq!(diff.final_sync.values[0].value, Some(0.0));
 }
+
+#[test]
+fn compare_preview_final_both_none_transparent() {
+    let mut placement = TemporalPlacement::span(TimeMs(100), TimeMs(200));
+    placement.range_policy = RangePolicy::Transparent;
+    let tl = MotionTimeline {
+        playhead: TimeMs(50),
+        duration: DurationMs(300),
+        tracks: vec![TimelineTrack {
+            id: 9,
+            node: None,
+            name: "out".into(),
+            placement,
+            track: MotionTrack::constant(1.0),
+        }],
+        playing: false,
+    };
+    let diff = compare_preview_final(&tl);
+    assert!(diff.preview.values[0].value.is_none());
+    assert!(diff.final_sync.values[0].value.is_none());
+    assert!(diff.divergent_track_ids.is_empty());
+}
