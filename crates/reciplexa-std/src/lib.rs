@@ -7,11 +7,13 @@
 #![forbid(unsafe_code)]
 
 pub mod core;
+pub mod layout;
 pub mod style;
 pub mod text;
 pub mod visual;
 
 pub use core::{Angle, Color, Length, Point, Range, Rect, Size};
+pub use layout::{Align, Axis, Column, LayoutChild, Padding, Row, Stack};
 pub use style::{Fill, Opacity, Stroke, Style};
 pub use text::{Font, Paragraph, Span, Text, TextBox, TextStyle};
 pub use visual::{
