@@ -68,10 +68,9 @@ pub fn validate_raster_loss_report(
         if loss.profile != profile.kind {
             return Err(ArtifactValidationError::LossProfileMismatch);
         }
-    }
-    if profile.forbid_silent_loss {
-        // Retention of the variant for callers that map disposition failures.
-        let _ = ArtifactValidationError::SilentLossForbidden;
+        if profile.forbid_silent_loss && loss.detail.trim().is_empty() {
+            return Err(ArtifactValidationError::SilentLossForbidden);
+        }
     }
     Ok(())
 }

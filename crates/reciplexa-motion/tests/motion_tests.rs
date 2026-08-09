@@ -551,3 +551,86 @@ fn preview_sync_playhead_interpolates() {
     let at_start = sync_playhead(&tl, SyncProfile::Final);
     assert_eq!(at_start.values[0].value, Some(0.0));
 }
+
+#[test]
+fn preview_sync_transparent_and_failure_range() {
+    let mut placement = TemporalPlacement::span(TimeMs(100), TimeMs(200));
+    placement.range_policy = RangePolicy::Transparent;
+    let tl = MotionTimeline {
+        playhead: TimeMs(50),
+        duration: DurationMs(300),
+        tracks: vec![TimelineTrack {
+            id: 2,
+            node: None,
+            name: "t".into(),
+            placement,
+            track: MotionTrack::constant(3.0),
+        }],
+        playing: false,
+    };
+    let sync = sync_playhead(&tl, SyncProfile::Preview);
+    assert_eq!(sync.values[0].value, None);
+    assert_eq!(sync.values[0].error, None);
+
+    let mut bad = TemporalPlacement::span(TimeMs(0), TimeMs(1));
+    bad.parent_start = TimeMs(10);
+    bad.parent_end = TimeMs(10);
+    bad.range_policy = RangePolicy::Failure;
+    let tl2 = MotionTimeline {
+        playhead: TimeMs(5),
+        duration: DurationMs(20),
+        tracks: vec![TimelineTrack {
+            id: 4,
+            node: None,
+            name: "bad".into(),
+            placement: bad,
+            track: MotionTrack::constant(1.0),
+        }],
+        playing: false,
+    };
+    let sync2 = sync_playhead(&tl2, SyncProfile::Preview);
+    assert_eq!(sync2.values[0].error, Some(SampleError::EmptyKeyframes));
+}
+
+#[test]
+fn compare_preview_final_aligned_constants() {
+    let tl = MotionTimeline {
+        playhead: TimeMs(10),
+        duration: DurationMs(100),
+        tracks: vec![TimelineTrack {
+            id: 1,
+            node: None,
+            name: "c".into(),
+            placement: TemporalPlacement::span(TimeMs(0), TimeMs(100)),
+            track: MotionTrack::constant(2.5),
+        }],
+        playing: false,
+    };
+    let diff = compare_preview_final(&tl);
+    assert!(diff.divergent_track_ids.is_empty());
+    assert_eq!(diff.preview.values[0].value, Some(2.5));
+    assert_eq!(diff.final_sync.values[0].value, Some(2.5));
+}
+
+#[test]
+fn compare_preview_final_sample_rate_diverges() {
+    let tl = MotionTimeline {
+        playhead: TimeMs(500),
+        duration: DurationMs(2000),
+        tracks: vec![TimelineTrack {
+            id: 5,
+            node: None,
+            name: "s".into(),
+            placement: TemporalPlacement::span(TimeMs(0), TimeMs(2000)),
+            track: MotionTrack::Samples {
+                rate_hz: 1.0,
+                values: vec![0.0, 10.0],
+            },
+        }],
+        playing: false,
+    };
+    let diff = compare_preview_final(&tl);
+    assert!(diff.divergent_track_ids.contains(&5));
+    assert!((diff.preview.values[0].value.unwrap() - 5.0).abs() < 1e-9);
+    assert_eq!(diff.final_sync.values[0].value, Some(0.0));
+}

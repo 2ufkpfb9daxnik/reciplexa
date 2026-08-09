@@ -12,7 +12,9 @@ pub mod preview;
 pub mod profile;
 pub mod verify;
 
-pub use capability::{BackendCapability, BackendFamily, CapabilityMismatch, PlanningError};
+pub use capability::{
+    check_capability_profile, BackendCapability, BackendFamily, CapabilityMismatch, PlanningError,
+};
 pub use emit::EmitError;
 pub use emit_raster::{emit_raster_page_from_plan, EmittedRasterPage};
 pub use loss::{LossDisposition, LossReport, OutputLoss, OutputLossKind};
