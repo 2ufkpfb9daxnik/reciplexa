@@ -1,4 +1,6 @@
-use reciplexa_pdf::{CjkFontEmbed, PdfError, cjk_font_path, subset_tag, system_cjk_font_path, utf16_hex};
+use reciplexa_pdf::{
+    cjk_font_path, subset_tag, system_cjk_font_path, utf16_hex, CjkFontEmbed, PdfError,
+};
 use std::collections::BTreeSet;
 use std::sync::{Mutex, OnceLock};
 
@@ -10,7 +12,6 @@ fn lock_cjk_test_env() -> std::sync::MutexGuard<'static, ()> {
         .lock()
         .unwrap()
 }
-
 
 fn with_saved_cjk_font_env<F: FnOnce()>(f: F) {
     let _guard = lock_cjk_test_env();

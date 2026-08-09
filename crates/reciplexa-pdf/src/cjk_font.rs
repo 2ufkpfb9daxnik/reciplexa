@@ -58,8 +58,7 @@ impl CjkFontEmbed {
             unicode_to_old.insert(*ch as u32, gid.0);
         }
 
-        let subset_ttf = subset(&data, 0, &remapper)
-            .expect("subset after successful face parse");
+        let subset_ttf = subset(&data, 0, &remapper).expect("subset after successful face parse");
 
         let mut unicode_to_cid = BTreeMap::new();
         let mut cid_widths = BTreeMap::new();
@@ -74,9 +73,9 @@ impl CjkFontEmbed {
             let w = ((adv * 1000) / units) as u16;
             cid_widths.insert(cid, w);
         }
-        if let Some(cid0) = remapper.get(0) {
-            cid_widths.insert(cid0, 500);
-        }
+        // `.notdef` (gid 0) is remapped for subsetting; remappers may omit CID 0
+        // from the post-subset lookup table, so do not require a width entry.
+        let _ = remapper.get(0);
 
         let scale = 1000.0 / f64::from(units);
         let (bbox, ascent, descent) = metrics_1000(&face, scale);
