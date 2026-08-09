@@ -8,10 +8,15 @@ use reciplexa_visual_ir::{
 
 use crate::capability::{BackendCapability, PlanningError};
 use crate::emit::{emit_svg_from_plan, EmitError};
-use crate::plan::{plan_preview, plan_svg, BackendPlan};
+use crate::emit_raster::{emit_raster_page_from_plan, EmittedRasterPage};
+use crate::loss::LossReport;
+use crate::plan::{plan_preview, plan_raster, plan_svg, BackendPlan};
 use crate::preview::{emit_preview_from_plan, PreviewDrawable};
 use crate::profile::OutputProfile;
-use crate::verify::{validate_svg_artifact, ArtifactValidationError};
+use crate::verify::{
+    validate_png_artifact, validate_raster_loss_report, validate_svg_artifact,
+    ArtifactValidationError,
+};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct VerifiedSvgArtifact {
@@ -22,6 +27,17 @@ pub struct VerifiedSvgArtifact {
 #[derive(Debug, Clone, PartialEq)]
 pub struct VerifiedPreviewArtifact {
     pub drawables: Vec<PreviewDrawable>,
+    pub provenance: Vec<ArtifactProvenance>,
+}
+
+/// Verified Raster page export with explicit Loss report (Preview vs Final never silent).
+#[derive(Debug, Clone, PartialEq)]
+pub struct VerifiedRasterArtifact {
+    pub page_index: usize,
+    pub png: Vec<u8>,
+    pub width: u32,
+    pub height: u32,
+    pub losses: LossReport,
     pub provenance: Vec<ArtifactProvenance>,
 }
 
@@ -107,6 +123,61 @@ pub fn finalize_preview_export(
     let provenance = build_artifact_provenance(plan, prov);
     Ok(VerifiedPreviewArtifact {
         drawables,
+        provenance,
+    })
+}
+
+/// Raster export: scene → plan_raster → PNG emit → PNG/loss verification.
+pub fn export_scene_to_raster(
+    doc: &Document,
+    cap: &BackendCapability,
+    profile: &OutputProfile,
+    page_index: usize,
+) -> Result<VerifiedRasterArtifact, ExportError> {
+    export_scene_to_raster_with_hints(doc, cap, profile, page_index, &[])
+}
+
+/// Raster export with paint-order source provenance hints.
+pub fn export_scene_to_raster_with_hints(
+    doc: &Document,
+    cap: &BackendCapability,
+    profile: &OutputProfile,
+    page_index: usize,
+    hints: &[Option<NodeSourceHint>],
+) -> Result<VerifiedRasterArtifact, ExportError> {
+    let options = LowerOptions {
+        ellipse_sides: profile.ellipse_sides,
+        provenance_hints: hints.to_vec(),
+    };
+    let (render, prov) = lower_scene_document_with_options(doc, &options);
+    validate_render_document(&render).map_err(ExportError::Render)?;
+    let plan = plan_raster(&render, cap, profile).map_err(ExportError::Planning)?;
+    finalize_raster_export(&plan, doc, &prov, page_index)
+}
+
+/// Emit + validate Raster PNG from an existing plan.
+pub fn finalize_raster_export(
+    plan: &BackendPlan,
+    doc: &Document,
+    prov: &ProvenanceMap,
+    page_index: usize,
+) -> Result<VerifiedRasterArtifact, ExportError> {
+    let EmittedRasterPage {
+        page_index,
+        png,
+        width,
+        height,
+        losses,
+    } = emit_raster_page_from_plan(plan, doc, page_index).map_err(ExportError::Emit)?;
+    validate_png_artifact(&png).map_err(ExportError::Artifact)?;
+    validate_raster_loss_report(&losses, &plan.profile).map_err(ExportError::Artifact)?;
+    let provenance = build_artifact_provenance(plan, prov);
+    Ok(VerifiedRasterArtifact {
+        page_index,
+        png,
+        width,
+        height,
+        losses,
         provenance,
     })
 }

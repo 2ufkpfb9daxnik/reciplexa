@@ -17,9 +17,10 @@ pub use emit::EmitError;
 pub use emit_raster::{emit_raster_page_from_plan, EmittedRasterPage};
 pub use loss::{LossDisposition, LossReport, OutputLoss, OutputLossKind};
 pub use pipeline::{
-    export_scene_to_preview, export_scene_to_preview_with_hints, export_scene_to_svg,
-    export_scene_to_svg_with_hints, finalize_preview_export, finalize_svg_export, ExportError,
-    VerifiedPreviewArtifact, VerifiedSvgArtifact,
+    export_scene_to_preview, export_scene_to_preview_with_hints, export_scene_to_raster,
+    export_scene_to_raster_with_hints, export_scene_to_svg, export_scene_to_svg_with_hints,
+    finalize_preview_export, finalize_raster_export, finalize_svg_export, ExportError,
+    VerifiedPreviewArtifact, VerifiedRasterArtifact, VerifiedSvgArtifact,
 };
 pub use plan::{
     plan_preview, plan_raster, plan_svg, BackendPlan, BackendTarget, PlannedNode, Representation,
