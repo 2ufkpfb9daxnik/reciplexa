@@ -22,9 +22,12 @@ fn used_and_release_all_kinds() {
 
 #[test]
 fn fuzz_expectation_accept_path_and_default() {
+    fn always_true(_: &[u8]) -> bool {
+        true
+    }
     let mut h = FuzzHarnessHook::default();
     let ok = AdversarialCase::new("ok", b"ab".to_vec(), false);
-    let out = h.run_case(&ok, |_| true);
+    let out = h.run_case(&ok, always_true);
     assert_eq!(out, FuzzOutcome::Accepted);
     assert!(FuzzHarnessHook::check_expectation(&ok, out));
     assert!(!FuzzHarnessHook::check_expectation(

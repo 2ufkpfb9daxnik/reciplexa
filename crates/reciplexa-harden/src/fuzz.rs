@@ -39,17 +39,14 @@ impl FuzzHarnessHook {
     }
 
     /// Classify a raw byte blob with a pure predicate (stub entry point).
-    pub fn run_case<F>(&mut self, case: &AdversarialCase, classify: F) -> FuzzOutcome
-    where
-        F: FnOnce(&[u8]) -> bool,
-    {
-        self.cases_run = self.cases_run.saturating_add(1);
+    pub fn run_case(&mut self, case: &AdversarialCase, classify: fn(&[u8]) -> bool) -> FuzzOutcome {
+        self.cases_run += 1;
         let accepted = classify(&case.payload);
         if accepted {
-            self.accepts = self.accepts.saturating_add(1);
+            self.accepts += 1;
             FuzzOutcome::Accepted
         } else {
-            self.rejects = self.rejects.saturating_add(1);
+            self.rejects += 1;
             FuzzOutcome::Rejected
         }
     }

@@ -4,11 +4,17 @@ use reciplexa_harden::{AdversarialCase, FuzzHarnessHook, FuzzOutcome};
 
 #[test]
 fn run_case_counts_accept_reject() {
+    fn short_ok(p: &[u8]) -> bool {
+        p.len() <= 2
+    }
+    fn all_alnum(p: &[u8]) -> bool {
+        p.iter().all(|c| c.is_ascii_alphanumeric())
+    }
     let mut h = FuzzHarnessHook::new();
     let ok = AdversarialCase::new("tiny", b"ok".to_vec(), false);
     let bad = AdversarialCase::new("bad", b"!!!!".to_vec(), true);
-    let a = h.run_case(&ok, |p| p.len() <= 2);
-    let b = h.run_case(&bad, |p| p.iter().all(|c| c.is_ascii_alphanumeric()));
+    let a = h.run_case(&ok, short_ok);
+    let b = h.run_case(&bad, all_alnum);
     assert_eq!(a, FuzzOutcome::Accepted);
     assert_eq!(b, FuzzOutcome::Rejected);
     assert_eq!(h.cases_run, 2);
