@@ -8,6 +8,11 @@
 
 pub mod core;
 pub mod style;
+pub mod visual;
 
 pub use core::{Angle, Color, Length, Point, Range, Rect, Size};
 pub use style::{Fill, Opacity, Stroke, Style};
+pub use visual::{
+    rectangle_from_scene, scene_text_box, Canvas, Ellipse, Group, Image, Line, Path, Rectangle,
+    Transform, VisualNode,
+};
