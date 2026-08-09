@@ -7,5 +7,7 @@
 #![forbid(unsafe_code)]
 
 pub mod fingerprint;
+pub mod invalidation;
 
 pub use fingerprint::Fingerprint;
+pub use invalidation::{CacheDomain, InvalidationKind, InvalidationKey, InvalidationSet};
