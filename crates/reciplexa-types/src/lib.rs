@@ -501,11 +501,9 @@ fn check_polyline(
         && synthesizes_number(&args[end - 1])
         && matches!(check_child(&args[end - 2]), Ok(Type::Color))
     {
-        require_ty(&args[end - 1], Type::Number, node)?;
-        require_ty(&args[end - 2], Type::Color, node)?;
+        // Width/color already validated by the predicates above.
         end -= 2;
     } else if end >= 1 && matches!(check_child(&args[end - 1]), Ok(Type::Color)) {
-        require_ty(&args[end - 1], Type::Color, node)?;
         end -= 1;
     }
     let coords = &args[..end];
@@ -536,7 +534,7 @@ fn check_polygon(
     }
     let mut end = args.len();
     if end >= 1 && matches!(check_child(&args[end - 1]), Ok(Type::Color)) {
-        require_ty(&args[end - 1], Type::Color, node)?;
+        // Color already validated by the predicate above.
         end -= 1;
     }
     let coords = &args[..end];
@@ -563,7 +561,7 @@ fn check_scale(args: &[Child], node: &SyntaxNode, span: (usize, usize)) -> Resul
     }
     require_ty(&args[0], Type::Number, node)?;
     let rest = if args.len() >= 2 && synthesizes_number(&args[1]) {
-        require_ty(&args[1], Type::Number, node)?;
+        // Second factor already known to be a Number token.
         &args[2..]
     } else {
         &args[1..]

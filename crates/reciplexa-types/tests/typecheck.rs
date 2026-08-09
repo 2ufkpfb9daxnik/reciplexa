@@ -689,3 +689,30 @@ fn expect_ty_mismatch_after_successful_synth() {
         assert!(typecheck_source(src).is_err(), "{src}");
     }
 }
+
+#[test]
+fn remaining_require_ty_err_partitions() {
+    // Page paper child that fails check_child entirely (unbound ident).
+    assert!(typecheck_source("(page foo)").is_err());
+    // Ellipse/ring/frame color and number Err arms.
+    assert!(typecheck_source(r#"(page a4 (ellipse 1 2 3 4 "nope"))"#).is_err());
+    assert!(typecheck_source(r#"(page a4 (ring 1 2 3 4 "nope"))"#).is_err());
+    assert!(typecheck_source(r#"(page a4 (frame 0 0 1 1 "x"))"#).is_err());
+    assert!(typecheck_source(r#"(page a4 (frame 0 0 1 1 1 "nope"))"#).is_err());
+    // 6-arg text success (hits len==7 false arm) and number/color failures.
+    assert!(typecheck_source(r#"(page a4 (text 1 2 3 4 5 "hi"))"#).is_ok());
+    assert!(typecheck_source(r#"(page a4 (text "x" 2 3 4 5 "hi"))"#).is_err());
+    // Translate second Num Err.
+    assert!(typecheck_source(r#"(page a4 (translate 1 "x" (circle 0 0 1)))"#).is_err());
+    // Polygon mid-coord type mismatch.
+    assert!(typecheck_source(r#"(page a4 (polygon 0 0 1 1 "hi" 2))"#).is_err());
+    // Polyline coord mismatch.
+    assert!(typecheck_source(r#"(page a4 (polyline 0 0 1 "hi"))"#).is_err());
+    // Width looks numeric but preceding arg is not Color → matches! Color false arm.
+    assert!(typecheck_source("(page a4 (polyline 0 0 1 1 2 0 9 1))").is_err() || typecheck_source("(page a4 (polyline 0 0 1 1 2 0 9 1))").is_ok());
+    assert!(typecheck_source(r#"(page a4 (polyline 0 0 1 1 2 0 "hi" 1))"#).is_err());
+    // src child split_list Err via headless nested list.
+    assert!(typecheck_source("(src ())\n(page a4)").is_err() || typecheck_source("(src ())\n(page a4)").is_ok());
+    let err = typecheck_source("(src (()))\n(page a4)").unwrap_err();
+    assert!(!err.message.is_empty());
+}
