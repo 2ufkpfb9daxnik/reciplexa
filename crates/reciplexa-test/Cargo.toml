@@ -14,6 +14,8 @@ reciplexa-outcome = { workspace = true }
 reciplexa-source = { workspace = true }
 reciplexa-visual-ir = { workspace = true }
 reciplexa-motion = { workspace = true }
+reciplexa-raster = { workspace = true }
+reciplexa-video = { workspace = true }
 reciplexa-backend = { workspace = true }
 reciplexa-gui-runtime = { workspace = true }
 reciplexa-codec = { workspace = true }
