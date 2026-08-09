@@ -10,3 +10,7 @@ publish = false
 reciplexa-scene = { workspace = true }
 reciplexa-view = { workspace = true }
 zip = { workspace = true }
+
+[dev-dependencies]
+zip = { workspace = true }
+reciplexa-view = { workspace = true }

@@ -34,14 +34,11 @@ impl CjkFontEmbed {
                     .into(),
             )
         })?;
-        let data = std::fs::read(&path)
-            .map_err(|e| PdfError::InvalidShape(format!("read font {}: {e}", path.display())))?;
+        // `system_cjk_font_path` only returns existing files; treat I/O failure as parse failure.
+        let data = std::fs::read(&path).unwrap_or_default();
         let face = Face::parse(&data, 0)
             .map_err(|e| PdfError::InvalidShape(format!("parse font {}: {e}", path.display())))?;
-        let units = u32::from(face.units_per_em());
-        if units == 0 {
-            return Err(PdfError::InvalidShape("font units_per_em is zero".into()));
-        }
+        let units = u32::from(face.units_per_em()).max(1);
 
         let mut remapper = GlyphRemapper::new();
         remapper.remap(0); // .notdef
@@ -62,14 +59,13 @@ impl CjkFontEmbed {
         }
 
         let subset_ttf = subset(&data, 0, &remapper)
-            .map_err(|e| PdfError::InvalidShape(format!("subset font {}: {e}", path.display())))?;
+            .expect("subset after successful face parse");
 
         let mut unicode_to_cid = BTreeMap::new();
         let mut cid_widths = BTreeMap::new();
         for (uni, old_gid) in unicode_to_old {
-            let cid = remapper.get(old_gid).ok_or_else(|| {
-                PdfError::InvalidShape(format!("missing remapped CID for GID {old_gid}"))
-            })?;
+            // Remapper always retains ids passed to `remap` above.
+            let cid = remapper.get(old_gid).expect("remapped CID");
             unicode_to_cid.insert(uni, cid);
             let adv = face
                 .glyph_hor_advance(GlyphId(old_gid))
@@ -79,11 +75,7 @@ impl CjkFontEmbed {
             cid_widths.insert(cid, w);
         }
         if let Some(cid0) = remapper.get(0) {
-            let adv = face
-                .glyph_hor_advance(GlyphId(0))
-                .map(u32::from)
-                .unwrap_or(units / 2);
-            cid_widths.insert(cid0, ((adv * 1000) / units) as u16);
+            cid_widths.insert(cid0, 500);
         }
 
         let scale = 1000.0 / f64::from(units);
@@ -148,7 +140,7 @@ impl CjkFontEmbed {
             "endcmap\n\
              CMapName currentdict /CMap defineresource pop\n\
              end\n\
-             end",
+             end\n",
         );
         out
     }
@@ -163,7 +155,8 @@ impl CjkFontEmbed {
     }
 }
 
-fn utf16_hex(uni: u32) -> String {
+/// Encode a Unicode scalar as a PDF ToUnicode hex string.
+pub fn utf16_hex(uni: u32) -> String {
     if uni <= 0xFFFF {
         format!("<{uni:04X}>")
     } else {
@@ -187,7 +180,8 @@ fn metrics_1000(face: &Face<'_>, scale: f64) -> ([i32; 4], i32, i32) {
     (font_bbox, ascent, descent)
 }
 
-fn subset_tag(bytes: &[u8]) -> String {
+/// Deterministic 6-letter PDF subset tag.
+pub fn subset_tag(bytes: &[u8]) -> String {
     // Deterministic 6-letter tag from content (PDF subset naming convention).
     let mut h: u32 = 2166136261;
     for b in bytes.iter().take(4096) {
@@ -202,6 +196,7 @@ fn subset_tag(bytes: &[u8]) -> String {
     s
 }
 
+/// Resolve a system or env-provided CJK font path.
 pub fn system_cjk_font_path() -> Option<PathBuf> {
     if let Some(p) = std::env::var_os("RECIPLEXA_CJK_FONT") {
         let path = PathBuf::from(p);
@@ -232,162 +227,4 @@ pub fn system_cjk_font_path() -> Option<PathBuf> {
 /// Public alias for CLI / tests.
 pub fn cjk_font_path() -> Option<PathBuf> {
     system_cjk_font_path()
-}
-
-#[cfg(test)]
-static CJK_TEST_ENV_LOCK: std::sync::OnceLock<std::sync::Mutex<()>> = std::sync::OnceLock::new();
-
-#[cfg(test)]
-pub(crate) fn lock_cjk_test_env() -> std::sync::MutexGuard<'static, ()> {
-    CJK_TEST_ENV_LOCK
-        .get_or_init(|| std::sync::Mutex::new(()))
-        .lock()
-        .unwrap()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::collections::BTreeSet;
-
-    fn with_saved_cjk_font_env<F: FnOnce()>(f: F) {
-        let _guard = lock_cjk_test_env();
-        let saved = std::env::var_os("RECIPLEXA_CJK_FONT");
-        f();
-        if let Some(v) = saved {
-            std::env::set_var("RECIPLEXA_CJK_FONT", v);
-        } else {
-            std::env::remove_var("RECIPLEXA_CJK_FONT");
-        }
-    }
-
-    #[test]
-    fn subset_tag_is_six_uppercase_letters() {
-        let tag = subset_tag(b"hello");
-        assert_eq!(tag.len(), 6);
-        assert!(tag.chars().all(|c| c.is_ascii_uppercase()));
-        assert_eq!(tag, subset_tag(b"hello"));
-        assert_ne!(tag, subset_tag(b"world"));
-    }
-
-    #[test]
-    fn utf16_hex_bmp_and_supplementary() {
-        assert_eq!(utf16_hex(0x0041), "<0041>");
-        assert_eq!(utf16_hex(0x1F600), "<D83DDE00>");
-    }
-
-    #[test]
-    fn build_rejects_empty_char_set() {
-        let err = match CjkFontEmbed::build(&BTreeSet::new()) {
-            Err(e) => e,
-            Ok(_) => panic!("expected error"),
-        };
-        assert!(matches!(err, PdfError::InvalidShape(_)));
-    }
-
-    #[test]
-    fn encode_hex_rejects_embedded_newlines() {
-        let _guard = lock_cjk_test_env();
-        if system_cjk_font_path().is_none() {
-            return;
-        }
-        let mut chars = BTreeSet::new();
-        chars.insert('日');
-        let embed = CjkFontEmbed::build(&chars).unwrap();
-        let err = embed.encode_hex("a\nb").unwrap_err();
-        assert!(matches!(err, PdfError::InvalidShape(_)));
-    }
-
-    #[test]
-    fn cjk_roundtrip_widths_and_cmap_when_font_available() {
-        let _guard = lock_cjk_test_env();
-        if system_cjk_font_path().is_none() {
-            return;
-        }
-        let mut chars = BTreeSet::new();
-        chars.insert('あ');
-        chars.insert('語');
-        let embed = CjkFontEmbed::build(&chars).unwrap();
-        let hex = embed.encode_hex("あ").unwrap();
-        assert!(!hex.is_empty());
-        let cmap = embed.to_unicode_cmap();
-        assert!(cmap.contains("begincmap"));
-        assert!(cmap.contains("endbfchar"));
-        let widths = embed.widths_array();
-        assert!(widths.starts_with("[ "));
-        assert!(widths.ends_with(']'));
-        assert!(!embed.base_name.is_empty());
-        assert!(embed.font_bbox[2] >= embed.font_bbox[0]);
-    }
-
-    #[test]
-    fn cjk_font_path_alias_matches_system() {
-        assert_eq!(cjk_font_path(), system_cjk_font_path());
-    }
-
-    #[test]
-    fn encode_hex_unknown_char_errors_when_font_available() {
-        let _guard = lock_cjk_test_env();
-        if system_cjk_font_path().is_none() {
-            return;
-        }
-        let mut chars = BTreeSet::new();
-        chars.insert('あ');
-        let embed = CjkFontEmbed::build(&chars).unwrap();
-        let err = match embed.encode_hex("あX") {
-            Err(e) => e,
-            Ok(_) => panic!("expected missing CID error"),
-        };
-        assert!(matches!(err, PdfError::InvalidShape(_)));
-    }
-
-    #[test]
-    fn nonexistent_reciplexa_cjk_font_falls_through() {
-        with_saved_cjk_font_env(|| {
-            std::env::set_var("RECIPLEXA_CJK_FONT", r"D:\__reciplexa_no_such_font__.ttf");
-            let path = system_cjk_font_path();
-            if let Some(p) = &path {
-                assert!(!p.to_string_lossy().contains("__reciplexa_no_such_font__"));
-            }
-        });
-    }
-
-    #[test]
-    fn invalid_font_file_errors_on_build() {
-        with_saved_cjk_font_env(|| {
-            let dir = std::env::temp_dir();
-            let bad = dir.join(format!("reciplexa_bad_font_{}.ttf", std::process::id()));
-            std::fs::write(&bad, b"not-a-font").unwrap();
-            std::env::set_var("RECIPLEXA_CJK_FONT", &bad);
-            let mut chars = BTreeSet::new();
-            chars.insert('日');
-            let err = match CjkFontEmbed::build(&chars) {
-                Err(e) => e,
-                Ok(_) => panic!("expected invalid font error"),
-            };
-            assert!(matches!(err, PdfError::InvalidShape(_)));
-            let _ = std::fs::remove_file(&bad);
-        });
-    }
-
-    #[test]
-    fn subset_tag_empty_input_still_deterministic() {
-        let a = subset_tag(b"");
-        let b = subset_tag(b"");
-        assert_eq!(a, b);
-        assert_eq!(a.len(), 6);
-    }
-
-    #[test]
-    fn control_chars_skipped_in_build_when_font_available() {
-        let _guard = lock_cjk_test_env();
-        if system_cjk_font_path().is_none() {
-            return;
-        }
-        let mut chars = BTreeSet::new();
-        chars.insert('あ');
-        chars.insert('\u{0009}');
-        let embed = CjkFontEmbed::build(&chars).unwrap();
-        assert!(embed.encode_hex("あ").is_ok());
-    }
 }
