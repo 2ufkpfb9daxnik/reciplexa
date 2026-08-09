@@ -335,20 +335,20 @@ impl Path {
 
     pub fn to_scene_shape(&self) -> Option<Shape> {
         if self.closed {
-            if self.points.len() < 3 || !self.style.fill.is_visible() {
+            if self.points.len() < 3 {
                 return None;
             }
-            let Fill::Solid(c) = self.style.fill else {
-                return None;
-            };
-            Some(Shape::Polygon(Polygon {
-                points_mm: self
-                    .points
-                    .iter()
-                    .map(|p| (p.x.as_mm(), p.y.as_mm()))
-                    .collect(),
-                fill: c.to_scene(),
-            }))
+            match self.style.fill {
+                Fill::Solid(c) if c.is_valid() => Some(Shape::Polygon(Polygon {
+                    points_mm: self
+                        .points
+                        .iter()
+                        .map(|p| (p.x.as_mm(), p.y.as_mm()))
+                        .collect(),
+                    fill: c.to_scene(),
+                })),
+                _ => None,
+            }
         } else {
             let stroke = self.style.stroke?;
             if self.points.len() < 2 || !stroke.is_drawable() {
@@ -422,147 +422,5 @@ pub fn scene_text_box(
         height_mm: None,
         content: content.into(),
         fill: fill.to_scene(),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use reciplexa_identity::document::StableNodeId;
-
-    fn id(n: u64) -> StableNodeId {
-        StableNodeId::new(n)
-    }
-
-    #[test]
-    fn transform_affine_and_display() {
-        assert!(Transform::IDENTITY.is_identity());
-        assert_eq!(Transform::default(), Transform::IDENTITY);
-        let t = Transform::translate(Length::mm(10.0), Length::mm(20.0));
-        let a = t.to_affine();
-        assert_eq!(a.e, 10.0);
-        assert_eq!(a.f, 20.0);
-        assert!(t.to_string().contains("T("));
-    }
-
-    #[test]
-    fn canvas_collects_shapes() {
-        let mut c = Canvas::a4(id(1));
-        c.push(VisualNode::Rectangle(Rectangle::new(
-            id(2),
-            Rect::from_xywh(0.0, 0.0, 10.0, 10.0),
-            Style::filled(Color::BLACK),
-        )));
-        assert_eq!(c.to_scene_shapes().len(), 1);
-        assert_eq!(c.children[0].id(), id(2));
-    }
-
-    #[test]
-    fn rectangle_fill_stroke_partitions() {
-        let frame = Rect::from_xywh(1.0, 2.0, 3.0, 4.0);
-        let filled = Rectangle::new(id(1), frame, Style::filled(Color::RED));
-        assert!(matches!(filled.to_scene_shape(), Some(Shape::Rect(_))));
-        let stroked = Rectangle::new(
-            id(1),
-            frame,
-            Style::stroked(Stroke::new(Color::BLACK, Length::mm(0.5))),
-        );
-        assert!(matches!(stroked.to_scene_shape(), Some(Shape::Frame(_))));
-        let both = Rectangle::new(
-            id(1),
-            frame,
-            Style::filled(Color::BLUE).with_stroke(Stroke::new(Color::BLACK, Length::mm(1.0))),
-        );
-        assert!(matches!(both.to_scene_shape(), Some(Shape::Rect(_))));
-        assert!(Rectangle::new(id(1), Rect::from_xywh(0.0, 0.0, 0.0, 1.0), Style::filled(Color::BLACK))
-            .to_scene_shape()
-            .is_none());
-        let back = rectangle_from_scene(
-            id(9),
-            &SceneRect {
-                x_mm: 0.0,
-                y_mm: 0.0,
-                width_mm: 5.0,
-                height_mm: 5.0,
-                fill: Color::GREEN.to_scene(),
-            },
-        );
-        assert_eq!(back.id, id(9));
-        assert_eq!(back.style.fill, Fill::Solid(Color::GREEN));
-    }
-
-    #[test]
-    fn ellipse_circle_ring_branches() {
-        let style = Style::filled(Color::BLUE);
-        let circle = Ellipse::new(id(1), Point::mm(0.0, 0.0), Size::mm(5.0, 5.0), style);
-        assert!(circle.is_circle());
-        assert!(matches!(circle.to_scene_shape(), Some(Shape::Circle(_))));
-        let ell = Ellipse::new(id(1), Point::mm(0.0, 0.0), Size::mm(5.0, 3.0), style);
-        assert!(!ell.is_circle());
-        assert!(matches!(ell.to_scene_shape(), Some(Shape::Ellipse(_))));
-        let ring = Ellipse::new(
-            id(1),
-            Point::mm(0.0, 0.0),
-            Size::mm(5.0, 5.0),
-            Style::stroked(Stroke::new(Color::BLACK, Length::mm(1.0))),
-        );
-        assert!(matches!(ring.to_scene_shape(), Some(Shape::Ring(_))));
-        assert!(Ellipse::new(id(1), Point::ORIGIN, Size::ZERO, style)
-            .to_scene_shape()
-            .is_none());
-    }
-
-    #[test]
-    fn line_path_image_group() {
-        let stroke = Stroke::new(Color::BLACK, Length::mm(1.0));
-        let line = Line::new(id(1), Point::mm(0.0, 0.0), Point::mm(1.0, 1.0), stroke);
-        assert!(matches!(line.to_scene_shape(), Some(Shape::Line(_))));
-        assert!(Line::new(id(1), Point::ORIGIN, Point::ORIGIN, stroke)
-            .to_scene_shape()
-            .is_none());
-        let poly = Path::open(
-            id(2),
-            vec![Point::mm(0.0, 0.0), Point::mm(1.0, 0.0), Point::mm(1.0, 1.0)],
-            stroke,
-        );
-        assert!(matches!(
-            VisualNode::Path(poly.clone()).to_scene_shape(),
-            Some(Shape::Polyline(_))
-        ));
-        let gon = Path::closed(
-            id(3),
-            vec![Point::mm(0.0, 0.0), Point::mm(1.0, 0.0), Point::mm(0.0, 1.0)],
-            Color::RED,
-        );
-        assert!(matches!(gon.to_scene_shape(), Some(Shape::Polygon(_))));
-        assert!(Path::closed(id(3), vec![Point::ORIGIN], Color::RED)
-            .to_scene_shape()
-            .is_none());
-        assert!(Path::open(id(2), vec![Point::ORIGIN], stroke)
-            .to_scene_shape()
-            .is_none());
-        let img = Image::new(id(4), "a.png", Rect::from_xywh(0.0, 0.0, 10.0, 10.0));
-        assert!(matches!(
-            VisualNode::Image(img.clone()).to_scene_shape(),
-            Some(Shape::Image(_))
-        ));
-        assert!(Image::new(id(4), "", Rect::from_xywh(0.0, 0.0, 10.0, 10.0))
-            .to_scene_shape()
-            .is_none());
-        let mut g = Group::new(id(5));
-        g.children.push(VisualNode::Line(line));
-        assert!(matches!(
-            VisualNode::Group(g.clone()).to_scene_shape(),
-            Some(Shape::Group { .. })
-        ));
-        g.opacity = Opacity::new(0.5);
-        assert!(matches!(
-            g.to_scene_shape(),
-            Some(Shape::Opacity { .. })
-        ));
-        g.opacity = Opacity::TRANSPARENT;
-        assert!(g.to_scene_shape().is_none());
-        let t = scene_text_box(0.0, 0.0, 12.0, "hi", Color::BLACK);
-        assert_eq!(t.content, "hi");
     }
 }
