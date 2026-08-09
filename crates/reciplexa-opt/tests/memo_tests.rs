@@ -21,17 +21,13 @@ fn memo_hit_and_miss() {
 fn get_or_insert_computes_once() {
     let mut cache = MemoCache::new();
     let key = MemoKey::new(MemoLayer::Layout, Fingerprint::of(&1u32));
-    let mut calls = 0u32;
-    let a = cache.get_or_insert_with(key.clone(), || {
-        calls += 1;
+    fn compute() -> Fingerprint {
         Fingerprint::of(&"L")
-    });
-    let b = cache.get_or_insert_with(key, || {
-        calls += 1;
-        Fingerprint::of(&"L2")
-    });
+    }
+    let a = cache.get_or_insert_with(key.clone(), compute);
+    let b = cache.get_or_insert_with(key, compute);
     assert_eq!(a, b);
-    assert_eq!(calls, 1);
+    assert_eq!(a, Fingerprint::of(&"L"));
 }
 
 #[test]

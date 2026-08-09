@@ -79,11 +79,7 @@ impl MemoCache {
         before - self.entries.len()
     }
 
-    /// Lookup-or-compute stub: returns cached output or inserts `compute()`.
-    pub fn get_or_insert_with<F>(&mut self, key: MemoKey, compute: F) -> Fingerprint
-    where
-        F: FnOnce() -> Fingerprint,
-    {
+    pub fn get_or_insert_with(&mut self, key: MemoKey, compute: fn() -> Fingerprint) -> Fingerprint {
         if let Some(v) = self.entries.get(&key).copied() {
             return v;
         }
