@@ -2865,6 +2865,7 @@ name = "reciplexa-backend"
 version = "0.1.0"
 dependencies = [
  "reciplexa-identity",
+ "reciplexa-raster",
  "reciplexa-scene",
  "reciplexa-visual-ir",
 ]
@@ -2960,6 +2961,10 @@ dependencies = [
  "reciplexa-document",
  "reciplexa-identity",
 ]
+
+[[package]]
+name = "reciplexa-harden"
+version = "0.1.0"
 
 [[package]]
 name = "reciplexa-identity"
@@ -3123,10 +3128,12 @@ dependencies = [
  "reciplexa-native",
  "reciplexa-outcome",
  "reciplexa-package",
+ "reciplexa-raster",
  "reciplexa-runtime",
  "reciplexa-scene",
  "reciplexa-source",
  "reciplexa-syntax",
+ "reciplexa-video",
  "reciplexa-visual-ir",
 ]
 
@@ -3136,6 +3143,16 @@ version = "0.1.0"
 dependencies = [
  "reciplexa-effect",
  "reciplexa-syntax",
+]
+
+[[package]]
+name = "reciplexa-video"
+version = "0.1.0"
+dependencies = [
+ "reciplexa-identity",
+ "reciplexa-motion",
+ "reciplexa-raster",
+ "reciplexa-scene",
 ]
 
 [[package]]
