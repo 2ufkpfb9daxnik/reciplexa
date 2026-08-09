@@ -1,6 +1,7 @@
 use reciplexa_backend::capability::*;
+use reciplexa_backend::loss::{LossDisposition, OutputLossKind};
 use reciplexa_backend::plan::*;
-use reciplexa_backend::profile::OutputProfile;
+use reciplexa_backend::profile::{OutputProfile, ProfileKind};
 use reciplexa_scene::Color;
 use reciplexa_visual_ir::render::*;
 
@@ -157,6 +158,65 @@ fn rejects_profile_ellipse_sides_out_of_range() {
     let mut profile = OutputProfile::svg_default();
     profile.ellipse_sides = 4;
     let err = plan_svg(&render, &BackendCapability::svg_default(), &profile).unwrap_err();
+    assert!(matches!(err, PlanningError::ProfileViolation(_)));
+}
+
+#[test]
+fn plan_raster_records_preview_text_loss() {
+    let render = all_kinds_render();
+    let plan = plan_raster(
+        &render,
+        &BackendCapability::raster_default(),
+        &OutputProfile::preview_raster(),
+    )
+    .unwrap();
+    assert_eq!(plan.target, BackendTarget::Raster);
+    assert_eq!(plan.profile.kind, ProfileKind::Preview);
+    assert!(plan
+        .nodes
+        .iter()
+        .any(|n| n.representation == Representation::RasterTextOmit));
+    assert!(plan
+        .losses
+        .losses
+        .iter()
+        .any(|l| l.kind == OutputLossKind::SemanticText
+            && l.disposition == LossDisposition::Report
+            && l.profile == ProfileKind::Preview));
+}
+
+#[test]
+fn plan_raster_final_uses_stricter_text_disposition() {
+    let render = all_kinds_render();
+    let plan = plan_raster(
+        &render,
+        &BackendCapability::raster_default(),
+        &OutputProfile::final_raster(),
+    )
+    .unwrap();
+    assert_eq!(plan.profile.kind, ProfileKind::Final);
+    let text_loss = plan
+        .losses
+        .losses
+        .iter()
+        .find(|l| l.kind == OutputLossKind::SemanticText)
+        .expect("text loss must be explicit");
+    assert_eq!(
+        text_loss.disposition,
+        LossDisposition::RequireExplicitApproval
+    );
+    assert!(plan.profile.px_per_mm > OutputProfile::preview_raster().px_per_mm);
+}
+
+#[test]
+fn plan_raster_rejects_svg_capability() {
+    let render = all_kinds_render();
+    let err = plan_raster(
+        &render,
+        &BackendCapability::svg_default(),
+        &OutputProfile::preview_raster(),
+    )
+    .unwrap_err();
     assert!(matches!(err, PlanningError::ProfileViolation(_)));
 }
 

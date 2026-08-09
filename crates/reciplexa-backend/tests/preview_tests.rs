@@ -1,4 +1,5 @@
 use reciplexa_backend::emit::EmitError;
+use reciplexa_backend::loss::LossReport;
 use reciplexa_backend::plan::*;
 use reciplexa_backend::preview::*;
 use reciplexa_backend::profile::OutputProfile;
@@ -6,9 +7,11 @@ use reciplexa_scene::Color;
 use reciplexa_visual_ir::render::*;
 
 fn base_plan(nodes: Vec<PlannedNode>) -> BackendPlan {
+    let profile = OutputProfile::svg_default();
     BackendPlan {
         target: BackendTarget::Preview,
-        profile: OutputProfile::svg_default(),
+        losses: LossReport::empty(profile.kind),
+        profile,
         nodes,
     }
 }
