@@ -61,7 +61,9 @@ pub fn rasterize_page(
         return Err(RasterError::EmptyDocument);
     }
     if !opts.px_per_mm.is_finite() || opts.px_per_mm <= 0.0 {
-        return Err(RasterError::BadOptions("px_per_mm must be finite > 0".into()));
+        return Err(RasterError::BadOptions(
+            "px_per_mm must be finite > 0".into(),
+        ));
     }
     let (page, shapes) =
         flatten_page(doc, page_index).ok_or(RasterError::PageOutOfRange(page_index))?;
@@ -150,7 +152,8 @@ pub fn document_page_to_png(
     opts: &RasterOptions,
 ) -> Result<(Vec<u8>, Vec<RasterLoss>), RasterError> {
     let frame = rasterize_page(doc, page_index, opts)?;
-    let png = frame_to_png(&frame)?;
+    // `rasterize_page` always yields an RGB8 buffer sized for the encoder.
+    let png = frame_to_png(&frame).expect("rasterize_page frame is PNG-encodable");
     Ok((png, frame.losses))
 }
 
@@ -206,10 +209,26 @@ fn fill_polygon(rgb: &mut [u8], width: u32, height: u32, pts: &[(f64, f64)], fil
     if pts.len() < 3 {
         return;
     }
-    let min_x = pts.iter().map(|p| p.0).fold(f64::INFINITY, f64::min).floor() as i32;
-    let max_x = pts.iter().map(|p| p.0).fold(f64::NEG_INFINITY, f64::max).ceil() as i32;
-    let min_y = pts.iter().map(|p| p.1).fold(f64::INFINITY, f64::min).floor() as i32;
-    let max_y = pts.iter().map(|p| p.1).fold(f64::NEG_INFINITY, f64::max).ceil() as i32;
+    let min_x = pts
+        .iter()
+        .map(|p| p.0)
+        .fold(f64::INFINITY, f64::min)
+        .floor() as i32;
+    let max_x = pts
+        .iter()
+        .map(|p| p.0)
+        .fold(f64::NEG_INFINITY, f64::max)
+        .ceil() as i32;
+    let min_y = pts
+        .iter()
+        .map(|p| p.1)
+        .fold(f64::INFINITY, f64::min)
+        .floor() as i32;
+    let max_y = pts
+        .iter()
+        .map(|p| p.1)
+        .fold(f64::NEG_INFINITY, f64::max)
+        .ceil() as i32;
     for y in min_y..=max_y {
         for x in min_x..=max_x {
             if point_in_poly(x as f64 + 0.5, y as f64 + 0.5, pts) {
@@ -226,8 +245,8 @@ fn point_in_poly(x: f64, y: f64, pts: &[(f64, f64)]) -> bool {
     for i in 0..n {
         let (xi, yi) = pts[i];
         let (xj, yj) = pts[j];
-        let intersect = ((yi > y) != (yj > y))
-            && (x < (xj - xi) * (y - yi) / (yj - yi + f64::EPSILON) + xi);
+        let intersect =
+            ((yi > y) != (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi + f64::EPSILON) + xi);
         if intersect {
             inside = !inside;
         }
