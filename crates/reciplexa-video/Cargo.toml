@@ -1,0 +1,13 @@
+[package]
+name = "reciplexa-video"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Minimal Video backend: Motion IR sampling to frame sequences (Phase 12)"
+publish = false
+
+[dependencies]
+reciplexa-motion = { workspace = true }
+reciplexa-raster = { workspace = true }
+reciplexa-scene = { workspace = true }
+reciplexa-identity = { workspace = true }
