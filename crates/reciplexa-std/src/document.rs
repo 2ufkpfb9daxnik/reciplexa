@@ -101,7 +101,7 @@ impl Heading {
         }
     }
 
-    pub fn is_valid_level(self) -> bool {
+    pub fn is_valid_level(&self) -> bool {
         (1..=6).contains(&self.level)
     }
 }

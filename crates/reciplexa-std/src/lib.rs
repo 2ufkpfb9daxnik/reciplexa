@@ -9,6 +9,7 @@
 pub mod core;
 pub mod document;
 pub mod layout;
+pub mod math;
 pub mod style;
 pub mod text;
 pub mod visual;
@@ -16,6 +17,7 @@ pub mod visual;
 pub use core::{Angle, Color, Length, Point, Range, Rect, Size};
 pub use document::{Block, Figure, Flow, Heading, List, ListItem, Page, Section, Table};
 pub use layout::{Align, Axis, Column, LayoutChild, Padding, Row, Stack};
+pub use math::{MathAtom, MathClass};
 pub use style::{Fill, Opacity, Stroke, Style};
 pub use text::{Font, Paragraph, Span, Text, TextBox, TextStyle};
 pub use visual::{
