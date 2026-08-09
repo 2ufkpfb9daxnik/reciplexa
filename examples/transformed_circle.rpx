@@ -1,6 +1,0 @@
-; M4: translated, rotated, scaled red circle on A4.
-(page a4
-  (translate 105 148.5
-    (rotate 30
-      (scale 1.5
-        (circle 0 0 20 red)))))

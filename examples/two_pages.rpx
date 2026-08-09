@@ -1,4 +1,4 @@
-; Two A4 pages
+(// Two A4 pages.)
 (page a4
   (text 30 260 8 "Page 1" black)
   (circle 105 148.5 40 red))

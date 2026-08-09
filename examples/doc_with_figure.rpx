@@ -1,5 +1,0 @@
-(doc
-@title{Figure in a doc}
-@p{An embedded PNG from the figures/ folder:}
-@image["figures/demo.png"]{Demo PNG embedded via @image.}
-@p{End of demo.})

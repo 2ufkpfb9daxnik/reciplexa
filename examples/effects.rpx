@@ -1,0 +1,16 @@
+(// (src …) effects run on export only; preview skips them.)
+(src
+  (perform log "effects.rpx: before handle")
+  (handle log
+    (perform log "muted")
+    (perform random))
+  (perform log "effects.rpx: after handle")
+  (perform write-path "before.pdf")
+  (handle write-path
+    (perform write-path "muted.pdf")
+    (perform log "inside write-path handle"))
+  (perform write-path "after.pdf"))
+
+(page a4
+  (text 30 260 7 "effects + page" black)
+  (circle 105 140 32 (color-byte 40 120 200)))

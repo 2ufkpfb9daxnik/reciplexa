@@ -1,4 +1,4 @@
-; US Letter page with semi-transparent overlapping circles
+(// US Letter page with semi-transparent overlapping circles.)
 (page letter
   (circle 80 140 50 red)
   (opacity 0.45

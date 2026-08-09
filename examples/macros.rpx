@@ -1,0 +1,7 @@
+(// Surface macros expanded before typecheck: gray, color-byte, hline, vline.)
+(page a4
+  (circle 60 80 25 (gray 0.2))
+  (rect 100 60 70 50 (gray 0.75))
+  (hline 30 180 180 (gray 0.4) 0.8)
+  (vline 40 180 105 (gray 0.55) 0.6)
+  (text 30 210 5 "macros" (gray 0.2)))

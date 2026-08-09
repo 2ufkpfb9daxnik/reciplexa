@@ -1,4 +1,0 @@
-; Surface macros: (gray …) → (rgb …)
-(page a4
-  (circle 60 80 25 (gray 0.2))
-  (rect 100 60 70 50 (gray 0.75)))

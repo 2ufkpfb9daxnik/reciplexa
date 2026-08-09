@@ -1,6 +1,6 @@
-; Embedded PNG/JPEG (path relative to this .rpx file)
+(// Embedded raster (paths relative to this .rpx file).)
 (page a4
   (text 30 270 6 "embedded images" black)
   (image "figures/demo.png" 40 80 130 100)
   (image "figures/demo.jpg" 40 200 50 50)
-  (circle 105 220 20 blue))
+  (circle 105 220 18 blue))

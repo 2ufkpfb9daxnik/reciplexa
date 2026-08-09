@@ -1,6 +1,0 @@
-(doc
-@title{Links and captions}
-@p{See @link["https://example.com"]{the docs} and cite @cite[7].}
-@br{}
-@caption{Fig. 1 Example caption under a figure.}
-@p{Done.})

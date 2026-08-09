@@ -1,4 +1,0 @@
-; color-byte expands to rgb before typecheck/lower
-(page a4
-  (rect 40 80 130 100 (color-byte 255 200 50))
-  (circle 105 180 35 (color-byte 20 120 80)))

@@ -131,21 +131,21 @@ fn render(input: &str, output: &str) -> Result<(), String> {
             fs::create_dir_all(parent).map_err(|e| format!("mkdir: {e}"))?;
         }
     }
-    let file = fs::File::create(&path).map_err(|e| format!("create {output}: {e}"))?;
+    let mut file = fs::File::create(&path).map_err(|e| format!("create {output}: {e}"))?;
     let base = PathBuf::from(input)
         .parent()
         .filter(|p| !p.as_os_str().is_empty())
         .map(|p| p.to_path_buf());
     match export_kind(&path) {
-        ExportKind::Pdf => write_document_with_base(&doc, base.as_deref(), file)
+        ExportKind::Pdf => write_document_with_base(&doc, base.as_deref(), &mut file)
             .map_err(|e| format!("pdf: {e:?}"))?,
         ExportKind::Svg => {
             let hints = document_snapshot_from_source(&src, DocumentIdentity::new(1))
                 .map(|snap| provenance_hints_for_scene(&doc, &snap))
                 .unwrap_or_default();
-            write_document_with_hints(&doc, &hints, file).map_err(|e| format!("svg: {e}"))?
+            write_document_with_hints(&doc, &hints, &mut file).map_err(|e| format!("svg: {e}"))?
         }
-        ExportKind::Pptx => write_pptx(&doc, file).map_err(|e| format!("pptx: {e}"))?,
+        ExportKind::Pptx => write_pptx(&doc, &mut file).map_err(|e| format!("pptx: {e}"))?,
     }
     Ok(())
 }
@@ -211,34 +211,24 @@ mod tests {
     }
 
     #[test]
-    fn renders_text_line_and_macro_examples() {
+    fn renders_all_repo_examples() {
         let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
         let repo = manifest_dir.join("../..");
         let has_cjk = reciplexa_pdf::cjk_font_path().is_some();
         for name in [
-            "text_and_line.rpx",
-            "color_byte.rpx",
-            "ellipse.rpx",
-            "outlines.rpx",
-            "polyline.rpx",
-            "two_pages.rpx",
-            "image_placeholder.rpx",
-            "with_src_log.rpx",
-            "polygon.rpx",
-            "japanese_report_stub.rpx",
-            "japanese_doc.rpx",
+            "black_circle.rpx",
+            "shapes.rpx",
+            "transforms.rpx",
+            "paths.rpx",
+            "text_line.rpx",
             "letter_opacity.rpx",
-            "hello_doc.rpx",
-            "hline_macro.rpx",
-            "gray_macro.rpx",
-            "with_handle_log.rpx",
-            "with_handle_write_path.rpx",
-            "with_code.rpx",
-            "multiline_doc.rpx",
-            "doc_title_p.rpx",
-            "doc_link_caption.rpx",
-            "doc_with_figure.rpx",
-            "long_doc.rpx",
+            "two_pages.rpx",
+            "japanese_page.rpx",
+            "macros.rpx",
+            "effects.rpx",
+            "image.rpx",
+            "markup_doc.rpx",
+            "markup_ja.rpx",
         ] {
             if example_needs_cjk_font(name) && !has_cjk {
                 eprintln!(
@@ -254,14 +244,6 @@ mod tests {
     }
 
     fn example_needs_cjk_font(name: &str) -> bool {
-        matches!(
-            name,
-            "japanese_report_stub.rpx"
-                | "japanese_doc.rpx"
-                | "multiline_doc.rpx"
-                | "long_doc.rpx"
-                | "doc_title_p.rpx"
-                | "hello_doc.rpx"
-        )
+        matches!(name, "japanese_page.rpx" | "markup_ja.rpx")
     }
 }

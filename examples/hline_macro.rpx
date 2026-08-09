@@ -1,5 +1,0 @@
-; (hline …) / (vline …) expand to axis-aligned (line …)
-(page a4
-  (hline 30 180 200 (gray 0.4) 0.8)
-  (vline 40 180 105 (gray 0.55) 0.6)
-  (text 30 210 5 "section rules" (gray 0.2)))

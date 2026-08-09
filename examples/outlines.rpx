@@ -1,5 +1,0 @@
-; Stroked circle (ring) and rectangle outline (frame)
-(page a4
-  (ring 105 160 45 2 red)
-  (frame 40 40 130 80 1.5 blue)
-  (text 55 250 6 "outlines" black))

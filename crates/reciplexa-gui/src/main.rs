@@ -179,7 +179,7 @@ fn main() -> ExitCode {
         None => (PathBuf::from("untitled.rpx"), "(page a4)\n".to_string()),
     };
     // Keep the author's `.rpx` text. Expansion happens inside `pipeline_doc` /
-    // export so Scribble macros (`@title`, …) stay editable.
+    // export so Scribble `(markup …)` macros (`@title`, …) stay editable.
     let initial_error = pipeline_doc(&src).err();
     if let Some(ref e) = initial_error {
         eprintln!("warn: opening with error (edit to fix): {e}");
@@ -2840,25 +2840,24 @@ impl PreviewApp {
         match document_for_export(&mut GuiExportHandler::default(), &self.source) {
             Ok((doc, _)) => {
                 let base = self.path.parent();
-                let result =
-                    fs::File::create(&out_path)
-                        .map_err(|e| e.to_string())
-                        .and_then(|f| {
-                            match out_path
-                                .extension()
-                                .and_then(|e| e.to_str())
-                                .unwrap_or("pdf")
-                                .to_ascii_lowercase()
-                                .as_str()
-                            {
-                                "svg" => reciplexa_svg::write_document(&doc, f)
-                                    .map_err(|e| e.to_string()),
-                                "pptx" => reciplexa_pptx::write_document(&doc, f)
-                                    .map_err(|e| e.to_string()),
-                                _ => write_document_with_base(&doc, base, f)
-                                    .map_err(|e| format!("{e:?}")),
-                            }
-                        });
+                let result = fs::File::create(&out_path)
+                    .map_err(|e| e.to_string())
+                    .and_then(|mut f| {
+                        match out_path
+                            .extension()
+                            .and_then(|e| e.to_str())
+                            .unwrap_or("pdf")
+                            .to_ascii_lowercase()
+                            .as_str()
+                        {
+                            "svg" => reciplexa_svg::write_document(&doc, &mut f)
+                                .map_err(|e| e.to_string()),
+                            "pptx" => reciplexa_pptx::write_document(&doc, &mut f)
+                                .map_err(|e| e.to_string()),
+                            _ => write_document_with_base(&doc, base, &mut f)
+                                .map_err(|e| format!("{e:?}")),
+                        }
+                    });
                 match result {
                     Ok(()) => self.error = None,
                     Err(e) => {

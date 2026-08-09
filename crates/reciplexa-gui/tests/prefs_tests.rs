@@ -219,8 +219,7 @@ fn prefs_save_load_roundtrip_via_temp_config_home() {
 fn prefs_load_missing_file_returns_defaults() {
     let _lock = prefs_env_lock();
     let _guard = EnvGuard::capture();
-    let dir =
-        std::env::temp_dir().join(format!("reciplexa-prefs-missing-{}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("reciplexa-prefs-missing-{}", std::process::id()));
     let _ = fs::remove_dir_all(&dir);
     fs::create_dir_all(&dir).unwrap();
     EnvGuard::set_local(&dir);

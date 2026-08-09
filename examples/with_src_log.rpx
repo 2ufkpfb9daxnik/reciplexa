@@ -1,7 +1,0 @@
-; Logic block with effects + a drawable page
-(src
-  (perform log "rendering with_src_log.rpx"))
-
-(page a4
-  (text 30 260 7 "effects + page" black)
-  (circle 105 140 35 (color-byte 40 120 200)))

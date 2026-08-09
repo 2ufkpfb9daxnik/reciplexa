@@ -1,0 +1,14 @@
+(// SYN-001 Scribble (markup) surface.)
+(// @commands expand to page shapes for preview/export.)
+(markup
+@title{Report cover}
+@hr{}
+@h2{Intro}
+@p{A short paragraph with @em{emphasis} and a @link["https://example.com"]{link}.}
+@vspace{6}
+@h2{Checklist}
+@li{Write requirements}
+@li{Add tests first}
+@li{Keep commits small}
+@quote{Code and document stay in one source.}
+)
