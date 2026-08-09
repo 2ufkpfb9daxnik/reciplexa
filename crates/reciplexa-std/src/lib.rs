@@ -13,6 +13,7 @@ pub mod math;
 pub mod slide;
 pub mod style;
 pub mod text;
+pub mod vector;
 pub mod visual;
 
 pub use core::{Angle, Color, Length, Point, Range, Rect, Size};
@@ -22,6 +23,10 @@ pub use math::{MathAtom, MathClass};
 pub use slide::{Master, Notes, Placeholder, PlaceholderKind, Slide, Theme, Transition};
 pub use style::{Fill, Opacity, Stroke, Style};
 pub use text::{Font, Paragraph, Span, Text, TextBox, TextStyle};
+pub use vector::{
+    BooleanOp, BooleanPathOp, Gradient, GradientStop, PathCommand, StrokeCap, StrokeJoin,
+    VectorPath, VectorStroke,
+};
 pub use visual::{
     rectangle_from_scene, scene_text_box, Canvas, Ellipse, Group, Image, Line, Path, Rectangle,
     Transform, VisualNode,
