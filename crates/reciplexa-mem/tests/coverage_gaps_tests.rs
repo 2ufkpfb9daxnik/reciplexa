@@ -7,9 +7,9 @@ use reciplexa_mem::linear::LinearProgram;
 use reciplexa_mem::reg::Reg;
 use reciplexa_mem::trace::RcTrace;
 use reciplexa_mem::{
-    assert_observational_equiv, conservative_rc, exec_linear, observably_equal, perceus_pass,
-    reuse_pass, seal_before_return, verify_ownership, verify_reuse, EquivError, ExecError,
-    OwnMap, OwnState, VerifyError,
+    assert_observational_equiv, check_observational_equiv, conservative_rc, exec_linear,
+    observably_equal, perceus_pass, reuse_pass, seal_before_return, verify_ownership, verify_reuse,
+    EquivError, ExecError, OwnMap, OwnState, VerifyError,
 };
 
 #[test]
@@ -58,6 +58,14 @@ fn equiv_error_variants_debug() {
 }
 
 #[test]
+fn check_observational_equiv_mismatch_and_ok() {
+    check_observational_equiv(&RuntimeValue::Unit, &RuntimeValue::Unit).unwrap();
+    let err = check_observational_equiv(&RuntimeValue::Number(1.0), &RuntimeValue::Number(2.0))
+        .unwrap_err();
+    assert!(matches!(err, EquivError::Mismatch { .. }));
+}
+
+#[test]
 fn merge_join_uninit_both_orientations() {
     let mut left = OwnMap::new();
     left.define(Reg(0));
@@ -94,9 +102,7 @@ fn seal_tracks_move_dup_project_and_control() {
                 else_block: BlockId(1),
             },
             MemInstr::Raise { tag: "x".into() },
-            MemInstr::RegisterCleanup {
-                label: "c".into(),
-            },
+            MemInstr::RegisterCleanup { label: "c".into() },
             MemInstr::RunCleanup,
             MemInstr::Resume { cont: 1 },
             MemInstr::DiscardCont { cont: 2 },
@@ -182,9 +188,7 @@ fn exec_discard_cont_and_fallthrough_return() {
                 dst: Reg(0),
                 lit: MemLiteral::Number(9.0),
             },
-            MemInstr::RegisterCleanup {
-                label: "c".into(),
-            },
+            MemInstr::RegisterCleanup { label: "c".into() },
             MemInstr::DiscardCont { cont: 1 },
         ],
         return_reg: Reg(0),
@@ -546,10 +550,7 @@ fn conservative_reads_drop_and_remap() {
         return_reg: Reg(0),
     };
     let out = conservative_rc(&prog);
-    assert!(out
-        .instrs
-        .iter()
-        .any(|i| matches!(i, MemInstr::Dup { .. })));
+    assert!(out.instrs.iter().any(|i| matches!(i, MemInstr::Dup { .. })));
 }
 
 #[test]

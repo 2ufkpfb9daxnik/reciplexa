@@ -3,8 +3,8 @@ use reciplexa_mem::ir::MemInstr;
 use reciplexa_mem::linear::LinearProgram;
 use reciplexa_mem::reg::Reg;
 
-use reciplexa_mem::lower::lower_core_linear;
 use reciplexa_core::expr::{CoreExpr, CoreLiteral};
+use reciplexa_mem::lower::lower_core_linear;
 
 #[test]
 fn inserts_dup_for_shared_use() {

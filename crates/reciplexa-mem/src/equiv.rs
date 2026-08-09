@@ -58,17 +58,28 @@ pub fn compile_and_run_no_reuse(expr: &CoreExpr) -> Result<RuntimeValue, EquivEr
     Ok(exec_linear(&sealed, &mut trace).expect("exec after perceus seal"))
 }
 
+/// Compare two observable results and map inequality to [`EquivError::Mismatch`].
+pub fn check_observational_equiv(
+    reference: &RuntimeValue,
+    optimized: &RuntimeValue,
+) -> Result<(), EquivError> {
+    if observably_equal(reference, optimized) {
+        Ok(())
+    } else {
+        Err(EquivError::Mismatch {
+            reference: format!("{reference:?}"),
+            optimized: format!("{optimized:?}"),
+        })
+    }
+}
+
 /// Assert reference and optimized evaluators agree on observable results.
 pub fn assert_observational_equiv(expr: &CoreExpr) -> Result<(), EquivError> {
     let reference = eval_expr(expr, &HashMap::new(), &mut UnitHost)
         .map_err(|e| EquivError::ReferenceEval(e.message))?;
     // compile_and_run only panics on internal pipeline invariants for CoreExpr.
     let optimized = compile_and_run(expr).expect("mem pipeline");
-    assert!(
-        observably_equal(&reference, &optimized),
-        "observational mismatch"
-    );
-    Ok(())
+    check_observational_equiv(&reference, &optimized)
 }
 
 /// Compare values ignoring physical identity (MEM-001 §2.1).

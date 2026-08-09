@@ -18,8 +18,8 @@ pub mod verify;
 
 pub use conservative::conservative_rc;
 pub use equiv::{
-    assert_observational_equiv, compile_and_run, compile_and_run_conservative,
-    compile_and_run_no_reuse, observably_equal, EquivError,
+    assert_observational_equiv, check_observational_equiv, compile_and_run,
+    compile_and_run_conservative, compile_and_run_no_reuse, observably_equal, EquivError,
 };
 pub use exec::{exec_linear, ExecError};
 pub use ir::{MemInstr, MemLiteral, OwningProgram};
