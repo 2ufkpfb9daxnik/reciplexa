@@ -9,6 +9,7 @@ use crate::profile::OutputProfile;
 pub enum BackendTarget {
     Svg,
     Preview,
+    Raster,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -19,6 +20,13 @@ pub enum Representation {
     SvgText,
     SvgPath,
     SvgImage,
+    RasterCircle,
+    RasterPolygon,
+    RasterPath,
+    /// Text omitted with an explicit Loss (never silent).
+    RasterTextOmit,
+    /// Image omitted with an explicit Loss (never silent).
+    RasterImageOmit,
 }
 
 /// Per-node emission decision recorded before emission.
