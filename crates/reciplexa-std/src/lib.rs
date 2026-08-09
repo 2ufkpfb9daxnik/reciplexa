@@ -10,6 +10,7 @@ pub mod core;
 pub mod document;
 pub mod layout;
 pub mod math;
+pub mod motion;
 pub mod slide;
 pub mod style;
 pub mod text;
@@ -20,6 +21,10 @@ pub use core::{Angle, Color, Length, Point, Range, Rect, Size};
 pub use document::{Block, Figure, Flow, Heading, List, ListItem, Page, Section, Table};
 pub use layout::{Align, Axis, Column, LayoutChild, Padding, Row, Stack};
 pub use math::{MathAtom, MathClass};
+pub use motion::{
+    keyframe_track, DurationMs, Easing, Keyframe, MotionTimeline, MotionTrack, TemporalPlacement,
+    TimeMs, Timeline, TimelineTrack,
+};
 pub use slide::{Master, Notes, Placeholder, PlaceholderKind, Slide, Theme, Transition};
 pub use style::{Fill, Opacity, Stroke, Style};
 pub use text::{Font, Paragraph, Span, Text, TextBox, TextStyle};
