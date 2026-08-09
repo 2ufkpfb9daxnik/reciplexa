@@ -6,6 +6,7 @@
 #![forbid(unsafe_code)]
 
 pub mod easing;
+pub mod preview_sync;
 pub mod sample;
 pub mod time;
 pub mod timeline;
@@ -14,13 +15,15 @@ pub mod transform;
 pub mod validate;
 
 pub use easing::Easing;
+pub use preview_sync::{
+    compare_preview_final, sync_at, sync_playhead, PlayheadSync, PreviewFinalDiff, SyncProfile,
+    SyncedTrackValue,
+};
 pub use sample::{sample_f64, SampleError, SampleMode};
 pub use time::{DurationMs, TimeMs};
 pub use timeline::{MotionTimeline, TemporalPlacement, TimelineTrack};
 pub use track::{Keyframe, MotionTrack};
-pub use transform::{
-    apply_range_policy, RangePolicy, RangePolicyError, TimeTransform,
-};
+pub use transform::{apply_range_policy, RangePolicy, RangePolicyError, TimeTransform};
 pub use validate::{
     validate_source_range, validate_track_f64, validate_transform, MotionValidationError,
 };

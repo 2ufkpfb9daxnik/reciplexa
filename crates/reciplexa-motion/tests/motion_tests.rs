@@ -1,11 +1,14 @@
-use reciplexa_motion::*;
 use reciplexa_motion::sample::ease;
+use reciplexa_motion::*;
 
 #[test]
 fn constant_and_keyframe_sample_determinism() {
     let c = MotionTrack::constant(3.5);
     assert_eq!(sample_f64(&c, TimeMs(0), SampleMode::Strict).unwrap(), 3.5);
-    assert_eq!(sample_f64(&c, TimeMs(999), SampleMode::Preview).unwrap(), 3.5);
+    assert_eq!(
+        sample_f64(&c, TimeMs(999), SampleMode::Preview).unwrap(),
+        3.5
+    );
 
     let kf = MotionTrack::keyframes(vec![
         Keyframe {
@@ -20,7 +23,10 @@ fn constant_and_keyframe_sample_determinism() {
         },
     ]);
     assert_eq!(sample_f64(&kf, TimeMs(0), SampleMode::Strict).unwrap(), 0.0);
-    assert_eq!(sample_f64(&kf, TimeMs(1000), SampleMode::Strict).unwrap(), 10.0);
+    assert_eq!(
+        sample_f64(&kf, TimeMs(1000), SampleMode::Strict).unwrap(),
+        10.0
+    );
     assert!(matches!(
         sample_f64(&kf, TimeMs(500), SampleMode::Strict),
         Err(SampleError::StrictApproximation)
@@ -123,11 +129,19 @@ fn time_ms_and_duration_helpers() {
 #[test]
 fn sample_error_and_edge_paths() {
     assert!(matches!(
-        sample_f64(&MotionTrack::constant(f64::NAN), TimeMs(0), SampleMode::Strict),
+        sample_f64(
+            &MotionTrack::constant(f64::NAN),
+            TimeMs(0),
+            SampleMode::Strict
+        ),
         Err(SampleError::NonFiniteValue)
     ));
     assert!(matches!(
-        sample_f64(&MotionTrack::Keyframes(vec![]), TimeMs(0), SampleMode::Preview),
+        sample_f64(
+            &MotionTrack::Keyframes(vec![]),
+            TimeMs(0),
+            SampleMode::Preview
+        ),
         Err(SampleError::EmptyKeyframes)
     ));
     assert!(matches!(
@@ -474,9 +488,7 @@ fn validate_track_transform_and_range() {
         Err(MotionValidationError::ScaleFactorInvalid)
     ));
     assert!(matches!(
-        validate_transform(&TimeTransform::Scale {
-            factor: f64::NAN
-        }),
+        validate_transform(&TimeTransform::Scale { factor: f64::NAN }),
         Err(MotionValidationError::ScaleFactorInvalid)
     ));
     validate_transform(&TimeTransform::Compose(
@@ -498,4 +510,44 @@ fn validate_track_transform_and_range() {
         validate_source_range(TimeMs(10), TimeMs(10), RangePolicy::Failure),
         Err(MotionValidationError::EmptySourceRange)
     ));
+}
+
+#[test]
+fn preview_sync_playhead_interpolates() {
+    let mut tl = MotionTimeline {
+        playhead: TimeMs(500),
+        duration: DurationMs(1000),
+        tracks: vec![TimelineTrack {
+            id: 1,
+            node: None,
+            name: "opacity".into(),
+            placement: TemporalPlacement::span(TimeMs(0), TimeMs(1000)),
+            track: MotionTrack::keyframes(vec![
+                Keyframe {
+                    at: TimeMs(0),
+                    value: 0.0,
+                    easing_to_next: Easing::Linear,
+                },
+                Keyframe {
+                    at: TimeMs(1000),
+                    value: 1.0,
+                    easing_to_next: Easing::Linear,
+                },
+            ]),
+        }],
+        playing: false,
+    };
+    let preview = sync_playhead(&tl, SyncProfile::Preview);
+    assert_eq!(preview.profile, SyncProfile::Preview);
+    assert!((preview.values[0].value.unwrap() - 0.5).abs() < 1e-9);
+
+    let final_s = sync_at(&tl, TimeMs(500), SyncProfile::Final);
+    assert_eq!(final_s.values[0].error, Some(SampleError::StrictApproximation));
+
+    let diff = compare_preview_final(&tl);
+    assert!(diff.divergent_track_ids.contains(&1));
+
+    tl.seek(TimeMs(0));
+    let at_start = sync_playhead(&tl, SyncProfile::Final);
+    assert_eq!(at_start.values[0].value, Some(0.0));
 }
