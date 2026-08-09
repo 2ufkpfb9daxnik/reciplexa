@@ -3019,6 +3019,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "reciplexa-opt"
+version = "0.1.0"
+
+[[package]]
 name = "reciplexa-outcome"
 version = "0.1.0"
 dependencies = [

@@ -16,6 +16,7 @@ members = [
     "crates/reciplexa-visual-ir",
     "crates/reciplexa-motion",
     "crates/reciplexa-raster",
+    "crates/reciplexa-opt",
     "crates/reciplexa-backend",
     "crates/reciplexa-gui-runtime",
     "crates/reciplexa-codec",
@@ -62,6 +63,7 @@ reciplexa-mem = { path = "crates/reciplexa-mem" }
 reciplexa-visual-ir = { path = "crates/reciplexa-visual-ir" }
 reciplexa-motion = { path = "crates/reciplexa-motion" }
 reciplexa-raster = { path = "crates/reciplexa-raster" }
+reciplexa-opt = { path = "crates/reciplexa-opt" }
 reciplexa-backend = { path = "crates/reciplexa-backend" }
 reciplexa-gui-runtime = { path = "crates/reciplexa-gui-runtime" }
 reciplexa-codec = { path = "crates/reciplexa-codec" }
