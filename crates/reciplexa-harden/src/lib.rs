@@ -3,5 +3,7 @@
 #![forbid(unsafe_code)]
 
 pub mod budget;
+pub mod quota;
 
 pub use budget::{BudgetExhausted, BudgetKind, DecodeBudget};
+pub use quota::{QuotaExceeded, ResourceKind, ResourceQuota};
