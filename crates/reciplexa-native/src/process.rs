@@ -13,23 +13,26 @@ const NATIVE_ABI: u32 = 1;
 const HELPER_MAGIC: &str = "RPX_NATIVE_IMAGE_V1";
 
 fn synthetic_failed_output(err: std::io::Error) -> std::process::Output {
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::ExitStatusExt;
-        std::process::Output {
-            status: std::process::ExitStatus::from_raw(1),
-            stdout: Vec::new(),
-            stderr: err.to_string().into_bytes(),
-        }
+    synthetic_failed_status(err.to_string().into_bytes())
+}
+
+#[cfg(windows)]
+fn synthetic_failed_status(stderr: Vec<u8>) -> std::process::Output {
+    use std::os::windows::process::ExitStatusExt;
+    std::process::Output {
+        status: std::process::ExitStatus::from_raw(1),
+        stdout: Vec::new(),
+        stderr,
     }
-    #[cfg(not(windows))]
-    {
-        use std::os::unix::process::ExitStatusExt;
-        std::process::Output {
-            status: std::process::ExitStatus::from_raw(1),
-            stdout: Vec::new(),
-            stderr: err.to_string().into_bytes(),
-        }
+}
+
+#[cfg(not(windows))]
+fn synthetic_failed_status(stderr: Vec<u8>) -> std::process::Output {
+    use std::os::unix::process::ExitStatusExt;
+    std::process::Output {
+        status: std::process::ExitStatus::from_raw(1),
+        stdout: Vec::new(),
+        stderr,
     }
 }
 
@@ -52,8 +55,12 @@ impl ProcessNativeImageDecode {
     /// Build a provider for an already-selected helper path (skips ABI probe).
     /// Used after negotiation or in tests that exercise spawn failures.
     pub fn from_helper_path(helper: impl Into<PathBuf>) -> Self {
+        Self::from_helper_path_buf(helper.into())
+    }
+
+    fn from_helper_path_buf(helper: PathBuf) -> Self {
         Self {
-            helper: helper.into(),
+            helper,
             contract: AdapterContract {
                 name: "native-image-decode".into(),
                 abi_version: NATIVE_ABI,
@@ -64,11 +71,14 @@ impl ProcessNativeImageDecode {
 
     /// Negotiate ABI with the helper before exposing an instance.
     pub fn negotiate(helper: impl AsRef<Path>) -> Result<Self, NativeLaunchError> {
-        let helper = helper.as_ref().to_path_buf();
+        Self::negotiate_path(helper.as_ref())
+    }
+
+    fn negotiate_path(helper: &Path) -> Result<Self, NativeLaunchError> {
         if !helper.exists() {
             return Err(NativeLaunchError::MissingBinary);
         }
-        let output = Command::new(&helper)
+        let output = Command::new(helper)
             .arg("--abi")
             .output()
             .map_err(|e| NativeLaunchError::Spawn(e.to_string()))?;
@@ -90,7 +100,7 @@ impl ProcessNativeImageDecode {
                 got: line.to_string(),
             });
         }
-        Ok(Self::from_helper_path(helper))
+        Ok(Self::from_helper_path_buf(helper.to_path_buf()))
     }
 }
 
