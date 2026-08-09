@@ -16,6 +16,10 @@ use reciplexa_visual_ir::NodeSourceHint;
 
 /// Write one SVG document through the planned backend pipeline.
 pub fn write_document(doc: &Document, mut out: impl Write) -> io::Result<()> {
+    write_document_dyn(doc, &mut out)
+}
+
+fn write_document_dyn(doc: &Document, out: &mut dyn Write) -> io::Result<()> {
     let svg = document_to_svg(doc).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
     out.write_all(svg.as_bytes())
 }
@@ -25,6 +29,14 @@ pub fn write_document_with_hints(
     doc: &Document,
     hints: &[Option<NodeSourceHint>],
     mut out: impl Write,
+) -> io::Result<()> {
+    write_document_with_hints_dyn(doc, hints, &mut out)
+}
+
+fn write_document_with_hints_dyn(
+    doc: &Document,
+    hints: &[Option<NodeSourceHint>],
+    out: &mut dyn Write,
 ) -> io::Result<()> {
     let svg = document_to_svg_with_hints(doc, hints)
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
