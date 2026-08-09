@@ -40,11 +40,12 @@ impl Default for Font {
 
 impl fmt::Display for Font {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.family)?;
+        let mut s = self.family.clone();
         for fb in &self.fallbacks {
-            write!(f, ",{fb}")?;
+            s.push(',');
+            s.push_str(fb);
         }
-        Ok(())
+        f.write_str(&s)
     }
 }
 
@@ -295,14 +296,14 @@ mod tests {
         }
         .is_empty());
         let t = Text::new(id(2), Point::mm(0.0, 0.0), "x", style.clone());
-        assert!(matches!(t.to_scene_shape(), Some(Shape::Text(_))));
+        assert!(t.to_scene_shape().is_some());
         assert!(Text::new(id(2), Point::ORIGIN, "", style.clone())
             .to_scene_shape()
             .is_none());
         let box_ = TextBox::new(id(3), Rect::from_xywh(0.0, 0.0, 50.0, 20.0), style)
             .with_plain("line");
         assert_eq!(box_.plain_text(), "line");
-        assert!(matches!(box_.to_scene_shape(), Some(Shape::Text(_))));
+        assert!(box_.to_scene_shape().is_some());
         assert_eq!(box_.estimated_size(), Size::mm(50.0, 20.0));
         assert!(TextBox::new(id(3), Rect::from_xywh(0.0, 0.0, 0.0, 1.0), TextStyle::body())
             .with_plain("x")

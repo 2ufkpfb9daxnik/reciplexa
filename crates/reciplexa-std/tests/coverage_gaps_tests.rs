@@ -250,6 +250,11 @@ fn visual_all_node_ids_and_error_arms() {
     .to_scene_shape()
     .is_none());
 
+    // Closed path with too few points
+    assert!(Path::closed(id(10), vec![Point::mm(0.0, 0.0), Point::mm(1.0, 0.0)], Color::RED)
+        .to_scene_shape()
+        .is_none());
+
     // Closed path with invisible fill
     let mut closed = Path::closed(id(10), vec![Point::mm(0.0, 0.0), Point::mm(1.0, 0.0), Point::mm(0.0, 1.0)], Color::RED);
     closed.style.fill = Fill::None;

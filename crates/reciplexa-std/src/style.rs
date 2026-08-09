@@ -167,11 +167,12 @@ impl Default for Style {
 
 impl fmt::Display for Style {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Style{{{}, opacity={}}}", self.fill, self.opacity.alpha)?;
-        if let Some(s) = self.stroke {
-            write!(f, " {s}")?;
+        let mut s = format!("Style{{{}, opacity={}}}", self.fill, self.opacity.alpha);
+        if let Some(stroke) = self.stroke {
+            s.push(' ');
+            s.push_str(&stroke.to_string());
         }
-        Ok(())
+        f.write_str(&s)
     }
 }
 
