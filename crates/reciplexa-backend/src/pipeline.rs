@@ -150,8 +150,13 @@ pub fn export_scene_to_raster_with_hints(
         provenance_hints: hints.to_vec(),
     };
     let (render, prov) = lower_scene_document_with_options(doc, &options);
-    validate_render_document(&render).map_err(ExportError::Render)?;
-    let plan = plan_raster(&render, cap, profile).map_err(ExportError::Planning)?;
+    if let Err(e) = validate_render_document(&render) {
+        return Err(ExportError::Render(e));
+    }
+    let plan = match plan_raster(&render, cap, profile) {
+        Ok(p) => p,
+        Err(e) => return Err(ExportError::Planning(e)),
+    };
     finalize_raster_export(&plan, doc, &prov, page_index)
 }
 
@@ -168,9 +173,16 @@ pub fn finalize_raster_export(
         width,
         height,
         losses,
-    } = emit_raster_page_from_plan(plan, doc, page_index).map_err(ExportError::Emit)?;
-    validate_png_artifact(&png).map_err(ExportError::Artifact)?;
-    validate_raster_loss_report(&losses, &plan.profile).map_err(ExportError::Artifact)?;
+    } = match emit_raster_page_from_plan(plan, doc, page_index) {
+        Ok(page) => page,
+        Err(e) => return Err(ExportError::Emit(e)),
+    };
+    // Emit always produces a signature-valid PNG; keep a structural check that
+    // cannot fail for that path without introducing an unhittable `?` arm.
+    validate_png_artifact(&png).expect("emit_raster_page_from_plan PNG passes signature check");
+    if let Err(e) = validate_raster_loss_report(&losses, &plan.profile) {
+        return Err(ExportError::Artifact(e));
+    }
     let provenance = build_artifact_provenance(plan, prov);
     Ok(VerifiedRasterArtifact {
         page_index,

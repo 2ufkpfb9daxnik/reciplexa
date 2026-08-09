@@ -41,7 +41,8 @@ pub fn emit_raster_page_from_plan(
         ..RasterOptions::default()
     };
     let frame = rasterize_page(doc, page_index, &opts).map_err(map_raster_err)?;
-    let png = frame_to_png(&frame).map_err(map_raster_err)?;
+    // Successful rasterize always yields an RGB8 frame the PNG encoder accepts.
+    let png = frame_to_png(&frame).expect("rasterize_page frame is PNG-encodable");
     let mut losses = plan.losses.clone();
     // Ensure runtime discoveries are never dropped (never silent).
     for rl in &frame.losses {

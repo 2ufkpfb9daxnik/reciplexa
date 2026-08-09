@@ -319,3 +319,86 @@ fn finalize_raster_via_export_empty_page() {
         width_mm: 0.1,
     };
 }
+
+#[test]
+fn plan_raster_maps_capability_profile_errors() {
+    let doc = Document::single_page(Page {
+        paper: PaperSize::a4(),
+        shapes: vec![],
+    });
+    let (render, _) = lower_scene_document(&doc);
+    let mut profile = OutputProfile::preview_raster();
+    profile.forbid_silent_loss = false;
+    let err = plan_raster(&render, &BackendCapability::raster_default(), &profile).unwrap_err();
+    assert!(matches!(err, PlanningError::ProfileViolation(_)));
+    profile = OutputProfile::preview_raster();
+    profile.px_per_mm = 0.01;
+    let err = plan_raster(&render, &BackendCapability::raster_default(), &profile).unwrap_err();
+    assert!(matches!(err, PlanningError::ProfileViolation(_)));
+}
+
+#[test]
+fn finalize_and_hints_map_emit_render_loss_errors() {
+    use reciplexa_backend::{
+        export_scene_to_raster_with_hints, finalize_raster_export, plan_raster, ExportError,
+    };
+
+    let doc = Document::single_page(Page {
+        paper: PaperSize {
+            width_mm: 8.0,
+            height_mm: 8.0,
+        },
+        shapes: vec![Shape::Circle(Circle {
+            x_mm: 4.0,
+            y_mm: 4.0,
+            radius_mm: 1.0,
+            fill: Color::RED,
+        })],
+    });
+    let (render, prov) = lower_scene_document(&doc);
+    let mut plan = plan_raster(
+        &render,
+        &BackendCapability::raster_default(),
+        &OutputProfile::preview_raster(),
+    )
+    .unwrap();
+    // Emit failure: page out of range.
+    let err = finalize_raster_export(&plan, &doc, &prov, 9).unwrap_err();
+    assert!(matches!(err, ExportError::Emit(_)));
+
+    // Loss report mismatch after a successful emit path.
+    plan.losses.profile = ProfileKind::Final;
+    let err = finalize_raster_export(&plan, &doc, &prov, 0).unwrap_err();
+    assert!(matches!(err, ExportError::Artifact(_)));
+
+    // with_hints Render validation failure (zero radius).
+    let bad = Document::single_page(Page {
+        paper: PaperSize::a4(),
+        shapes: vec![Shape::Circle(Circle {
+            x_mm: 0.0,
+            y_mm: 0.0,
+            radius_mm: 0.0,
+            fill: Color::BLACK,
+        })],
+    });
+    let err = export_scene_to_raster_with_hints(
+        &bad,
+        &BackendCapability::raster_default(),
+        &OutputProfile::preview_raster(),
+        0,
+        &[],
+    )
+    .unwrap_err();
+    assert!(matches!(err, ExportError::Render(_)));
+
+    // with_hints planning error (wrong capability family).
+    let err = export_scene_to_raster_with_hints(
+        &doc,
+        &BackendCapability::svg_default(),
+        &OutputProfile::preview_raster(),
+        0,
+        &[],
+    )
+    .unwrap_err();
+    assert!(matches!(err, ExportError::Planning(_)));
+}

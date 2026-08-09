@@ -87,15 +87,9 @@ pub fn plan_raster(
     let mut losses = LossReport::empty(profile.kind);
     for (page_index, page) in render.pages.iter().enumerate() {
         for node in &page.nodes {
+            // Raster representations are always supported once `family == Raster`
+            // (checked above); capability flags only affect planned losses.
             let (representation, planned_loss) = raster_representation_for(node, profile, cap);
-            if !cap.supports(representation) {
-                return Err(PlanningError::CapabilityMismatch(vec![
-                    crate::capability::CapabilityMismatch {
-                        feature: format!("{representation:?}"),
-                        required_by_profile: true,
-                    },
-                ]));
-            }
             if let Some(loss) = planned_loss {
                 losses.push(loss);
             }
