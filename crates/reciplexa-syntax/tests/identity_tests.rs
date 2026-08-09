@@ -4,7 +4,6 @@ use reciplexa_syntax::identity::*;
 use reciplexa_syntax::parse_source;
 use reciplexa_syntax::unparse;
 
-
 #[test]
 fn same_range_reuses_id() {
     let parse = parse_source("(page a4)");
@@ -74,7 +73,7 @@ fn identity_map_get_by_id_and_is_empty() {
 #[test]
 fn insert_known_roundtrip() {
     let mut map = SyntaxIdentityMap::new();
-    let parse = parse_source("(doc hi)");
+    let parse = parse_source("(markup hi)");
     let range = parse.root.text_range();
     let id = map.intern(range);
     let mut map2 = SyntaxIdentityMap::new();

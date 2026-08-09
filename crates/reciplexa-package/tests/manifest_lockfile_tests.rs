@@ -1,4 +1,4 @@
-use reciplexa_package::{DependencySpec, Lockfile, LockedPackage, PackageManifest};
+use reciplexa_package::{DependencySpec, LockedPackage, Lockfile, PackageManifest};
 
 #[test]
 fn manifest_rejects_garbage_json() {

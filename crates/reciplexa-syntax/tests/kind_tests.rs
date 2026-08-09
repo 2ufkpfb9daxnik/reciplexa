@@ -2,7 +2,7 @@
 
 use reciplexa_syntax::kind::*;
 
-    use rowan::Language;
+use rowan::Language;
 
 // --- validity ---
 
@@ -30,6 +30,7 @@ fn roundtrip_every_real_kind_through_language() {
         SyntaxKind::BraceList,
         SyntaxKind::AtExpr,
         SyntaxKind::ErrorNode,
+        SyntaxKind::StructuredComment,
     ];
     for kind in kinds {
         let raw = SyntaxLanguage::kind_to_raw(kind);
@@ -42,6 +43,7 @@ fn composite_kinds_are_not_tokens() {
     assert!(!SyntaxKind::SourceFile.is_token());
     assert!(!SyntaxKind::List.is_token());
     assert!(!SyntaxKind::AtExpr.is_token());
+    assert!(!SyntaxKind::StructuredComment.is_token());
     assert!(SyntaxKind::Ident.is_token());
     assert!(SyntaxKind::Whitespace.is_token());
 }
@@ -60,7 +62,10 @@ fn trivia_predicate_matches_design_token_set() {
 fn discriminants_are_dense_from_zero() {
     // Dense tags keep rowan maps small and make accidental gaps obvious.
     assert_eq!(SyntaxKind::LParen as u16, 0);
-    assert_eq!(SyntaxKind::ErrorNode as u16 + 1, SyntaxKind::__Last as u16);
+    assert_eq!(
+        SyntaxKind::StructuredComment as u16 + 1,
+        SyntaxKind::__Last as u16
+    );
     assert!(SyntaxKind::SourceFile as u16 > SyntaxKind::Error as u16);
 }
 

@@ -3,7 +3,6 @@
 use reciplexa_syntax::kind::SyntaxKind;
 use reciplexa_syntax::lexer::*;
 
-
 fn kinds(src: &str) -> Vec<SyntaxKind> {
     Lexer::new(src)
         .tokenize_all()
@@ -92,13 +91,19 @@ fn lexes_ident_number_string_and_at() {
 }
 
 #[test]
-fn lexes_line_comment_as_trivia() {
+fn semicolon_is_error_not_line_comment() {
+    // SYN-001 rejects `;` line comments; bare `;` is an error token.
     let src = "; hello\nfoo";
     assert_eq!(
         kinds(src),
-        vec![SyntaxKind::Comment, SyntaxKind::Newline, SyntaxKind::Ident,]
+        vec![
+            SyntaxKind::Error,
+            SyntaxKind::Whitespace,
+            SyntaxKind::Ident,
+            SyntaxKind::Newline,
+            SyntaxKind::Ident,
+        ]
     );
-    assert_eq!(texts(src)[0], "; hello");
 }
 
 #[test]
@@ -266,7 +271,6 @@ fn number_with_trailing_dot_stops_before_dot() {
     // `1.` — digit run ends at the dot when no fractional digit follows.
     assert_eq!(kinds("1."), vec![SyntaxKind::Number, SyntaxKind::Error]);
 }
-
 
 #[test]
 fn lone_cr_is_newline_trivia() {

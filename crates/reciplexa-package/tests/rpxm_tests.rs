@@ -19,7 +19,7 @@ fn parses_minimal_rpxm() {
 #[test]
 fn rejects_empty_input() {
     assert_eq!(parse_rpxm(""), Err(RpxmError::Empty));
-    assert_eq!(parse_rpxm("   ; only comment\n"), Err(RpxmError::Empty));
+    assert_eq!(parse_rpxm("   (// only comment)\n"), Err(RpxmError::Empty));
 }
 
 #[test]
@@ -41,11 +41,11 @@ fn rejects_missing_entry() {
 }
 
 #[test]
-fn ignores_semicolon_comments() {
+fn ignores_structured_comments() {
     let m = parse_rpxm(
-        r#"; header comment
+        r#"(// header comment)
 (package
-  ; inline
+  (// inline)
   (name demo)
   (version 0.1.0)
   (entry main.rpx))"#,

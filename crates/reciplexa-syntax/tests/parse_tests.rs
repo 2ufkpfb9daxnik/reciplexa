@@ -1,10 +1,9 @@
 //! Integration tests moved from src/parse.rs for region coverage.
 
 use reciplexa_syntax::kind::SyntaxKind;
-use reciplexa_syntax::SyntaxNode;
 use reciplexa_syntax::parse::*;
+use reciplexa_syntax::SyntaxNode;
 use reciplexa_syntax::Token;
-
 
 fn parse_ok(src: &str) -> SyntaxNode {
     parse_source(src)
@@ -24,7 +23,7 @@ fn empty_source_is_empty_file() {
 
 #[test]
 fn roundtrip_preserves_whitespace_comments_and_newlines() {
-    let src = "; title\n(circle  1.5\n  \"x\")\n";
+    let src = "(// title)\n(circle  1.5\n  \"x\")\n";
     let root = parse_ok(src);
     assert_eq!(unparse(&root), src);
 }
@@ -62,7 +61,7 @@ fn japanese_and_symbols_roundtrip() {
 
 #[test]
 fn doc_scribble_roundtrip_with_text_and_at() {
-    let src = "(doc Hello @em{世界}.)";
+    let src = "(markup Hello @em{世界}.)";
     let root = parse_ok(src);
     assert_eq!(unparse(&root), src);
     assert!(root.descendants().any(|n| n.kind() == SyntaxKind::AtExpr));
@@ -73,7 +72,7 @@ fn doc_scribble_roundtrip_with_text_and_at() {
 
 #[test]
 fn doc_with_newlines_roundtrip() {
-    let src = "(doc\nline1\nline2\n)";
+    let src = "(markup\nline1\nline2\n)";
     assert_eq!(unparse(&parse_ok(src)), src);
 }
 
@@ -92,13 +91,13 @@ fn src_block_stays_lisp() {
 
 #[test]
 fn at_ident_without_brace() {
-    let src = "(doc see @ref)";
+    let src = "(markup see @ref)";
     assert_eq!(unparse(&parse_ok(src)), src);
 }
 
 #[test]
 fn at_with_bracket_args_and_brace_body() {
-    let src = "(doc @link[\"https://example.com\"]{click})";
+    let src = "(markup @link[\"https://example.com\"]{click})";
     let root = parse_ok(src);
     assert_eq!(unparse(&root), src);
     assert!(root
@@ -111,7 +110,7 @@ fn at_with_bracket_args_and_brace_body() {
 
 #[test]
 fn at_with_bracket_args_only() {
-    let src = "(doc @cite[42])";
+    let src = "(markup @cite[42])";
     assert_eq!(unparse(&parse_ok(src)), src);
 }
 
@@ -153,32 +152,32 @@ fn crlf_roundtrip() {
 
 #[test]
 fn unclosed_doc_is_error() {
-    let parse = parse_source("(doc hello");
+    let parse = parse_source("(markup hello");
     assert!(parse.has_errors());
 }
 
 #[test]
 fn unclosed_at_brace_is_error() {
-    let parse = parse_source("(doc @em{hi)");
+    let parse = parse_source("(markup @em{hi)");
     assert!(parse.has_errors());
 }
 
 #[test]
 fn at_then_immediate_close_is_error() {
-    let parse = parse_source("(doc @)");
+    let parse = parse_source("(markup @)");
     assert!(parse.has_errors());
 }
 
 #[test]
 fn doc_raw_lparen_in_scribble_is_recovered_error() {
-    let parse = parse_source("(doc hello (world)");
+    let parse = parse_source("(markup hello (world)");
     assert!(parse.has_errors());
     let _ = unparse(&parse.root);
 }
 
 #[test]
 fn unclosed_brace_in_at_expr_is_error() {
-    let parse = parse_source("(doc @em{hi)");
+    let parse = parse_source("(markup @em{hi)");
     assert!(parse.has_errors());
     assert!(parse.errors.iter().any(|e| e.message.contains("unclosed")));
 }
@@ -192,16 +191,28 @@ fn error_recovery_still_yields_source_file_root() {
 
 #[test]
 fn multiple_top_level_forms() {
-    let src = "(page a4)\n(doc hi)\n(src (perform log \"x\"))";
+    let src = "(page a4)\n(markup hi)\n(src (perform log \"x\"))";
     let root = parse_ok(src);
     assert_eq!(root.children().count(), 3);
 }
 
 #[test]
-fn hash_comment_only_file() {
-    let src = "; just a comment\n";
+fn structured_comment_only_file() {
+    let src = "(// just a comment)\n";
     let root = parse_ok(src);
-    assert_eq!(root.children().count(), 0);
+    assert_eq!(root.children().count(), 1);
+    assert_eq!(
+        root.children().next().unwrap().kind(),
+        SyntaxKind::StructuredComment
+    );
+}
+
+#[test]
+fn structured_comment_roundtrip_and_nesting() {
+    let src = "(// outer (// inner) still)\n(page a4)";
+    let root = parse_ok(src);
+    assert_eq!(unparse(&root), src);
+    assert_eq!(root.children().count(), 2);
 }
 
 #[test]
@@ -226,7 +237,7 @@ fn nested_unclosed_list_recovers_root() {
 
 #[test]
 fn doc_unclosed_at_brace_recovers() {
-    let parse = parse_source("(doc @section{title)");
+    let parse = parse_source("(markup @section{title)");
     assert!(parse.has_errors());
     assert_eq!(parse.root.kind(), SyntaxKind::SourceFile);
 }
@@ -286,13 +297,13 @@ fn bare_at_without_form_is_parse_error() {
 
 #[test]
 fn nested_scribble_brace_in_doc() {
-    let src = "(doc before {inner} after)";
+    let src = "(markup before {inner} after)";
     assert_eq!(unparse(&parse_ok(src)), src);
 }
 
 #[test]
 fn scribble_raw_paren_is_error() {
-    let parse = parse_source("(doc hello (world)");
+    let parse = parse_source("(markup hello (world)");
     assert!(parse.errors.iter().any(|e| e.message.contains("scribble")));
 }
 
@@ -324,9 +335,9 @@ fn mismatched_brace_closer_errors() {
 
 #[test]
 fn comment_and_whitespace_only_trivia() {
-    let parse = parse_source("# just a comment\n\n  \n");
+    let parse = parse_source("(// just a comment)\n\n  \n");
     assert!(!parse.has_errors());
-    assert_eq!(unparse(&parse.root).contains("comment") || true, true);
+    assert!(unparse(&parse.root).contains("comment"));
 }
 
 #[test]
@@ -343,19 +354,19 @@ fn into_result_err_on_unclosed() {
 
 #[test]
 fn doc_with_at_em_and_braces() {
-    let src = "(doc hello @em{world})";
+    let src = "(markup hello @em{world})";
     let root = parse_ok(src);
     assert_eq!(unparse(&root), src);
 }
 
 #[test]
 fn stray_close_brace_or_bracket_in_scribble() {
-    let brace = parse_source("(doc })");
+    let brace = parse_source("(markup })");
     assert!(brace
         .errors
         .iter()
         .any(|e| e.message.contains("unexpected")));
-    let bracket = parse_source("(doc ])");
+    let bracket = parse_source("(markup ])");
     assert!(bracket
         .errors
         .iter()
@@ -364,7 +375,7 @@ fn stray_close_brace_or_bracket_in_scribble() {
 
 #[test]
 fn unclosed_nested_scribble_brace_errors() {
-    let parse = parse_source("(doc {hi");
+    let parse = parse_source("(markup {hi");
     assert!(parse.errors.iter().any(|e| e.message.contains("unclosed")));
 }
 

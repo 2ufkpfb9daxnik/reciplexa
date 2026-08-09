@@ -53,6 +53,8 @@ pub enum SyntaxKind {
     AtExpr,
     /// Wrapper around a skipped/unexpected span when fail-fast collection runs.
     ErrorNode,
+    /// SYN-001 structured comment: `(// …)` (nested paren / string aware).
+    StructuredComment,
 
     // --- sentinel: must stay last for raw-tag bounds checks in tests ---
     #[doc(hidden)]
@@ -88,6 +90,7 @@ impl SyntaxKind {
             x if x == Self::BraceList as u16 => Self::BraceList,
             x if x == Self::AtExpr as u16 => Self::AtExpr,
             x if x == Self::ErrorNode as u16 => Self::ErrorNode,
+            x if x == Self::StructuredComment as u16 => Self::StructuredComment,
             _ => Self::Error,
         }
     }
@@ -109,6 +112,7 @@ impl SyntaxKind {
                 | Self::BraceList
                 | Self::AtExpr
                 | Self::ErrorNode
+                | Self::StructuredComment
                 | Self::__Last
         )
     }

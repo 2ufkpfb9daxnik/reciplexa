@@ -4,7 +4,6 @@ use reciplexa_syntax::edit::*;
 use reciplexa_syntax::kind::SyntaxKind;
 use reciplexa_syntax::parse::{parse_source, unparse};
 
-
 // --- validity ---
 
 #[test]

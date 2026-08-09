@@ -1,4 +1,4 @@
-//! Walk Scribble `(doc …)` CSTs into structured parts (M8).
+//! Walk Scribble `(markup …)` CSTs into structured parts (M8 / SYN-001).
 //!
 //! Reading (`@`, TextChunk, modes) lives here; document *meaning* (layout,
 //! packages) belongs to macro / later packages.
@@ -7,9 +7,9 @@
 
 use crate::{SyntaxElement, SyntaxKind, SyntaxNode};
 
-/// One piece of a Scribble document body.
+/// One piece of a Scribble markup body.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum DocPart {
+pub enum MarkupPart {
     Text(String),
     Newline,
     At {
@@ -17,16 +17,16 @@ pub enum DocPart {
         /// Bracket-list text without outer `[` `]` (args as source), if present.
         bracket_args: Option<String>,
         /// Nested scribble body from `{…}`, if present.
-        brace_body: Vec<DocPart>,
+        brace_body: Vec<MarkupPart>,
     },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct DocWalkError {
+pub struct MarkupWalkError {
     pub message: String,
 }
 
-impl DocWalkError {
+impl MarkupWalkError {
     pub fn new(message: impl Into<String>) -> Self {
         Self {
             message: message.into(),
@@ -34,15 +34,15 @@ impl DocWalkError {
     }
 }
 
-/// Walk a `(doc …)` List node into ordered [`DocPart`]s.
-pub fn doc_parts(doc_list: &SyntaxNode) -> Result<Vec<DocPart>, DocWalkError> {
-    if doc_list.kind() != SyntaxKind::List {
-        return Err(DocWalkError::new("doc_parts expects a List node"));
+/// Walk a `(markup …)` List node into ordered [`MarkupPart`]s.
+pub fn markup_parts(markup_list: &SyntaxNode) -> Result<Vec<MarkupPart>, MarkupWalkError> {
+    if markup_list.kind() != SyntaxKind::List {
+        return Err(MarkupWalkError::new("markup_parts expects a List node"));
     }
     let mut head_seen = false;
     let mut body_started = false;
     let mut parts = Vec::new();
-    for el in doc_list.children_with_tokens() {
+    for el in markup_list.children_with_tokens() {
         match el {
             SyntaxElement::Token(t) => {
                 if matches!(t.kind(), SyntaxKind::LParen | SyntaxKind::RParen) {
@@ -52,54 +52,54 @@ pub fn doc_parts(doc_list: &SyntaxNode) -> Result<Vec<DocPart>, DocWalkError> {
                     if t.kind().is_trivia() {
                         continue;
                     }
-                    if t.kind() == SyntaxKind::Ident && t.text() == "doc" {
+                    if t.kind() == SyntaxKind::Ident && t.text() == "markup" {
                         head_seen = true;
                         continue;
                     }
-                    return Err(DocWalkError::new("expected head `doc`"));
+                    return Err(MarkupWalkError::new("expected head `markup`"));
                 }
                 if t.kind().is_trivia() {
-                    // Leading trivia after `doc` is separator, not content.
+                    // Leading trivia after `markup` is separator, not content.
                     if !body_started {
                         continue;
                     }
                     match t.kind() {
                         SyntaxKind::Whitespace => {
-                            parts.push(DocPart::Text(t.text().to_string()));
+                            parts.push(MarkupPart::Text(t.text().to_string()));
                         }
-                        SyntaxKind::Newline => parts.push(DocPart::Newline),
+                        SyntaxKind::Newline => parts.push(MarkupPart::Newline),
                         _ => {}
                     }
                     continue;
                 }
                 body_started = true;
                 match t.kind() {
-                    SyntaxKind::TextChunk => parts.push(DocPart::Text(t.text().to_string())),
+                    SyntaxKind::TextChunk => parts.push(MarkupPart::Text(t.text().to_string())),
                     // Newline is trivia and handled above; any other non-trivia token is invalid.
                     other => {
-                        return Err(DocWalkError::new(format!(
-                            "unexpected token `{other:?}` in doc body"
+                        return Err(MarkupWalkError::new(format!(
+                            "unexpected token `{other:?}` in markup body"
                         )));
                     }
                 }
             }
             SyntaxElement::Node(n) => {
                 if !head_seen {
-                    return Err(DocWalkError::new("expected head `doc` before body"));
+                    return Err(MarkupWalkError::new("expected head `markup` before body"));
                 }
                 body_started = true;
                 match n.kind() {
                     SyntaxKind::AtExpr => parts.push(walk_at_expr(&n)?),
                     SyntaxKind::BraceList => {
-                        // Rare nested `{…}` at doc top level: unwrap to body parts.
+                        // Rare nested `{…}` at markup top level: unwrap to body parts.
                         parts.extend(walk_scribble_container(&n)?);
                     }
                     SyntaxKind::ErrorNode => {
-                        return Err(DocWalkError::new("doc body contains an error node"));
+                        return Err(MarkupWalkError::new("markup body contains an error node"));
                     }
                     other => {
-                        return Err(DocWalkError::new(format!(
-                            "unexpected node `{other:?}` in doc body"
+                        return Err(MarkupWalkError::new(format!(
+                            "unexpected node `{other:?}` in markup body"
                         )));
                     }
                 }
@@ -107,7 +107,7 @@ pub fn doc_parts(doc_list: &SyntaxNode) -> Result<Vec<DocPart>, DocWalkError> {
         }
     }
     if !head_seen {
-        return Err(DocWalkError::new("expected head `doc`"));
+        return Err(MarkupWalkError::new("expected head `markup`"));
     }
     Ok(parts)
 }
@@ -116,12 +116,12 @@ pub fn doc_parts(doc_list: &SyntaxNode) -> Result<Vec<DocPart>, DocWalkError> {
 ///
 /// Newlines become a single space. `@name{body}` uses the brace body;
 /// `@name[args]` without braces uses the bracket args; bare `@name` is empty.
-pub fn flatten_readable(parts: &[DocPart]) -> String {
+pub fn flatten_readable(parts: &[MarkupPart]) -> String {
     flatten_lines(parts).join(" ")
 }
 
 /// Flatten into visual lines (newline-separated), trimming each line.
-pub fn flatten_lines(parts: &[DocPart]) -> Vec<String> {
+pub fn flatten_lines(parts: &[MarkupPart]) -> Vec<String> {
     let mut lines: Vec<String> = Vec::new();
     let mut cur = String::new();
     flush_part_lines(parts, &mut lines, &mut cur);
@@ -135,14 +135,14 @@ pub fn flatten_lines(parts: &[DocPart]) -> Vec<String> {
         .collect()
 }
 
-fn flush_part_lines(parts: &[DocPart], lines: &mut Vec<String>, cur: &mut String) {
+fn flush_part_lines(parts: &[MarkupPart], lines: &mut Vec<String>, cur: &mut String) {
     for part in parts {
         match part {
-            DocPart::Text(t) => cur.push_str(t),
-            DocPart::Newline => {
+            MarkupPart::Text(t) => cur.push_str(t),
+            MarkupPart::Newline => {
                 lines.push(std::mem::take(cur));
             }
-            DocPart::At {
+            MarkupPart::At {
                 bracket_args,
                 brace_body,
                 ..
@@ -174,10 +174,10 @@ fn collapse_ws(s: &str) -> String {
     out.trim().to_string()
 }
 
-fn walk_at_expr(node: &SyntaxNode) -> Result<DocPart, DocWalkError> {
+fn walk_at_expr(node: &SyntaxNode) -> Result<MarkupPart, MarkupWalkError> {
     let mut name: Option<String> = None;
     let mut bracket_args: Option<String> = None;
-    let mut brace_body: Vec<DocPart> = Vec::new();
+    let mut brace_body: Vec<MarkupPart> = Vec::new();
 
     for el in node.children_with_tokens() {
         match el {
@@ -198,8 +198,8 @@ fn walk_at_expr(node: &SyntaxNode) -> Result<DocPart, DocWalkError> {
                 }
                 SyntaxKind::List => {
                     // `@` then a list form is unusual for M8 identity expand; reject.
-                    return Err(DocWalkError::new(
-                        "list form after `@` is not supported in doc walk yet",
+                    return Err(MarkupWalkError::new(
+                        "list form after `@` is not supported in markup walk yet",
                     ));
                 }
                 _ => {}
@@ -208,16 +208,16 @@ fn walk_at_expr(node: &SyntaxNode) -> Result<DocPart, DocWalkError> {
     }
 
     let Some(name) = name else {
-        return Err(DocWalkError::new("expected identifier after `@`"));
+        return Err(MarkupWalkError::new("expected identifier after `@`"));
     };
-    Ok(DocPart::At {
+    Ok(MarkupPart::At {
         name,
         bracket_args,
         brace_body,
     })
 }
 
-fn walk_scribble_container(node: &SyntaxNode) -> Result<Vec<DocPart>, DocWalkError> {
+fn walk_scribble_container(node: &SyntaxNode) -> Result<Vec<MarkupPart>, MarkupWalkError> {
     let mut parts = Vec::new();
     for el in node.children_with_tokens() {
         match el {
@@ -233,17 +233,17 @@ fn walk_scribble_container(node: &SyntaxNode) -> Result<Vec<DocPart>, DocWalkErr
                 }
                 if t.kind().is_trivia() {
                     if t.kind() == SyntaxKind::Whitespace {
-                        parts.push(DocPart::Text(t.text().to_string()));
+                        parts.push(MarkupPart::Text(t.text().to_string()));
                     } else {
                         // Non-whitespace trivia (newline/comment) is skipped.
                     }
                     continue;
                 }
                 match t.kind() {
-                    SyntaxKind::TextChunk => parts.push(DocPart::Text(t.text().to_string())),
+                    SyntaxKind::TextChunk => parts.push(MarkupPart::Text(t.text().to_string())),
                     // Newline is trivia and handled above; any other non-trivia token is invalid.
                     other => {
-                        return Err(DocWalkError::new(format!(
+                        return Err(MarkupWalkError::new(format!(
                             "unexpected token `{other:?}` in scribble brace"
                         )));
                     }
@@ -253,10 +253,10 @@ fn walk_scribble_container(node: &SyntaxNode) -> Result<Vec<DocPart>, DocWalkErr
                 SyntaxKind::AtExpr => parts.push(walk_at_expr(&n)?),
                 SyntaxKind::BraceList => parts.extend(walk_scribble_container(&n)?),
                 SyntaxKind::ErrorNode => {
-                    return Err(DocWalkError::new("scribble body contains an error node"));
+                    return Err(MarkupWalkError::new("scribble body contains an error node"));
                 }
                 other => {
-                    return Err(DocWalkError::new(format!(
+                    return Err(MarkupWalkError::new(format!(
                         "unexpected node `{other:?}` in scribble brace"
                     )));
                 }

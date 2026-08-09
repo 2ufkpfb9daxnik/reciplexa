@@ -95,15 +95,44 @@ fn tokenize(src: &str) -> Result<Vec<String>, String> {
     let mut chars = src.chars().peekable();
     while let Some(&c) = chars.peek() {
         match c {
-            ';' => {
-                while let Some(&c2) = chars.peek() {
-                    chars.next();
-                    if c2 == '\n' {
+            '(' => {
+                // SYN-001-style structured comment: `(// …)` with nested parens.
+                let mut lookahead = chars.clone();
+                lookahead.next(); // (
+                while let Some(&w) = lookahead.peek() {
+                    if w.is_whitespace() {
+                        lookahead.next();
+                    } else {
                         break;
                     }
                 }
+                let is_comment = lookahead.next() == Some('/') && lookahead.next() == Some('/');
+                if is_comment {
+                    chars.next(); // (
+                    let mut depth = 1usize;
+                    while depth > 0 {
+                        let Some(ch) = chars.next() else {
+                            return Err("unclosed structured comment".into());
+                        };
+                        match ch {
+                            '(' => depth += 1,
+                            ')' => depth -= 1,
+                            '"' => {
+                                for ch in chars.by_ref() {
+                                    if ch == '"' {
+                                        break;
+                                    }
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                    continue;
+                }
+                out.push("(".to_string());
+                chars.next();
             }
-            '(' | ')' => {
+            ')' => {
                 out.push(c.to_string());
                 chars.next();
             }
@@ -129,7 +158,7 @@ fn tokenize(src: &str) -> Result<Vec<String>, String> {
             _ => {
                 let mut s = String::new();
                 while let Some(&ch) = chars.peek() {
-                    if ch.is_whitespace() || ch == '(' || ch == ')' || ch == ';' {
+                    if ch.is_whitespace() || ch == '(' || ch == ')' {
                         break;
                     }
                     s.push(ch);

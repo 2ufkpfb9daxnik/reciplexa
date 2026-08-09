@@ -1,10 +1,10 @@
 //! Hand-written lexer with an explicit mode stack.
 //!
 //! Reciplexa's surface is a two-faced LISP: pure S-expressions in `src`
-//! blocks and Scribble-like text (with `@`-escapes) in `doc` blocks.
+//! blocks and Scribble-like text (with `@`-escapes) in `markup` blocks.
 //! Encoding that as `mode_stack: Vec<LexerMode>` keeps nesting explicit—
 //! a finite state enum alone cannot represent nested mode switches
-//! (`(doc @foo{... (src ...) ...})`) without an ad-hoc counter.
+//! (`(markup @foo{... (src ...) ...})`) without an ad-hoc counter.
 //!
 //! Tokenization is incremental (`bump_token`) so the parser can drive the
 //! lexer and so unit tests can assert one decision at a time.
@@ -49,8 +49,8 @@ pub struct Lexer<'a> {
 impl<'a> Lexer<'a> {
     /// Start in [`LexerMode::Lisp`].
     ///
-    /// Files are S-expression rooted (`(src …)` / `(doc …)`); Scribble is
-    /// entered only when the parser recognizes a `doc` form and pushes mode.
+    /// Files are S-expression rooted (`(src …)` / `(markup …)`); Scribble is
+    /// entered only when the parser recognizes a `markup` form and pushes mode.
     pub fn new(input: &'a str) -> Self {
         Self {
             input,
@@ -154,16 +154,8 @@ impl<'a> Lexer<'a> {
             return self.finish(SyntaxKind::Whitespace, start);
         }
 
-        if ch == ';' {
-            self.advance_char();
-            while let Some(c) = self.peek_char() {
-                if c == '\n' || c == '\r' {
-                    break;
-                }
-                self.advance_char();
-            }
-            return self.finish(SyntaxKind::Comment, start);
-        }
+        // SYN-001: `;` line comments are not part of the language.
+        // Structured comments are `(// …)` forms, recognized by the parser.
 
         let kind = match ch {
             '(' => {
@@ -209,7 +201,7 @@ impl<'a> Lexer<'a> {
         let start = self.pos;
         let ch = self.peek_char().expect("caller checked EOF");
 
-        // Delimiters stay visible so `(doc …)` can close and `@foo{…}` can nest.
+        // Delimiters stay visible so `(markup …)` can close and `@foo{…}` can nest.
         let punct = match ch {
             '@' => Some(SyntaxKind::At),
             '(' => Some(SyntaxKind::LParen),

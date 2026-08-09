@@ -5,9 +5,10 @@
 //! collected and [`Parse::into_result`] refuses success when any exist
 //! (SATySFi-style fail-fast at the API boundary).
 //!
-//! Mode switching: after the head of `(doc …)` the parser pushes
+//! Mode switching: after the head of `(markup …)` the parser pushes
 //! [`LexerMode::Scribble`] and re-lexes lookahead. `@` escapes push Lisp
 //! for one form (and an optional `{…}` Scribble body).
+//! Structured comments `(// …)` are SYN-001 trivia forms (not semantic).
 
 use rowan::GreenNodeBuilder;
 
@@ -86,9 +87,98 @@ impl<'a> Parser<'a> {
     }
 
     fn eat_trivia(&mut self) {
+        loop {
+            while self.current.as_ref().is_some_and(|t| t.kind.is_trivia()) {
+                self.bump();
+            }
+            if self.at_structured_comment() {
+                self.parse_structured_comment();
+                continue;
+            }
+            break;
+        }
+    }
+
+    /// Look ahead from a pending `(` for an exact `//` head (SYN-001).
+    fn at_structured_comment(&self) -> bool {
+        let Some(tok) = self.current.as_ref() else {
+            return false;
+        };
+        if tok.kind != SyntaxKind::LParen {
+            return false;
+        }
+        let mut rest = &self.input[tok.end..];
+        loop {
+            let trimmed = rest.trim_start_matches([' ', '\t', '\u{0c}', '\n', '\r']);
+            if trimmed.len() == rest.len() {
+                break;
+            }
+            rest = trimmed;
+        }
+        if !rest.starts_with("//") {
+            return false;
+        }
+        match rest[2..].chars().next() {
+            None => true,
+            Some(c) => !is_ident_continue(c),
+        }
+    }
+
+    fn parse_structured_comment(&mut self) {
+        self.builder
+            .start_node(SyntaxKind::StructuredComment.into());
+        debug_assert_eq!(
+            self.current.as_ref().map(|t| t.kind),
+            Some(SyntaxKind::LParen)
+        );
+        self.bump(); // (
         while self.current.as_ref().is_some_and(|t| t.kind.is_trivia()) {
             self.bump();
         }
+        match self.current.clone() {
+            Some(tok) if tok.kind == SyntaxKind::Ident && tok.text(self.input) == "//" => {
+                self.bump(); // //
+            }
+            _ => {
+                let (start, end) = self
+                    .current
+                    .as_ref()
+                    .map(|t| (t.start, t.end))
+                    .unwrap_or((self.input.len(), self.input.len()));
+                self.push_error(
+                    "expected `//` after `(` in structured comment".into(),
+                    start,
+                    end,
+                );
+            }
+        }
+        // Body: track paren depth; strings are single tokens from the lexer.
+        let mut depth = 1usize;
+        loop {
+            let Some(tok) = self.current.clone() else {
+                self.push_error(
+                    "unclosed structured comment `(//`".into(),
+                    self.input.len(),
+                    self.input.len(),
+                );
+                break;
+            };
+            match tok.kind {
+                SyntaxKind::LParen => {
+                    self.bump();
+                    depth += 1;
+                }
+                SyntaxKind::RParen => {
+                    self.bump();
+                    depth -= 1;
+                    if depth == 0 {
+                        break;
+                    }
+                }
+                _ => self.bump(),
+            }
+        }
+        self.builder.finish_node();
     }
 
     pub fn parse_form(&mut self) {
@@ -156,8 +246,8 @@ impl<'a> Parser<'a> {
             .map(|t| t.text(self.input).to_string());
 
         match head.as_deref() {
-            Some("doc") => {
-                self.bump(); // doc
+            Some("markup") => {
+                self.bump(); // markup
                 self.push_mode_relex(LexerMode::Scribble);
                 self.parse_scribble_until(SyntaxKind::RParen);
                 self.pop_mode_relex();
@@ -168,7 +258,11 @@ impl<'a> Parser<'a> {
                 {
                     self.bump();
                 } else {
-                    self.push_error("unclosed `(doc`".into(), self.input.len(), self.input.len());
+                    self.push_error(
+                        "unclosed `(markup`".into(),
+                        self.input.len(),
+                        self.input.len(),
+                    );
                 }
             }
             Some("src") => {
@@ -236,7 +330,7 @@ impl<'a> Parser<'a> {
                     self.bump();
                 }
                 SyntaxKind::LBrace => {
-                    // Nested brace group in scribble (rare at top level of doc).
+                    // Nested brace group in scribble (rare at top level of markup).
                     self.parse_scribble_brace();
                 }
                 SyntaxKind::LParen | SyntaxKind::LBracket => {
@@ -410,4 +504,13 @@ fn unparse_into(node: &SyntaxNode, out: &mut String) {
             rowan::NodeOrToken::Token(t) => out.push_str(t.text()),
         }
     }
+}
+
+fn is_ident_continue(c: char) -> bool {
+    c.is_alphabetic()
+        || c.is_ascii_digit()
+        || matches!(
+            c,
+            '_' | '+' | '-' | '*' | '/' | '%' | '=' | '<' | '>' | '!' | '?' | '$'
+        )
 }
