@@ -7,5 +7,7 @@
 #![forbid(unsafe_code)]
 
 pub mod core;
+pub mod style;
 
 pub use core::{Angle, Color, Length, Point, Range, Rect, Size};
+pub use style::{Fill, Opacity, Stroke, Style};
