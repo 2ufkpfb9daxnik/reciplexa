@@ -8,7 +8,6 @@ use reciplexa_scene::{
 };
 use std::io::{Cursor, Read, Write};
 
-
 fn a4_page(shapes: Vec<Shape>) -> Page {
     Page {
         paper: PaperSize::a4(),
@@ -291,6 +290,13 @@ fn slide_xml_errors_on_missing_page() {
 }
 
 #[test]
+fn slide_xml_ok_for_present_page() {
+    let doc = Document::single_page(a4_page(vec![]));
+    let xml = slide_xml(&doc, 0).unwrap();
+    assert!(xml.contains("<p:sld"));
+}
+
+#[test]
 fn zero_page_document_still_builds_package() {
     let bytes = document_to_pptx(&Document::default()).unwrap();
     assert!(bytes.starts_with(b"PK"));
@@ -308,7 +314,7 @@ fn write_document_io_error() {
         }
     }
     let doc = Document::single_page(a4_page(vec![]));
-    assert!(write_document(&doc, FailWrite).is_err());
+    assert!(write_document(&doc, &mut FailWrite).is_err());
     let mut w = FailWrite;
     assert!(std::io::Write::flush(&mut w).is_ok());
 }
@@ -418,4 +424,25 @@ fn document_to_pptx_write_errors_on_limited_buffer() {
     };
     assert!(document_to_pptx_write(&doc, &mut buf).is_err());
     assert!(std::io::Write::flush(&mut buf).is_ok());
+
+    // Fail during local-file header write inside `start_file`.
+    let mut early = FailAfterWrite {
+        inner: Cursor::new(Vec::new()),
+        limit: 1,
+    };
+    assert!(document_to_pptx_write(&doc, &mut early).is_err());
+
+    // Allow almost all bytes then fail on `finish` central-directory write.
+    let mut almost = FailAfterWrite {
+        inner: Cursor::new(Vec::new()),
+        limit: usize::MAX / 4,
+    };
+    // First find a limit that succeeds for puts but fails finish by probing.
+    let ok_bytes = {
+        let mut probe = Cursor::new(Vec::new());
+        document_to_pptx_write(&doc, &mut probe).unwrap();
+        probe.into_inner().len()
+    };
+    almost.limit = ok_bytes.saturating_sub(8).max(1);
+    assert!(document_to_pptx_write(&doc, &mut almost).is_err());
 }

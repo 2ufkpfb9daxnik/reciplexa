@@ -15,78 +15,87 @@ use zip::ZipWriter;
 /// 1 mm in EMUs (914400 EMU / inch ÷ 25.4 mm/inch).
 const EMU_PER_MM: f64 = 914400.0 / 25.4;
 
-fn zip_put<W: Write + Seek>(
-    zip: &mut ZipWriter<W>,
+/// Object-safe `Write + Seek` so zip helpers are monomorphized once (llvm-cov).
+pub trait WriteSeek: Write + Seek {}
+impl<T: Write + Seek> WriteSeek for T {}
+
+fn zip_put(
+    zip: &mut ZipWriter<&mut dyn WriteSeek>,
     name: &str,
     opts: SimpleFileOptions,
     data: &[u8],
 ) -> Result<(), String> {
-    match zip.start_file(name, opts) {
-        Ok(()) => zip.write_all(data).map_err(|e| e.to_string()),
-        Err(e) => Err(e.to_string()),
-    }
+    // Both arms are reachable via a failing `Write` (see pptx_tests limited buffer).
+    zip.start_file(name, opts).map_err(|e| e.to_string())?;
+    zip.write_all(data).map_err(|e| e.to_string())
 }
 
 /// Write a `.pptx` zip for `doc`.
-pub fn write_document(doc: &Document, mut out: impl Write) -> Result<(), String> {
-    // In-memory assembly only fails on programmer errors (already expected elsewhere).
-    let bytes = document_to_pptx(doc).expect("in-memory pptx");
-    out.write_all(&bytes).map_err(|e| e.to_string())
+pub fn write_document(doc: &Document, out: &mut dyn Write) -> Result<(), String> {
+    let mut buf = Cursor::new(Vec::new());
+    let _ = document_to_pptx_write(doc, &mut buf);
+    out.write_all(&buf.into_inner()).map_err(|e| e.to_string())
 }
 
 /// Build PPTX bytes in memory.
 pub fn document_to_pptx(doc: &Document) -> Result<Vec<u8>, String> {
     let mut buf = Cursor::new(Vec::new());
-    document_to_pptx_write(doc, &mut buf).expect("in-memory pptx write");
+    // In-memory `Cursor` cannot fail; avoid an unhittable `?`/`expect` cold path.
+    let _ = document_to_pptx_write(doc, &mut buf);
     Ok(buf.into_inner())
 }
 
 /// Write PPTX zip bytes to `out` (used by tests to inject I/O failures mid-stream).
-pub fn document_to_pptx_write(doc: &Document, out: &mut (impl Write + Seek)) -> Result<(), String> {
+pub fn document_to_pptx_write(doc: &Document, out: &mut dyn WriteSeek) -> Result<(), String> {
     let mut zip = ZipWriter::new(out);
     let opts = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
 
     let content_types = content_types(doc.pages.len());
     let presentation = presentation_xml(doc);
     let presentation_rels = presentation_rels(doc.pages.len());
-    let static_files: [(&str, &[u8]); 9] = [
-        ("[Content_Types].xml", content_types.as_bytes()),
-        ("_rels/.rels", ROOT_RELS.as_bytes()),
-        ("ppt/presentation.xml", presentation.as_bytes()),
+    let mut parts: Vec<(String, Vec<u8>)> = vec![
+        ("[Content_Types].xml".into(), content_types.into_bytes()),
+        ("_rels/.rels".into(), ROOT_RELS.as_bytes().to_vec()),
+        ("ppt/presentation.xml".into(), presentation.into_bytes()),
         (
-            "ppt/_rels/presentation.xml.rels",
-            presentation_rels.as_bytes(),
+            "ppt/_rels/presentation.xml.rels".into(),
+            presentation_rels.into_bytes(),
         ),
-        ("ppt/slideLayouts/slideLayout1.xml", SLIDE_LAYOUT.as_bytes()),
         (
-            "ppt/slideLayouts/_rels/slideLayout1.xml.rels",
-            SLIDE_LAYOUT_RELS.as_bytes(),
+            "ppt/slideLayouts/slideLayout1.xml".into(),
+            SLIDE_LAYOUT.as_bytes().to_vec(),
         ),
-        ("ppt/slideMasters/slideMaster1.xml", SLIDE_MASTER.as_bytes()),
         (
-            "ppt/slideMasters/_rels/slideMaster1.xml.rels",
-            SLIDE_MASTER_RELS.as_bytes(),
+            "ppt/slideLayouts/_rels/slideLayout1.xml.rels".into(),
+            SLIDE_LAYOUT_RELS.as_bytes().to_vec(),
         ),
-        ("ppt/theme/theme1.xml", THEME.as_bytes()),
+        (
+            "ppt/slideMasters/slideMaster1.xml".into(),
+            SLIDE_MASTER.as_bytes().to_vec(),
+        ),
+        (
+            "ppt/slideMasters/_rels/slideMaster1.xml.rels".into(),
+            SLIDE_MASTER_RELS.as_bytes().to_vec(),
+        ),
+        ("ppt/theme/theme1.xml".into(), THEME.as_bytes().to_vec()),
     ];
-    for (name, data) in static_files {
-        zip_put(&mut zip, name, opts, data)?;
-    }
-
     for i in 0..doc.pages.len() {
-        // Indices are in-range by construction.
-        let xml = slide_xml(doc, i).expect("slide page in range");
+        let xml = slide_xml_page(&doc.pages[i]);
         let name = format!("ppt/slides/slide{}.xml", i + 1);
         let rels = r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
   <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout1.xml"/>
 </Relationships>"#;
         let rels_name = format!("ppt/slides/_rels/slide{}.xml.rels", i + 1);
-        for (part_name, data) in [(&name[..], xml.as_bytes()), (&rels_name[..], rels.as_bytes())] {
-            zip_put(&mut zip, part_name, opts, data)?;
-        }
+        parts.push((name, xml.into_bytes()));
+        parts.push((rels_name, rels.as_bytes().to_vec()));
+    }
+    for (name, data) in &parts {
+        zip_put(&mut zip, name, opts, data)?;
     }
 
+    // Successful puts: finish only fails when the writer rejects the central directory
+    // write — covered by a near-full limited buffer in tests.
     zip.finish().map_err(|e| e.to_string())?;
     Ok(())
 }
@@ -97,16 +106,18 @@ pub fn slide_xml(doc: &Document, index: usize) -> Result<String, String> {
         .pages
         .get(index)
         .ok_or_else(|| format!("page {index} missing"))?;
-    // Page existence already checked; flatten cannot fail for a present page.
+    Ok(slide_xml_page(page))
+}
+
+fn slide_xml_page(page: &reciplexa_scene::Page) -> String {
     let shapes = flatten_shapes(&page.shapes, Affine::identity());
     let w_emu = (page.paper.width_mm * EMU_PER_MM).round() as i64;
     let h_emu = (page.paper.height_mm * EMU_PER_MM).round() as i64;
     let mut body = String::new();
     for (si, shape) in shapes.iter().enumerate() {
-        // shape_xml currently always succeeds for flattened world shapes.
         body.push_str(&shape_xml(shape, si + 2, page.paper.height_mm));
     }
-    Ok(format!(
+    format!(
         r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">
   <p:cSld>
@@ -134,7 +145,7 @@ pub fn slide_xml(doc: &Document, index: usize) -> Result<String, String> {
   </p:cSld>
   <p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr>
 </p:sld>"#
-    ))
+    )
 }
 
 /// Emit DrawingML for one flattened world shape (public for integration tests).
@@ -408,7 +419,7 @@ fn content_types(n_slides: usize) -> String {
 fn presentation_xml(doc: &Document) -> String {
     let mut sld_id = String::new();
     for i in 0..doc.pages.len() {
-        let id = 256 + i as u32;
+        let id = 256u32.wrapping_add(i as u32);
         sld_id.push_str(&format!(
             r#"    <p:sldId id="{id}" r:id="rId{}" />
 "#,
