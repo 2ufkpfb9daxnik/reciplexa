@@ -6,7 +6,7 @@ fn retain_existing_clears_deleted_primary() {
     let mut sel = NodeSelection::default();
     sel.select_only(StableNodeId::new(1));
     sel.add(StableNodeId::new(2));
-    sel.retain_existing(|id| id.get() == 2);
+    sel.retain_existing(&mut |id| id.get() == 2);
     assert_eq!(sel.primary(), Some(StableNodeId::new(2)));
 }
 
@@ -42,7 +42,7 @@ fn retain_promotes_additional_when_primary_deleted() {
     sel.select_only(StableNodeId::new(1));
     sel.add(StableNodeId::new(2));
     sel.add(StableNodeId::new(3));
-    sel.retain_existing(|id| id.get() != 1);
+    sel.retain_existing(&mut |id| id.get() != 1);
     assert_eq!(sel.primary(), Some(StableNodeId::new(2)));
     let ids: Vec<_> = sel.ids().collect();
     assert_eq!(ids, vec![StableNodeId::new(2), StableNodeId::new(3)]);
@@ -81,7 +81,7 @@ fn retain_keeps_existing_primary() {
     let mut sel = NodeSelection::default();
     sel.select_only(StableNodeId::new(1));
     sel.add(StableNodeId::new(2));
-    sel.retain_existing(|id| id.get() == 1 || id.get() == 2);
+    sel.retain_existing(&mut |id| id.get() == 1 || id.get() == 2);
     assert_eq!(sel.primary(), Some(StableNodeId::new(1)));
     let ids: Vec<_> = sel.ids().collect();
     assert_eq!(ids, vec![StableNodeId::new(1), StableNodeId::new(2)]);
@@ -90,7 +90,7 @@ fn retain_keeps_existing_primary() {
 #[test]
 fn retain_empty_selection_is_noop() {
     let mut sel = NodeSelection::default();
-    sel.retain_existing(|_| false);
+    sel.retain_existing(&mut |_| false);
     assert!(sel.primary().is_none());
     assert!(sel.ids().next().is_none());
 }
@@ -100,7 +100,7 @@ fn retain_drops_all_ids() {
     let mut sel = NodeSelection::default();
     sel.select_only(StableNodeId::new(1));
     sel.add(StableNodeId::new(2));
-    sel.retain_existing(|_| false);
+    sel.retain_existing(&mut |_| false);
     assert!(sel.primary().is_none());
     assert!(sel.ids().next().is_none());
 }
@@ -110,7 +110,7 @@ fn retain_drops_additional_keeps_primary() {
     let mut sel = NodeSelection::default();
     sel.select_only(StableNodeId::new(1));
     sel.add(StableNodeId::new(2));
-    sel.retain_existing(|id| id.get() == 1);
+    sel.retain_existing(&mut |id| id.get() == 1);
     assert_eq!(sel.primary(), Some(StableNodeId::new(1)));
     let ids: Vec<_> = sel.ids().collect();
     assert_eq!(ids, vec![StableNodeId::new(1)]);
@@ -126,4 +126,18 @@ fn selection_clone_eq_and_debug() {
     assert_ne!(sel, NodeSelection::default());
     let dbg = format!("{sel:?}");
     assert!(dbg.contains("NodeSelection"));
+}
+
+#[test]
+fn partial_eq_compares_additional_when_primary_matches() {
+    let mut a = NodeSelection::default();
+    a.select_only(StableNodeId::new(1));
+    a.add(StableNodeId::new(2));
+    let mut b = NodeSelection::default();
+    b.select_only(StableNodeId::new(1));
+    assert_ne!(a, b);
+    b.add(StableNodeId::new(2));
+    assert_eq!(a, b);
+    b.add(StableNodeId::new(3));
+    assert_ne!(a, b);
 }

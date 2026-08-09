@@ -185,7 +185,7 @@ fn phase8_selection_multi_and_prune() {
     host.selection.add(StableNodeId::new(2));
     let ids: Vec<_> = host.selection.ids().collect();
     assert_eq!(ids.len(), 2);
-    host.prune_selection(|id| id.get() == 2);
+    host.prune_selection(&mut |id| id.get() == 2);
     assert_eq!(host.selection.primary(), Some(StableNodeId::new(2)));
 }
 

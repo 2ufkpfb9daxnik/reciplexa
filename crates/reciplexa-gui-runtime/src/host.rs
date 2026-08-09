@@ -79,10 +79,7 @@ impl GuiRuntimeHost {
         self.selection.select_only(id);
     }
 
-    pub fn prune_selection<F>(&mut self, exists: F)
-    where
-        F: FnMut(StableNodeId) -> bool,
-    {
+    pub fn prune_selection(&mut self, exists: &mut dyn FnMut(StableNodeId) -> bool) {
         self.selection.retain_existing(exists);
     }
 }

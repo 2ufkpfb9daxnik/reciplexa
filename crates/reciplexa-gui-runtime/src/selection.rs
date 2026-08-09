@@ -53,10 +53,7 @@ impl NodeSelection {
     }
 
     /// Drop ids that no longer exist in the document (owner deletion).
-    pub fn retain_existing<F>(&mut self, mut exists: F)
-    where
-        F: FnMut(StableNodeId) -> bool,
-    {
+    pub fn retain_existing(&mut self, exists: &mut dyn FnMut(StableNodeId) -> bool) {
         if let Some(p) = self.primary {
             if !exists(p) {
                 self.primary = None;

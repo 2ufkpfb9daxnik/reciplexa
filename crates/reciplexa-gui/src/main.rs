@@ -34,12 +34,12 @@ use reciplexa_view::{
 };
 
 use fonts::install_cjk_fonts;
-use reciplexa_gui::prefs::{apply_ui_theme, GuiPrefs, UiTheme};
 use preview_paint::{
     apply_aspect_lock, box_from_grab, hit_line_endpoint, hit_rotate_handle, hit_scale_grab,
     paint_hover_frame, paint_line_endpoints, paint_paper_grid, paint_selection_frame, paint_shape,
     snap_mm, BoxDrag, ScaleGrab,
 };
+use reciplexa_gui::prefs::{apply_ui_theme, GuiPrefs, UiTheme};
 
 /// Live preview: expand + typecheck + lower **without** running `(src)` effects.
 fn pipeline_doc(src: &str) -> Result<reciplexa_scene::Document, String> {
@@ -485,7 +485,8 @@ impl PreviewApp {
             self.gui_runtime.selection.clear();
         }
         let known: Vec<StableNodeId> = layers.iter().map(|(id, _)| *id).collect();
-        self.gui_runtime.prune_selection(|id| known.contains(&id));
+        self.gui_runtime
+            .prune_selection(&mut |id| known.contains(&id));
     }
 
     fn primary_selected(&self) -> Option<usize> {

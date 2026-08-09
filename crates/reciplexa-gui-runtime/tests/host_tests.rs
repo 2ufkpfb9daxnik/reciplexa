@@ -30,7 +30,7 @@ fn prune_selection_drops_missing_ids() {
     let mut host = GuiRuntimeHost::new();
     host.select_node(StableNodeId::new(1));
     host.selection.add(StableNodeId::new(2));
-    host.prune_selection(|id| id.get() == 2);
+    host.prune_selection(&mut |id| id.get() == 2);
     assert_eq!(host.selection.primary(), Some(StableNodeId::new(2)));
 }
 
