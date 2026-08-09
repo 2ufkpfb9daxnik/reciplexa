@@ -8,6 +8,8 @@
 
 pub mod fingerprint;
 pub mod invalidation;
+pub mod memo;
 
 pub use fingerprint::Fingerprint;
 pub use invalidation::{CacheDomain, InvalidationKind, InvalidationKey, InvalidationSet};
+pub use memo::{MemoCache, MemoKey, MemoLayer};
