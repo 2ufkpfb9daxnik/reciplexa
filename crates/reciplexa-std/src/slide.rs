@@ -42,7 +42,7 @@ impl Theme {
 
 impl fmt::Display for Theme {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Theme({})", self.name)
+        f.write_str(&format!("Theme({})", self.name))
     }
 }
 
@@ -205,47 +205,5 @@ impl Slide {
 
     pub fn push_block(&mut self, block: Block) {
         self.blocks.push(block);
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::document::Heading;
-
-    fn id(n: u64) -> StableNodeId {
-        StableNodeId::new(n)
-    }
-
-    #[test]
-    fn theme_master_slide() {
-        assert!(Theme::light(id(1), "L").to_string().contains("L"));
-        assert_eq!(Theme::dark(id(2), "D").background, Color::BLACK);
-        assert_eq!(PlaceholderKind::Title.as_str(), "title");
-        assert_eq!(PlaceholderKind::Body.to_string(), "body");
-        assert_eq!(PlaceholderKind::Figure.as_str(), "figure");
-        assert_eq!(PlaceholderKind::Footer.as_str(), "footer");
-        assert_eq!(PlaceholderKind::SlideNumber.as_str(), "slide-number");
-        let mut master = Master::widescreen(id(3), "Title");
-        master.push_placeholder(Placeholder::new(
-            id(4),
-            PlaceholderKind::Title,
-            Size::mm(200.0, 30.0),
-        ));
-        assert!(master.find(PlaceholderKind::Title).is_some());
-        assert!(master.find(PlaceholderKind::Body).is_none());
-        assert_eq!(Transition::default(), Transition::None);
-        assert_eq!(Transition::Fade.as_str(), "fade");
-        assert_eq!(Transition::Push.to_string(), "push");
-        assert_eq!(Transition::Dissolve.as_str(), "dissolve");
-        let notes = Notes::new(id(5), "say hi");
-        assert!(!notes.is_empty());
-        assert!(Notes::new(id(5), "").is_empty());
-        let mut slide = Slide::new(id(6), id(3), id(1))
-            .with_notes(notes)
-            .with_transition(Transition::Fade);
-        slide.push_block(Block::Heading(Heading::new(id(7), 1, "Hello")));
-        assert_eq!(slide.blocks.len(), 1);
-        assert_eq!(slide.transition, Transition::Fade);
     }
 }

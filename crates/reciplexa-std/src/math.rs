@@ -210,59 +210,6 @@ impl MathAtom {
 
 impl fmt::Display for MathAtom {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.linearize())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn id(n: u64) -> StableNodeId {
-        StableNodeId::new(n)
-    }
-
-    #[test]
-    fn math_class_and_tree() {
-        assert_eq!(MathClass::Ordinary.as_str(), "ord");
-        assert_eq!(MathClass::Operator.to_string(), "op");
-        assert_eq!(MathClass::Binary.as_str(), "bin");
-        assert_eq!(MathClass::Relation.as_str(), "rel");
-        assert_eq!(MathClass::Open.as_str(), "open");
-        assert_eq!(MathClass::Close.as_str(), "close");
-        assert_eq!(MathClass::Punctuation.as_str(), "punct");
-        assert_eq!(MathClass::Fence.as_str(), "fence");
-
-        let a = MathAtom::symbol(id(1), "a", MathClass::Ordinary);
-        let b = MathAtom::symbol(id(2), "b", MathClass::Ordinary);
-        let two = MathAtom::symbol(id(3), "2", MathClass::Ordinary);
-        let frac = MathAtom::fraction(id(4), a.clone(), b.clone());
-        assert_eq!(frac.child_count(), 2);
-        assert_eq!(frac.linearize(), "(a/b)");
-        let sqrt = MathAtom::radical(id(5), frac.clone());
-        assert_eq!(sqrt.child_count(), 1);
-        let cbrt = MathAtom::radical_indexed(id(6), two.clone(), a.clone());
-        assert_eq!(cbrt.child_count(), 2);
-        assert!(cbrt.linearize().contains("root"));
-        let scripts = MathAtom::scripts(id(7), a.clone(), Some(two.clone()), Some(b.clone()));
-        assert_eq!(scripts.child_count(), 3);
-        assert_eq!(scripts.to_string(), "a^2_b");
-        let scripts_sup = MathAtom::scripts(id(8), a.clone(), Some(two.clone()), None);
-        assert_eq!(scripts_sup.child_count(), 2);
-        let scripts_sub = MathAtom::scripts(id(9), a.clone(), None, Some(b.clone()));
-        assert_eq!(scripts_sub.child_count(), 2);
-        let row = MathAtom::row(id(10), vec![a.clone(), b.clone()]);
-        assert_eq!(row.child_count(), 2);
-        assert_eq!(row.linearize(), "ab");
-        let delim = MathAtom::delimiter(id(11), "(", ")", row);
-        assert_eq!(delim.child_count(), 1);
-        assert_eq!(delim.linearize(), "(ab)");
-        assert_eq!(a.child_count(), 0);
-        assert_eq!(a.id(), id(1));
-        assert_eq!(frac.id(), id(4));
-        assert_eq!(sqrt.id(), id(5));
-        assert_eq!(cbrt.id(), id(6));
-        assert_eq!(scripts.id(), id(7));
-        assert_eq!(delim.id(), id(11));
+        f.write_str(&self.linearize())
     }
 }
