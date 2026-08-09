@@ -3067,6 +3067,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "reciplexa-proof"
+version = "0.1.0"
+
+[[package]]
 name = "reciplexa-raster"
 version = "0.1.0"
 dependencies = [

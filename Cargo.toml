@@ -19,6 +19,7 @@ members = [
     "crates/reciplexa-video",
     "crates/reciplexa-opt",
     "crates/reciplexa-harden",
+    "crates/reciplexa-proof",
     "crates/reciplexa-backend",
     "crates/reciplexa-gui-runtime",
     "crates/reciplexa-codec",
@@ -68,6 +69,7 @@ reciplexa-raster = { path = "crates/reciplexa-raster" }
 reciplexa-video = { path = "crates/reciplexa-video" }
 reciplexa-opt = { path = "crates/reciplexa-opt" }
 reciplexa-harden = { path = "crates/reciplexa-harden" }
+reciplexa-proof = { path = "crates/reciplexa-proof" }
 reciplexa-backend = { path = "crates/reciplexa-backend" }
 reciplexa-gui-runtime = { path = "crates/reciplexa-gui-runtime" }
 reciplexa-codec = { path = "crates/reciplexa-codec" }
