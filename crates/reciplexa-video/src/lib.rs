@@ -5,11 +5,16 @@
 #![forbid(unsafe_code)]
 
 pub mod sample;
+pub mod writer;
 
 use reciplexa_motion::SampleMode;
 
 pub use sample::{
     sample_timeline_sequence, FrameSample, SampledSequence, TrackSample, VideoLoss, VideoLossKind,
+};
+pub use writer::{
+    export_png_sequence, rasterize_sampled_sequence, write_png_sequence, VideoPipelineError,
+    VideoRasterFrame, VideoRasterSequence, WriteError,
 };
 
 /// Video output intent (mirrors backend ProfileKind for Motion sampling).
