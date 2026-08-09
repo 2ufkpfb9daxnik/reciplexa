@@ -34,3 +34,4 @@ reciplexa-syntax = { workspace = true }
 reciplexa-opt = { workspace = true }
 reciplexa-harden = { workspace = true }
 reciplexa-proof = { workspace = true }
+reciplexa-std = { workspace = true }
