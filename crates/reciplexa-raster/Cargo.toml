@@ -1,0 +1,12 @@
+[package]
+name = "reciplexa-raster"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Raster image backend for reciplexa scenes (Phase 12)"
+publish = false
+
+[dependencies]
+reciplexa-scene = { workspace = true }
+reciplexa-view = { workspace = true }
+png = "0.17"
