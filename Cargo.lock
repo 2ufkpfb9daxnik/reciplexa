@@ -3005,6 +3005,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "reciplexa-motion"
+version = "0.1.0"
+dependencies = [
+ "reciplexa-identity",
+]
+
+[[package]]
 name = "reciplexa-native"
 version = "0.1.0"
 dependencies = [
@@ -3099,6 +3106,7 @@ dependencies = [
  "reciplexa-identity",
  "reciplexa-ir",
  "reciplexa-mem",
+ "reciplexa-motion",
  "reciplexa-native",
  "reciplexa-outcome",
  "reciplexa-package",

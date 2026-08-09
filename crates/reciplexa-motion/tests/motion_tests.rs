@@ -1,4 +1,5 @@
 use reciplexa_motion::*;
+use reciplexa_motion::sample::ease;
 
 #[test]
 fn constant_and_keyframe_sample_determinism() {
@@ -96,4 +97,405 @@ fn easing_partitions() {
     assert!(Easing::EaseOutQuad.apply(0.5) > 0.5);
     let mid = Easing::EaseInOutCubic.apply(0.5);
     assert!((mid - 0.5).abs() < 1e-9);
+    // EaseInOutCubic first half (t < 0.5).
+    let early = Easing::EaseInOutCubic.apply(0.25);
+    assert!(early < 0.5);
+    // Clamp outside [0, 1].
+    assert_eq!(Easing::Linear.apply(-1.0), 0.0);
+    assert_eq!(Easing::Linear.apply(2.0), 1.0);
+    assert_eq!(ease(Easing::EaseInQuad, 0.5), Easing::EaseInQuad.apply(0.5));
+}
+
+#[test]
+fn time_ms_and_duration_helpers() {
+    assert_eq!(TimeMs(100).saturating_add(DurationMs(50)), TimeMs(150));
+    assert_eq!(TimeMs(100).saturating_sub(DurationMs(40)), TimeMs(60));
+    assert_eq!(TimeMs(10).saturating_sub(DurationMs(40)), TimeMs(0));
+    assert!((TimeMs(1500).as_secs_f64() - 1.5).abs() < 1e-12);
+    assert_eq!(DurationMs::from_secs_f64(1.5), Some(DurationMs(1500)));
+    assert_eq!(DurationMs::from_secs_f64(0.0), Some(DurationMs(0)));
+    assert_eq!(DurationMs::from_secs_f64(-1.0), None);
+    assert_eq!(DurationMs::from_secs_f64(f64::NAN), None);
+    assert_eq!(DurationMs::from_secs_f64(f64::INFINITY), None);
+    assert_eq!(DurationMs::ZERO, DurationMs(0));
+}
+
+#[test]
+fn sample_error_and_edge_paths() {
+    assert!(matches!(
+        sample_f64(&MotionTrack::constant(f64::NAN), TimeMs(0), SampleMode::Strict),
+        Err(SampleError::NonFiniteValue)
+    ));
+    assert!(matches!(
+        sample_f64(&MotionTrack::Keyframes(vec![]), TimeMs(0), SampleMode::Preview),
+        Err(SampleError::EmptyKeyframes)
+    ));
+    assert!(matches!(
+        sample_f64(
+            &MotionTrack::keyframes(vec![Keyframe {
+                at: TimeMs(0),
+                value: f64::INFINITY,
+                easing_to_next: Easing::Linear,
+            }]),
+            TimeMs(0),
+            SampleMode::Strict
+        ),
+        Err(SampleError::NonFiniteValue)
+    ));
+
+    // Three keyframes: middle exact hit via a.at / b.at arms, skip non-matching window.
+    let kf3 = MotionTrack::keyframes(vec![
+        Keyframe {
+            at: TimeMs(0),
+            value: 0.0,
+            easing_to_next: Easing::EaseInQuad,
+        },
+        Keyframe {
+            at: TimeMs(500),
+            value: 5.0,
+            easing_to_next: Easing::EaseOutQuad,
+        },
+        Keyframe {
+            at: TimeMs(1000),
+            value: 10.0,
+            easing_to_next: Easing::Linear,
+        },
+    ]);
+    assert_eq!(
+        sample_f64(&kf3, TimeMs(500), SampleMode::Strict).unwrap(),
+        5.0
+    );
+    // Beyond last holds last value.
+    assert_eq!(
+        sample_f64(&kf3, TimeMs(2000), SampleMode::Strict).unwrap(),
+        10.0
+    );
+    // Before first holds first.
+    assert_eq!(
+        sample_f64(&kf3, TimeMs(0), SampleMode::Preview).unwrap(),
+        0.0
+    );
+    let eased = sample_f64(&kf3, TimeMs(250), SampleMode::Preview).unwrap();
+    assert!(eased > 0.0 && eased < 5.0);
+
+    // Single keyframe: no windows → post-loop hold.
+    let one_kf = MotionTrack::keyframes(vec![Keyframe {
+        at: TimeMs(10),
+        value: 4.0,
+        easing_to_next: Easing::Linear,
+    }]);
+    assert_eq!(
+        sample_f64(&one_kf, TimeMs(10), SampleMode::Strict).unwrap(),
+        4.0
+    );
+    assert_eq!(
+        sample_f64(&one_kf, TimeMs(99), SampleMode::Preview).unwrap(),
+        4.0
+    );
+
+    assert!(matches!(
+        sample_f64(
+            &MotionTrack::Samples {
+                rate_hz: f64::NAN,
+                values: vec![1.0],
+            },
+            TimeMs(0),
+            SampleMode::Strict
+        ),
+        Err(SampleError::NonFiniteRate)
+    ));
+    assert!(matches!(
+        sample_f64(
+            &MotionTrack::Samples {
+                rate_hz: 0.0,
+                values: vec![1.0],
+            },
+            TimeMs(0),
+            SampleMode::Strict
+        ),
+        Err(SampleError::NonFiniteRate)
+    ));
+    assert!(matches!(
+        sample_f64(
+            &MotionTrack::Samples {
+                rate_hz: 10.0,
+                values: vec![],
+            },
+            TimeMs(0),
+            SampleMode::Strict
+        ),
+        Err(SampleError::EmptySamples)
+    ));
+    assert!(matches!(
+        sample_f64(
+            &MotionTrack::Samples {
+                rate_hz: 10.0,
+                values: vec![1.0, f64::NAN],
+            },
+            TimeMs(0),
+            SampleMode::Strict
+        ),
+        Err(SampleError::NonFiniteValue)
+    ));
+
+    let samples = MotionTrack::Samples {
+        rate_hz: 10.0,
+        values: vec![1.0, 2.0, 3.0],
+    };
+    // Past end holds last.
+    assert_eq!(
+        sample_f64(&samples, TimeMs(5000), SampleMode::Strict).unwrap(),
+        3.0
+    );
+    // Preview lerp between bins.
+    let lerp = sample_f64(&samples, TimeMs(50), SampleMode::Preview).unwrap();
+    assert!((lerp - 1.5).abs() < 1e-9);
+    // Preview at last bin (no next).
+    assert_eq!(
+        sample_f64(&samples, TimeMs(200), SampleMode::Preview).unwrap(),
+        3.0
+    );
+    // Single-sample preview last-bin path.
+    let one = MotionTrack::Samples {
+        rate_hz: 10.0,
+        values: vec![7.0],
+    };
+    assert_eq!(
+        sample_f64(&one, TimeMs(0), SampleMode::Preview).unwrap(),
+        7.0
+    );
+}
+
+#[test]
+fn timeline_play_pause_span_and_idle_tick() {
+    let placement = TemporalPlacement::span(TimeMs(100), TimeMs(600));
+    assert_eq!(placement.parent_start, TimeMs(100));
+    assert_eq!(placement.parent_end, TimeMs(600));
+    assert_eq!(placement.child_source_start, TimeMs::ZERO);
+    assert_eq!(placement.child_source_end, TimeMs(500));
+    assert_eq!(placement.transform, TimeTransform::Identity);
+    assert_eq!(placement.range_policy, RangePolicy::Hold);
+
+    let mut tl = MotionTimeline {
+        playhead: TimeMs(10),
+        duration: DurationMs(1000),
+        tracks: vec![],
+        playing: false,
+    };
+    tl.tick(50);
+    assert_eq!(tl.playhead, TimeMs(10));
+    tl.play();
+    assert!(tl.playing);
+    tl.tick(20);
+    assert_eq!(tl.playhead, TimeMs(30));
+    tl.pause();
+    assert!(!tl.playing);
+    tl.seek(TimeMs(9999));
+    assert_eq!(tl.playhead, TimeMs(1000));
+}
+
+#[test]
+fn time_transform_all_arms() {
+    assert_eq!(TimeTransform::Identity.apply(TimeMs(42)), TimeMs(42));
+    assert_eq!(
+        TimeTransform::Freeze(TimeMs(7)).apply(TimeMs(100)),
+        TimeMs(7)
+    );
+    assert_eq!(
+        TimeTransform::Reverse {
+            source_len: DurationMs(100)
+        }
+        .apply(TimeMs(100)),
+        TimeMs(0)
+    );
+    assert_eq!(
+        TimeTransform::Reverse {
+            source_len: DurationMs(100)
+        }
+        .apply(TimeMs(150)),
+        TimeMs(0)
+    );
+    // Scale with non-positive rounded result.
+    assert_eq!(
+        TimeTransform::Scale { factor: 0.0001 }.apply(TimeMs(1)),
+        TimeMs(0)
+    );
+    let composed = TimeTransform::Compose(
+        Box::new(TimeTransform::Offset(DurationMs(10))),
+        Box::new(TimeTransform::Scale { factor: 2.0 }),
+    );
+    assert_eq!(composed.apply(TimeMs(5)), TimeMs(20)); // (5*2)+10
+}
+
+#[test]
+fn range_policy_all_arms() {
+    assert!(matches!(
+        apply_range_policy(TimeMs(0), TimeMs(10), TimeMs(10), RangePolicy::Hold),
+        Err(RangePolicyError::EmptySourceRange)
+    ));
+
+    // In-range → local offset.
+    assert_eq!(
+        apply_range_policy(TimeMs(30), TimeMs(10), TimeMs(50), RangePolicy::Transparent).unwrap(),
+        Some(TimeMs(20))
+    );
+
+    assert_eq!(
+        apply_range_policy(TimeMs(5), TimeMs(10), TimeMs(50), RangePolicy::Transparent).unwrap(),
+        None
+    );
+    assert_eq!(
+        apply_range_policy(TimeMs(60), TimeMs(10), TimeMs(50), RangePolicy::Transparent).unwrap(),
+        None
+    );
+
+    assert_eq!(
+        apply_range_policy(TimeMs(5), TimeMs(10), TimeMs(50), RangePolicy::Hold).unwrap(),
+        Some(TimeMs(0))
+    );
+    assert_eq!(
+        apply_range_policy(TimeMs(60), TimeMs(10), TimeMs(50), RangePolicy::Hold).unwrap(),
+        Some(TimeMs(39))
+    );
+
+    // Loop before start: back != 0.
+    assert_eq!(
+        apply_range_policy(TimeMs(5), TimeMs(10), TimeMs(50), RangePolicy::Loop).unwrap(),
+        Some(TimeMs(35))
+    );
+    // start >= len so t = start - len is still before start and back == 0.
+    assert_eq!(
+        apply_range_policy(TimeMs(10), TimeMs(50), TimeMs(90), RangePolicy::Loop).unwrap(),
+        Some(TimeMs(0))
+    );
+
+    // PingPong forward and reverse halves; before-start raw=0.
+    assert_eq!(
+        apply_range_policy(TimeMs(5), TimeMs(10), TimeMs(50), RangePolicy::PingPong).unwrap(),
+        Some(TimeMs(0))
+    );
+    // len=40, cycle=78; at start+50 → raw=50 >= len → reverse.
+    assert_eq!(
+        apply_range_policy(TimeMs(60), TimeMs(10), TimeMs(50), RangePolicy::PingPong).unwrap(),
+        Some(TimeMs(28))
+    );
+    // Tiny range: cycle.max(1).
+    assert_eq!(
+        apply_range_policy(TimeMs(5), TimeMs(0), TimeMs(1), RangePolicy::PingPong).unwrap(),
+        Some(TimeMs(0))
+    );
+}
+
+#[test]
+fn validate_track_transform_and_range() {
+    validate_track_f64(&MotionTrack::constant(1.0)).unwrap();
+
+    let sorted = MotionTrack::keyframes(vec![
+        Keyframe {
+            at: TimeMs(0),
+            value: 1.0,
+            easing_to_next: Easing::Linear,
+        },
+        Keyframe {
+            at: TimeMs(10),
+            value: 2.0,
+            easing_to_next: Easing::Linear,
+        },
+    ]);
+    validate_track_f64(&sorted).unwrap();
+
+    assert!(matches!(
+        validate_track_f64(&MotionTrack::keyframes(vec![Keyframe {
+            at: TimeMs(0),
+            value: f64::NAN,
+            easing_to_next: Easing::Linear,
+        }])),
+        Err(MotionValidationError::NonFiniteNumber("keyframe"))
+    ));
+    assert!(matches!(
+        validate_track_f64(&MotionTrack::keyframes(vec![
+            Keyframe {
+                at: TimeMs(10),
+                value: 1.0,
+                easing_to_next: Easing::Linear,
+            },
+            Keyframe {
+                at: TimeMs(5),
+                value: 2.0,
+                easing_to_next: Easing::Linear,
+            },
+        ])),
+        Err(MotionValidationError::UnsortedKeyframes)
+    ));
+
+    assert!(matches!(
+        validate_track_f64(&MotionTrack::Samples {
+            rate_hz: -1.0,
+            values: vec![1.0],
+        }),
+        Err(MotionValidationError::BadSampleRate)
+    ));
+    assert!(matches!(
+        validate_track_f64(&MotionTrack::Samples {
+            rate_hz: f64::NAN,
+            values: vec![1.0],
+        }),
+        Err(MotionValidationError::BadSampleRate)
+    ));
+    assert!(matches!(
+        validate_track_f64(&MotionTrack::Samples {
+            rate_hz: 10.0,
+            values: vec![],
+        }),
+        Err(MotionValidationError::EmptySamples)
+    ));
+    assert!(matches!(
+        validate_track_f64(&MotionTrack::Samples {
+            rate_hz: 10.0,
+            values: vec![1.0, f64::INFINITY],
+        }),
+        Err(MotionValidationError::NonFiniteNumber("sample"))
+    ));
+
+    validate_transform(&TimeTransform::Identity).unwrap();
+    validate_transform(&TimeTransform::Offset(DurationMs(1))).unwrap();
+    validate_transform(&TimeTransform::Reverse {
+        source_len: DurationMs(1),
+    })
+    .unwrap();
+    validate_transform(&TimeTransform::Freeze(TimeMs(0))).unwrap();
+    validate_transform(&TimeTransform::Scale { factor: 1.5 }).unwrap();
+    assert!(matches!(
+        validate_transform(&TimeTransform::Scale { factor: 0.0 }),
+        Err(MotionValidationError::ScaleFactorInvalid)
+    ));
+    assert!(matches!(
+        validate_transform(&TimeTransform::Scale { factor: -1.0 }),
+        Err(MotionValidationError::ScaleFactorInvalid)
+    ));
+    assert!(matches!(
+        validate_transform(&TimeTransform::Scale {
+            factor: f64::NAN
+        }),
+        Err(MotionValidationError::ScaleFactorInvalid)
+    ));
+    validate_transform(&TimeTransform::Compose(
+        Box::new(TimeTransform::Identity),
+        Box::new(TimeTransform::Offset(DurationMs(2))),
+    ))
+    .unwrap();
+    assert!(matches!(
+        validate_transform(&TimeTransform::Compose(
+            Box::new(TimeTransform::Scale { factor: -1.0 }),
+            Box::new(TimeTransform::Identity),
+        )),
+        Err(MotionValidationError::ScaleFactorInvalid)
+    ));
+
+    validate_source_range(TimeMs(0), TimeMs(10), RangePolicy::Hold).unwrap();
+    validate_source_range(TimeMs(0), TimeMs(10), RangePolicy::Transparent).unwrap();
+    assert!(matches!(
+        validate_source_range(TimeMs(10), TimeMs(10), RangePolicy::Failure),
+        Err(MotionValidationError::EmptySourceRange)
+    ));
 }

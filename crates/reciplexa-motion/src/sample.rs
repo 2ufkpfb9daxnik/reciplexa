@@ -55,31 +55,29 @@ fn sample_keyframes(
     if t.0 <= frames[0].at.0 {
         return Ok(frames[0].value);
     }
-    if let Some(last) = frames.last() {
-        if t.0 >= last.at.0 {
-            return Ok(last.value);
-        }
-    }
+    let last = &frames[frames.len() - 1];
     for w in frames.windows(2) {
         let a = &w[0];
         let b = &w[1];
-        if t.0 >= a.at.0 && t.0 <= b.at.0 {
-            if t.0 == a.at.0 {
-                return Ok(a.value);
-            }
-            if t.0 == b.at.0 {
-                return Ok(b.value);
-            }
-            if mode == SampleMode::Strict {
-                return Err(SampleError::StrictApproximation);
-            }
-            let span = b.at.0.saturating_sub(a.at.0).max(1) as f64;
-            let u = (t.0 - a.at.0) as f64 / span;
-            let e = a.easing_to_next.apply(u);
-            return Ok(a.value + (b.value - a.value) * e);
+        if t.0 < a.at.0 || t.0 > b.at.0 {
+            continue;
         }
+        // Left endpoint is only reachable for the first keyframe (handled above),
+        // so an in-range hit at a keyframe time is always the right endpoint.
+        if t.0 == b.at.0 {
+            return Ok(b.value);
+        }
+        if mode == SampleMode::Strict {
+            return Err(SampleError::StrictApproximation);
+        }
+        // In-range with a < t < b implies a < b, so span is non-zero.
+        let span = (b.at.0 - a.at.0) as f64;
+        let u = (t.0 - a.at.0) as f64 / span;
+        let e = a.easing_to_next.apply(u);
+        return Ok(a.value + (b.value - a.value) * e);
     }
-    Ok(frames.last().unwrap().value)
+    // Past the last keyframe (or gapped/unsorted with no containing window).
+    Ok(last.value)
 }
 
 fn sample_uniform(
