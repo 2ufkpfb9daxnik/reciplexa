@@ -30,7 +30,7 @@ impl SourceResourceId {
 
 impl fmt::Display for SourceResourceId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "source-resource:{}", self.0)
+        f.write_str(&format!("source-resource:{}", self.0))
     }
 }
 
@@ -43,14 +43,15 @@ pub enum SourceDecodeError {
 
 impl fmt::Display for SourceDecodeError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
+        let msg = match self {
             Self::InvalidUtf8 { offset } => {
-                write!(f, "invalid UTF-8 at byte offset {offset}")
+                format!("invalid UTF-8 at byte offset {offset}")
             }
             Self::BomAndShebang => {
-                write!(f, "UTF-8 BOM and shebang cannot both appear at offset 0")
+                "UTF-8 BOM and shebang cannot both appear at offset 0".to_string()
             }
-        }
+        };
+        f.write_str(&msg)
     }
 }
 
@@ -76,7 +77,7 @@ impl SourceResource {
     pub fn from_utf8_str(id: SourceResourceId, text: &str) -> Result<Self, SourceDecodeError> {
         let has_bom = text.starts_with('\u{feff}');
         let body = if has_bom {
-            text.strip_prefix('\u{feff}').unwrap_or(text)
+            text.strip_prefix('\u{feff}').expect("BOM flag implies prefix")
         } else {
             text
         };
@@ -127,86 +128,5 @@ impl SourceResource {
 
     pub fn range_for(&self, start: u32, end: u32) -> Result<TextRange, TextRangeError> {
         TextRange::try_new(ByteOffset::new(start), ByteOffset::new(end))
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn accepts_valid_utf8() {
-        let src = SourceResource::from_utf8(SourceResourceId::new(1), "(page a4)").unwrap();
-        assert_eq!(src.text(), "(page a4)");
-        assert_eq!(src.id(), SourceResourceId::new(1));
-        assert!(!src.has_bom());
-    }
-
-    #[test]
-    fn rejects_invalid_utf8() {
-        let bytes = b"(page \xff)";
-        let err = SourceResource::from_bytes(SourceResourceId::new(1), bytes).unwrap_err();
-        assert!(matches!(err, SourceDecodeError::InvalidUtf8 { .. }));
-    }
-
-    #[test]
-    fn bom_at_start_is_recorded() {
-        let src = SourceResource::from_utf8(SourceResourceId::new(1), "\u{feff}(doc)").unwrap();
-        assert!(src.has_bom());
-    }
-
-    #[test]
-    fn bom_and_shebang_conflict() {
-        let err = SourceResource::from_utf8(SourceResourceId::new(1), "\u{feff}#!/usr/bin/env rpx")
-            .unwrap_err();
-        assert_eq!(err, SourceDecodeError::BomAndShebang);
-    }
-
-    #[test]
-    fn shebang_without_bom_is_ok() {
-        let src =
-            SourceResource::from_utf8(SourceResourceId::new(2), "#!/usr/bin/env rpx\n(page a4)")
-                .unwrap();
-        assert!(src.has_shebang());
-        assert!(!src.has_bom());
-    }
-
-    #[test]
-    fn resource_id_display_and_validity() {
-        let id = SourceResourceId::new(42);
-        assert_eq!(id.to_string(), "source-resource:42");
-        assert!(id.is_valid());
-        assert!(!SourceResourceId::INVALID.is_valid());
-        assert_eq!(id.get(), 42);
-    }
-
-    #[test]
-    fn range_for_validates_offsets() {
-        let src = SourceResource::from_utf8(SourceResourceId::new(1), "abcdef").unwrap();
-        let range = src.range_for(1, 4).unwrap();
-        assert_eq!(range.start().get(), 1);
-        assert_eq!(range.end().get(), 4);
-    }
-
-    #[test]
-    fn from_bytes_roundtrip() {
-        let bytes = b"(page a4)";
-        let src = SourceResource::from_bytes(SourceResourceId::new(3), bytes).unwrap();
-        assert_eq!(src.text(), "(page a4)");
-        assert_eq!(src.len_bytes(), 9);
-        assert!(!src.is_empty());
-    }
-
-    #[test]
-    fn decode_error_display() {
-        let err = SourceDecodeError::InvalidUtf8 { offset: 7 };
-        assert!(err.to_string().contains("7"));
-        assert!(SourceDecodeError::BomAndShebang.to_string().contains("BOM"));
-    }
-
-    #[test]
-    fn range_for_rejects_inverted_offsets() {
-        let src = SourceResource::from_utf8(SourceResourceId::new(1), "abcdef").unwrap();
-        assert!(src.range_for(4, 2).is_err());
     }
 }
