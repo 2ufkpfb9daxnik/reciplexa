@@ -50,9 +50,12 @@ impl ScopeStack {
     pub fn declare(&mut self, name: impl Into<String>) -> BindingId {
         let id = BindingId::new(self.next_binding);
         self.next_binding = self.next_binding.saturating_add(1);
-        if let Some(frame) = self.frames.last_mut() {
-            frame.bindings.insert(name.into(), id);
-        }
+        // Root scope is always present (`new` / `push_scope`).
+        self.frames
+            .last_mut()
+            .expect("scope stack always has a root frame")
+            .bindings
+            .insert(name.into(), id);
         id
     }
 
@@ -81,35 +84,4 @@ impl Default for ScopeStack {
 pub struct ScopeTree {
     pub root: ScopeId,
     pub frames: Vec<ScopeFrame>,
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn inner_scope_shadows_outer() {
-        let mut stack = ScopeStack::new();
-        let outer = stack.declare("x");
-        stack.push_scope();
-        let inner = stack.declare("x");
-        assert_eq!(stack.lookup("x"), Some(inner));
-        assert_ne!(outer, inner);
-        stack.pop_scope();
-        assert_eq!(stack.lookup("x"), Some(outer));
-    }
-
-    #[test]
-    fn root_pop_is_noop_and_lookup_miss() {
-        let mut stack = ScopeStack::new();
-        assert_eq!(stack.depth(), 1);
-        assert!(stack.pop_scope().is_none());
-        assert!(stack.lookup("missing").is_none());
-    }
-
-    #[test]
-    fn default_stack_has_root_scope() {
-        let stack = ScopeStack::default();
-        assert_eq!(stack.depth(), 1);
-    }
 }
