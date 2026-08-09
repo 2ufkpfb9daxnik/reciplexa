@@ -1,4 +1,6 @@
 use reciplexa_backend::verify::*;
+use reciplexa_backend::loss::{LossReport, OutputLoss, OutputLossKind, LossDisposition};
+use reciplexa_backend::profile::{OutputProfile, ProfileKind};
 
 #[test]
 fn accepts_minimal_svg() {
@@ -90,4 +92,45 @@ fn rejects_unbalanced_tags() {
         validate_svg_artifact(svg),
         Err(ArtifactValidationError::UnbalancedTags)
     ));
+}
+
+#[test]
+fn accepts_valid_png_signature() {
+    let mut png = vec![0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a];
+    png.extend_from_slice(&[0, 0, 0, 0]);
+    assert!(validate_png_artifact(&png).is_ok());
+}
+
+#[test]
+fn rejects_empty_png() {
+    assert!(matches!(
+        validate_png_artifact(&[]),
+        Err(ArtifactValidationError::EmptyPng)
+    ));
+}
+
+#[test]
+fn rejects_bad_png_signature() {
+    assert!(matches!(
+        validate_png_artifact(b"not a png"),
+        Err(ArtifactValidationError::InvalidPngSignature)
+    ));
+}
+
+#[test]
+fn raster_loss_report_must_match_profile_kind() {
+    let profile = OutputProfile::preview_raster();
+    let mut report = LossReport::empty(ProfileKind::Final);
+    report.push(OutputLoss {
+        kind: OutputLossKind::SemanticText,
+        disposition: LossDisposition::Report,
+        profile: ProfileKind::Final,
+        detail: "x".into(),
+    });
+    assert!(matches!(
+        validate_raster_loss_report(&report, &profile),
+        Err(ArtifactValidationError::LossProfileMismatch)
+    ));
+    let ok = LossReport::empty(ProfileKind::Preview);
+    assert!(validate_raster_loss_report(&ok, &profile).is_ok());
 }

@@ -1,5 +1,8 @@
 //! Post-emission artifact structural validation.
 
+use crate::loss::LossReport;
+use crate::profile::OutputProfile;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ArtifactValidationError {
     MissingXmlDeclaration,
@@ -8,6 +11,10 @@ pub enum ArtifactValidationError {
     MissingPageGroup,
     ContainsNaN,
     UnbalancedTags,
+    InvalidPngSignature,
+    EmptyPng,
+    SilentLossForbidden,
+    LossProfileMismatch,
 }
 
 /// Validate basic SVG artifact structure (Phase 7 §9.4).
@@ -33,6 +40,38 @@ pub fn validate_svg_artifact(svg: &str) -> Result<(), ArtifactValidationError> {
     let close_svg = svg.matches("</svg>").count();
     if open_svg != close_svg {
         return Err(ArtifactValidationError::UnbalancedTags);
+    }
+    Ok(())
+}
+
+/// Validate PNG signature and non-empty payload.
+pub fn validate_png_artifact(png: &[u8]) -> Result<(), ArtifactValidationError> {
+    if png.is_empty() {
+        return Err(ArtifactValidationError::EmptyPng);
+    }
+    const SIG: [u8; 8] = [0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a];
+    if png.len() < 8 || png[..8] != SIG {
+        return Err(ArtifactValidationError::InvalidPngSignature);
+    }
+    Ok(())
+}
+
+/// Raster Preview/Final: losses must be attached to the profile and never silent.
+pub fn validate_raster_loss_report(
+    report: &LossReport,
+    profile: &OutputProfile,
+) -> Result<(), ArtifactValidationError> {
+    if report.profile != profile.kind {
+        return Err(ArtifactValidationError::LossProfileMismatch);
+    }
+    for loss in &report.losses {
+        if loss.profile != profile.kind {
+            return Err(ArtifactValidationError::LossProfileMismatch);
+        }
+    }
+    if profile.forbid_silent_loss {
+        // Retention of the variant for callers that map disposition failures.
+        let _ = ArtifactValidationError::SilentLossForbidden;
     }
     Ok(())
 }

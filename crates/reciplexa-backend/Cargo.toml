@@ -10,3 +10,4 @@ publish = false
 reciplexa-scene = { workspace = true }
 reciplexa-visual-ir = { workspace = true }
 reciplexa-identity = { workspace = true }
+reciplexa-raster = { workspace = true }
