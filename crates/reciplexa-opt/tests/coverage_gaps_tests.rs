@@ -1,7 +1,7 @@
 //! Coverage gap tests for reciplexa-opt.
 
 use reciplexa_opt::{
-    CacheDomain, Fingerprint, InvalidationKind, InvalidationKey, InvalidationSet, MemoCache,
+    CacheDomain, Fingerprint, InvalidationKey, InvalidationKind, InvalidationSet, MemoCache,
     MemoKey, MemoLayer,
 };
 
@@ -15,10 +15,7 @@ fn is_empty_all_branches() {
     assert!(!domains_only.is_empty());
 
     let mut keys_only = InvalidationSet::new();
-    keys_only.insert_key(InvalidationKey::new(
-        CacheDomain::Ir,
-        Fingerprint::of(&1u8),
-    ));
+    keys_only.insert_key(InvalidationKey::new(CacheDomain::Ir, Fingerprint::of(&1u8)));
     assert!(!keys_only.is_empty());
 }
 
@@ -46,10 +43,7 @@ fn memo_local_invalidation_and_empty_cache() {
     assert!(cache.is_empty());
     let key = MemoKey::new(MemoLayer::Layout, Fingerprint::of(&"x"));
     cache.insert(key.clone(), Fingerprint::of(&"y"));
-    let set = InvalidationSet::from_kind(
-        InvalidationKind::Local,
-        key.as_invalidation_key(),
-    );
+    let set = InvalidationSet::from_kind(InvalidationKind::Local, key.as_invalidation_key());
     assert_eq!(cache.invalidate(&set), 1);
     assert_eq!(cache.invalidate(&set), 0);
 }

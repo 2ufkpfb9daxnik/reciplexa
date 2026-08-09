@@ -77,7 +77,8 @@ impl SourceResource {
     pub fn from_utf8_str(id: SourceResourceId, text: &str) -> Result<Self, SourceDecodeError> {
         let has_bom = text.starts_with('\u{feff}');
         let body = if has_bom {
-            text.strip_prefix('\u{feff}').expect("BOM flag implies prefix")
+            text.strip_prefix('\u{feff}')
+                .expect("BOM flag implies prefix")
         } else {
             text
         };

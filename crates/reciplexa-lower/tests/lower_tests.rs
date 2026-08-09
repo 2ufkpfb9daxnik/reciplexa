@@ -4,7 +4,7 @@ use reciplexa_scene::{Affine, Color, PaperSize, Shape};
 use reciplexa_syntax::parse_source;
 
 const BLACK_CIRCLE: &str = r#"
-; A4 black circle (M3)
+(// A4 black circle (M3))
 (page a4
   (circle 105 148.5 40))
 "#;
@@ -317,7 +317,7 @@ fn non_page_head_fails() {
 fn src_and_doc_skipped_while_pages_lower() {
     let src = r#"
 (src (perform log "hi"))
-(doc ignored)
+(markup ignored)
 (page a4 (circle 1 2 3))
 "#;
     let doc = lower_source(src).unwrap();
@@ -529,7 +529,7 @@ fn string_unescape_all_sequences() {
 
 #[test]
 fn lower_skips_doc_form_at_top_level() {
-    let src = "(doc ignored)\n(page a4 (circle 1 2 3))";
+    let src = "(markup ignored)\n(page a4 (circle 1 2 3))";
     let doc = lower_source(src).unwrap();
     assert_eq!(doc.pages.len(), 1);
 }
@@ -825,7 +825,7 @@ fn lower_paper_and_color_error_partitions() {
     assert!(lower_source("(page a4 (circle 0 0 1 (rgb 1 2)))").is_err());
     assert!(lower_source("(page a4 (circle 0 0 1 (rgb 2 0 0)))").is_err());
     assert!(lower_source("(page a4 42)").is_err());
-    assert!(lower_source("(doc hi)").is_err()); // doc is not lowered as page
+    assert!(lower_source("(markup hi)").is_err()); // markup is not lowered as page
 }
 
 #[test]

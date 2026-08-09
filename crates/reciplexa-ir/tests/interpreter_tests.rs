@@ -162,6 +162,9 @@ fn raise_with_return_handler_falls_through() {
 fn interpret_error_debug_partitions() {
     let _ = format!("{:?}", InterpretError::HandlerMismatch);
     let _ = format!("{:?}", InterpretError::UnhandledRaise("t".into()));
-    let _ = format!("{:?}", InterpretError::UnknownContinuation(ContinuationId(1)));
+    let _ = format!(
+        "{:?}",
+        InterpretError::UnknownContinuation(ContinuationId(1))
+    );
     let _ = format!("{:?}", InterpretError::DoubleResume(ContinuationId(1)));
 }

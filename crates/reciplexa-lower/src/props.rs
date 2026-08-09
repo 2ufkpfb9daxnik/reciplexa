@@ -10,8 +10,8 @@ use reciplexa_syntax::{
 use crate::cst_walk::{find_list_covering, list_atoms, Child};
 use crate::sync::{
     collect_layers_from_root, collect_size_targets_from_root, layer_opacity, layer_rotation_deg,
-    nudge_layer_page, parse_root, scale_size_target_axes, set_layer_opacity, set_layer_rotation_deg,
-    SyncError,
+    nudge_layer_page, parse_root, scale_size_target_axes, set_layer_opacity,
+    set_layer_rotation_deg, SyncError,
 };
 
 /// UI grouping for the properties panel.
@@ -187,9 +187,10 @@ pub fn set_layer_prop(
             let root = parse_root(src)?;
             let targets = collect_size_targets_from_root(&root, page_index)?;
             // Flatten indices align with size targets from the same page walk.
-            let target = targets.get(flat_index).copied().ok_or_else(|| {
-                SyncError::new("layer index out of range")
-            })?;
+            let target = targets
+                .get(flat_index)
+                .copied()
+                .ok_or_else(|| SyncError::new("layer index out of range"))?;
             scale_size_target_axes(src, target, fx, 1.0)
         }
         "layout.h" => {
@@ -202,9 +203,10 @@ pub fn set_layer_prop(
             let fy = *nh / h;
             let root = parse_root(src)?;
             let targets = collect_size_targets_from_root(&root, page_index)?;
-            let target = targets.get(flat_index).copied().ok_or_else(|| {
-                SyncError::new("layer index out of range")
-            })?;
+            let target = targets
+                .get(flat_index)
+                .copied()
+                .ok_or_else(|| SyncError::new("layer index out of range"))?;
             scale_size_target_axes(src, target, 1.0, fy)
         }
         "transform.rotation" => {
@@ -659,20 +661,14 @@ fn collect_trailing_fill(items: &[Child], out: &mut Vec<PropField>) {
 
 fn collect_trailing_stroke_on_frame(items: &[Child], out: &mut Vec<PropField>) {
     // (frame x y w h [fill] [stroke] [width]) — best-effort: last rgb after fill.
-    let colors: Vec<_> = items
-        .iter()
-        .filter_map(|c| color_channels(c))
-        .collect();
+    let colors: Vec<_> = items.iter().filter_map(color_channels).collect();
     if let Some(stroke) = colors.get(1).copied() {
         push_rgb_fields(stroke, PropGroup::Stroke, "stroke", out);
     }
-    if let Some(w) = items
-        .last()
-        .and_then(|c| match c {
-            Child::Token(t) if t.kind() == SyntaxKind::Number => t.text().parse().ok(),
-            _ => None,
-        })
-    {
+    if let Some(w) = items.last().and_then(|c| match c {
+        Child::Token(t) if t.kind() == SyntaxKind::Number => t.text().parse().ok(),
+        _ => None,
+    }) {
         out.push(num(
             "stroke.width",
             "width",
@@ -730,10 +726,7 @@ fn collect_polyline_stroke(items: &[Child], out: &mut Vec<PropField>) {
 
 #[inline(never)]
 fn parse_f64_or_zero(text: &str) -> f64 {
-    match text.parse::<f64>() {
-        Ok(v) => v,
-        Err(_) => 0.0,
-    }
+    text.parse::<f64>().unwrap_or(0.0)
 }
 
 fn trailing_color(items: &[Child]) -> Option<[f64; 3]> {
@@ -1005,7 +998,10 @@ mod props_coverage_helpers {
 
     #[test]
     fn coverage_hooks_also_run_under_cfg_test_lib() {
-        assert_eq!(coverage_collect_paint_unknown("(page a4 (circle 0 0 1))"), 0);
+        assert_eq!(
+            coverage_collect_paint_unknown("(page a4 (circle 0 0 1))"),
+            0
+        );
         assert_eq!(coverage_collect_paint_unknown("("), 0);
         assert_eq!(coverage_push_geom_missing(), 0);
         assert_eq!(coverage_polyline_stroke_short(), 0);

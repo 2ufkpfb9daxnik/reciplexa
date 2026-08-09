@@ -1,8 +1,6 @@
 //! InvalidationSet tests.
 
-use reciplexa_opt::{
-    CacheDomain, Fingerprint, InvalidationKind, InvalidationKey, InvalidationSet,
-};
+use reciplexa_opt::{CacheDomain, Fingerprint, InvalidationKey, InvalidationKind, InvalidationSet};
 
 #[test]
 fn local_invalidation_hits_key_only() {
@@ -26,7 +24,10 @@ fn domain_invalidation_covers_all_keys_in_domain() {
 #[test]
 fn merge_unions_keys_and_domains() {
     let mut a = InvalidationSet::new();
-    a.insert_key(InvalidationKey::new(CacheDomain::Types, Fingerprint::of(&1u8)));
+    a.insert_key(InvalidationKey::new(
+        CacheDomain::Types,
+        Fingerprint::of(&1u8),
+    ));
     let mut b = InvalidationSet::new();
     b.insert_domain(CacheDomain::Render);
     a.merge(&b);

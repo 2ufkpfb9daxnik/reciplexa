@@ -187,7 +187,10 @@ fn apply_one(store: &mut NodeStore, edit: &DocumentEdit) -> Result<bool, Transac
                 .expect("parent existence checked above");
             let idx = (*index).min(parent_node.children.len());
             parent_node.children.insert(idx, *node);
-            store.get_mut(*node).expect("node existence checked above").parent = Some(*parent);
+            store
+                .get_mut(*node)
+                .expect("node existence checked above")
+                .parent = Some(*parent);
             Ok(true)
         }
     }

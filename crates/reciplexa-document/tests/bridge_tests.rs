@@ -22,8 +22,7 @@ fn roundtrip_rect_through_document() {
             fill: Color::RED,
         })],
     };
-    let snap =
-        document_from_scene_page(DocumentIdentity::new(1), &page, SourceResourceId::new(1));
+    let snap = document_from_scene_page(DocumentIdentity::new(1), &page, SourceResourceId::new(1));
     let shapes = scene_shapes_from_document(&snap.nodes);
     assert_eq!(shapes.len(), 1);
 }
@@ -51,8 +50,7 @@ fn drawable_ids_match_shape_count() {
             }),
         ],
     };
-    let snap =
-        document_from_scene_page(DocumentIdentity::new(1), &page, SourceResourceId::new(1));
+    let snap = document_from_scene_page(DocumentIdentity::new(1), &page, SourceResourceId::new(1));
     assert_eq!(drawable_node_ids(&snap.nodes).len(), 2);
 }
 
@@ -71,8 +69,7 @@ fn group_children_project_to_shapes() {
             })],
         }],
     };
-    let snap =
-        document_from_scene_page(DocumentIdentity::new(2), &page, SourceResourceId::new(1));
+    let snap = document_from_scene_page(DocumentIdentity::new(2), &page, SourceResourceId::new(1));
     assert_eq!(scene_shapes_from_document(&snap.nodes).len(), 1);
 }
 
@@ -90,8 +87,7 @@ fn text_roundtrip_preserves_content_and_color() {
             fill: Color::BLUE,
         })],
     };
-    let snap =
-        document_from_scene_page(DocumentIdentity::new(3), &page, SourceResourceId::new(1));
+    let snap = document_from_scene_page(DocumentIdentity::new(3), &page, SourceResourceId::new(1));
     let shapes = scene_shapes_from_document(&snap.nodes);
     match &shapes[0] {
         Shape::Text(t) => {
@@ -117,8 +113,7 @@ fn text_without_box_uses_default_width() {
             fill: Color::BLACK,
         })],
     };
-    let snap =
-        document_from_scene_page(DocumentIdentity::new(4), &page, SourceResourceId::new(1));
+    let snap = document_from_scene_page(DocumentIdentity::new(4), &page, SourceResourceId::new(1));
     let node = drawable_node_ids(&snap.nodes)[0];
     let layout = snap.nodes.get(node).unwrap().layout().unwrap();
     assert_eq!(layout.width, 100.0);
@@ -175,8 +170,7 @@ fn ingest_skips_unsupported_shapes_and_empty_drawables() {
             }),
         ],
     };
-    let snap =
-        document_from_scene_page(DocumentIdentity::new(6), &page, SourceResourceId::new(1));
+    let snap = document_from_scene_page(DocumentIdentity::new(6), &page, SourceResourceId::new(1));
     assert!(drawable_node_ids(&snap.nodes).is_empty());
 
     let mut empty = DocumentSnapshot::new(DocumentIdentity::new(7));

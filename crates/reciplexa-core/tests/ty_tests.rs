@@ -2,7 +2,6 @@
 
 use reciplexa_core::ty::*;
 
-
 #[test]
 fn type_var_id_ordering() {
     let a = TypeVarId::new(1);

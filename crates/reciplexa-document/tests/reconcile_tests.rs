@@ -1,7 +1,5 @@
 use reciplexa_document::*;
 
-
-
 #[test]
 fn blocks_nested_enter() {
     let mut g = ReconcileGuard::new();

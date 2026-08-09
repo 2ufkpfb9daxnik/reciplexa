@@ -896,7 +896,7 @@ fn write_document_io_failure_maps_to_pdf_error() {
     struct FailWrite;
     impl std::io::Write for FailWrite {
         fn write(&mut self, _: &[u8]) -> std::io::Result<usize> {
-            Err(std::io::Error::new(std::io::ErrorKind::Other, "disk full"))
+            Err(std::io::Error::other("disk full"))
         }
         fn flush(&mut self) -> std::io::Result<()> {
             Ok(())
@@ -1291,17 +1291,7 @@ fn opacity_and_group_propagate_child_errors() {
 
 #[test]
 fn text_ops_rejects_cjk_without_embed() {
-    let err = text_ops(
-        0.0,
-        0.0,
-        4.0,
-        None,
-        None,
-        "日本語",
-        Color::BLACK,
-        None,
-    )
-    .unwrap_err();
+    let err = text_ops(0.0, 0.0, 4.0, None, None, "日本語", Color::BLACK, None).unwrap_err();
     assert!(matches!(err, PdfError::InvalidShape(_)));
 }
 

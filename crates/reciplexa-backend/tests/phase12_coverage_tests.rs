@@ -176,9 +176,12 @@ fn plan_raster_with_native_text_image_flags() {
         .iter()
         .any(|n| n.representation == Representation::RasterTextOmit));
     // Native flags currently still use Omit repr without planned loss.
-    assert!(plan.losses.is_empty() || plan.losses.losses.iter().all(|l| {
-        l.kind != OutputLossKind::SemanticText && l.kind != OutputLossKind::Editability
-    }));
+    assert!(
+        plan.losses.is_empty()
+            || plan.losses.losses.iter().all(|l| {
+                l.kind != OutputLossKind::SemanticText && l.kind != OutputLossKind::Editability
+            })
+    );
 }
 
 #[test]
@@ -240,8 +243,8 @@ fn raster_capability_ellipse_out_of_range() {
 
 #[test]
 fn raster_export_render_validation_error() {
-    use reciplexa_visual_ir::render::{RenderDocument, RenderNode, RenderNodeId, RenderPage};
     use reciplexa_backend::{finalize_raster_export, plan_raster};
+    use reciplexa_visual_ir::render::{RenderDocument, RenderNode, RenderNodeId, RenderPage};
     let render = RenderDocument {
         pages: vec![RenderPage {
             width_mm: 10.0,

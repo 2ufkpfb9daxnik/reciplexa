@@ -1,8 +1,6 @@
 use reciplexa_document::*;
 use reciplexa_identity::document::StableNodeId;
 
-
-
 #[test]
 fn links_parent_to_child() {
     let mut g = ReferenceGraph::new();

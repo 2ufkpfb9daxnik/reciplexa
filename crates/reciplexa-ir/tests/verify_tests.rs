@@ -13,9 +13,7 @@ fn detects_double_resume_in_program() {
 #[test]
 fn accepts_single_resume() {
     let ops = vec![
-        LoweredOp::Perform {
-            op: "log".into(),
-        },
+        LoweredOp::Perform { op: "log".into() },
         LoweredOp::Resume { cont: 1 },
         LoweredOp::Return,
     ];

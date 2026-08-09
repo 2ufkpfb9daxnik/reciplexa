@@ -85,8 +85,8 @@ pub fn export_png_sequence(
     raster_opts: &RasterOptions,
     dir: &Path,
 ) -> Result<(VideoRasterSequence, Vec<PathBuf>), VideoPipelineError> {
-    let sampled =
-        crate::sample_timeline_sequence(timeline, video_opts).map_err(VideoPipelineError::Sample)?;
+    let sampled = crate::sample_timeline_sequence(timeline, video_opts)
+        .map_err(VideoPipelineError::Sample)?;
     let seq = rasterize_sampled_sequence(doc, &sampled, page_index, raster_opts)
         .map_err(VideoPipelineError::Raster)?;
     let paths = write_png_sequence(&seq, dir).map_err(VideoPipelineError::Write)?;

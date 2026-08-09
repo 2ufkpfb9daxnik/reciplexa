@@ -14,9 +14,9 @@ mod pages;
 pub use geometry::{
     collect_drag_targets, collect_drag_targets_page, collect_size_targets_from_root,
     collect_size_targets_page, layer_opacity, layer_rotation_deg, nudge_drag_target,
-    nudge_first_translate, nudge_layer_page, scale_box_axes, scale_layer_uniform, scale_size_target,
-    scale_size_target_axes, scale_text_box, set_box_xywh, set_layer_opacity, set_layer_rotation_deg,
-    set_line_endpoint, set_poly_vertex, set_text_box,
+    nudge_first_translate, nudge_layer_page, scale_box_axes, scale_layer_uniform,
+    scale_size_target, scale_size_target_axes, scale_text_box, set_box_xywh, set_layer_opacity,
+    set_layer_rotation_deg, set_line_endpoint, set_poly_vertex, set_text_box,
 };
 pub use layers::{
     collect_layers_from_root, collect_layers_page, delete_layer_page, duplicate_layer_page,

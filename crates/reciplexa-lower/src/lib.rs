@@ -80,32 +80,40 @@ pub fn lower_syntax(root: &SyntaxNode) -> Result<Document, LowerError> {
     }
 
     let forms: Vec<SyntaxNode> = root.children().collect();
-    if forms.is_empty() {
+    if forms
+        .iter()
+        .all(|f| f.kind() == reciplexa_syntax::SyntaxKind::StructuredComment)
+        || forms.is_empty()
+    {
         return Err(LowerError::new("empty source: expected a (page …) form"));
     }
 
     let mut pages = Vec::new();
     for form in forms {
+        if form.kind() == reciplexa_syntax::SyntaxKind::StructuredComment {
+            continue;
+        }
         let items = list_children(&form);
         let Ok(head) = ident_at(&items, 0, "top-level") else {
             continue;
         };
         match head {
             "page" => pages.push(lower_page(&form)?),
-            "doc" | "src" => {
-                // `doc` is normally expanded to `(page …)` by reciplexa-macro (M8).
-                // Leftover `doc`/`src` forms are skipped (logic / package seams).
+            "markup" | "src" | "//" => {
+                // `markup` is normally expanded to `(page …)` by reciplexa-macro (M8).
+                // Leftover `markup`/`src` forms are skipped (logic / package seams).
+                // `//` should be StructuredComment; skip if it ever appears as a list.
             }
             other => {
                 return Err(LowerError::new(format!(
-                    "expected head `page`, `doc`, or `src`, found `{other}`"
+                    "expected head `page`, `markup`, or `src`, found `{other}`"
                 )));
             }
         }
     }
     if pages.is_empty() {
         return Err(LowerError::new(
-            "no (page …) forms to lower (doc/src alone cannot produce a scene)",
+            "no (page …) forms to lower (markup/src alone cannot produce a scene)",
         ));
     }
     Ok(Document { pages })
@@ -454,9 +462,7 @@ fn lower_polyline(items: &[Child]) -> Result<Shape, LowerError> {
     let last = &items[end - 1];
     let prev = &items[end - 2];
     match last {
-        Child::Token(wtok)
-            if wtok.kind() == SyntaxKind::Number && is_color_child(prev) =>
-        {
+        Child::Token(wtok) if wtok.kind() == SyntaxKind::Number && is_color_child(prev) => {
             width = number_token_f64(wtok);
             stroke = lower_color(prev)?;
             end -= 2;
@@ -767,10 +773,7 @@ fn number_token_f64(t: &SyntaxToken) -> f64 {
 
 #[inline(never)]
 fn parse_num_text(text: &str) -> f64 {
-    match text.parse::<f64>() {
-        Ok(v) => v,
-        Err(_) => 0.0,
-    }
+    text.parse::<f64>().unwrap_or(0.0)
 }
 
 fn ident_at<'a>(items: &'a [Child], index: usize, ctx: &str) -> Result<&'a str, LowerError> {
@@ -814,7 +817,9 @@ fn number_at(items: &[Child], index: usize, ctx: &str) -> Result<f64, LowerError
                 Some(Child::Node(n)) => format!("node {:?}", n.kind()),
                 None => "missing".into(),
             };
-            Err(LowerError::new(format!("{ctx}: expected Number, got {got}")))
+            Err(LowerError::new(format!(
+                "{ctx}: expected Number, got {got}"
+            )))
         }
     }
 }

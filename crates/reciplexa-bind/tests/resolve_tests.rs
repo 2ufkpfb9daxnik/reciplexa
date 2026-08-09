@@ -1,7 +1,6 @@
 //! Integration tests moved from src/resolve.rs for region coverage.
 
-use reciplexa_bind::resolve::*;
-
+use reciplexa_bind::resolve_source;
 
 #[test]
 fn resolves_builtin_colors() {
@@ -58,7 +57,7 @@ fn all_paper_and_color_builtins_resolve() {
 
 #[test]
 fn doc_and_src_forms_resolve() {
-    assert!(resolve_source("(doc Hello)").is_ok());
+    assert!(resolve_source("(markup Hello)").is_ok());
     assert!(resolve_source("(src (perform log \"x\"))\n(page a4)").is_ok());
 }
 
@@ -76,7 +75,7 @@ fn resolve_error_carries_span() {
     let range = r.errors[0].range;
     // Unbound ident should point at a non-empty half-open span.
     assert!(range.end().0 >= range.start().0);
-    assert!(range.len() > 0 || range.is_empty());
+    assert!(!range.is_empty());
 }
 
 #[test]
@@ -106,8 +105,6 @@ fn list_starting_with_delimiter_has_no_head() {
     let r = resolve_source("(() )");
     assert!(r.is_ok() || !r.errors.is_empty());
 }
-use reciplexa_bind::resolve::*;
-
 #[test]
 fn resolve_expr_on_bracket_child_of_group() {
     // BracketList child exercises the non-List arm of resolve_expr.

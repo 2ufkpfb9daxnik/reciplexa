@@ -5,7 +5,7 @@ use reciplexa_harden::{
     ResourceQuota, SandboxDecision, SandboxPolicy,
 };
 use reciplexa_opt::{
-    CacheDomain, CompileJob, CompileJobGraph, Fingerprint, InvalidationKind, InvalidationKey,
+    CacheDomain, CompileJob, CompileJobGraph, Fingerprint, InvalidationKey, InvalidationKind,
     InvalidationSet, JobId, JobKind, JobStatus, MemoCache, MemoKey, MemoLayer, NativeInstanceCache,
     NativeInstanceKey, ParallelSchedule,
 };
@@ -106,9 +106,8 @@ fn proof_roadmap_registry() {
         assert_eq!(obs.len(), ProofPriority::all().len());
         let mut reg = LemmaRegistry::new();
         reg.insert(
-            Lemma::new("progress", ProofPriority::CoreTypeSafety, "progress").with_status(
-                ProofStatus::Draft,
-            ),
+            Lemma::new("progress", ProofPriority::CoreTypeSafety, "progress")
+                .with_status(ProofStatus::Draft),
         );
         assert_eq!(reg.len(), 1);
         assert_eq!(reg.discharged_count(), 0);

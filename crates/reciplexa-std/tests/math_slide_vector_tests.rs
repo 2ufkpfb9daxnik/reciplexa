@@ -3,9 +3,7 @@
 use reciplexa_identity::document::StableNodeId;
 use reciplexa_std::document::{Block, Heading};
 use reciplexa_std::math::{MathAtom, MathClass};
-use reciplexa_std::slide::{
-    Master, Notes, Placeholder, PlaceholderKind, Slide, Theme, Transition,
-};
+use reciplexa_std::slide::{Master, Notes, Placeholder, PlaceholderKind, Slide, Theme, Transition};
 use reciplexa_std::style::Stroke;
 use reciplexa_std::vector::{
     BooleanOp, BooleanPathOp, Gradient, GradientStop, PathCommand, StrokeCap, StrokeJoin,

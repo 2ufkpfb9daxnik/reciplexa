@@ -357,8 +357,7 @@ fn typecheck_value_propagates_infer_error() {
 #[test]
 fn infers_empty_seq_and_lambda() {
     let mut subst = Subst::new();
-    let empty =
-        infer_expr(&CoreExpr::Seq(vec![]), &TypeEnv::new(), &mut subst, range()).unwrap();
+    let empty = infer_expr(&CoreExpr::Seq(vec![]), &TypeEnv::new(), &mut subst, range()).unwrap();
     assert_eq!(empty, CoreType::Unit);
 
     let lam = CoreExpr::Lambda {

@@ -1,8 +1,6 @@
 use reciplexa_macro::*;
 use reciplexa_syntax::parse_source;
 
-
-
 #[test]
 fn expands_color_byte_to_rgb() {
     let src = "(page a4 (circle 1 2 3 (color-byte 255 0 0)))";
@@ -76,27 +74,27 @@ fn roundtrip_unparse_still_works_on_expanded() {
 
 #[test]
 fn expands_plain_doc_to_page_text() {
-    let out = expand_source("(doc Hello.)").unwrap();
+    let out = expand_source("(markup Hello.)").unwrap();
     assert!(out.contains("(page a4 (text 25 270 8 \"Hello.\" black))"));
-    assert!(!out.contains("(doc "));
+    assert!(!out.contains("(markup "));
 }
 
 #[test]
 fn expands_doc_with_em_markers() {
-    let out = expand_source("(doc Hello @em{世界}.)").unwrap();
+    let out = expand_source("(markup Hello @em{世界}.)").unwrap();
     assert!(out.contains("Hello *世界*."));
     assert!(out.starts_with("(page a4 (text "));
 }
 
 #[test]
 fn empty_doc_becomes_empty_page() {
-    let out = expand_source("(doc)").unwrap();
+    let out = expand_source("(markup)").unwrap();
     assert_eq!(out, "(page a4)");
 }
 
 #[test]
 fn expands_multiline_doc_to_stacked_text() {
-    let out = expand_source("(doc\nFirst\nSecond\n)").unwrap();
+    let out = expand_source("(markup\nFirst\nSecond\n)").unwrap();
     assert!(out.contains("(text 25 270 8 \"First\" black)"));
     assert!(out.contains("(text 25 258 8 \"Second\" black)"));
 }
@@ -105,17 +103,17 @@ fn expands_multiline_doc_to_stacked_text() {
 
 #[test]
 fn expands_title_at_larger_size() {
-    let out = expand_source("(doc @title{Hello})").unwrap();
+    let out = expand_source("(markup @title{Hello})").unwrap();
     assert!(
         out.contains("(text 25 270 14 \"Hello\" black)"),
         "title should use size 14: {out}"
     );
-    assert!(!out.contains("(doc "));
+    assert!(!out.contains("(markup "));
 }
 
 #[test]
 fn expands_h1_as_title_alias() {
-    let out = expand_source("(doc @h1{Hello})").unwrap();
+    let out = expand_source("(markup @h1{Hello})").unwrap();
     assert!(
         out.contains("(text 25 270 14 \"Hello\" black)"),
         "h1 should match title size: {out}"
@@ -124,7 +122,7 @@ fn expands_h1_as_title_alias() {
 
 #[test]
 fn expands_title_then_paragraph_with_gap() {
-    let out = expand_source("(doc @title{Report}\n@p{Body text})").unwrap();
+    let out = expand_source("(markup @title{Report}\n@p{Body text})").unwrap();
     assert!(out.contains("(text 25 270 14 \"Report\" black)"), "{out}");
     // title gap 18 → next baseline at 270 - 18 = 252
     assert!(
@@ -135,7 +133,7 @@ fn expands_title_then_paragraph_with_gap() {
 
 #[test]
 fn expands_em_with_asterisk_markers() {
-    let out = expand_source("(doc Hello @em{世界}.)").unwrap();
+    let out = expand_source("(markup Hello @em{世界}.)").unwrap();
     assert!(
         out.contains("(text 25 270 8 \"Hello *世界*.\" black)"),
         "{out}"
@@ -144,7 +142,7 @@ fn expands_em_with_asterisk_markers() {
 
 #[test]
 fn expands_italic_as_em_alias() {
-    let out = expand_source("(doc Hello @italic{世界}.)").unwrap();
+    let out = expand_source("(markup Hello @italic{世界}.)").unwrap();
     assert!(
         out.contains("(text 25 270 8 \"Hello *世界*.\" black)"),
         "{out}"
@@ -153,7 +151,7 @@ fn expands_italic_as_em_alias() {
 
 #[test]
 fn expands_strong_with_double_asterisks() {
-    let out = expand_source("(doc Go @strong{fast}.)").unwrap();
+    let out = expand_source("(markup Go @strong{fast}.)").unwrap();
     assert!(
         out.contains("(text 25 270 8 \"Go **fast**.\" black)"),
         "{out}"
@@ -162,7 +160,7 @@ fn expands_strong_with_double_asterisks() {
 
 #[test]
 fn expands_warn_prefix_and_indent() {
-    let out = expand_source("(doc @warn{Hot surface.})").unwrap();
+    let out = expand_source("(markup @warn{Hot surface.})").unwrap();
     assert!(
         out.contains("(text 35 270 7 \"Warning: Hot surface.\" black)"),
         "{out}"
@@ -171,14 +169,14 @@ fn expands_warn_prefix_and_indent() {
 
 #[test]
 fn empty_em_strong_warn_skip() {
-    assert_eq!(expand_source("(doc @em{})").unwrap(), "(page a4)");
-    assert_eq!(expand_source("(doc @strong{})").unwrap(), "(page a4)");
-    assert_eq!(expand_source("(doc @warn{})").unwrap(), "(page a4)");
+    assert_eq!(expand_source("(markup @em{})").unwrap(), "(page a4)");
+    assert_eq!(expand_source("(markup @strong{})").unwrap(), "(page a4)");
+    assert_eq!(expand_source("(markup @warn{})").unwrap(), "(page a4)");
 }
 
 #[test]
 fn expands_tt_with_backticks() {
-    let out = expand_source("(doc Use @tt{cargo test}.)").unwrap();
+    let out = expand_source("(markup Use @tt{cargo test}.)").unwrap();
     assert!(
         out.contains("(text 25 270 8 \"Use `cargo test`.\" black)"),
         "{out}"
@@ -187,7 +185,7 @@ fn expands_tt_with_backticks() {
 
 #[test]
 fn expands_center_indents_short_line() {
-    let out = expand_source("(doc @center{Hi})").unwrap();
+    let out = expand_source("(markup @center{Hi})").unwrap();
     // ~2 chars → large indent off left 25; must not stay at 25
     assert!(
         !out.contains("(text 25 270 8 \"Hi\" black)"),
@@ -199,13 +197,13 @@ fn expands_center_indents_short_line() {
 
 #[test]
 fn empty_tt_center_skip() {
-    assert_eq!(expand_source("(doc @tt{})").unwrap(), "(page a4)");
-    assert_eq!(expand_source("(doc @center{})").unwrap(), "(page a4)");
+    assert_eq!(expand_source("(markup @tt{})").unwrap(), "(page a4)");
+    assert_eq!(expand_source("(markup @center{})").unwrap(), "(page a4)");
 }
 
 #[test]
 fn expands_caption_indented_smaller() {
-    let out = expand_source("(doc @caption{Fig. 1 A circle})").unwrap();
+    let out = expand_source("(markup @caption{Fig. 1 A circle})").unwrap();
     assert!(
         out.contains("(text 33 270 6 \"Fig. 1 A circle\" black)"),
         "{out}"
@@ -214,7 +212,7 @@ fn expands_caption_indented_smaller() {
 
 #[test]
 fn expands_image_emits_image_shape() {
-    let out = expand_source(r#"(doc @image["figures/demo.png"])"#).unwrap();
+    let out = expand_source(r#"(markup @image["figures/demo.png"])"#).unwrap();
     // Default 80×50; top at 270 → bottom y = 220
     assert!(
         out.contains(r#"(image "figures/demo.png" 25 220 80 50)"#),
@@ -224,7 +222,7 @@ fn expands_image_emits_image_shape() {
 
 #[test]
 fn expands_figure_as_image_alias() {
-    let out = expand_source(r#"(doc @figure["figures/demo.png"]{Cap})"#).unwrap();
+    let out = expand_source(r#"(markup @figure["figures/demo.png"]{Cap})"#).unwrap();
     assert!(
         out.contains(r#"(image "figures/demo.png" 25 220 80 50)"#),
         "{out}"
@@ -234,7 +232,7 @@ fn expands_figure_as_image_alias() {
 
 #[test]
 fn expands_image_custom_size_in_brackets() {
-    let out = expand_source(r#"(doc @image["figures/demo.png" 100 40])"#).unwrap();
+    let out = expand_source(r#"(markup @image["figures/demo.png" 100 40])"#).unwrap();
     assert!(
         out.contains(r#"(image "figures/demo.png" 25 230 100 40)"#),
         "{out}"
@@ -243,7 +241,7 @@ fn expands_image_custom_size_in_brackets() {
 
 #[test]
 fn expands_image_with_caption_brace() {
-    let out = expand_source(r#"(doc @image["figures/demo.png"]{Demo shot})"#).unwrap();
+    let out = expand_source(r#"(markup @image["figures/demo.png"]{Demo shot})"#).unwrap();
     assert!(
         out.contains(r#"(image "figures/demo.png" 25 220 80 50)"#),
         "{out}"
@@ -257,13 +255,16 @@ fn expands_image_with_caption_brace() {
 
 #[test]
 fn empty_image_path_skips() {
-    assert_eq!(expand_source("(doc @image[])").unwrap(), "(page a4)");
-    assert_eq!(expand_source(r#"(doc @image[""])"#).unwrap(), "(page a4)");
+    assert_eq!(expand_source("(markup @image[])").unwrap(), "(page a4)");
+    assert_eq!(
+        expand_source(r#"(markup @image[""])"#).unwrap(),
+        "(page a4)"
+    );
 }
 
 #[test]
 fn bad_image_size_falls_back_to_default() {
-    let out = expand_source(r#"(doc @image["figures/demo.png" -1 40])"#).unwrap();
+    let out = expand_source(r#"(markup @image["figures/demo.png" -1 40])"#).unwrap();
     assert!(
         out.contains(r#"(image "figures/demo.png" 25 220 80 50)"#),
         "non-positive size should use defaults: {out}"
@@ -272,7 +273,7 @@ fn bad_image_size_falls_back_to_default() {
 
 #[test]
 fn expands_br_adds_gap_between_paragraphs() {
-    let out = expand_source("(doc @p{Above}\n@br{}\n@p{Below})").unwrap();
+    let out = expand_source("(markup @p{Above}\n@br{}\n@p{Below})").unwrap();
     assert!(out.contains("(text 25 270 8 \"Above\" black)"), "{out}");
     // body gap 12 after Above, then +12 br → Below at 246
     assert!(
@@ -283,32 +284,32 @@ fn expands_br_adds_gap_between_paragraphs() {
 
 #[test]
 fn expands_link_appends_url_in_parens() {
-    let out = expand_source(r#"(doc See @link["https://example.com"]{docs}.)"#).unwrap();
+    let out = expand_source(r#"(markup See @link["https://example.com"]{docs}.)"#).unwrap();
     assert!(out.contains("See docs (https://example.com)."), "{out}");
 }
 
 #[test]
 fn expands_cite_as_bracketed_key() {
-    let out = expand_source(r#"(doc Cite @cite[42].)"#).unwrap();
+    let out = expand_source(r#"(markup Cite @cite[42].)"#).unwrap();
     assert!(out.contains("Cite [42]."), "{out}");
 }
 
 #[test]
 fn empty_caption_skips() {
-    assert_eq!(expand_source("(doc @caption{})").unwrap(), "(page a4)");
+    assert_eq!(expand_source("(markup @caption{})").unwrap(), "(page a4)");
 }
 
 #[test]
 fn empty_link_and_cite_are_skipped() {
-    assert_eq!(expand_source("(doc @link[]{})").unwrap(), "(page a4)");
-    assert_eq!(expand_source("(doc @cite[])").unwrap(), "(page a4)");
+    assert_eq!(expand_source("(markup @link[]{})").unwrap(), "(page a4)");
+    assert_eq!(expand_source("(markup @cite[])").unwrap(), "(page a4)");
 }
 
 // --- defect ---
 
 #[test]
 fn empty_title_brace_skips_empty_text() {
-    let out = expand_source("(doc @title{})").unwrap();
+    let out = expand_source("(markup @title{})").unwrap();
     assert_eq!(
         out, "(page a4)",
         "empty title must not emit empty text: {out}"
@@ -317,14 +318,14 @@ fn empty_title_brace_skips_empty_text() {
 
 #[test]
 fn bare_title_without_brace_does_not_panic() {
-    let out = expand_source("(doc @title)").unwrap();
+    let out = expand_source("(markup @title)").unwrap();
     assert!(out.starts_with("(page a4)"), "{out}");
     assert!(!out.contains("(text "), "bare @title has no content: {out}");
 }
 
 #[test]
 fn unknown_at_form_identity_flattens() {
-    let out = expand_source("(doc see @foo{bar} end)").unwrap();
+    let out = expand_source("(markup see @foo{bar} end)").unwrap();
     assert!(
         out.contains("(text 25 270 8 \"see bar end\" black)"),
         "{out}"
@@ -336,7 +337,7 @@ fn expands_wrapped_long_paragraph() {
     let long = "word ".repeat(12);
     let long = long.trim();
     assert!(long.len() > 40);
-    let src = format!("(doc @p{{{long}}})");
+    let src = format!("(markup @p{{{long}}})");
     let out = expand_source(&src).unwrap();
     let text_count = out.matches("(text ").count();
     assert!(
@@ -349,7 +350,7 @@ fn expands_wrapped_long_paragraph() {
 
 #[test]
 fn expands_h2_between_title_and_body() {
-    let out = expand_source("(doc @title{T}\n@h2{Section}\n@p{Body})").unwrap();
+    let out = expand_source("(markup @title{T}\n@h2{Section}\n@p{Body})").unwrap();
     assert!(out.contains("(text 25 270 14 \"T\" black)"), "{out}");
     // title gap 18 → 252; h2 size 11
     assert!(
@@ -365,25 +366,25 @@ fn expands_h2_between_title_and_body() {
 
 #[test]
 fn expands_section_as_h2_alias() {
-    let out = expand_source("(doc @section{Intro})").unwrap();
+    let out = expand_source("(markup @section{Intro})").unwrap();
     assert!(out.contains("(text 25 270 11 \"Intro\" black)"), "{out}");
 }
 
 #[test]
 fn expands_h3_between_h2_sizes() {
-    let out = expand_source("(doc @h3{Detail})").unwrap();
+    let out = expand_source("(markup @h3{Detail})").unwrap();
     assert!(out.contains("(text 25 270 9 \"Detail\" black)"), "{out}");
 }
 
 #[test]
 fn expands_subsubsection_as_h3_alias() {
-    let out = expand_source("(doc @subsubsection{Detail})").unwrap();
+    let out = expand_source("(markup @subsubsection{Detail})").unwrap();
     assert!(out.contains("(text 25 270 9 \"Detail\" black)"), "{out}");
 }
 
 #[test]
 fn empty_h2_skips_empty_text() {
-    let out = expand_source("(doc @h2{})").unwrap();
+    let out = expand_source("(markup @h2{})").unwrap();
     assert_eq!(out, "(page a4)");
 }
 
@@ -391,7 +392,7 @@ fn empty_h2_skips_empty_text() {
 
 #[test]
 fn expands_li_with_bullet_prefix() {
-    let out = expand_source("(doc @li{First}\n@li{Second})").unwrap();
+    let out = expand_source("(markup @li{First}\n@li{Second})").unwrap();
     assert!(
         out.contains("(text 25 270 8 \"• First\" black)"),
         "first li: {out}"
@@ -404,7 +405,7 @@ fn expands_li_with_bullet_prefix() {
 
 #[test]
 fn expands_item_as_li_alias() {
-    let out = expand_source("(doc @item{Alpha}\n@item{Beta})").unwrap();
+    let out = expand_source("(markup @item{Alpha}\n@item{Beta})").unwrap();
     assert!(
         out.contains("(text 25 270 8 \"• Alpha\" black)"),
         "first item: {out}"
@@ -417,19 +418,19 @@ fn expands_item_as_li_alias() {
 
 #[test]
 fn empty_li_skips_empty_text() {
-    let out = expand_source("(doc @li{})").unwrap();
+    let out = expand_source("(markup @li{})").unwrap();
     assert_eq!(out, "(page a4)");
 }
 
 #[test]
 fn empty_item_skips() {
-    assert_eq!(expand_source("(doc @item{})").unwrap(), "(page a4)");
+    assert_eq!(expand_source("(markup @item{})").unwrap(), "(page a4)");
 }
 
 #[test]
 fn long_doc_spills_onto_second_page() {
     // Body gap 12mm from y=270 down; bottom margin 25 → room for many lines.
-    let mut body = String::from("(doc");
+    let mut body = String::from("(markup");
     for i in 0..30 {
         body.push_str(&format!("\n@p{{line{i}}}"));
     }
@@ -446,7 +447,7 @@ fn long_doc_spills_onto_second_page() {
 
 #[test]
 fn expands_quote_indented_smaller() {
-    let out = expand_source("(doc @quote{Cited line})").unwrap();
+    let out = expand_source("(markup @quote{Cited line})").unwrap();
     // Indented left (35) and size 7.
     assert!(
         out.contains("(text 35 270 7 \"Cited line\" black)"),
@@ -456,7 +457,7 @@ fn expands_quote_indented_smaller() {
 
 #[test]
 fn expands_note_prefix_and_indent() {
-    let out = expand_source("(doc @note{Watch the margins.})").unwrap();
+    let out = expand_source("(markup @note{Watch the margins.})").unwrap();
     assert!(
         out.contains("(text 35 270 7 \"Note: Watch the margins.\" black)"),
         "{out}"
@@ -465,19 +466,19 @@ fn expands_note_prefix_and_indent() {
 
 #[test]
 fn empty_note_skips() {
-    assert_eq!(expand_source("(doc @note{})").unwrap(), "(page a4)");
+    assert_eq!(expand_source("(markup @note{})").unwrap(), "(page a4)");
 }
 
 #[test]
 fn empty_quote_skips() {
-    assert_eq!(expand_source("(doc @quote{})").unwrap(), "(page a4)");
+    assert_eq!(expand_source("(markup @quote{})").unwrap(), "(page a4)");
 }
 
 // --- numbered list: @ol{ item; item } uses `;` separators inside one brace ---
 
 #[test]
 fn expands_ol_numbers_items() {
-    let out = expand_source("(doc @ol{Alpha; Beta; Gamma})").unwrap();
+    let out = expand_source("(markup @ol{Alpha; Beta; Gamma})").unwrap();
     assert!(out.contains("(text 25 270 8 \"1. Alpha\" black)"), "{out}");
     assert!(out.contains("(text 25 258 8 \"2. Beta\" black)"), "{out}");
     assert!(out.contains("(text 25 246 8 \"3. Gamma\" black)"), "{out}");
@@ -485,7 +486,7 @@ fn expands_ol_numbers_items() {
 
 #[test]
 fn expands_ul_bullets_semicolon_items() {
-    let out = expand_source("(doc @ul{Alpha; Beta; Gamma})").unwrap();
+    let out = expand_source("(markup @ul{Alpha; Beta; Gamma})").unwrap();
     assert!(out.contains("(text 25 270 8 \"• Alpha\" black)"), "{out}");
     assert!(out.contains("(text 25 258 8 \"• Beta\" black)"), "{out}");
     assert!(out.contains("(text 25 246 8 \"• Gamma\" black)"), "{out}");
@@ -493,7 +494,7 @@ fn expands_ul_bullets_semicolon_items() {
 
 #[test]
 fn expands_ul_runs_inline_marks_inside_items() {
-    let out = expand_source("(doc @ul{plain; @em{hi}})").unwrap();
+    let out = expand_source("(markup @ul{plain; @em{hi}})").unwrap();
     assert!(out.contains("• plain"), "{out}");
     assert!(
         out.contains("• *hi*"),
@@ -503,13 +504,13 @@ fn expands_ul_runs_inline_marks_inside_items() {
 
 #[test]
 fn expands_blockquote_as_quote_alias() {
-    let out = expand_source("(doc @blockquote{Cited})").unwrap();
+    let out = expand_source("(markup @blockquote{Cited})").unwrap();
     assert!(out.contains("(text 35 270 7 \"Cited\" black)"), "{out}");
 }
 
 #[test]
 fn expands_todo_prefix_callout() {
-    let out = expand_source("(doc @todo{Ship it.})").unwrap();
+    let out = expand_source("(markup @todo{Ship it.})").unwrap();
     assert!(
         out.contains("(text 35 270 7 \"TODO: Ship it.\" black)"),
         "{out}"
@@ -518,17 +519,17 @@ fn expands_todo_prefix_callout() {
 
 #[test]
 fn empty_ol_skips() {
-    assert_eq!(expand_source("(doc @ol{})").unwrap(), "(page a4)");
+    assert_eq!(expand_source("(markup @ol{})").unwrap(), "(page a4)");
 }
 
 #[test]
 fn empty_ul_skips() {
-    assert_eq!(expand_source("(doc @ul{})").unwrap(), "(page a4)");
+    assert_eq!(expand_source("(markup @ul{})").unwrap(), "(page a4)");
 }
 
 #[test]
 fn ol_trims_blank_segments() {
-    let out = expand_source("(doc @ol{A;; B})").unwrap();
+    let out = expand_source("(markup @ol{A;; B})").unwrap();
     assert!(out.contains("1. A"), "{out}");
     assert!(out.contains("2. B"), "{out}");
     assert!(!out.contains("3."), "{out}");
@@ -536,7 +537,7 @@ fn ol_trims_blank_segments() {
 
 #[test]
 fn ul_trims_blank_segments() {
-    let out = expand_source("(doc @ul{A;; B})").unwrap();
+    let out = expand_source("(markup @ul{A;; B})").unwrap();
     assert!(out.contains("• A"), "{out}");
     assert!(out.contains("• B"), "{out}");
 }
@@ -545,7 +546,7 @@ fn ul_trims_blank_segments() {
 
 #[test]
 fn expands_vspace_shifts_following_text() {
-    let out = expand_source("(doc @p{Above}\n@vspace{20}\n@p{Below})").unwrap();
+    let out = expand_source("(markup @p{Above}\n@vspace{20}\n@p{Below})").unwrap();
     assert!(out.contains("(text 25 270 8 \"Above\" black)"), "{out}");
     // body gap 12 after Above, then +20 vspace → Below at 270 - 12 - 20 = 238
     assert!(
@@ -556,7 +557,7 @@ fn expands_vspace_shifts_following_text() {
 
 #[test]
 fn expands_hr_emits_line_shape() {
-    let out = expand_source("(doc @p{Head}\n@hr{}\n@p{Tail})").unwrap();
+    let out = expand_source("(markup @p{Head}\n@hr{}\n@p{Tail})").unwrap();
     assert!(out.contains("(text 25 270 8 \"Head\" black)"), "{out}");
     // After Head (gap 12): y=258 for the rule; A4 content width 25..185
     assert!(
@@ -568,7 +569,7 @@ fn expands_hr_emits_line_shape() {
 
 #[test]
 fn bad_vspace_payload_is_skipped() {
-    let out = expand_source("(doc @p{A}\n@vspace{nope}\n@p{B})").unwrap();
+    let out = expand_source("(markup @p{A}\n@vspace{nope}\n@p{B})").unwrap();
     // Invalid vspace ignored → normal body gap 12 only.
     assert!(out.contains("(text 25 270 8 \"A\" black)"), "{out}");
     assert!(out.contains("(text 25 258 8 \"B\" black)"), "{out}");
@@ -578,7 +579,7 @@ fn bad_vspace_payload_is_skipped() {
 
 #[test]
 fn expands_pagebreak_starts_second_page() {
-    let out = expand_source("(doc @p{One}\n@pagebreak{}\n@p{Two})").unwrap();
+    let out = expand_source("(markup @p{One}\n@pagebreak{}\n@p{Two})").unwrap();
     assert_eq!(out.matches("(page a4").count(), 2, "{out}");
     assert!(out.contains("(text 25 270 8 \"One\" black)"), "{out}");
     // Second page resets to top margin.
@@ -593,7 +594,7 @@ fn expands_pagebreak_starts_second_page() {
 fn pagebreak_alone_yields_empty_pages_skipped() {
     // Only a break with no drawable items → still one empty page is ok,
     // or empty doc page; we accept a single empty page.
-    let out = expand_source("(doc @pagebreak{})").unwrap();
+    let out = expand_source("(markup @pagebreak{})").unwrap();
     assert!(out.contains("(page a4)"), "{out}");
 }
 
@@ -601,7 +602,7 @@ fn pagebreak_alone_yields_empty_pages_skipped() {
 
 #[test]
 fn expands_code_indented_smaller() {
-    let out = expand_source("(doc @code{let x = 1})").unwrap();
+    let out = expand_source("(markup @code{let x = 1})").unwrap();
     // left 25 + indent 8 = 33; size 6.5
     assert!(
         out.contains("(text 33 270 6.5 \"let x = 1\" black)"),
@@ -611,7 +612,7 @@ fn expands_code_indented_smaller() {
 
 #[test]
 fn expands_code_preserves_internal_spaces() {
-    let out = expand_source("(doc @code{a  b})").unwrap();
+    let out = expand_source("(markup @code{a  b})").unwrap();
     assert!(
         out.contains("(text 33 270 6.5 \"a  b\" black)"),
         "code must keep double spaces: {out}"
@@ -620,7 +621,7 @@ fn expands_code_preserves_internal_spaces() {
 
 #[test]
 fn expands_pre_as_code_alias() {
-    let out = expand_source("(doc @pre{let x = 1})").unwrap();
+    let out = expand_source("(markup @pre{let x = 1})").unwrap();
     assert!(
         out.contains("(text 33 270 6.5 \"let x = 1\" black)"),
         "{out}"
@@ -629,7 +630,7 @@ fn expands_pre_as_code_alias() {
 
 #[test]
 fn empty_code_skips() {
-    assert_eq!(expand_source("(doc @code{})").unwrap(), "(page a4)");
+    assert_eq!(expand_source("(markup @code{})").unwrap(), "(page a4)");
 }
 
 #[test]
@@ -760,15 +761,15 @@ fn color_byte_non_number_not_expanded() {
 }
 
 #[test]
-fn doc_parts_error_skips_rewrite() {
-    // Parses, but doc_parts rejects `@()` → find_doc yields no rewrite.
-    let src = "(doc @())";
+fn markup_parts_error_skips_rewrite() {
+    // Parses, but markup_parts rejects `@()` → find_markup yields no rewrite.
+    let src = "(markup @())";
     assert_eq!(expand_source(src).unwrap(), src);
 }
 
 #[test]
-fn doc_skip_non_doc_and_empty_list_siblings() {
-    let out = expand_source("() ((x)) (doc Hi)").unwrap();
+fn markup_skip_non_markup_and_empty_list_siblings() {
+    let out = expand_source("() ((x)) (markup Hi)").unwrap();
     assert!(out.contains("(text 25 270 8 \"Hi\" black)"), "{out}");
 }
 
@@ -778,4 +779,3 @@ fn format_frac_strips_fixed_precision_zeros() {
     assert_eq!(format_frac(2.0), "2");
     assert_eq!(format_frac(0.1), "0.1");
 }
-

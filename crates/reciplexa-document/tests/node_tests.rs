@@ -125,14 +125,11 @@ fn layout_text_skip_non_matching_properties() {
         DocumentNodeKind::Text,
     );
     node.properties
-        .push(NodeProperty::Fill(FillColor(
-            reciplexa_scene::Color::BLACK,
-        )));
+        .push(NodeProperty::Fill(FillColor(reciplexa_scene::Color::BLACK)));
     assert!(node.layout().is_none());
     assert!(node.text().is_none());
-    node.properties.push(NodeProperty::Text(TextContent {
-        text: "x".into(),
-    }));
+    node.properties
+        .push(NodeProperty::Text(TextContent { text: "x".into() }));
     node.set_layout(LayoutBox::new(0.0, 0.0, 1.0, 1.0));
     assert!(node.layout().is_some());
     assert_eq!(node.text().unwrap().text, "x");

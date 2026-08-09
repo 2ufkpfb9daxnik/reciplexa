@@ -1,6 +1,6 @@
-use reciplexa_backend::verify::*;
-use reciplexa_backend::loss::{LossReport, OutputLoss, OutputLossKind, LossDisposition};
+use reciplexa_backend::loss::{LossDisposition, LossReport, OutputLoss, OutputLossKind};
 use reciplexa_backend::profile::{OutputProfile, ProfileKind};
+use reciplexa_backend::verify::*;
 
 #[test]
 fn accepts_minimal_svg() {

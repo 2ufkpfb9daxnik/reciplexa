@@ -1,7 +1,7 @@
 //! MemoCache tests.
 
 use reciplexa_opt::{
-    CacheDomain, Fingerprint, InvalidationKind, InvalidationKey, InvalidationSet, MemoCache,
+    CacheDomain, Fingerprint, InvalidationKey, InvalidationKind, InvalidationSet, MemoCache,
     MemoKey, MemoLayer,
 };
 

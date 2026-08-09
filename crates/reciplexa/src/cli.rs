@@ -262,7 +262,7 @@ mod tests {
         let dir = std::env::temp_dir().join("rpx_cli_test");
         let _ = std::fs::create_dir_all(&dir);
         let path = dir.join("bad_utf8.rpx");
-        std::fs::write(&path, &[0xff, 0xfe, 0x00]).unwrap();
+        std::fs::write(&path, [0xff, 0xfe, 0x00]).unwrap();
         let err = cmd_parse(path.to_str().unwrap(), false).unwrap_err();
         assert!(err.contains("decode") || err.contains("read"));
     }

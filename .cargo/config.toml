@@ -1,0 +1,3 @@
+# Keep Cargo artifacts on the repo drive (D:), not under %TEMP% on C:.
+[build]
+target-dir = "target"

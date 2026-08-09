@@ -142,12 +142,12 @@ fn phase10_rpxm_error_paths() {
 #[test]
 fn phase10_rpxm_comments_and_quotes() {
     let m = parse_rpxm(
-        r#"; top
+        r#"(// top)
 (package
   (name "quoted-name")
   (version 1)
   (entry main.rpx)
-  ; dep comment
+  (// dep comment)
   (dep util 1.0)
   (target document)
   (target slide))"#,

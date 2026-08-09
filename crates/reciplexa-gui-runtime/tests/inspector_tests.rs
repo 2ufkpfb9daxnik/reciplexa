@@ -32,7 +32,7 @@ fn layer_tree_description_builds_nested_nodes() {
     assert_eq!(desc.roots[0].kind, GuiNodeKind::LayerList);
     assert_eq!(desc.roots[0].children.len(), 1);
     assert_eq!(desc.roots[0].children[0].kind, GuiNodeKind::Button);
-    assert!(desc.roots[0].key.segments().len() > 0);
+    assert!(!desc.roots[0].key.segments().is_empty());
 }
 
 #[test]

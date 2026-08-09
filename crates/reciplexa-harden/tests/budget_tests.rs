@@ -24,7 +24,10 @@ fn rejects_byte_overrun() {
 fn rejects_ops_and_allocs() {
     let mut b = DecodeBudget::new(1000, 2, 1);
     assert!(b.charge_operations(2).is_ok());
-    assert_eq!(b.charge_operations(1).unwrap_err().kind, BudgetKind::Operations);
+    assert_eq!(
+        b.charge_operations(1).unwrap_err().kind,
+        BudgetKind::Operations
+    );
     assert!(b.charge_allocations(1).is_ok());
     assert_eq!(
         b.charge_allocations(1).unwrap_err().kind,

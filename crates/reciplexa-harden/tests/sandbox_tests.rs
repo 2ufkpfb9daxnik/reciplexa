@@ -6,10 +6,7 @@ use reciplexa_harden::{SandboxDecision, SandboxFence, SandboxPolicy, SandboxRequ
 fn default_policy_is_strict_and_requires_fence() {
     let p = SandboxPolicy::default();
     assert!(p.is_strict());
-    assert_eq!(
-        p.decide(false, false, false),
-        SandboxDecision::RequireFence
-    );
+    assert_eq!(p.decide(false, false, false), SandboxDecision::RequireFence);
 }
 
 #[test]
@@ -50,10 +47,7 @@ fn sandbox_required_also_needs_fence() {
         allow_filesystem_write: false,
         allow_native_code: false,
     };
-    assert_eq!(
-        p.decide(false, false, false),
-        SandboxDecision::RequireFence
-    );
+    assert_eq!(p.decide(false, false, false), SandboxDecision::RequireFence);
     let mut f = SandboxFence::new(SandboxPolicy {
         requirement: SandboxRequirement::None,
         ..SandboxPolicy::default()

@@ -171,7 +171,7 @@ mod tests {
 
     #[test]
     fn stable_node_allocator_peek_ensure_and_saturate() {
-        let mut alloc = StableNodeIdAllocator::default();
+        let alloc = StableNodeIdAllocator::default();
         assert_eq!(alloc.peek_next().get(), 0);
         let mut alloc = StableNodeIdAllocator::new();
         assert_eq!(alloc.peek_next().get(), 1);

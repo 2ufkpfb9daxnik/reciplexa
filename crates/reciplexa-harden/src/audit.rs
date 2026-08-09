@@ -128,8 +128,6 @@ impl PrivacyAudit {
     }
 
     pub fn has_secrets(&self) -> bool {
-        self.fields
-            .iter()
-            .any(|(_, l)| *l == PrivacyLabel::Secret)
+        self.fields.iter().any(|(_, l)| *l == PrivacyLabel::Secret)
     }
 }

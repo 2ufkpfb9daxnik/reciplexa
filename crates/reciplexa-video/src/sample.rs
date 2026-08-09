@@ -124,12 +124,7 @@ fn sample_placed_track(
 ) -> Result<Option<f64>, SampleError> {
     let p = &tr.placement;
     // Map parent time into placement window, then into child source time.
-    let local = match apply_range_policy(
-        parent_t,
-        p.parent_start,
-        p.parent_end,
-        p.range_policy,
-    ) {
+    let local = match apply_range_policy(parent_t, p.parent_start, p.parent_end, p.range_policy) {
         Ok(Some(local)) => local,
         Ok(None) => return Ok(None),
         Err(_) => return Ok(None),

@@ -5,7 +5,8 @@ use std::fmt;
 use reciplexa_identity::document::StableNodeId;
 use reciplexa_scene::{
     Affine, Circle as SceneCircle, Ellipse as SceneEllipse, Frame, Image as SceneImage,
-    Line as SceneLine, PaperSize, Polygon, Polyline, Rect as SceneRect, Ring, Shape, Text as SceneText,
+    Line as SceneLine, PaperSize, Polygon, Polyline, Rect as SceneRect, Ring, Shape,
+    Text as SceneText,
 };
 
 use crate::core::{Angle, Color, Length, Point, Rect, Size};
@@ -86,7 +87,10 @@ impl Canvas {
     }
 
     pub fn to_scene_shapes(&self) -> Vec<Shape> {
-        self.children.iter().filter_map(|c| c.to_scene_shape()).collect()
+        self.children
+            .iter()
+            .filter_map(|c| c.to_scene_shape())
+            .collect()
     }
 }
 

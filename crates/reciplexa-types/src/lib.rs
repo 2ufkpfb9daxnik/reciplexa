@@ -17,14 +17,14 @@ pub enum Type {
     Shape,
     Paper,
     Page,
-    /// Scribble `(doc …)` block (body not deeply checked yet).
-    Doc,
+    /// Scribble `(markup …)` block (body not deeply checked yet).
+    Markup,
     /// Lisp `(src …)` block for logic / effects (not drawn).
     Src,
     String,
     /// Result of `(perform …)` and similar side-effecting forms.
     Unit,
-    /// Top-level file: pages / docs / src blocks.
+    /// Top-level file: pages / markup / src blocks.
     Document,
 }
 
@@ -67,17 +67,20 @@ pub fn typecheck_syntax(root: &SyntaxNode) -> Result<Type, TypeError> {
             0,
         ));
     }
-    let forms: Vec<_> = root.children().collect();
+    let forms: Vec<_> = root
+        .children()
+        .filter(|n| n.kind() != SyntaxKind::StructuredComment)
+        .collect();
     if forms.is_empty() {
         return Err(TypeError::at("empty document", 0, 0));
     }
     for form in &forms {
         let ty = check_form(form)?;
         match ty {
-            Type::Page | Type::Doc | Type::Src => {}
+            Type::Page | Type::Markup | Type::Src => {}
             other => {
                 return Err(TypeError::at(
-                    format!("top-level form must be page, doc, or src, got {other:?}"),
+                    format!("top-level form must be page, markup, or src, got {other:?}"),
                     form.text_range().start().into(),
                     form.text_range().end().into(),
                 ));
@@ -124,9 +127,9 @@ fn check_form(node: &SyntaxNode) -> Result<Type, TypeError> {
             }
             Ok(Type::Page)
         }
-        "doc" => {
-            // M8: accept scribble docs without typing TextChunk/@ bodies yet.
-            Ok(Type::Doc)
+        "markup" => {
+            // M8 / SYN-001: accept scribble markup without typing TextChunk/@ bodies yet.
+            Ok(Type::Markup)
         }
         "src" => {
             for a in &args {

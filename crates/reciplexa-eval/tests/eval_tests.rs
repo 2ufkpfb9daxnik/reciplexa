@@ -3,7 +3,6 @@
 use std::collections::HashMap;
 
 use reciplexa_core::expr::{CoreExpr, CoreLiteral, MatchArm};
-use reciplexa_core::ty::CoreType;
 use reciplexa_eval::eval::*;
 use reciplexa_eval::value::*;
 

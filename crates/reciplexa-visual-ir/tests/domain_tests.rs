@@ -1,5 +1,5 @@
-use reciplexa_visual_ir::domain::*;
 use reciplexa_scene::Color;
+use reciplexa_visual_ir::domain::*;
 
 use reciplexa_identity::document::StableNodeId;
 

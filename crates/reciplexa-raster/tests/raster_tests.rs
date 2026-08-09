@@ -298,27 +298,16 @@ fn empty_and_bad_options_error() {
         Err(RasterError::EmptyDocument)
     ));
     let doc = a4_doc(vec![]);
-    let mut opts = RasterOptions::default();
-    opts.px_per_mm = f64::NAN;
-    assert!(matches!(
-        rasterize_page(&doc, 0, &opts),
-        Err(RasterError::BadOptions(_))
-    ));
-    opts.px_per_mm = f64::INFINITY;
-    assert!(matches!(
-        rasterize_page(&doc, 0, &opts),
-        Err(RasterError::BadOptions(_))
-    ));
-    opts.px_per_mm = 0.0;
-    assert!(matches!(
-        rasterize_page(&doc, 0, &opts),
-        Err(RasterError::BadOptions(_))
-    ));
-    opts.px_per_mm = -1.0;
-    assert!(matches!(
-        rasterize_page(&doc, 0, &opts),
-        Err(RasterError::BadOptions(_))
-    ));
+    for &ppm in &[f64::NAN, f64::INFINITY, 0.0, -1.0] {
+        let opts = RasterOptions {
+            px_per_mm: ppm,
+            ..Default::default()
+        };
+        assert!(matches!(
+            rasterize_page(&doc, 0, &opts),
+            Err(RasterError::BadOptions(_))
+        ));
+    }
     assert!(matches!(
         rasterize_page(&doc, 9, &RasterOptions::default()),
         Err(RasterError::PageOutOfRange(9))
@@ -346,8 +335,7 @@ fn document_page_to_png_propagates_rasterize_errors() {
         Err(RasterError::EmptyDocument)
     ));
     let doc = a4_doc(vec![]);
-    let mut opts = RasterOptions::default();
-    opts.px_per_mm = -2.0;
+    let opts = RasterOptions { px_per_mm: -2.0, ..Default::default() };
     assert!(matches!(
         document_page_to_png(&doc, 0, &opts),
         Err(RasterError::BadOptions(_))

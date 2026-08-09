@@ -140,7 +140,11 @@ impl Paragraph {
     pub fn plain(id: StableNodeId, text: impl Into<String>, style: TextStyle) -> Self {
         Self {
             id,
-            spans: vec![Span::new(StableNodeId::new(id.get().saturating_add(1)), text, style)],
+            spans: vec![Span::new(
+                StableNodeId::new(id.get().saturating_add(1)),
+                text,
+                style,
+            )],
         }
     }
 
@@ -300,17 +304,25 @@ mod tests {
         assert!(Text::new(id(2), Point::ORIGIN, "", style.clone())
             .to_scene_shape()
             .is_none());
-        let box_ = TextBox::new(id(3), Rect::from_xywh(0.0, 0.0, 50.0, 20.0), style)
-            .with_plain("line");
+        let box_ =
+            TextBox::new(id(3), Rect::from_xywh(0.0, 0.0, 50.0, 20.0), style).with_plain("line");
         assert_eq!(box_.plain_text(), "line");
         assert!(box_.to_scene_shape().is_some());
         assert_eq!(box_.estimated_size(), Size::mm(50.0, 20.0));
-        assert!(TextBox::new(id(3), Rect::from_xywh(0.0, 0.0, 0.0, 1.0), TextStyle::body())
-            .with_plain("x")
-            .to_scene_shape()
-            .is_none());
-        assert!(TextBox::new(id(3), Rect::from_xywh(0.0, 0.0, 10.0, 10.0), TextStyle::body())
-            .to_scene_shape()
-            .is_none());
+        assert!(TextBox::new(
+            id(3),
+            Rect::from_xywh(0.0, 0.0, 0.0, 1.0),
+            TextStyle::body()
+        )
+        .with_plain("x")
+        .to_scene_shape()
+        .is_none());
+        assert!(TextBox::new(
+            id(3),
+            Rect::from_xywh(0.0, 0.0, 10.0, 10.0),
+            TextStyle::body()
+        )
+        .to_scene_shape()
+        .is_none());
     }
 }

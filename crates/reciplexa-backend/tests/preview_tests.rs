@@ -203,9 +203,5 @@ fn preview_rejects_missing_page() {
         }],
     };
     let err = emit_preview_from_plan(&plan, &render).unwrap_err();
-    assert!(matches!(
-        err,
-        EmitError::MissingRenderNode { render_id: 1 }
-    ));
+    assert!(matches!(err, EmitError::MissingRenderNode { render_id: 1 }));
 }
-

@@ -5,8 +5,8 @@ use reciplexa_visual_ir::render::*;
 
 use reciplexa_identity::document::StableNodeId;
 use reciplexa_scene::{
-    Affine, Circle, Color, Document, Image, Line, Page, PaperSize, Polygon, Polyline, Rect,
-    Shape, Text,
+    Affine, Circle, Color, Document, Image, Line, Page, PaperSize, Polygon, Polyline, Rect, Shape,
+    Text,
 };
 
 #[test]

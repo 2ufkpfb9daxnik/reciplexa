@@ -2,7 +2,6 @@
 
 use reciplexa_bind::scope::*;
 
-
 #[test]
 fn inner_scope_shadows_outer() {
     let mut stack = ScopeStack::new();

@@ -1052,7 +1052,8 @@ fn set_layer_stroke_rgb_without_stroke_errors() {
 
 #[test]
 fn set_layer_stroke_rgb_named_and_node() {
-    let named = set_layer_stroke_rgb("(page a4 (line 0 0 1 1 blue 1))", 0, 0, 0.1, 0.2, 0.3).unwrap();
+    let named =
+        set_layer_stroke_rgb("(page a4 (line 0 0 1 1 blue 1))", 0, 0, 0.1, 0.2, 0.3).unwrap();
     assert!(named.contains("(rgb 0.1 0.2 0.3)"), "{named}");
     let node = set_layer_stroke_rgb(
         "(page a4 (line 0 0 1 1 (rgb 0.9 0.8 0.7) 1))",
@@ -1064,18 +1065,18 @@ fn set_layer_stroke_rgb_named_and_node() {
     )
     .unwrap();
     assert!(node.contains("(rgb 0.1 0.2 0.3)"), "{node}");
-    let err = set_layer_stroke_rgb("(page a4 (line 0 0 1 1 blue 1))", 9, 0, 0.1, 0.2, 0.3)
-        .unwrap_err();
+    let err =
+        set_layer_stroke_rgb("(page a4 (line 0 0 1 1 blue 1))", 9, 0, 0.1, 0.2, 0.3).unwrap_err();
     assert!(err.message.contains("page") || err.message.contains("parse"));
-    let err = set_layer_stroke_rgb("(page a4 (line 0 0 1 1 blue 1))", 0, 9, 0.1, 0.2, 0.3)
-        .unwrap_err();
+    let err =
+        set_layer_stroke_rgb("(page a4 (line 0 0 1 1 blue 1))", 0, 9, 0.1, 0.2, 0.3).unwrap_err();
     assert!(err.message.contains("out of range"));
 }
 
 #[test]
 fn set_layer_stroke_rgb_channel_range_errors() {
-    let err = set_layer_stroke_rgb("(page a4 (line 0 0 1 1 blue 1))", 0, 0, 1.5, 0.0, 0.0)
-        .unwrap_err();
+    let err =
+        set_layer_stroke_rgb("(page a4 (line 0 0 1 1 blue 1))", 0, 0, 1.5, 0.0, 0.0).unwrap_err();
     assert!(err.message.contains("stroke rgb channels"));
 }
 
@@ -1101,13 +1102,7 @@ fn collect_frame_variants_for_stroke_helpers() {
     let props = collect_layer_props("(page a4 (frame 0 0 10 20 1 red))", 0, 0, &ctx).unwrap();
     assert!(props.iter().any(|p| p.id == "geom.w"));
     // Fill + stroke colors without width.
-    let props = collect_layer_props(
-        "(page a4 (frame 0 0 10 20 1 red blue))",
-        0,
-        0,
-        &ctx,
-    )
-    .unwrap();
+    let props = collect_layer_props("(page a4 (frame 0 0 10 20 1 red blue))", 0, 0, &ctx).unwrap();
     assert!(props.iter().any(|p| p.id == "stroke.r"));
 }
 
@@ -1155,7 +1150,9 @@ fn set_atom_number_missing_slot_via_geom() {
     )
     .unwrap_err();
     assert!(
-        err.message.contains("missing") || err.message.contains("slot") || err.message.contains("no slot"),
+        err.message.contains("missing")
+            || err.message.contains("slot")
+            || err.message.contains("no slot"),
         "{}",
         err.message
     );
@@ -1181,8 +1178,8 @@ fn collect_polyline_stroke_color_only() {
 #[test]
 fn collect_gray_and_incomplete_rgb_trailing_colors() {
     let ctx = test_ctx((0.0, 0.0, 10.0, 10.0));
-    let props = collect_layer_props("(page a4 (circle 0 0 5 (gray 0.1 0.2 0.3)))", 0, 0, &ctx)
-        .unwrap();
+    let props =
+        collect_layer_props("(page a4 (circle 0 0 5 (gray 0.1 0.2 0.3)))", 0, 0, &ctx).unwrap();
     assert!(!props.iter().any(|p| p.id == "fill.r"));
     let props = collect_layer_props("(page a4 (circle 0 0 5 (rgb 0.1)))", 0, 0, &ctx).unwrap();
     assert!(!props.iter().any(|p| p.id == "fill.r"));
@@ -1204,7 +1201,9 @@ fn set_image_path_on_non_string_slot_errors() {
     )
     .unwrap_err();
     assert!(
-        err.message.contains("string") || err.message.contains("path") || err.message.contains("image"),
+        err.message.contains("string")
+            || err.message.contains("path")
+            || err.message.contains("image"),
         "{}",
         err.message
     );
@@ -1222,7 +1221,10 @@ fn collect_unknown_shape_kind_is_noop_for_paint() {
 
 #[test]
 fn coverage_hooks_hit_non_test_lib_copies() {
-    assert_eq!(coverage_collect_paint_unknown("(page a4 (circle 0 0 1))"), 0);
+    assert_eq!(
+        coverage_collect_paint_unknown("(page a4 (circle 0 0 1))"),
+        0
+    );
     assert_eq!(coverage_collect_paint_unknown("("), 0);
     assert_eq!(coverage_push_geom_missing(), 0);
     assert_eq!(coverage_polyline_stroke_short(), 0);

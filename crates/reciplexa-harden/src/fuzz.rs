@@ -53,11 +53,10 @@ impl FuzzHarnessHook {
 
     /// Check that expected rejection matches the outcome.
     pub fn check_expectation(case: &AdversarialCase, outcome: FuzzOutcome) -> bool {
-        match (case.expect_reject, outcome) {
-            (true, FuzzOutcome::Rejected) => true,
-            (false, FuzzOutcome::Accepted) => true,
-            _ => false,
-        }
+        matches!(
+            (case.expect_reject, outcome),
+            (true, FuzzOutcome::Rejected) | (false, FuzzOutcome::Accepted)
+        )
     }
 
     pub fn corpus_seed_empty() -> AdversarialCase {

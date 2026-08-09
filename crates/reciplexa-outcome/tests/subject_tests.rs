@@ -51,8 +51,14 @@ fn cover_subject_flags() {
 
 #[test]
 fn cover_all_subject_map_arms() {
-    assert_eq!(map_s(SubjectOutcome::Success(2)), SubjectOutcome::Success(3));
-    assert_eq!(map_s(SubjectOutcome::Failure("x")), SubjectOutcome::Failure("x"));
+    assert_eq!(
+        map_s(SubjectOutcome::Success(2)),
+        SubjectOutcome::Success(3)
+    );
+    assert_eq!(
+        map_s(SubjectOutcome::Failure("x")),
+        SubjectOutcome::Failure("x")
+    );
     assert_eq!(map_s(SubjectOutcome::Cancelled), SubjectOutcome::Cancelled);
     assert!(matches!(
         map_s(SubjectOutcome::Defect(Box::new(defect()))),
@@ -70,7 +76,10 @@ fn cover_all_subject_map_err_arms() {
         map_err_s(SubjectOutcome::Failure("ab")),
         SubjectOutcome::Failure(2)
     );
-    assert_eq!(map_err_s(SubjectOutcome::Cancelled), SubjectOutcome::Cancelled);
+    assert_eq!(
+        map_err_s(SubjectOutcome::Cancelled),
+        SubjectOutcome::Cancelled
+    );
     assert!(matches!(
         map_err_s(SubjectOutcome::Defect(Box::new(defect()))),
         SubjectOutcome::Defect(_)
@@ -180,9 +189,7 @@ fn subject_application_clone_eq_debug() {
     }
     assert_ne!(apps[0], apps[2]);
 
-    let a = InfrastructureAbort {
-        reason: "x".into(),
-    };
+    let a = InfrastructureAbort { reason: "x".into() };
     assert_eq!(a, a.clone());
     assert!(format!("{a:?}").contains("x"));
 }

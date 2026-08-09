@@ -38,7 +38,7 @@ impl From<EffectError> for PipelineError {
     }
 }
 
-/// Macro-expand surface forms (`color-byte`, `(doc …)`, …). Input is not mutated.
+/// Macro-expand surface forms (`color-byte`, `(markup …)`, …). Input is not mutated.
 pub fn expand(src: &str) -> Result<String, PipelineError> {
     expand_source(src).map_err(|e| PipelineError::new("macro", e.message))
 }
@@ -123,7 +123,7 @@ mod tests {
 
     #[test]
     fn document_from_source_expands_doc_title() {
-        let doc = document_from_source("(doc @title{Hi})").unwrap();
+        let doc = document_from_source("(markup @title{Hi})").unwrap();
         assert_eq!(doc.pages.len(), 1);
         match &doc.pages[0].shapes[0] {
             Shape::Text(t) => {
@@ -136,7 +136,7 @@ mod tests {
 
     #[test]
     fn document_from_source_expands_doc_image() {
-        let doc = document_from_source(r#"(doc @image["figures/demo.png"])"#).unwrap();
+        let doc = document_from_source(r#"(markup @image["figures/demo.png"])"#).unwrap();
         assert_eq!(doc.pages.len(), 1);
         assert!(
             doc.pages[0]
@@ -244,7 +244,7 @@ mod tests {
 
     #[test]
     fn expand_doc_title() {
-        let expanded = expand("(doc @title{Hi})").unwrap();
+        let expanded = expand("(markup @title{Hi})").unwrap();
         assert!(expanded.contains("Hi"));
     }
 
@@ -272,8 +272,8 @@ mod tests {
     }
 
     #[test]
-    fn expand_empty_doc_still_parses() {
-        let expanded = expand("(doc)").unwrap();
+    fn expand_empty_markup_still_parses() {
+        let expanded = expand("(markup)").unwrap();
         assert!(expanded.contains("(page"));
     }
 

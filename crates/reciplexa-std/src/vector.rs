@@ -13,11 +13,7 @@ pub enum PathCommand {
     MoveTo(Point),
     LineTo(Point),
     QuadTo { control: Point, to: Point },
-    CubicTo {
-        c1: Point,
-        c2: Point,
-        to: Point,
-    },
+    CubicTo { c1: Point, c2: Point, to: Point },
     Close,
 }
 

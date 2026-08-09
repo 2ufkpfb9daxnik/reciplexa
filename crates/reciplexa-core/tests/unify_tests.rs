@@ -3,7 +3,6 @@
 use reciplexa_core::ty::*;
 use reciplexa_core::unify::*;
 
-
 #[test]
 fn unifies_function_types() {
     let mut s = Subst::new();

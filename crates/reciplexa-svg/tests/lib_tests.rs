@@ -1,7 +1,7 @@
 use reciplexa_backend::ExportError;
 use reciplexa_scene::{
-    Circle, Color, Document, Ellipse, Frame, Line, Page, PaperSize, Polygon, Polyline, Rect,
-    Ring, Shape, Text,
+    Circle, Color, Document, Ellipse, Frame, Line, Page, PaperSize, Polygon, Polyline, Rect, Ring,
+    Shape, Text,
 };
 use reciplexa_svg::{
     document_to_svg, document_to_svg_with_hints, fmt_export_error, write_document,
@@ -215,7 +215,7 @@ fn write_document_io_error_after_valid_svg() {
     struct FailWrite;
     impl std::io::Write for FailWrite {
         fn write(&mut self, _: &[u8]) -> std::io::Result<usize> {
-            Err(std::io::Error::new(std::io::ErrorKind::Other, "fail"))
+            Err(std::io::Error::other("fail"))
         }
         fn flush(&mut self) -> std::io::Result<()> {
             Ok(())
@@ -261,4 +261,3 @@ fn document_to_svg_maps_export_failure() {
     let err = document_to_svg(&doc).unwrap_err();
     assert!(err.contains("render"));
 }
-

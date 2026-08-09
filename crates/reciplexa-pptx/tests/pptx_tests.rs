@@ -307,7 +307,7 @@ fn write_document_io_error() {
     struct FailWrite;
     impl Write for FailWrite {
         fn write(&mut self, _: &[u8]) -> std::io::Result<usize> {
-            Err(std::io::Error::new(std::io::ErrorKind::Other, "fail"))
+            Err(std::io::Error::other("fail"))
         }
         fn flush(&mut self) -> std::io::Result<()> {
             Ok(())

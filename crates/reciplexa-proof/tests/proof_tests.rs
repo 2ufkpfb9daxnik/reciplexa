@@ -1,8 +1,6 @@
 //! Proof crate unit tests.
 
-use reciplexa_proof::{
-    Lemma, LemmaId, LemmaRegistry, ProofObligation, ProofPriority, ProofStatus,
-};
+use reciplexa_proof::{Lemma, LemmaId, LemmaRegistry, ProofObligation, ProofPriority, ProofStatus};
 
 #[test]
 fn roadmap_defaults_are_eight_open() {
@@ -25,7 +23,7 @@ fn obligation_status_and_notes() {
     assert_eq!(o.notes, "sketch");
     assert_eq!(o.status, ProofStatus::Draft);
     o.set_status(ProofStatus::Deferred);
-    assert!(o.status.is_blocking() == false);
+    assert!(!o.status.is_blocking());
     assert!(ProofStatus::Open.is_blocking());
     assert!(ProofStatus::Discharged.is_terminal());
     assert!(ProofStatus::Failed.is_terminal());

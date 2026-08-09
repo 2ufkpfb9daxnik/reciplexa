@@ -42,7 +42,7 @@ fn rgb_and_nonuniform_scale_typecheck() {
 #[test]
 fn doc_block_typechecks_as_document() {
     assert_eq!(
-        typecheck_source("(doc Hello @em{x})").unwrap(),
+        typecheck_source("(markup Hello @em{x})").unwrap(),
         Type::Document
     );
 }
@@ -50,7 +50,7 @@ fn doc_block_typechecks_as_document() {
 #[test]
 fn mixed_page_and_doc_typecheck() {
     assert_eq!(
-        typecheck_source("(page a4 (circle 1 2 3))\n(doc hi)").unwrap(),
+        typecheck_source("(page a4 (circle 1 2 3))\n(markup hi)").unwrap(),
         Type::Document
     );
 }
@@ -515,7 +515,7 @@ fn type_debug_covers_variants() {
             Type::Paper,
             Type::Shape,
             Type::Page,
-            Type::Doc,
+            Type::Markup,
             Type::Src,
             Type::Unit,
             Type::Document
@@ -582,7 +582,7 @@ fn empty_list_and_non_ident_head_fail() {
 
 #[test]
 fn bracket_list_as_top_level_fails_or_is_rejected() {
-    // Top-level must be page/doc/src document forms.
+    // Top-level must be page/markup/src document forms.
     let err = typecheck_source("[page a4]").unwrap_err();
     assert!(!err.message.is_empty());
 }
@@ -709,10 +709,16 @@ fn remaining_require_ty_err_partitions() {
     // Polyline coord mismatch.
     assert!(typecheck_source(r#"(page a4 (polyline 0 0 1 "hi"))"#).is_err());
     // Width looks numeric but preceding arg is not Color → matches! Color false arm.
-    assert!(typecheck_source("(page a4 (polyline 0 0 1 1 2 0 9 1))").is_err() || typecheck_source("(page a4 (polyline 0 0 1 1 2 0 9 1))").is_ok());
+    assert!(
+        typecheck_source("(page a4 (polyline 0 0 1 1 2 0 9 1))").is_err()
+            || typecheck_source("(page a4 (polyline 0 0 1 1 2 0 9 1))").is_ok()
+    );
     assert!(typecheck_source(r#"(page a4 (polyline 0 0 1 1 2 0 "hi" 1))"#).is_err());
     // src child split_list Err via headless nested list.
-    assert!(typecheck_source("(src ())\n(page a4)").is_err() || typecheck_source("(src ())\n(page a4)").is_ok());
+    assert!(
+        typecheck_source("(src ())\n(page a4)").is_err()
+            || typecheck_source("(src ())\n(page a4)").is_ok()
+    );
     let err = typecheck_source("(src (()))\n(page a4)").unwrap_err();
     assert!(!err.message.is_empty());
 }

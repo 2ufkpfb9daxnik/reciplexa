@@ -2,7 +2,9 @@
 
 use reciplexa_identity::document::StableNodeId;
 use reciplexa_scene::Shape;
-use reciplexa_std::motion::{keyframe_track, DurationMs, Easing, TemporalPlacement, TimeMs, Timeline, TimelineTrack};
+use reciplexa_std::motion::{
+    keyframe_track, DurationMs, Easing, TemporalPlacement, TimeMs, Timeline, TimelineTrack,
+};
 use reciplexa_std::{
     Block, BooleanOp, BooleanPathOp, Canvas, Color, Column, Ellipse, Figure, Fill, Font, Gradient,
     GradientStop, Group, Heading, Image, Length, Line, List, MathAtom, MathClass, Opacity, Padding,
@@ -81,8 +83,8 @@ fn text_layout_document_compose() {
         col.stack_mut().padding = Padding::all(Length::mm(2.0));
         let _ = Span::new(nid(4), "s", style);
         let mut page = Page::a4(nid(10));
-        let mut section = reciplexa_std::Section::new(nid(11))
-            .with_heading(Heading::new(nid(12), 1, "Intro"));
+        let mut section =
+            reciplexa_std::Section::new(nid(11)).with_heading(Heading::new(nid(12), 1, "Intro"));
         section.push(Block::Figure(
             Figure::new(nid(13), nid(2)).with_caption("fig"),
         ));

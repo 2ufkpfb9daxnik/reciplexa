@@ -11,7 +11,10 @@ fn id(n: u64) -> StableNodeId {
 
 #[test]
 fn core_rect_new_and_point_size_ctors() {
-    let r = Rect::new(Point::new(Length::mm(1.0), Length::mm(2.0)), Size::new(Length::mm(3.0), Length::mm(4.0)));
+    let r = Rect::new(
+        Point::new(Length::mm(1.0), Length::mm(2.0)),
+        Size::new(Length::mm(3.0), Length::mm(4.0)),
+    );
     assert_eq!(r.width().as_mm(), 3.0);
     assert_eq!(r.height().as_mm(), 4.0);
     assert!(!Point::mm(f64::NAN, 0.0).is_finite());
@@ -125,7 +128,11 @@ fn visual_scene_partitions_and_bridges() {
     assert!(matches!(
         Path::closed(
             id(3),
-            vec![Point::mm(0.0, 0.0), Point::mm(1.0, 0.0), Point::mm(0.0, 1.0)],
+            vec![
+                Point::mm(0.0, 0.0),
+                Point::mm(1.0, 0.0),
+                Point::mm(0.0, 1.0)
+            ],
             Color::RED
         )
         .to_scene_shape(),
@@ -134,7 +141,11 @@ fn visual_scene_partitions_and_bridges() {
     // Invalid solid fill on closed path
     let mut bad_fill = Path::closed(
         id(3),
-        vec![Point::mm(0.0, 0.0), Point::mm(1.0, 0.0), Point::mm(0.0, 1.0)],
+        vec![
+            Point::mm(0.0, 0.0),
+            Point::mm(1.0, 0.0),
+            Point::mm(0.0, 1.0),
+        ],
         Color::RED,
     );
     bad_fill.style.fill = Fill::Solid(Color::new(2.0, 0.0, 0.0));
@@ -154,7 +165,10 @@ fn visual_scene_partitions_and_bridges() {
     assert!(matches!(g.to_scene_shape(), Some(Shape::Group { .. })));
     g.opacity = Opacity::new(0.5);
     assert!(matches!(g.to_scene_shape(), Some(Shape::Opacity { .. })));
-    assert_eq!(scene_text_box(0.0, 0.0, 12.0, "hi", Color::BLACK).content, "hi");
+    assert_eq!(
+        scene_text_box(0.0, 0.0, 12.0, "hi", Color::BLACK).content,
+        "hi"
+    );
     let back = rectangle_from_scene(
         id(9),
         &reciplexa_scene::Rect {
@@ -251,26 +265,44 @@ fn visual_all_node_ids_and_error_arms() {
     .is_none());
 
     // Closed path with too few points
-    assert!(Path::closed(id(10), vec![Point::mm(0.0, 0.0), Point::mm(1.0, 0.0)], Color::RED)
-        .to_scene_shape()
-        .is_none());
+    assert!(Path::closed(
+        id(10),
+        vec![Point::mm(0.0, 0.0), Point::mm(1.0, 0.0)],
+        Color::RED
+    )
+    .to_scene_shape()
+    .is_none());
 
     // Closed path with invisible fill
-    let mut closed = Path::closed(id(10), vec![Point::mm(0.0, 0.0), Point::mm(1.0, 0.0), Point::mm(0.0, 1.0)], Color::RED);
+    let mut closed = Path::closed(
+        id(10),
+        vec![
+            Point::mm(0.0, 0.0),
+            Point::mm(1.0, 0.0),
+            Point::mm(0.0, 1.0),
+        ],
+        Color::RED,
+    );
     closed.style.fill = Fill::None;
     assert!(closed.to_scene_shape().is_none());
 
     // Open path missing stroke / bad stroke
-    let mut open = Path::open(id(11), vec![Point::mm(0.0, 0.0), Point::mm(1.0, 0.0)], Stroke::new(Color::BLACK, Length::mm(1.0)));
+    let mut open = Path::open(
+        id(11),
+        vec![Point::mm(0.0, 0.0), Point::mm(1.0, 0.0)],
+        Stroke::new(Color::BLACK, Length::mm(1.0)),
+    );
     open.style.stroke = None;
     assert!(open.to_scene_shape().is_none());
     open.style.stroke = Some(Stroke::new(Color::BLACK, Length::ZERO));
     assert!(open.to_scene_shape().is_none());
 
     // Image undrawable frame
-    assert!(Image::new(id(12), "x.png", Rect::from_xywh(0.0, 0.0, 0.0, 1.0))
-        .to_scene_shape()
-        .is_none());
+    assert!(
+        Image::new(id(12), "x.png", Rect::from_xywh(0.0, 0.0, 0.0, 1.0))
+            .to_scene_shape()
+            .is_none()
+    );
 
     // Group invalid opacity
     let mut g = Group::new(id(13));
@@ -278,7 +310,9 @@ fn visual_all_node_ids_and_error_arms() {
     assert!(g.to_scene_shape().is_none());
 
     assert!(matches!(
-        Transform::translate(Length::mm(1.0), Length::mm(2.0)).to_affine().e,
+        Transform::translate(Length::mm(1.0), Length::mm(2.0))
+            .to_affine()
+            .e,
         1.0
     ));
 }
@@ -298,10 +332,12 @@ fn text_font_display_and_undrawable_style() {
     assert!(Text::new(id(1), Point::ORIGIN, "x", bad.clone())
         .to_scene_shape()
         .is_none());
-    assert!(TextBox::new(id(2), Rect::from_xywh(0.0, 0.0, 10.0, 10.0), bad)
-        .with_plain("x")
-        .to_scene_shape()
-        .is_none());
+    assert!(
+        TextBox::new(id(2), Rect::from_xywh(0.0, 0.0, 10.0, 10.0), bad)
+            .with_plain("x")
+            .to_scene_shape()
+            .is_none()
+    );
     let para = Paragraph {
         id: id(3),
         spans: vec![Span::new(id(4), "", TextStyle::body())],

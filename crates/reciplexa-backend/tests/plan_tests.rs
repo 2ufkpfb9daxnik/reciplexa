@@ -219,4 +219,3 @@ fn plan_raster_rejects_svg_capability() {
     .unwrap_err();
     assert!(matches!(err, PlanningError::ProfileViolation(_)));
 }
-

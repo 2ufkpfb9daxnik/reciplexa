@@ -3,7 +3,6 @@
 use reciplexa_bind::package::*;
 use reciplexa_identity::package::PackageInstanceId;
 
-
 #[test]
 fn resolves_multiple_units() {
     let units: [(&str, &str); 2] = [

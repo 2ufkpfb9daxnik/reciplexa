@@ -10,7 +10,7 @@ pub mod doc_layout;
 
 use reciplexa_syntax::{parse_source, SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken};
 
-use doc_layout::layout_doc_parts;
+use doc_layout::layout_markup_parts;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ExpandError {
@@ -72,7 +72,7 @@ fn find_next_rewrite(root: &SyntaxNode) -> Option<(usize, usize, String)> {
     if let Some((start, end, replacement)) = find_square(root) {
         return Some((start, end, replacement));
     }
-    if let Some((start, end, replacement)) = find_doc(root) {
+    if let Some((start, end, replacement)) = find_markup(root) {
         return Some((start, end, replacement));
     }
     None
@@ -236,8 +236,8 @@ fn find_rule(root: &SyntaxNode) -> Option<(usize, usize, String)> {
     None
 }
 
-fn find_doc(root: &SyntaxNode) -> Option<(usize, usize, String)> {
-    use reciplexa_syntax::doc_parts;
+fn find_markup(root: &SyntaxNode) -> Option<(usize, usize, String)> {
+    use reciplexa_syntax::markup_parts;
 
     use crate::doc_layout::{place_items, DocFrame, PlacedItem};
 
@@ -249,11 +249,11 @@ fn find_doc(root: &SyntaxNode) -> Option<(usize, usize, String)> {
         let Some(Child::Token(head)) = items.first() else {
             continue;
         };
-        if head.kind() != SyntaxKind::Ident || head.text() != "doc" {
+        if head.kind() != SyntaxKind::Ident || head.text() != "markup" {
             continue;
         }
-        let parts = doc_parts(&child).ok()?;
-        let laid = layout_doc_parts(&parts);
+        let parts = markup_parts(&child).ok()?;
+        let laid = layout_markup_parts(&parts);
         let range = child.text_range();
         let start: usize = range.start().into();
         let end: usize = range.end().into();

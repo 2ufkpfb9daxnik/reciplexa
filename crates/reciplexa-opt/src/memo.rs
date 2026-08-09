@@ -79,7 +79,11 @@ impl MemoCache {
         before - self.entries.len()
     }
 
-    pub fn get_or_insert_with(&mut self, key: MemoKey, compute: fn() -> Fingerprint) -> Fingerprint {
+    pub fn get_or_insert_with(
+        &mut self,
+        key: MemoKey,
+        compute: fn() -> Fingerprint,
+    ) -> Fingerprint {
         if let Some(v) = self.entries.get(&key).copied() {
             return v;
         }

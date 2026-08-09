@@ -75,7 +75,7 @@ mod tests {
 
     #[test]
     fn allocator_starts_at_one_and_peeks() {
-        let mut alloc = SyntaxNodeIdAllocator::default();
+        let alloc = SyntaxNodeIdAllocator::default();
         assert_eq!(alloc.peek_next().get(), 0);
         let mut alloc = SyntaxNodeIdAllocator::new();
         assert_eq!(alloc.peek_next().get(), 1);

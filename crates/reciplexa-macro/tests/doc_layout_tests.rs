@@ -1,14 +1,13 @@
 use reciplexa_macro::doc_layout::*;
-use reciplexa_syntax::{doc_parts, parse_source, DocPart, SyntaxKind};
+use reciplexa_syntax::{markup_parts, parse_source, MarkupPart, SyntaxKind};
 
-
-fn parts(src: &str) -> Vec<DocPart> {
+fn parts(src: &str) -> Vec<MarkupPart> {
     let root = parse_source(src).into_result().unwrap();
     let list = root
         .children()
         .find(|n| n.kind() == SyntaxKind::List)
         .unwrap();
-    doc_parts(&list).unwrap()
+    markup_parts(&list).unwrap()
 }
 
 fn text_items(items: &[LaidItem]) -> Vec<&LaidLine> {
@@ -102,8 +101,8 @@ fn wrap_avoids_line_start_with_closing_paren() {
 #[test]
 fn layout_wraps_long_paragraph() {
     let long = "a".repeat(45);
-    let src = format!("(doc @p{{{long}}})");
-    let laid = layout_doc_parts(&parts(&src));
+    let src = format!("(markup @p{{{long}}})");
+    let laid = layout_markup_parts(&parts(&src));
     let texts = text_items(&laid);
     assert!(texts.len() >= 2, "expected wrap into ≥2 lines: {laid:?}");
     assert!(texts.iter().all(|l| l.size_mm == BODY_SIZE_MM));
@@ -132,7 +131,7 @@ fn wrap_single_kinsoku_char_still_emits() {
 
 #[test]
 fn layout_skips_empty_title() {
-    assert!(layout_doc_parts(&parts("(doc @title{})")).is_empty());
+    assert!(layout_markup_parts(&parts("(markup @title{})")).is_empty());
 }
 
 #[test]
@@ -190,8 +189,8 @@ fn place_items_emits_hr_line() {
 }
 
 #[test]
-fn layout_doc_macros_cover_flow_items() {
-    let src = r#"(doc
+fn layout_markup_macros_cover_flow_items() {
+    let src = r#"(markup
 @title{T}
 @h2{S}
 @p{Body}
@@ -211,7 +210,7 @@ fn layout_doc_macros_cover_flow_items() {
 @vspace{5}
 @pagebreak
 @p{After})"#;
-    let laid = layout_doc_parts(&parts(src));
+    let laid = layout_markup_parts(&parts(src));
     assert!(laid.iter().any(|i| matches!(i, LaidItem::Hr { .. })));
     assert!(laid.iter().any(|i| matches!(i, LaidItem::Image { .. })));
     assert!(laid.iter().any(|i| matches!(i, LaidItem::PageBreak)));
@@ -222,7 +221,7 @@ fn layout_doc_macros_cover_flow_items() {
 
 #[test]
 fn layout_inline_marks_and_unknown_at() {
-    let laid = layout_doc_parts(&parts("(doc @em{hi} @strong{b} @tt{t} @unknown[args])"));
+    let laid = layout_markup_parts(&parts("(markup @em{hi} @strong{b} @tt{t} @unknown[args])"));
     let text = laid
         .iter()
         .filter_map(|i| match i {
@@ -239,7 +238,7 @@ fn layout_inline_marks_and_unknown_at() {
 
 #[test]
 fn parse_image_bracket_custom_size() {
-    let laid = layout_doc_parts(&parts(r#"(doc @image["pic.png" 40 30])"#));
+    let laid = layout_markup_parts(&parts(r#"(markup @image["pic.png" 40 30])"#));
     match laid.iter().find(|i| matches!(i, LaidItem::Image { .. })) {
         Some(LaidItem::Image {
             path,
@@ -267,7 +266,7 @@ fn doc_frame_right_margin() {
 
 #[test]
 fn layout_bold_alias_and_subsection() {
-    let laid = layout_doc_parts(&parts("(doc @bold{hi} @subsubsection{sub})"));
+    let laid = layout_markup_parts(&parts("(markup @bold{hi} @subsubsection{sub})"));
     let text = text_items(&laid)
         .iter()
         .map(|l| l.content.as_str())
@@ -281,7 +280,7 @@ fn layout_bold_alias_and_subsection() {
 
 #[test]
 fn layout_link_cite_edge_partitions() {
-    let laid = layout_doc_parts(&parts(r#"(doc @link[]{only-url} @cite[] @link["u"]{})"#));
+    let laid = layout_markup_parts(&parts(r#"(markup @link[]{only-url} @cite[] @link["u"]{})"#));
     let text = laid
         .iter()
         .filter_map(|i| match i {
@@ -295,7 +294,7 @@ fn layout_link_cite_edge_partitions() {
 
 #[test]
 fn layout_image_unquoted_path_and_bad_size() {
-    let laid = layout_doc_parts(&parts("(doc @image[assets/pic.png 0 0])"));
+    let laid = layout_markup_parts(&parts("(markup @image[assets/pic.png 0 0])"));
     match laid.iter().find(|i| matches!(i, LaidItem::Image { .. })) {
         Some(LaidItem::Image {
             path,
@@ -363,16 +362,16 @@ fn collapse_ws_trims_edges() {
 
 #[test]
 fn layout_skips_empty_quote_and_todo_lines() {
-    assert!(layout_doc_parts(&parts("(doc @quote{})")).is_empty());
-    assert!(layout_doc_parts(&parts("(doc @todo{})")).is_empty());
-    let laid = layout_doc_parts(&parts("(doc @quote{Line one\n\nLine two})"));
+    assert!(layout_markup_parts(&parts("(markup @quote{})")).is_empty());
+    assert!(layout_markup_parts(&parts("(markup @todo{})")).is_empty());
+    let laid = layout_markup_parts(&parts("(markup @quote{Line one\n\nLine two})"));
     // Blank lines between quote paragraphs may collapse; at least one text item remains.
     assert!(!text_items(&laid).is_empty());
 }
 
 #[test]
 fn layout_code_keeps_nonblank_content() {
-    let laid = layout_doc_parts(&parts("(doc @code{line1\n\nline2})"));
+    let laid = layout_markup_parts(&parts("(markup @code{line1\n\nline2})"));
     let texts = text_items(&laid);
     assert!(!texts.is_empty());
     let joined = texts
@@ -388,7 +387,7 @@ fn layout_code_keeps_nonblank_content() {
 
 #[test]
 fn layout_marked_lines_with_inline_newline() {
-    let laid = layout_doc_parts(&parts("(doc @li{plain\n@em{hi}})"));
+    let laid = layout_markup_parts(&parts("(markup @li{plain\n@em{hi}})"));
     let text = text_items(&laid)
         .iter()
         .map(|l| l.content.as_str())
@@ -400,7 +399,7 @@ fn layout_marked_lines_with_inline_newline() {
 
 #[test]
 fn layout_unknown_at_bracket_args_only() {
-    let laid = layout_doc_parts(&parts("(doc @foo[only-bracket])"));
+    let laid = layout_markup_parts(&parts("(markup @foo[only-bracket])"));
     let text = text_items(&laid)
         .iter()
         .map(|l| l.content.as_str())
@@ -411,7 +410,7 @@ fn layout_unknown_at_bracket_args_only() {
 
 #[test]
 fn layout_center_skips_empty_marked_line() {
-    let laid = layout_doc_parts(&parts("(doc @center{\n@em{}\nHi})"));
+    let laid = layout_markup_parts(&parts("(markup @center{\n@em{}\nHi})"));
     assert!(text_items(&laid).iter().any(|l| l.content == "Hi"));
 }
 
@@ -440,58 +439,58 @@ fn wrap_line_empty_max_zero_returns_single() {
 fn layout_manual_marked_newlines_and_unknown_brackets() {
     // Brace walkers drop Newline trivia; build parts directly to hit append_marked*.
     let parts = vec![
-        DocPart::At {
+        MarkupPart::At {
             name: "em".into(),
             bracket_args: None,
             brace_body: vec![
-                DocPart::Text("a".into()),
-                DocPart::Newline,
-                DocPart::Text("b".into()),
-                DocPart::At {
+                MarkupPart::Text("a".into()),
+                MarkupPart::Newline,
+                MarkupPart::Text("b".into()),
+                MarkupPart::At {
                     name: "unknown".into(),
                     bracket_args: Some(" brack ".into()),
                     brace_body: vec![],
                 },
             ],
         },
-        DocPart::Text(" ".into()),
-        DocPart::At {
+        MarkupPart::Text(" ".into()),
+        MarkupPart::At {
             name: "li".into(),
             bracket_args: None,
             brace_body: vec![
-                DocPart::Text("plain".into()),
-                DocPart::Newline,
-                DocPart::At {
+                MarkupPart::Text("plain".into()),
+                MarkupPart::Newline,
+                MarkupPart::At {
                     name: "italic".into(),
                     bracket_args: None,
-                    brace_body: vec![DocPart::Text("i".into())],
+                    brace_body: vec![MarkupPart::Text("i".into())],
                 },
-                DocPart::At {
+                MarkupPart::At {
                     name: "bold".into(),
                     bracket_args: None,
-                    brace_body: vec![DocPart::Text("b".into())],
+                    brace_body: vec![MarkupPart::Text("b".into())],
                 },
-                DocPart::At {
+                MarkupPart::At {
                     name: "code_inline".into(),
                     bracket_args: None,
-                    brace_body: vec![DocPart::Text("c".into())],
+                    brace_body: vec![MarkupPart::Text("c".into())],
                 },
-                DocPart::At {
+                MarkupPart::At {
                     name: "link".into(),
                     bracket_args: Some("\"u\"".into()),
-                    brace_body: vec![DocPart::Text("L".into())],
+                    brace_body: vec![MarkupPart::Text("L".into())],
                 },
-                DocPart::At {
+                MarkupPart::At {
                     name: "cite".into(),
                     bracket_args: Some("42".into()),
                     brace_body: vec![],
                 },
-                DocPart::At {
+                MarkupPart::At {
                     name: "nest".into(),
                     bracket_args: None,
-                    brace_body: vec![DocPart::Text("inner".into())],
+                    brace_body: vec![MarkupPart::Text("inner".into())],
                 },
-                DocPart::At {
+                MarkupPart::At {
                     name: "only".into(),
                     bracket_args: Some("args".into()),
                     brace_body: vec![],
@@ -499,7 +498,7 @@ fn layout_manual_marked_newlines_and_unknown_brackets() {
             ],
         },
     ];
-    let laid = layout_doc_parts(&parts);
+    let laid = layout_markup_parts(&parts);
     let text = text_items(&laid)
         .iter()
         .map(|l| l.content.as_str())
@@ -518,26 +517,26 @@ fn layout_manual_marked_newlines_and_unknown_brackets() {
 
 #[test]
 fn layout_manual_code_newlines_and_nested_ats() {
-    let parts = vec![DocPart::At {
+    let parts = vec![MarkupPart::At {
         name: "code".into(),
         bracket_args: None,
         brace_body: vec![
-            DocPart::Text("line1".into()),
-            DocPart::Newline,
-            DocPart::At {
+            MarkupPart::Text("line1".into()),
+            MarkupPart::Newline,
+            MarkupPart::At {
                 name: "x".into(),
                 bracket_args: None,
-                brace_body: vec![DocPart::Text("nested".into())],
+                brace_body: vec![MarkupPart::Text("nested".into())],
             },
-            DocPart::Newline,
-            DocPart::At {
+            MarkupPart::Newline,
+            MarkupPart::At {
                 name: "y".into(),
                 bracket_args: Some("br".into()),
                 brace_body: vec![],
             },
         ],
     }];
-    let laid = layout_doc_parts(&parts);
+    let laid = layout_markup_parts(&parts);
     let texts = text_items(&laid);
     let joined = texts
         .iter()
@@ -551,9 +550,9 @@ fn layout_manual_code_newlines_and_nested_ats() {
 
 #[test]
 fn layout_vspace_non_positive_skipped() {
-    assert!(layout_doc_parts(&parts("(doc @vspace{0})")).is_empty());
-    assert!(layout_doc_parts(&parts("(doc @vspace{-3})")).is_empty());
-    assert!(layout_doc_parts(&parts("(doc @vspace{inf})")).is_empty());
+    assert!(layout_markup_parts(&parts("(markup @vspace{0})")).is_empty());
+    assert!(layout_markup_parts(&parts("(markup @vspace{-3})")).is_empty());
+    assert!(layout_markup_parts(&parts("(markup @vspace{inf})")).is_empty());
 }
 
 #[test]
@@ -565,30 +564,30 @@ fn place_items_pagebreak_only_yields_empty() {
 #[test]
 fn link_cite_partitions_via_manual_parts() {
     let parts = vec![
-        DocPart::At {
+        MarkupPart::At {
             name: "link".into(),
             bracket_args: None,
-            brace_body: vec![DocPart::Text("label-only".into())],
+            brace_body: vec![MarkupPart::Text("label-only".into())],
         },
-        DocPart::Text(" ".into()),
-        DocPart::At {
+        MarkupPart::Text(" ".into()),
+        MarkupPart::At {
             name: "link".into(),
             bracket_args: Some("\"url-only\"".into()),
             brace_body: vec![],
         },
-        DocPart::Text(" ".into()),
-        DocPart::At {
+        MarkupPart::Text(" ".into()),
+        MarkupPart::At {
             name: "link".into(),
             bracket_args: None,
             brace_body: vec![],
         },
-        DocPart::At {
+        MarkupPart::At {
             name: "cite".into(),
             bracket_args: None,
             brace_body: vec![],
         },
     ];
-    let laid = layout_doc_parts(&parts);
+    let laid = layout_markup_parts(&parts);
     let text = text_items(&laid)
         .iter()
         .map(|l| l.content.as_str())
@@ -600,48 +599,48 @@ fn link_cite_partitions_via_manual_parts() {
 
 #[test]
 fn append_marked_nested_aliases_and_bare_unknown() {
-    let parts = vec![DocPart::At {
+    let parts = vec![MarkupPart::At {
         name: "em".into(),
         bracket_args: None,
         brace_body: vec![
-            DocPart::At {
+            MarkupPart::At {
                 name: "italic".into(),
                 bracket_args: None,
-                brace_body: vec![DocPart::Text("i".into())],
+                brace_body: vec![MarkupPart::Text("i".into())],
             },
-            DocPart::Text(" ".into()),
-            DocPart::At {
+            MarkupPart::Text(" ".into()),
+            MarkupPart::At {
                 name: "bold".into(),
                 bracket_args: None,
-                brace_body: vec![DocPart::Text("b".into())],
+                brace_body: vec![MarkupPart::Text("b".into())],
             },
-            DocPart::Text(" ".into()),
-            DocPart::At {
+            MarkupPart::Text(" ".into()),
+            MarkupPart::At {
                 name: "code_inline".into(),
                 bracket_args: None,
-                brace_body: vec![DocPart::Text("c".into())],
+                brace_body: vec![MarkupPart::Text("c".into())],
             },
-            DocPart::Text(" ".into()),
-            DocPart::At {
+            MarkupPart::Text(" ".into()),
+            MarkupPart::At {
                 name: "link".into(),
                 bracket_args: Some("\"u\"".into()),
-                brace_body: vec![DocPart::Text("L".into())],
+                brace_body: vec![MarkupPart::Text("L".into())],
             },
-            DocPart::Text(" ".into()),
-            DocPart::At {
+            MarkupPart::Text(" ".into()),
+            MarkupPart::At {
                 name: "cite".into(),
                 bracket_args: Some("9".into()),
                 brace_body: vec![],
             },
-            DocPart::Text(" ".into()),
-            DocPart::At {
+            MarkupPart::Text(" ".into()),
+            MarkupPart::At {
                 name: "bare".into(),
                 bracket_args: None,
                 brace_body: vec![],
             },
         ],
     }];
-    let laid = layout_doc_parts(&parts);
+    let laid = layout_markup_parts(&parts);
     let text = text_items(&laid)
         .iter()
         .map(|l| l.content.as_str())
@@ -656,59 +655,61 @@ fn append_marked_nested_aliases_and_bare_unknown() {
 
 #[test]
 fn flatten_lines_marked_trailing_newline_no_extra() {
-    let parts = vec![DocPart::At {
+    let parts = vec![MarkupPart::At {
         name: "li".into(),
         bracket_args: None,
         brace_body: vec![
-            DocPart::Text("only".into()),
-            DocPart::Newline,
-            DocPart::At {
+            MarkupPart::Text("only".into()),
+            MarkupPart::Newline,
+            MarkupPart::At {
                 name: "bare".into(),
                 bracket_args: None,
                 brace_body: vec![],
             },
         ],
     }];
-    let laid = layout_doc_parts(&parts);
+    let laid = layout_markup_parts(&parts);
     assert_eq!(text_items(&laid).len(), 1);
 }
 
 #[test]
 fn code_trailing_newline_and_bare_at() {
-    let parts = vec![DocPart::At {
+    let parts = vec![MarkupPart::At {
         name: "code".into(),
         bracket_args: None,
         brace_body: vec![
-            DocPart::Text("x".into()),
-            DocPart::Newline,
-            DocPart::At {
+            MarkupPart::Text("x".into()),
+            MarkupPart::Newline,
+            MarkupPart::At {
                 name: "z".into(),
                 bracket_args: None,
                 brace_body: vec![],
             },
         ],
     }];
-    let laid = layout_doc_parts(&parts);
+    let laid = layout_markup_parts(&parts);
     assert!(text_items(&laid).iter().any(|l| l.content == "x"));
 }
 
 #[test]
 fn image_unclosed_quote_path_skipped() {
-    let parts = vec![DocPart::At {
+    let parts = vec![MarkupPart::At {
         name: "image".into(),
         bracket_args: Some("\"unterminated".into()),
         brace_body: vec![],
     }];
-    assert!(layout_doc_parts(&parts).is_empty());
+    assert!(layout_markup_parts(&parts).is_empty());
 }
 
 #[test]
 fn layout_bare_unknown_at_no_args() {
-    let laid = layout_doc_parts(&parts("(doc @foo)"));
-    assert!(laid.is_empty() || text_items(&laid).is_empty() || {
-        // Bare unknown contributes nothing.
-        text_items(&laid).iter().all(|l| !l.content.contains("foo"))
-    });
+    let laid = layout_markup_parts(&parts("(markup @foo)"));
+    assert!(
+        laid.is_empty() || text_items(&laid).is_empty() || {
+            // Bare unknown contributes nothing.
+            text_items(&laid).iter().all(|l| !l.content.contains("foo"))
+        }
+    );
 }
 
 #[test]
@@ -722,4 +723,3 @@ fn wrap_whitespace_only_chunk_and_space_at_window_start() {
     let lines2 = wrap_line(" abcdefgh", 4);
     assert!(!lines2.is_empty());
 }
-

@@ -3148,6 +3148,7 @@ dependencies = [
  "reciplexa-runtime",
  "reciplexa-scene",
  "reciplexa-source",
+ "reciplexa-std",
  "reciplexa-syntax",
  "reciplexa-video",
  "reciplexa-visual-ir",

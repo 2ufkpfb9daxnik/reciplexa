@@ -753,10 +753,7 @@ pub fn text_ops(
         }
         if let Some(font) = cjk {
             // Glyph CIDs were collected when building the embed; missing CIDs yield empty.
-            let hex = match font.encode_hex(line) {
-                Ok(hex) => hex,
-                Err(_) => String::new(),
-            };
+            let hex = font.encode_hex(line).unwrap_or_default();
             if hex.is_empty() {
                 // Empty line still advances via T*; show nothing.
                 continue;

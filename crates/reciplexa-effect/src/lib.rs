@@ -432,4 +432,3 @@ impl EffectHandler for TestHandler {
         Ok(Value::Unit)
     }
 }
-

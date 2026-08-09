@@ -352,10 +352,7 @@ fn raster_preview_vs_final_differ_in_resolution_and_disposition() {
         .find(|l| l.kind == OutputLossKind::SemanticText)
         .map(|l| l.disposition);
     assert_eq!(preview_disp, Some(LossDisposition::Report));
-    assert_eq!(
-        final_disp,
-        Some(LossDisposition::RequireExplicitApproval)
-    );
+    assert_eq!(final_disp, Some(LossDisposition::RequireExplicitApproval));
 }
 
 #[test]

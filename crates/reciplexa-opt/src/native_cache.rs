@@ -14,10 +14,7 @@ pub struct NativeInstanceKey {
 
 impl NativeInstanceKey {
     pub fn new(adapter_fp: Fingerprint, abi_fp: Fingerprint) -> Self {
-        Self {
-            adapter_fp,
-            abi_fp,
-        }
+        Self { adapter_fp, abi_fp }
     }
 
     pub fn combined(&self) -> Fingerprint {

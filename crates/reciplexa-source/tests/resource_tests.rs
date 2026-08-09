@@ -19,7 +19,7 @@ fn rejects_invalid_utf8() {
 
 #[test]
 fn bom_at_start_is_recorded() {
-    let src = SourceResource::from_utf8(SourceResourceId::new(1), "\u{feff}(doc)").unwrap();
+    let src = SourceResource::from_utf8(SourceResourceId::new(1), "\u{feff}(markup)").unwrap();
     assert!(src.has_bom());
 }
 
@@ -32,9 +32,8 @@ fn bom_and_shebang_conflict() {
 
 #[test]
 fn shebang_without_bom_is_ok() {
-    let src =
-        SourceResource::from_utf8(SourceResourceId::new(2), "#!/usr/bin/env rpx\n(page a4)")
-            .unwrap();
+    let src = SourceResource::from_utf8(SourceResourceId::new(2), "#!/usr/bin/env rpx\n(page a4)")
+        .unwrap();
     assert!(src.has_shebang());
     assert!(!src.has_bom());
 }

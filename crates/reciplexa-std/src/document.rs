@@ -297,7 +297,10 @@ mod tests {
             Block::Figure(fig.clone()).id(),
             Some(i) if i == id(6)
         ));
-        assert_eq!(Block::Heading(Heading::new(id(8), 2, "x")).id(), Some(id(8)));
+        assert_eq!(
+            Block::Heading(Heading::new(id(8), 2, "x")).id(),
+            Some(id(8))
+        );
         assert_eq!(Block::List(list).id(), Some(id(1)));
         assert_eq!(Block::Table(table).id(), Some(id(5)));
     }

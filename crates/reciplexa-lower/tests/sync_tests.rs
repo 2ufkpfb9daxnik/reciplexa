@@ -759,7 +759,7 @@ fn page_crud_form_and_parse_errors() {
 
 #[test]
 fn pages_skip_non_page_forms() {
-    let src = "(src ignored)\n(page a4 (circle 1 2 3))\n(doc x)\n(page letter)";
+    let src = "(src ignored)\n(page a4 (circle 1 2 3))\n(markup x)\n(page letter)";
     assert_eq!(count_pages(src).unwrap(), 2);
     let page0 = find_page(&parse_root(src).unwrap(), 0).unwrap();
     assert!(is_headed(&page0, "page"));

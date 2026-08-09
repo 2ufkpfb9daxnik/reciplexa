@@ -1,7 +1,7 @@
 //! Native instance cache stub tests.
 
 use reciplexa_opt::{
-    CacheDomain, CachedNativeHandle, Fingerprint, InvalidationKind, InvalidationKey,
+    CacheDomain, CachedNativeHandle, Fingerprint, InvalidationKey, InvalidationKind,
     InvalidationSet, NativeInstanceCache, NativeInstanceKey,
 };
 
@@ -32,10 +32,7 @@ fn invalidate_by_key() {
     let mut cache = NativeInstanceCache::new();
     let key = NativeInstanceKey::new(Fingerprint::of(&"a"), Fingerprint::of(&"b"));
     cache.insert_ready(key.clone());
-    let set = InvalidationSet::from_kind(
-        InvalidationKind::Local,
-        key.as_invalidation_key(),
-    );
+    let set = InvalidationSet::from_kind(InvalidationKind::Local, key.as_invalidation_key());
     assert_eq!(cache.invalidate(&set), 1);
     assert!(cache.is_empty());
 }

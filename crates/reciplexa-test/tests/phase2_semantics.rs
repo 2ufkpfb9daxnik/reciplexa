@@ -104,7 +104,7 @@ fn test_sem_c006_literal_types() {
     let case = ConformanceCase::new("TEST-SEM-C006", "TYPE", "literal types");
     run_conformance(&case, || {
         for (lit, expected) in [
-            (CoreLiteral::Number(3.14), CoreType::Number),
+            (CoreLiteral::Number(std::f64::consts::PI), CoreType::Number),
             (CoreLiteral::String("x".into()), CoreType::String),
             (CoreLiteral::Color("red".into()), CoreType::Color),
         ] {

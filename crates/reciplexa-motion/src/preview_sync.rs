@@ -1,9 +1,9 @@
 //! Motion ↔ GUI Preview sync: playhead → sampled values under Preview vs Final policy.
 
 use crate::sample::{sample_f64, SampleError, SampleMode};
+use crate::time::TimeMs;
 use crate::timeline::{MotionTimeline, TimelineTrack};
 use crate::transform::apply_range_policy;
-use crate::time::TimeMs;
 
 /// Sampling profile for interactive Preview vs Final export bake.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -89,11 +89,7 @@ pub fn compare_preview_final(timeline: &MotionTimeline) -> PreviewFinalDiff {
     }
 }
 
-fn sample_synced_track(
-    tr: &TimelineTrack,
-    parent_t: TimeMs,
-    mode: SampleMode,
-) -> SyncedTrackValue {
+fn sample_synced_track(tr: &TimelineTrack, parent_t: TimeMs, mode: SampleMode) -> SyncedTrackValue {
     let p = &tr.placement;
     let local = match apply_range_policy(parent_t, p.parent_start, p.parent_end, p.range_policy) {
         Ok(Some(local)) => local,

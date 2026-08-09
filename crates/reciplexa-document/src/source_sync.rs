@@ -69,10 +69,7 @@ pub fn apply_provenance_edit(
         }
     }
 
-    let doc_outcome = match tx.into_transaction().apply(snap) {
-        Ok(outcome) => outcome,
-        Err(err) => return Err(err),
-    };
+    let doc_outcome = tx.into_transaction().apply(snap)?;
 
     if prov.text_range == TextRange::EMPTY {
         return Ok(SourceSyncOutcome::DocumentOnly(doc_outcome));

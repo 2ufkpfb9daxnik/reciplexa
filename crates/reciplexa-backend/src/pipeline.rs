@@ -194,10 +194,7 @@ pub fn finalize_raster_export(
     })
 }
 
-fn build_artifact_provenance(
-    plan: &BackendPlan,
-    prov: &ProvenanceMap,
-) -> Vec<ArtifactProvenance> {
+fn build_artifact_provenance(plan: &BackendPlan, prov: &ProvenanceMap) -> Vec<ArtifactProvenance> {
     plan.nodes
         .iter()
         .map(|n| {

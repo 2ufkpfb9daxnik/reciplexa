@@ -199,10 +199,7 @@ impl MathAtom {
                 s
             }
             Self::Delimiter {
-                left,
-                right,
-                body,
-                ..
+                left, right, body, ..
             } => format!("{left}{}{right}", body.linearize()),
         }
     }

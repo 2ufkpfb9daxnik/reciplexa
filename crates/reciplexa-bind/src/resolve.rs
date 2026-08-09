@@ -168,7 +168,7 @@ fn is_surface_keyword(name: &str) -> bool {
     matches!(
         name,
         "page"
-            | "doc"
+            | "markup"
             | "src"
             | "circle"
             | "rect"

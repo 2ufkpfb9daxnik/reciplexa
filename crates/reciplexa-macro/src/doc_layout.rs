@@ -1,9 +1,9 @@
-//! Scribble `(doc …)` layout package (meaning, not reading).
+//! Scribble `(markup …)` layout package (meaning, not reading).
 //!
-//! Reading lives in `reciplexa-syntax::doc`. This module turns [`DocPart`]s into
+//! Reading lives in `reciplexa-syntax::markup`. This module turns [`MarkupPart`]s into
 //! sized / spaced items ready to emit as `(text …)` / `(line …)` shapes.
 
-use reciplexa_syntax::{flatten_lines, flatten_readable, DocPart};
+use reciplexa_syntax::{flatten_lines, flatten_readable, MarkupPart};
 
 /// One drawable text line after package layout.
 #[derive(Debug, Clone, PartialEq)]
@@ -160,11 +160,11 @@ pub fn place_items(items: &[LaidItem], frame: DocFrame) -> Vec<PlacedItem> {
     let mut have_prev = false;
 
     let advance = |item_height: f64,
-                       page: &mut usize,
-                       y: &mut f64,
-                       force_new_page: &mut bool,
-                       have_prev: bool,
-                       prev_gap: f64| {
+                   page: &mut usize,
+                   y: &mut f64,
+                   force_new_page: &mut bool,
+                   have_prev: bool,
+                   prev_gap: f64| {
         if *force_new_page {
             *page += 1;
             *y = frame.top_mm;
@@ -189,7 +189,14 @@ pub fn place_items(items: &[LaidItem], frame: DocFrame) -> Vec<PlacedItem> {
                 have_prev = false;
             }
             LaidItem::Text(line) => {
-                advance(0.0, &mut page, &mut y, &mut force_new_page, have_prev, prev_gap);
+                advance(
+                    0.0,
+                    &mut page,
+                    &mut y,
+                    &mut force_new_page,
+                    have_prev,
+                    prev_gap,
+                );
                 out.push(PlacedItem::Text(PlacedText {
                     page_index: page,
                     x_mm: frame.left_mm + line.indent_mm,
@@ -201,12 +208,26 @@ pub fn place_items(items: &[LaidItem], frame: DocFrame) -> Vec<PlacedItem> {
                 have_prev = true;
             }
             LaidItem::VSpace { mm } => {
-                advance(0.0, &mut page, &mut y, &mut force_new_page, have_prev, prev_gap);
+                advance(
+                    0.0,
+                    &mut page,
+                    &mut y,
+                    &mut force_new_page,
+                    have_prev,
+                    prev_gap,
+                );
                 prev_gap = *mm;
                 have_prev = true;
             }
             LaidItem::Hr { y_gap_after } => {
-                advance(0.0, &mut page, &mut y, &mut force_new_page, have_prev, prev_gap);
+                advance(
+                    0.0,
+                    &mut page,
+                    &mut y,
+                    &mut force_new_page,
+                    have_prev,
+                    prev_gap,
+                );
                 out.push(PlacedItem::Line {
                     page_index: page,
                     x1_mm: frame.left_mm,
@@ -249,15 +270,15 @@ pub fn place_items(items: &[LaidItem], frame: DocFrame) -> Vec<PlacedItem> {
 }
 
 /// Turn Scribble parts into laid items (`@title` / `@p` / `@vspace` / `@hr` …).
-pub fn layout_doc_parts(parts: &[DocPart]) -> Vec<LaidItem> {
+pub fn layout_markup_parts(parts: &[MarkupPart]) -> Vec<LaidItem> {
     let mut out = Vec::new();
     let mut buf = String::new();
 
     for part in parts {
         match part {
-            DocPart::Text(t) => buf.push_str(t),
-            DocPart::Newline => flush_body(&mut buf, &mut out),
-            DocPart::At {
+            MarkupPart::Text(t) => buf.push_str(t),
+            MarkupPart::Newline => flush_body(&mut buf, &mut out),
+            MarkupPart::At {
                 name,
                 bracket_args,
                 brace_body,
@@ -405,7 +426,7 @@ fn flush_body(buf: &mut String, out: &mut Vec<LaidItem>) {
 }
 
 /// `@link[url]{label}` → `label (url)` (no PDF hyperlink yet; package text only).
-fn push_link_inline(body: &[DocPart], bracket_args: Option<&str>, buf: &mut String) {
+fn push_link_inline(body: &[MarkupPart], bracket_args: Option<&str>, buf: &mut String) {
     let label = flatten_marked(body);
     let url = bracket_args
         .map(strip_bracket_string)
@@ -445,7 +466,7 @@ fn strip_bracket_string(s: &str) -> String {
 
 /// `@image["path"]{optional caption}` — default figure size, caption as `@caption`.
 /// Size override: `@image["path" width-mm height-mm]`.
-fn push_image(bracket_args: Option<&str>, body: &[DocPart], out: &mut Vec<LaidItem>) {
+fn push_image(bracket_args: Option<&str>, body: &[MarkupPart], out: &mut Vec<LaidItem>) {
     let Some((path, width_mm, height_mm)) = bracket_args.and_then(parse_image_bracket) else {
         return;
     };
@@ -497,7 +518,7 @@ fn parse_image_bracket(s: &str) -> Option<(String, f64, f64)> {
 }
 
 fn push_styled_block(
-    body: &[DocPart],
+    body: &[MarkupPart],
     size_mm: f64,
     y_gap_after: f64,
     wrap_chars: usize,
@@ -507,7 +528,7 @@ fn push_styled_block(
 }
 
 fn push_styled_block_indent(
-    body: &[DocPart],
+    body: &[MarkupPart],
     size_mm: f64,
     y_gap_after: f64,
     wrap_chars: usize,
@@ -520,7 +541,7 @@ fn push_styled_block_indent(
 }
 
 /// `@note{…}` — quote-sized indented callout with a fixed `Note: ` prefix.
-fn push_note_block(body: &[DocPart], out: &mut Vec<LaidItem>) {
+fn push_note_block(body: &[MarkupPart], out: &mut Vec<LaidItem>) {
     let text = flatten_readable(body);
     if text.is_empty() {
         return;
@@ -537,7 +558,7 @@ fn push_note_block(body: &[DocPart], out: &mut Vec<LaidItem>) {
 }
 
 /// `@warn{…}` — same layout as note, with a `Warning: ` prefix.
-fn push_warn_block(body: &[DocPart], out: &mut Vec<LaidItem>) {
+fn push_warn_block(body: &[MarkupPart], out: &mut Vec<LaidItem>) {
     let text = flatten_readable(body);
     if text.is_empty() {
         return;
@@ -554,7 +575,7 @@ fn push_warn_block(body: &[DocPart], out: &mut Vec<LaidItem>) {
 }
 
 /// `@todo{…}` — callout with a `TODO: ` prefix.
-fn push_todo_block(body: &[DocPart], out: &mut Vec<LaidItem>) {
+fn push_todo_block(body: &[MarkupPart], out: &mut Vec<LaidItem>) {
     let text = flatten_readable(body);
     if text.is_empty() {
         return;
@@ -571,7 +592,7 @@ fn push_todo_block(body: &[DocPart], out: &mut Vec<LaidItem>) {
 }
 
 /// `@em` / `@strong` / `@tt` — surround flat text with markers (no font variants yet).
-fn push_marked_inline(body: &[DocPart], marker: &str, buf: &mut String) {
+fn push_marked_inline(body: &[MarkupPart], marker: &str, buf: &mut String) {
     let text = flatten_marked(body);
     if text.is_empty() {
         return;
@@ -582,18 +603,18 @@ fn push_marked_inline(body: &[DocPart], marker: &str, buf: &mut String) {
 }
 
 /// Like [`flatten_readable`], but runs package inline marks (`@em`, `@link`, …).
-fn flatten_marked(parts: &[DocPart]) -> String {
+fn flatten_marked(parts: &[MarkupPart]) -> String {
     let mut buf = String::new();
     append_marked(parts, &mut buf);
     collapse_ws(&buf)
 }
 
-fn append_marked(parts: &[DocPart], buf: &mut String) {
+fn append_marked(parts: &[MarkupPart], buf: &mut String) {
     for part in parts {
         match part {
-            DocPart::Text(t) => buf.push_str(t),
-            DocPart::Newline => buf.push(' '),
-            DocPart::At {
+            MarkupPart::Text(t) => buf.push_str(t),
+            MarkupPart::Newline => buf.push(' '),
+            MarkupPart::At {
                 name,
                 bracket_args,
                 brace_body,
@@ -616,7 +637,7 @@ fn append_marked(parts: &[DocPart], buf: &mut String) {
 }
 
 /// Line-splitting variant of [`flatten_marked`] for `@li`.
-fn flatten_lines_marked(parts: &[DocPart]) -> Vec<String> {
+fn flatten_lines_marked(parts: &[MarkupPart]) -> Vec<String> {
     let mut lines: Vec<String> = Vec::new();
     let mut cur = String::new();
     append_marked_lines(parts, &mut lines, &mut cur);
@@ -630,14 +651,14 @@ fn flatten_lines_marked(parts: &[DocPart]) -> Vec<String> {
         .collect()
 }
 
-fn append_marked_lines(parts: &[DocPart], lines: &mut Vec<String>, cur: &mut String) {
+fn append_marked_lines(parts: &[MarkupPart], lines: &mut Vec<String>, cur: &mut String) {
     for part in parts {
         match part {
-            DocPart::Text(t) => cur.push_str(t),
-            DocPart::Newline => {
+            MarkupPart::Text(t) => cur.push_str(t),
+            MarkupPart::Newline => {
                 lines.push(std::mem::take(cur));
             }
-            DocPart::At {
+            MarkupPart::At {
                 name,
                 bracket_args,
                 brace_body,
@@ -660,7 +681,7 @@ fn append_marked_lines(parts: &[DocPart], lines: &mut Vec<String>, cur: &mut Str
 }
 
 /// `@center{…}` — approximate horizontal centering via indent (char-width heuristic).
-fn push_centered_block(body: &[DocPart], out: &mut Vec<LaidItem>) {
+fn push_centered_block(body: &[MarkupPart], out: &mut Vec<LaidItem>) {
     for line in flatten_lines_marked(body) {
         let n = line.chars().count().min(BODY_WRAP_CHARS);
         let content_w = DocFrame::A4.right_mm() - DocFrame::A4.left_mm;
@@ -679,7 +700,7 @@ fn push_centered_block(body: &[DocPart], out: &mut Vec<LaidItem>) {
 }
 
 /// `@li{…}` → body-sized lines prefixed with a bullet (package meaning, not font glyphs).
-fn push_list_items(body: &[DocPart], out: &mut Vec<LaidItem>) {
+fn push_list_items(body: &[MarkupPart], out: &mut Vec<LaidItem>) {
     for line in flatten_lines_marked(body) {
         let bulleted = format!("• {line}");
         push_wrapped(
@@ -694,7 +715,7 @@ fn push_list_items(body: &[DocPart], out: &mut Vec<LaidItem>) {
 }
 
 /// `@ol{a; b; c}` → numbered body lines. Semicolons separate items (brace text stays simple).
-fn push_ordered_list(body: &[DocPart], out: &mut Vec<LaidItem>) {
+fn push_ordered_list(body: &[MarkupPart], out: &mut Vec<LaidItem>) {
     let flat = flatten_marked(body);
     let mut n = 0usize;
     for segment in flat.split(';') {
@@ -716,7 +737,7 @@ fn push_ordered_list(body: &[DocPart], out: &mut Vec<LaidItem>) {
 }
 
 /// `@ul{a; b; c}` → bulleted body lines (same semicolon split as `@ol`).
-fn push_unordered_list(body: &[DocPart], out: &mut Vec<LaidItem>) {
+fn push_unordered_list(body: &[MarkupPart], out: &mut Vec<LaidItem>) {
     let flat = flatten_marked(body);
     for segment in flat.split(';') {
         let item = segment.trim();
@@ -736,7 +757,7 @@ fn push_unordered_list(body: &[DocPart], out: &mut Vec<LaidItem>) {
 }
 
 /// `@code` / `@pre` — preserve internal spaces; soft-wrap still applies.
-fn push_code_block(body: &[DocPart], out: &mut Vec<LaidItem>) {
+fn push_code_block(body: &[MarkupPart], out: &mut Vec<LaidItem>) {
     for line in flatten_code_lines(body) {
         push_wrapped(
             &line,
@@ -750,7 +771,7 @@ fn push_code_block(body: &[DocPart], out: &mut Vec<LaidItem>) {
 }
 
 /// Like [`flatten_lines`], but keeps runs of spaces (only trim ends of each line).
-fn flatten_code_lines(parts: &[DocPart]) -> Vec<String> {
+fn flatten_code_lines(parts: &[MarkupPart]) -> Vec<String> {
     let mut lines: Vec<String> = Vec::new();
     let mut cur = String::new();
     flush_code_parts(parts, &mut lines, &mut cur);
@@ -764,14 +785,14 @@ fn flatten_code_lines(parts: &[DocPart]) -> Vec<String> {
         .collect()
 }
 
-fn flush_code_parts(parts: &[DocPart], lines: &mut Vec<String>, cur: &mut String) {
+fn flush_code_parts(parts: &[MarkupPart], lines: &mut Vec<String>, cur: &mut String) {
     for part in parts {
         match part {
-            DocPart::Text(t) => cur.push_str(t),
-            DocPart::Newline => {
+            MarkupPart::Text(t) => cur.push_str(t),
+            MarkupPart::Newline => {
                 lines.push(std::mem::take(cur));
             }
-            DocPart::At {
+            MarkupPart::At {
                 bracket_args,
                 brace_body,
                 ..
@@ -787,7 +808,7 @@ fn flush_code_parts(parts: &[DocPart], lines: &mut Vec<String>, cur: &mut String
 }
 
 /// `@vspace{N}` — N must parse as a finite positive number (mm); otherwise skip.
-fn push_vspace(body: &[DocPart], out: &mut Vec<LaidItem>) {
+fn push_vspace(body: &[MarkupPart], out: &mut Vec<LaidItem>) {
     let raw = flatten_readable(body);
     let Ok(mm) = raw.parse::<f64>() else {
         return;

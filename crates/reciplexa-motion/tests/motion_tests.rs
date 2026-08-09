@@ -542,7 +542,10 @@ fn preview_sync_playhead_interpolates() {
     assert!((preview.values[0].value.unwrap() - 0.5).abs() < 1e-9);
 
     let final_s = sync_at(&tl, TimeMs(500), SyncProfile::Final);
-    assert_eq!(final_s.values[0].error, Some(SampleError::StrictApproximation));
+    assert_eq!(
+        final_s.values[0].error,
+        Some(SampleError::StrictApproximation)
+    );
 
     let diff = compare_preview_final(&tl);
     assert!(diff.divergent_track_ids.contains(&1));

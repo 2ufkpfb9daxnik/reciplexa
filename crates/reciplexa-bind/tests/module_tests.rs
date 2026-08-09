@@ -4,7 +4,6 @@ use reciplexa_bind::module::*;
 use reciplexa_identity::package::{ModuleId, PackageInstanceId};
 use reciplexa_source::resource::SourceResourceId;
 
-
 #[test]
 fn first_unit_becomes_entry() {
     let mut sk = ModuleSkeleton::new(PackageInstanceId::new(1));

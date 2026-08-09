@@ -133,9 +133,7 @@ impl NodeStore {
         parent: StableNodeId,
         kind: DocumentNodeKind,
     ) -> Option<StableNodeId> {
-        if self.nodes.get(&parent).is_none() {
-            return None;
-        }
+        self.nodes.get(&parent)?;
         let child_id = self.allocate(kind);
         {
             let child = self
@@ -170,9 +168,7 @@ impl NodeStore {
     pub fn duplicate_subtree(&mut self, id: StableNodeId) -> Option<StableNodeId> {
         let source = self.nodes.get(&id)?.clone();
         let parent = source.parent?;
-        if self.nodes.get(&parent).is_none() {
-            return None;
-        }
+        self.nodes.get(&parent)?;
         let new_id = self.allocate(source.kind);
         {
             let new_node = self
