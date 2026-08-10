@@ -1,4 +1,9 @@
 //! Name resolution over surface syntax.
+//!
+//! Two entry points:
+//! - [`resolve_language_source`] — lexical resolve for language-kernel forms
+//!   (`val` / `fn` / `let` / `type`), with shadowing and unbound diagnostics.
+//! - [`resolve_source`] — document/graphics surface (colors, page, circle, …).
 
 use std::collections::HashMap;
 
@@ -36,7 +41,56 @@ impl ResolveResult {
     }
 }
 
-/// Resolve builtin color names and top-level form heads in a source file.
+enum Atom {
+    Token(SyntaxToken),
+    Node(SyntaxNode),
+}
+
+/// Lexical name resolution for the language-kernel surface.
+///
+/// Walks top-level `val` / `fn` / `type` binders and nested `let` / `fn`
+/// scopes. Does **not** install document builtins (colors / paper sizes) and
+/// skips quarantined graphics forms (`page`, `circle`, …).
+pub fn resolve_language_source(source: &str) -> ResolveResult {
+    let parse = parse_source(source);
+    let mut stack = ScopeStack::new();
+    let mut env = BindingEnv::default();
+    let mut errors = Vec::new();
+
+    if parse.has_errors() {
+        for e in &parse.errors {
+            errors.push(ResolveError {
+                message: format!("parse error: {}", e.message),
+                range: TextRange::try_new(
+                    ByteOffset::new(e.start as u32),
+                    ByteOffset::new(e.end as u32),
+                )
+                .expect("parse error spans are ordered"),
+            });
+        }
+        return ResolveResult { env, errors };
+    }
+
+    for el in parse.root.children_with_tokens() {
+        match el {
+            SyntaxElement::Token(t) => {
+                if t.kind().is_trivia() {
+                    continue;
+                }
+                lang_resolve_token(&t, &stack, &mut errors);
+            }
+            SyntaxElement::Node(n) => match n.kind() {
+                SyntaxKind::StructuredComment => continue,
+                SyntaxKind::List => lang_resolve_top_form(&n, &mut stack, &mut env, &mut errors),
+                _ => lang_resolve_expr_node(&n, &mut stack, &mut env, &mut errors),
+            },
+        }
+    }
+
+    ResolveResult { env, errors }
+}
+
+/// Resolve builtin color names and top-level form heads in a document source.
 pub fn resolve_source(source: &str) -> ResolveResult {
     let parse = parse_source(source);
     let mut stack = ScopeStack::new();
@@ -72,6 +126,366 @@ pub fn resolve_source(source: &str) -> ResolveResult {
     }
 
     ResolveResult { env, errors }
+}
+
+fn lang_resolve_top_form(
+    node: &SyntaxNode,
+    stack: &mut ScopeStack,
+    env: &mut BindingEnv,
+    errors: &mut Vec<ResolveError>,
+) {
+    if is_quarantined_head(node) {
+        return;
+    }
+    let atoms = list_atoms(node);
+    let Some(Atom::Token(head)) = atoms.first() else {
+        lang_resolve_expr_node(node, stack, env, errors);
+        return;
+    };
+    if head.kind() != SyntaxKind::Ident {
+        lang_resolve_expr_node(node, stack, env, errors);
+        return;
+    }
+    match head.text() {
+        "val" => lang_resolve_val_decl(&atoms[1..], stack, env, errors),
+        "fn" => {
+            // Top-level named function: (fn name (params...) body...)
+            if atoms.len() >= 3 {
+                if let (Atom::Token(name_tok), Atom::Node(params)) = (&atoms[1], &atoms[2]) {
+                    if name_tok.kind() == SyntaxKind::Ident && is_param_list(params) {
+                        lang_resolve_fn_body(params, &atoms[3..], stack, env, errors);
+                        declare_binding(name_tok.text(), stack, env);
+                        return;
+                    }
+                }
+            }
+            // Anonymous `(fn …)` at top level is an expression.
+            lang_resolve_expr_node(node, stack, env, errors);
+        }
+        "type" => {
+            // Declare the type binder; type-expression bodies are a separate
+            // namespace and are not walked as value use-sites yet.
+            if let Some(Atom::Token(name_tok)) = atoms.get(1) {
+                if name_tok.kind() == SyntaxKind::Ident {
+                    declare_binding(name_tok.text(), stack, env);
+                }
+            }
+        }
+        _ => lang_resolve_expr_node(node, stack, env, errors),
+    }
+}
+
+fn lang_resolve_val_decl(
+    rest: &[Atom],
+    stack: &mut ScopeStack,
+    env: &mut BindingEnv,
+    errors: &mut Vec<ResolveError>,
+) {
+    if rest.is_empty() {
+        return;
+    }
+    match &rest[0] {
+        Atom::Token(name_tok) if name_tok.kind() == SyntaxKind::Ident => {
+            // Resolve initializer before declaring (non-recursive).
+            for atom in &rest[1..] {
+                lang_resolve_atom(atom, stack, env, errors);
+            }
+            declare_binding(name_tok.text(), stack, env);
+        }
+        // (val (name params...) body...) named-function sugar
+        Atom::Node(binder) if binder.kind() == SyntaxKind::List => {
+            let binder_atoms = list_atoms(binder);
+            let Some(Atom::Token(name_tok)) = binder_atoms.first() else {
+                return;
+            };
+            if name_tok.kind() != SyntaxKind::Ident {
+                return;
+            }
+            stack.push_scope();
+            for atom in &binder_atoms[1..] {
+                if let Atom::Token(t) = atom {
+                    if t.kind() == SyntaxKind::Ident {
+                        declare_binding(t.text(), stack, env);
+                    }
+                }
+            }
+            for atom in &rest[1..] {
+                lang_resolve_atom(atom, stack, env, errors);
+            }
+            stack.pop_scope();
+            declare_binding(name_tok.text(), stack, env);
+        }
+        other => {
+            // Malformed binder — still try to resolve remaining atoms.
+            lang_resolve_atom(other, stack, env, errors);
+            for atom in &rest[1..] {
+                lang_resolve_atom(atom, stack, env, errors);
+            }
+        }
+    }
+}
+
+fn lang_resolve_fn_body(
+    params: &SyntaxNode,
+    body: &[Atom],
+    stack: &mut ScopeStack,
+    env: &mut BindingEnv,
+    errors: &mut Vec<ResolveError>,
+) {
+    stack.push_scope();
+    for atom in list_atoms(params) {
+        if let Atom::Token(t) = atom {
+            if t.kind() == SyntaxKind::Ident {
+                declare_binding(t.text(), stack, env);
+            }
+        }
+    }
+    for atom in body {
+        lang_resolve_atom(atom, stack, env, errors);
+    }
+    stack.pop_scope();
+}
+
+fn lang_resolve_expr_node(
+    node: &SyntaxNode,
+    stack: &mut ScopeStack,
+    env: &mut BindingEnv,
+    errors: &mut Vec<ResolveError>,
+) {
+    match node.kind() {
+        SyntaxKind::List | SyntaxKind::BracketList => lang_resolve_list(node, stack, env, errors),
+        _ => {
+            for el in node.children_with_tokens() {
+                if let SyntaxElement::Token(t) = el {
+                    lang_resolve_token(&t, stack, errors);
+                } else if let SyntaxElement::Node(n) = el {
+                    lang_resolve_expr_node(&n, stack, env, errors);
+                }
+            }
+        }
+    }
+}
+
+fn lang_resolve_list(
+    node: &SyntaxNode,
+    stack: &mut ScopeStack,
+    env: &mut BindingEnv,
+    errors: &mut Vec<ResolveError>,
+) {
+    if is_quarantined_head(node) {
+        return;
+    }
+    let atoms = list_atoms(node);
+    if atoms.is_empty() {
+        return;
+    }
+
+    if let Atom::Token(head) = &atoms[0] {
+        if head.kind() == SyntaxKind::Ident {
+            match head.text() {
+                "fn" => {
+                    lang_resolve_fn_expr(&atoms[1..], stack, env, errors);
+                    return;
+                }
+                "let" => {
+                    lang_resolve_let(&atoms[1..], stack, env, errors);
+                    return;
+                }
+                "if" | "seq" => {
+                    for atom in &atoms[1..] {
+                        lang_resolve_atom(atom, stack, env, errors);
+                    }
+                    return;
+                }
+                "val" | "type" => {
+                    // Nested `val`/`type` are not local binders on the language
+                    // surface; treat remaining atoms as expressions.
+                    for atom in &atoms[1..] {
+                        lang_resolve_atom(atom, stack, env, errors);
+                    }
+                    return;
+                }
+                _ => {}
+            }
+        }
+    }
+
+    // Application / other list: every atom is a use-site (or nested form).
+    for atom in &atoms {
+        lang_resolve_atom(atom, stack, env, errors);
+    }
+}
+
+fn lang_resolve_fn_expr(
+    rest: &[Atom],
+    stack: &mut ScopeStack,
+    env: &mut BindingEnv,
+    errors: &mut Vec<ResolveError>,
+) {
+    // (fn (params...) body...)
+    // (fn name (params...) body...) — optional name is not bound in expression position
+    let (params, body) = match rest {
+        [Atom::Node(params), body @ ..] if is_param_list(params) => (params, body),
+        [Atom::Token(name), Atom::Node(params), body @ ..]
+            if name.kind() == SyntaxKind::Ident && is_param_list(params) =>
+        {
+            (params, body)
+        }
+        _ => {
+            for atom in rest {
+                lang_resolve_atom(atom, stack, env, errors);
+            }
+            return;
+        }
+    };
+    lang_resolve_fn_body(params, body, stack, env, errors);
+}
+
+fn lang_resolve_let(
+    rest: &[Atom],
+    stack: &mut ScopeStack,
+    env: &mut BindingEnv,
+    errors: &mut Vec<ResolveError>,
+) {
+    // (let ((name expr)...) body...) — sequential (let*) so later inits see
+    // earlier binders; matches Core elaborator nesting.
+    let Some(Atom::Node(bindings_node)) = rest.first() else {
+        for atom in rest {
+            lang_resolve_atom(atom, stack, env, errors);
+        }
+        return;
+    };
+    if bindings_node.kind() != SyntaxKind::List {
+        for atom in rest {
+            lang_resolve_atom(atom, stack, env, errors);
+        }
+        return;
+    }
+
+    stack.push_scope();
+    for atom in list_atoms(bindings_node) {
+        let Atom::Node(pair) = atom else {
+            continue;
+        };
+        if pair.kind() != SyntaxKind::List {
+            continue;
+        }
+        let pair_atoms = list_atoms(&pair);
+        if pair_atoms.len() < 2 {
+            for a in &pair_atoms {
+                lang_resolve_atom(a, stack, env, errors);
+            }
+            continue;
+        }
+        let Atom::Token(name_tok) = &pair_atoms[0] else {
+            for a in &pair_atoms {
+                lang_resolve_atom(a, stack, env, errors);
+            }
+            continue;
+        };
+        // Resolve init in current (already extended) scope, then declare.
+        for a in &pair_atoms[1..] {
+            lang_resolve_atom(a, stack, env, errors);
+        }
+        if name_tok.kind() == SyntaxKind::Ident {
+            declare_binding(name_tok.text(), stack, env);
+        }
+    }
+    for atom in &rest[1..] {
+        lang_resolve_atom(atom, stack, env, errors);
+    }
+    stack.pop_scope();
+}
+
+fn lang_resolve_atom(
+    atom: &Atom,
+    stack: &mut ScopeStack,
+    env: &mut BindingEnv,
+    errors: &mut Vec<ResolveError>,
+) {
+    match atom {
+        Atom::Token(t) => lang_resolve_token(t, stack, errors),
+        Atom::Node(n) => lang_resolve_expr_node(n, stack, env, errors),
+    }
+}
+
+fn lang_resolve_token(tok: &SyntaxToken, stack: &ScopeStack, errors: &mut Vec<ResolveError>) {
+    if tok.kind() != SyntaxKind::Ident {
+        return;
+    }
+    let name = tok.text();
+    if is_language_keyword(name) {
+        return;
+    }
+    if stack.lookup(name).is_some() {
+        return;
+    }
+    errors.push(ResolveError {
+        message: format!("unbound identifier `{name}`"),
+        range: token_range(tok),
+    });
+}
+
+fn declare_binding(name: &str, stack: &mut ScopeStack, env: &mut BindingEnv) {
+    let id = stack.declare(name);
+    env.bindings.insert(id, name.to_string());
+}
+
+fn is_language_keyword(name: &str) -> bool {
+    matches!(
+        name,
+        "val" | "fn" | "let" | "if" | "seq" | "type" | "true" | "false"
+    )
+}
+
+fn is_param_list(node: &SyntaxNode) -> bool {
+    matches!(node.kind(), SyntaxKind::List | SyntaxKind::BracketList)
+}
+
+fn is_quarantined_head(node: &SyntaxNode) -> bool {
+    matches!(
+        list_head_ident(node).as_deref(),
+        Some(
+            "page" | "markup" | "src" | "circle" | "rect" | "text" | "group" | "ellipse" | "line"
+                | "translate" | "rotate" | "scale" | "opacity" | "perform" | "handle"
+        )
+    )
+}
+
+fn list_atoms(node: &SyntaxNode) -> Vec<Atom> {
+    let mut items = Vec::new();
+    for el in node.children_with_tokens() {
+        match el {
+            SyntaxElement::Token(t) => {
+                if t.kind().is_trivia()
+                    || matches!(
+                        t.kind(),
+                        SyntaxKind::LParen
+                            | SyntaxKind::RParen
+                            | SyntaxKind::LBracket
+                            | SyntaxKind::RBracket
+                    )
+                {
+                    continue;
+                }
+                items.push(Atom::Token(t));
+            }
+            SyntaxElement::Node(n) => {
+                if n.kind() == SyntaxKind::StructuredComment {
+                    continue;
+                }
+                items.push(Atom::Node(n));
+            }
+        }
+    }
+    items
+}
+
+fn token_range(tok: &SyntaxToken) -> TextRange {
+    let start: u32 = tok.text_range().start().into();
+    let end: u32 = tok.text_range().end().into();
+    TextRange::try_new(ByteOffset::new(start), ByteOffset::new(end))
+        .expect("token ranges are ordered")
 }
 
 fn resolve_form(
