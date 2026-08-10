@@ -356,6 +356,36 @@ fn number_with_trailing_dot_stops_before_dot() {
 }
 
 #[test]
+fn lexes_radix_separators_and_scientific() {
+    assert_eq!(kinds("0x2a"), vec![SyntaxKind::Number]);
+    assert_eq!(texts("0x2a"), vec!["0x2a"]);
+    assert_eq!(kinds("0b101010"), vec![SyntaxKind::Number]);
+    assert_eq!(kinds("0o52"), vec![SyntaxKind::Number]);
+    assert_eq!(kinds("1_000_000"), vec![SyntaxKind::Number]);
+    assert_eq!(kinds("1e10"), vec![SyntaxKind::Number]);
+    assert_eq!(kinds("1.5e-3"), vec![SyntaxKind::Number]);
+    assert_eq!(kinds("-0xff"), vec![SyntaxKind::Number]);
+}
+
+#[test]
+fn rejects_leading_zero_decimals() {
+    assert_eq!(kinds("007"), vec![SyntaxKind::Error]);
+    assert_eq!(kinds("00"), vec![SyntaxKind::Error]);
+    assert_eq!(kinds("0123"), vec![SyntaxKind::Error]);
+    // Bare `0` and radix / float forms remain valid.
+    assert_eq!(kinds("0"), vec![SyntaxKind::Number]);
+    assert_eq!(kinds("0.5"), vec![SyntaxKind::Number]);
+    assert_eq!(kinds("0o7"), vec![SyntaxKind::Number]);
+}
+
+#[test]
+fn unit_suffix_splits_number_and_ident() {
+    // SYN §12 interim: keep Number+Ident (package apply) rather than NumberWithUnit.
+    assert_eq!(kinds("40mm"), vec![SyntaxKind::Number, SyntaxKind::Ident]);
+    assert_eq!(texts("40mm"), vec!["40", "mm"]);
+}
+
+#[test]
 fn lone_cr_is_newline_trivia() {
     let mut lx = Lexer::new("\ra");
     let tok = lx.bump_token().unwrap();

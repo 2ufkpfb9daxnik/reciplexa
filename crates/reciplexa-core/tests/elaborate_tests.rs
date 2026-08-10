@@ -478,3 +478,24 @@ fn elaborates_record_field_list_tuple() {
     };
     assert_eq!(*value, CoreExpr::Lit(CoreLiteral::Number(42.0)));
 }
+
+#[test]
+fn elaborates_radix_and_scientific_numbers() {
+    let hex = elaborate_source("(val main 0x2a)").unwrap();
+    let CoreExpr::Let { value, .. } = hex else {
+        panic!("expected Let");
+    };
+    assert_eq!(*value, CoreExpr::Lit(CoreLiteral::Number(42.0)));
+
+    let sci = elaborate_source("(val main 1e2)").unwrap();
+    let CoreExpr::Let { value, .. } = sci else {
+        panic!("expected Let");
+    };
+    assert_eq!(*value, CoreExpr::Lit(CoreLiteral::Number(100.0)));
+
+    let sep = elaborate_source("(val main 1_000)").unwrap();
+    let CoreExpr::Let { value, .. } = sep else {
+        panic!("expected Let");
+    };
+    assert_eq!(*value, CoreExpr::Lit(CoreLiteral::Number(1000.0)));
+}

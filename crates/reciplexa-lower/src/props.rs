@@ -666,7 +666,9 @@ fn collect_trailing_stroke_on_frame(items: &[Child], out: &mut Vec<PropField>) {
         push_rgb_fields(stroke, PropGroup::Stroke, "stroke", out);
     }
     if let Some(w) = items.last().and_then(|c| match c {
-        Child::Token(t) if t.kind() == SyntaxKind::Number => t.text().parse().ok(),
+        Child::Token(t) if t.kind() == SyntaxKind::Number => {
+            reciplexa_syntax::parse_number_literal(t.text()).ok()
+        }
         _ => None,
     }) {
         out.push(num(
@@ -726,7 +728,7 @@ fn collect_polyline_stroke(items: &[Child], out: &mut Vec<PropField>) {
 
 #[inline(never)]
 fn parse_f64_or_zero(text: &str) -> f64 {
-    text.parse::<f64>().unwrap_or(0.0)
+    reciplexa_syntax::parse_number_literal(text).unwrap_or(0.0)
 }
 
 fn trailing_color(items: &[Child]) -> Option<[f64; 3]> {

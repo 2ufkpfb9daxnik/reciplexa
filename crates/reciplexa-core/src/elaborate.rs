@@ -10,8 +10,8 @@ use std::collections::HashMap;
 use reciplexa_source::offset::ByteOffset;
 use reciplexa_source::range::TextRange;
 use reciplexa_syntax::{
-    decode_string_literal, is_reserved_special_form, parse_source, SyntaxElement, SyntaxKind,
-    SyntaxNode, SyntaxToken,
+    decode_string_literal, is_reserved_special_form, parse_number_literal, parse_source,
+    SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken,
 };
 
 use crate::expr::{CoreExpr, CoreLiteral, CorePattern, MatchArm};
@@ -980,15 +980,13 @@ fn pattern_literal_token(tok: &SyntaxToken) -> Result<Option<CoreLiteral>, Elabo
     match tok.kind() {
         SyntaxKind::Number => {
             let text = tok.text();
-            if text.contains('.') {
+            if text.contains('.') || text.contains('e') {
                 return Err(ElaborateError::at_token(
                     "f64 literal patterns are not allowed (DAT-001 §15.5)",
                     tok,
                 ));
             }
-            let n: f64 = text.parse().map_err(|_| {
-                ElaborateError::at_token(format!("invalid number literal `{text}`"), tok)
-            })?;
+            let n = parse_number_literal(text).map_err(|msg| ElaborateError::at_token(msg, tok))?;
             Ok(Some(CoreLiteral::Number(n)))
         }
         SyntaxKind::String => {
@@ -1749,9 +1747,7 @@ fn elaborate_token(tok: &SyntaxToken, ctx: &ElabCtx) -> Result<CoreExpr, Elabora
     match tok.kind() {
         SyntaxKind::Number => {
             let text = tok.text();
-            let n: f64 = text.parse().map_err(|_| {
-                ElaborateError::at_token(format!("invalid number literal `{text}`"), tok)
-            })?;
+            let n = parse_number_literal(text).map_err(|msg| ElaborateError::at_token(msg, tok))?;
             Ok(CoreExpr::Lit(CoreLiteral::Number(n)))
         }
         SyntaxKind::String => {

@@ -12,7 +12,9 @@
 pub mod doc_layout;
 pub mod lang_macro;
 
-use reciplexa_syntax::{parse_source, SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken};
+use reciplexa_syntax::{
+    parse_number_literal, parse_source, SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken,
+};
 
 use doc_layout::layout_markup_parts;
 
@@ -379,7 +381,7 @@ fn find_gray(root: &SyntaxNode) -> Option<(usize, usize, f64)> {
 
 fn number_val(child: &Child) -> Option<f64> {
     match child {
-        Child::Token(t) if t.kind() == SyntaxKind::Number => t.text().parse().ok(),
+        Child::Token(t) if t.kind() == SyntaxKind::Number => parse_number_literal(t.text()).ok(),
         _ => None,
     }
 }

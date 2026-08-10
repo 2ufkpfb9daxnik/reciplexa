@@ -337,37 +337,126 @@ impl<'a> Lexer<'a> {
         self.finish(SyntaxKind::Ident, start)
     }
 
+    /// SYN §7 numeric literals: decimal / `0b`/`0o`/`0x` / `_` / scientific `e`.
+    ///
+    /// Unit suffixes (§12) are **not** glued: `40mm` → Number `40` + Ident `mm`
+    /// so package apply can treat the suffix as a constructor name.
     fn bump_number(&mut self, start: usize) -> Token {
         if matches!(self.peek_char(), Some('+') | Some('-')) {
             self.advance_char();
         }
-        let mut seen_digit = false;
-        while let Some(c) = self.peek_char() {
-            if c.is_ascii_digit() {
-                seen_digit = true;
-                self.advance_char();
-            } else if c == '.' && seen_digit {
-                // Single fractional dot; further dots end the token and will
-                // be lexed separately (often as Error or Ident later).
-                let after = self.peek_char_at('.'.len_utf8());
-                if after.is_some_and(|d| d.is_ascii_digit()) {
-                    self.advance_char();
-                    while let Some(d) = self.peek_char() {
-                        if !d.is_ascii_digit() {
-                            break;
-                        }
-                        self.advance_char();
-                    }
+
+        // Radix forms: 0b… / 0o… / 0x…
+        if self.peek_char() == Some('0') {
+            let next = self.peek_char_at('0'.len_utf8());
+            if matches!(next, Some('b') | Some('o') | Some('x')) {
+                self.advance_char(); // 0
+                let radix_ch = self.peek_char().expect("checked");
+                self.advance_char(); // b|o|x
+                let radix = match radix_ch {
+                    'b' => 2,
+                    'o' => 8,
+                    'x' => 16,
+                    _ => unreachable!(),
+                };
+                if !self.consume_digits_with_sep(|c| c.is_digit(radix)) {
+                    return self.finish(SyntaxKind::Error, start);
                 }
-                break;
-            } else {
-                break;
+                return self.finish(SyntaxKind::Number, start);
             }
         }
-        // Callers only enter `bump_number` with a digit or a signed digit, so
-        // `seen_digit` is always true; keep the guard for API safety.
-        debug_assert!(seen_digit);
+
+        // Decimal integer / float / scientific.
+        if !self.consume_decimal_number() {
+            // Consume a maximal digit/sep/dot/e run so `007` is one Error token.
+            while let Some(c) = self.peek_char() {
+                if c.is_ascii_digit()
+                    || c == '_'
+                    || c == '.'
+                    || c == 'e'
+                    || ((c == '+' || c == '-')
+                        && self
+                            .input
+                            .get(start..self.pos)
+                            .is_some_and(|s| s.ends_with('e')))
+                {
+                    self.advance_char();
+                } else {
+                    break;
+                }
+            }
+            return self.finish(SyntaxKind::Error, start);
+        }
         self.finish(SyntaxKind::Number, start)
+    }
+
+    /// Consume one-or-more digits with optional `_` separators between digits.
+    /// Returns false if no digit was consumed or separators are illegal.
+    fn consume_digits_with_sep(&mut self, is_digit: impl Fn(char) -> bool) -> bool {
+        let mut saw_digit = false;
+        let mut prev_underscore = false;
+        loop {
+            match self.peek_char() {
+                Some('_') => {
+                    if !saw_digit || prev_underscore {
+                        return false;
+                    }
+                    // Trailing `_` before non-digit end is illegal — peek ahead.
+                    let after = self.peek_char_at('_'.len_utf8());
+                    if !after.is_some_and(&is_digit) {
+                        return false;
+                    }
+                    self.advance_char();
+                    prev_underscore = true;
+                }
+                Some(c) if is_digit(c) => {
+                    self.advance_char();
+                    saw_digit = true;
+                    prev_underscore = false;
+                }
+                _ => break,
+            }
+        }
+        saw_digit && !prev_underscore
+    }
+
+    /// Decimal mantissa + optional fraction + optional `e` exponent (SYN §7.5).
+    /// Also enforces no unnecessary leading zeros on the integer part (§7.2).
+    fn consume_decimal_number(&mut self) -> bool {
+        let int_start = self.pos;
+        if !self.consume_digits_with_sep(|c| c.is_ascii_digit()) {
+            return false;
+        }
+        let int_text = &self.input[int_start..self.pos];
+        let int_digits: String = int_text.chars().filter(|c| c.is_ascii_digit()).collect();
+        if int_digits.len() > 1 && int_digits.starts_with('0') {
+            return false;
+        }
+
+        // Fraction: `.` + digits (both sides required — `1.` / `.5` rejected).
+        if self.peek_char() == Some('.') {
+            let after = self.peek_char_at('.'.len_utf8());
+            if !after.is_some_and(|d| d.is_ascii_digit()) {
+                // Leave `.` for the next token (often Error / ellipsis).
+                return true;
+            }
+            self.advance_char();
+            if !self.consume_digits_with_sep(|c| c.is_ascii_digit()) {
+                return false;
+            }
+        }
+
+        // Exponent: `e` [sign] digits (lowercase `e` only).
+        if self.peek_char() == Some('e') {
+            self.advance_char();
+            if matches!(self.peek_char(), Some('+') | Some('-')) {
+                self.advance_char();
+            }
+            if !self.consume_digits_with_sep(|c| c.is_ascii_digit()) {
+                return false;
+            }
+        }
+        true
     }
 
     fn finish(&self, kind: SyntaxKind, start: usize) -> Token {

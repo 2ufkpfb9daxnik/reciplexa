@@ -749,7 +749,7 @@ fn number_token_f64(t: &SyntaxToken) -> f64 {
 
 #[inline(never)]
 fn parse_num_text(text: &str) -> f64 {
-    text.parse::<f64>().unwrap_or(0.0)
+    reciplexa_syntax::parse_number_literal(text).unwrap_or(0.0)
 }
 
 fn ident_at<'a>(items: &'a [Child], index: usize, ctx: &str) -> Result<&'a str, LowerError> {
