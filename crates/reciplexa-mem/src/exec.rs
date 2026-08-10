@@ -218,6 +218,36 @@ fn construct_value(
         }
         return Ok(RuntimeValue::Record(rec));
     }
+    if tag == "record-update" || tag == "record-extend" {
+        let base_reg = fields
+            .iter()
+            .find(|(k, _)| k == "__base")
+            .map(|(_, r)| resolve(*r, map))
+            .ok_or(ExecError::UnboundReg(Reg(0)))?;
+        let base = heap
+            .get(&base_reg)
+            .ok_or(ExecError::UnboundReg(base_reg))?
+            .value
+            .clone();
+        let RuntimeValue::Record(mut rec) = base else {
+            return Err(ExecError::UnboundReg(base_reg));
+        };
+        for (k, r) in fields {
+            if k == "__base" {
+                continue;
+            }
+            let r = resolve(*r, map);
+            let v = heap.get(&r).ok_or(ExecError::UnboundReg(r))?.value.clone();
+            if tag == "record-update" {
+                if let Some((_, slot)) = rec.iter_mut().find(|(n, _)| n == k) {
+                    *slot = v;
+                }
+            } else if !rec.iter().any(|(n, _)| n == k) {
+                rec.push((k.clone(), v));
+            }
+        }
+        return Ok(RuntimeValue::Record(rec));
+    }
     if let Some(payload) = fields.first() {
         let r = resolve(payload.1, map);
         let v = heap.get(&r).ok_or(ExecError::UnboundReg(r))?.value.clone();

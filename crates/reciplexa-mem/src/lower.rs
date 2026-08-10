@@ -148,14 +148,11 @@ impl Lowerer {
                 });
                 dst
             }
-            // Mem IR has no dedicated update/extend; evaluate operands and keep base.
-            CoreExpr::RecordUpdate { record, fields }
-            | CoreExpr::RecordExtend { record, fields } => {
-                let base = self.lower_expr(record, env);
-                for (_, v) in fields {
-                    let _ = self.lower_expr(v, env);
-                }
-                base
+            CoreExpr::RecordUpdate { record, fields } => {
+                self.lower_record_mutate(record, fields, env, "record-update")
+            }
+            CoreExpr::RecordExtend { record, fields } => {
+                self.lower_record_mutate(record, fields, env, "record-extend")
             }
             CoreExpr::Variant { tag, payload } => {
                 let dst = self.alloc.fresh();
@@ -215,6 +212,28 @@ impl Lowerer {
                 self.lower_expr(body, env)
             }
         }
+    }
+
+    fn lower_record_mutate(
+        &mut self,
+        record: &CoreExpr,
+        fields: &[(String, CoreExpr)],
+        env: &HashMap<String, Reg>,
+        tag: &str,
+    ) -> Reg {
+        let base = self.lower_expr(record, env);
+        let mut lowered = Vec::with_capacity(fields.len() + 1);
+        lowered.push(("__base".into(), base));
+        for (k, v) in fields {
+            lowered.push((k.clone(), self.lower_expr(v, env)));
+        }
+        let dst = self.alloc.fresh();
+        self.emit(MemInstr::Construct {
+            dst,
+            tag: tag.into(),
+            fields: lowered,
+        });
+        dst
     }
 
     fn lower_match(

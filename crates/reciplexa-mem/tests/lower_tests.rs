@@ -154,3 +154,46 @@ fn lowers_record_get_project() {
         .iter()
         .any(|i| matches!(i, MemInstr::Project { .. })));
 }
+
+#[test]
+fn lowers_record_update_and_extend() {
+    let base = CoreExpr::Record {
+        fields: vec![
+            (
+                "title".into(),
+                CoreExpr::Lit(CoreLiteral::String("Old".into())),
+            ),
+            ("n".into(), CoreExpr::Lit(CoreLiteral::Number(1.0))),
+        ],
+    };
+    let update = CoreExpr::RecordUpdate {
+        record: Box::new(base.clone()),
+        fields: vec![(
+            "title".into(),
+            CoreExpr::Lit(CoreLiteral::String("New".into())),
+        )],
+    };
+    let prog = lower_core_linear(&update);
+    assert!(prog.instrs.iter().any(|i| matches!(
+        i,
+        MemInstr::Construct { tag, .. } if tag == "record-update"
+    )));
+
+    let extend = CoreExpr::RecordExtend {
+        record: Box::new(CoreExpr::Record {
+            fields: vec![(
+                "title".into(),
+                CoreExpr::Lit(CoreLiteral::String("T".into())),
+            )],
+        }),
+        fields: vec![(
+            "author".into(),
+            CoreExpr::Lit(CoreLiteral::String("A".into())),
+        )],
+    };
+    let prog2 = lower_core_linear(&extend);
+    assert!(prog2.instrs.iter().any(|i| matches!(
+        i,
+        MemInstr::Construct { tag, .. } if tag == "record-extend"
+    )));
+}

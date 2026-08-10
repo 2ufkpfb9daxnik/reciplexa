@@ -441,3 +441,66 @@ fn exec_project_missing_field_errors() {
     let mut trace = RcTrace::default();
     assert!(exec_linear(&prog, &mut trace).is_err());
 }
+
+#[test]
+fn exec_record_update_and_extend() {
+    use reciplexa_core::expr::{CoreExpr, CoreLiteral};
+    use reciplexa_mem::lower_core_linear;
+
+    let update = CoreExpr::RecordUpdate {
+        record: Box::new(CoreExpr::Record {
+            fields: vec![
+                (
+                    "title".into(),
+                    CoreExpr::Lit(CoreLiteral::String("Old".into())),
+                ),
+                ("n".into(), CoreExpr::Lit(CoreLiteral::Number(1.0))),
+            ],
+        }),
+        fields: vec![(
+            "title".into(),
+            CoreExpr::Lit(CoreLiteral::String("New".into())),
+        )],
+    };
+    let prog = lower_core_linear(&update);
+    let mut trace = RcTrace::default();
+    let v = exec_linear(&prog, &mut trace).unwrap();
+    match v {
+        RuntimeValue::Record(fields) => {
+            assert_eq!(
+                fields.iter().find(|(k, _)| k == "title").map(|(_, v)| v),
+                Some(&RuntimeValue::String("New".into()))
+            );
+            assert_eq!(
+                fields.iter().find(|(k, _)| k == "n").map(|(_, v)| v),
+                Some(&RuntimeValue::Number(1.0))
+            );
+        }
+        other => panic!("expected record, got {other:?}"),
+    }
+
+    let extend = CoreExpr::RecordExtend {
+        record: Box::new(CoreExpr::Record {
+            fields: vec![(
+                "title".into(),
+                CoreExpr::Lit(CoreLiteral::String("T".into())),
+            )],
+        }),
+        fields: vec![(
+            "author".into(),
+            CoreExpr::Lit(CoreLiteral::String("A".into())),
+        )],
+    };
+    let prog2 = lower_core_linear(&extend);
+    let mut trace2 = RcTrace::default();
+    let v2 = exec_linear(&prog2, &mut trace2).unwrap();
+    match v2 {
+        RuntimeValue::Record(fields) => {
+            assert_eq!(fields.len(), 2);
+            assert!(fields
+                .iter()
+                .any(|(k, v)| k == "author" && matches!(v, RuntimeValue::String(s) if s == "A")));
+        }
+        other => panic!("expected record, got {other:?}"),
+    }
+}
