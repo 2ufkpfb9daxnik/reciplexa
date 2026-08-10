@@ -151,6 +151,35 @@ fn lang_deep_resume() {
 }
 
 #[test]
+fn lang_with_and_handler_value() {
+    let case = ConformanceCase::new(
+        "TEST-LANG-EFF-with",
+        "EFF-001",
+        "first-class handler + with sugar",
+    );
+    run_conformance(&case, || {
+        let v = eval_source(
+            r#"
+(val h (handler log (fn (msg) msg)))
+(val main (with h (perform log "via-with")))
+"#,
+        )
+        .unwrap();
+        assert_eq!(v, RuntimeValue::String("via-with".into()));
+
+        let v2 = eval_source(
+            r#"
+(val main
+  (with (handler ask (fn (_ k) (k 7)))
+    (seq (perform ask 0) 42)))
+"#,
+        )
+        .unwrap();
+        assert_eq!(v2, RuntimeValue::Number(42.0));
+    });
+}
+
+#[test]
 fn lang_var_set() {
     let case = ConformanceCase::new("TEST-LANG-BND-var", "BND-001", "var/set cell");
     run_conformance(&case, || {

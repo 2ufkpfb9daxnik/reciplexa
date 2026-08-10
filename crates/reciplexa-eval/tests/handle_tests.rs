@@ -50,6 +50,27 @@ fn oneshot_resume_aborts_rest_of_handler() {
 }
 
 #[test]
+fn with_installs_handler_value() {
+    let v = eval_source(
+        r#"
+(val h (handler log (fn (msg) msg)))
+(val main (with h (perform log "ok")))
+"#,
+    )
+    .unwrap();
+    assert_eq!(v, RuntimeValue::String("ok".into()));
+}
+
+#[test]
+fn with_inline_handler_and_resume() {
+    let v = eval_source(
+        r#"(val main (with (handler ask (fn (_ k) (k 3))) (seq (perform ask 0) 10)))"#,
+    )
+    .unwrap();
+    assert_eq!(v, RuntimeValue::Number(10.0));
+}
+
+#[test]
 fn deep_resume_continues_body_after_perform() {
     // Deep: resume plugs the value into perform, then seq continues to 99.
     let v =

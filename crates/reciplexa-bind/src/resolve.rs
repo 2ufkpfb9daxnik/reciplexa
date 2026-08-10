@@ -424,6 +424,20 @@ fn lang_resolve_list(
                     }
                     return;
                 }
+                "handler" => {
+                    // (handler op (fn …)) — op is an effect name.
+                    for atom in atoms.iter().skip(2) {
+                        lang_resolve_atom(atom, stack, env, errors, map);
+                    }
+                    return;
+                }
+                "with" => {
+                    // (with handler-expr body…) — all atoms are value positions.
+                    for atom in &atoms[1..] {
+                        lang_resolve_atom(atom, stack, env, errors, map);
+                    }
+                    return;
+                }
                 "if" | "seq" => {
                     for atom in &atoms[1..] {
                         lang_resolve_atom(atom, stack, env, errors, map);
@@ -916,6 +930,8 @@ fn is_surface_keyword(name: &str) -> bool {
             | "opacity"
             | "perform"
             | "handle"
+            | "with"
+            | "handler"
             | "rgb"
             | "color-byte"
             | "polyline"

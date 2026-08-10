@@ -23,6 +23,7 @@ pub fn is_reserved_special_form(name: &str) -> bool {
             | "set"
             | "handle"
             | "with"
+            | "handler"
             // Surface special forms & literals
             | "data"
             | "match"

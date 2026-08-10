@@ -33,6 +33,21 @@ pub enum CoreExpr {
         handler_body: Box<CoreExpr>,
         body: Box<CoreExpr>,
     },
+    /// First-class handler value (DD-EFF-011 / DD-EFF-012).
+    ///
+    /// Surface `(handler op (fn (params…) body…))` elaborates here. Installing
+    /// via [`CoreExpr::With`] is equivalent to an inline [`CoreExpr::Handle`].
+    HandlerValue {
+        op: String,
+        handler_params: Vec<String>,
+        handler_body: Box<CoreExpr>,
+    },
+    /// Surface `(with handler-expr body…)` → install a handler value around body
+    /// (DD-EFF-012). `handler` must evaluate to a first-class handler value.
+    With {
+        handler: Box<CoreExpr>,
+        body: Box<CoreExpr>,
+    },
     Seq(Vec<CoreExpr>),
     Let {
         name: String,

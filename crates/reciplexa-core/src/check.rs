@@ -149,6 +149,45 @@ pub fn infer_with_effects(
                 infer_with_effects(handler_body, &child, subst, range)?;
             Ok((handler_ty, residual.merge(&handler_effs)))
         }
+        CoreExpr::HandlerValue {
+            handler_params,
+            handler_body,
+            ..
+        } => {
+            let mut child = env.clone();
+            match handler_params.as_slice() {
+                [arg] => {
+                    child.insert(arg.clone(), CoreType::String);
+                }
+                [arg, resume] => {
+                    child.insert(arg.clone(), CoreType::String);
+                    child.insert(
+                        resume.clone(),
+                        CoreType::Fun {
+                            args: vec![CoreType::Var(subst.fresh_var())],
+                            ret: Box::new(CoreType::Var(subst.fresh_var())),
+                            effects: EffectRow::default(),
+                        },
+                    );
+                }
+                _ => {
+                    return Err(CheckError::at(
+                        "`handler` expects 1 or 2 parameters",
+                        range,
+                    ));
+                }
+            }
+            let (_hb_ty, hb_effs) = infer_with_effects(handler_body, &child, subst, range)?;
+            // Handler values are Dynamic until a dedicated Handler type lands.
+            Ok((CoreType::Dynamic, hb_effs))
+        }
+        CoreExpr::With { handler, body } => {
+            let (_h_ty, h_effs) = infer_with_effects(handler, env, subst, range)?;
+            // Conservative: treat as catching an unknown op (Dynamic handler).
+            // Body residual is kept; handler clause effects merge.
+            let (body_ty, body_effs) = infer_with_effects(body, env, subst, range)?;
+            Ok((body_ty, h_effs.merge(&body_effs)))
+        }
         CoreExpr::Seq(items) => {
             let mut last = CoreType::Unit;
             let mut effs = EffectRow::default();

@@ -94,6 +94,39 @@ fn eval_outcome(
             handler_body,
             body,
         } => eval_handle(op, handler_params, handler_body, body, env, host),
+        CoreExpr::HandlerValue {
+            op,
+            handler_params,
+            handler_body,
+        } => Ok(Outcome::Value(RuntimeValue::Handler {
+            op: op.clone(),
+            params: handler_params.clone(),
+            body: *handler_body.clone(),
+            env: Rc::new(std::cell::RefCell::new(env.clone())),
+        })),
+        CoreExpr::With { handler, body } => {
+            match eval_outcome(handler, env, host)? {
+                Outcome::Value(RuntimeValue::Handler {
+                    op,
+                    params,
+                    body: handler_body,
+                    env: hen,
+                }) => {
+                    // Install using the handler's captured lexical env as base,
+                    // overlaying the current env for free uses of ambient bindings.
+                    let mut install_env = hen.borrow().clone();
+                    for (k, v) in env {
+                        install_env.insert(k.clone(), v.clone());
+                    }
+                    eval_handle(&op, &params, &handler_body, body, &install_env, host)
+                }
+                Outcome::Value(other) => Err(EvalError {
+                    message: format!("`with` expects a handler value, got {other}"),
+                }),
+                Outcome::Performed { op, arg, resume } => Ok(Outcome::Performed { op, arg, resume }),
+                Outcome::Resumed(v) => Ok(Outcome::Resumed(v)),
+            }
+        }
         CoreExpr::Seq(items) => eval_seq(items, env, host),
         CoreExpr::Let { name, value, body } => match eval_outcome(value, env, host)? {
             Outcome::Value(v) => {

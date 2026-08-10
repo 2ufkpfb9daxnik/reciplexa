@@ -117,6 +117,7 @@ pub fn observably_equal(a: &RuntimeValue, b: &RuntimeValue) -> bool {
         // Closures compared by tag only in Phase 6 slice
         (RuntimeValue::Closure { .. }, RuntimeValue::Closure { .. }) => true,
         (RuntimeValue::OneShotResume { .. }, RuntimeValue::OneShotResume { .. }) => true,
+        (RuntimeValue::Handler { op: a, .. }, RuntimeValue::Handler { op: b, .. }) => a == b,
         (RuntimeValue::Builtin(a), RuntimeValue::Builtin(b)) => a == b,
         (RuntimeValue::Cell { value: a, .. }, RuntimeValue::Cell { value: b, .. }) => {
             observably_equal(&a.borrow(), &b.borrow())
@@ -131,6 +132,7 @@ pub fn observably_equal(a: &RuntimeValue, b: &RuntimeValue) -> bool {
             | RuntimeValue::Variant { .. }
             | RuntimeValue::Closure { .. }
             | RuntimeValue::OneShotResume { .. }
+            | RuntimeValue::Handler { .. }
             | RuntimeValue::Builtin(_)
             | RuntimeValue::Cell { .. },
             _,

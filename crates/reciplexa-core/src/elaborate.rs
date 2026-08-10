@@ -2,7 +2,7 @@
 //!
 //! Supports language-kernel forms only: `val` / `fn` / `let` / `letrec` / `var` /
 //! `set` / `if` / `seq` / `data` / `match` / `record` / `field` / `list` / `tuple` /
-//! app / lit / perform / handle.
+//! `local` / `rec` / app / lit / perform / handle / handler / with.
 //! Graphics / page / markup forms are rejected (quarantined to the document pipeline).
 
 use std::collections::HashMap;
@@ -465,6 +465,8 @@ fn elaborate_list(node: &SyntaxNode, ctx: &ElabCtx) -> Result<CoreExpr, Elaborat
                 }
                 "perform" => return elaborate_perform(&atoms[1..], node, ctx),
                 "handle" => return elaborate_handle(&atoms[1..], node, ctx),
+                "handler" => return elaborate_handler(&atoms[1..], node, ctx),
+                "with" => return elaborate_with(&atoms[1..], node, ctx),
                 "val" => {
                     return Err(ElaborateError::at_node(
                         "`val` is only allowed at top level; use `let` for local bindings",
@@ -978,6 +980,70 @@ fn elaborate_handle(
         handler_params: params,
         handler_body: body,
         body: Box::new(elaborate_atom(&rest[2], ctx)?),
+    })
+}
+
+/// DD-EFF-011: `(handler op (fn (params…) body…))` → first-class handler value.
+fn elaborate_handler(
+    rest: &[Atom],
+    parent: &SyntaxNode,
+    ctx: &ElabCtx,
+) -> Result<CoreExpr, ElaborateError> {
+    if rest.len() != 2 {
+        return Err(ElaborateError::at_node(
+            "`handler` requires an op identifier and `(fn (params…) …)`",
+            parent,
+        ));
+    }
+    let Atom::Token(op_tok) = &rest[0] else {
+        return Err(ElaborateError::at_node(
+            "`handler` op must be an identifier",
+            parent,
+        ));
+    };
+    if op_tok.kind() != SyntaxKind::Ident {
+        return Err(ElaborateError::at_token(
+            "`handler` op must be an identifier",
+            op_tok,
+        ));
+    }
+    let handler_expr = elaborate_atom(&rest[1], ctx)?;
+    let CoreExpr::Lambda { params, body } = handler_expr else {
+        return Err(ElaborateError::at_node(
+            "`handler` body must be `(fn (params…) …)`",
+            parent,
+        ));
+    };
+    if !(1..=2).contains(&params.len()) {
+        return Err(ElaborateError::at_node(
+            "`handler` expects 1 or 2 parameters (arg) or (arg resume)",
+            parent,
+        ));
+    }
+    Ok(CoreExpr::HandlerValue {
+        op: op_tok.text().to_string(),
+        handler_params: params,
+        handler_body: body,
+    })
+}
+
+/// DD-EFF-012: `(with handler-expr body…)` → install handler around body seq.
+fn elaborate_with(
+    rest: &[Atom],
+    parent: &SyntaxNode,
+    ctx: &ElabCtx,
+) -> Result<CoreExpr, ElaborateError> {
+    if rest.len() < 2 {
+        return Err(ElaborateError::at_node(
+            "`with` requires a handler expression and at least one body expression",
+            parent,
+        ));
+    }
+    let handler = elaborate_atom(&rest[0], ctx)?;
+    let body = seq_or_one(elaborate_atoms(&rest[1..], ctx)?);
+    Ok(CoreExpr::With {
+        handler: Box::new(handler),
+        body: Box::new(body),
     })
 }
 

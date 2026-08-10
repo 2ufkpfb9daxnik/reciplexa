@@ -35,6 +35,13 @@ pub enum RuntimeValue {
         used: Rc<Cell<bool>>,
         cont: ResumeCont,
     },
+    /// First-class handler value from [`CoreExpr::HandlerValue`].
+    Handler {
+        op: String,
+        params: Vec<String>,
+        body: CoreExpr,
+        env: Rc<std::cell::RefCell<HashMap<String, RuntimeValue>>>,
+    },
     /// KER-001 numeric / comparison primitive.
     Builtin(BuiltinOp),
     Record(Vec<(String, RuntimeValue)>),
@@ -80,6 +87,12 @@ impl fmt::Debug for RuntimeValue {
                 .debug_struct("OneShotResume")
                 .field("used", &used.get())
                 .finish(),
+            Self::Handler { op, params, body, .. } => f
+                .debug_struct("Handler")
+                .field("op", op)
+                .field("params", params)
+                .field("body", body)
+                .finish(),
             Self::Builtin(op) => f.debug_tuple("Builtin").field(op).finish(),
             Self::Record(fields) => f.debug_tuple("Record").field(fields).finish(),
             Self::Variant { tag, payload } => f
@@ -124,6 +137,20 @@ impl PartialEq for RuntimeValue {
             (Self::OneShotResume { used: a, .. }, Self::OneShotResume { used: b, .. }) => {
                 a.get() == b.get()
             }
+            (
+                Self::Handler {
+                    op: o1,
+                    params: p1,
+                    body: b1,
+                    ..
+                },
+                Self::Handler {
+                    op: o2,
+                    params: p2,
+                    body: b2,
+                    ..
+                },
+            ) => o1 == o2 && p1 == p2 && b1 == b2,
             (Self::Builtin(a), Self::Builtin(b)) => a == b,
             (Self::Record(a), Self::Record(b)) => a == b,
             (
@@ -155,6 +182,7 @@ impl RuntimeValue {
                 ret: Box::new(CoreType::Dynamic),
                 effects: Default::default(),
             },
+            Self::Handler { .. } => CoreType::Dynamic,
             Self::Builtin(_) => CoreType::Fun {
                 args: vec![CoreType::Number, CoreType::Number],
                 ret: Box::new(CoreType::Dynamic),
@@ -195,6 +223,7 @@ impl fmt::Display for RuntimeValue {
                 }
             }
             Self::OneShotResume { .. } => "resume".to_string(),
+            Self::Handler { op, .. } => format!("handler({op})"),
             Self::Builtin(op) => format!("builtin({op:?})"),
             Self::Closure { params, .. } => format!("closure({})", params.join(", ")),
             Self::Record(fields) => {

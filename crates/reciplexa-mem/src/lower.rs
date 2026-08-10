@@ -200,6 +200,11 @@ impl Lowerer {
                 let _ = self.lower_expr(body, env);
                 self.lower_expr(handler_body, env)
             }
+            CoreExpr::HandlerValue { handler_body, .. } => self.lower_expr(handler_body, env),
+            CoreExpr::With { handler, body } => {
+                let _ = self.lower_expr(handler, env);
+                self.lower_expr(body, env)
+            }
         }
     }
 
