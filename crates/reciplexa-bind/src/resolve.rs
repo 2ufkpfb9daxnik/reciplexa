@@ -194,13 +194,23 @@ fn lang_resolve_top_form(
     }
     match head.text() {
         "data" => {
-            // `(data Name ctor…)` — declare type name; ctors are value constructors.
+            // `(data Name [((a type)…)] ctor…)` — declare type name; ctors are value constructors.
             if let Some(Atom::Token(name_tok)) = atoms.get(1) {
                 if name_tok.kind() == SyntaxKind::Ident {
                     declare_binding(name_tok, stack, env, errors);
                 }
             }
-            for ctor in atoms.iter().skip(2) {
+            let mut ctor_atoms = &atoms[2..];
+            // Skip DAT-001 type-parameter section `((a type)…)`.
+            if let Some(Atom::Node(params)) = ctor_atoms.first() {
+                if params.kind() == SyntaxKind::List {
+                    let inner = list_atoms(params);
+                    if matches!(inner.first(), Some(Atom::Node(_))) {
+                        ctor_atoms = &ctor_atoms[1..];
+                    }
+                }
+            }
+            for ctor in ctor_atoms {
                 match ctor {
                     Atom::Token(t) if t.kind() == SyntaxKind::Ident => {
                         declare_binding(t, stack, env, errors);

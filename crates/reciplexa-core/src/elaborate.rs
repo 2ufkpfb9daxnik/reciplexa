@@ -57,6 +57,8 @@ pub struct DataEnv {
     pub ctor_type: HashMap<String, String>,
     /// type name → ordered constructors `(tag, arity)`
     pub data_ctors: HashMap<String, Vec<(String, usize)>>,
+    /// type name → type parameter names from `((a type)…)` (DAT-001 §1.2).
+    pub type_params: HashMap<String, Vec<String>>,
     /// Transparent type aliases from `(type name Ty)` / `(type-alias name Ty)`.
     pub type_aliases: HashMap<String, CoreType>,
 }
@@ -220,7 +222,7 @@ fn nest_lets(bindings: Vec<(String, CoreExpr)>, body: CoreExpr) -> CoreExpr {
         })
 }
 
-/// `(data Name (Tag) (Tag payload) …)` — registers constructors; no Core binding.
+/// `(data Name …)` / `(data Name ((a type)…) …)` — registers constructors; no Core binding.
 fn register_data(node: &SyntaxNode, ctx: &mut ElabCtx) -> Result<(), ElaborateError> {
     let atoms = list_atoms(node);
     if atoms.len() < 3 {
@@ -242,8 +244,31 @@ fn register_data(node: &SyntaxNode, ctx: &mut ElabCtx) -> Result<(), ElaborateEr
         ));
     }
     let type_name = binder_name(name_tok)?;
+
+    // DAT-001 §1.2: optional `((a type)…)` parameter section before constructors.
+    let mut ctor_start = 2;
+    if let Some(Atom::Node(params_node)) = atoms.get(2) {
+        if params_node.kind() == SyntaxKind::List && is_data_param_section(params_node) {
+            let params = parse_data_type_params(params_node)?;
+            if params.is_empty() {
+                return Err(ElaborateError::at_node(
+                    "`data` type-parameter section must not be empty (omit it instead)",
+                    params_node,
+                ));
+            }
+            ctx.data.type_params.insert(type_name.clone(), params);
+            ctor_start = 3;
+        }
+    }
+    if ctor_start >= atoms.len() {
+        return Err(ElaborateError::at_node(
+            "`data` requires at least one constructor after the type name",
+            node,
+        ));
+    }
+
     let mut ctors = Vec::new();
-    for ctor in &atoms[2..] {
+    for ctor in &atoms[ctor_start..] {
         match ctor {
             Atom::Token(t) if t.kind() == SyntaxKind::Ident => {
                 let tag = binder_name(t)?;
@@ -277,21 +302,21 @@ fn register_data(node: &SyntaxNode, ctx: &mut ElabCtx) -> Result<(), ElaborateEr
                         Atom::Token(p) if p.kind() == SyntaxKind::Ident => {}
                         Atom::Token(p) => {
                             return Err(ElaborateError::at_token(
-                                "constructor payload binder must be an identifier",
+                                "constructor payload type must be an identifier",
                                 p,
                             ));
                         }
                         Atom::Path(p) => {
                             return Err(ElaborateError::new(
                                 format!(
-                                    "constructor payload binder must be an identifier, got path `{p}`"
+                                    "constructor payload type must be an identifier, got path `{p}`"
                                 ),
                                 TextRange::EMPTY,
                             ));
                         }
                         Atom::Node(pn) => {
                             return Err(ElaborateError::at_node(
-                                "constructor payload binder must be an identifier",
+                                "constructor payload type must be an identifier",
                                 pn,
                             ));
                         }
@@ -326,6 +351,86 @@ fn register_data(node: &SyntaxNode, ctx: &mut ElabCtx) -> Result<(), ElaborateEr
     }
     ctx.data.data_ctors.insert(type_name, ctors);
     Ok(())
+}
+
+/// True when `node` is `((a type)…)` rather than a constructor `(Tag …)`.
+fn is_data_param_section(node: &SyntaxNode) -> bool {
+    let items = list_atoms(node);
+    if items.is_empty() {
+        return false;
+    }
+    // Parameter section entries are nested lists `(name kind)`; constructors
+    // start with an Ident tag.
+    matches!(items.first(), Some(Atom::Node(_)))
+}
+
+fn parse_data_type_params(node: &SyntaxNode) -> Result<Vec<String>, ElaborateError> {
+    let mut params = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+    for item in list_atoms(node) {
+        let Atom::Node(pair) = item else {
+            return Err(ElaborateError::at_node(
+                "`data` type parameter must be `(name type)`",
+                node,
+            ));
+        };
+        if pair.kind() != SyntaxKind::List {
+            return Err(ElaborateError::at_node(
+                "`data` type parameter must be `(name type)`",
+                &pair,
+            ));
+        }
+        let pa = list_atoms(&pair);
+        if pa.len() != 2 {
+            return Err(ElaborateError::at_node(
+                "`data` type parameter must be `(name type)`",
+                &pair,
+            ));
+        }
+        let Atom::Token(name_tok) = &pa[0] else {
+            return Err(ElaborateError::at_node(
+                "`data` type parameter name must be an identifier",
+                &pair,
+            ));
+        };
+        if name_tok.kind() != SyntaxKind::Ident {
+            return Err(ElaborateError::at_token(
+                "`data` type parameter name must be an identifier",
+                name_tok,
+            ));
+        }
+        let Atom::Token(kind_tok) = &pa[1] else {
+            return Err(ElaborateError::at_node(
+                "`data` type parameter kind must be an identifier (usually `type`)",
+                &pair,
+            ));
+        };
+        if kind_tok.kind() != SyntaxKind::Ident {
+            return Err(ElaborateError::at_token(
+                "`data` type parameter kind must be an identifier (usually `type`)",
+                kind_tok,
+            ));
+        }
+        // Kind is recorded only as `type` in v1; other kinds are rejected early.
+        if kind_tok.text() != "type" {
+            return Err(ElaborateError::at_token(
+                format!(
+                    "`data` type parameter kind must be `type`, got `{}`",
+                    kind_tok.text()
+                ),
+                kind_tok,
+            ));
+        }
+        let name = binder_name(name_tok)?;
+        if !seen.insert(name.clone()) {
+            return Err(ElaborateError::at_token(
+                format!("duplicate type parameter `{name}`"),
+                name_tok,
+            ));
+        }
+        params.push(name);
+    }
+    Ok(params)
 }
 
 /// SYN §16 / §13: `(type name Ty)` or `(type-alias name Ty)` — transparent alias.

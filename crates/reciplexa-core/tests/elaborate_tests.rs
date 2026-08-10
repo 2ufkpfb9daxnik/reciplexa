@@ -187,6 +187,50 @@ fn elaborates_data_option_and_match() {
 }
 
 #[test]
+fn elaborates_parameterized_data_option() {
+    use reciplexa_core::elaborate_with_data;
+    let (expr, data) = elaborate_with_data(
+        r#"
+(data option
+  ((a type))
+  none
+  (some a))
+(val main (match (some 1) (none -> 0) (some x -> x)))
+"#,
+    )
+    .unwrap();
+    assert_eq!(
+        data.type_params.get("option").map(Vec::as_slice),
+        Some(["a"].as_slice())
+    );
+    assert_eq!(data.ctors.get("none"), Some(&0));
+    assert_eq!(data.ctors.get("some"), Some(&1));
+    assert_eq!(
+        data.ctor_type.get("some").map(String::as_str),
+        Some("option")
+    );
+    let CoreExpr::Let { value, .. } = expr else {
+        panic!("expected Let");
+    };
+    assert!(matches!(*value, CoreExpr::Match { .. }));
+
+    let empty = elaborate_with_data(
+        r#"
+(data option
+  ()
+  none)
+(val main none)
+"#,
+    )
+    .unwrap_err();
+    assert!(
+        empty.message.contains("empty") || empty.message.contains("constructor"),
+        "got: {}",
+        empty.message
+    );
+}
+
+#[test]
 fn elaborates_wildcard_bind_and_nested_patterns() {
     let expr = elaborate_source(
         r#"
