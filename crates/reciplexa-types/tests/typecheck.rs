@@ -1,3 +1,9 @@
+//! DOCUMENT SURFACE typecheck tests (page / markup / shape prelude).
+//!
+//! These are **not** language-kernel semantics. Language TYP lives in
+//! `reciplexa_core::typecheck_language_source` and `reciplexa-test` lang_kernel_suite.
+//! Prototype package graphics remain here until PKG-001.
+
 use reciplexa_syntax::parse_source;
 use reciplexa_types::*;
 

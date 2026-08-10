@@ -32,6 +32,7 @@ reciplexa-identity = { workspace = true }
 reciplexa = { path = "../reciplexa" }
 reciplexa-syntax = { workspace = true }
 reciplexa-bind = { workspace = true }
+reciplexa-macro = { workspace = true }
 reciplexa-opt = { workspace = true }
 reciplexa-harden = { workspace = true }
 reciplexa-proof = { workspace = true }

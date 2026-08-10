@@ -1,6 +1,10 @@
-//! Minimal structural type checker for the M3–M9 surface vocabulary.
+//! DOCUMENT SURFACE type checker (not the language kernel).
 //!
-//! This is intentionally a **slice** of the eventual type system: fixed
+//! Checks page / markup / shape / perform-handle prelude forms for the
+//! document pipeline. Language semantics typecheck lives on Core via
+//! `reciplexa_core::typecheck_language_source` (TYP-001).
+//!
+//! This is intentionally a **slice** of the eventual package surface: fixed
 //! builtin signatures, no polymorphism, thin effect rows via `perform`.
 //! Fail-fast: the first error aborts (SATySFi-style for this milestone).
 
