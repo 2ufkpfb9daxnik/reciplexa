@@ -1,7 +1,8 @@
 //! Surface syntax → Core elaborator (BND-001 / EVAL-001 / DAT-001).
 //!
 //! Supports language-kernel forms only: `val` / `fn` / `let` / `letrec` / `var` /
-//! `set` / `if` / `seq` / `data` / `match` / app / lit / perform / handle.
+//! `set` / `if` / `seq` / `data` / `match` / `record` / `field` / `list` / `tuple` /
+//! app / lit / perform / handle.
 //! Graphics / page / markup forms are rejected (quarantined to the document pipeline).
 
 use std::collections::HashMap;
@@ -418,6 +419,10 @@ fn elaborate_list(node: &SyntaxNode, ctx: &ElabCtx) -> Result<CoreExpr, Elaborat
                 "set" => return elaborate_set(&atoms[1..], node, ctx),
                 "if" => return elaborate_if(&atoms[1..], node, ctx),
                 "match" => return elaborate_match(&atoms[1..], node, ctx),
+                "record" => return elaborate_record(&atoms[1..], node, ctx),
+                "field" => return elaborate_field(&atoms[1..], node, ctx),
+                "list" => return elaborate_list_lit(&atoms[1..], ctx),
+                "tuple" => return elaborate_tuple(&atoms[1..], node, ctx),
                 "seq" => {
                     if atoms.len() < 2 {
                         return Err(ElaborateError::at_node(
@@ -471,6 +476,131 @@ fn elaborate_list(node: &SyntaxNode, ctx: &ElabCtx) -> Result<CoreExpr, Elaborat
         fun: Box::new(fun),
         args,
     })
+}
+
+/// SYN §15.3: `(record (label expr)…)` → [`CoreExpr::Record`].
+fn elaborate_record(
+    rest: &[Atom],
+    parent: &SyntaxNode,
+    ctx: &ElabCtx,
+) -> Result<CoreExpr, ElaborateError> {
+    let mut fields = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+    for atom in rest {
+        let Atom::Node(pair) = atom else {
+            return Err(ElaborateError::at_node(
+                "`record` field must be `(label expr)`",
+                parent,
+            ));
+        };
+        if pair.kind() != SyntaxKind::List {
+            return Err(ElaborateError::at_node(
+                "`record` field must be `(label expr)`",
+                pair,
+            ));
+        }
+        let pair_atoms = list_atoms(pair);
+        if pair_atoms.len() != 2 {
+            return Err(ElaborateError::at_node(
+                "`record` field must be `(label expr)`",
+                pair,
+            ));
+        }
+        let Atom::Token(label_tok) = &pair_atoms[0] else {
+            return Err(ElaborateError::at_node(
+                "`record` field label must be an identifier",
+                pair,
+            ));
+        };
+        if label_tok.kind() != SyntaxKind::Ident {
+            return Err(ElaborateError::at_token(
+                "`record` field label must be an identifier",
+                label_tok,
+            ));
+        }
+        let label = label_tok.text().to_string();
+        if !seen.insert(label.clone()) {
+            return Err(ElaborateError::at_token(
+                format!("duplicate record field `{label}`"),
+                label_tok,
+            ));
+        }
+        let value = elaborate_atom(&pair_atoms[1], ctx)?;
+        fields.push((label, value));
+    }
+    Ok(CoreExpr::Record { fields })
+}
+
+/// SYN §15.4: `(field record label)` → [`CoreExpr::RecordGet`].
+fn elaborate_field(
+    rest: &[Atom],
+    parent: &SyntaxNode,
+    ctx: &ElabCtx,
+) -> Result<CoreExpr, ElaborateError> {
+    if rest.len() != 2 {
+        return Err(ElaborateError::at_node(
+            "`field` requires a record expression and a static label",
+            parent,
+        ));
+    }
+    let record = elaborate_atom(&rest[0], ctx)?;
+    let Atom::Token(label_tok) = &rest[1] else {
+        return Err(ElaborateError::at_node(
+            "`field` label must be an identifier (static LabelId)",
+            parent,
+        ));
+    };
+    if label_tok.kind() != SyntaxKind::Ident {
+        return Err(ElaborateError::at_token(
+            "`field` label must be an identifier (static LabelId)",
+            label_tok,
+        ));
+    }
+    Ok(CoreExpr::RecordGet {
+        record: Box::new(record),
+        field: label_tok.text().to_string(),
+    })
+}
+
+/// SYN §15.1 list encoding: nested variants `Cons` / `Nil`.
+/// `Cons` payload is a 2-field record `("head", x) ("tail", rest)`.
+fn elaborate_list_lit(rest: &[Atom], ctx: &ElabCtx) -> Result<CoreExpr, ElaborateError> {
+    let mut acc = CoreExpr::Variant {
+        tag: "Nil".into(),
+        payload: None,
+    };
+    for atom in rest.iter().rev() {
+        let head = elaborate_atom(atom, ctx)?;
+        acc = CoreExpr::Variant {
+            tag: "Cons".into(),
+            payload: Some(Box::new(CoreExpr::Record {
+                fields: vec![("head".into(), head), ("tail".into(), acc)],
+            })),
+        };
+    }
+    Ok(acc)
+}
+
+/// SYN §15.2 tuple encoding: closed record with positional labels `"0"`, `"1"`, …
+/// - 0 elems → `unit`
+/// - 1 elem → the element itself
+/// - 2+ → [`CoreExpr::Record`]
+fn elaborate_tuple(
+    rest: &[Atom],
+    _parent: &SyntaxNode,
+    ctx: &ElabCtx,
+) -> Result<CoreExpr, ElaborateError> {
+    match rest.len() {
+        0 => Ok(CoreExpr::Lit(CoreLiteral::Unit)),
+        1 => elaborate_atom(&rest[0], ctx),
+        _ => {
+            let mut fields = Vec::with_capacity(rest.len());
+            for (i, atom) in rest.iter().enumerate() {
+                fields.push((i.to_string(), elaborate_atom(atom, ctx)?));
+            }
+            Ok(CoreExpr::Record { fields })
+        }
+    }
 }
 
 fn elaborate_match(

@@ -51,6 +51,18 @@ fn unit_literal_types_as_unit() {
 }
 
 #[test]
+fn record_field_types() {
+    let ty = typecheck_language_source(
+        r#"
+(val report (record (title "Report") (page-count 10)))
+(val main (field report title))
+"#,
+    )
+    .unwrap();
+    assert_eq!(ty, CoreType::String);
+}
+
+#[test]
 fn perform_adds_effect_to_fun() {
     use reciplexa_core::unify::Subst;
     use reciplexa_core::{elaborate_source, infer_with_effects, TypeEnv};

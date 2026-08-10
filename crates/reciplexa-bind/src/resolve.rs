@@ -380,6 +380,34 @@ fn lang_resolve_list(
                     lang_resolve_match(&atoms[1..], stack, env, errors, map);
                     return;
                 }
+                "record" => {
+                    // (record (label expr)…) — labels are static; resolve values only.
+                    for atom in &atoms[1..] {
+                        match atom {
+                            Atom::Node(pair) if pair.kind() == SyntaxKind::List => {
+                                let pair_atoms = list_atoms(pair);
+                                for a in pair_atoms.iter().skip(1) {
+                                    lang_resolve_atom(a, stack, env, errors, map);
+                                }
+                            }
+                            other => lang_resolve_atom(other, stack, env, errors, map),
+                        }
+                    }
+                    return;
+                }
+                "field" => {
+                    // (field record label) — label is static LabelId, not a use-site.
+                    if let Some(rec) = atoms.get(1) {
+                        lang_resolve_atom(rec, stack, env, errors, map);
+                    }
+                    return;
+                }
+                "list" | "tuple" => {
+                    for atom in &atoms[1..] {
+                        lang_resolve_atom(atom, stack, env, errors, map);
+                    }
+                    return;
+                }
                 "perform" => {
                     // (perform op arg) — op is an effect name, not a value binding.
                     for atom in atoms.iter().skip(2) {
@@ -688,6 +716,10 @@ fn is_language_keyword(name: &str) -> bool {
             | "type"
             | "data"
             | "match"
+            | "record"
+            | "field"
+            | "list"
+            | "tuple"
             | "true"
             | "false"
             | "unit"

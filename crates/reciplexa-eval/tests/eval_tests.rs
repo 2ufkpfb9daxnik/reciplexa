@@ -563,6 +563,41 @@ fn eval_source_unit_literal() {
 }
 
 #[test]
+fn eval_source_record_field() {
+    let v = eval_source(
+        r#"
+(val report (record (title "Report") (page-count 10)))
+(val main (field report title))
+"#,
+    )
+    .unwrap();
+    assert_eq!(v, RuntimeValue::String("Report".into()));
+}
+
+#[test]
+fn eval_source_list_and_tuple() {
+    let empty = eval_source("(val main (list))").unwrap();
+    assert_eq!(
+        empty,
+        RuntimeValue::Variant {
+            tag: "Nil".into(),
+            payload: None
+        }
+    );
+    let tup = eval_source(r#"(val main (tuple 1 "a"))"#).unwrap();
+    match tup {
+        RuntimeValue::Record(fields) => {
+            assert_eq!(fields.len(), 2);
+            assert_eq!(fields[0].0, "0");
+            assert_eq!(fields[0].1, RuntimeValue::Number(1.0));
+            assert_eq!(fields[1].0, "1");
+            assert_eq!(fields[1].1, RuntimeValue::String("a".into()));
+        }
+        other => panic!("expected Record, got {other:?}"),
+    }
+}
+
+#[test]
 fn eval_source_letrec_simple() {
     // Recurse once then return 7 (no numeric primitives required).
     let src = r#"

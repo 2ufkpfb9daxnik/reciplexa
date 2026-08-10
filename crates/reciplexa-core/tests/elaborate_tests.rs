@@ -211,3 +211,63 @@ fn rejects_empty_parens_as_unit() {
         err.message
     );
 }
+
+#[test]
+fn elaborates_record_field_list_tuple() {
+    let expr = elaborate_source(
+        r#"
+(val report (record (title "Report") (page-count 10)))
+(val main (field report title))
+"#,
+    )
+    .unwrap();
+    let CoreExpr::Let { value, body, .. } = expr else {
+        panic!("expected outer Let");
+    };
+    assert!(matches!(
+        *value,
+        CoreExpr::Record { ref fields } if fields.len() == 2
+            && fields[0].0 == "title"
+            && fields[1].0 == "page-count"
+    ));
+    let CoreExpr::Let { value: main_v, .. } = *body else {
+        panic!("expected main Let");
+    };
+    assert!(matches!(
+        *main_v,
+        CoreExpr::RecordGet { ref field, .. } if field == "title"
+    ));
+
+    let list = elaborate_source("(val main (list 1 2))").unwrap();
+    let CoreExpr::Let { value, .. } = list else {
+        panic!("expected Let");
+    };
+    assert!(matches!(
+        *value,
+        CoreExpr::Variant { ref tag, payload: Some(_) } if tag == "Cons"
+    ));
+
+    let tup = elaborate_source(r#"(val main (tuple 1 "title" true))"#).unwrap();
+    let CoreExpr::Let { value, .. } = tup else {
+        panic!("expected Let");
+    };
+    assert!(matches!(
+        *value,
+        CoreExpr::Record { ref fields } if fields.len() == 3
+            && fields[0].0 == "0"
+            && fields[1].0 == "1"
+            && fields[2].0 == "2"
+    ));
+
+    let empty_tup = elaborate_source("(val main (tuple))").unwrap();
+    let CoreExpr::Let { value, .. } = empty_tup else {
+        panic!("expected Let");
+    };
+    assert_eq!(*value, CoreExpr::Lit(CoreLiteral::Unit));
+
+    let one_tup = elaborate_source("(val main (tuple 42))").unwrap();
+    let CoreExpr::Let { value, .. } = one_tup else {
+        panic!("expected Let");
+    };
+    assert_eq!(*value, CoreExpr::Lit(CoreLiteral::Number(42.0)));
+}
