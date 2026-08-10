@@ -62,7 +62,8 @@ impl Default for GuiExportHandler {
 
 impl EffectHandler for GuiExportHandler {
     fn on_log(&mut self, message: &str) -> Result<Value, EffectError> {
-        eprintln!("[perform log] {message}");
+        // Residual effect only (not REPL result dumping).
+        eprintln!("{message}");
         Ok(Value::Unit)
     }
 
@@ -71,7 +72,7 @@ impl EffectHandler for GuiExportHandler {
     }
 
     fn on_write_path(&mut self, path: &str) -> Result<Value, EffectError> {
-        eprintln!("[perform write-path] {path}");
+        eprintln!("{path}");
         Ok(Value::Unit)
     }
 }

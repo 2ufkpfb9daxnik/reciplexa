@@ -116,7 +116,8 @@ impl Default for CliHandler {
 
 impl EffectHandler for CliHandler {
     fn on_log(&mut self, message: &str) -> Result<Value, EffectError> {
-        eprintln!("[perform log] {message}");
+        // Residual `log` effect only — never dump expression results as a REPL would.
+        println!("{message}");
         Ok(Value::Unit)
     }
 
@@ -125,7 +126,7 @@ impl EffectHandler for CliHandler {
     }
 
     fn on_write_path(&mut self, path: &str) -> Result<Value, EffectError> {
-        eprintln!("[perform write-path] {path}");
+        eprintln!("{path}");
         Ok(Value::Unit)
     }
 }
