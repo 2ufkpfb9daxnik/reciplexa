@@ -49,7 +49,10 @@ fn elaborate_units_links_import_only() {
         vec![ImportDecl {
             module: "lib".into(),
             alias: None,
-            only: Some(vec!["id".into()]),
+            only: Some(vec![ImportItem {
+                name: "id".into(),
+                rename: None,
+            }]),
         }]
     );
     assert!(matches!(main.expr, CoreExpr::Let { ref name, .. } if name == "id"));
@@ -73,8 +76,54 @@ fn elaborate_units_import_as_and_flat_only() {
         vec![ImportDecl {
             module: "graphics/color".into(),
             alias: Some("color".into()),
-            only: Some(vec!["black".into(), "white".into()]),
+            only: Some(vec![
+                ImportItem {
+                    name: "black".into(),
+                    rename: None,
+                },
+                ImportItem {
+                    name: "white".into(),
+                    rename: None,
+                },
+            ]),
         }]
+    );
+    let v = eval_expr(&main.expr, &HashMap::new(), &mut UnitHost).unwrap();
+    assert_eq!(v, RuntimeValue::Number(0.0));
+}
+
+#[test]
+fn elaborate_units_qualified_ref_after_as() {
+    let units = elaborate_units(&[
+        ("graphics/color", r#"(val black 0) (val white 1)"#),
+        (
+            "main",
+            r#"(import graphics/color as color) (val main color/black)"#,
+        ),
+    ])
+    .unwrap();
+    let main = units.iter().find(|u| u.name == "main").unwrap();
+    let v = eval_expr(&main.expr, &HashMap::new(), &mut UnitHost).unwrap();
+    assert_eq!(v, RuntimeValue::Number(0.0));
+}
+
+#[test]
+fn elaborate_units_only_rename() {
+    let units = elaborate_units(&[
+        ("graphics/color", r#"(val black 0) (val white 1)"#),
+        (
+            "main",
+            r#"(import graphics/color only black as blk) (val main blk)"#,
+        ),
+    ])
+    .unwrap();
+    let main = units.iter().find(|u| u.name == "main").unwrap();
+    assert_eq!(
+        main.imports[0].only.as_ref().unwrap()[0],
+        ImportItem {
+            name: "black".into(),
+            rename: Some("blk".into()),
+        }
     );
     let v = eval_expr(&main.expr, &HashMap::new(), &mut UnitHost).unwrap();
     assert_eq!(v, RuntimeValue::Number(0.0));

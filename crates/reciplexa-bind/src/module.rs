@@ -51,6 +51,13 @@ impl ModuleSkeleton {
     }
 }
 
+/// One selective-import item: `name` or `name as local-name` (MOD-001 §6.6).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ImportItem {
+    pub name: String,
+    pub rename: Option<String>,
+}
+
 /// `(import path)`, `(import path as alias)`, `(import path only a b)`, …
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ImportDecl {
@@ -58,8 +65,8 @@ pub struct ImportDecl {
     pub module: String,
     /// Optional module alias from `as name` (MOD-001 §6.2).
     pub alias: Option<String>,
-    /// Selective imports: flat `only a b` or legacy `only (a b)`.
-    pub only: Option<Vec<String>>,
+    /// Selective imports: flat `only a b` / `only a as b` or legacy `only (a b)`.
+    pub only: Option<Vec<ImportItem>>,
 }
 
 /// One elaborated outer module unit.
@@ -148,26 +155,40 @@ pub fn elaborate_units(units: &[(&str, &str)]) -> Result<Vec<ElaboratedUnit>, Mo
             let table = binding_tables.get(&imp.module).ok_or_else(|| {
                 ModuleError::new(format!("missing unit `{}` during link", imp.module))
             })?;
-            let export_names: Vec<String> = match &imp.only {
-                Some(only) => only.clone(),
-                None => {
-                    let mut keys: Vec<_> = table.keys().cloned().collect();
-                    keys.sort();
-                    keys
+
+            // Bare names from `only` (§6.3–6.4), applied innermost so they
+            // shadow any same-named qualified bindings from outer wraps.
+            if let Some(items) = &imp.only {
+                for item in items.iter().rev() {
+                    let value = table.get(&item.name).ok_or_else(|| {
+                        ModuleError::new(format!(
+                            "module `{name}` imports `{}` from `{}`, but it is not exported",
+                            item.name, imp.module
+                        ))
+                    })?;
+                    let local = item.rename.clone().unwrap_or_else(|| item.name.clone());
+                    linked = CoreExpr::Let {
+                        name: local,
+                        value: Box::new(value.clone()),
+                        body: Box::new(linked),
+                    };
                 }
-            };
-            for export_name in export_names.into_iter().rev() {
-                let value = table.get(&export_name).ok_or_else(|| {
-                    ModuleError::new(format!(
-                        "module `{name}` imports `{export_name}` from `{}`, but it is not exported",
-                        imp.module
-                    ))
-                })?;
-                linked = CoreExpr::Let {
-                    name: export_name,
-                    value: Box::new(value.clone()),
-                    body: Box::new(linked),
-                };
+            }
+
+            // Qualified refs (§6.1–6.2, §6.5): `prefix/export` for every export
+            // when there is a module alias, or when `only` is absent (formal path).
+            if imp.alias.is_some() || imp.only.is_none() {
+                let prefix = imp.alias.as_deref().unwrap_or(imp.module.as_str());
+                let mut keys: Vec<_> = table.keys().cloned().collect();
+                keys.sort();
+                for export_name in keys.into_iter().rev() {
+                    let value = table.get(&export_name).expect("key from table");
+                    linked = CoreExpr::Let {
+                        name: format!("{prefix}/{export_name}"),
+                        value: Box::new(value.clone()),
+                        body: Box::new(linked),
+                    };
+                }
             }
         }
         out.push(ElaboratedUnit {
@@ -266,7 +287,10 @@ fn parse_import_list(node: &SyntaxNode) -> Result<Option<ImportDecl>, ModuleErro
                     let mut names = Vec::new();
                     for a in list_idents_and_nodes(list) {
                         match a {
-                            AtomRef::Ident(n) => names.push(n),
+                            AtomRef::Ident(n) => names.push(ImportItem {
+                                name: n,
+                                rename: None,
+                            }),
                             AtomRef::Node(_) => {
                                 return Err(ModuleError::new(
                                     "`import … only` list entries must be identifiers",
@@ -277,13 +301,27 @@ fn parse_import_list(node: &SyntaxNode) -> Result<Option<ImportDecl>, ModuleErro
                     only = Some(names);
                     i += 1;
                 } else {
-                    // Flat: `(import m only a b c)` (MOD-001 §6.3)
+                    // Flat: `(import m only a b)` / `only a as b` (MOD-001 §6.3–6.6)
                     let mut names = Vec::new();
                     while i < atoms.len() {
                         match &atoms[i] {
                             AtomRef::Ident(n) if n != "as" && n != "only" => {
-                                names.push(n.clone());
+                                let name = n.clone();
                                 i += 1;
+                                let rename = if matches!(atoms.get(i), Some(AtomRef::Ident(kw)) if kw == "as")
+                                {
+                                    i += 1;
+                                    let Some(AtomRef::Ident(local)) = atoms.get(i) else {
+                                        return Err(ModuleError::new(
+                                            "`import … only name as` requires a local name",
+                                        ));
+                                    };
+                                    i += 1;
+                                    Some(local.clone())
+                                } else {
+                                    None
+                                };
+                                names.push(ImportItem { name, rename });
                             }
                             AtomRef::Ident(_) => break,
                             AtomRef::Node(_) => {
