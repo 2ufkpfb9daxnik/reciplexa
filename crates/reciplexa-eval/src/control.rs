@@ -1,5 +1,6 @@
 //! Evaluation control outcomes and effect host for deep handlers.
 
+use std::collections::HashMap;
 use std::rc::Rc;
 
 use crate::value::RuntimeValue;
@@ -22,6 +23,54 @@ impl EffectHost for UnitHost {
         match op {
             "log" => Ok(RuntimeValue::Unit),
             "random" => Ok(RuntimeValue::Number(0.5)),
+            "read-file" | "write-file" => Err(EvalError {
+                message: format!("unhandled residual effect `{op}`"),
+            }),
+            other => Err(EvalError {
+                message: format!("unknown op `{other}`"),
+            }),
+        }
+    }
+}
+
+/// RSC-001 in-memory filesystem host for `read-file` / `write-file`.
+#[derive(Debug, Default, Clone)]
+pub struct MemoryFsHost {
+    pub files: HashMap<String, String>,
+}
+
+impl EffectHost for MemoryFsHost {
+    fn perform(&mut self, op: &str, arg: RuntimeValue) -> EvalResult {
+        match op {
+            "log" => Ok(RuntimeValue::Unit),
+            "random" => Ok(RuntimeValue::Number(0.5)),
+            "read-file" => {
+                let RuntimeValue::String(path) = arg else {
+                    return Err(EvalError {
+                        message: "read-file expects a string path".into(),
+                    });
+                };
+                self.files
+                    .get(&path)
+                    .cloned()
+                    .map(RuntimeValue::String)
+                    .ok_or_else(|| EvalError {
+                        message: format!("read-file: missing `{path}`"),
+                    })
+            }
+            "write-file" => {
+                // Arg encoding: "path\\0content" (NUL-separated).
+                let RuntimeValue::String(raw) = arg else {
+                    return Err(EvalError {
+                        message: "write-file expects a string `path\\0content`".into(),
+                    });
+                };
+                let (path, content) = raw.split_once('\0').ok_or_else(|| EvalError {
+                    message: "write-file expects `path\\0content`".into(),
+                })?;
+                self.files.insert(path.to_string(), content.to_string());
+                Ok(RuntimeValue::Unit)
+            }
             other => Err(EvalError {
                 message: format!("unknown op `{other}`"),
             }),
