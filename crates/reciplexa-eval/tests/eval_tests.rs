@@ -28,15 +28,39 @@ fn let_binds_in_body() {
 
 #[test]
 fn lambda_application() {
+    // (λx. x) 2
     let expr = CoreExpr::App {
         fun: Box::new(CoreExpr::Lambda {
             param: "x".into(),
-            body: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
+            body: Box::new(CoreExpr::Var("x".into())),
         }),
         arg: Box::new(CoreExpr::Lit(CoreLiteral::Number(2.0))),
     };
     let v = eval_expr(&expr, &HashMap::new(), &mut UnitHost).unwrap();
+    assert_eq!(v, RuntimeValue::Number(2.0));
+}
+
+#[test]
+fn let_binds_var_in_body() {
+    // let x = 1 in x
+    let expr = CoreExpr::Let {
+        name: "x".into(),
+        value: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
+        body: Box::new(CoreExpr::Var("x".into())),
+    };
+    let v = eval_expr(&expr, &HashMap::new(), &mut UnitHost).unwrap();
     assert_eq!(v, RuntimeValue::Number(1.0));
+}
+
+#[test]
+fn unbound_var_errors() {
+    let err = eval_expr(
+        &CoreExpr::Var("x".into()),
+        &HashMap::new(),
+        &mut UnitHost,
+    )
+    .unwrap_err();
+    assert!(err.message.contains("unbound variable"));
 }
 
 #[test]

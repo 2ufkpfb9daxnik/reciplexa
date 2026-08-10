@@ -47,6 +47,7 @@ impl Lowerer {
                 self.emit(MemInstr::Lit { dst, lit: mem_lit });
                 dst
             }
+            CoreExpr::Var(name) => env.get(name).copied().unwrap_or_else(|| self.unit()),
             CoreExpr::Seq(items) => {
                 let mut last = self.unit();
                 for item in items {

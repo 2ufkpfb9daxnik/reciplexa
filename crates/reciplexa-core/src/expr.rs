@@ -12,6 +12,8 @@ pub enum CoreLiteral {
 #[derive(Debug, Clone, PartialEq)]
 pub enum CoreExpr {
     Lit(CoreLiteral),
+    /// Variable reference by binder name (BindingId later).
+    Var(String),
     Perform {
         op: String,
         arg: Box<CoreExpr>,

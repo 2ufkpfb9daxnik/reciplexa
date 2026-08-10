@@ -38,6 +38,9 @@ pub fn eval_expr<H: EffectHost>(
 ) -> EvalResult {
     match expr {
         CoreExpr::Lit(lit) => eval_lit(lit),
+        CoreExpr::Var(name) => env.get(name).cloned().ok_or_else(|| EvalError {
+            message: format!("unbound variable `{name}`"),
+        }),
         CoreExpr::Perform { op, arg } => {
             let v = eval_expr(arg, env, host)?;
             host.perform(op, v)

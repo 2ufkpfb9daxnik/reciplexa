@@ -16,13 +16,47 @@ fn infers_lambda_application() {
     let expr = CoreExpr::App {
         fun: Box::new(CoreExpr::Lambda {
             param: "x".into(),
-            body: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
+            body: Box::new(CoreExpr::Var("x".into())),
         }),
         arg: Box::new(CoreExpr::Lit(CoreLiteral::Number(2.0))),
     };
     let mut subst = Subst::new();
     let ty = infer_expr(&expr, &TypeEnv::new(), &mut subst, range()).unwrap();
     assert_eq!(subst.apply(&ty), CoreType::Number);
+}
+
+#[test]
+fn infers_let_binding_via_var() {
+    // let x = 1 in x
+    let expr = CoreExpr::Let {
+        name: "x".into(),
+        value: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
+        body: Box::new(CoreExpr::Var("x".into())),
+    };
+    let mut subst = Subst::new();
+    let ty = infer_expr(&expr, &TypeEnv::new(), &mut subst, range()).unwrap();
+    assert_eq!(ty, CoreType::Number);
+}
+
+#[test]
+fn unbound_var_errors() {
+    let expr = CoreExpr::Var("missing".into());
+    let err = infer_expr(&expr, &TypeEnv::new(), &mut Subst::new(), range()).unwrap_err();
+    assert!(err.message.contains("unbound variable"));
+}
+
+#[test]
+fn type_env_lookup_for_var() {
+    let mut env = TypeEnv::new();
+    env.insert("x", CoreType::String);
+    let ty = infer_expr(
+        &CoreExpr::Var("x".into()),
+        &env,
+        &mut Subst::new(),
+        range(),
+    )
+    .unwrap();
+    assert_eq!(ty, CoreType::String);
 }
 
 #[test]

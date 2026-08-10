@@ -49,6 +49,11 @@ pub fn infer_expr(
             CoreLiteral::String(_) => CoreType::String,
             CoreLiteral::Color(_) => CoreType::Color,
         }),
+        CoreExpr::Var(name) => env
+            .vars
+            .get(name)
+            .cloned()
+            .ok_or_else(|| CheckError::at(format!("unbound variable `{name}`"), range)),
         CoreExpr::Perform { op, arg } => {
             let arg_ty = infer_expr(arg, env, subst, range)?;
             if !matches!(arg_ty, CoreType::String) {
