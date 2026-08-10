@@ -298,29 +298,9 @@ fn register_data(node: &SyntaxNode, ctx: &mut ElabCtx) -> Result<(), ElaborateEr
                 }
                 let arity = ca.len() - 1;
                 for payload in &ca[1..] {
-                    match payload {
-                        Atom::Token(p) if p.kind() == SyntaxKind::Ident => {}
-                        Atom::Token(p) => {
-                            return Err(ElaborateError::at_token(
-                                "constructor payload type must be an identifier",
-                                p,
-                            ));
-                        }
-                        Atom::Path(p) => {
-                            return Err(ElaborateError::new(
-                                format!(
-                                    "constructor payload type must be an identifier, got path `{p}`"
-                                ),
-                                TextRange::EMPTY,
-                            ));
-                        }
-                        Atom::Node(pn) => {
-                            return Err(ElaborateError::at_node(
-                                "constructor payload type must be an identifier",
-                                pn,
-                            ));
-                        }
-                    }
+                    // DAT §9.2: allow nested payload types (e.g. `(fn T U)`) so
+                    // strict positivity can reject obvious negative recursion.
+                    check_payload_positivity(payload, &type_name, true, n)?;
                 }
                 let tag = binder_name(tag_tok)?;
                 ctx.data.ctors.insert(tag.clone(), arity);
@@ -351,6 +331,84 @@ fn register_data(node: &SyntaxNode, ctx: &mut ElabCtx) -> Result<(), ElaborateEr
     }
     ctx.data.data_ctors.insert(type_name, ctors);
     Ok(())
+}
+
+/// DAT §9.2 strict positivity (minimal): the defining type name must not appear
+/// in a negative position (function argument). Positive self-reference and
+/// appearance under other type constructors are allowed. Mutual-group and full
+/// variance inference are not handled here.
+fn check_payload_positivity(
+    payload: &Atom,
+    type_name: &str,
+    positive: bool,
+    ctor_node: &SyntaxNode,
+) -> Result<(), ElaborateError> {
+    match payload {
+        Atom::Token(p) if p.kind() == SyntaxKind::Ident => {
+            let name = normalize_ident(p.text());
+            if name == type_name && !positive {
+                return Err(ElaborateError::at_token(
+                    format!(
+                        "strict positivity violation: `{type_name}` appears in a negative position"
+                    ),
+                    p,
+                ));
+            }
+            Ok(())
+        }
+        Atom::Token(p) => Err(ElaborateError::at_token(
+            "constructor payload type must be an identifier or type form",
+            p,
+        )),
+        Atom::Path(p) => Err(ElaborateError::new(
+            format!("constructor payload type must be an identifier or type form, got path `{p}`"),
+            TextRange::EMPTY,
+        )),
+        Atom::Node(pn) if pn.kind() == SyntaxKind::List => {
+            let items = list_atoms(pn);
+            let Some(Atom::Token(head)) = items.first() else {
+                return Err(ElaborateError::at_node(
+                    "constructor payload type list must not be empty",
+                    pn,
+                ));
+            };
+            if head.kind() != SyntaxKind::Ident {
+                return Err(ElaborateError::at_token(
+                    "constructor payload type constructor must be an identifier",
+                    head,
+                ));
+            }
+            match head.text() {
+                "fn" => {
+                    // `(fn Arg Ret)` or `(fn Arg0 Arg1 … Ret)` — all but last are negative.
+                    if items.len() < 3 {
+                        return Err(ElaborateError::at_node(
+                            "`fn` payload type requires at least one argument type and a result type",
+                            pn,
+                        ));
+                    }
+                    let args = &items[1..items.len() - 1];
+                    let ret = &items[items.len() - 1];
+                    for arg in args {
+                        check_payload_positivity(arg, type_name, !positive, ctor_node)?;
+                    }
+                    check_payload_positivity(ret, type_name, positive, ctor_node)
+                }
+                _ => {
+                    // Other type applications: treat arguments as positive
+                    // (covariant) for this minimal checker.
+                    for arg in &items[1..] {
+                        check_payload_positivity(arg, type_name, positive, ctor_node)?;
+                    }
+                    Ok(())
+                }
+            }
+        }
+        Atom::Node(pn) => Err(ElaborateError::at_node(
+            "constructor payload type must be an identifier or type form",
+            pn,
+        )),
+    }
 }
 
 /// True when `node` is `((a type)…)` rather than a constructor `(Tag …)`.

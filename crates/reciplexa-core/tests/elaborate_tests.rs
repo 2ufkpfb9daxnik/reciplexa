@@ -228,6 +228,52 @@ fn elaborates_parameterized_data_option() {
 }
 
 #[test]
+fn rejects_negative_recursion_in_data() {
+    let err = elaborate_source(
+        r#"
+(data bad
+  (bad (fn bad unit)))
+(val main (bad (fn (x) unit)))
+"#,
+    )
+    .unwrap_err();
+    assert!(
+        err.message.contains("positivity") || err.message.contains("negative"),
+        "got: {}",
+        err.message
+    );
+}
+
+#[test]
+fn allows_positive_recursion_in_data() {
+    let (expr, data) = elaborate_with_data(
+        r#"
+(data tree
+  ((a type))
+  empty
+  (node a (tree a) (tree a)))
+(val main empty)
+"#,
+    )
+    .unwrap();
+    assert!(data.data_ctors.contains_key("tree"));
+    assert!(matches!(expr, CoreExpr::Let { .. }));
+}
+
+#[test]
+fn allows_recursive_in_fn_result_position() {
+    elaborate_source(
+        r#"
+(data stream-node
+  ((a type))
+  (stream-node a (fn unit (stream-node a))))
+(val main unit)
+"#,
+    )
+    .unwrap();
+}
+
+#[test]
 fn elaborates_wildcard_bind_and_nested_patterns() {
     let expr = elaborate_source(
         r#"
@@ -562,11 +608,17 @@ fn elaborates_record_field_list_tuple() {
     };
     assert_eq!(*value, CoreExpr::Lit(CoreLiteral::Unit));
 
-    let one_tup = elaborate_source("(val main (tuple 42))").unwrap();
-    let CoreExpr::Let { value, .. } = one_tup else {
-        panic!("expected Let");
-    };
-    assert_eq!(*value, CoreExpr::Lit(CoreLiteral::Number(42.0)));
+    let one_tup = elaborate_source("(val main (tuple 42))");
+    assert!(
+        one_tup.is_err(),
+        "1-element tuple must be rejected (SYN §20)"
+    );
+    let err = one_tup.expect_err("checked");
+    assert!(
+        err.message.contains("1-element"),
+        "unexpected error: {}",
+        err.message
+    );
 }
 
 #[test]
