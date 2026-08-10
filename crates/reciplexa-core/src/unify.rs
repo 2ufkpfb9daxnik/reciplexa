@@ -74,6 +74,7 @@ impl Subst {
             CoreType::Union(members) => {
                 CoreType::Union(members.iter().map(|m| self.apply(m)).collect())
             }
+            CoreType::OptionalField(inner) => CoreType::OptionalField(Box::new(self.apply(inner))),
             other => other.clone(),
         }
     }
@@ -106,6 +107,7 @@ fn occurs(var: TypeVarId, ty: &CoreType) -> bool {
             .any(|(_, t)| t.as_ref().is_some_and(|x| occurs(var, x))),
         CoreType::Lacks { row, .. } => occurs(var, row),
         CoreType::Union(members) => members.iter().any(|m| occurs(var, m)),
+        CoreType::OptionalField(inner) => occurs(var, inner),
         _ => false,
     }
 }
@@ -193,6 +195,9 @@ pub fn unify(a: &CoreType, b: &CoreType, subst: &mut Subst) -> Result<(), UnifyE
         (CoreType::Dynamic, _) | (_, CoreType::Dynamic) => Ok(()),
         // SYN §16.3 union stub: treat like Dynamic for v0.
         (CoreType::Union(_), _) | (_, CoreType::Union(_)) => Ok(()),
+        (CoreType::OptionalField(a_inner), CoreType::OptionalField(b_inner)) => {
+            unify(a_inner, b_inner, subst)
+        }
         (CoreType::Number, CoreType::Number)
         | (CoreType::String, CoreType::String)
         | (CoreType::Color, CoreType::Color)

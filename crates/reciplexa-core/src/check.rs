@@ -4,9 +4,7 @@ use reciplexa_source::range::TextRange;
 use reciplexa_syntax::is_wildcard_ident;
 
 use crate::elaborate::DataEnv;
-use crate::expr::{
-    first_unreachable_arm, CoreExpr, CoreLiteral, CorePattern, CoreValue, MatchArm,
-};
+use crate::expr::{first_unreachable_arm, CoreExpr, CoreLiteral, CorePattern, CoreValue, MatchArm};
 use crate::ty::{CoreType, EffectRow};
 use crate::unify::{unify, Subst, UnifyError};
 
@@ -327,14 +325,17 @@ pub fn infer_with_effects(
             let (rec_ty, rec_effs) = infer_with_effects(record, env, subst, range)?;
             let rec_ty = subst.apply(&rec_ty);
             let ty = match rec_ty {
-                CoreType::Record { fields } => fields
-                    .into_iter()
-                    .find(|(k, _)| k == field)
-                    .map(|(_, t)| t)
-                    .ok_or_else(|| CheckError::at(format!("unknown field `{field}`"), range))?,
+                CoreType::Record { fields } => {
+                    let t = fields
+                        .into_iter()
+                        .find(|(k, _)| k == field)
+                        .map(|(_, t)| t)
+                        .ok_or_else(|| CheckError::at(format!("unknown field `{field}`"), range))?;
+                    field_access_type(t)
+                }
                 CoreType::OpenRecord { fields, row } => {
                     if let Some((_, t)) = fields.into_iter().find(|(k, _)| k == field) {
-                        t
+                        field_access_type(t)
                     } else {
                         let field_ty = CoreType::Var(subst.fresh_var());
                         let rest = CoreType::Var(subst.fresh_var());
@@ -343,7 +344,7 @@ pub fn infer_with_effects(
                             row: Box::new(rest),
                         };
                         unify(&row, &expected, subst).map_err(|e| unify_to_check(e, range))?;
-                        subst.apply(&field_ty)
+                        field_access_type(subst.apply(&field_ty))
                     }
                 }
                 other => {
@@ -527,6 +528,19 @@ fn unify_to_check(e: UnifyError, range: TextRange) -> CheckError {
     CheckError::at(format!("{e:?}"), range)
 }
 
+/// DAT §18.5: optional field access yields an option-shaped variant type.
+fn field_access_type(field_ty: CoreType) -> CoreType {
+    match field_ty {
+        CoreType::OptionalField(inner) => CoreType::Variant {
+            variants: vec![
+                ("none".into(), None),
+                ("some".into(), Some(*inner)),
+            ],
+        },
+        other => other,
+    }
+}
+
 fn check_arm(
     arm: &MatchArm,
     scr_ty: &CoreType,
@@ -568,7 +582,15 @@ fn bind_pattern(pat: &CorePattern, scr_ty: &CoreType, env: &mut TypeEnv) {
             CoreType::Record { fields } | CoreType::OpenRecord { fields, .. } => {
                 for (label, ep) in pats {
                     if let Some((_, ty)) = fields.iter().find(|(k, _)| k == label) {
-                        bind_pattern(ep, ty, env);
+                        // DAT §18.5: optional fields are not pattern-decomposed.
+                        if matches!(ty, CoreType::OptionalField(_)) {
+                            // Bind Dynamic so typechecking can still proceed; the
+                            // elaborator rejects explicit `(optional …)` patterns.
+                            // Required-only patterns against optional fields stay Dynamic.
+                            bind_pattern(ep, &CoreType::Dynamic, env);
+                        } else {
+                            bind_pattern(ep, ty, env);
+                        }
                     } else {
                         // §18.6 unknown open-row fields: bind Dynamic interim.
                         bind_pattern(ep, &CoreType::Dynamic, env);

@@ -95,6 +95,43 @@ fn record_field_types() {
 }
 
 #[test]
+fn optional_record_field_access_types_as_option() {
+    use reciplexa_core::check::{infer_expr, TypeEnv};
+    use reciplexa_core::expr::CoreExpr;
+    use reciplexa_core::unify::Subst;
+    use reciplexa_source::range::TextRange;
+
+    let mut env = TypeEnv::new();
+    env.insert(
+        "r",
+        CoreType::Record {
+            fields: vec![
+                ("title".into(), CoreType::String),
+                (
+                    "subtitle".into(),
+                    CoreType::OptionalField(Box::new(CoreType::String)),
+                ),
+            ],
+        },
+    );
+    let expr = CoreExpr::RecordGet {
+        record: Box::new(CoreExpr::Var("r".into())),
+        field: "subtitle".into(),
+    };
+    let mut subst = Subst::new();
+    let ty = infer_expr(&expr, &env, &mut subst, TextRange::EMPTY).unwrap();
+    match ty {
+        CoreType::Variant { variants } => {
+            assert!(variants.iter().any(|(t, p)| t == "none" && p.is_none()));
+            assert!(variants
+                .iter()
+                .any(|(t, p)| t == "some" && matches!(p, Some(CoreType::String))));
+        }
+        other => panic!("expected option Variant, got {other:?}"),
+    }
+}
+
+#[test]
 fn perform_adds_effect_to_fun() {
     use reciplexa_core::unify::Subst;
     use reciplexa_core::{elaborate_source, infer_with_effects, TypeEnv};

@@ -228,6 +228,24 @@ fn elaborates_parameterized_data_option() {
 }
 
 #[test]
+fn rejects_optional_in_record_pattern() {
+    let err = elaborate_source(
+        r#"
+(val main
+  (match (record (title "t"))
+    (record (optional subtitle x) -> x)
+    (_ -> unit)))
+"#,
+    )
+    .unwrap_err();
+    assert!(
+        err.message.contains("optional") && err.message.contains("18.5"),
+        "got: {}",
+        err.message
+    );
+}
+
+#[test]
 fn rejects_negative_recursion_in_data() {
     let err = elaborate_source(
         r#"

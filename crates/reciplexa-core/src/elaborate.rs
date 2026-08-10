@@ -300,7 +300,7 @@ fn register_data(node: &SyntaxNode, ctx: &mut ElabCtx) -> Result<(), ElaborateEr
                 for payload in &ca[1..] {
                     // DAT §9.2: allow nested payload types (e.g. `(fn T U)`) so
                     // strict positivity can reject obvious negative recursion.
-                    check_payload_positivity(payload, &type_name, true, n)?;
+                    check_payload_positivity(payload, &type_name, true)?;
                 }
                 let tag = binder_name(tag_tok)?;
                 ctx.data.ctors.insert(tag.clone(), arity);
@@ -341,7 +341,6 @@ fn check_payload_positivity(
     payload: &Atom,
     type_name: &str,
     positive: bool,
-    ctor_node: &SyntaxNode,
 ) -> Result<(), ElaborateError> {
     match payload {
         Atom::Token(p) if p.kind() == SyntaxKind::Ident => {
@@ -390,15 +389,15 @@ fn check_payload_positivity(
                     let args = &items[1..items.len() - 1];
                     let ret = &items[items.len() - 1];
                     for arg in args {
-                        check_payload_positivity(arg, type_name, !positive, ctor_node)?;
+                        check_payload_positivity(arg, type_name, !positive)?;
                     }
-                    check_payload_positivity(ret, type_name, positive, ctor_node)
+                    check_payload_positivity(ret, type_name, positive)
                 }
                 _ => {
                     // Other type applications: treat arguments as positive
                     // (covariant) for this minimal checker.
                     for arg in &items[1..] {
-                        check_payload_positivity(arg, type_name, positive, ctor_node)?;
+                        check_payload_positivity(arg, type_name, positive)?;
                     }
                     Ok(())
                 }
@@ -571,30 +570,43 @@ fn parse_type_syntax(atom: &Atom, ctx: &ElabCtx) -> Result<CoreType, ElaborateEr
                     Ok(CoreType::Union(members))
                 }
                 "record" => {
-                    // Minimal closed record type: `(record (label Ty)…)`
+                    // Closed record type: `(record (label Ty)…)` /
+                    // `(record (optional label Ty)…)` (SYN §16.5 / DAT §18.5).
                     let mut fields = Vec::new();
                     for item in &items[1..] {
                         let Atom::Node(pair) = item else {
                             return Err(ElaborateError::at_node(
-                                "`record` type field must be `(label Ty)`",
+                                "`record` type field must be `(label Ty)` or `(optional label Ty)`",
                                 n,
                             ));
                         };
                         let pa = list_atoms(pair);
-                        if pa.len() != 2 {
-                            return Err(ElaborateError::at_node(
-                                "`record` type field must be `(label Ty)`",
-                                pair,
-                            ));
-                        }
-                        let Atom::Token(lab) = &pa[0] else {
-                            return Err(ElaborateError::at_node(
-                                "`record` type field label must be an identifier",
-                                pair,
-                            ));
+                        let (label, ty_atom, optional) = match pa.as_slice() {
+                            [Atom::Token(lab), ty_atom]
+                                if lab.kind() == SyntaxKind::Ident && lab.text() != "optional" =>
+                            {
+                                (normalize_ident(lab.text()), ty_atom, false)
+                            }
+                            [Atom::Token(opt), Atom::Token(lab), ty_atom]
+                                if opt.kind() == SyntaxKind::Ident
+                                    && opt.text() == "optional"
+                                    && lab.kind() == SyntaxKind::Ident =>
+                            {
+                                (normalize_ident(lab.text()), ty_atom, true)
+                            }
+                            _ => {
+                                return Err(ElaborateError::at_node(
+                                    "`record` type field must be `(label Ty)` or `(optional label Ty)`",
+                                    pair,
+                                ));
+                            }
                         };
-                        let label = normalize_ident(lab.text());
-                        let ty = parse_type_syntax(&pa[1], ctx)?;
+                        let ty = parse_type_syntax(ty_atom, ctx)?;
+                        let ty = if optional {
+                            CoreType::OptionalField(Box::new(ty))
+                        } else {
+                            ty
+                        };
                         fields.push((label, ty));
                     }
                     Ok(CoreType::Record { fields })
@@ -1414,6 +1426,16 @@ fn elaborate_pattern_atoms(
                 ));
             }
             let pa = list_atoms(pair);
+            // DAT §18.5: optional fields are not decomposed in record patterns.
+            if let Some(Atom::Token(lab)) = pa.first() {
+                if lab.kind() == SyntaxKind::Ident && lab.text() == "optional" {
+                    return Err(ElaborateError::at_token(
+                        "optional fields cannot be decomposed in record patterns (DAT §18.5); \
+                         match `(field …)` as option instead",
+                        lab,
+                    ));
+                }
+            }
             if pa.len() != 2 {
                 return Err(ElaborateError::at_node(
                     "`record` pattern field must be `(label pat)`",

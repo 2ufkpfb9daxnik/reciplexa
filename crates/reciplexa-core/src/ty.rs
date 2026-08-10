@@ -28,6 +28,12 @@ pub enum CoreType {
     Dynamic,
     /// SYN §16.3 union stub — unifies loosely like [`CoreType::Dynamic`] for now.
     Union(Vec<CoreType>),
+    /// DAT §18.5 / SYN §16.5: optional record field of type `T`.
+    ///
+    /// Only meaningful as a field type inside [`CoreType::Record`] /
+    /// [`CoreType::OpenRecord`]. [`field`](crate::expr::CoreExpr::RecordGet)
+    /// access yields an option-shaped [`CoreType::Variant`].
+    OptionalField(Box<CoreType>),
     /// Absence constraint: `row` must not contain field `label`.
     Lacks {
         label: String,
