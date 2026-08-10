@@ -1,9 +1,12 @@
 //! Module skeleton for multi-unit programs (MOD-001).
 //!
 //! Outer module = one source unit. `(import other)` / `(import other only (a b))`
-//! are resolved in-memory via [`elaborate_units`] (no filesystem IO).
+//! are resolved via [`elaborate_units`] (in-memory) or [`load_module_tree`]
+//! (filesystem sibling `.rpx` files).
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::fs;
+use std::path::Path;
 
 use reciplexa_core::elaborate::{elaborate_source, ElaborateError};
 use reciplexa_core::expr::CoreExpr;
@@ -88,7 +91,8 @@ impl From<ElaborateError> for ModuleError {
 /// Elaborate multiple in-memory units and link `(import …)` skeletons.
 ///
 /// Each `(name, src)` pair is one outer module. Imports refer to sibling names
-/// in the same slice (no path IO).
+/// in the same slice (no path IO). Prefer [`load_module_tree`] to read `.rpx`
+/// files from disk first.
 pub fn elaborate_units(units: &[(&str, &str)]) -> Result<Vec<ElaboratedUnit>, ModuleError> {
     if units.is_empty() {
         return Err(ModuleError::new(
@@ -315,4 +319,111 @@ fn collect_export_names(expr: &CoreExpr) -> Vec<String> {
         cur = body;
     }
     names
+}
+
+/// Load a module tree from the filesystem (sibling `.rpx` imports).
+///
+/// - If `root_path` is a **directory**, every `*.rpx` file becomes a unit
+///   (module name = file stem).
+/// - If `root_path` is a **`.rpx` file**, that unit is the entry; `(import foo)`
+///   loads `./foo.rpx` relative to the entry's directory (transitively).
+///
+/// Returns `(module_name, source)` pairs suitable for [`elaborate_units`].
+pub fn load_module_tree(root_path: impl AsRef<Path>) -> Result<Vec<(String, String)>, ModuleError> {
+    let root = root_path.as_ref();
+    if root.is_dir() {
+        return load_directory_units(root);
+    }
+    if !root.is_file() {
+        return Err(ModuleError::new(format!(
+            "load_module_tree: path not found `{}`",
+            root.display()
+        )));
+    }
+    let dir = root.parent().unwrap_or_else(|| Path::new("."));
+    let entry_name = root
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .ok_or_else(|| ModuleError::new("entry file must have a UTF-8 stem"))?
+        .to_string();
+    let mut loaded: HashMap<String, String> = HashMap::new();
+    let mut pending = vec![entry_name.clone()];
+    let mut seen = HashSet::new();
+    while let Some(name) = pending.pop() {
+        if !seen.insert(name.clone()) {
+            continue;
+        }
+        let path = dir.join(format!("{name}.rpx"));
+        let src = fs::read_to_string(&path).map_err(|e| {
+            ModuleError::new(format!(
+                "failed to read module `{name}` at `{}`: {e}",
+                path.display()
+            ))
+        })?;
+        let (imports, _) = split_imports(&src)?;
+        for imp in &imports {
+            if imp.module == name {
+                return Err(ModuleError::new(format!(
+                    "module `{name}` cannot import itself"
+                )));
+            }
+            pending.push(imp.module.clone());
+        }
+        loaded.insert(name, src);
+    }
+    // Stable order: entry first, then remaining sorted by name.
+    let mut out = Vec::with_capacity(loaded.len());
+    if let Some(src) = loaded.remove(&entry_name) {
+        out.push((entry_name, src));
+    }
+    let mut rest: Vec<_> = loaded.into_iter().collect();
+    rest.sort_by(|a, b| a.0.cmp(&b.0));
+    out.extend(rest);
+    Ok(out)
+}
+
+fn load_directory_units(dir: &Path) -> Result<Vec<(String, String)>, ModuleError> {
+    let mut units = Vec::new();
+    let entries = fs::read_dir(dir).map_err(|e| {
+        ModuleError::new(format!(
+            "failed to read module directory `{}`: {e}",
+            dir.display()
+        ))
+    })?;
+    for entry in entries {
+        let entry = entry.map_err(|e| ModuleError::new(format!("read_dir entry: {e}")))?;
+        let path = entry.path();
+        if path.extension().and_then(|e| e.to_str()) != Some("rpx") {
+            continue;
+        }
+        let name = path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .ok_or_else(|| ModuleError::new(format!("non-UTF-8 module path `{}`", path.display())))?
+            .to_string();
+        let src = fs::read_to_string(&path).map_err(|e| {
+            ModuleError::new(format!("failed to read `{}`: {e}", path.display()))
+        })?;
+        units.push((name, src));
+    }
+    if units.is_empty() {
+        return Err(ModuleError::new(format!(
+            "no `.rpx` modules in `{}`",
+            dir.display()
+        )));
+    }
+    units.sort_by(|a, b| a.0.cmp(&b.0));
+    Ok(units)
+}
+
+/// Convenience: [`load_module_tree`] then [`elaborate_units`].
+pub fn elaborate_module_tree(
+    root_path: impl AsRef<Path>,
+) -> Result<Vec<ElaboratedUnit>, ModuleError> {
+    let loaded = load_module_tree(root_path)?;
+    let refs: Vec<(&str, &str)> = loaded
+        .iter()
+        .map(|(n, s)| (n.as_str(), s.as_str()))
+        .collect();
+    elaborate_units(&refs)
 }

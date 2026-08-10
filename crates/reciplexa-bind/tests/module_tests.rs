@@ -61,3 +61,37 @@ fn elaborate_units_rejects_unknown_import() {
     let err = elaborate_units(&[("main", "(import missing) (val main 1)")]).unwrap_err();
     assert!(err.message.contains("unknown"));
 }
+
+#[test]
+fn load_module_tree_reads_sibling_imports() {
+    let dir = std::env::temp_dir().join(format!(
+        "reciplexa-mod-{}",
+        std::process::id()
+    ));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(
+        dir.join("lib.rpx"),
+        "(val id (fn (x) x))\n",
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("main.rpx"),
+        "(import lib only (id))\n(val main (id 7))\n",
+    )
+    .unwrap();
+
+    let units = load_module_tree(dir.join("main.rpx")).unwrap();
+    assert!(units.iter().any(|(n, _)| n == "main"));
+    assert!(units.iter().any(|(n, _)| n == "lib"));
+
+    let elaborated = elaborate_module_tree(dir.join("main.rpx")).unwrap();
+    let main = elaborated.iter().find(|u| u.name == "main").unwrap();
+    let v = eval_expr(&main.expr, &HashMap::new(), &mut UnitHost).unwrap();
+    assert_eq!(v, RuntimeValue::Number(7.0));
+
+    let dir_units = load_module_tree(&dir).unwrap();
+    assert_eq!(dir_units.len(), 2);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
