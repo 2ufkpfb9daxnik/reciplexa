@@ -493,6 +493,10 @@ fn elaborate_list(node: &SyntaxNode, ctx: &ElabCtx) -> Result<CoreExpr, Elaborat
                         payload,
                     });
                 }
+                // EFF-001 ambient effect ops: `(log "msg")` / `(random)` → Perform
+                tag if is_ambient_effect_op(tag) => {
+                    return elaborate_ambient_perform(tag, &atoms[1..], node, ctx);
+                }
                 _ => {}
             }
         }
@@ -504,6 +508,42 @@ fn elaborate_list(node: &SyntaxNode, ctx: &ElabCtx) -> Result<CoreExpr, Elaborat
     Ok(CoreExpr::App {
         fun: Box::new(fun),
         args,
+    })
+}
+
+/// EFF-001 ambient ops callable without `perform` (DD-EFF-013).
+fn is_ambient_effect_op(name: &str) -> bool {
+    matches!(
+        name,
+        "log" | "random" | "read-file" | "write-file" | "write-path" | "load-image"
+    )
+}
+
+fn elaborate_ambient_perform(
+    op: &str,
+    args: &[Atom],
+    parent: &SyntaxNode,
+    ctx: &ElabCtx,
+) -> Result<CoreExpr, ElaborateError> {
+    let arg = match (op, args.len()) {
+        ("random", 0) => CoreExpr::Lit(CoreLiteral::Unit),
+        ("random", _) => {
+            return Err(ElaborateError::at_node(
+                "ambient `(random)` takes no arguments",
+                parent,
+            ));
+        }
+        (_, 1) => elaborate_atom(&args[0], ctx)?,
+        (_, n) => {
+            return Err(ElaborateError::at_node(
+                format!("ambient `({op} …)` expects exactly one argument, got {n}"),
+                parent,
+            ));
+        }
+    };
+    Ok(CoreExpr::Perform {
+        op: op.to_string(),
+        arg: Box::new(arg),
     })
 }
 

@@ -263,6 +263,33 @@ fn rejects_old_match_arm_without_arrow() {
 }
 
 #[test]
+fn elaborates_ambient_effect_apps() {
+    let log = elaborate_source(r#"(val main (log "hi"))"#).unwrap();
+    let CoreExpr::Let { value, .. } = log else {
+        panic!("expected Let");
+    };
+    match *value {
+        CoreExpr::Perform { op, arg } => {
+            assert_eq!(op, "log");
+            assert_eq!(*arg, CoreExpr::Lit(CoreLiteral::String("hi".into())));
+        }
+        other => panic!("expected Perform, got {other:?}"),
+    }
+
+    let rand = elaborate_source("(val main (random))").unwrap();
+    let CoreExpr::Let { value, .. } = rand else {
+        panic!("expected Let");
+    };
+    match *value {
+        CoreExpr::Perform { op, arg } => {
+            assert_eq!(op, "random");
+            assert_eq!(*arg, CoreExpr::Lit(CoreLiteral::Unit));
+        }
+        other => panic!("expected Perform, got {other:?}"),
+    }
+}
+
+#[test]
 fn elaborates_unit_literal() {
     let expr = elaborate_source("(val main unit)").unwrap();
     let CoreExpr::Let { value, .. } = expr else {

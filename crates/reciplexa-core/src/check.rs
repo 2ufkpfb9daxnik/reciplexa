@@ -81,7 +81,15 @@ pub fn infer_with_effects(
         CoreExpr::Perform { op, arg } => {
             let (arg_ty, arg_effs) = infer_with_effects(arg, env, subst, range)?;
             match op.as_str() {
-                "read-file" | "write-file" | "log" => {
+                "random" => {
+                    if !matches!(arg_ty, CoreType::Unit | CoreType::Dynamic) {
+                        return Err(CheckError::at(
+                            "perform `random` takes unit (no payload)",
+                            range,
+                        ));
+                    }
+                }
+                "read-file" | "write-file" | "log" | "write-path" | "load-image" => {
                     if !matches!(arg_ty, CoreType::String | CoreType::Dynamic) {
                         return Err(CheckError::at(
                             format!("perform `{op}` arg must be string"),
@@ -90,15 +98,15 @@ pub fn infer_with_effects(
                     }
                 }
                 _ => {
-                    if !matches!(arg_ty, CoreType::String | CoreType::Dynamic) {
-                        return Err(CheckError::at("perform arg must be string", range));
+                    if !matches!(arg_ty, CoreType::String | CoreType::Dynamic | CoreType::Unit) {
+                        return Err(CheckError::at("perform arg must be string or unit", range));
                     }
                 }
             }
-            let ty = if op == "read-file" {
-                CoreType::String
-            } else {
-                CoreType::Unit
+            let ty = match op.as_str() {
+                "read-file" => CoreType::String,
+                "random" => CoreType::Number,
+                _ => CoreType::Unit,
             };
             Ok((ty, arg_effs.with_op(op.clone())))
         }
