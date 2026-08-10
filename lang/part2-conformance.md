@@ -17,9 +17,9 @@
 
 - **total**: 1589
 - **unchecked**: 0
-- **ok**: 290
-- **partial**: 488
-- **gap**: 410
+- **ok**: 301
+- **partial**: 489
+- **gap**: 398
 - **deferred**: 269
 - **meta**: 132
 
@@ -707,45 +707,45 @@
   - spec: `specification.md:3251`
   - notes: DAT param typing still Dynamic; plan DAT-001 deferral
 
-- [x] **L5 L3259: 8. Variance** — `gap`
+- [x] **L5 L3259: 8. Variance** — `partial`
   - spec: `specification.md:3259`
-  - notes: no variance/positivity checker yet
+  - notes: minimal positivity on data decls; full variance inference (co/contra/phantom) not yet
 
 - [x] **L6 L3261: 8.1 自動推論** — `partial`
   - spec: `specification.md:3261`
-  - notes: DAT interim: elaborate.rs / expr.rs / eval.rs / check.rs
+  - notes: payload polarity walk for positivity; variance not auto-inferred for subtyping
 
-- [x] **L6 L3265: 8.2 共変** — `gap`
+- [x] **L6 L3265: 8.2 共変** — `partial`
   - spec: `specification.md:3265`
-  - notes: no variance/positivity checker yet
+  - notes: minimal checker treats type-app args as covariant; no subtype lattice yet
 
 - [x] **L6 L3283: 8.3 反変** — `gap`
   - spec: `specification.md:3283`
-  - notes: no variance/positivity checker yet
+  - notes: contravariant params not inferred; only negativity reject for self in fn args
 
 - [x] **L6 L3295: 8.4 不変** — `gap`
   - spec: `specification.md:3295`
-  - notes: no variance/positivity checker yet
+  - notes: invariant params not inferred
 
 - [x] **L6 L3308: 8.5 Phantom parameter** — `gap`
   - spec: `specification.md:3308`
-  - notes: no variance/positivity checker yet
+  - notes: phantom params not warned
 
 - [x] **L5 L3323: 9. 再帰data型** — `partial`
   - spec: `specification.md:3323`
-  - notes: recursive values evaluate; no static positivity
+  - notes: recursive data ok; minimal strict positivity in register_data
 
 - [x] **L6 L3325: 9.1 自己再帰** — `partial`
   - spec: `specification.md:3325`
-  - notes: recursive values evaluate; no static positivity
+  - notes: self-recursion ok; minimal strict positivity enforced
 
-- [x] **L6 L3341: 9.2 Strict positivity** — `gap`
+- [x] **L6 L3341: 9.2 Strict positivity** — `ok`
   - spec: `specification.md:3341`
-  - notes: no variance/positivity checker yet
+  - notes: check_payload_positivity rejects defining type in fn arg position (DAT §9.2)
 
-- [x] **L6 L3365: 9.3 関数戻り値位置** — `partial`
+- [x] **L6 L3365: 9.3 関数戻り値位置** — `ok`
   - spec: `specification.md:3365`
-  - notes: recursive values evaluate; no static positivity
+  - notes: fn result self-reference allowed by positivity checker
 
 - [x] **L5 L3382: 10. 相互再帰data型** — `partial`
   - spec: `specification.md:3382`
@@ -765,15 +765,15 @@
 
 - [x] **L6 L3435: 10.4 Group全体のpositivity** — `gap`
   - spec: `specification.md:3435`
-  - notes: no variance/positivity checker yet
+  - notes: mutual-group positivity not checked; single-decl positivity only
 
 - [x] **L5 L3441: 11. Data値の実行意味** — `ok`
   - spec: `specification.md:3441`
   - notes: reciplexa-eval immutable Variant values; strict CBV
 
-- [x] **L6 L3443: 11.1 不変性** — `gap`
+- [x] **L6 L3443: 11.1 不変性** — `ok`
   - spec: `specification.md:3443`
-  - notes: no variance/positivity checker yet
+  - notes: data values immutable Variant/Record in reciplexa-eval (not a positivity item)
 
 - [x] **L6 L3449: 11.2 Strict評価** — `ok`
   - spec: `specification.md:3449`
@@ -931,9 +931,9 @@
   - spec: `specification.md:3836`
   - notes: CorePattern::Record + eval.rs / elaborate.rs §18 required fields
 
-- [x] **L6 L3842: 18.5 Optional field** — `gap`
+- [x] **L6 L3842: 18.5 Optional field** — `ok`
   - spec: `specification.md:3842`
-  - notes: DAT §18.5 optional record fields not in CorePattern; plan gap
+  - notes: reject optional in record patterns; (optional label Ty) in record types; field access → option Variant
 
 - [x] **L6 L3855: 18.6 Unknown row field** — `partial`
   - spec: `specification.md:3855`
@@ -999,9 +999,9 @@
   - spec: `specification.md:4035`
   - notes: elaborate.rs + check.rs static exhaustiveness via DataEnv
 
-- [x] **L6 L4054: 21.3 到達不能case** — `gap`
+- [x] **L6 L4054: 21.3 到達不能case** — `ok`
   - spec: `specification.md:4054`
-  - notes: no unreachable-case warning yet
+  - notes: first_unreachable_arm in elaborate/check; catch-all and duplicate ctor cases
 
 - [x] **L6 L4067: 21.4 空match** — `ok`
   - spec: `specification.md:4067`
@@ -1135,9 +1135,9 @@
   - spec: `specification.md:4634`
   - notes: CoreExpr::If; selected branch only; non-Bool rejects
 
-- [x] **L5 L4670: `DD-TYP-IF-001`: 条件分岐による型の絞り込み** — `gap`
+- [x] **L5 L4670: `DD-TYP-IF-001`: 条件分岐による型の絞り込み** — `ok`
   - spec: `specification.md:4670`
-  - notes: no occurrence typing / intersect-diff narrowing in check.rs
+  - notes: occurrence_envs for number?/string?/bool?/is-none/is-some on immutable locals
 
 - [x] **L5 L4706: 値** — `partial`
   - spec: `specification.md:4706`
@@ -1195,13 +1195,13 @@
   - spec: `specification.md:4969`
   - notes: non-Bool if condition → EvalError
 
-- [x] **L6 L4983: union result** — `gap`
+- [x] **L6 L4983: union result** — `ok`
   - spec: `specification.md:4983`
-  - notes: Union type stub only; if branch union typing not enforced
+  - notes: if branches that fail unify become CoreType::Union
 
-- [x] **L6 L4997: occurrence typing** — `gap`
+- [x] **L6 L4997: occurrence typing** — `ok`
   - spec: `specification.md:4997`
-  - notes: occurrence typing absent (DD-TYP-IF-001)
+  - notes: simple occurrence typing for recognized predicates (DD-TYP-IF-001 subset)
 
 - [x] **L5 L5016: 解決後の最小Core** — `partial`
   - spec: `specification.md:5016`
@@ -1513,7 +1513,7 @@
 
 - [x] **L5 L6991: 3. 式マクロ** — `partial`
   - spec: `specification.md:6991`
-  - notes: 式位置ok; 宣言/型/pattern位置ガード弱
+  - notes: 式位置ok; 宣言位置拒否あり; 型/pattern位置は未サポート=仕様
 
 - [x] **L6 L6992: 3.1 使用可能な位置** — `ok`
   - spec: `specification.md:6992`
@@ -1523,9 +1523,9 @@
   - spec: `specification.md:7009`
   - notes: 展開結果は式sexpr
 
-- [x] **L6 L7022: 3.3 宣言位置** — `gap`
+- [x] **L6 L7022: 3.3 宣言位置** — `ok`
   - spec: `specification.md:7022`
-  - notes: 宣言位置マクロ使用の明示拒否なし
+  - notes: expand_language rejects top-level macro heads (declaration position)
 
 - [x] **L6 L7032: 3.4 型位置** — `ok`
   - spec: `specification.md:7032`
@@ -1963,17 +1963,17 @@
   - spec: `specification.md:7838`
   - notes: MAC-09 fn衛生; local/val未
 
-- [x] **L6 L7862: 21.10 不適合試験 MAC-10：定義前使用** — `gap`
+- [x] **L6 L7862: 21.10 不適合試験 MAC-10：定義前使用** — `ok`
   - spec: `specification.md:7862`
-  - notes: MAC-10 定義前使用の専用診断なし
+  - notes: MAC-10: pre-def macro use diagnostic in expand_language
 
 - [x] **L6 L7879: 21.11 不適合試験 MAC-11：自己再帰** — `partial`
   - spec: `specification.md:7879`
   - notes: MAC-11 budgetメッセージで代用
 
-- [x] **L6 L7891: 21.12 不適合試験 MAC-12：宣言位置** — `gap`
+- [x] **L6 L7891: 21.12 不適合試験 MAC-12：宣言位置** — `ok`
   - spec: `specification.md:7891`
-  - notes: MAC-12 宣言位置拒否なし
+  - notes: MAC-12: declaration-position rejection
 
 - [x] **L6 L7900: 21.13 不適合試験 MAC-13：Interface** — `deferred`
   - spec: `specification.md:7900`
