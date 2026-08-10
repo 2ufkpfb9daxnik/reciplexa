@@ -1,9 +1,10 @@
-//! MAC-001 language macros v0: user-defined expression macros with gensym hygiene.
+//! MAC-001 language macros: user-defined expression macros with gensym hygiene.
 //!
-//! Surface form (v0, no `$` / `->` yet):
+//! Primary surface (MAC-001):
 //! ```text
-//! (macro name (params...) template)
+//! (macro name ($params...) -> template)
 //! ```
+//! Legacy v0 `(macro name (params...) template)` is still accepted briefly.
 //! Calls `(name args...)` expand before elaborate/typecheck.
 
 use std::collections::HashMap;
@@ -73,7 +74,21 @@ pub fn expand_language(input: &str) -> Result<String, ExpandError> {
 fn is_reserved(name: &str) -> bool {
     matches!(
         name,
-        "macro" | "val" | "fn" | "let" | "if" | "seq" | "type" | "true" | "false"
+        "macro"
+            | "val"
+            | "fn"
+            | "let"
+            | "if"
+            | "seq"
+            | "type"
+            | "true"
+            | "false"
+            | "unit"
+            | "match"
+            | "record"
+            | "field"
+            | "list"
+            | "tuple"
     )
 }
 
@@ -87,23 +102,38 @@ fn try_macro_def(form: &Sexpr) -> Result<Option<(String, MacroDef)>, ExpandError
     if head != "macro" {
         return Ok(None);
     }
-    if items.len() != 4 {
-        return Err(ExpandError::new(
-            "`macro` requires `(macro name (params...) template)`",
-        ));
-    }
-    let Sexpr::Atom(name) = &items[1] else {
-        return Err(ExpandError::new("`macro` name must be an identifier"));
+
+    // MAC-001 primary: (macro name ($params...) -> template)
+    // Legacy:          (macro name (params...) template)
+    let (name, param_items, template) = match items.as_slice() {
+        [_, Sexpr::Atom(name), Sexpr::List(params), Sexpr::Atom(arrow), template]
+            if arrow == "->" =>
+        {
+            (name, params, template)
+        }
+        [_, Sexpr::Atom(name), Sexpr::List(params), template] => (name, params, template),
+        _ => {
+            return Err(ExpandError::new(
+                "`macro` requires `(macro name ($params...) -> template)` \
+                 (legacy `(macro name (params...) template)` also accepted)",
+            ));
+        }
     };
-    let Sexpr::List(param_items) = &items[2] else {
-        return Err(ExpandError::new("`macro` parameter list must be a list"));
-    };
+
+    let dollar_form = param_items
+        .iter()
+        .any(|p| matches!(p, Sexpr::Atom(a) if a.starts_with('$')));
     let mut params = Vec::with_capacity(param_items.len());
     let mut seen = std::collections::HashSet::new();
     for p in param_items {
         let Sexpr::Atom(pname) = p else {
             return Err(ExpandError::new("macro parameter must be an identifier"));
         };
+        if dollar_form && !pname.starts_with('$') {
+            return Err(ExpandError::new(format!(
+                "MAC-001 pattern variable must start with `$`, got `{pname}`"
+            )));
+        }
         if !seen.insert(pname.clone()) {
             return Err(ExpandError::new(format!(
                 "duplicate macro parameter `{pname}`"
@@ -115,7 +145,7 @@ fn try_macro_def(form: &Sexpr) -> Result<Option<(String, MacroDef)>, ExpandError
         name.clone(),
         MacroDef {
             params,
-            template: items[3].clone(),
+            template: template.clone(),
         },
     )))
 }
@@ -457,17 +487,27 @@ mod tests {
 
     #[test]
     fn expands_call1_identity() {
-        let src = "(macro call1 (f x) (f x))\n(val main (call1 (fn (x) x) 42))";
+        let src = "(macro call1 ($f $x) -> ($f $x))\n(val main (call1 (fn (x) x) 42))";
         let out = expand_language(src).unwrap();
         assert!(!out.contains("(macro "));
-        // Args are not renamed; template `(f x)` has no binders.
+        // Args are not renamed; template `($f $x)` has no binders.
         assert_eq!(out, "(val main ((fn (x) x) 42))");
+    }
+
+    #[test]
+    fn expands_unless_mac001_form() {
+        let src = r#"
+(macro unless ($condition $expression) -> (if $condition unit $expression))
+(val main (unless false 7))
+"#;
+        let out = expand_language(src).unwrap();
+        assert_eq!(out, "(val main (if false unit 7))");
     }
 
     #[test]
     fn hygiene_avoids_capture() {
         // (m body) → (fn (x) body); call (m x) must not capture the binder.
-        let src = "(macro m (body) (fn (x) body))\n(val main ((m x) 42))";
+        let src = "(macro m ($body) -> (fn (x) $body))\n(val main ((m x) 42))";
         let out = expand_language(src).unwrap();
         assert!(out.contains("__rx_"), "binder should be gensym'd: {out}");
         assert!(
@@ -478,8 +518,15 @@ mod tests {
 
     #[test]
     fn expansion_budget_trips() {
-        let src = "(macro loop (x) (loop x))\n(val main (loop 1))";
+        let src = "(macro loop ($x) -> (loop $x))\n(val main (loop 1))";
         let err = expand_language(src).unwrap_err();
         assert!(err.message.contains("limit exceeded"));
+    }
+
+    #[test]
+    fn legacy_macro_form_still_accepted() {
+        let src = "(macro call1 (f x) (f x))\n(val main (call1 (fn (x) x) 1))";
+        let out = expand_language(src).unwrap();
+        assert_eq!(out, "(val main ((fn (x) x) 1))");
     }
 }

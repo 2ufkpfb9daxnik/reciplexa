@@ -47,7 +47,7 @@ fn lang_expand_language_call1() {
     );
     run_conformance(&case, || {
         let src = r#"
-(macro call1 (f x) (f x))
+(macro call1 ($f $x) -> ($f $x))
 (val main (call1 (fn (n) n) 9))
 "#;
         let expanded = expand_language(src).unwrap();

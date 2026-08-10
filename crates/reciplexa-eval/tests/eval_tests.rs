@@ -541,7 +541,7 @@ fn eval_source_parse_error() {
 
 #[test]
 fn eval_source_call1_macro_expands_before_eval() {
-    let src = "(macro call1 (f x) (f x))\n(val main (call1 (fn (x) x) 42))";
+    let src = "(macro call1 ($f $x) -> ($f $x))\n(val main (call1 (fn (x) x) 42))";
     let v = eval_source(src).unwrap();
     assert_eq!(v, RuntimeValue::Number(42.0));
 }
