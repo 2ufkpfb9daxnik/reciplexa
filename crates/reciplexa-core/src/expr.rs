@@ -10,6 +10,8 @@ pub enum CoreLiteral {
     Bool(bool),
     /// SYN-001 / DAT-001: bare `unit` literal (not `()`).
     Unit,
+    /// SYN §11: `(bytes 0x00 …)` immutable byte sequence.
+    Bytes(Vec<u8>),
 }
 
 #[derive(Debug, Clone, PartialEq)]

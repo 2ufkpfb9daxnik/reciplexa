@@ -45,6 +45,7 @@ pub enum RuntimeValue {
     /// KER-001 numeric / comparison primitive.
     Builtin(BuiltinOp),
     Record(Vec<(String, RuntimeValue)>),
+    Bytes(Vec<u8>),
     Variant {
         tag: String,
         payload: Option<Box<RuntimeValue>>,
@@ -103,6 +104,7 @@ impl fmt::Debug for RuntimeValue {
                 .finish(),
             Self::Builtin(op) => f.debug_tuple("Builtin").field(op).finish(),
             Self::Record(fields) => f.debug_tuple("Record").field(fields).finish(),
+            Self::Bytes(b) => f.debug_tuple("Bytes").field(b).finish(),
             Self::Variant { tag, payload } => f
                 .debug_struct("Variant")
                 .field("tag", tag)
@@ -161,6 +163,7 @@ impl PartialEq for RuntimeValue {
             ) => o1 == o2 && p1 == p2 && b1 == b2,
             (Self::Builtin(a), Self::Builtin(b)) => a == b,
             (Self::Record(a), Self::Record(b)) => a == b,
+            (Self::Bytes(a), Self::Bytes(b)) => a == b,
             (
                 Self::Variant {
                     tag: t1,
@@ -208,6 +211,7 @@ impl RuntimeValue {
             Self::Record(fields) => CoreType::Record {
                 fields: fields.iter().map(|(k, v)| (k.clone(), v.ty())).collect(),
             },
+            Self::Bytes(_) => CoreType::Bytes,
             Self::Variant { tag, payload } => CoreType::Variant {
                 variants: vec![(tag.clone(), payload.as_ref().map(|p| p.ty()))],
             },
@@ -237,6 +241,10 @@ impl fmt::Display for RuntimeValue {
             Self::Record(fields) => {
                 let parts: Vec<String> = fields.iter().map(|(k, v)| format!("{k}: {v}")).collect();
                 format!("record{{{}}}", parts.join(", "))
+            }
+            Self::Bytes(b) => {
+                let parts: Vec<String> = b.iter().map(|x| format!("0x{x:02x}")).collect();
+                format!("bytes({})", parts.join(" "))
             }
             Self::Variant { tag, payload } => match payload {
                 Some(p) => format!("{tag}({p})"),

@@ -24,6 +24,8 @@ pub enum CoreType {
     Shape,
     Unit,
     Bool,
+    /// SYN §11 immutable byte sequence.
+    Bytes,
     /// Gradual typing entry point (TYP-001). Unifies with any type in v0.
     Dynamic,
     /// SYN §16.3 union stub — unifies loosely like [`CoreType::Dynamic`] for now.
@@ -57,6 +59,20 @@ pub enum CoreType {
     Variant {
         variants: Vec<(String, Option<CoreType>)>,
     },
+    /// SYN §16.1 type application `(option str)` / nullary nominal `option`.
+    /// Unifies loosely like [`CoreType::Dynamic`] until DAT instantiation lands.
+    App {
+        ctor: String,
+        args: Vec<CoreType>,
+    },
+    /// SYN §16.2 surface `forall` — binder names are scoped in the body; stub unify.
+    Forall {
+        /// `(name, kind)` where kind is `type` / `record-row` / `effect-row`.
+        params: Vec<(String, String)>,
+        body: Box<CoreType>,
+    },
+    /// Bound type / row / effect-row variable from surface (`a`, `r`, `e`).
+    Name(String),
 }
 
 /// Thin effect row — grows in Phase 5 lowering.

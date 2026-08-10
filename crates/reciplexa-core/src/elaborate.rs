@@ -5,7 +5,7 @@
 //! `local` / `rec` / app / lit / perform / handle / handler / with.
 //! Graphics / page / markup forms are rejected (quarantined to the document pipeline).
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use reciplexa_source::offset::ByteOffset;
 use reciplexa_source::range::TextRange;
@@ -16,7 +16,7 @@ use reciplexa_syntax::{
 };
 
 use crate::expr::{first_unreachable_arm, CoreExpr, CoreLiteral, CorePattern, MatchArm};
-use crate::ty::CoreType;
+use crate::ty::{CoreType, EffectRow};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ElaborateError {
@@ -523,11 +523,22 @@ fn register_type_alias(node: &SyntaxNode, ctx: &mut ElabCtx) -> Result<(), Elabo
     Ok(())
 }
 
-/// Parse a surface type expression into [`CoreType`] (SYN §16 subset).
+/// Parse a surface type expression into [`CoreType`] (SYN §14.2 / §16).
 fn parse_type_syntax(atom: &Atom, ctx: &ElabCtx) -> Result<CoreType, ElaborateError> {
+    parse_type_syntax_in(atom, ctx, &HashSet::new())
+}
+
+fn parse_type_syntax_in(
+    atom: &Atom,
+    ctx: &ElabCtx,
+    binders: &HashSet<String>,
+) -> Result<CoreType, ElaborateError> {
     match atom {
         Atom::Token(t) if t.kind() == SyntaxKind::Ident => {
             let name = normalize_ident(t.text());
+            if binders.contains(&name) {
+                return Ok(CoreType::Name(name));
+            }
             if let Some(aliased) = ctx.data.type_aliases.get(&name) {
                 return Ok(aliased.clone());
             }
@@ -538,6 +549,15 @@ fn parse_type_syntax(atom: &Atom, ctx: &ElabCtx) -> Result<CoreType, ElaborateEr
                 "unit" => CoreType::Unit,
                 "dynamic" => CoreType::Dynamic,
                 "color" => CoreType::Color,
+                other
+                    if ctx.data.type_params.contains_key(other)
+                        || ctx.data.data_ctors.contains_key(other) =>
+                {
+                    CoreType::App {
+                        ctor: other.to_string(),
+                        args: vec![],
+                    }
+                }
                 other => {
                     return Err(ElaborateError::at_token(
                         format!("unknown type name `{other}`"),
@@ -565,56 +585,29 @@ fn parse_type_syntax(atom: &Atom, ctx: &ElabCtx) -> Result<CoreType, ElaborateEr
                 "union" => {
                     let mut members = Vec::new();
                     for item in &items[1..] {
-                        members.push(parse_type_syntax(item, ctx)?);
+                        members.push(parse_type_syntax_in(item, ctx, binders)?);
                     }
                     Ok(CoreType::Union(members))
                 }
-                "record" => {
-                    // Closed record type: `(record (label Ty)…)` /
-                    // `(record (optional label Ty)…)` (SYN §16.5 / DAT §18.5).
-                    let mut fields = Vec::new();
-                    for item in &items[1..] {
-                        let Atom::Node(pair) = item else {
-                            return Err(ElaborateError::at_node(
-                                "`record` type field must be `(label Ty)` or `(optional label Ty)`",
-                                n,
-                            ));
-                        };
-                        let pa = list_atoms(pair);
-                        let (label, ty_atom, optional) = match pa.as_slice() {
-                            [Atom::Token(lab), ty_atom]
-                                if lab.kind() == SyntaxKind::Ident && lab.text() != "optional" =>
-                            {
-                                (normalize_ident(lab.text()), ty_atom, false)
-                            }
-                            [Atom::Token(opt), Atom::Token(lab), ty_atom]
-                                if opt.kind() == SyntaxKind::Ident
-                                    && opt.text() == "optional"
-                                    && lab.kind() == SyntaxKind::Ident =>
-                            {
-                                (normalize_ident(lab.text()), ty_atom, true)
-                            }
-                            _ => {
-                                return Err(ElaborateError::at_node(
-                                    "`record` type field must be `(label Ty)` or `(optional label Ty)`",
-                                    pair,
-                                ));
-                            }
-                        };
-                        let ty = parse_type_syntax(ty_atom, ctx)?;
-                        let ty = if optional {
-                            CoreType::OptionalField(Box::new(ty))
-                        } else {
-                            ty
-                        };
-                        fields.push((label, ty));
-                    }
-                    Ok(CoreType::Record { fields })
-                }
-                other => Err(ElaborateError::at_token(
-                    format!("unsupported type constructor `{other}`"),
+                "fn" => parse_fn_type_syntax(&items[1..], n, ctx, binders),
+                "forall" => parse_forall_type_syntax(&items[1..], n, ctx, binders),
+                "tuple" => parse_tuple_type_syntax(&items[1..], n, ctx, binders),
+                "record" => parse_record_type_syntax(&items[1..], n, ctx, binders),
+                "effects" => Err(ElaborateError::at_token(
+                    "`effects` is only valid as a trailing annotation on a function type",
                     head,
                 )),
+                other => {
+                    // SYN §16.1: `(type-constructor type-argument …)`
+                    let mut args = Vec::with_capacity(items.len().saturating_sub(1));
+                    for item in &items[1..] {
+                        args.push(parse_type_syntax_in(item, ctx, binders)?);
+                    }
+                    Ok(CoreType::App {
+                        ctor: normalize_ident(other),
+                        args,
+                    })
+                }
             }
         }
         Atom::Token(t) => Err(ElaborateError::at_token("expected a type", t)),
@@ -624,6 +617,332 @@ fn parse_type_syntax(atom: &Atom, ctx: &ElabCtx) -> Result<CoreType, ElaborateEr
         )),
         Atom::Node(n) => Err(ElaborateError::at_node("expected a type", n)),
     }
+}
+
+/// SYN §14.2: `(fn T… Ret)` / `(fn T… Ret (effects …))`.
+fn parse_fn_type_syntax(
+    rest: &[Atom],
+    parent: &SyntaxNode,
+    ctx: &ElabCtx,
+    binders: &HashSet<String>,
+) -> Result<CoreType, ElaborateError> {
+    if rest.is_empty() {
+        return Err(ElaborateError::at_node(
+            "`fn` type requires at least a return type",
+            parent,
+        ));
+    }
+    let (ty_atoms, effects) = match rest.last() {
+        Some(Atom::Node(n)) if n.kind() == SyntaxKind::List => {
+            let inner = list_atoms(n);
+            if matches!(
+                inner.first(),
+                Some(Atom::Token(h)) if h.kind() == SyntaxKind::Ident && h.text() == "effects"
+            ) {
+                let effects = parse_effects_row(&inner[1..], n, ctx, binders)?;
+                (&rest[..rest.len() - 1], effects)
+            } else {
+                (rest, EffectRow::default())
+            }
+        }
+        _ => (rest, EffectRow::default()),
+    };
+    if ty_atoms.is_empty() {
+        return Err(ElaborateError::at_node(
+            "`fn` type requires at least a return type before `(effects …)`",
+            parent,
+        ));
+    }
+    let mut parsed = Vec::with_capacity(ty_atoms.len());
+    for atom in ty_atoms {
+        parsed.push(parse_type_syntax_in(atom, ctx, binders)?);
+    }
+    let ret = parsed.pop().expect("non-empty");
+    Ok(CoreType::Fun {
+        args: parsed,
+        ret: Box::new(ret),
+        effects,
+    })
+}
+
+/// SYN §16.6: `(effects console resource)` / `(effects (state int) e)`.
+fn parse_effects_row(
+    rest: &[Atom],
+    _parent: &SyntaxNode,
+    ctx: &ElabCtx,
+    binders: &HashSet<String>,
+) -> Result<EffectRow, ElaborateError> {
+    let mut row = EffectRow::default();
+    let mut seen = HashSet::new();
+    for atom in rest {
+        match atom {
+            Atom::Token(t) if t.kind() == SyntaxKind::Ident => {
+                let name = normalize_ident(t.text());
+                if !seen.insert(name.clone()) {
+                    return Err(ElaborateError::at_token(
+                        format!("duplicate effect `{name}` in effect row"),
+                        t,
+                    ));
+                }
+                row = row.with_op(name);
+            }
+            Atom::Node(n) if n.kind() == SyntaxKind::List => {
+                // Effect application `(state int)` — keep head name as the op tag.
+                let inner = list_atoms(n);
+                let Some(Atom::Token(h)) = inner.first() else {
+                    return Err(ElaborateError::at_node(
+                        "effect application must be `(effect-name type…)`",
+                        n,
+                    ));
+                };
+                if h.kind() != SyntaxKind::Ident {
+                    return Err(ElaborateError::at_token(
+                        "effect name must be an identifier",
+                        h,
+                    ));
+                }
+                let name = normalize_ident(h.text());
+                // Validate argument types parse, even though the row stores only names.
+                for arg in &inner[1..] {
+                    let _ = parse_type_syntax_in(arg, ctx, binders)?;
+                }
+                if !seen.insert(name.clone()) {
+                    return Err(ElaborateError::at_token(
+                        format!("duplicate effect `{name}` in effect row"),
+                        h,
+                    ));
+                }
+                row = row.with_op(name);
+            }
+            Atom::Token(t) => {
+                return Err(ElaborateError::at_token(
+                    "effect row entries must be identifiers or `(effect type…)`",
+                    t,
+                ));
+            }
+            Atom::Path(p) => {
+                return Err(ElaborateError::new(
+                    format!("effect row entry must not be a path (`{p}`)"),
+                    TextRange::EMPTY,
+                ));
+            }
+            Atom::Node(n) => {
+                return Err(ElaborateError::at_node(
+                    "effect row entries must be identifiers or `(effect type…)`",
+                    n,
+                ));
+            }
+        }
+    }
+    Ok(row)
+}
+
+/// SYN §16.2: `(forall ((a type)…) Ty)`.
+fn parse_forall_type_syntax(
+    rest: &[Atom],
+    parent: &SyntaxNode,
+    ctx: &ElabCtx,
+    binders: &HashSet<String>,
+) -> Result<CoreType, ElaborateError> {
+    if rest.len() != 2 {
+        return Err(ElaborateError::at_node(
+            "`forall` requires `((binder kind)…) body-type`",
+            parent,
+        ));
+    }
+    let Atom::Node(params_node) = &rest[0] else {
+        return Err(ElaborateError::at_node(
+            "`forall` binder list must be `((name kind)…)`",
+            parent,
+        ));
+    };
+    if params_node.kind() != SyntaxKind::List {
+        return Err(ElaborateError::at_node(
+            "`forall` binder list must be `((name kind)…)`",
+            params_node,
+        ));
+    }
+    let mut params = Vec::new();
+    let mut extended = binders.clone();
+    for item in list_atoms(params_node) {
+        let Atom::Node(pair) = item else {
+            return Err(ElaborateError::at_node(
+                "`forall` binder must be `(name kind)`",
+                params_node,
+            ));
+        };
+        let pa = list_atoms(&pair);
+        if pa.len() != 2 {
+            return Err(ElaborateError::at_node(
+                "`forall` binder must be `(name kind)`",
+                &pair,
+            ));
+        }
+        let Atom::Token(name_tok) = &pa[0] else {
+            return Err(ElaborateError::at_node(
+                "`forall` binder name must be an identifier",
+                &pair,
+            ));
+        };
+        let Atom::Token(kind_tok) = &pa[1] else {
+            return Err(ElaborateError::at_node(
+                "`forall` binder kind must be an identifier",
+                &pair,
+            ));
+        };
+        if name_tok.kind() != SyntaxKind::Ident || kind_tok.kind() != SyntaxKind::Ident {
+            return Err(ElaborateError::at_node(
+                "`forall` binder must be `(name kind)` identifiers",
+                &pair,
+            ));
+        }
+        let kind = kind_tok.text();
+        if !matches!(kind, "type" | "record-row" | "effect-row") {
+            return Err(ElaborateError::at_token(
+                format!(
+                    "`forall` kind must be `type`, `record-row`, or `effect-row`, got `{kind}`"
+                ),
+                kind_tok,
+            ));
+        }
+        let name = normalize_ident(name_tok.text());
+        if !extended.insert(name.clone()) {
+            return Err(ElaborateError::at_token(
+                format!("duplicate `forall` binder `{name}`"),
+                name_tok,
+            ));
+        }
+        params.push((name, kind.to_string()));
+    }
+    if params.is_empty() {
+        return Err(ElaborateError::at_node(
+            "`forall` requires at least one binder",
+            params_node,
+        ));
+    }
+    let body = parse_type_syntax_in(&rest[1], ctx, &extended)?;
+    Ok(CoreType::Forall {
+        params,
+        body: Box::new(body),
+    })
+}
+
+/// SYN §15.2 / §16.1: `(tuple T0 T1 …)` — arity ≥ 2 → positional record type.
+fn parse_tuple_type_syntax(
+    rest: &[Atom],
+    parent: &SyntaxNode,
+    ctx: &ElabCtx,
+    binders: &HashSet<String>,
+) -> Result<CoreType, ElaborateError> {
+    match rest.len() {
+        0 => Ok(CoreType::Unit),
+        1 => Err(ElaborateError::at_node(
+            "1-element `tuple` type is not allowed; use the element type directly (SYN §15.2)",
+            parent,
+        )),
+        _ => {
+            let mut fields = Vec::with_capacity(rest.len());
+            for (i, atom) in rest.iter().enumerate() {
+                fields.push((i.to_string(), parse_type_syntax_in(atom, ctx, binders)?));
+            }
+            Ok(CoreType::Record { fields })
+        }
+    }
+}
+
+/// SYN §16.5: closed / open / optional record type syntax.
+fn parse_record_type_syntax(
+    rest: &[Atom],
+    parent: &SyntaxNode,
+    ctx: &ElabCtx,
+    binders: &HashSet<String>,
+) -> Result<CoreType, ElaborateError> {
+    let mut fields = Vec::new();
+    let mut row_tail: Option<CoreType> = None;
+    for (idx, item) in rest.iter().enumerate() {
+        let Atom::Node(pair) = item else {
+            return Err(ElaborateError::at_node(
+                "`record` type field must be `(label Ty)`, `(optional label Ty)`, or `(row r)`",
+                parent,
+            ));
+        };
+        let pa = list_atoms(pair);
+        // `(row r)` — open-record tail; must be last.
+        if matches!(
+            pa.first(),
+            Some(Atom::Token(h)) if h.kind() == SyntaxKind::Ident && h.text() == "row"
+        ) {
+            if idx + 1 != rest.len() {
+                return Err(ElaborateError::at_node(
+                    "`row` must be the last entry in a record type",
+                    pair,
+                ));
+            }
+            if pa.len() != 2 {
+                return Err(ElaborateError::at_node(
+                    "`row` entry must be `(row name)`",
+                    pair,
+                ));
+            }
+            let Atom::Token(row_tok) = &pa[1] else {
+                return Err(ElaborateError::at_node(
+                    "`row` variable must be an identifier",
+                    pair,
+                ));
+            };
+            if row_tok.kind() != SyntaxKind::Ident {
+                return Err(ElaborateError::at_token(
+                    "`row` variable must be an identifier",
+                    row_tok,
+                ));
+            }
+            let name = normalize_ident(row_tok.text());
+            row_tail = Some(CoreType::Name(name));
+            continue;
+        }
+        if row_tail.is_some() {
+            return Err(ElaborateError::at_node(
+                "`row` must be the last entry in a record type",
+                pair,
+            ));
+        }
+        let (label, ty_atom, optional) = match pa.as_slice() {
+            [Atom::Token(lab), ty_atom]
+                if lab.kind() == SyntaxKind::Ident
+                    && lab.text() != "optional"
+                    && lab.text() != "row" =>
+            {
+                (normalize_ident(lab.text()), ty_atom, false)
+            }
+            [Atom::Token(opt), Atom::Token(lab), ty_atom]
+                if opt.kind() == SyntaxKind::Ident
+                    && opt.text() == "optional"
+                    && lab.kind() == SyntaxKind::Ident =>
+            {
+                (normalize_ident(lab.text()), ty_atom, true)
+            }
+            _ => {
+                return Err(ElaborateError::at_node(
+                    "`record` type field must be `(label Ty)`, `(optional label Ty)`, or `(row r)`",
+                    pair,
+                ));
+            }
+        };
+        let ty = parse_type_syntax_in(ty_atom, ctx, binders)?;
+        let ty = if optional {
+            CoreType::OptionalField(Box::new(ty))
+        } else {
+            ty
+        };
+        fields.push((label, ty));
+    }
+    Ok(match row_tail {
+        Some(row) => CoreType::OpenRecord {
+            fields,
+            row: Box::new(row),
+        },
+        None => CoreType::Record { fields },
+    })
 }
 
 fn try_top_decl(node: &SyntaxNode, ctx: &ElabCtx) -> Result<Option<TopBinding>, ElaborateError> {
@@ -824,6 +1143,7 @@ fn elaborate_list(node: &SyntaxNode, ctx: &ElabCtx) -> Result<CoreExpr, Elaborat
                 "record-extend" => return elaborate_record_extend(&atoms[1..], node, ctx),
                 "field" => return elaborate_field(&atoms[1..], node, ctx),
                 "list" => return elaborate_list_lit(&atoms[1..], ctx),
+                "bytes" => return elaborate_bytes_lit(&atoms[1..], node, ctx),
                 "tuple" => return elaborate_tuple(&atoms[1..], node, ctx),
                 "seq" => {
                     if atoms.len() < 2 {
@@ -1135,6 +1455,49 @@ fn elaborate_list_lit(rest: &[Atom], ctx: &ElabCtx) -> Result<CoreExpr, Elaborat
         };
     }
     Ok(acc)
+}
+
+/// SYN §11: `(bytes 0x00 0xff …)` — each element must be 0..=255.
+fn elaborate_bytes_lit(
+    rest: &[Atom],
+    parent: &SyntaxNode,
+    ctx: &ElabCtx,
+) -> Result<CoreExpr, ElaborateError> {
+    if rest.is_empty() {
+        return Err(ElaborateError::at_node(
+            "`bytes` requires at least one byte value",
+            parent,
+        ));
+    }
+    let mut out = Vec::with_capacity(rest.len());
+    for atom in rest {
+        out.push(parse_byte_atom(atom)?);
+    }
+    let _ = ctx;
+    Ok(CoreExpr::Lit(CoreLiteral::Bytes(out)))
+}
+
+fn parse_byte_atom(atom: &Atom) -> Result<u8, ElaborateError> {
+    let Atom::Token(t) = atom else {
+        return Err(ElaborateError::new(
+            "`bytes` elements must be numeric literals",
+            TextRange::EMPTY,
+        ));
+    };
+    if t.kind() != SyntaxKind::Number {
+        return Err(ElaborateError::at_token(
+            "`bytes` elements must be 0..255 numeric literals",
+            t,
+        ));
+    }
+    let n = parse_number_literal(t.text()).map_err(|msg| ElaborateError::at_token(msg, t))?;
+    if !n.is_finite() || n.fract() != 0.0 || !(0.0..=255.0).contains(&n) {
+        return Err(ElaborateError::at_token(
+            "`bytes` element out of range 0..255",
+            t,
+        ));
+    }
+    Ok(n as u8)
 }
 
 /// SYN §15.2 tuple encoding: closed record with positional labels `"0"`, `"1"`, …

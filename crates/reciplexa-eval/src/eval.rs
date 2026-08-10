@@ -869,6 +869,7 @@ fn match_pattern(pat: &CorePattern, value: &RuntimeValue) -> Option<HashMap<Stri
                 (CoreLiteral::String(s), RuntimeValue::String(v)) => s == v,
                 (CoreLiteral::Bool(b), RuntimeValue::Bool(v)) => b == v,
                 (CoreLiteral::Unit, RuntimeValue::Unit) => true,
+                (CoreLiteral::Bytes(a), RuntimeValue::Bytes(b)) => a == b,
                 (CoreLiteral::Color(_), _) => false,
                 _ => false,
             };
@@ -1027,5 +1028,6 @@ fn eval_lit(lit: &CoreLiteral) -> EvalResult {
         CoreLiteral::Color(c) => RuntimeValue::String(c.clone()),
         CoreLiteral::Bool(b) => RuntimeValue::Bool(*b),
         CoreLiteral::Unit => RuntimeValue::Unit,
+        CoreLiteral::Bytes(b) => RuntimeValue::Bytes(b.clone()),
     })
 }

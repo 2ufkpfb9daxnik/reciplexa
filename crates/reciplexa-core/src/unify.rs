@@ -75,6 +75,14 @@ impl Subst {
                 CoreType::Union(members.iter().map(|m| self.apply(m)).collect())
             }
             CoreType::OptionalField(inner) => CoreType::OptionalField(Box::new(self.apply(inner))),
+            CoreType::App { ctor, args } => CoreType::App {
+                ctor: ctor.clone(),
+                args: args.iter().map(|a| self.apply(a)).collect(),
+            },
+            CoreType::Forall { params, body } => CoreType::Forall {
+                params: params.clone(),
+                body: Box::new(self.apply(body)),
+            },
             other => other.clone(),
         }
     }
@@ -108,6 +116,8 @@ fn occurs(var: TypeVarId, ty: &CoreType) -> bool {
         CoreType::Lacks { row, .. } => occurs(var, row),
         CoreType::Union(members) => members.iter().any(|m| occurs(var, m)),
         CoreType::OptionalField(inner) => occurs(var, inner),
+        CoreType::App { args, .. } => args.iter().any(|a| occurs(var, a)),
+        CoreType::Forall { body, .. } => occurs(var, body),
         _ => false,
     }
 }
@@ -145,7 +155,13 @@ fn enforce_lacks(label: &str, row: &CoreType, subst: &mut Subst) -> Result<(), U
             // Peel nested lacks; underlying concrete row is checked below.
             enforce_lacks(label, &inner_row, subst)
         }
-        CoreType::Var(_) | CoreType::Unit | CoreType::Dynamic | CoreType::Union(_) => Ok(()),
+        CoreType::Var(_)
+        | CoreType::Unit
+        | CoreType::Dynamic
+        | CoreType::Union(_)
+        | CoreType::Name(_)
+        | CoreType::App { .. }
+        | CoreType::Forall { .. } => Ok(()),
         other => Err(UnifyError::Mismatch {
             expected: CoreType::Lacks {
                 label: label.to_string(),
@@ -195,6 +211,13 @@ pub fn unify(a: &CoreType, b: &CoreType, subst: &mut Subst) -> Result<(), UnifyE
         (CoreType::Dynamic, _) | (_, CoreType::Dynamic) => Ok(()),
         // SYN §16.3 union stub: treat like Dynamic for v0.
         (CoreType::Union(_), _) | (_, CoreType::Union(_)) => Ok(()),
+        // SYN §16.1/16.2 surface stubs until polymorphic instantiation lands.
+        (CoreType::App { .. }, _)
+        | (_, CoreType::App { .. })
+        | (CoreType::Forall { .. }, _)
+        | (_, CoreType::Forall { .. })
+        | (CoreType::Name(_), _)
+        | (_, CoreType::Name(_)) => Ok(()),
         (CoreType::OptionalField(a_inner), CoreType::OptionalField(b_inner)) => {
             unify(a_inner, b_inner, subst)
         }
@@ -203,7 +226,8 @@ pub fn unify(a: &CoreType, b: &CoreType, subst: &mut Subst) -> Result<(), UnifyE
         | (CoreType::Color, CoreType::Color)
         | (CoreType::Shape, CoreType::Shape)
         | (CoreType::Unit, CoreType::Unit)
-        | (CoreType::Bool, CoreType::Bool) => Ok(()),
+        | (CoreType::Bool, CoreType::Bool)
+        | (CoreType::Bytes, CoreType::Bytes) => Ok(()),
         (
             CoreType::Lacks {
                 label: a_lab,

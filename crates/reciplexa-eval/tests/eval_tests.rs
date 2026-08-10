@@ -752,3 +752,10 @@ fn eval_rsc_unhandled_residual_fails() {
         err.message
     );
 }
+
+#[test]
+fn eval_bytes_literal() {
+    let v = eval_source("(val main (bytes 0xff 42))").unwrap();
+    assert_eq!(v, RuntimeValue::Bytes(vec![255, 42]));
+}
+

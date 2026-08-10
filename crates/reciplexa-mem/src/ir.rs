@@ -16,6 +16,7 @@ pub enum MemLiteral {
     Number(f64),
     String(String),
     Unit,
+    Bytes(Vec<u8>),
 }
 
 /// Single ownership instruction.

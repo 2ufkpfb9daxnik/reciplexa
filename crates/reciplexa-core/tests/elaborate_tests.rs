@@ -721,3 +721,83 @@ fn registers_surface_type_aliases_and_dynamic() {
     };
     assert_eq!(*value, CoreExpr::Lit(CoreLiteral::String("Hello".into())));
 }
+
+#[test]
+fn parses_surface_fn_app_forall_row_and_effects_types() {
+    let (_, data) = elaborate_with_data(
+        r#"
+(data option ((a type)) none (some a))
+(type id-fn (fn int int))
+(type opt-str (option str))
+(type poly (forall ((a type)) (fn a a)))
+(type open-rec (record (title str) (row r)))
+(type eff-fn (fn str unit (effects console resource)))
+(type tup (tuple int str))
+(val main unit)
+"#,
+    )
+    .unwrap();
+    assert!(matches!(
+        data.type_aliases.get("id-fn"),
+        Some(CoreType::Fun { args, ret, effects })
+            if args.len() == 1
+                && matches!(args[0], CoreType::Number)
+                && matches!(ret.as_ref(), CoreType::Number)
+                && effects.ops.is_empty()
+    ));
+    assert!(matches!(
+        data.type_aliases.get("opt-str"),
+        Some(CoreType::App { ctor, args }) if ctor == "option"
+            && args.len() == 1
+            && matches!(args[0], CoreType::String)
+    ));
+    assert!(matches!(
+        data.type_aliases.get("poly"),
+        Some(CoreType::Forall { params, body })
+            if params == &[("a".into(), "type".into())]
+                && matches!(
+                    body.as_ref(),
+                    CoreType::Fun { args, ret, .. }
+                        if args.len() == 1
+                            && matches!(&args[0], CoreType::Name(n) if n == "a")
+                            && matches!(ret.as_ref(), CoreType::Name(n) if n == "a")
+                )
+    ));
+    assert!(matches!(
+        data.type_aliases.get("open-rec"),
+        Some(CoreType::OpenRecord { fields, row })
+            if fields.len() == 1
+                && fields[0].0 == "title"
+                && matches!(row.as_ref(), CoreType::Name(n) if n == "r")
+    ));
+    assert!(matches!(
+        data.type_aliases.get("eff-fn"),
+        Some(CoreType::Fun { effects, .. })
+            if effects.ops == ["console".to_string(), "resource".to_string()]
+    ));
+    assert!(matches!(
+        data.type_aliases.get("tup"),
+        Some(CoreType::Record { fields }) if fields.len() == 2
+            && fields[0].0 == "0"
+            && fields[1].0 == "1"
+    ));
+
+    let one = elaborate_with_data("(type bad (tuple int))\n(val main unit)").unwrap_err();
+    assert!(one.message.contains("1-element"), "got: {}", one.message);
+}
+
+#[test]
+fn elaborates_bytes_literal() {
+    let expr = elaborate_source("(val main (bytes 0x00 255 42))").unwrap();
+    let CoreExpr::Let { value, .. } = expr else {
+        panic!("expected Let");
+    };
+    assert_eq!(*value, CoreExpr::Lit(CoreLiteral::Bytes(vec![0, 255, 42])));
+
+    let bad = elaborate_source("(val main (bytes 256))").unwrap_err();
+    assert!(
+        bad.message.contains("0..255") || bad.message.contains("out of range"),
+        "got: {}",
+        bad.message
+    );
+}

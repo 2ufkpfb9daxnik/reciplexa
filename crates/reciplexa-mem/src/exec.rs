@@ -197,6 +197,7 @@ fn lit_to_value(lit: &MemLiteral) -> RuntimeValue {
         MemLiteral::Number(n) => RuntimeValue::Number(*n),
         MemLiteral::String(s) => RuntimeValue::String(s.clone()),
         MemLiteral::Unit => RuntimeValue::Unit,
+        MemLiteral::Bytes(b) => RuntimeValue::Bytes(b.clone()),
     }
 }
 

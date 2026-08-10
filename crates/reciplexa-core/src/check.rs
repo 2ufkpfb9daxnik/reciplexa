@@ -68,6 +68,7 @@ pub fn infer_with_effects(
                 CoreLiteral::Color(_) => CoreType::Color,
                 CoreLiteral::Bool(_) => CoreType::Bool,
                 CoreLiteral::Unit => CoreType::Unit,
+                CoreLiteral::Bytes(_) => CoreType::Bytes,
             },
             EffectRow::default(),
         )),

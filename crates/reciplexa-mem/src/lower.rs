@@ -45,6 +45,7 @@ impl Lowerer {
                     CoreLiteral::String(s) | CoreLiteral::Color(s) => MemLiteral::String(s.clone()),
                     CoreLiteral::Bool(b) => MemLiteral::String(b.to_string()),
                     CoreLiteral::Unit => MemLiteral::Unit,
+                    CoreLiteral::Bytes(b) => MemLiteral::Bytes(b.clone()),
                 };
                 self.emit(MemInstr::Lit { dst, lit: mem_lit });
                 dst
