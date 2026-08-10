@@ -130,3 +130,56 @@ fn skips_unknown_forms_and_bare_tokens() {
     assert_eq!(m.name, "demo");
     assert_eq!(m.targets, vec!["document".to_string()]);
 }
+
+#[test]
+fn parses_dd001_library_manifest() {
+    let m = parse_rpxm(
+        r#"(package graphics
+  format-version 1
+  version "0.1.0"
+  source-root "src"
+  (public-modules shapes color))"#,
+    )
+    .unwrap();
+    assert_eq!(m.name, "graphics");
+    assert_eq!(m.version, "0.1.0");
+    assert_eq!(m.format_version, 1);
+    assert_eq!(m.source_root, "src");
+    assert_eq!(
+        m.public_modules,
+        vec!["shapes".to_string(), "color".to_string()]
+    );
+    assert!(m.entry.is_empty());
+}
+
+#[test]
+fn parses_dd001_dependencies_with_path() {
+    let m = parse_rpxm(
+        r#"(package app
+  format-version 1
+  version "1.0.0"
+  (public-modules main)
+  (dependencies
+    (graphics
+      package graphics
+      version "0.1.0"
+      path "../graphics")))"#,
+    )
+    .unwrap();
+    assert_eq!(m.dependencies.len(), 1);
+    assert_eq!(m.dependencies[0].name, "graphics");
+    assert_eq!(m.dependencies[0].package.as_deref(), Some("graphics"));
+    assert_eq!(m.dependencies[0].path.as_deref(), Some("../graphics"));
+}
+
+#[test]
+fn rejects_unsupported_format_version() {
+    let err = parse_rpxm(
+        r#"(package demo
+  format-version 99
+  version "1.0.0"
+  (public-modules main))"#,
+    )
+    .unwrap_err();
+    assert_eq!(err, RpxmError::UnsupportedFormatVersion(99));
+}

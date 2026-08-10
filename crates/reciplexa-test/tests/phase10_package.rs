@@ -15,6 +15,7 @@ fn phase10_deterministic_lockfile() {
         dependencies: vec![],
         entry: "main".into(),
         targets: vec!["document".into()],
+        ..Default::default()
     };
     let mut sources = BTreeMap::new();
     sources.insert("app".into(), vec![("main".into(), "(page a4)")]);
@@ -38,6 +39,7 @@ fn phase10_target_validates_entry() {
         dependencies: vec![],
         entry: "main".into(),
         targets: vec!["native".into()],
+        ..Default::default()
     };
     let mut sources = BTreeMap::new();
     sources.insert("native-app".into(), vec![("main".into(), "(page a4)")]);
@@ -58,6 +60,7 @@ fn phase10_same_lockfile_from_shuffled_input() {
         dependencies: vec![],
         entry: "main".into(),
         targets: vec![],
+        ..Default::default()
     };
     let mb = PackageManifest {
         name: "b".into(),
@@ -65,6 +68,7 @@ fn phase10_same_lockfile_from_shuffled_input() {
         dependencies: vec![],
         entry: "main".into(),
         targets: vec![],
+        ..Default::default()
     };
     let mut sources = BTreeMap::new();
     sources.insert("a".into(), vec![("main".into(), "(page a4)")]);
@@ -167,6 +171,7 @@ fn phase10_resolve_duplicate_and_missing() {
         dependencies: vec![],
         entry: "main".into(),
         targets: vec![],
+        ..Default::default()
     };
     let mut sources = BTreeMap::new();
     sources.insert("dup".into(), vec![("main".into(), "(page a4)")]);
@@ -185,6 +190,7 @@ fn phase10_resolve_duplicate_and_missing() {
         dependencies: vec![],
         entry: "main".into(),
         targets: vec![],
+        ..Default::default()
     };
     assert!(matches!(
         resolve_packages(
@@ -215,15 +221,18 @@ fn phase10_diagnose_manifest_codes() {
                 name: "a".into(),
                 version_req: "1".into(),
                 path: None,
+            package: None,
             },
             reciplexa_package::DependencySpec {
                 name: "a".into(),
                 version_req: "2".into(),
                 path: None,
+            package: None,
             },
         ],
         entry: "".into(),
         targets: vec![],
+        ..Default::default()
     };
     let codes: Vec<_> = diagnose_manifest(&bad)
         .into_iter()

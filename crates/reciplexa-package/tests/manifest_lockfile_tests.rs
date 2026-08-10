@@ -15,9 +15,11 @@ fn manifest_parse_json_roundtrip() {
             name: "util".into(),
             version_req: "1.0".into(),
             path: Some("../util".into()),
+            package: None,
         }],
         entry: "main.rpx".into(),
         targets: vec!["document".into()],
+        ..Default::default()
     };
     let json = serde_json::to_string(&m).unwrap();
     let parsed = PackageManifest::parse_json(&json).unwrap();
@@ -52,6 +54,7 @@ fn lockfile_from_graph_matches_manifests() {
         dependencies: vec![],
         entry: "main".into(),
         targets: vec![],
+        ..Default::default()
     }];
     let lf = Lockfile::from_graph(&manifests);
     assert_eq!(lf.packages[0].name, "a");

@@ -147,7 +147,8 @@ pub fn diagnose_manifest(m: &PackageManifest) -> Vec<PackageDiagnostic> {
             package: None,
         });
     }
-    if m.entry.is_empty() {
+    // Library packages (public-modules only) may omit entry / entry-points.
+    if m.entry.is_empty() && m.entry_points.is_empty() && m.public_modules.is_empty() {
         diags.push(PackageDiagnostic {
             code: "PKG002".into(),
             message: "entry is empty".into(),

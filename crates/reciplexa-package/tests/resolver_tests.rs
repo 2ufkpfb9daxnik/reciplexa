@@ -11,6 +11,7 @@ fn sample_manifest(name: &str) -> PackageManifest {
         dependencies: vec![],
         entry: "main".into(),
         targets: vec!["document".into()],
+        ..Default::default()
     }
 }
 
@@ -22,6 +23,7 @@ fn resolution_is_order_independent() {
         dependencies: vec![],
         entry: "main".into(),
         targets: vec!["document".into()],
+        ..Default::default()
     };
     let m2 = PackageManifest {
         name: "a".into(),
@@ -29,6 +31,7 @@ fn resolution_is_order_independent() {
         dependencies: vec![],
         entry: "main".into(),
         targets: vec!["document".into()],
+        ..Default::default()
     };
     let mut sources = BTreeMap::new();
     sources.insert("a".into(), vec![("main".into(), "(page a4)")]);
@@ -148,6 +151,7 @@ fn rejects_target_validation_error() {
         dependencies: vec![],
         entry: "main".into(),
         targets: vec![],
+        ..Default::default()
     };
     let mut sources = BTreeMap::new();
     sources.insert("native".into(), vec![("main".into(), "(page a4)")]);

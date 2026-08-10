@@ -12,9 +12,11 @@ fn contract_invalidation_wider_than_impl() {
             name: "lib".into(),
             version_req: "1".into(),
             path: None,
+            package: None,
         }],
         entry: "main.rpx".into(),
         targets: vec!["document".into()],
+        ..Default::default()
     };
     let g = BuildGraph::from_manifest(&m, BuildTarget::Document);
     let lib = BuildNodeId("lib:document".into());
@@ -34,15 +36,18 @@ fn topo_order_is_linear_for_chain() {
                 name: "b".into(),
                 version_req: "1".into(),
                 path: None,
+                package: None,
             },
             DependencySpec {
                 name: "a".into(),
                 version_req: "1".into(),
                 path: None,
+                package: None,
             },
         ],
         entry: "main.rpx".into(),
         targets: vec![],
+        ..Default::default()
     };
     let g = BuildGraph::from_manifest(&m, BuildTarget::Document);
     let order = g.topo_order();
@@ -86,6 +91,7 @@ fn diagnose_pkg001_empty_name() {
         dependencies: vec![],
         entry: "main.rpx".into(),
         targets: vec![],
+        ..Default::default()
     };
     let diags = diagnose_manifest(&m);
     assert!(diags.iter().any(|d| d.code == "PKG001"));
@@ -99,6 +105,7 @@ fn diagnose_pkg002_empty_entry() {
         dependencies: vec![],
         entry: "".into(),
         targets: vec![],
+        ..Default::default()
     };
     let diags = diagnose_manifest(&m);
     assert!(diags
@@ -116,15 +123,18 @@ fn diagnose_pkg003_duplicate_dependency() {
                 name: "lib".into(),
                 version_req: "1".into(),
                 path: None,
+                package: None,
             },
             DependencySpec {
                 name: "lib".into(),
                 version_req: "2".into(),
                 path: None,
+                package: None,
             },
         ],
         entry: "main.rpx".into(),
         targets: vec![],
+        ..Default::default()
     };
     let diags = diagnose_manifest(&m);
     assert!(diags.iter().any(|d| d.code == "PKG003"));
