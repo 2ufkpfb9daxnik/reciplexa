@@ -1,17 +1,42 @@
 # reciplexa — 実装メモ（dump）
 
-> 作業用メモ。規範は [`lang/specification.md`](lang/specification.md)、実装順は [`lang/roadmap.md`](lang/roadmap.md)。短い使い方は [`README.md`](README.md)。
+> 作業用メモ。規範は [`lang/specification.md`](lang/specification.md)、実装順は [`lang/roadmap.md`](lang/roadmap.md) / [`lang/language-kernel-plan.md`](lang/language-kernel-plan.md)。短い使い方は [`README.md`](README.md)。
 
 ## いまの位置
 
-コメント `(// …)`、文章 reader `(markup …)`、トップレベル `perform`/`handle`、最小の `(type …)` / `(val …)` スタブまで SYN-001 に寄せた。図形はまだ組込み `(page …)` プレリュード。
+**言語カーネル**と**ドキュメント表面**を分離した。
+
+| 経路 | API | 状態 |
+|---|---|---|
+| Language | `expand_language` → `elaborate_source` / `elaborate_units` → `typecheck_language_source` / `eval_source` | TYP/EFF/ROW/MOD v0 |
+| Document | `expand_document_surface` → `reciplexa_types::typecheck_source` → lower → scene | page/circle 等（PKG 待ち） |
+
+### 機能 ID ステータス（言語）
+
+| ID | 状態 | メモ |
+|---|---|---|
+| LEX/SYN | 既存 | コメント・markup reader 等 |
+| MAC-001 | v0 | `expand_language` + gensym |
+| RES-001 | v0 | `resolve_language_source` |
+| TYP-001 | v0 | Core `infer` + `Dynamic` stub |
+| ROW-001 | 断片 | closed record unify + `Lacks` stub |
+| EFF-001 | shallow v0 | `CoreExpr::Handle` + one-shot resume（body 継続なし） |
+| MOD-001 | v0 | `elaborate_units` インメモリ import |
+| DAT-001 | 部分 | Core Variant/Match のみ |
+| BND letrec/var/set | 未 | |
+| KER-001 | 未 | typed host ABI |
+| RSC-001 | 未 | resource/I/O catalog |
+| EDT-001 | 部分 | BindingId 未スレッド；prototype を DOCUMENT SURFACE に隔離 |
+| PKG-001 | 延期 | graphics/math/日本語 |
+
+コメント `(// …)`、文章 reader `(markup …)`、トップレベル `perform`/`handle`（document）、最小の `(type …)` / `(val …)` スタブまで SYN-001 に寄せた。図形はまだ組込み `(page …)` プレリュード。
 
 | 項目 | 規範（SYN-001） | いまの実装 / examples |
 |---|---|---|
 | コメント | `(// …)` | 対応（`;` 行コメントは廃止） |
 | 文章 reader | `(markup …)` | 対応（旧 `(doc …)` は廃止） |
 | markup command | `@name(…)` / `@name[…]` 等 | `@name(…)` と `@name{…}`（brace）の両方を受理。意味はプロトタイプ展開 |
-| code mode 宣言 | `(type …)` / `(val …)` | 最小スタブ（arity・名前宣言のみ；本体は未型検査）。`examples/decls_stub.rpx` |
+| code mode 宣言 | `(type …)` / `(val …)` | 言語: elaborate+Core 型検査。document: arity・名前スタブ |
 | `(src …)` wrapper | 使わない | 非推奨だがまだ解釈する。新規はトップレベル `perform`/`handle`（`effects.rpx`） |
 | 図形 | package が定義 | 組込み `(page … (circle …))` 等（interim prelude） |
 | 単位リテラル | `40mm` 等 | 未接続（裸の数値 mm 前提） |
@@ -21,29 +46,30 @@
 ## パイプライン
 
 ```text
-.rpx → expand → typecheck → lower → scene
+Language:
+  .rpx → expand_language → elaborate → typecheck_language / eval
+
+Document:
+  .rpx → expand_document_surface → typecheck (types) → lower → scene
          ├─ GUI preview: effects なし
          └─ export: EffectHandler
 ```
 
 ```lisp
-(// 図形 — interim)
+(// language)
+(val main ((fn (x) x) 1))
+
+(// document — interim)
 (page a4 (circle 105 148.5 40))
-
-(markup
-@heading(Cover)
-本文と@strong(強調)。)
-
-(type title str)
-(val title "Hello")
 ```
 
 ## ゲート
 
 ```text
 cargo fmt --all
-cargo clippy --workspace --all-targets -- -D warnings
-cargo test --workspace
+cargo clippy --workspace --all-targets --offline -- -D warnings
+cargo test --workspace --offline
+cargo check --offline -p reciplexa-gui
 ```
 
 ```powershell

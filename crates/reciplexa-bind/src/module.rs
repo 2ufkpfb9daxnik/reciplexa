@@ -81,9 +81,7 @@ impl ModuleError {
 
 impl From<ElaborateError> for ModuleError {
     fn from(e: ElaborateError) -> Self {
-        Self {
-            message: e.message,
-        }
+        Self { message: e.message }
     }
 }
 

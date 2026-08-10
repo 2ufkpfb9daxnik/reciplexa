@@ -97,9 +97,7 @@ fn elaborates_surface_let_to_nested_core_lets() {
     };
     // let x = 1 in let y = x in y
     let CoreExpr::Let {
-        name: x,
-        body: mid,
-        ..
+        name: x, body: mid, ..
     } = *value
     else {
         panic!("expected let x");

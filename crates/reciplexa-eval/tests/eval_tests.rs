@@ -54,12 +54,7 @@ fn let_binds_var_in_body() {
 
 #[test]
 fn unbound_var_errors() {
-    let err = eval_expr(
-        &CoreExpr::Var("x".into()),
-        &HashMap::new(),
-        &mut UnitHost,
-    )
-    .unwrap_err();
+    let err = eval_expr(&CoreExpr::Var("x".into()), &HashMap::new(), &mut UnitHost).unwrap_err();
     assert!(err.message.contains("unbound variable"));
 }
 

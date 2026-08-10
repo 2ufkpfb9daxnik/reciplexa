@@ -3144,6 +3144,7 @@ dependencies = [
  "reciplexa-harden",
  "reciplexa-identity",
  "reciplexa-ir",
+ "reciplexa-macro",
  "reciplexa-mem",
  "reciplexa-motion",
  "reciplexa-native",

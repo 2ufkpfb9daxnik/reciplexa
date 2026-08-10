@@ -157,7 +157,9 @@ fn language_unbound_identifier_errors_with_span() {
     let r = resolve_language_source("(val main y)");
     assert!(!r.is_ok());
     assert!(
-        r.errors.iter().any(|e| e.message.contains("unbound identifier `y`")),
+        r.errors
+            .iter()
+            .any(|e| e.message.contains("unbound identifier `y`")),
         "{:?}",
         r.errors
     );

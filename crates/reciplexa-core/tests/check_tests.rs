@@ -49,13 +49,7 @@ fn unbound_var_errors() {
 fn type_env_lookup_for_var() {
     let mut env = TypeEnv::new();
     env.insert("x", CoreType::String);
-    let ty = infer_expr(
-        &CoreExpr::Var("x".into()),
-        &env,
-        &mut Subst::new(),
-        range(),
-    )
-    .unwrap();
+    let ty = infer_expr(&CoreExpr::Var("x".into()), &env, &mut Subst::new(), range()).unwrap();
     assert_eq!(ty, CoreType::String);
 }
 

@@ -82,11 +82,7 @@ impl Lowerer {
                 if arg_regs.is_empty() {
                     let arg = self.unit();
                     let dst = self.alloc.fresh();
-                    self.emit(MemInstr::Call {
-                        dst,
-                        closure,
-                        arg,
-                    });
+                    self.emit(MemInstr::Call { dst, closure, arg });
                     return dst;
                 }
                 for a in arg_regs {
@@ -173,9 +169,7 @@ impl Lowerer {
                 dst
             }
             CoreExpr::Handle {
-                handler_body,
-                body,
-                ..
+                handler_body, body, ..
             } => {
                 // Mem lowering does not model handlers yet; evaluate body then handler stub.
                 let _ = self.lower_expr(body, env);

@@ -7,10 +7,8 @@ use std::collections::HashMap;
 
 #[test]
 fn elaborate_handle_and_perform() {
-    let expr = elaborate_source(
-        r#"(val main (handle log (fn (msg) msg) (perform log "hi")))"#,
-    )
-    .unwrap();
+    let expr =
+        elaborate_source(r#"(val main (handle log (fn (msg) msg) (perform log "hi")))"#).unwrap();
     assert!(matches!(
         expr,
         CoreExpr::Let {
@@ -22,19 +20,15 @@ fn elaborate_handle_and_perform() {
 
 #[test]
 fn shallow_handle_abort_returns_handler_result() {
-    let v = eval_source(
-        r#"(val main (handle log (fn (msg) msg) (perform log "caught")))"#,
-    )
-    .unwrap();
+    let v =
+        eval_source(r#"(val main (handle log (fn (msg) msg) (perform log "caught")))"#).unwrap();
     assert_eq!(v, RuntimeValue::String("caught".into()));
 }
 
 #[test]
 fn oneshot_resume_becomes_handle_result() {
-    let v = eval_source(
-        r#"(val main (handle log (fn (msg k) (k 42)) (perform log "hi")))"#,
-    )
-    .unwrap();
+    let v =
+        eval_source(r#"(val main (handle log (fn (msg k) (k 42)) (perform log "hi")))"#).unwrap();
     assert_eq!(v, RuntimeValue::Number(42.0));
 }
 
@@ -48,9 +42,8 @@ fn unmatched_perform_falls_through_to_host() {
 #[test]
 fn oneshot_resume_aborts_rest_of_handler() {
     // Shallow one-shot: applying resume unwinds the handler; trailing exprs are skipped.
-    let v = eval_source(
-        r#"(val main (handle log (fn (msg k) (seq (k 1) 99)) (perform log "hi")))"#,
-    )
-    .unwrap();
+    let v =
+        eval_source(r#"(val main (handle log (fn (msg k) (seq (k 1) 99)) (perform log "hi")))"#)
+            .unwrap();
     assert_eq!(v, RuntimeValue::Number(1.0));
 }

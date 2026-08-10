@@ -167,10 +167,7 @@ fn try_top_decl(node: &SyntaxNode) -> Result<Option<(String, CoreExpr)>, Elabora
     }
 }
 
-fn elaborate_val(
-    rest: &[Atom],
-    parent: &SyntaxNode,
-) -> Result<(String, CoreExpr), ElaborateError> {
+fn elaborate_val(rest: &[Atom], parent: &SyntaxNode) -> Result<(String, CoreExpr), ElaborateError> {
     if rest.is_empty() {
         return Err(ElaborateError::at_node(
             "`val` requires a name and expression",
@@ -256,7 +253,10 @@ fn elaborate_expr_node(node: &SyntaxNode) -> Result<CoreExpr, ElaborateError> {
 fn elaborate_list(node: &SyntaxNode) -> Result<CoreExpr, ElaborateError> {
     let atoms = list_atoms(node);
     if atoms.is_empty() {
-        return Err(ElaborateError::at_node("empty list is not an expression", node));
+        return Err(ElaborateError::at_node(
+            "empty list is not an expression",
+            node,
+        ));
     }
 
     if let Atom::Token(head) = &atoms[0] {

@@ -446,8 +446,21 @@ fn is_quarantined_head(node: &SyntaxNode) -> bool {
     matches!(
         list_head_ident(node).as_deref(),
         Some(
-            "page" | "markup" | "src" | "circle" | "rect" | "text" | "group" | "ellipse" | "line"
-                | "translate" | "rotate" | "scale" | "opacity" | "perform" | "handle"
+            "page"
+                | "markup"
+                | "src"
+                | "circle"
+                | "rect"
+                | "text"
+                | "group"
+                | "ellipse"
+                | "line"
+                | "translate"
+                | "rotate"
+                | "scale"
+                | "opacity"
+                | "perform"
+                | "handle"
         )
     )
 }

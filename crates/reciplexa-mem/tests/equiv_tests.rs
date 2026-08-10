@@ -100,12 +100,12 @@ fn observably_equal_shape_and_closure_tags() {
     ));
     assert!(observably_equal(
         &RuntimeValue::Closure {
-            param: "x".into(),
+            params: vec!["x".into()],
             body: CoreExpr::Lit(CoreLiteral::Number(0.0)),
             env: HashMap::new(),
         },
         &RuntimeValue::Closure {
-            param: "y".into(),
+            params: vec!["y".into()],
             body: CoreExpr::Lit(CoreLiteral::Number(1.0)),
             env: HashMap::new(),
         },

@@ -1,6 +1,4 @@
-use reciplexa_gui::canvas_sync::{
-    authoring_layers_align, nudge_authoring_layers,
-};
+use reciplexa_gui::canvas_sync::{authoring_layers_align, nudge_authoring_layers};
 
 #[test]
 fn nudge_text_on_authoring_page_updates_xy_via_translate() {

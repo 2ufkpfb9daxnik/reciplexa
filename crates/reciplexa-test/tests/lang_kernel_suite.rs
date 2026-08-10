@@ -78,10 +78,8 @@ fn lang_handle_shallow_v0() {
         "shallow handle catches perform",
     );
     run_conformance(&case, || {
-        let v = eval_source(
-            r#"(val main (handle log (fn (msg) msg) (perform log "ok")))"#,
-        )
-        .unwrap();
+        let v =
+            eval_source(r#"(val main (handle log (fn (msg) msg) (perform log "ok")))"#).unwrap();
         assert_eq!(v, RuntimeValue::String("ok".into()));
     });
 }

@@ -47,7 +47,10 @@ pub fn eval_source(src: &str) -> EvalResult {
 enum Outcome {
     Value(RuntimeValue),
     /// Uncaught perform — bubbles to the nearest matching [`CoreExpr::Handle`].
-    Performed { op: String, arg: RuntimeValue },
+    Performed {
+        op: String,
+        arg: RuntimeValue,
+    },
     /// One-shot resume fired inside a handler; becomes the handle result.
     Resumed(RuntimeValue),
 }
@@ -73,13 +76,14 @@ fn eval_outcome<H: EffectHost>(
 ) -> Result<Outcome, EvalError> {
     match expr {
         CoreExpr::Lit(lit) => Ok(Outcome::Value(eval_lit(lit)?)),
-        CoreExpr::Var(name) => env
-            .get(name)
-            .cloned()
-            .map(Outcome::Value)
-            .ok_or_else(|| EvalError {
-                message: format!("unbound variable `{name}`"),
-            }),
+        CoreExpr::Var(name) => {
+            env.get(name)
+                .cloned()
+                .map(Outcome::Value)
+                .ok_or_else(|| EvalError {
+                    message: format!("unbound variable `{name}`"),
+                })
+        }
         CoreExpr::Perform { op, arg } => {
             let v = match eval_outcome(arg, env, host)? {
                 Outcome::Value(v) => v,
@@ -96,19 +100,15 @@ fn eval_outcome<H: EffectHost>(
             handler_params,
             handler_body,
             body,
-        } => {
-            match eval_outcome(body, env, host)? {
-                Outcome::Value(v) => Ok(Outcome::Value(v)),
-                Outcome::Resumed(v) => Ok(Outcome::Resumed(v)),
-                Outcome::Performed {
-                    op: performed_op,
-                    arg,
-                } if performed_op == *op => {
-                    run_handler(handler_params, handler_body, arg, env, host)
-                }
-                Outcome::Performed { op, arg } => Ok(Outcome::Performed { op, arg }),
-            }
-        }
+        } => match eval_outcome(body, env, host)? {
+            Outcome::Value(v) => Ok(Outcome::Value(v)),
+            Outcome::Resumed(v) => Ok(Outcome::Resumed(v)),
+            Outcome::Performed {
+                op: performed_op,
+                arg,
+            } if performed_op == *op => run_handler(handler_params, handler_body, arg, env, host),
+            Outcome::Performed { op, arg } => Ok(Outcome::Performed { op, arg }),
+        },
         CoreExpr::Seq(items) => {
             let mut last = RuntimeValue::Unit;
             for item in items {
@@ -260,10 +260,7 @@ fn apply_value<H: EffectHost>(
         RuntimeValue::OneShotResume { used } => {
             if arg_vs.len() != 1 {
                 return Err(EvalError {
-                    message: format!(
-                        "resume expects 1 arg, got {}",
-                        arg_vs.len()
-                    ),
+                    message: format!("resume expects 1 arg, got {}", arg_vs.len()),
                 });
             }
             if used.replace(true) {
