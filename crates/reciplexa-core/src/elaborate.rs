@@ -10,9 +10,9 @@ use std::collections::HashMap;
 use reciplexa_source::offset::ByteOffset;
 use reciplexa_source::range::TextRange;
 use reciplexa_syntax::{
-    decode_string_literal, is_reserved_special_form, is_wildcard_ident, normalize_ident,
-    parse_number_literal, parse_source, validate_ident, SyntaxElement, SyntaxKind, SyntaxNode,
-    SyntaxToken,
+    coalesce_slash_paths, decode_string_literal, is_reserved_special_form, is_wildcard_ident,
+    normalize_ident, parse_number_literal, parse_source, validate_ident, SlashAtom, SyntaxElement,
+    SyntaxKind, SyntaxNode, SyntaxToken,
 };
 
 use crate::expr::{CoreExpr, CoreLiteral, CorePattern, MatchArm};
@@ -43,6 +43,8 @@ impl ElaborateError {
 
 enum Atom {
     Token(SyntaxToken),
+    /// Joined module / qualified path (`graphics/color`, `color/black`).
+    Path(String),
     Node(SyntaxNode),
 }
 
@@ -279,6 +281,14 @@ fn register_data(node: &SyntaxNode, ctx: &mut ElabCtx) -> Result<(), ElaborateEr
                                 p,
                             ));
                         }
+                        Atom::Path(p) => {
+                            return Err(ElaborateError::new(
+                                format!(
+                                    "constructor payload binder must be an identifier, got path `{p}`"
+                                ),
+                                TextRange::EMPTY,
+                            ));
+                        }
                         Atom::Node(pn) => {
                             return Err(ElaborateError::at_node(
                                 "constructor payload binder must be an identifier",
@@ -296,6 +306,14 @@ fn register_data(node: &SyntaxNode, ctx: &mut ElabCtx) -> Result<(), ElaborateEr
                 return Err(ElaborateError::at_token(
                     "`data` constructor must be an identifier or `(Tag …)`",
                     t,
+                ));
+            }
+            Atom::Path(p) => {
+                return Err(ElaborateError::new(
+                    format!(
+                        "`data` constructor must be an identifier or `(Tag …)`, got path `{p}`"
+                    ),
+                    TextRange::EMPTY,
                 ));
             }
             Atom::Node(n) => {
@@ -425,6 +443,10 @@ fn parse_type_syntax(atom: &Atom, ctx: &ElabCtx) -> Result<CoreType, ElaborateEr
             }
         }
         Atom::Token(t) => Err(ElaborateError::at_token("expected a type", t)),
+        Atom::Path(p) => Err(ElaborateError::new(
+            format!("expected a type, got path `{p}`"),
+            TextRange::EMPTY,
+        )),
         Atom::Node(n) => Err(ElaborateError::at_node("expected a type", n)),
     }
 }
@@ -553,6 +575,12 @@ fn elaborate_val(
                             t,
                         ));
                     }
+                    Atom::Path(p) => {
+                        return Err(ElaborateError::new(
+                            format!("function parameter must be an identifier, got path `{p}`"),
+                            TextRange::EMPTY,
+                        ));
+                    }
                     Atom::Node(n) => {
                         return Err(ElaborateError::at_node(
                             "function parameter must be an identifier",
@@ -573,6 +601,10 @@ fn elaborate_val(
         Atom::Token(t) => Err(ElaborateError::at_token(
             "`val` name must be an identifier or `(name params...)` binder",
             t,
+        )),
+        Atom::Path(p) => Err(ElaborateError::new(
+            format!("`val` name must be an identifier, got path `{p}`"),
+            TextRange::EMPTY,
         )),
         Atom::Node(n) => Err(ElaborateError::at_node(
             "`val` name must be an identifier or `(name params...)` binder",
@@ -1313,6 +1345,10 @@ fn elaborate_payload_pattern(
                 ))
             }
         }
+        Atom::Path(p) => Err(ElaborateError::new(
+            format!("match payload pattern must not be a path `{p}`"),
+            TextRange::EMPTY,
+        )),
         Atom::Node(n) => {
             if n.kind() != SyntaxKind::List {
                 return Err(ElaborateError::at_node(
@@ -1531,6 +1567,12 @@ fn elaborate_let(
                     t,
                 ));
             }
+            Atom::Path(p) => {
+                return Err(ElaborateError::new(
+                    format!("`let` binding must be `(name expr)`, got path `{p}`"),
+                    TextRange::EMPTY,
+                ));
+            }
         };
         if pair.kind() != SyntaxKind::List {
             return Err(ElaborateError::at_node(
@@ -1607,6 +1649,12 @@ fn elaborate_letrec(
                 return Err(ElaborateError::at_token(
                     "`letrec` binding must be `(name (fn …))`",
                     t,
+                ));
+            }
+            Atom::Path(p) => {
+                return Err(ElaborateError::new(
+                    format!("`letrec` binding must be `(name (fn …))`, got path `{p}`"),
+                    TextRange::EMPTY,
                 ));
             }
         };
@@ -2050,6 +2098,11 @@ fn elaborate_atoms(atoms: &[Atom], ctx: &ElabCtx) -> Result<Vec<CoreExpr>, Elabo
 fn elaborate_atom(atom: &Atom, ctx: &ElabCtx) -> Result<CoreExpr, ElaborateError> {
     match atom {
         Atom::Token(t) => elaborate_token(t, ctx),
+        Atom::Path(path) => {
+            let name = normalize_ident(path);
+            validate_ident(&name).map_err(|msg| ElaborateError::new(msg, TextRange::EMPTY))?;
+            Ok(CoreExpr::Var(name))
+        }
         Atom::Node(n) => elaborate_expr_node(n, ctx),
     }
 }
@@ -2117,6 +2170,12 @@ fn elaborate_params(params: &SyntaxNode) -> Result<Vec<String>, ElaborateError> 
                     &t,
                 ));
             }
+            Atom::Path(p) => {
+                return Err(ElaborateError::new(
+                    format!("function parameter must be an identifier, got path `{p}`"),
+                    TextRange::EMPTY,
+                ));
+            }
             Atom::Node(n) => {
                 return Err(ElaborateError::at_node(
                     "function parameter must be an identifier",
@@ -2147,7 +2206,7 @@ fn seq_or_one(exprs: Vec<CoreExpr>) -> CoreExpr {
 }
 
 fn list_atoms(node: &SyntaxNode) -> Vec<Atom> {
-    let mut items = Vec::new();
+    let mut raw = Vec::new();
     for el in node.children_with_tokens() {
         match el {
             SyntaxElement::Token(t) => {
@@ -2162,17 +2221,26 @@ fn list_atoms(node: &SyntaxNode) -> Vec<Atom> {
                 {
                     continue;
                 }
-                items.push(Atom::Token(t));
+                raw.push(Atom::Token(t));
             }
             SyntaxElement::Node(n) => {
                 if n.kind() == SyntaxKind::StructuredComment {
                     continue;
                 }
-                items.push(Atom::Node(n));
+                raw.push(Atom::Node(n));
             }
         }
     }
-    items
+    coalesce_slash_paths(raw, |atom| match atom {
+        Atom::Token(t) if t.kind() == SyntaxKind::Ident => Some(t.text()),
+        _ => None,
+    })
+    .into_iter()
+    .map(|a| match a {
+        SlashAtom::Path(p) => Atom::Path(p),
+        SlashAtom::Item(item) => item,
+    })
+    .collect()
 }
 
 fn list_head_ident(node: &SyntaxNode) -> Option<String> {

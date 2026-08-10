@@ -26,7 +26,7 @@ pub fn is_wildcard_ident(name: &str) -> bool {
 /// - bare `_` (wildcard)
 /// - `$` + kebab body (MAC-001 pattern variables)
 /// - lowercase-start / caseless XID body with kebab `-`, optional trailing `?`/`!`
-/// - interim module paths containing `/` (MOD qualified refs)
+/// - joined module paths containing `/` (MOD qualified refs), each segment validated
 ///
 /// Rejects uppercase start, `_` inside names, leading/trailing/double `-`, etc.
 pub fn validate_ident(name: &str) -> Result<(), String> {
@@ -46,7 +46,7 @@ pub fn validate_ident(name: &str) -> Result<(), String> {
         name
     };
 
-    // Interim: allow `/`-separated path idents for MOD qualified refs.
+    // Joined paths (`graphics/color`, `color/black`) after lexer splits on `/`.
     if body.contains('/') {
         for part in body.split('/') {
             validate_ident_segment(part)?;
@@ -55,6 +55,63 @@ pub fn validate_ident(name: &str) -> Result<(), String> {
     }
 
     validate_ident_segment(body)
+}
+
+/// Result of coalescing `segment` `/` `segment` runs in a flat atom list.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SlashAtom<T> {
+    /// Joined path with at least one `/` (`graphics/color`).
+    Path(String),
+    /// Unchanged item (including freestanding `/` division).
+    Item(T),
+}
+
+/// Join `a` `/` `b` `/` `c` Ident runs so module paths stay one logical name.
+///
+/// Freestanding `/` (division) and `//` (structured comments) are left alone.
+pub fn coalesce_slash_paths<T>(
+    items: Vec<T>,
+    ident_text: impl Fn(&T) -> Option<&str>,
+) -> Vec<SlashAtom<T>> {
+    let mut slots: Vec<Option<T>> = items.into_iter().map(Some).collect();
+    let mut out = Vec::with_capacity(slots.len());
+    let mut i = 0;
+    while i < slots.len() {
+        let can_path = slots[i]
+            .as_ref()
+            .and_then(&ident_text)
+            .is_some_and(|s| s != "/" && s != "//" && !is_operator_ident(s));
+        if can_path {
+            let mut j = i + 1;
+            let mut path = ident_text(slots[i].as_ref().expect("slot"))
+                .expect("checked")
+                .to_string();
+            while j + 1 < slots.len() {
+                let slash = slots[j].as_ref().and_then(&ident_text);
+                let seg = slots[j + 1].as_ref().and_then(&ident_text);
+                match (slash, seg) {
+                    (Some("/"), Some(seg))
+                        if seg != "/" && seg != "//" && !is_operator_ident(seg) =>
+                    {
+                        path.push('/');
+                        path.push_str(seg);
+                        j += 2;
+                    }
+                    _ => break,
+                }
+            }
+            if j > i + 1 {
+                out.push(SlashAtom::Path(path));
+                i = j;
+                continue;
+            }
+        }
+        out.push(SlashAtom::Item(
+            slots[i].take().expect("slot present for emit"),
+        ));
+        i += 1;
+    }
+    out
 }
 
 fn validate_ident_segment(name: &str) -> Result<(), String> {
@@ -145,6 +202,7 @@ mod tests {
         assert!(validate_ident("_").is_ok());
         assert!(validate_ident("$body").is_ok());
         assert!(validate_ident("半径").is_ok());
+        assert!(validate_ident("graphics/color").is_ok());
     }
 
     #[test]
@@ -163,5 +221,21 @@ mod tests {
         let decomposed = "e\u{0301}";
         let nfc = normalize_ident(decomposed);
         assert_eq!(nfc.chars().count(), 1);
+    }
+
+    #[test]
+    fn coalesces_path_segments() {
+        let items = ["graphics", "/", "color", "as", "color"];
+        let out = coalesce_slash_paths(items.to_vec(), |s| Some(*s));
+        assert_eq!(
+            out,
+            vec![
+                SlashAtom::Path("graphics/color".into()),
+                SlashAtom::Item("as"),
+                SlashAtom::Item("color"),
+            ]
+        );
+        let div = coalesce_slash_paths(vec!["/", "x", "y"], |s| Some(*s));
+        assert!(matches!(div[0], SlashAtom::Item("/")));
     }
 }

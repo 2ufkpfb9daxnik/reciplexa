@@ -11,8 +11,8 @@ use reciplexa_identity::binding::BindingId;
 use reciplexa_source::offset::ByteOffset;
 use reciplexa_source::range::TextRange;
 use reciplexa_syntax::{
-    is_reserved_special_form, is_wildcard_ident, normalize_ident, parse_source, validate_ident,
-    SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken,
+    coalesce_slash_paths, is_reserved_special_form, is_wildcard_ident, normalize_ident,
+    parse_source, validate_ident, SlashAtom, SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken,
 };
 
 use crate::scope::ScopeStack;
@@ -65,6 +65,8 @@ impl ResolveResult {
 
 enum Atom {
     Token(SyntaxToken),
+    /// Joined module / qualified path (`color/black`).
+    Path(String),
     Node(SyntaxNode),
 }
 
@@ -694,7 +696,7 @@ fn lang_declare_payload_pattern(
                 declare_binding(b, stack, env, errors);
             }
         }
-        Atom::Token(_) => {}
+        Atom::Token(_) | Atom::Path(_) => {}
         Atom::Node(n) if n.kind() == SyntaxKind::List => {
             lang_declare_pattern(&list_atoms(n), stack, env, errors, map);
         }
@@ -768,8 +770,34 @@ fn lang_resolve_atom(
 ) {
     match atom {
         Atom::Token(t) => lang_resolve_token(t, stack, errors, map),
+        Atom::Path(path) => lang_resolve_path(path, stack, errors, map),
         Atom::Node(n) => lang_resolve_expr_node(n, stack, env, errors, map),
     }
+}
+
+fn lang_resolve_path(
+    path: &str,
+    stack: &mut ScopeStack,
+    errors: &mut Vec<ResolveError>,
+    map: &mut BindingMap,
+) {
+    let name = normalize_ident(path);
+    if let Err(msg) = validate_ident(&name) {
+        errors.push(ResolveError {
+            message: msg,
+            range: TextRange::EMPTY,
+        });
+        return;
+    }
+    if let Some(id) = stack.lookup(&name) {
+        // No precise range for joined paths; BindingMap skip is ok.
+        let _ = (id, map);
+        return;
+    }
+    errors.push(ResolveError {
+        message: format!("unbound identifier `{name}`"),
+        range: TextRange::EMPTY,
+    });
 }
 
 fn lang_resolve_token(
@@ -865,7 +893,7 @@ fn is_quarantined_head(node: &SyntaxNode) -> bool {
 }
 
 fn list_atoms(node: &SyntaxNode) -> Vec<Atom> {
-    let mut items = Vec::new();
+    let mut raw = Vec::new();
     for el in node.children_with_tokens() {
         match el {
             SyntaxElement::Token(t) => {
@@ -880,17 +908,26 @@ fn list_atoms(node: &SyntaxNode) -> Vec<Atom> {
                 {
                     continue;
                 }
-                items.push(Atom::Token(t));
+                raw.push(Atom::Token(t));
             }
             SyntaxElement::Node(n) => {
                 if n.kind() == SyntaxKind::StructuredComment {
                     continue;
                 }
-                items.push(Atom::Node(n));
+                raw.push(Atom::Node(n));
             }
         }
     }
-    items
+    coalesce_slash_paths(raw, |atom| match atom {
+        Atom::Token(t) if t.kind() == SyntaxKind::Ident => Some(t.text()),
+        _ => None,
+    })
+    .into_iter()
+    .map(|a| match a {
+        SlashAtom::Path(p) => Atom::Path(p),
+        SlashAtom::Item(item) => item,
+    })
+    .collect()
 }
 
 fn token_range(tok: &SyntaxToken) -> TextRange {

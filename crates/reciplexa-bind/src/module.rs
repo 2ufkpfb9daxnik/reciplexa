@@ -12,7 +12,9 @@ use reciplexa_core::elaborate::{elaborate_source, ElaborateError};
 use reciplexa_core::expr::CoreExpr;
 use reciplexa_identity::package::{ModuleId, PackageInstanceId};
 use reciplexa_source::resource::SourceResourceId;
-use reciplexa_syntax::{parse_source, SyntaxElement, SyntaxKind, SyntaxNode};
+use reciplexa_syntax::{
+    coalesce_slash_paths, parse_source, SlashAtom, SyntaxElement, SyntaxKind, SyntaxNode,
+};
 
 /// A single compilable unit within a package instance.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -366,7 +368,7 @@ enum AtomRef {
 }
 
 fn list_idents_and_nodes(node: &SyntaxNode) -> Vec<AtomRef> {
-    let mut items = Vec::new();
+    let mut raw = Vec::new();
     for el in node.children_with_tokens() {
         match el {
             SyntaxElement::Token(t) => {
@@ -382,17 +384,26 @@ fn list_idents_and_nodes(node: &SyntaxNode) -> Vec<AtomRef> {
                     continue;
                 }
                 if t.kind() == SyntaxKind::Ident {
-                    items.push(AtomRef::Ident(t.text().to_string()));
+                    raw.push(AtomRef::Ident(t.text().to_string()));
                 }
             }
             SyntaxElement::Node(n) => {
                 if n.kind() != SyntaxKind::StructuredComment {
-                    items.push(AtomRef::Node(n));
+                    raw.push(AtomRef::Node(n));
                 }
             }
         }
     }
-    items
+    coalesce_slash_paths(raw, |a| match a {
+        AtomRef::Ident(s) => Some(s.as_str()),
+        AtomRef::Node(_) => None,
+    })
+    .into_iter()
+    .map(|a| match a {
+        SlashAtom::Path(p) => AtomRef::Ident(p),
+        SlashAtom::Item(item) => item,
+    })
+    .collect()
 }
 
 fn collect_bindings(expr: &CoreExpr) -> HashMap<String, CoreExpr> {

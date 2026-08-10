@@ -414,10 +414,7 @@ impl<'a> Lexer<'a> {
                 self.advance_char();
                 return Some(self.finish(SyntaxKind::Ident, start));
             }
-            // `/` may continue into MOD path idents (`graphics/color`) — interim.
-            if c == '/' && after.is_some_and(|ch| ch.is_alphabetic() || ch.is_ascii_digit()) {
-                return None;
-            }
+            // Freestanding `/` is division (SYN §5); path segments are separate Idents.
             // `-` before a letter is leading-hyphen reject (fall through).
             if c == '-' && after.is_some_and(|ch| ch.is_alphabetic()) {
                 return None;
@@ -581,7 +578,6 @@ impl<'a> Lexer<'a> {
 
 fn is_ident_start(c: char) -> bool {
     // Letters, `$` (macro params), `_` (wildcard), and SYN §5 operator starters.
-    // Digits alone start numbers; `/` may start a path-ish ident via continue.
     c.is_alphabetic()
         || matches!(
             c,
@@ -591,6 +587,6 @@ fn is_ident_start(c: char) -> bool {
 
 fn is_ident_continue(c: char) -> bool {
     // Include `_` so `report_title` is one Error token (SYN §3.5), not three.
-    // Kebab `-` and interim `/` for MOD paths; `?`/`!` are optional trailers.
-    c.is_alphabetic() || c.is_ascii_digit() || matches!(c, '-' | '/' | '$' | '_')
+    // Kebab `-` only; `/` is path separator / division op (SYN §4–5), not continue.
+    c.is_alphabetic() || c.is_ascii_digit() || matches!(c, '-' | '$' | '_')
 }

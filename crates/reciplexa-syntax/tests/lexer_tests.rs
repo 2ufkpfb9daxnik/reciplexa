@@ -189,6 +189,19 @@ fn freestanding_ops_do_not_glue_letters() {
 }
 
 #[test]
+fn path_slash_is_not_ident_continue() {
+    // SYN §4: `/` is reserved for module paths, not part of normal idents.
+    assert_eq!(texts("graphics/color"), vec!["graphics", "/", "color"]);
+    assert_eq!(
+        kinds("graphics/color"),
+        vec![SyntaxKind::Ident, SyntaxKind::Ident, SyntaxKind::Ident]
+    );
+    // Freestanding `/` is the division operator.
+    assert_eq!(texts("/"), vec!["/"]);
+    assert_eq!(kinds("/"), vec![SyntaxKind::Ident]);
+}
+
+#[test]
 fn structured_comment_slash_slash_is_one_ident() {
     assert_eq!(kinds("//"), vec![SyntaxKind::Ident]);
     assert_eq!(texts("//"), vec!["//"]);
