@@ -113,11 +113,7 @@ fn pattern_match_variant() {
             tag: "some".into(),
             payload: Some(Box::new(CoreExpr::Lit(CoreLiteral::Number(42.0)))),
         }),
-        arms: vec![MatchArm {
-            tag: "some".into(),
-            bind: Some("n".into()),
-            body: CoreExpr::Lit(CoreLiteral::Number(0.0)),
-        }],
+        arms: vec![MatchArm::variant("some".into(), Some("n".into()), CoreExpr::Lit(CoreLiteral::Number(0.0)))],
     };
     let v = eval_expr(&expr, &HashMap::new(), &mut UnitHost).unwrap();
     assert_eq!(v, RuntimeValue::Number(0.0));
@@ -224,11 +220,7 @@ fn eval_match_no_arm_and_bind_payload() {
             tag: "none".into(),
             payload: None,
         }),
-        arms: vec![MatchArm {
-            tag: "some".into(),
-            bind: None,
-            body: CoreExpr::Lit(CoreLiteral::Number(0.0)),
-        }],
+        arms: vec![MatchArm::variant("some".into(), None, CoreExpr::Lit(CoreLiteral::Number(0.0)))],
     };
     assert!(eval_expr(&no_arm, &HashMap::new(), &mut UnitHost).is_err());
 
@@ -237,11 +229,7 @@ fn eval_match_no_arm_and_bind_payload() {
             tag: "some".into(),
             payload: Some(Box::new(CoreExpr::Lit(CoreLiteral::Number(7.0)))),
         }),
-        arms: vec![MatchArm {
-            tag: "some".into(),
-            bind: Some("n".into()),
-            body: CoreExpr::Lit(CoreLiteral::Number(1.0)),
-        }],
+        arms: vec![MatchArm::variant("some".into(), Some("n".into()), CoreExpr::Lit(CoreLiteral::Number(1.0)))],
     };
     assert_eq!(
         eval_expr(&with_bind, &HashMap::new(), &mut UnitHost).unwrap(),
@@ -392,11 +380,7 @@ fn eval_match_without_bind() {
             tag: "ok".into(),
             payload: Some(Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0)))),
         }),
-        arms: vec![MatchArm {
-            tag: "ok".into(),
-            bind: None,
-            body: CoreExpr::Lit(CoreLiteral::Number(5.0)),
-        }],
+        arms: vec![MatchArm::variant("ok".into(), None, CoreExpr::Lit(CoreLiteral::Number(5.0)))],
     };
     assert_eq!(
         eval_expr(&expr, &HashMap::new(), &mut UnitHost).unwrap(),
@@ -442,11 +426,7 @@ fn eval_match_bind_without_payload() {
             tag: "none".into(),
             payload: None,
         }),
-        arms: vec![MatchArm {
-            tag: "none".into(),
-            bind: Some("x".into()),
-            body: CoreExpr::Lit(CoreLiteral::Number(0.0)),
-        }],
+        arms: vec![MatchArm::variant("none".into(), Some("x".into()), CoreExpr::Lit(CoreLiteral::Number(0.0)))],
     };
     assert_eq!(
         eval_expr(&expr, &HashMap::new(), &mut UnitHost).unwrap(),

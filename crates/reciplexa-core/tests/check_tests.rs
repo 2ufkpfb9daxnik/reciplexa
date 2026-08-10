@@ -187,16 +187,8 @@ fn match_arm_unifies_return_types() {
             payload: None,
         }),
         arms: vec![
-            MatchArm {
-                tag: "A".into(),
-                bind: None,
-                body: CoreExpr::Lit(CoreLiteral::Number(1.0)),
-            },
-            MatchArm {
-                tag: "B".into(),
-                bind: None,
-                body: CoreExpr::Lit(CoreLiteral::Number(2.0)),
-            },
+            MatchArm::variant("A".into(), None, CoreExpr::Lit(CoreLiteral::Number(1.0))),
+            MatchArm::variant("B".into(), None, CoreExpr::Lit(CoreLiteral::Number(2.0))),
         ],
     };
     let mut subst = Subst::new();
@@ -223,16 +215,8 @@ fn match_arm_return_type_mismatch() {
             payload: None,
         }),
         arms: vec![
-            MatchArm {
-                tag: "A".into(),
-                bind: None,
-                body: CoreExpr::Lit(CoreLiteral::Number(1.0)),
-            },
-            MatchArm {
-                tag: "B".into(),
-                bind: None,
-                body: CoreExpr::Lit(CoreLiteral::String("no".into())),
-            },
+            MatchArm::variant("A".into(), None, CoreExpr::Lit(CoreLiteral::Number(1.0))),
+            MatchArm::variant("B".into(), None, CoreExpr::Lit(CoreLiteral::String("no".into()))),
         ],
     };
     let mut subst = Subst::new();
@@ -246,11 +230,7 @@ fn match_binds_payload_in_arm() {
             tag: "Some".into(),
             payload: Some(Box::new(CoreExpr::Lit(CoreLiteral::Number(5.0)))),
         }),
-        arms: vec![MatchArm {
-            tag: "Some".into(),
-            bind: Some("v".into()),
-            body: CoreExpr::Lit(CoreLiteral::Number(5.0)),
-        }],
+        arms: vec![MatchArm::variant("Some".into(), Some("v".into()), CoreExpr::Lit(CoreLiteral::Number(5.0)))],
     };
     let mut subst = Subst::new();
     let ty = infer_expr(&expr, &TypeEnv::new(), &mut subst, range()).unwrap();
@@ -374,11 +354,7 @@ fn infer_propagates_nested_errors() {
     assert!(infer_expr(
         &CoreExpr::Match {
             scrutinee: Box::new(bad.clone()),
-            arms: vec![MatchArm {
-                tag: "A".into(),
-                bind: None,
-                body: CoreExpr::Lit(CoreLiteral::Number(0.0)),
-            }],
+            arms: vec![MatchArm::variant("A".into(), None, CoreExpr::Lit(CoreLiteral::Number(0.0)))],
         },
         &env,
         &mut subst,
@@ -436,11 +412,7 @@ fn infers_empty_seq_and_lambda() {
 fn match_on_non_variant_scrutinee() {
     let expr = CoreExpr::Match {
         scrutinee: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
-        arms: vec![MatchArm {
-            tag: "ignored".into(),
-            bind: None,
-            body: CoreExpr::Lit(CoreLiteral::Number(2.0)),
-        }],
+        arms: vec![MatchArm::variant("ignored".into(), None, CoreExpr::Lit(CoreLiteral::Number(2.0)))],
     };
     let ty = infer_expr(&expr, &TypeEnv::new(), &mut Subst::new(), range()).unwrap();
     assert_eq!(ty, CoreType::Number);
@@ -453,11 +425,7 @@ fn check_arm_body_infer_error() {
             tag: "A".into(),
             payload: None,
         }),
-        arms: vec![MatchArm {
-            tag: "A".into(),
-            bind: None,
-            body: bad_record_get(),
-        }],
+        arms: vec![MatchArm::variant("A".into(), None, bad_record_get())],
     };
     assert!(infer_expr(&expr, &TypeEnv::new(), &mut Subst::new(), range()).is_err());
 }
@@ -470,11 +438,7 @@ fn match_arm_bind_without_payload_and_unknown_tag() {
             tag: "None".into(),
             payload: None,
         }),
-        arms: vec![MatchArm {
-            tag: "None".into(),
-            bind: Some("x".into()),
-            body: CoreExpr::Lit(CoreLiteral::Number(0.0)),
-        }],
+        arms: vec![MatchArm::variant("None".into(), Some("x".into()), CoreExpr::Lit(CoreLiteral::Number(0.0)))],
     };
     let mut subst = Subst::new();
     assert!(infer_expr(&nullary, &TypeEnv::new(), &mut subst, range()).is_ok());
@@ -485,11 +449,7 @@ fn match_arm_bind_without_payload_and_unknown_tag() {
             tag: "A".into(),
             payload: None,
         }),
-        arms: vec![MatchArm {
-            tag: "B".into(),
-            bind: Some("x".into()),
-            body: CoreExpr::Lit(CoreLiteral::Number(1.0)),
-        }],
+        arms: vec![MatchArm::variant("B".into(), Some("x".into()), CoreExpr::Lit(CoreLiteral::Number(1.0)))],
     };
     let mut subst = Subst::new();
     assert!(infer_expr(&mismatch_tag, &TypeEnv::new(), &mut subst, range()).is_ok());

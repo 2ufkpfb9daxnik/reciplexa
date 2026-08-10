@@ -85,11 +85,53 @@ pub enum CoreExpr {
     },
 }
 
+/// DAT-001 §15–16 match pattern.
+#[derive(Debug, Clone, PartialEq)]
+pub enum CorePattern {
+    /// `_`
+    Wildcard,
+    /// `bind name` — binds the entire scrutinee.
+    Bind(String),
+    /// Nullary `Tag` or payload `Tag pat`.
+    Variant {
+        tag: String,
+        payload: Option<Box<CorePattern>>,
+    },
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct MatchArm {
-    pub tag: String,
-    pub bind: Option<String>,
+    pub pattern: CorePattern,
     pub body: CoreExpr,
+}
+
+impl MatchArm {
+    /// Constructor arm with optional simple payload binder (tests / mem helpers).
+    pub fn variant(tag: String, bind: Option<String>, body: CoreExpr) -> Self {
+        Self {
+            pattern: CorePattern::Variant {
+                tag,
+                payload: bind.map(|n| Box::new(CorePattern::Bind(n))),
+            },
+            body,
+        }
+    }
+
+    /// Top-level constructor tag, if this arm is a variant pattern.
+    pub fn tag(&self) -> Option<&str> {
+        match &self.pattern {
+            CorePattern::Variant { tag, .. } => Some(tag.as_str()),
+            _ => None,
+        }
+    }
+
+    /// True when this arm matches any value (`_` or `bind`).
+    pub fn is_catch_all(&self) -> bool {
+        matches!(
+            &self.pattern,
+            CorePattern::Wildcard | CorePattern::Bind(_)
+        )
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]

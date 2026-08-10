@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use reciplexa_core::elaborate::{elaborate_source, ElaborateError};
-use reciplexa_core::expr::{CoreExpr, CoreLiteral, MatchArm};
+use reciplexa_core::expr::{CoreExpr, CoreLiteral, CorePattern, MatchArm};
 
 use crate::control::{
     identity_resume, EffectHost, EvalError, EvalResult, Outcome, ResumeCont, UnitHost,
@@ -683,25 +683,53 @@ fn eval_match(
     env: &HashMap<String, RuntimeValue>,
     host: &mut dyn EffectHost,
 ) -> Result<Outcome, EvalError> {
-    let RuntimeValue::Variant { tag, payload } = value else {
-        return Err(EvalError {
-            message: "match scrutinee must be variant".into(),
-        });
-    };
     for arm in arms {
-        if &arm.tag == tag {
+        if let Some(bindings) = match_pattern(&arm.pattern, value) {
             let mut child = env.clone();
-            if let Some(bind) = &arm.bind {
-                if let Some(p) = payload {
-                    child.insert(bind.clone(), (**p).clone());
-                }
-            }
+            child.extend(bindings);
             return eval_outcome(&arm.body, &child, host);
         }
     }
     Err(EvalError {
-        message: format!("no match arm for tag `{tag}`"),
+        message: format!("no matching arm for value `{value:?}`"),
     })
+}
+
+fn match_pattern(
+    pat: &CorePattern,
+    value: &RuntimeValue,
+) -> Option<HashMap<String, RuntimeValue>> {
+    match pat {
+        CorePattern::Wildcard => Some(HashMap::new()),
+        CorePattern::Bind(name) => {
+            let mut m = HashMap::new();
+            m.insert(name.clone(), value.clone());
+            Some(m)
+        }
+        CorePattern::Variant { tag, payload } => {
+            let RuntimeValue::Variant {
+                tag: vtag,
+                payload: vp,
+            } = value
+            else {
+                return None;
+            };
+            if vtag != tag {
+                return None;
+            }
+            match payload {
+                None => Some(HashMap::new()),
+                Some(inner) => match vp {
+                    Some(v) => match_pattern(inner, v),
+                    None => match inner.as_ref() {
+                        // Nullary variant with a simple binder/wildcard: match tag, no bind.
+                        CorePattern::Wildcard | CorePattern::Bind(_) => Some(HashMap::new()),
+                        CorePattern::Variant { .. } => None,
+                    },
+                },
+            }
+        }
+    }
 }
 
 fn apply_builtin(op: BuiltinOp, args: Vec<RuntimeValue>) -> Result<Outcome, EvalError> {

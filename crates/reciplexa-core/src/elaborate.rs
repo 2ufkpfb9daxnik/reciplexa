@@ -13,7 +13,7 @@ use reciplexa_syntax::{
     is_reserved_special_form, parse_source, SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken,
 };
 
-use crate::expr::{CoreExpr, CoreLiteral, MatchArm};
+use crate::expr::{CoreExpr, CoreLiteral, CorePattern, MatchArm};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ElaborateError {
@@ -691,47 +691,51 @@ fn elaborate_match(
                 arm_node,
             ));
         }
-        let (tag, bind) = elaborate_pattern_atoms(&arm_atoms[..arrow_idx], arm_node)?;
+        let pattern = elaborate_pattern_atoms(&arm_atoms[..arrow_idx], arm_node)?;
         let body = elaborate_atom(&body_atoms[0], ctx)?;
-        arms.push(MatchArm { tag, bind, body });
+        arms.push(MatchArm { pattern, body });
     }
     // Static exhaustiveness from known `(data …)` constructors (via arm tags
-    // or a direct constructor scrutinee).
-    let adt = if let CoreExpr::Variant { tag, .. } = &scrutinee {
-        ctx.data.adt_for_tag(tag)
-    } else {
-        Vec::new()
-    };
-    let adt = if adt.is_empty() {
-        arms.iter()
-            .find_map(|a| {
-                let a = ctx.data.adt_for_tag(&a.tag);
-                if a.is_empty() {
-                    None
-                } else {
-                    Some(a)
-                }
-            })
-            .unwrap_or_default()
-    } else {
-        adt
-    };
-    if !adt.is_empty() {
-        let covered: std::collections::HashSet<&str> =
-            arms.iter().map(|a| a.tag.as_str()).collect();
-        let missing: Vec<&str> = adt
-            .iter()
-            .map(|(t, _)| t.as_str())
-            .filter(|t| !covered.contains(t))
-            .collect();
-        if !missing.is_empty() {
-            return Err(ElaborateError::at_node(
-                format!(
-                    "non-exhaustive match: missing constructor(s) {}",
-                    missing.join(", ")
-                ),
-                parent,
-            ));
+    // or a direct constructor scrutinee). Catch-all `_` / `bind` cover all.
+    let has_catch_all = arms.iter().any(|a| a.is_catch_all());
+    if !has_catch_all {
+        let adt = if let CoreExpr::Variant { tag, .. } = &scrutinee {
+            ctx.data.adt_for_tag(tag)
+        } else {
+            Vec::new()
+        };
+        let adt = if adt.is_empty() {
+            arms.iter()
+                .find_map(|a| {
+                    let tag = a.tag()?;
+                    let a = ctx.data.adt_for_tag(tag);
+                    if a.is_empty() {
+                        None
+                    } else {
+                        Some(a)
+                    }
+                })
+                .unwrap_or_default()
+        } else {
+            adt
+        };
+        if !adt.is_empty() {
+            let covered: std::collections::HashSet<&str> =
+                arms.iter().filter_map(|a| a.tag()).collect();
+            let missing: Vec<&str> = adt
+                .iter()
+                .map(|(t, _)| t.as_str())
+                .filter(|t| !covered.contains(t))
+                .collect();
+            if !missing.is_empty() {
+                return Err(ElaborateError::at_node(
+                    format!(
+                        "non-exhaustive match: missing constructor(s) {}",
+                        missing.join(", ")
+                    ),
+                    parent,
+                ));
+            }
         }
     }
     Ok(CoreExpr::Match {
@@ -740,48 +744,120 @@ fn elaborate_match(
     })
 }
 
-/// Pattern atoms before `->`: nullary `Tag` or payload `Tag binder` (DAT-001 §15).
+/// Pattern atoms before `->` (DAT-001 §15–16): `_`, `bind name`, `Tag`, `Tag pat`.
 fn elaborate_pattern_atoms(
     atoms: &[Atom],
     parent: &SyntaxNode,
-) -> Result<(String, Option<String>), ElaborateError> {
+) -> Result<CorePattern, ElaborateError> {
     if atoms.is_empty() {
         return Err(ElaborateError::at_node(
             "match pattern must not be empty",
             parent,
         ));
     }
-    let Atom::Token(tag_tok) = &atoms[0] else {
+    // Nested list as the sole pattern atom: `(some item)` etc.
+    if atoms.len() == 1 {
+        if let Atom::Node(n) = &atoms[0] {
+            if n.kind() != SyntaxKind::List {
+                return Err(ElaborateError::at_node(
+                    "match pattern must be a list or identifier",
+                    n,
+                ));
+            }
+            return elaborate_pattern_atoms(&list_atoms(n), n);
+        }
+    }
+
+    let Atom::Token(head) = &atoms[0] else {
         return Err(ElaborateError::at_node(
-            "match pattern tag must be an identifier",
+            "match pattern head must be an identifier",
             parent,
         ));
     };
-    if tag_tok.kind() != SyntaxKind::Ident {
+    if head.kind() != SyntaxKind::Ident {
         return Err(ElaborateError::at_token(
-            "match pattern tag must be an identifier",
-            tag_tok,
+            "match pattern head must be an identifier",
+            head,
         ));
     }
-    match atoms.len() {
-        1 => Ok((tag_tok.text().to_string(), None)),
-        2 => match &atoms[1] {
-            Atom::Token(b) if b.kind() == SyntaxKind::Ident => {
-                Ok((tag_tok.text().to_string(), Some(b.text().to_string())))
-            }
-            Atom::Token(b) => Err(ElaborateError::at_token(
-                "match pattern binder must be an identifier",
+    let head_text = head.text();
+
+    // §15.3 wildcard
+    if head_text == "_" {
+        if atoms.len() != 1 {
+            return Err(ElaborateError::at_node(
+                "wildcard pattern `_` takes no arguments",
+                parent,
+            ));
+        }
+        return Ok(CorePattern::Wildcard);
+    }
+
+    // §15.4 catch-all binder
+    if head_text == "bind" {
+        if atoms.len() != 2 {
+            return Err(ElaborateError::at_node(
+                "`bind` pattern requires a single binder name",
+                parent,
+            ));
+        }
+        let Atom::Token(b) = &atoms[1] else {
+            return Err(ElaborateError::at_node(
+                "`bind` pattern binder must be an identifier",
+                parent,
+            ));
+        };
+        if b.kind() != SyntaxKind::Ident {
+            return Err(ElaborateError::at_token(
+                "`bind` pattern binder must be an identifier",
                 b,
-            )),
-            Atom::Node(n) => Err(ElaborateError::at_node(
-                "match pattern binder must be an identifier (nested patterns deferred)",
-                n,
-            )),
-        },
+            ));
+        }
+        return Ok(CorePattern::Bind(b.text().to_string()));
+    }
+
+    // Constructor patterns
+    match atoms.len() {
+        1 => Ok(CorePattern::Variant {
+            tag: head_text.to_string(),
+            payload: None,
+        }),
+        2 => {
+            let payload = elaborate_payload_pattern(&atoms[1], parent)?;
+            Ok(CorePattern::Variant {
+                tag: head_text.to_string(),
+                payload: Some(Box::new(payload)),
+            })
+        }
         _ => Err(ElaborateError::at_node(
-            "DAT-001 v0 patterns support at most one binder before `->`",
+            "match pattern supports at most one payload before `->`",
             parent,
         )),
+    }
+}
+
+fn elaborate_payload_pattern(atom: &Atom, _parent: &SyntaxNode) -> Result<CorePattern, ElaborateError> {
+    match atom {
+        Atom::Token(t) if t.kind() == SyntaxKind::Ident => {
+            if t.text() == "_" {
+                Ok(CorePattern::Wildcard)
+            } else {
+                Ok(CorePattern::Bind(t.text().to_string()))
+            }
+        }
+        Atom::Token(t) => Err(ElaborateError::at_token(
+            "match payload pattern must be an identifier or nested constructor",
+            t,
+        )),
+        Atom::Node(n) => {
+            if n.kind() != SyntaxKind::List {
+                return Err(ElaborateError::at_node(
+                    "nested match pattern must be a list",
+                    n,
+                ));
+            }
+            elaborate_pattern_atoms(&list_atoms(n), n)
+        }
     }
 }
 

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use reciplexa_core::expr::{CoreExpr, CoreLiteral};
+use reciplexa_core::expr::{CoreExpr, CoreLiteral, MatchArm};
 use reciplexa_eval::RuntimeValue;
 use reciplexa_mem::{
     assert_observational_equiv, compile_and_run, compile_and_run_conservative,
@@ -119,11 +119,7 @@ fn compile_and_run_match_variant() {
             tag: "Some".into(),
             payload: Some(Box::new(CoreExpr::Lit(CoreLiteral::Number(3.0)))),
         }),
-        arms: vec![reciplexa_core::expr::MatchArm {
-            tag: "Some".into(),
-            bind: Some("v".into()),
-            body: CoreExpr::Lit(CoreLiteral::Number(3.0)),
-        }],
+        arms: vec![MatchArm::variant("Some".into(), Some("v".into()), CoreExpr::Lit(CoreLiteral::Number(3.0)))],
     };
     assert_observational_equiv(&e).unwrap();
 }

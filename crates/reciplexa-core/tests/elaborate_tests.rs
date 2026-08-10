@@ -171,10 +171,79 @@ fn elaborates_data_option_and_match() {
         } if tag == "Some"
     ));
     assert_eq!(arms.len(), 2);
-    assert_eq!(arms[0].tag, "None");
-    assert_eq!(arms[0].bind, None);
-    assert_eq!(arms[1].tag, "Some");
-    assert_eq!(arms[1].bind.as_deref(), Some("x"));
+    assert_eq!(arms[0].tag(), Some("None"));
+    assert!(matches!(arms[0].pattern, reciplexa_core::CorePattern::Variant { payload: None, .. }));
+    assert_eq!(arms[1].tag(), Some("Some"));
+    assert!(matches!(
+        &arms[1].pattern,
+        reciplexa_core::CorePattern::Variant {
+            payload: Some(p),
+            ..
+        } if matches!(p.as_ref(), reciplexa_core::CorePattern::Bind(n) if n == "x")
+    ));
+}
+
+#[test]
+fn elaborates_wildcard_bind_and_nested_patterns() {
+    let expr = elaborate_source(
+        r#"
+(data Option (None) (Some x))
+(val main
+  (match (Some (Some 1))
+    (Some (Some item) -> item)
+    (Some _ -> 0)
+    (_ -> -1)))
+"#,
+    )
+    .unwrap();
+    let CoreExpr::Let { value, .. } = expr else {
+        panic!("expected Let");
+    };
+    let CoreExpr::Match { arms, .. } = *value else {
+        panic!("expected Match");
+    };
+    assert_eq!(arms.len(), 3);
+    assert!(matches!(
+        &arms[0].pattern,
+        reciplexa_core::CorePattern::Variant {
+            tag,
+            payload: Some(inner),
+        } if tag == "Some"
+            && matches!(
+                inner.as_ref(),
+                reciplexa_core::CorePattern::Variant {
+                    tag: t2,
+                    payload: Some(b),
+                } if t2 == "Some"
+                    && matches!(b.as_ref(), reciplexa_core::CorePattern::Bind(n) if n == "item")
+            )
+    ));
+    assert!(matches!(
+        &arms[1].pattern,
+        reciplexa_core::CorePattern::Variant {
+            tag,
+            payload: Some(inner),
+        } if tag == "Some" && matches!(inner.as_ref(), reciplexa_core::CorePattern::Wildcard)
+    ));
+    assert!(matches!(arms[2].pattern, reciplexa_core::CorePattern::Wildcard));
+
+    let bind = elaborate_source(
+        r#"
+(data Option (None) (Some x))
+(val main (match (Some 1) (bind v -> v)))
+"#,
+    )
+    .unwrap();
+    let CoreExpr::Let { value, .. } = bind else {
+        panic!("expected Let");
+    };
+    let CoreExpr::Match { arms, .. } = *value else {
+        panic!("expected Match");
+    };
+    assert!(matches!(
+        &arms[0].pattern,
+        reciplexa_core::CorePattern::Bind(n) if n == "v"
+    ));
 }
 
 #[test]

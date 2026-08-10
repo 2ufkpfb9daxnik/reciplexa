@@ -3,7 +3,7 @@
 use reciplexa_source::range::TextRange;
 
 use crate::elaborate::DataEnv;
-use crate::expr::{CoreExpr, CoreLiteral, CoreValue, MatchArm};
+use crate::expr::{CoreExpr, CoreLiteral, CorePattern, CoreValue, MatchArm};
 use crate::ty::{CoreType, EffectRow};
 use crate::unify::{unify, Subst, UnifyError};
 
@@ -329,30 +329,34 @@ pub fn infer_with_effects(
         CoreExpr::Match { scrutinee, arms } => {
             let (scr_ty, scr_effs) = infer_with_effects(scrutinee, env, subst, range)?;
             let scr_ty = subst.apply(&scr_ty);
-            let expected_adt = arms.iter().find_map(|a| {
-                let a = env.data.adt_for_tag(&a.tag);
-                if a.is_empty() {
-                    None
-                } else {
-                    Some(a)
-                }
-            });
-            if let Some(adt) = &expected_adt {
-                let covered: std::collections::HashSet<&str> =
-                    arms.iter().map(|a| a.tag.as_str()).collect();
-                let missing: Vec<&str> = adt
-                    .iter()
-                    .map(|(t, _)| t.as_str())
-                    .filter(|t| !covered.contains(t))
-                    .collect();
-                if !missing.is_empty() {
-                    return Err(CheckError::at(
-                        format!(
-                            "non-exhaustive match: missing constructor(s) {}",
-                            missing.join(", ")
-                        ),
-                        range,
-                    ));
+            let has_catch_all = arms.iter().any(|a| a.is_catch_all());
+            if !has_catch_all {
+                let expected_adt = arms.iter().find_map(|a| {
+                    let tag = a.tag()?;
+                    let adt = env.data.adt_for_tag(tag);
+                    if adt.is_empty() {
+                        None
+                    } else {
+                        Some(adt)
+                    }
+                });
+                if let Some(adt) = &expected_adt {
+                    let covered: std::collections::HashSet<&str> =
+                        arms.iter().filter_map(|a| a.tag()).collect();
+                    let missing: Vec<&str> = adt
+                        .iter()
+                        .map(|(t, _)| t.as_str())
+                        .filter(|t| !covered.contains(t))
+                        .collect();
+                    if !missing.is_empty() {
+                        return Err(CheckError::at(
+                            format!(
+                                "non-exhaustive match: missing constructor(s) {}",
+                                missing.join(", ")
+                            ),
+                            range,
+                        ));
+                    }
                 }
             }
             let ret_var = CoreType::Var(subst.fresh_var());
@@ -417,18 +421,40 @@ fn check_arm(
     range: TextRange,
 ) -> Result<EffectRow, CheckError> {
     let mut child = env.clone();
-    if let CoreType::Variant { variants } = scr_ty {
-        if let Some((_, payload)) = variants.iter().find(|(t, _)| t == &arm.tag) {
-            if let Some(bind) = &arm.bind {
-                if let Some(p_ty) = payload {
-                    child.insert(bind.clone(), p_ty.clone());
-                }
-            }
-        }
-    }
+    bind_pattern(&arm.pattern, scr_ty, &mut child);
     let (body_ty, body_effs) = infer_with_effects(&arm.body, &child, subst, range)?;
     unify(&body_ty, ret_ty, subst).map_err(|e| unify_to_check(e, range))?;
     Ok(body_effs)
+}
+
+fn bind_pattern(pat: &CorePattern, scr_ty: &CoreType, env: &mut TypeEnv) {
+    match pat {
+        CorePattern::Wildcard => {}
+        CorePattern::Bind(name) => {
+            env.insert(name.clone(), scr_ty.clone());
+        }
+        CorePattern::Variant { tag, payload } => {
+            if let CoreType::Variant { variants } = scr_ty {
+                if let Some((_, p_ty)) = variants.iter().find(|(t, _)| t == tag) {
+                    if let (Some(inner), Some(pty)) = (payload, p_ty) {
+                        bind_pattern(inner, pty, env);
+                    } else if let (Some(inner), None) = (payload, p_ty) {
+                        // Unknown payload type — bind as Dynamic when binder.
+                        if let CorePattern::Bind(name) = inner.as_ref() {
+                            env.insert(name.clone(), CoreType::Dynamic);
+                        } else {
+                            bind_pattern(inner, &CoreType::Dynamic, env);
+                        }
+                    }
+                } else if let Some(inner) = payload {
+                    // Tag not in scrutinee type; still bind Dynamic for nested binders.
+                    bind_pattern(inner, &CoreType::Dynamic, env);
+                }
+            } else if let Some(inner) = payload {
+                bind_pattern(inner, &CoreType::Dynamic, env);
+            }
+        }
+    }
 }
 
 /// Type-check and return a typed core value.

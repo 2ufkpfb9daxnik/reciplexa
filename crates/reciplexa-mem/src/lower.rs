@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use reciplexa_core::expr::{CoreExpr, CoreLiteral, MatchArm};
+use reciplexa_core::expr::{CoreExpr, CoreLiteral, CorePattern, MatchArm};
 
 use crate::ir::{MemInstr, MemLiteral};
 use crate::linear::LinearProgram;
@@ -164,12 +164,18 @@ impl Lowerer {
             }
             CoreExpr::Match { scrutinee, arms } => {
                 if let CoreExpr::Variant { tag, payload } = scrutinee.as_ref() {
-                    if let Some(arm) = arms.iter().find(|a| &a.tag == tag) {
+                    if let Some(arm) = arms.iter().find(|a| a.tag() == Some(tag.as_str())) {
                         let mut child = env.clone();
-                        if let Some(bind) = &arm.bind {
-                            if let Some(p) = payload {
-                                let payload_reg = self.lower_expr(p, env);
-                                child.insert(bind.clone(), payload_reg);
+                        if let CorePattern::Variant {
+                            payload: Some(inner),
+                            ..
+                        } = &arm.pattern
+                        {
+                            if let CorePattern::Bind(bind) = inner.as_ref() {
+                                if let Some(p) = payload {
+                                    let payload_reg = self.lower_expr(p, env);
+                                    child.insert(bind.clone(), payload_reg);
+                                }
                             }
                         }
                         return self.lower_expr(&arm.body, &child);
@@ -214,14 +220,20 @@ impl Lowerer {
                 dup
             };
             let mut child = env.clone();
-            if let Some(bind) = &arm.bind {
-                let payload = self.alloc.fresh();
-                self.emit(MemInstr::Project {
-                    dst: payload,
-                    src: scr_use,
-                    field: "payload".into(),
-                });
-                child.insert(bind.clone(), payload);
+            if let CorePattern::Variant {
+                payload: Some(inner),
+                ..
+            } = &arm.pattern
+            {
+                if let CorePattern::Bind(bind) = inner.as_ref() {
+                    let payload = self.alloc.fresh();
+                    self.emit(MemInstr::Project {
+                        dst: payload,
+                        src: scr_use,
+                        field: "payload".into(),
+                    });
+                    child.insert(bind.clone(), payload);
+                }
             }
             let body_reg = self.lower_expr(&arm.body, &child);
             self.emit(MemInstr::Move { dst, src: body_reg });
