@@ -136,6 +136,19 @@ fn arrow_is_reserved_token_not_ident() {
 }
 
 #[test]
+fn lexes_comparison_and_division_ops_as_single_idents() {
+    // SYN-001 §5: fixed operator identifiers, each one token.
+    for op in ["/", ">", "<=", ">=", "!="] {
+        assert_eq!(kinds(op), vec![SyntaxKind::Ident], "op `{op}`");
+        assert_eq!(texts(op), vec![op], "op `{op}`");
+    }
+    assert_eq!(
+        texts("(<= x y)"),
+        vec!["(", "<=", " ", "x", " ", "y", ")"]
+    );
+}
+
+#[test]
 fn lexes_brackets_and_braces() {
     assert_eq!(
         kinds("{[ ]}"),

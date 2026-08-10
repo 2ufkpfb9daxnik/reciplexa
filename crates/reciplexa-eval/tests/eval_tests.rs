@@ -625,9 +625,19 @@ fn eval_source_ker_primitives() {
     assert_eq!(v, RuntimeValue::Number(3.0));
     let v = eval_source("(val main (* 3 4))").unwrap();
     assert_eq!(v, RuntimeValue::Number(12.0));
+    let v = eval_source("(val main (/ 8 2))").unwrap();
+    assert_eq!(v, RuntimeValue::Number(4.0));
     let v = eval_source("(val main (< 1 2))").unwrap();
     assert_eq!(v, RuntimeValue::Bool(true));
+    let v = eval_source("(val main (> 3 1))").unwrap();
+    assert_eq!(v, RuntimeValue::Bool(true));
+    let v = eval_source("(val main (<= 2 2))").unwrap();
+    assert_eq!(v, RuntimeValue::Bool(true));
+    let v = eval_source("(val main (>= 2 3))").unwrap();
+    assert_eq!(v, RuntimeValue::Bool(false));
     let v = eval_source("(val main (= 2 2))").unwrap();
+    assert_eq!(v, RuntimeValue::Bool(true));
+    let v = eval_source("(val main (!= 1 2))").unwrap();
     assert_eq!(v, RuntimeValue::Bool(true));
 }
 

@@ -49,8 +49,13 @@ pub enum BuiltinOp {
     Add,
     Sub,
     Mul,
+    Div,
     Lt,
+    Gt,
+    Le,
+    Ge,
     Eq,
+    Ne,
 }
 
 impl fmt::Debug for RuntimeValue {

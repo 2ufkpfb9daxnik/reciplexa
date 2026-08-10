@@ -19,8 +19,13 @@ pub fn primitive_env() -> HashMap<String, RuntimeValue> {
     env.insert("+".into(), RuntimeValue::Builtin(BuiltinOp::Add));
     env.insert("-".into(), RuntimeValue::Builtin(BuiltinOp::Sub));
     env.insert("*".into(), RuntimeValue::Builtin(BuiltinOp::Mul));
+    env.insert("/".into(), RuntimeValue::Builtin(BuiltinOp::Div));
     env.insert("<".into(), RuntimeValue::Builtin(BuiltinOp::Lt));
+    env.insert(">".into(), RuntimeValue::Builtin(BuiltinOp::Gt));
+    env.insert("<=".into(), RuntimeValue::Builtin(BuiltinOp::Le));
+    env.insert(">=".into(), RuntimeValue::Builtin(BuiltinOp::Ge));
     env.insert("=".into(), RuntimeValue::Builtin(BuiltinOp::Eq));
+    env.insert("!=".into(), RuntimeValue::Builtin(BuiltinOp::Ne));
     env
 }
 
@@ -741,7 +746,14 @@ fn apply_builtin(op: BuiltinOp, args: Vec<RuntimeValue>) -> Result<Outcome, Eval
     let a = &args[0];
     let b = &args[1];
     match op {
-        BuiltinOp::Add | BuiltinOp::Sub | BuiltinOp::Mul | BuiltinOp::Lt => {
+        BuiltinOp::Add
+        | BuiltinOp::Sub
+        | BuiltinOp::Mul
+        | BuiltinOp::Div
+        | BuiltinOp::Lt
+        | BuiltinOp::Gt
+        | BuiltinOp::Le
+        | BuiltinOp::Ge => {
             let (RuntimeValue::Number(x), RuntimeValue::Number(y)) = (a, b) else {
                 return Err(EvalError {
                     message: format!("builtin `{op:?}` expects Number arguments"),
@@ -751,11 +763,16 @@ fn apply_builtin(op: BuiltinOp, args: Vec<RuntimeValue>) -> Result<Outcome, Eval
                 BuiltinOp::Add => RuntimeValue::Number(x + y),
                 BuiltinOp::Sub => RuntimeValue::Number(x - y),
                 BuiltinOp::Mul => RuntimeValue::Number(x * y),
+                BuiltinOp::Div => RuntimeValue::Number(x / y),
                 BuiltinOp::Lt => RuntimeValue::Bool(x < y),
-                BuiltinOp::Eq => unreachable!(),
+                BuiltinOp::Gt => RuntimeValue::Bool(x > y),
+                BuiltinOp::Le => RuntimeValue::Bool(x <= y),
+                BuiltinOp::Ge => RuntimeValue::Bool(x >= y),
+                BuiltinOp::Eq | BuiltinOp::Ne => unreachable!(),
             }))
         }
         BuiltinOp::Eq => Ok(Outcome::Value(RuntimeValue::Bool(a == b))),
+        BuiltinOp::Ne => Ok(Outcome::Value(RuntimeValue::Bool(a != b))),
     }
 }
 
