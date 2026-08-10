@@ -187,6 +187,7 @@ impl<'a> Lexer<'a> {
                 SyntaxKind::At
             }
             '"' => return self.bump_string(start),
+            '.' => return self.bump_ellipsis(start),
             c if is_ident_start(c) => return self.bump_ident_or_number(start),
             c if c.is_ascii_digit() => return self.bump_number(start),
             _ => {
@@ -294,6 +295,21 @@ impl<'a> Lexer<'a> {
                 }
             }
         }
+    }
+
+    /// MAC-001: `...` (template splice) and `...+` (pattern rest) as Ident atoms.
+    fn bump_ellipsis(&mut self, start: usize) -> Token {
+        // Require three dots; optional trailing `+` for pattern rest.
+        self.advance_char(); // first `.`
+        if self.peek_char() != Some('.') || self.peek_char_at('.'.len_utf8()) != Some('.') {
+            return self.finish(SyntaxKind::Error, start);
+        }
+        self.advance_char();
+        self.advance_char();
+        if self.peek_char() == Some('+') {
+            self.advance_char();
+        }
+        self.finish(SyntaxKind::Ident, start)
     }
 
     fn bump_ident_or_number(&mut self, start: usize) -> Token {

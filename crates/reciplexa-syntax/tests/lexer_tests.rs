@@ -107,6 +107,19 @@ fn semicolon_is_error_not_line_comment() {
 }
 
 #[test]
+fn lexes_mac_ellipsis_as_ident() {
+    // MAC-001: `...` / `...+` are single Ident atoms for patterns/templates.
+    assert_eq!(kinds("..."), vec![SyntaxKind::Ident]);
+    assert_eq!(texts("..."), vec!["..."]);
+    assert_eq!(kinds("...+"), vec![SyntaxKind::Ident]);
+    assert_eq!(texts("...+"), vec!["...+"]);
+    assert_eq!(
+        texts("($body ...+)"),
+        vec!["(", "$body", " ", "...+", ")"]
+    );
+}
+
+#[test]
 fn lexes_signed_and_symbolic_idents() {
     assert_eq!(kinds("+"), vec![SyntaxKind::Ident]);
     assert_eq!(kinds("+10"), vec![SyntaxKind::Number]);

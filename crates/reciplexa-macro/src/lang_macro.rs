@@ -2,14 +2,17 @@
 //!
 //! Primary surface (MAC-001):
 //! ```text
-//! (macro name ($params...) -> template)
+//! (macro name ($params... [$rest ...+]) -> template)
 //! ```
-//! Legacy v0 `(macro name (params...) template)` is still accepted briefly.
+//! Legacy `(macro name (params) template)` without `->` is rejected.
 //! Calls `(name args...)` expand before elaborate/typecheck.
+//! Pattern rest `$body ...+` requires ≥1 argument; template `$body ...` splices.
 
 use std::collections::HashMap;
 
-use reciplexa_syntax::{parse_source, SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken};
+use reciplexa_syntax::{
+    is_reserved_special_form, parse_source, SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken,
+};
 
 use crate::ExpandError;
 
@@ -27,7 +30,10 @@ enum Sexpr {
 
 #[derive(Debug, Clone)]
 struct MacroDef {
+    /// Fixed pattern variables (each starts with `$`).
     params: Vec<String>,
+    /// Optional trailing rest variable bound by `$rest ...+` (one-or-more).
+    rest: Option<String>,
     template: Sexpr,
 }
 
@@ -72,24 +78,8 @@ pub fn expand_language(input: &str) -> Result<String, ExpandError> {
 }
 
 fn is_reserved(name: &str) -> bool {
-    matches!(
-        name,
-        "macro"
-            | "val"
-            | "fn"
-            | "let"
-            | "if"
-            | "seq"
-            | "type"
-            | "true"
-            | "false"
-            | "unit"
-            | "match"
-            | "record"
-            | "field"
-            | "list"
-            | "tuple"
-    )
+    // SYN §6 Core special forms + surface forms (via shared reserved table).
+    is_reserved_special_form(name)
 }
 
 fn try_macro_def(form: &Sexpr) -> Result<Option<(String, MacroDef)>, ExpandError> {
@@ -103,36 +93,90 @@ fn try_macro_def(form: &Sexpr) -> Result<Option<(String, MacroDef)>, ExpandError
         return Ok(None);
     }
 
-    // MAC-001 primary: (macro name ($params...) -> template)
-    // Legacy:          (macro name (params...) template)
+    // MAC-001: (macro name ($params...) -> template) — `->` is required.
     let (name, param_items, template) = match items.as_slice() {
         [_, Sexpr::Atom(name), Sexpr::List(params), Sexpr::Atom(arrow), template]
             if arrow == "->" =>
         {
             (name, params, template)
         }
-        [_, Sexpr::Atom(name), Sexpr::List(params), template] => (name, params, template),
+        [_, Sexpr::Atom(_), Sexpr::List(_), _] => {
+            return Err(ExpandError::new(
+                "`macro` requires `(macro name ($params...) -> template)`; \
+                 legacy form without `->` is not accepted",
+            ));
+        }
         _ => {
             return Err(ExpandError::new(
-                "`macro` requires `(macro name ($params...) -> template)` \
-                 (legacy `(macro name (params...) template)` also accepted)",
+                "`macro` requires `(macro name ($params...) -> template)`",
             ));
         }
     };
 
-    let dollar_form = param_items
-        .iter()
-        .any(|p| matches!(p, Sexpr::Atom(a) if a.starts_with('$')));
-    let mut params = Vec::with_capacity(param_items.len());
+    let (params, rest) = parse_macro_params(param_items)?;
+    // Unbound template pattern vars are a definition-time error (MAC §18.4).
+    check_template_vars(&template, &params, rest.as_deref())?;
+
+    Ok(Some((
+        name.clone(),
+        MacroDef {
+            params,
+            rest,
+            template: template.clone(),
+        },
+    )))
+}
+
+fn parse_macro_params(
+    param_items: &[Sexpr],
+) -> Result<(Vec<String>, Option<String>), ExpandError> {
+    let mut params = Vec::new();
+    let mut rest = None;
     let mut seen = std::collections::HashSet::new();
-    for p in param_items {
-        let Sexpr::Atom(pname) = p else {
+    let mut i = 0;
+    while i < param_items.len() {
+        let Sexpr::Atom(pname) = &param_items[i] else {
             return Err(ExpandError::new("macro parameter must be an identifier"));
         };
-        if dollar_form && !pname.starts_with('$') {
+        if pname == "...+" {
+            return Err(ExpandError::new(
+                "`...+` must follow a pattern variable (`$body ...+`)",
+            ));
+        }
+        if pname == "..." {
+            return Err(ExpandError::new(
+                "`...` is only valid in templates, not in macro patterns",
+            ));
+        }
+        if !pname.starts_with('$') {
             return Err(ExpandError::new(format!(
                 "MAC-001 pattern variable must start with `$`, got `{pname}`"
             )));
+        }
+        // Trailing rest: `$body ...+` (must be last; only one).
+        if i + 1 < param_items.len() {
+            if let Sexpr::Atom(marker) = &param_items[i + 1] {
+                if marker == "...+" {
+                    if i + 2 != param_items.len() {
+                        return Err(ExpandError::new(
+                            "macro `...+` rest parameter must be last in the pattern",
+                        ));
+                    }
+                    if rest.is_some() {
+                        return Err(ExpandError::new(
+                            "macro pattern may contain at most one `...+` rest",
+                        ));
+                    }
+                    if !seen.insert(pname.clone()) {
+                        return Err(ExpandError::new(format!(
+                            "duplicate macro parameter `{pname}`"
+                        )));
+                    }
+                    rest = Some(pname.clone());
+                    i += 2;
+                    continue;
+                }
+            }
         }
         if !seen.insert(pname.clone()) {
             return Err(ExpandError::new(format!(
@@ -140,14 +184,44 @@ fn try_macro_def(form: &Sexpr) -> Result<Option<(String, MacroDef)>, ExpandError
             )));
         }
         params.push(pname.clone());
+        i += 1;
     }
-    Ok(Some((
-        name.clone(),
-        MacroDef {
-            params,
-            template: template.clone(),
-        },
-    )))
+    Ok((params, rest))
+}
+
+fn check_template_vars(
+    template: &Sexpr,
+    params: &[String],
+    rest: Option<&str>,
+) -> Result<(), ExpandError> {
+    let mut bound: std::collections::HashSet<&str> = params.iter().map(|s| s.as_str()).collect();
+    if let Some(r) = rest {
+        bound.insert(r);
+    }
+    walk_template_vars(template, &bound)
+}
+
+fn walk_template_vars(
+    expr: &Sexpr,
+    bound: &std::collections::HashSet<&str>,
+) -> Result<(), ExpandError> {
+    match expr {
+        Sexpr::Atom(name) if name.starts_with('$') && name != "..." && name != "...+" => {
+            if !bound.contains(name.as_str()) {
+                return Err(ExpandError::new(format!(
+                    "unbound macro pattern variable `{name}`"
+                )));
+            }
+            Ok(())
+        }
+        Sexpr::Atom(_) => Ok(()),
+        Sexpr::List(items) => {
+            for item in items {
+                walk_template_vars(item, bound)?;
+            }
+            Ok(())
+        }
+    }
 }
 
 fn expand_sexpr(
@@ -186,12 +260,24 @@ fn expand_call(
     }
     *budget -= 1;
 
-    if args.len() != def.params.len() {
-        return Err(ExpandError::new(format!(
-            "macro `{name}` expects {} arguments, but received {}",
-            def.params.len(),
-            args.len()
-        )));
+    let fixed = def.params.len();
+    match &def.rest {
+        None => {
+            if args.len() != fixed {
+                return Err(ExpandError::new(format!(
+                    "macro `{name}` expects {} arguments, but received {}",
+                    fixed,
+                    args.len()
+                )));
+            }
+        }
+        Some(rest_name) => {
+            if args.len() < fixed + 1 {
+                return Err(ExpandError::new(format!(
+                    "macro `{name}` requires at least one `{rest_name}` expression"
+                )));
+            }
+        }
     }
 
     // Hygiene v0: rename binders introduced by the template, then substitute params.
@@ -199,6 +285,10 @@ fn expand_call(
     let mut subst = HashMap::new();
     for (param, arg) in def.params.iter().zip(args.iter()) {
         subst.insert(param.clone(), arg.clone());
+    }
+    if let Some(rest_name) = &def.rest {
+        let rest_args: Vec<Sexpr> = args[fixed..].to_vec();
+        subst.insert(rest_name.clone(), Sexpr::List(rest_args));
     }
     let filled = substitute(&renamed, &subst);
     expand_sexpr(filled, macros, budget, gensym)
@@ -355,9 +445,25 @@ fn substitute(expr: &Sexpr, subst: &HashMap<String, Sexpr>) -> Sexpr {
             }
         }
         Sexpr::List(items) => {
-            // Do not treat substituted heads specially; walk structure only.
-            // Binders already gensym'd, so param names won't collide with binders.
-            Sexpr::List(items.iter().map(|i| substitute(i, subst)).collect())
+            // Splice rest: `$body ...` expands to the rest argument sequence.
+            let mut out = Vec::with_capacity(items.len());
+            let mut i = 0;
+            while i < items.len() {
+                if i + 1 < items.len() {
+                    if let (Sexpr::Atom(var), Sexpr::Atom(dots)) = (&items[i], &items[i + 1]) {
+                        if dots == "..." {
+                            if let Some(Sexpr::List(rest_args)) = subst.get(var) {
+                                out.extend(rest_args.iter().cloned());
+                                i += 2;
+                                continue;
+                            }
+                        }
+                    }
+                }
+                out.push(substitute(&items[i], subst));
+                i += 1;
+            }
+            Sexpr::List(out)
         }
     }
 }
@@ -505,6 +611,30 @@ mod tests {
     }
 
     #[test]
+    fn expands_when_with_rest_plus() {
+        let src = r#"
+(macro when ($condition $body ...+) -> (if $condition (seq $body ...) unit))
+(val main (when true 1 2 3))
+"#;
+        let out = expand_language(src).unwrap();
+        assert_eq!(out, "(val main (if true (seq 1 2 3) unit))");
+    }
+
+    #[test]
+    fn rest_plus_rejects_empty_body() {
+        let src = r#"
+(macro when ($condition $body ...+) -> (if $condition (seq $body ...) unit))
+(val main (when true))
+"#;
+        let err = expand_language(src).unwrap_err();
+        assert!(
+            err.message.contains("at least one"),
+            "unexpected: {}",
+            err.message
+        );
+    }
+
+    #[test]
     fn hygiene_avoids_capture() {
         // (m body) → (fn (x) body); call (m x) must not capture the binder.
         let src = "(macro m ($body) -> (fn (x) $body))\n(val main ((m x) 42))";
@@ -524,9 +654,26 @@ mod tests {
     }
 
     #[test]
-    fn legacy_macro_form_still_accepted() {
+    fn rejects_legacy_macro_form_without_arrow() {
         let src = "(macro call1 (f x) (f x))\n(val main (call1 (fn (x) x) 1))";
-        let out = expand_language(src).unwrap();
-        assert_eq!(out, "(val main ((fn (x) x) 1))");
+        let err = expand_language(src).unwrap_err();
+        assert!(
+            err.message.contains("->") || err.message.contains("legacy"),
+            "unexpected: {}",
+            err.message
+        );
+    }
+
+    #[test]
+    fn rejects_reserved_macro_names() {
+        for name in ["perform", "handle", "data", "var", "set", "with"] {
+            let src = format!("(macro {name} ($x) -> $x)\n(val main 1)");
+            let err = expand_language(&src).unwrap_err();
+            assert!(
+                err.message.contains("reserved"),
+                "{name}: {}",
+                err.message
+            );
+        }
     }
 }
