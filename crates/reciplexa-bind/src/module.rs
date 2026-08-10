@@ -51,10 +51,14 @@ impl ModuleSkeleton {
     }
 }
 
-/// `(import other)` or `(import other only (a b))`.
+/// `(import path)`, `(import path as alias)`, `(import path only a b)`, …
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ImportDecl {
+    /// Module path (`lib` or `graphics/color`).
     pub module: String,
+    /// Optional module alias from `as name` (MOD-001 §6.2).
+    pub alias: Option<String>,
+    /// Selective imports: flat `only a b` or legacy `only (a b)`.
     pub only: Option<Vec<String>>,
 }
 
@@ -221,48 +225,96 @@ fn parse_import_list(node: &SyntaxNode) -> Result<Option<ImportDecl>, ModuleErro
         return Ok(None);
     }
     if atoms.len() < 2 {
-        return Err(ModuleError::new("`import` requires a module name"));
+        return Err(ModuleError::new("`import` requires a module path"));
     }
     let AtomRef::Ident(module) = &atoms[1] else {
         return Err(ModuleError::new(
-            "`import` module name must be an identifier",
+            "`import` module path must be an identifier (segments joined by `/`)",
         ));
     };
-    if atoms.len() == 2 {
-        return Ok(Some(ImportDecl {
-            module: module.clone(),
-            only: None,
-        }));
-    }
-    // (import other only (a b))
-    if atoms.len() != 4 {
-        return Err(ModuleError::new(
-            "`import` form is `(import name)` or `(import name only (a b …))`",
-        ));
-    }
-    let AtomRef::Ident(only_kw) = &atoms[2] else {
-        return Err(ModuleError::new("expected `only` in import form"));
-    };
-    if only_kw != "only" {
-        return Err(ModuleError::new("expected `only` in import form"));
-    }
-    let AtomRef::Node(list) = &atoms[3] else {
-        return Err(ModuleError::new("`import … only` requires a name list"));
-    };
-    let mut names = Vec::new();
-    for a in list_idents_and_nodes(list) {
-        match a {
-            AtomRef::Ident(n) => names.push(n),
+
+    let mut alias = None;
+    let mut only = None;
+    let mut i = 2;
+    while i < atoms.len() {
+        match &atoms[i] {
+            AtomRef::Ident(kw) if kw == "as" => {
+                if alias.is_some() {
+                    return Err(ModuleError::new("`import` has duplicate `as` clause"));
+                }
+                i += 1;
+                let Some(AtomRef::Ident(name)) = atoms.get(i) else {
+                    return Err(ModuleError::new("`import … as` requires an alias identifier"));
+                };
+                alias = Some(name.clone());
+                i += 1;
+            }
+            AtomRef::Ident(kw) if kw == "only" => {
+                if only.is_some() {
+                    return Err(ModuleError::new("`import` has duplicate `only` clause"));
+                }
+                i += 1;
+                if i >= atoms.len() {
+                    return Err(ModuleError::new("`import … only` requires at least one name"));
+                }
+                // Legacy: `(import m only (a b))`
+                if let AtomRef::Node(list) = &atoms[i] {
+                    let mut names = Vec::new();
+                    for a in list_idents_and_nodes(list) {
+                        match a {
+                            AtomRef::Ident(n) => names.push(n),
+                            AtomRef::Node(_) => {
+                                return Err(ModuleError::new(
+                                    "`import … only` list entries must be identifiers",
+                                ));
+                            }
+                        }
+                    }
+                    only = Some(names);
+                    i += 1;
+                } else {
+                    // Flat: `(import m only a b c)` (MOD-001 §6.3)
+                    let mut names = Vec::new();
+                    while i < atoms.len() {
+                        match &atoms[i] {
+                            AtomRef::Ident(n) if n != "as" && n != "only" => {
+                                names.push(n.clone());
+                                i += 1;
+                            }
+                            AtomRef::Ident(_) => break,
+                            AtomRef::Node(_) => {
+                                return Err(ModuleError::new(
+                                    "`import … only` names must be identifiers",
+                                ));
+                            }
+                        }
+                    }
+                    if names.is_empty() {
+                        return Err(ModuleError::new(
+                            "`import … only` requires at least one name",
+                        ));
+                    }
+                    only = Some(names);
+                }
+            }
+            AtomRef::Ident(other) => {
+                return Err(ModuleError::new(format!(
+                    "unexpected `{other}` in import; expected `as` or `only`"
+                )));
+            }
             AtomRef::Node(_) => {
                 return Err(ModuleError::new(
-                    "`import … only` list entries must be identifiers",
+                    "`import` form is `(import path)`, `(import path as alias)`, \
+                     or `(import path only names…)`",
                 ));
             }
         }
     }
+
     Ok(Some(ImportDecl {
         module: module.clone(),
-        only: Some(names),
+        alias,
+        only,
     }))
 }
 

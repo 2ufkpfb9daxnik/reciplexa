@@ -48,12 +48,36 @@ fn elaborate_units_links_import_only() {
         main.imports,
         vec![ImportDecl {
             module: "lib".into(),
+            alias: None,
             only: Some(vec!["id".into()]),
         }]
     );
     assert!(matches!(main.expr, CoreExpr::Let { ref name, .. } if name == "id"));
     let v = eval_expr(&main.expr, &HashMap::new(), &mut UnitHost).unwrap();
     assert_eq!(v, RuntimeValue::Number(7.0));
+}
+
+#[test]
+fn elaborate_units_import_as_and_flat_only() {
+    let units = elaborate_units(&[
+        ("graphics/color", r#"(val black 0) (val white 1)"#),
+        (
+            "main",
+            r#"(import graphics/color as color only black white) (val main black)"#,
+        ),
+    ])
+    .unwrap();
+    let main = units.iter().find(|u| u.name == "main").unwrap();
+    assert_eq!(
+        main.imports,
+        vec![ImportDecl {
+            module: "graphics/color".into(),
+            alias: Some("color".into()),
+            only: Some(vec!["black".into(), "white".into()]),
+        }]
+    );
+    let v = eval_expr(&main.expr, &HashMap::new(), &mut UnitHost).unwrap();
+    assert_eq!(v, RuntimeValue::Number(0.0));
 }
 
 #[test]
