@@ -17,9 +17,9 @@
 
 - **total**: 1589
 - **unchecked**: 0
-- **ok**: 309
-- **partial**: 508
-- **gap**: 347
+- **ok**: 320
+- **partial**: 506
+- **gap**: 338
 - **deferred**: 293
 - **meta**: 132
 
@@ -65,7 +65,7 @@
 
 - [x] **L4 L343: 13.1 `LEX-001` Lossless lexer/CST** — `partial`
   - spec: `specification.md:343`
-  - notes: rowan CST+unparseあり; shebang/BOM/仮想tokenは不足
+  - notes: rowan CST+unparse+shebang trivia; BOM専用node/仮想tokenは不足
 
 - [x] **L5 L345: 概要・目的・状態** — `ok`
   - spec: `specification.md:345`
@@ -101,7 +101,7 @@
 
 - [x] **L4 L432: 13.2 `SYN-001` Code mode・字句・Surface構文・markup reader** — `partial`
   - spec: `specification.md:432`
-  - notes: 字句〜markup核は実装; 型文法/bytes等にギャップ
+  - notes: 字句〜markup+型表面/bytes核; intersect/糖衣等にギャップ
 
 - [x] **L5 L434: 統合方針** — `ok`
   - spec: `specification.md:434`
@@ -113,7 +113,7 @@
 
 - [x] **L5 L471: 1. Source fileと文字コード** — `partial`
   - spec: `specification.md:471`
-  - notes: UTF-8 decodeはsource; shebang CST未接続
+  - notes: UTF-8+shebang trivia; BOM専用CST nodeなし
 
 - [x] **L6 L473: 1.1 文字コード** — `ok`
   - spec: `specification.md:473`
@@ -131,9 +131,9 @@
   - spec: `specification.md:524`
   - notes: UTF-8 byte [start,end) spans
 
-- [x] **L6 L538: 1.5 Shebang** — `gap`
+- [x] **L6 L538: 1.5 Shebang** — `ok`
   - spec: `specification.md:538`
-  - notes: shebang検出のみ; lexer/CSTへ未統合
+  - notes: offset0 `#!` → SyntaxKind::Shebang trivia (lexer/CST)
 
 - [x] **L5 L558: 2. 空白とコメント** — `ok`
   - spec: `specification.md:558`
@@ -165,7 +165,7 @@
 
 - [x] **L5 L689: 3. 識別子** — `partial`
   - spec: `specification.md:689`
-  - notes: NFC/kebab/?!/_はok; 不可視文字未検査
+  - notes: NFC/kebab/?!/_/不可視拒否ok; 厳密XIDは近似
 
 - [x] **L6 L691: 3.1 Unicode識別子** — `partial`
   - spec: `specification.md:691`
@@ -191,13 +191,13 @@
   - spec: `specification.md:801`
   - notes: 末尾単一?/! (ident.rs)
 
-- [x] **L6 L825: 3.7 不可視文字** — `gap`
+- [x] **L6 L825: 3.7 不可視文字** — `ok`
   - spec: `specification.md:825`
-  - notes: 不可視/bidi/ZW* 検査なし
+  - notes: reject_invisible_chars (bidi/ZW*/format) in validate_ident
 
-- [x] **L5 L841: 4. Package名とmodule path component** — `gap`
+- [x] **L5 L841: 4. Package名とmodule path component** — `ok`
   - spec: `specification.md:841`
-  - notes: path segmentのASCII限定未enforce
+  - notes: validate_package_path ASCII lowercase kebab; / paths enforce
 
 - [x] **L5 L867: 5. Operator identifier** — `ok`
   - spec: `specification.md:867`
@@ -267,9 +267,9 @@
   - spec: `specification.md:1275`
   - notes: 'sym/:kwなし; #はError
 
-- [x] **L5 L1310: 11. Bytes** — `gap`
+- [x] **L5 L1310: 11. Bytes** — `ok`
   - spec: `specification.md:1310`
-  - notes: (bytes …) ctor/literal未実装
+  - notes: (bytes …)→CoreLiteral::Bytes; encode/decode-utf8は未 (KER/PKG)
 
 - [x] **L5 L1360: 12. 単位と色** — `deferred`
   - spec: `specification.md:1360`
@@ -311,25 +311,25 @@
   - spec: `specification.md:1573`
   - notes: let/rec内duplicateは検出; 全域弱い
 
-- [x] **L5 L1590: 14. 関数** — `partial`
+- [x] **L5 L1590: 14. 関数** — `ok`
   - spec: `specification.md:1590`
-  - notes: 値構文・arity ok; 表面fn型は未
+  - notes: 値構文・arity・表面(fn …)型ok
 
 - [x] **L6 L1592: 14.1 値構文** — `ok`
   - spec: `specification.md:1592`
   - notes: (fn (params) body…) (elaborate)
 
-- [x] **L6 L1610: 14.2 関数型** — `gap`
+- [x] **L6 L1610: 14.2 関数型** — `ok`
   - spec: `specification.md:1610`
-  - notes: parse_type_syntaxに(fn …)無し
+  - notes: (fn T… Ret [(effects …)]) in parse_type_syntax
 
 - [x] **L6 L1649: 14.3 Fixed arity** — `ok`
   - spec: `specification.md:1649`
   - notes: n-ary App; 自動curry無し
 
-- [x] **L5 L1678: 15. List、tuple、record** — `partial`
+- [x] **L5 L1678: 15. List、tuple、record** — `ok`
   - spec: `specification.md:1678`
-  - notes: 値形ok; list/tuple型構文は未
+  - notes: 値形+list/tuple型(App/positional record)ok
 
 - [x] **L6 L1680: 15.1 List** — `ok`
   - spec: `specification.md:1680`
@@ -353,15 +353,15 @@
 
 - [x] **L5 L1790: 16. 型構文** — `partial`
   - spec: `specification.md:1790`
-  - notes: named/dynamic/union/recordのみstub
+  - notes: fn/app/forall/row/effects/union/record; intersect/not/diff未
 
-- [x] **L6 L1792: 16.1 型適用** — `gap`
+- [x] **L6 L1792: 16.1 型適用** — `ok`
   - spec: `specification.md:1792`
-  - notes: 型適用 (option str) 等未
+  - notes: (option str)→CoreType::App (unify stub)
 
-- [x] **L6 L1814: 16.2 `forall`** — `gap`
+- [x] **L6 L1814: 16.2 `forall`** — `ok`
   - spec: `specification.md:1814`
-  - notes: forall未
+  - notes: 表面forall+kind; 多相実体化はTYP stub
 
 - [x] **L6 L1840: 16.3 集合論的型** — `partial`
   - spec: `specification.md:1840`
@@ -371,13 +371,13 @@
   - spec: `specification.md:1871`
   - notes: (dynamic …)→Dynamic stub
 
-- [x] **L6 L1887: 16.5 Open record** — `gap`
+- [x] **L6 L1887: 16.5 Open record** — `ok`
   - spec: `specification.md:1887`
-  - notes: 表面(row)/(optional)未; CoreのみOpenRecord
+  - notes: (row r)/(optional label Ty)→OpenRecord/OptionalField
 
-- [x] **L6 L1924: 16.6 Effect row** — `gap`
+- [x] **L6 L1924: 16.6 Effect row** — `ok`
   - spec: `specification.md:1924`
-  - notes: 表面(effects …)型構文未
+  - notes: (effects …) trailing on fn types; duplicate拒否
 
 - [x] **L6 L1952: 16.7 型alias** — `partial`
   - spec: `specification.md:1952`
