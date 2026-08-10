@@ -270,3 +270,55 @@ fn lang_var_set() {
         assert_eq!(v, RuntimeValue::Number(3.0));
     });
 }
+
+#[test]
+fn lang_surface_type_decls_and_dynamic() {
+    let case = ConformanceCase::new(
+        "TEST-LANG-TYP-type",
+        "TYP-001",
+        "surface (type name Ty) and (dynamic)",
+    );
+    run_conformance(&case, || {
+        let (expr, data) = reciplexa_core::elaborate_with_data(
+            r#"
+(type title str)
+(type blob (dynamic))
+(type either (union int str))
+(val title "ok")
+(val main title)
+"#,
+        )
+        .unwrap();
+        assert!(matches!(
+            data.type_aliases.get("title"),
+            Some(CoreType::String)
+        ));
+        assert!(matches!(
+            data.type_aliases.get("blob"),
+            Some(CoreType::Dynamic)
+        ));
+        assert!(matches!(
+            data.type_aliases.get("either"),
+            Some(CoreType::Union(_))
+        ));
+        let _ = expr;
+        let v = eval_source(
+            r#"
+(type title str)
+(val title "ok")
+(val main title)
+"#,
+        )
+        .unwrap();
+        assert_eq!(v, RuntimeValue::String("ok".into()));
+        let ty = typecheck_language_source(
+            r#"
+(type title str)
+(val title "ok")
+(val main title)
+"#,
+        )
+        .unwrap();
+        assert_eq!(ty, CoreType::String);
+    });
+}

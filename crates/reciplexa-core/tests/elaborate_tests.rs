@@ -1,7 +1,7 @@
 //! Surface → Core elaborator tests (BND-001).
 
 use reciplexa_core::check::{infer_expr, TypeEnv};
-use reciplexa_core::elaborate::elaborate_source;
+use reciplexa_core::elaborate::{elaborate_source, elaborate_with_data};
 use reciplexa_core::expr::{CoreExpr, CoreLiteral};
 use reciplexa_core::ty::CoreType;
 use reciplexa_core::unify::Subst;
@@ -531,4 +531,33 @@ fn elaborates_radix_and_scientific_numbers() {
         panic!("expected Let");
     };
     assert_eq!(*value, CoreExpr::Lit(CoreLiteral::Number(1000.0)));
+}
+
+#[test]
+fn registers_surface_type_aliases_and_dynamic() {
+    let (expr, data) = elaborate_with_data(
+        r#"
+(type title str)
+(type-alias maybe (union int str))
+(type any-val (dynamic any))
+(val main "Hello")
+"#,
+    )
+    .unwrap();
+    assert!(matches!(
+        data.type_aliases.get("title"),
+        Some(CoreType::String)
+    ));
+    assert!(matches!(
+        data.type_aliases.get("maybe"),
+        Some(CoreType::Union(m)) if m.len() == 2
+    ));
+    assert!(matches!(
+        data.type_aliases.get("any-val"),
+        Some(CoreType::Dynamic)
+    ));
+    let CoreExpr::Let { value, .. } = expr else {
+        panic!("expected Let");
+    };
+    assert_eq!(*value, CoreExpr::Lit(CoreLiteral::String("Hello".into())));
 }

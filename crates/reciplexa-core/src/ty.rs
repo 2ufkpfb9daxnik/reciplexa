@@ -26,6 +26,8 @@ pub enum CoreType {
     Bool,
     /// Gradual typing entry point (TYP-001). Unifies with any type in v0.
     Dynamic,
+    /// SYN §16.3 union stub — unifies loosely like [`CoreType::Dynamic`] for now.
+    Union(Vec<CoreType>),
     /// Absence constraint: `row` must not contain field `label`.
     Lacks {
         label: String,

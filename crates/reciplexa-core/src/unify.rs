@@ -71,6 +71,9 @@ impl Subst {
                 label: label.clone(),
                 row: Box::new(self.apply(row)),
             },
+            CoreType::Union(members) => {
+                CoreType::Union(members.iter().map(|m| self.apply(m)).collect())
+            }
             other => other.clone(),
         }
     }
@@ -102,6 +105,7 @@ fn occurs(var: TypeVarId, ty: &CoreType) -> bool {
             .iter()
             .any(|(_, t)| t.as_ref().is_some_and(|x| occurs(var, x))),
         CoreType::Lacks { row, .. } => occurs(var, row),
+        CoreType::Union(members) => members.iter().any(|m| occurs(var, m)),
         _ => false,
     }
 }
@@ -139,7 +143,7 @@ fn enforce_lacks(label: &str, row: &CoreType, subst: &mut Subst) -> Result<(), U
             // Peel nested lacks; underlying concrete row is checked below.
             enforce_lacks(label, &inner_row, subst)
         }
-        CoreType::Var(_) | CoreType::Unit | CoreType::Dynamic => Ok(()),
+        CoreType::Var(_) | CoreType::Unit | CoreType::Dynamic | CoreType::Union(_) => Ok(()),
         other => Err(UnifyError::Mismatch {
             expected: CoreType::Lacks {
                 label: label.to_string(),
@@ -187,6 +191,8 @@ pub fn unify(a: &CoreType, b: &CoreType, subst: &mut Subst) -> Result<(), UnifyE
         (_, CoreType::Var(v)) => subst.bind(*v, a),
         // Gradual stub: Dynamic is consistent with every type.
         (CoreType::Dynamic, _) | (_, CoreType::Dynamic) => Ok(()),
+        // SYN §16.3 union stub: treat like Dynamic for v0.
+        (CoreType::Union(_), _) | (_, CoreType::Union(_)) => Ok(()),
         (CoreType::Number, CoreType::Number)
         | (CoreType::String, CoreType::String)
         | (CoreType::Color, CoreType::Color)

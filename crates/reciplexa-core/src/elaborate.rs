@@ -16,6 +16,7 @@ use reciplexa_syntax::{
 };
 
 use crate::expr::{CoreExpr, CoreLiteral, CorePattern, MatchArm};
+use crate::ty::CoreType;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ElaborateError {
@@ -54,6 +55,8 @@ pub struct DataEnv {
     pub ctor_type: HashMap<String, String>,
     /// type name → ordered constructors `(tag, arity)`
     pub data_ctors: HashMap<String, Vec<(String, usize)>>,
+    /// Transparent type aliases from `(type name Ty)` / `(type-alias name Ty)`.
+    pub type_aliases: HashMap<String, CoreType>,
 }
 
 impl DataEnv {
@@ -131,8 +134,10 @@ fn elaborate_file(root: &SyntaxNode) -> Result<(CoreExpr, ElabCtx), ElaborateErr
                                     &n,
                                 ));
                             }
-                            if list_head_ident(&n).as_deref() == Some("type") {
-                                // Type declarations are ignored until TYP/MOD land.
+                            if list_head_ident(&n).as_deref() == Some("type")
+                                || list_head_ident(&n).as_deref() == Some("type-alias")
+                            {
+                                register_type_alias(&n, &mut ctx)?;
                                 continue;
                             }
                             trailing.push(elaborate_expr_node(&n, &ctx)?);
@@ -303,6 +308,125 @@ fn register_data(node: &SyntaxNode, ctx: &mut ElabCtx) -> Result<(), ElaborateEr
     }
     ctx.data.data_ctors.insert(type_name, ctors);
     Ok(())
+}
+
+/// SYN §16 / §13: `(type name Ty)` or `(type-alias name Ty)` — transparent alias.
+fn register_type_alias(node: &SyntaxNode, ctx: &mut ElabCtx) -> Result<(), ElaborateError> {
+    let atoms = list_atoms(node);
+    if atoms.len() != 3 {
+        return Err(ElaborateError::at_node(
+            "`type` / `type-alias` requires `(type name Ty)`",
+            node,
+        ));
+    }
+    let Atom::Token(name_tok) = &atoms[1] else {
+        return Err(ElaborateError::at_node(
+            "`type` name must be an identifier",
+            node,
+        ));
+    };
+    if name_tok.kind() != SyntaxKind::Ident {
+        return Err(ElaborateError::at_token(
+            "`type` name must be an identifier",
+            name_tok,
+        ));
+    }
+    let name = binder_name(name_tok)?;
+    if ctx.data.type_aliases.contains_key(&name) {
+        return Err(ElaborateError::at_token(
+            format!("duplicate type alias `{name}`"),
+            name_tok,
+        ));
+    }
+    let ty = parse_type_syntax(&atoms[2], ctx)?;
+    ctx.data.type_aliases.insert(name, ty);
+    Ok(())
+}
+
+/// Parse a surface type expression into [`CoreType`] (SYN §16 subset).
+fn parse_type_syntax(atom: &Atom, ctx: &ElabCtx) -> Result<CoreType, ElaborateError> {
+    match atom {
+        Atom::Token(t) if t.kind() == SyntaxKind::Ident => {
+            let name = normalize_ident(t.text());
+            if let Some(aliased) = ctx.data.type_aliases.get(&name) {
+                return Ok(aliased.clone());
+            }
+            Ok(match name.as_str() {
+                "str" | "string" => CoreType::String,
+                "int" | "number" | "f64" | "num" => CoreType::Number,
+                "bool" => CoreType::Bool,
+                "unit" => CoreType::Unit,
+                "dynamic" => CoreType::Dynamic,
+                "color" => CoreType::Color,
+                other => {
+                    return Err(ElaborateError::at_token(
+                        format!("unknown type name `{other}`"),
+                        t,
+                    ));
+                }
+            })
+        }
+        Atom::Node(n) if n.kind() == SyntaxKind::List => {
+            let items = list_atoms(n);
+            let Some(Atom::Token(head)) = items.first() else {
+                return Err(ElaborateError::at_node("empty type list", n));
+            };
+            if head.kind() != SyntaxKind::Ident {
+                return Err(ElaborateError::at_token(
+                    "type constructor must be an identifier",
+                    head,
+                ));
+            }
+            match head.text() {
+                "dynamic" => {
+                    // `(dynamic)` / `(dynamic any)` / `(dynamic number)` — stub to Dynamic.
+                    Ok(CoreType::Dynamic)
+                }
+                "union" => {
+                    let mut members = Vec::new();
+                    for item in &items[1..] {
+                        members.push(parse_type_syntax(item, ctx)?);
+                    }
+                    Ok(CoreType::Union(members))
+                }
+                "record" => {
+                    // Minimal closed record type: `(record (label Ty)…)`
+                    let mut fields = Vec::new();
+                    for item in &items[1..] {
+                        let Atom::Node(pair) = item else {
+                            return Err(ElaborateError::at_node(
+                                "`record` type field must be `(label Ty)`",
+                                n,
+                            ));
+                        };
+                        let pa = list_atoms(pair);
+                        if pa.len() != 2 {
+                            return Err(ElaborateError::at_node(
+                                "`record` type field must be `(label Ty)`",
+                                pair,
+                            ));
+                        }
+                        let Atom::Token(lab) = &pa[0] else {
+                            return Err(ElaborateError::at_node(
+                                "`record` type field label must be an identifier",
+                                pair,
+                            ));
+                        };
+                        let label = normalize_ident(lab.text());
+                        let ty = parse_type_syntax(&pa[1], ctx)?;
+                        fields.push((label, ty));
+                    }
+                    Ok(CoreType::Record { fields })
+                }
+                other => Err(ElaborateError::at_token(
+                    format!("unsupported type constructor `{other}`"),
+                    head,
+                )),
+            }
+        }
+        Atom::Token(t) => Err(ElaborateError::at_token("expected a type", t)),
+        Atom::Node(n) => Err(ElaborateError::at_node("expected a type", n)),
+    }
 }
 
 fn try_top_decl(node: &SyntaxNode, ctx: &ElabCtx) -> Result<Option<TopBinding>, ElaborateError> {
@@ -1533,7 +1657,31 @@ fn elaborate_local_decls(
     }
     let rest_decls = &decls[1..];
     match head.text() {
-        "type" => elaborate_local_decls(rest_decls, result, parent, ctx),
+        "type" | "type-alias" => {
+            // Validate `(type name Ty)` then continue (aliases are unit-scoped via
+            // top-level registration; local aliases are parse-checked only for now).
+            if da.len() != 3 {
+                return Err(ElaborateError::at_node(
+                    "`type` in `local` must be `(type name Ty)`",
+                    decl,
+                ));
+            }
+            let Atom::Token(name_tok) = &da[1] else {
+                return Err(ElaborateError::at_node(
+                    "`type` name must be an identifier",
+                    decl,
+                ));
+            };
+            if name_tok.kind() != SyntaxKind::Ident {
+                return Err(ElaborateError::at_token(
+                    "`type` name must be an identifier",
+                    name_tok,
+                ));
+            }
+            let _name = binder_name(name_tok)?;
+            let _ty = parse_type_syntax(&da[2], ctx)?;
+            elaborate_local_decls(rest_decls, result, parent, ctx)
+        }
         "val" => {
             if da.len() != 3 {
                 return Err(ElaborateError::at_node(
