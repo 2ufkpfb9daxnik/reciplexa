@@ -98,7 +98,10 @@ pub fn infer_with_effects(
                     }
                 }
                 _ => {
-                    if !matches!(arg_ty, CoreType::String | CoreType::Dynamic | CoreType::Unit) {
+                    if !matches!(
+                        arg_ty,
+                        CoreType::String | CoreType::Dynamic | CoreType::Unit
+                    ) {
                         return Err(CheckError::at("perform arg must be string or unit", range));
                     }
                 }

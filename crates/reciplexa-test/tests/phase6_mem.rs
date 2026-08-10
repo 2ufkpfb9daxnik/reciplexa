@@ -79,7 +79,11 @@ fn mem03_exclusive_branch_match() {
             payload: Some(Box::new(CoreExpr::Lit(CoreLiteral::Number(42.0)))),
         }),
         arms: vec![
-            MatchArm::variant("Some".into(), Some("n".into()), CoreExpr::Lit(CoreLiteral::Number(42.0))),
+            MatchArm::variant(
+                "Some".into(),
+                Some("n".into()),
+                CoreExpr::Lit(CoreLiteral::Number(42.0)),
+            ),
             MatchArm::variant("None".into(), None, CoreExpr::Lit(CoreLiteral::Number(0.0))),
         ],
     };
@@ -478,7 +482,11 @@ fn mem_variant_none_arm() {
             payload: None,
         }),
         arms: vec![
-            MatchArm::variant("Some".into(), Some("v".into()), CoreExpr::Lit(CoreLiteral::Number(1.0))),
+            MatchArm::variant(
+                "Some".into(),
+                Some("v".into()),
+                CoreExpr::Lit(CoreLiteral::Number(1.0)),
+            ),
             MatchArm::variant("None".into(), None, CoreExpr::Lit(CoreLiteral::Number(0.0))),
         ],
     };

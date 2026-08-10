@@ -172,7 +172,10 @@ fn elaborates_data_option_and_match() {
     ));
     assert_eq!(arms.len(), 2);
     assert_eq!(arms[0].tag(), Some("None"));
-    assert!(matches!(arms[0].pattern, reciplexa_core::CorePattern::Variant { payload: None, .. }));
+    assert!(matches!(
+        arms[0].pattern,
+        reciplexa_core::CorePattern::Variant { payload: None, .. }
+    ));
     assert_eq!(arms[1].tag(), Some("Some"));
     assert!(matches!(
         &arms[1].pattern,
@@ -225,7 +228,10 @@ fn elaborates_wildcard_bind_and_nested_patterns() {
             payload: Some(inner),
         } if tag == "Some" && matches!(inner.as_ref(), reciplexa_core::CorePattern::Wildcard)
     ));
-    assert!(matches!(arms[2].pattern, reciplexa_core::CorePattern::Wildcard));
+    assert!(matches!(
+        arms[2].pattern,
+        reciplexa_core::CorePattern::Wildcard
+    ));
 
     let bind = elaborate_source(
         r#"
@@ -305,9 +311,7 @@ fn elaborates_local_and_rec_groups() {
         panic!("expected Let");
     };
     let CoreExpr::Let {
-        name: x,
-        body: mid,
-        ..
+        name: x, body: mid, ..
     } = *value
     else {
         panic!("expected local→Let x");

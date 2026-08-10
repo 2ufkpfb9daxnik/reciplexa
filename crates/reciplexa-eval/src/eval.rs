@@ -700,10 +700,7 @@ fn eval_match(
     })
 }
 
-fn match_pattern(
-    pat: &CorePattern,
-    value: &RuntimeValue,
-) -> Option<HashMap<String, RuntimeValue>> {
+fn match_pattern(pat: &CorePattern, value: &RuntimeValue) -> Option<HashMap<String, RuntimeValue>> {
     match pat {
         CorePattern::Wildcard => Some(HashMap::new()),
         CorePattern::Bind(name) => {

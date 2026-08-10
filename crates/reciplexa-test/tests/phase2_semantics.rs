@@ -60,7 +60,11 @@ fn test_sem_c003_record_and_match() {
                 tag: "ok".into(),
                 payload: Some(Box::new(CoreExpr::Lit(CoreLiteral::Number(3.0)))),
             }),
-            arms: vec![MatchArm::variant("ok".into(), Some("v".into()), CoreExpr::Lit(CoreLiteral::Number(1.0)))],
+            arms: vec![MatchArm::variant(
+                "ok".into(),
+                Some("v".into()),
+                CoreExpr::Lit(CoreLiteral::Number(1.0)),
+            )],
         };
         let _ = eval_expr(&m, &HashMap::new(), &mut UnitHost).unwrap();
     });
@@ -162,7 +166,11 @@ fn test_sem_c010_match_no_arm_errors() {
                 tag: "Other".into(),
                 payload: None,
             }),
-            arms: vec![MatchArm::variant("Ok".into(), None, CoreExpr::Lit(CoreLiteral::Number(0.0)))],
+            arms: vec![MatchArm::variant(
+                "Ok".into(),
+                None,
+                CoreExpr::Lit(CoreLiteral::Number(0.0)),
+            )],
         };
         assert!(eval_expr(&expr, &HashMap::new(), &mut UnitHost).is_err());
     });

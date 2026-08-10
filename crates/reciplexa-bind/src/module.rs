@@ -244,7 +244,9 @@ fn parse_import_list(node: &SyntaxNode) -> Result<Option<ImportDecl>, ModuleErro
                 }
                 i += 1;
                 let Some(AtomRef::Ident(name)) = atoms.get(i) else {
-                    return Err(ModuleError::new("`import … as` requires an alias identifier"));
+                    return Err(ModuleError::new(
+                        "`import … as` requires an alias identifier",
+                    ));
                 };
                 alias = Some(name.clone());
                 i += 1;
@@ -255,7 +257,9 @@ fn parse_import_list(node: &SyntaxNode) -> Result<Option<ImportDecl>, ModuleErro
                 }
                 i += 1;
                 if i >= atoms.len() {
-                    return Err(ModuleError::new("`import … only` requires at least one name"));
+                    return Err(ModuleError::new(
+                        "`import … only` requires at least one name",
+                    ));
                 }
                 // Legacy: `(import m only (a b))`
                 if let AtomRef::Node(list) = &atoms[i] {

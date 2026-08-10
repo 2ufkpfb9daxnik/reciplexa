@@ -127,10 +127,7 @@ impl MatchArm {
 
     /// True when this arm matches any value (`_` or `bind`).
     pub fn is_catch_all(&self) -> bool {
-        matches!(
-            &self.pattern,
-            CorePattern::Wildcard | CorePattern::Bind(_)
-        )
+        matches!(&self.pattern, CorePattern::Wildcard | CorePattern::Bind(_))
     }
 }
 

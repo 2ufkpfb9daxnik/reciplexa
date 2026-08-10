@@ -34,7 +34,11 @@ fn lowers_variant_and_match() {
 
     let m = CoreExpr::Match {
         scrutinee: Box::new(expr),
-        arms: vec![MatchArm::variant("Ok".into(), Some("v".into()), CoreExpr::Lit(CoreLiteral::Number(0.0)))],
+        arms: vec![MatchArm::variant(
+            "Ok".into(),
+            Some("v".into()),
+            CoreExpr::Lit(CoreLiteral::Number(0.0)),
+        )],
     };
     let prog2 = lower_core_linear(&m);
     assert!(!prog2.instrs.is_empty());
@@ -100,8 +104,16 @@ fn lowers_match_fallback_inserts_dup_for_second_arm() {
     let expr = CoreExpr::Match {
         scrutinee: Box::new(CoreExpr::Lit(CoreLiteral::Number(0.0))),
         arms: vec![
-            MatchArm::variant("A".into(), Some("v".into()), CoreExpr::Lit(CoreLiteral::Number(1.0))),
-            MatchArm::variant("B".into(), Some("w".into()), CoreExpr::Lit(CoreLiteral::Number(2.0))),
+            MatchArm::variant(
+                "A".into(),
+                Some("v".into()),
+                CoreExpr::Lit(CoreLiteral::Number(1.0)),
+            ),
+            MatchArm::variant(
+                "B".into(),
+                Some("w".into()),
+                CoreExpr::Lit(CoreLiteral::Number(2.0)),
+            ),
         ],
     };
     let prog = lower_core_linear(&expr);

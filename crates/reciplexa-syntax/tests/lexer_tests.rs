@@ -142,10 +142,7 @@ fn lexes_comparison_and_division_ops_as_single_idents() {
         assert_eq!(kinds(op), vec![SyntaxKind::Ident], "op `{op}`");
         assert_eq!(texts(op), vec![op], "op `{op}`");
     }
-    assert_eq!(
-        texts("(<= x y)"),
-        vec!["(", "<=", " ", "x", " ", "y", ")"]
-    );
+    assert_eq!(texts("(<= x y)"), vec!["(", "<=", " ", "x", " ", "y", ")"]);
 }
 
 #[test]

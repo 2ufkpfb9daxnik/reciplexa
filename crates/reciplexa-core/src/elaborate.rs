@@ -878,7 +878,10 @@ fn elaborate_pattern_atoms(
     }
 }
 
-fn elaborate_payload_pattern(atom: &Atom, _parent: &SyntaxNode) -> Result<CorePattern, ElaborateError> {
+fn elaborate_payload_pattern(
+    atom: &Atom,
+    _parent: &SyntaxNode,
+) -> Result<CorePattern, ElaborateError> {
     match atom {
         Atom::Token(t) if t.kind() == SyntaxKind::Ident => {
             if t.text() == "_" {

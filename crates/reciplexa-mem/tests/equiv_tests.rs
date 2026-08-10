@@ -119,7 +119,11 @@ fn compile_and_run_match_variant() {
             tag: "Some".into(),
             payload: Some(Box::new(CoreExpr::Lit(CoreLiteral::Number(3.0)))),
         }),
-        arms: vec![MatchArm::variant("Some".into(), Some("v".into()), CoreExpr::Lit(CoreLiteral::Number(3.0)))],
+        arms: vec![MatchArm::variant(
+            "Some".into(),
+            Some("v".into()),
+            CoreExpr::Lit(CoreLiteral::Number(3.0)),
+        )],
     };
     assert_observational_equiv(&e).unwrap();
 }
