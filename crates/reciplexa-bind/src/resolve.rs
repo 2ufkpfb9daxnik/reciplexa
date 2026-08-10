@@ -612,7 +612,27 @@ fn declare_binding(name: &str, stack: &mut ScopeStack, env: &mut BindingEnv) {
 fn is_language_keyword(name: &str) -> bool {
     matches!(
         name,
-        "val" | "fn" | "let" | "if" | "seq" | "type" | "true" | "false"
+        "val"
+            | "fn"
+            | "let"
+            | "letrec"
+            | "var"
+            | "set"
+            | "if"
+            | "seq"
+            | "type"
+            | "data"
+            | "match"
+            | "true"
+            | "false"
+            | "perform"
+            | "handle"
+            // KER-001 primitives
+            | "+"
+            | "-"
+            | "*"
+            | "<"
+            | "="
     )
 }
 

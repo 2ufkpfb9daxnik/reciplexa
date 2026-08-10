@@ -35,11 +35,22 @@ pub enum RuntimeValue {
         used: Rc<Cell<bool>>,
         cont: ResumeCont,
     },
+    /// KER-001 numeric / comparison primitive.
+    Builtin(BuiltinOp),
     Record(Vec<(String, RuntimeValue)>),
     Variant {
         tag: String,
         payload: Option<Box<RuntimeValue>>,
     },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BuiltinOp {
+    Add,
+    Sub,
+    Mul,
+    Lt,
+    Eq,
 }
 
 impl fmt::Debug for RuntimeValue {
@@ -64,6 +75,7 @@ impl fmt::Debug for RuntimeValue {
                 .debug_struct("OneShotResume")
                 .field("used", &used.get())
                 .finish(),
+            Self::Builtin(op) => f.debug_tuple("Builtin").field(op).finish(),
             Self::Record(fields) => f.debug_tuple("Record").field(fields).finish(),
             Self::Variant { tag, payload } => f
                 .debug_struct("Variant")
@@ -107,6 +119,7 @@ impl PartialEq for RuntimeValue {
             (Self::OneShotResume { used: a, .. }, Self::OneShotResume { used: b, .. }) => {
                 a.get() == b.get()
             }
+            (Self::Builtin(a), Self::Builtin(b)) => a == b,
             (Self::Record(a), Self::Record(b)) => a == b,
             (
                 Self::Variant {
@@ -134,6 +147,11 @@ impl RuntimeValue {
             Self::Cell { value, .. } => value.borrow().ty(),
             Self::OneShotResume { .. } => CoreType::Fun {
                 args: vec![CoreType::Dynamic],
+                ret: Box::new(CoreType::Dynamic),
+                effects: Default::default(),
+            },
+            Self::Builtin(_) => CoreType::Fun {
+                args: vec![CoreType::Number, CoreType::Number],
                 ret: Box::new(CoreType::Dynamic),
                 effects: Default::default(),
             },
@@ -172,6 +190,7 @@ impl fmt::Display for RuntimeValue {
                 }
             }
             Self::OneShotResume { .. } => "resume".to_string(),
+            Self::Builtin(op) => format!("builtin({op:?})"),
             Self::Closure { params, .. } => format!("closure({})", params.join(", ")),
             Self::Record(fields) => {
                 let parts: Vec<String> = fields.iter().map(|(k, v)| format!("{k}: {v}")).collect();

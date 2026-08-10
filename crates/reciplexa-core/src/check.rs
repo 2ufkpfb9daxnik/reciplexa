@@ -57,11 +57,27 @@ pub fn infer_expr(
             .ok_or_else(|| CheckError::at(format!("unbound variable `{name}`"), range)),
         CoreExpr::Perform { op, arg } => {
             let arg_ty = infer_expr(arg, env, subst, range)?;
-            if !matches!(arg_ty, CoreType::String | CoreType::Dynamic) {
-                return Err(CheckError::at("perform arg must be string", range));
+            match op.as_str() {
+                "read-file" | "write-file" | "log" => {
+                    if !matches!(arg_ty, CoreType::String | CoreType::Dynamic) {
+                        return Err(CheckError::at(
+                            format!("perform `{op}` arg must be string"),
+                            range,
+                        ));
+                    }
+                }
+                _ => {
+                    if !matches!(arg_ty, CoreType::String | CoreType::Dynamic) {
+                        return Err(CheckError::at("perform arg must be string", range));
+                    }
+                }
             }
-            let _ = op;
-            Ok(CoreType::Unit)
+            // Resource reads yield String; others Unit (v0).
+            if op == "read-file" {
+                Ok(CoreType::String)
+            } else {
+                Ok(CoreType::Unit)
+            }
         }
         CoreExpr::Handle {
             op,
@@ -282,6 +298,28 @@ pub fn typecheck_language_source(src: &str) -> Result<CoreType, CheckError> {
         range: e.range,
     })?;
     let mut subst = Subst::new();
-    let ty = infer_expr(&expr, &TypeEnv::new(), &mut subst, TextRange::EMPTY)?;
+    let mut env = TypeEnv::new();
+    // KER-001 primitive types
+    let num2 = CoreType::Fun {
+        args: vec![CoreType::Number, CoreType::Number],
+        ret: Box::new(CoreType::Number),
+        effects: EffectRow::default(),
+    };
+    let cmp2 = CoreType::Fun {
+        args: vec![CoreType::Number, CoreType::Number],
+        ret: Box::new(CoreType::Bool),
+        effects: EffectRow::default(),
+    };
+    let eq2 = CoreType::Fun {
+        args: vec![CoreType::Dynamic, CoreType::Dynamic],
+        ret: Box::new(CoreType::Bool),
+        effects: EffectRow::default(),
+    };
+    env.insert("+", num2.clone());
+    env.insert("-", num2.clone());
+    env.insert("*", num2);
+    env.insert("<", cmp2);
+    env.insert("=", eq2);
+    let ty = infer_expr(&expr, &env, &mut subst, TextRange::EMPTY)?;
     Ok(subst.apply(&ty))
 }

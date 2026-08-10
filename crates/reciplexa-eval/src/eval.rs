@@ -9,7 +9,18 @@ use reciplexa_core::elaborate::{elaborate_source, ElaborateError};
 use reciplexa_core::expr::{CoreExpr, CoreLiteral, MatchArm};
 
 use crate::control::{identity_resume, EffectHost, EvalError, EvalResult, Outcome, ResumeCont, UnitHost};
-use crate::value::RuntimeValue;
+use crate::value::{BuiltinOp, RuntimeValue};
+
+/// Seed environment with KER-001 numeric / comparison primitives.
+pub fn primitive_env() -> HashMap<String, RuntimeValue> {
+    let mut env = HashMap::new();
+    env.insert("+".into(), RuntimeValue::Builtin(BuiltinOp::Add));
+    env.insert("-".into(), RuntimeValue::Builtin(BuiltinOp::Sub));
+    env.insert("*".into(), RuntimeValue::Builtin(BuiltinOp::Mul));
+    env.insert("<".into(), RuntimeValue::Builtin(BuiltinOp::Lt));
+    env.insert("=".into(), RuntimeValue::Builtin(BuiltinOp::Eq));
+    env
+}
 
 /// Expand language macros, elaborate surface source to Core, then evaluate with [`UnitHost`].
 pub fn eval_source(src: &str) -> EvalResult {
@@ -17,7 +28,7 @@ pub fn eval_source(src: &str) -> EvalResult {
         reciplexa_macro::expand_language(src).map_err(|e| EvalError { message: e.message })?;
     let expr = elaborate_source(&expanded)
         .map_err(|e: ElaborateError| EvalError { message: e.message })?;
-    eval_expr(&expr, &HashMap::new(), &mut UnitHost)
+    eval_expr(&expr, &primitive_env(), &mut UnitHost)
 }
 
 pub fn eval_expr<H: EffectHost>(
@@ -25,19 +36,14 @@ pub fn eval_expr<H: EffectHost>(
     env: &HashMap<String, RuntimeValue>,
     host: &mut H,
 ) -> EvalResult {
-    match eval_outcome(expr, env, host)? {
-        Outcome::Value(v) => Ok(v),
-        Outcome::Resumed(_) => Err(EvalError {
-            message: "resume outside handle".into(),
-        }),
-        Outcome::Performed { op, arg, resume } => {
-            let host_v = host.perform(&op, arg)?;
-            match resume(host_v, host)? {
-                Outcome::Value(v) => Ok(v),
-                Outcome::Resumed(v) => Ok(v),
-                Outcome::Performed { op, .. } => Err(EvalError {
-                    message: format!("unhandled residual effect `{op}`"),
-                }),
+    let mut outcome = eval_outcome(expr, env, host)?;
+    loop {
+        match outcome {
+            Outcome::Value(v) => return Ok(v),
+            Outcome::Resumed(v) => return Ok(v),
+            Outcome::Performed { op, arg, resume } => {
+                let host_v = host.perform(&op, arg)?;
+                outcome = resume(host_v, host)?;
             }
         }
     }
@@ -656,6 +662,7 @@ fn apply_value(
                 }
             }
         }
+        RuntimeValue::Builtin(op) => apply_builtin(op, arg_vs),
         RuntimeValue::Closure {
             params,
             body,
@@ -707,6 +714,33 @@ fn eval_match(
     Err(EvalError {
         message: format!("no match arm for tag `{tag}`"),
     })
+}
+
+fn apply_builtin(op: BuiltinOp, args: Vec<RuntimeValue>) -> Result<Outcome, EvalError> {
+    if args.len() != 2 {
+        return Err(EvalError {
+            message: format!("builtin `{op:?}` expects 2 args, got {}", args.len()),
+        });
+    }
+    let a = &args[0];
+    let b = &args[1];
+    match op {
+        BuiltinOp::Add | BuiltinOp::Sub | BuiltinOp::Mul | BuiltinOp::Lt => {
+            let (RuntimeValue::Number(x), RuntimeValue::Number(y)) = (a, b) else {
+                return Err(EvalError {
+                    message: format!("builtin `{op:?}` expects Number arguments"),
+                });
+            };
+            Ok(Outcome::Value(match op {
+                BuiltinOp::Add => RuntimeValue::Number(x + y),
+                BuiltinOp::Sub => RuntimeValue::Number(x - y),
+                BuiltinOp::Mul => RuntimeValue::Number(x * y),
+                BuiltinOp::Lt => RuntimeValue::Bool(x < y),
+                BuiltinOp::Eq => unreachable!(),
+            }))
+        }
+        BuiltinOp::Eq => Ok(Outcome::Value(RuntimeValue::Bool(a == b))),
+    }
 }
 
 fn eval_lit(lit: &CoreLiteral) -> EvalResult {

@@ -597,3 +597,45 @@ fn eval_source_var_escape_fails_after_scope() {
         err.message
     );
 }
+
+#[test]
+fn eval_source_ker_primitives() {
+    let v = eval_source("(val main (+ 1 2))").unwrap();
+    assert_eq!(v, RuntimeValue::Number(3.0));
+    let v = eval_source("(val main (* 3 4))").unwrap();
+    assert_eq!(v, RuntimeValue::Number(12.0));
+    let v = eval_source("(val main (< 1 2))").unwrap();
+    assert_eq!(v, RuntimeValue::Bool(true));
+    let v = eval_source("(val main (= 2 2))").unwrap();
+    assert_eq!(v, RuntimeValue::Bool(true));
+}
+
+#[test]
+fn eval_rsc_memory_fs_host() {
+    use reciplexa_core::elaborate_source;
+    use reciplexa_eval::MemoryFsHost;
+    let expr = elaborate_source(r#"(val main (perform read-file "a.txt"))"#).unwrap();
+    let mut host = MemoryFsHost::default();
+    host.files.insert("a.txt".into(), "hi".into());
+    let v = eval_expr(&expr, &HashMap::new(), &mut host).unwrap();
+    assert_eq!(v, RuntimeValue::String("hi".into()));
+
+    let write_src = format!(
+        "(val main (seq (perform write-file \"b.txt\0x\") (perform read-file \"b.txt\")))"
+    );
+    let write = elaborate_source(&write_src).unwrap();
+    let mut host = MemoryFsHost::default();
+    let v = eval_expr(&write, &HashMap::new(), &mut host).unwrap();
+    assert_eq!(v, RuntimeValue::String("x".into()));
+    assert_eq!(host.files.get("b.txt").map(String::as_str), Some("x"));
+}
+
+#[test]
+fn eval_rsc_unhandled_residual_fails() {
+    let err = eval_source(r#"(val main (perform read-file "missing.txt"))"#).unwrap_err();
+    assert!(
+        err.message.contains("unhandled residual") || err.message.contains("read-file"),
+        "{}",
+        err.message
+    );
+}
