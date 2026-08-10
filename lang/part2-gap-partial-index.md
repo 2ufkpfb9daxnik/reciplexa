@@ -26,7 +26,9 @@
 | `MEM` | 24 | 99 | 123 |
 | `TST` | 4 | 27 | 31 |
 | `KER` | 0 | 2 | 2 |
-| **合計** | **410** | **488** | **898** |
+| **合計** | **338** | **506** | **844** |
+
+（全体カウンタは `part2-conformance-stats.json` 準拠。機能別内訳は概算。）
 
 ### 合計が多い順（優先度の目安）
 - `EDT`: gap 77 + partial 56 = **133**
@@ -37,7 +39,7 @@
 - `DAT`: gap 11 + partial 50 = **61**
 - `PKG`: gap 2 + partial 48 = **50**
 - `MOD`: gap 30 + partial 18 = **48**
-- `SYN`: gap 14 + partial 31 = **45**
+- `SYN`: gap 4 + partial 29 = **33**
 - `MAC`: gap 11 + partial 21 = **32**
 - `TST`: gap 4 + partial 27 = **31**
 - `BND`: gap 1 + partial 19 = **20**
@@ -55,35 +57,35 @@
    - 専用formatter未
 5. **L2930** `DAT` — 2.5 Runtime reflection
    - no runtime reflection API for data
-16. **L3259** `DAT` — 8. Variance
+6. **L3259** `DAT` — 8. Variance
    - no variance/positivity checker yet
-17. **L3265** `DAT` — 8.2 共変
+7. **L3265** `DAT` — 8.2 共変
    - no variance/positivity checker yet
-18. **L3283** `DAT` — 8.3 反変
+8. **L3283** `DAT` — 8.3 反変
    - no variance/positivity checker yet
-19. **L3295** `DAT` — 8.4 不変
+9. **L3295** `DAT` — 8.4 不変
    - no variance/positivity checker yet
-20. **L3308** `DAT` — 8.5 Phantom parameter
+10. **L3308** `DAT` — 8.5 Phantom parameter
    - no variance/positivity checker yet
-21. **L3341** `DAT` — 9.2 Strict positivity
+11. **L3341** `DAT` — 9.2 Strict positivity
    - no variance/positivity checker yet
-22. **L3435** `DAT` — 10.4 Group全体のpositivity
+12. **L3435** `DAT` — 10.4 Group全体のpositivity
    - no variance/positivity checker yet
-23. **L3443** `DAT` — 11.1 不変性
+13. **L3443** `DAT` — 11.1 不変性
    - no variance/positivity checker yet
-24. **L3842** `DAT` — 18.5 Optional field
+14. **L3842** `DAT` — 18.5 Optional field
    - DAT §18.5 optional record fields not in CorePattern; plan gap
-25. **L4054** `DAT` — 21.3 到達不能case
+15. **L4054** `DAT` — 21.3 到達不能case
    - no unreachable-case warning yet
-26. **L4670** `EVAL` — `DD-TYP-IF-001`: 条件分岐による型の絞り込み
+16. **L4670** `EVAL` — `DD-TYP-IF-001`: 条件分岐による型の絞り込み
    - no occurrence typing / intersect-diff narrowing in check.rs
-27. **L4983** `EVAL` — union result
+17. **L4983** `EVAL` — union result
    - Union type stub only; if branch union typing not enforced
-28. **L4997** `EVAL` — occurrence typing
+18. **L4997** `EVAL` — occurrence typing
    - occurrence typing absent (DD-TYP-IF-001)
-29. **L5936** `BND` — `DD-BND-021`: local state effectの除去
+19. **L5936** `BND` — `DD-BND-021`: local state effectの除去
    - no effect-row removal for local state
-30. **L7022** `MAC` — 3.3 宣言位置
+20. **L7022** `MAC` — 3.3 宣言位置
    - 宣言位置マクロ使用の明示拒否なし
 
 ## Top 30 `partial`（文書出現順）
