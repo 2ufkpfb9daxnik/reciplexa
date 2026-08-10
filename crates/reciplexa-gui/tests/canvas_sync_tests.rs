@@ -11,6 +11,24 @@ fn nudge_text_on_authoring_page_updates_xy_via_translate() {
 }
 
 #[test]
+fn japanese_page_text_nudge_keeps_sibling() {
+    let src = include_str!("../../../examples/japanese_page.rpx");
+    assert!(
+        authoring_layers_align(src, src, 0).unwrap(),
+        "japanese_page authoring layers should self-align"
+    );
+    let out = nudge_authoring_layers(src, src, 0, &[0], 3.0, -2.0).unwrap();
+    assert!(
+        out.contains(r#"(translate 3 -2 (text 25 270 8 "レポート草稿" black))"#),
+        "first CJK text should nudge: {out}"
+    );
+    assert!(
+        out.contains(r#"(text 25 250 4 "本文。ページ上の text として置く現行の書き方です。" black)"#),
+        "sibling japanese body text must stay put: {out}"
+    );
+}
+
+#[test]
 fn markup_expanded_paint_align_false_nudge_soft() {
     let authoring = include_str!("../../../examples/markup_ja.rpx");
     let expanded = reciplexa_macro::expand_source(authoring).expect("markup expands");
