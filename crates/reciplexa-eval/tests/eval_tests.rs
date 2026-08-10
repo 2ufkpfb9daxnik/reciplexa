@@ -620,8 +620,9 @@ fn eval_rsc_memory_fs_host() {
     let v = eval_expr(&expr, &HashMap::new(), &mut host).unwrap();
     assert_eq!(v, RuntimeValue::String("hi".into()));
 
+    let nul = '\0';
     let write_src = format!(
-        "(val main (seq (perform write-file \"b.txt\0x\") (perform read-file \"b.txt\")))"
+        "(val main (seq (perform write-file \"b.txt{nul}x\") (perform read-file \"b.txt\")))"
     );
     let write = elaborate_source(&write_src).unwrap();
     let mut host = MemoryFsHost::default();

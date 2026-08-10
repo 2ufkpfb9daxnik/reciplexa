@@ -25,7 +25,7 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 cargo check -p reciplexa-gui
 ```
-**Last gate: pending this batch** (fmt / clippy -D warnings / test --workspace / check gui).
+**Last gate: green** (fmt / clippy -D warnings / test --workspace / check gui).
 
 ## Remaining gaps
 | ID | Gap |

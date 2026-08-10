@@ -122,10 +122,9 @@ fn lang_deep_resume() {
         "deep one-shot resume continues body",
     );
     run_conformance(&case, || {
-        let v = eval_source(
-            r#"(val main (handle ask (fn (_ k) (k 41)) (seq (perform ask 0) 99)))"#,
-        )
-        .unwrap();
+        let v =
+            eval_source(r#"(val main (handle ask (fn (_ k) (k 41)) (seq (perform ask 0) 99)))"#)
+                .unwrap();
         assert_eq!(v, RuntimeValue::Number(99.0));
     });
 }

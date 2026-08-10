@@ -52,10 +52,9 @@ fn oneshot_resume_aborts_rest_of_handler() {
 #[test]
 fn deep_resume_continues_body_after_perform() {
     // Deep: resume plugs the value into perform, then seq continues to 99.
-    let v = eval_source(
-        r#"(val main (handle log (fn (msg k) (k 42)) (seq (perform log "hi") 99)))"#,
-    )
-    .unwrap();
+    let v =
+        eval_source(r#"(val main (handle log (fn (msg k) (k 42)) (seq (perform log "hi") 99)))"#)
+            .unwrap();
     assert_eq!(v, RuntimeValue::Number(99.0));
 }
 

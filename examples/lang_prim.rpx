@@ -1,2 +1,2 @@
-(// KER-001: numeric / comparison primitives)
+(// language-only: KER-001 numeric / comparison primitives)
 (val main (+ (* 2 3) (- 5 1)))

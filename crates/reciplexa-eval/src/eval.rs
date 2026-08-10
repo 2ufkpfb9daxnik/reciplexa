@@ -8,7 +8,9 @@ use std::rc::Rc;
 use reciplexa_core::elaborate::{elaborate_source, ElaborateError};
 use reciplexa_core::expr::{CoreExpr, CoreLiteral, MatchArm};
 
-use crate::control::{identity_resume, EffectHost, EvalError, EvalResult, Outcome, ResumeCont, UnitHost};
+use crate::control::{
+    identity_resume, EffectHost, EvalError, EvalResult, Outcome, ResumeCont, UnitHost,
+};
 use crate::value::{BuiltinOp, RuntimeValue};
 
 /// Seed environment with KER-001 numeric / comparison primitives.
@@ -121,9 +123,7 @@ fn eval_outcome(
         CoreExpr::LetRec { bindings, body } => {
             let shared = Rc::new(RefCell::new(env.clone()));
             for (name, _) in bindings {
-                shared
-                    .borrow_mut()
-                    .insert(name.clone(), RuntimeValue::Unit);
+                shared.borrow_mut().insert(name.clone(), RuntimeValue::Unit);
             }
             for (name, rhs) in bindings {
                 let CoreExpr::Lambda {
@@ -376,25 +376,13 @@ fn eval_handle(
                         op: p,
                         arg,
                         resume: r,
-                    } if p == op => run_handler_with_resume(
-                        &handler_params,
-                        &handler_body,
-                        arg,
-                        r,
-                        &env,
-                        host,
-                    ),
+                    } if p == op => {
+                        run_handler_with_resume(&handler_params, &handler_body, arg, r, &env, host)
+                    }
                     other => Ok(other),
                 }
             });
-            run_handler_with_resume(
-                &handler_params,
-                &handler_body,
-                arg,
-                deep_resume,
-                &env,
-                host,
-            )
+            run_handler_with_resume(&handler_params, &handler_body, arg, deep_resume, &env, host)
         }
         Outcome::Performed { op, arg, resume } => Ok(Outcome::Performed { op, arg, resume }),
     }
@@ -429,10 +417,10 @@ fn run_handler_with_resume(
             });
         }
     }
-    eval_outcome(handler_body, &child, host).and_then(|out| match out {
+    Ok(match eval_outcome(handler_body, &child, host)? {
         // Resume aborts the handler; its value is the handle result.
-        Outcome::Resumed(v) => Ok(Outcome::Value(v)),
-        other => Ok(other),
+        Outcome::Resumed(v) => Outcome::Value(v),
+        other => other,
     })
 }
 
