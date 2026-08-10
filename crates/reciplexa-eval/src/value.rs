@@ -87,7 +87,9 @@ impl fmt::Debug for RuntimeValue {
                 .debug_struct("OneShotResume")
                 .field("used", &used.get())
                 .finish(),
-            Self::Handler { op, params, body, .. } => f
+            Self::Handler {
+                op, params, body, ..
+            } => f
                 .debug_struct("Handler")
                 .field("op", op)
                 .field("params", params)

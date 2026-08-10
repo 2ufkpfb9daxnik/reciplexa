@@ -63,10 +63,9 @@ fn with_installs_handler_value() {
 
 #[test]
 fn with_inline_handler_and_resume() {
-    let v = eval_source(
-        r#"(val main (with (handler ask (fn (_ k) (k 3))) (seq (perform ask 0) 10)))"#,
-    )
-    .unwrap();
+    let v =
+        eval_source(r#"(val main (with (handler ask (fn (_ k) (k 3))) (seq (perform ask 0) 10)))"#)
+            .unwrap();
     assert_eq!(v, RuntimeValue::Number(10.0));
 }
 

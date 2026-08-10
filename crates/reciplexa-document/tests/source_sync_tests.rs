@@ -359,10 +359,7 @@ fn set_text_escapes_backslash_and_rejects_broken_span() {
     match outcome {
         SourceSyncOutcome::SourceUpdated { new_source, .. } => {
             // SYN §8.1: backslash is a normal character inside short strings.
-            assert!(
-                new_source.contains(r#""a\b""#),
-                "got {new_source}"
-            );
+            assert!(new_source.contains(r#""a\b""#), "got {new_source}");
         }
         other => panic!("expected SourceUpdated, got {other:?}"),
     }

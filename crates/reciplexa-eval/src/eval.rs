@@ -123,7 +123,9 @@ fn eval_outcome(
                 Outcome::Value(other) => Err(EvalError {
                     message: format!("`with` expects a handler value, got {other}"),
                 }),
-                Outcome::Performed { op, arg, resume } => Ok(Outcome::Performed { op, arg, resume }),
+                Outcome::Performed { op, arg, resume } => {
+                    Ok(Outcome::Performed { op, arg, resume })
+                }
                 Outcome::Resumed(v) => Ok(Outcome::Resumed(v)),
             }
         }
@@ -790,9 +792,9 @@ fn match_pattern(pat: &CorePattern, value: &RuntimeValue) -> Option<HashMap<Stri
                     None => match inner.as_ref() {
                         // Nullary variant with a simple binder/wildcard: match tag, no bind.
                         CorePattern::Wildcard | CorePattern::Bind(_) => Some(HashMap::new()),
-                        CorePattern::Lit(_) | CorePattern::Tuple(_) | CorePattern::Variant { .. } => {
-                            None
-                        }
+                        CorePattern::Lit(_)
+                        | CorePattern::Tuple(_)
+                        | CorePattern::Variant { .. } => None,
                     },
                 },
             }

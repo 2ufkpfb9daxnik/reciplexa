@@ -150,10 +150,7 @@ mod tests {
     #[test]
     fn multi_with_inner_quotes() {
         let raw = "\"\"\"She said \"hello\".\"\"\"";
-        assert_eq!(
-            decode_string_literal(raw).unwrap(),
-            "She said \"hello\"."
-        );
+        assert_eq!(decode_string_literal(raw).unwrap(), "She said \"hello\".");
     }
 
     #[test]

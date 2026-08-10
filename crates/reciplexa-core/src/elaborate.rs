@@ -161,7 +161,11 @@ fn elaborate_file(root: &SyntaxNode) -> Result<(CoreExpr, ElabCtx), ElaborateErr
             .rev()
             .find_map(|b| match b {
                 TopBinding::Single(name, _) if name == "main" => Some(name.clone()),
-                TopBinding::Rec(bs) => bs.iter().rev().find(|(n, _)| n == "main").map(|(n, _)| n.clone()),
+                TopBinding::Rec(bs) => bs
+                    .iter()
+                    .rev()
+                    .find(|(n, _)| n == "main")
+                    .map(|(n, _)| n.clone()),
                 _ => None,
             })
             .or_else(|| match bindings.last() {
@@ -300,10 +304,7 @@ fn register_data(node: &SyntaxNode, ctx: &mut ElabCtx) -> Result<(), ElaborateEr
     Ok(())
 }
 
-fn try_top_decl(
-    node: &SyntaxNode,
-    ctx: &ElabCtx,
-) -> Result<Option<TopBinding>, ElaborateError> {
+fn try_top_decl(node: &SyntaxNode, ctx: &ElabCtx) -> Result<Option<TopBinding>, ElaborateError> {
     let atoms = list_atoms(node);
     let Some(Atom::Token(head)) = atoms.first() else {
         return Ok(None);
@@ -868,19 +869,15 @@ fn elaborate_pattern_atoms(
     };
 
     // Literal head with extra atoms is invalid.
-    if matches!(
-        head.kind(),
-        SyntaxKind::Number | SyntaxKind::String
-    ) {
+    if matches!(head.kind(), SyntaxKind::Number | SyntaxKind::String) {
         if atoms.len() != 1 {
             return Err(ElaborateError::at_token(
                 "literal pattern takes no arguments",
                 head,
             ));
         }
-        let lit = pattern_literal_token(head)?.ok_or_else(|| {
-            ElaborateError::at_token("unsupported literal pattern", head)
-        })?;
+        let lit = pattern_literal_token(head)?
+            .ok_or_else(|| ElaborateError::at_token("unsupported literal pattern", head))?;
         return Ok(CorePattern::Lit(lit));
     }
 
@@ -1759,9 +1756,8 @@ fn elaborate_token(tok: &SyntaxToken, ctx: &ElabCtx) -> Result<CoreExpr, Elabora
         }
         SyntaxKind::String => {
             let raw = tok.text();
-            let value = decode_string_literal(raw).map_err(|msg| {
-                ElaborateError::at_token(msg, tok)
-            })?;
+            let value =
+                decode_string_literal(raw).map_err(|msg| ElaborateError::at_token(msg, tok))?;
             Ok(CoreExpr::Lit(CoreLiteral::String(value)))
         }
         SyntaxKind::Ident => match tok.text() {

@@ -171,10 +171,7 @@ pub fn infer_with_effects(
                     );
                 }
                 _ => {
-                    return Err(CheckError::at(
-                        "`handler` expects 1 or 2 parameters",
-                        range,
-                    ));
+                    return Err(CheckError::at("`handler` expects 1 or 2 parameters", range));
                 }
             }
             let (_hb_ty, hb_effs) = infer_with_effects(handler_body, &child, subst, range)?;

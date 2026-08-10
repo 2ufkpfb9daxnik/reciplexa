@@ -129,7 +129,7 @@ fn highlight_source_range(ctx: &egui::Context, source: &str, start: usize, end: 
 
 fn escape_lisp_string(s: &str) -> String {
     // SYN-001 §8: complete literal; no backslash escapes.
-    reciplexa_syntax::encode_string_literal(s)
+    reciplexa_macro::escape_lisp_string(s)
 }
 
 /// Prefer a path relative to the `.rpx` directory, using `/` separators.
