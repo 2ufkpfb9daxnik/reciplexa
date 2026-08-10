@@ -17,8 +17,8 @@
 
 - **total**: 1589
 - **unchecked**: 0
-- **ok**: 320
-- **partial**: 506
+- **ok**: 319
+- **partial**: 507
 - **gap**: 338
 - **deferred**: 293
 - **meta**: 132
@@ -133,7 +133,7 @@
 
 - [x] **L6 L538: 1.5 Shebang** — `ok`
   - spec: `specification.md:538`
-  - notes: offset0 `#!` → SyntaxKind::Shebang trivia (lexer/CST)
+  - notes: offset-0 `#!` → SyntaxKind::Shebang trivia (lexer/CST)
 
 - [x] **L5 L558: 2. 空白とコメント** — `ok`
   - spec: `specification.md:558`
@@ -197,7 +197,7 @@
 
 - [x] **L5 L841: 4. Package名とmodule path component** — `ok`
   - spec: `specification.md:841`
-  - notes: validate_package_path ASCII lowercase kebab; / paths enforce
+  - notes: validate_package_path ASCII lowercase kebab; `/` paths enforced
 
 - [x] **L5 L867: 5. Operator identifier** — `ok`
   - spec: `specification.md:867`
@@ -267,9 +267,9 @@
   - spec: `specification.md:1275`
   - notes: 'sym/:kwなし; #はError
 
-- [x] **L5 L1310: 11. Bytes** — `ok`
+- [x] **L5 L1310: 11. Bytes** — `partial`
   - spec: `specification.md:1310`
-  - notes: (bytes …)→CoreLiteral::Bytes; encode/decode-utf8は未 (KER/PKG)
+  - notes: (bytes …)→CoreLiteral::Bytes + eval; encode/decode-utf8 deferred
 
 - [x] **L5 L1360: 12. 単位と色** — `deferred`
   - spec: `specification.md:1360`
