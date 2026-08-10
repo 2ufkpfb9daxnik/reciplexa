@@ -554,3 +554,15 @@ fn eval_source_data_match_some() {
     let v = eval_source(src).unwrap();
     assert_eq!(v, RuntimeValue::Number(1.0));
 }
+
+#[test]
+fn eval_source_letrec_simple() {
+    // Recurse once then return 7 (no numeric primitives required).
+    let src = r#"
+(val main
+  (letrec ((f (fn (x) (if x (f false) 7))))
+    (f true)))
+"#;
+    let v = eval_source(src).unwrap();
+    assert_eq!(v, RuntimeValue::Number(7.0));
+}

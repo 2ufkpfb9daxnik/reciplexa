@@ -314,6 +314,10 @@ fn lang_resolve_list(
                     lang_resolve_let(&atoms[1..], stack, env, errors);
                     return;
                 }
+                "letrec" => {
+                    lang_resolve_letrec(&atoms[1..], stack, env, errors);
+                    return;
+                }
                 "match" => {
                     lang_resolve_match(&atoms[1..], stack, env, errors);
                     return;
@@ -380,6 +384,54 @@ fn lang_resolve_fn_expr(
         }
     };
     lang_resolve_fn_body(params, body, stack, env, errors);
+}
+
+fn lang_resolve_letrec(
+    rest: &[Atom],
+    stack: &mut ScopeStack,
+    env: &mut BindingEnv,
+    errors: &mut Vec<ResolveError>,
+) {
+    // (letrec ((name (fn …))...) body...) — all binders visible in every RHS.
+    let Some(Atom::Node(bindings_node)) = rest.first() else {
+        for atom in rest {
+            lang_resolve_atom(atom, stack, env, errors);
+        }
+        return;
+    };
+    if bindings_node.kind() != SyntaxKind::List {
+        for atom in rest {
+            lang_resolve_atom(atom, stack, env, errors);
+        }
+        return;
+    }
+
+    stack.push_scope();
+    let pairs: Vec<_> = list_atoms(bindings_node)
+        .into_iter()
+        .filter_map(|atom| match atom {
+            Atom::Node(n) if n.kind() == SyntaxKind::List => Some(n),
+            _ => None,
+        })
+        .collect();
+    for pair in &pairs {
+        let pair_atoms = list_atoms(pair);
+        if let Some(Atom::Token(name_tok)) = pair_atoms.first() {
+            if name_tok.kind() == SyntaxKind::Ident {
+                declare_binding(name_tok.text(), stack, env);
+            }
+        }
+    }
+    for pair in &pairs {
+        let pair_atoms = list_atoms(pair);
+        for a in pair_atoms.iter().skip(1) {
+            lang_resolve_atom(a, stack, env, errors);
+        }
+    }
+    for atom in &rest[1..] {
+        lang_resolve_atom(atom, stack, env, errors);
+    }
+    stack.pop_scope();
 }
 
 fn lang_resolve_match(

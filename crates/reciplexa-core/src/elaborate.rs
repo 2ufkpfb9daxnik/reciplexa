@@ -1,7 +1,7 @@
 //! Surface syntax → Core elaborator (BND-001 / EVAL-001 / DAT-001).
 //!
-//! Supports language-kernel forms only: `val` / `fn` / `let` / `if` / `seq` /
-//! `data` / `match` / app / lit / perform / handle.
+//! Supports language-kernel forms only: `val` / `fn` / `let` / `letrec` / `if` /
+//! `seq` / `data` / `match` / app / lit / perform / handle.
 //! Graphics / page / markup forms are rejected (quarantined to the document pipeline).
 
 use std::collections::HashMap;
@@ -377,6 +377,7 @@ fn elaborate_list(node: &SyntaxNode, ctx: &ElabCtx) -> Result<CoreExpr, Elaborat
             match head.text() {
                 "fn" => return elaborate_fn_expr(&atoms[1..], node, ctx),
                 "let" => return elaborate_let(&atoms[1..], node, ctx),
+                "letrec" => return elaborate_letrec(&atoms[1..], node, ctx),
                 "if" => return elaborate_if(&atoms[1..], node, ctx),
                 "match" => return elaborate_match(&atoms[1..], node, ctx),
                 "seq" => {
@@ -723,6 +724,93 @@ fn elaborate_let(
 
     let body = elaborate_body(&rest[1..], parent, ctx)?;
     Ok(nest_lets(bindings, body))
+}
+
+fn elaborate_letrec(
+    rest: &[Atom],
+    parent: &SyntaxNode,
+    ctx: &ElabCtx,
+) -> Result<CoreExpr, ElaborateError> {
+    // (letrec ((name (fn ...))...) body...) — RHS must elaborate to Lambda.
+    let Some(Atom::Node(bindings_node)) = rest.first() else {
+        return Err(ElaborateError::at_node(
+            "`letrec` requires a binding list",
+            parent,
+        ));
+    };
+    if bindings_node.kind() != SyntaxKind::List {
+        return Err(ElaborateError::at_node(
+            "`letrec` binding list must be a parenthesized list",
+            bindings_node,
+        ));
+    }
+    let binding_atoms = list_atoms(bindings_node);
+    if binding_atoms.is_empty() {
+        return Err(ElaborateError::at_node(
+            "`letrec` binding list must not be empty",
+            bindings_node,
+        ));
+    }
+
+    let mut bindings = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+    for atom in &binding_atoms {
+        let pair = match atom {
+            Atom::Node(n) => n,
+            Atom::Token(t) => {
+                return Err(ElaborateError::at_token(
+                    "`letrec` binding must be `(name (fn …))`",
+                    t,
+                ));
+            }
+        };
+        if pair.kind() != SyntaxKind::List {
+            return Err(ElaborateError::at_node(
+                "`letrec` binding must be `(name (fn …))`",
+                pair,
+            ));
+        }
+        let pair_atoms = list_atoms(pair);
+        if pair_atoms.len() != 2 {
+            return Err(ElaborateError::at_node(
+                "`letrec` binding must be `(name (fn …))`",
+                pair,
+            ));
+        }
+        let Atom::Token(name_tok) = &pair_atoms[0] else {
+            return Err(ElaborateError::at_node(
+                "`letrec` binder must be an identifier",
+                pair,
+            ));
+        };
+        if name_tok.kind() != SyntaxKind::Ident {
+            return Err(ElaborateError::at_token(
+                "`letrec` binder must be an identifier",
+                name_tok,
+            ));
+        }
+        let name = name_tok.text().to_string();
+        if !seen.insert(name.clone()) {
+            return Err(ElaborateError::at_token(
+                format!("duplicate binder `{name}` in the same `letrec`"),
+                name_tok,
+            ));
+        }
+        let value = elaborate_atom(&pair_atoms[1], ctx)?;
+        if !matches!(value, CoreExpr::Lambda { .. }) {
+            return Err(ElaborateError::at_node(
+                "`letrec` right-hand side must be `(fn …)`",
+                pair,
+            ));
+        }
+        bindings.push((name, value));
+    }
+
+    let body = elaborate_body(&rest[1..], parent, ctx)?;
+    Ok(CoreExpr::LetRec {
+        bindings,
+        body: Box::new(body),
+    })
 }
 
 fn elaborate_if(

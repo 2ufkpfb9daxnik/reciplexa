@@ -18,7 +18,7 @@ fn display_all_variants() {
         RuntimeValue::Closure {
             params: vec!["x".into()],
             body: CoreExpr::Lit(reciplexa_core::expr::CoreLiteral::Number(0.0)),
-            env: HashMap::new(),
+            env: std::rc::Rc::new(std::cell::RefCell::new(HashMap::new())),
         }
         .to_string(),
         "closure(x)"
@@ -71,7 +71,7 @@ fn ty_maps_all_variants() {
     let closure_ty = RuntimeValue::Closure {
         params: vec!["x".into()],
         body: CoreExpr::Lit(reciplexa_core::expr::CoreLiteral::Number(0.0)),
-        env: HashMap::new(),
+        env: std::rc::Rc::new(std::cell::RefCell::new(HashMap::new())),
     }
     .ty();
     assert_eq!(
@@ -144,7 +144,7 @@ fn closure_ty_has_fun_shape() {
     let v = RuntimeValue::Closure {
         params: vec!["n".into()],
         body: CoreExpr::Lit(reciplexa_core::expr::CoreLiteral::Number(0.0)),
-        env: HashMap::new(),
+        env: std::rc::Rc::new(std::cell::RefCell::new(HashMap::new())),
     };
     if let CoreType::Fun { args, ret, effects } = v.ty() {
         assert_eq!(args.len(), 1);
@@ -204,7 +204,7 @@ fn display_formats_multi_field_record_and_variants() {
             RuntimeValue::Closure {
                 params: vec!["x".into()],
                 body: CoreExpr::Lit(reciplexa_core::expr::CoreLiteral::Number(0.0)),
-                env: HashMap::new(),
+                env: std::rc::Rc::new(std::cell::RefCell::new(HashMap::new())),
             }
         ),
         "closure(x)"

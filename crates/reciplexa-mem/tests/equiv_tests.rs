@@ -102,12 +102,12 @@ fn observably_equal_shape_and_closure_tags() {
         &RuntimeValue::Closure {
             params: vec!["x".into()],
             body: CoreExpr::Lit(CoreLiteral::Number(0.0)),
-            env: HashMap::new(),
+            env: std::rc::Rc::new(std::cell::RefCell::new(HashMap::new())),
         },
         &RuntimeValue::Closure {
             params: vec!["y".into()],
             body: CoreExpr::Lit(CoreLiteral::Number(1.0)),
-            env: HashMap::new(),
+            env: std::rc::Rc::new(std::cell::RefCell::new(HashMap::new())),
         },
     ));
 }

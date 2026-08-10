@@ -37,6 +37,11 @@ pub enum CoreExpr {
         value: Box<CoreExpr>,
         body: Box<CoreExpr>,
     },
+    /// Recursive function bindings; each RHS must be a [`CoreExpr::Lambda`].
+    LetRec {
+        bindings: Vec<(String, CoreExpr)>,
+        body: Box<CoreExpr>,
+    },
     Lambda {
         params: Vec<String>,
         body: Box<CoreExpr>,

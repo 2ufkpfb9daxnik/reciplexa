@@ -1,6 +1,7 @@
 //! Reference evaluation of Core expressions.
 
 use std::cell::Cell;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -76,20 +77,18 @@ fn eval_outcome<H: EffectHost>(
 ) -> Result<Outcome, EvalError> {
     match expr {
         CoreExpr::Lit(lit) => Ok(Outcome::Value(eval_lit(lit)?)),
-        CoreExpr::Var(name) => {
-            env.get(name)
-                .cloned()
-                .map(Outcome::Value)
-                .ok_or_else(|| EvalError {
-                    message: format!("unbound variable `{name}`"),
-                })
-        }
+        CoreExpr::Var(name) => env
+            .get(name)
+            .cloned()
+            .map(Outcome::Value)
+            .ok_or_else(|| EvalError {
+                message: format!("unbound variable `{name}`"),
+            }),
         CoreExpr::Perform { op, arg } => {
             let v = match eval_outcome(arg, env, host)? {
                 Outcome::Value(v) => v,
                 other => return Ok(other),
             };
-            // Defer to host only when no handle will catch; handlers intercept via Outcome.
             Ok(Outcome::Performed {
                 op: op.clone(),
                 arg: v,
@@ -128,10 +127,37 @@ fn eval_outcome<H: EffectHost>(
             child.insert(name.clone(), v);
             eval_outcome(body, &child, host)
         }
+        CoreExpr::LetRec { bindings, body } => {
+            let shared = Rc::new(RefCell::new(env.clone()));
+            for (name, _) in bindings {
+                shared
+                    .borrow_mut()
+                    .insert(name.clone(), RuntimeValue::Unit);
+            }
+            for (name, rhs) in bindings {
+                let CoreExpr::Lambda {
+                    params,
+                    body: lam_body,
+                } = rhs
+                else {
+                    return Err(EvalError {
+                        message: "letrec binding must be a lambda".into(),
+                    });
+                };
+                let clo = RuntimeValue::Closure {
+                    params: params.clone(),
+                    body: *lam_body.clone(),
+                    env: Rc::clone(&shared),
+                };
+                shared.borrow_mut().insert(name.clone(), clo);
+            }
+            let child = shared.borrow().clone();
+            eval_outcome(body, &child, host)
+        }
         CoreExpr::Lambda { params, body } => Ok(Outcome::Value(RuntimeValue::Closure {
             params: params.clone(),
             body: *body.clone(),
-            env: env.clone(),
+            env: Rc::new(RefCell::new(env.clone())),
         })),
         CoreExpr::App { fun, args } => {
             let fun_v = match eval_outcome(fun, env, host)? {
@@ -245,7 +271,6 @@ fn run_handler<H: EffectHost>(
     }
     match eval_outcome(handler_body, &child, host)? {
         Outcome::Value(v) => Ok(Outcome::Value(v)),
-        // One-shot resume: resumed value is the handle result (shallow — body does not continue).
         Outcome::Resumed(v) => Ok(Outcome::Value(v)),
         Outcome::Performed { op, arg } => Ok(Outcome::Performed { op, arg }),
     }
@@ -284,7 +309,7 @@ fn apply_value<H: EffectHost>(
                     ),
                 });
             }
-            let mut child = closure_env;
+            let mut child = closure_env.borrow().clone();
             for (param, arg_v) in params.into_iter().zip(arg_vs) {
                 child.insert(param, arg_v);
             }

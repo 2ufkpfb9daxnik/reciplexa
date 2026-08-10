@@ -145,7 +145,7 @@ pub fn exec_linear(prog: &LinearProgram, trace: &mut RcTrace) -> Result<RuntimeV
                 let closure = RuntimeValue::Closure {
                     params: vec![param.clone()],
                     body: CoreExpr::Lit(reciplexa_core::expr::CoreLiteral::Number(0.0)),
-                    env,
+                    env: std::rc::Rc::new(std::cell::RefCell::new(env)),
                 };
                 heap_insert(&mut heap, *dst, closure, trace);
                 reg_map.insert(*dst, *dst);

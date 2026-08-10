@@ -62,6 +62,14 @@ impl Lowerer {
                 child.insert(name.clone(), v);
                 self.lower_expr(body, &child)
             }
+            CoreExpr::LetRec { bindings, body } => {
+                let mut child = env.clone();
+                for (name, rhs) in bindings {
+                    let v = self.lower_expr(rhs, &child);
+                    child.insert(name.clone(), v);
+                }
+                self.lower_expr(body, &child)
+            }
             CoreExpr::Lambda { params, body } => {
                 let dst = self.alloc.fresh();
                 let captures: Vec<Reg> = env.values().copied().collect();

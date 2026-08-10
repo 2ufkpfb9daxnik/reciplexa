@@ -110,6 +110,25 @@ pub fn infer_expr(
             child.insert(name.clone(), v_ty);
             infer_expr(body, &child, subst, range)
         }
+        CoreExpr::LetRec { bindings, body } => {
+            let mut child = env.clone();
+            for (name, _) in bindings {
+                let f_ty = CoreType::Fun {
+                    args: vec![CoreType::Var(subst.fresh_var())],
+                    ret: Box::new(CoreType::Var(subst.fresh_var())),
+                    effects: EffectRow::default(),
+                };
+                child.insert(name.clone(), f_ty);
+            }
+            for (name, rhs) in bindings {
+                let rhs_ty = infer_expr(rhs, &child, subst, range)?;
+                if let Some(expected) = child.vars.get(name).cloned() {
+                    unify(&rhs_ty, &expected, subst).map_err(|e| unify_to_check(e, range))?;
+                    child.insert(name.clone(), subst.apply(&expected));
+                }
+            }
+            infer_expr(body, &child, subst, range)
+        }
         CoreExpr::Lambda { params, body } => {
             let mut child = env.clone();
             let mut arg_tys = Vec::with_capacity(params.len());

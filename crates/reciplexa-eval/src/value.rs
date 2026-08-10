@@ -9,7 +9,7 @@ use reciplexa_core::expr::CoreExpr;
 use reciplexa_core::ty::CoreType;
 use reciplexa_core::ty::TypeVarId;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum RuntimeValue {
     Unit,
     Number(f64),
@@ -19,9 +19,10 @@ pub enum RuntimeValue {
     Closure {
         params: Vec<String>,
         body: CoreExpr,
-        env: HashMap<String, RuntimeValue>,
+        /// Shared so [`CoreExpr::LetRec`] bindings see each other.
+        env: Rc<std::cell::RefCell<HashMap<String, RuntimeValue>>>,
     },
-    /// One-shot resume continuation for shallow [`CoreExpr::Handle`] (EFF-001 v0).
+    /// One-shot resume continuation for [`CoreExpr::Handle`].
     OneShotResume {
         used: Rc<Cell<bool>>,
     },
@@ -30,6 +31,45 @@ pub enum RuntimeValue {
         tag: String,
         payload: Option<Box<RuntimeValue>>,
     },
+}
+
+impl PartialEq for RuntimeValue {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Unit, Self::Unit) => true,
+            (Self::Number(a), Self::Number(b)) => a == b,
+            (Self::String(a), Self::String(b)) => a == b,
+            (Self::Bool(a), Self::Bool(b)) => a == b,
+            (Self::ShapeTag(a), Self::ShapeTag(b)) => a == b,
+            (
+                Self::Closure {
+                    params: p1,
+                    body: b1,
+                    ..
+                },
+                Self::Closure {
+                    params: p2,
+                    body: b2,
+                    ..
+                },
+            ) => p1 == p2 && b1 == b2,
+            (Self::OneShotResume { used: a }, Self::OneShotResume { used: b }) => {
+                a.get() == b.get()
+            }
+            (Self::Record(a), Self::Record(b)) => a == b,
+            (
+                Self::Variant {
+                    tag: t1,
+                    payload: p1,
+                },
+                Self::Variant {
+                    tag: t2,
+                    payload: p2,
+                },
+            ) => t1 == t2 && p1 == p2,
+            _ => false,
+        }
+    }
 }
 
 impl RuntimeValue {
