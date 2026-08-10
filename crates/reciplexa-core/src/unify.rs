@@ -52,6 +52,10 @@ impl Subst {
                     .map(|(k, v)| (k.clone(), v.as_ref().map(|t| self.apply(t))))
                     .collect(),
             },
+            CoreType::Lacks { label, row } => CoreType::Lacks {
+                label: label.clone(),
+                row: Box::new(self.apply(row)),
+            },
             other => other.clone(),
         }
     }
@@ -79,6 +83,7 @@ fn occurs(var: TypeVarId, ty: &CoreType) -> bool {
         CoreType::Variant { variants } => variants
             .iter()
             .any(|(_, t)| t.as_ref().is_some_and(|x| occurs(var, x))),
+        CoreType::Lacks { row, .. } => occurs(var, row),
         _ => false,
     }
 }
@@ -97,6 +102,16 @@ pub fn unify(a: &CoreType, b: &CoreType, subst: &mut Subst) -> Result<(), UnifyE
         | (CoreType::Shape, CoreType::Shape)
         | (CoreType::Unit, CoreType::Unit)
         | (CoreType::Bool, CoreType::Bool) => Ok(()),
+        (
+            CoreType::Lacks {
+                label: a_lab,
+                row: a_row,
+            },
+            CoreType::Lacks {
+                label: b_lab,
+                row: b_row,
+            },
+        ) if a_lab == b_lab => unify(a_row, b_row, subst),
         (
             CoreType::Fun {
                 args: a_args,

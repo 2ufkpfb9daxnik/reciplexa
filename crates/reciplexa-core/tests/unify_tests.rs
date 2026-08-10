@@ -375,3 +375,74 @@ fn bind_different_vars_noop_path() {
     assert!(s.bind(a, CoreType::Var(b)).is_ok());
     assert_eq!(s.apply(&CoreType::Var(a)), CoreType::Var(b));
 }
+
+#[test]
+fn closed_records_unify_same_fields() {
+    let mut s = Subst::new();
+    let a = CoreType::Record {
+        fields: vec![
+            ("x".into(), CoreType::Number),
+            ("y".into(), CoreType::String),
+        ],
+    };
+    let b = CoreType::Record {
+        fields: vec![
+            ("x".into(), CoreType::Number),
+            ("y".into(), CoreType::String),
+        ],
+    };
+    assert!(unify(&a, &b, &mut s).is_ok());
+}
+
+#[test]
+fn closed_record_missing_field_errors() {
+    let mut s = Subst::new();
+    let a = CoreType::Record {
+        fields: vec![
+            ("x".into(), CoreType::Number),
+            ("y".into(), CoreType::String),
+        ],
+    };
+    let b = CoreType::Record {
+        fields: vec![("x".into(), CoreType::Number)],
+    };
+    assert!(matches!(
+        unify(&a, &b, &mut s),
+        Err(UnifyError::Mismatch { .. })
+    ));
+}
+
+#[test]
+fn lacks_stub_unifies_same_label() {
+    let mut s = Subst::new();
+    let a = CoreType::Lacks {
+        label: "z".into(),
+        row: Box::new(CoreType::Record {
+            fields: vec![("x".into(), CoreType::Number)],
+        }),
+    };
+    let b = CoreType::Lacks {
+        label: "z".into(),
+        row: Box::new(CoreType::Record {
+            fields: vec![("x".into(), CoreType::Number)],
+        }),
+    };
+    assert!(unify(&a, &b, &mut s).is_ok());
+}
+
+#[test]
+fn lacks_stub_label_mismatch_errors() {
+    let mut s = Subst::new();
+    let a = CoreType::Lacks {
+        label: "z".into(),
+        row: Box::new(CoreType::Unit),
+    };
+    let b = CoreType::Lacks {
+        label: "w".into(),
+        row: Box::new(CoreType::Unit),
+    };
+    assert!(matches!(
+        unify(&a, &b, &mut s),
+        Err(UnifyError::Mismatch { .. })
+    ));
+}
