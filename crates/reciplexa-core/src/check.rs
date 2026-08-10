@@ -201,3 +201,20 @@ pub fn typecheck_value(
     let ty = infer_expr(&expr, env, &mut subst, range)?;
     Ok(CoreValue { ty, expr })
 }
+
+/// Language-kernel typecheck: expand → elaborate → Core `infer_expr`.
+///
+/// Quarantined from the document/page surface checker in `reciplexa-types`.
+pub fn typecheck_language_source(src: &str) -> Result<CoreType, CheckError> {
+    let expanded = reciplexa_macro::expand_language(src).map_err(|e| CheckError {
+        message: e.message,
+        range: TextRange::EMPTY,
+    })?;
+    let expr = crate::elaborate::elaborate_source(&expanded).map_err(|e| CheckError {
+        message: e.message,
+        range: e.range,
+    })?;
+    let mut subst = Subst::new();
+    let ty = infer_expr(&expr, &TypeEnv::new(), &mut subst, TextRange::EMPTY)?;
+    Ok(subst.apply(&ty))
+}

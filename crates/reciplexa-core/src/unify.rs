@@ -89,6 +89,8 @@ pub fn unify(a: &CoreType, b: &CoreType, subst: &mut Subst) -> Result<(), UnifyE
     match (&a, &b) {
         (CoreType::Var(v), _) => subst.bind(*v, b),
         (_, CoreType::Var(v)) => subst.bind(*v, a),
+        // Gradual stub: Dynamic is consistent with every type.
+        (CoreType::Dynamic, _) | (_, CoreType::Dynamic) => Ok(()),
         (CoreType::Number, CoreType::Number)
         | (CoreType::String, CoreType::String)
         | (CoreType::Color, CoreType::Color)

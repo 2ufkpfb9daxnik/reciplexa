@@ -2895,6 +2895,7 @@ name = "reciplexa-core"
 version = "0.1.0"
 dependencies = [
  "reciplexa-identity",
+ "reciplexa-macro",
  "reciplexa-source",
  "reciplexa-syntax",
 ]
@@ -2930,6 +2931,7 @@ name = "reciplexa-eval"
 version = "0.1.0"
 dependencies = [
  "reciplexa-core",
+ "reciplexa-macro",
  "reciplexa-outcome",
 ]
 
@@ -3130,6 +3132,7 @@ version = "0.1.0"
 dependencies = [
  "reciplexa",
  "reciplexa-backend",
+ "reciplexa-bind",
  "reciplexa-codec",
  "reciplexa-core",
  "reciplexa-diagnostic",

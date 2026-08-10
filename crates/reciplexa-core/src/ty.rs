@@ -21,12 +21,15 @@ pub enum CoreType {
     Shape,
     Unit,
     Bool,
+    /// Gradual typing entry point (TYP-001). Unifies with any type in v0.
+    Dynamic,
     Var(TypeVarId),
     Fun {
         args: Vec<CoreType>,
         ret: Box<CoreType>,
         effects: EffectRow,
     },
+    /// Closed record — fields must match exactly under unify (ROW open rows later).
     Record {
         fields: Vec<(String, CoreType)>,
     },
