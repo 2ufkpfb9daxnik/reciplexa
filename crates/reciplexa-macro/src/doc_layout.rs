@@ -283,7 +283,7 @@ pub fn layout_markup_parts(parts: &[MarkupPart]) -> Vec<LaidItem> {
                 bracket_args,
                 brace_body,
             } => match name.as_str() {
-                "title" | "h1" => {
+                "title" | "h1" | "heading" => {
                     flush_body(&mut buf, &mut out);
                     push_styled_block(
                         brace_body,

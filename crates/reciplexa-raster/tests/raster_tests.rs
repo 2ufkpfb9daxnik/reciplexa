@@ -335,7 +335,10 @@ fn document_page_to_png_propagates_rasterize_errors() {
         Err(RasterError::EmptyDocument)
     ));
     let doc = a4_doc(vec![]);
-    let opts = RasterOptions { px_per_mm: -2.0, ..Default::default() };
+    let opts = RasterOptions {
+        px_per_mm: -2.0,
+        ..Default::default()
+    };
     assert!(matches!(
         document_page_to_png(&doc, 0, &opts),
         Err(RasterError::BadOptions(_))

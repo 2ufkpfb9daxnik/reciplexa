@@ -223,9 +223,21 @@ fn empty_parens_without_doc_head() {
 }
 
 #[test]
-fn at_list_form_is_rejected() {
+fn at_empty_parens_without_ident_errors() {
+    // `@()` has a paren body but no command name — still an error.
     let err = markup_parts(&markup_list("(markup @())")).unwrap_err();
-    assert!(err.message.contains("list form"));
+    assert!(
+        err.message.contains("identifier after `@`"),
+        "{}",
+        err.message
+    );
+}
+
+#[test]
+fn at_with_paren_only_body() {
+    // SYN-001: `@name(...)` scribble body (paren form of `@name{...}`).
+    let parts = markup_parts(&markup_list("(markup @em(emphasis))")).unwrap();
+    assert_eq!(flatten_readable(&parts), "emphasis");
 }
 
 #[test]

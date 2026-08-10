@@ -399,6 +399,32 @@ impl<'a> Parser<'a> {
             );
             self.eat_trivia();
         }
+        // SYN-001: optional markup body in parentheses — @foo(…)
+        if self
+            .current
+            .as_ref()
+            .is_some_and(|t| t.kind == SyntaxKind::LParen)
+        {
+            self.builder.start_node(SyntaxKind::List.into());
+            self.bump(); // (
+            self.push_mode_relex(LexerMode::Scribble);
+            self.parse_scribble_until(SyntaxKind::RParen);
+            self.pop_mode_relex();
+            if self
+                .current
+                .as_ref()
+                .is_some_and(|t| t.kind == SyntaxKind::RParen)
+            {
+                self.bump();
+            } else {
+                self.push_error(
+                    "unclosed `(` in @-expr".into(),
+                    self.input.len(),
+                    self.input.len(),
+                );
+            }
+            self.builder.finish_node();
+        }
         // Optional Scribble brace body: @foo{…} or @foo[…]{…}
         if self
             .current

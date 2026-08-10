@@ -197,10 +197,8 @@ fn walk_at_expr(node: &SyntaxNode) -> Result<MarkupPart, MarkupWalkError> {
                     brace_body = walk_scribble_container(&n)?;
                 }
                 SyntaxKind::List => {
-                    // `@` then a list form is unusual for M8 identity expand; reject.
-                    return Err(MarkupWalkError::new(
-                        "list form after `@` is not supported in markup walk yet",
-                    ));
+                    // SYN-001 `@name(markup-body)` — paren body is scribble, not a Lisp call.
+                    brace_body = walk_scribble_container(&n)?;
                 }
                 _ => {}
             },
@@ -228,6 +226,8 @@ fn walk_scribble_container(node: &SyntaxNode) -> Result<Vec<MarkupPart>, MarkupW
                         | SyntaxKind::RBrace
                         | SyntaxKind::LBracket
                         | SyntaxKind::RBracket
+                        | SyntaxKind::LParen
+                        | SyntaxKind::RParen
                 ) {
                     continue;
                 }

@@ -4,41 +4,38 @@
 
 ## いまの位置
 
-Phase 1–14 のクレート骨格はある。表面のうち **コメントは SYN-001 の `(// …)`**、**文章 reader 名は `(markup …)`** に寄せた。一方で **図形・`(src)`・組版コマンド意味**などはまだプロトタイプのまま動いている。
+コメント `(// …)`、文章 reader `(markup …)`、`@name(…)` / `@name{…}` は SYN-001 に寄せた。図形・`(src)`・`type`/`val` などは未接続またはプロトタイプのまま。
 
-| | 規範（SYN-001） | いま動くもの |
+| 項目 | 規範（SYN-001） | いまの実装 / examples |
 |---|---|---|
-| コメント | `(// …)` | `(// …)`（`;` 行コメントは廃止） |
-| 文章 reader | `(markup …)` | `(markup …)` + `@command`（意味はまだプロトタイプ展開） |
-| 既定モード | code mode（`type`/`val` 等） | 未接続（top-level は主に `page` / `markup` / `src`） |
+| コメント | `(// …)` | 対応（`;` 行コメントは廃止） |
+| 文章 reader | `(markup …)` | 対応（旧 `(doc …)` は廃止） |
+| markup command | `@name(…)` / `@name[…]` 等 | `@name(…)` と `@name{…}` の両方を受理。意味はプロトタイプ展開 |
+| code mode 宣言 | `(type …)` / `(val …)` | 未接続（typecheck で未知 form） |
+| `(src …)` wrapper | 使わない | まだ effect 用に必要（`effects.rpx`） |
 | 図形 | package が定義 | 組込み `(page … (circle …))` 等 |
+| 単位リテラル | `40mm` 等 | 未接続（裸の数値 mm 前提） |
 
-`examples/` は現行パイプラインで preview / export できるものだけ。
+ビルド成果物は D: の `target/`（`.cargo/config.toml`）。エージェント環境が `CARGO_TARGET_DIR` を C: に上書きする場合は打ち消すこと。
 
-## 現行パイプライン
+## パイプライン
 
 ```text
-.rpx → expand（surface macro / markup）→ typecheck → lower → scene
-         ├─ GUI preview: effects は走らせない
-         └─ export: EffectHandler 経由で perform / handle
+.rpx → expand → typecheck → lower → scene
+         ├─ GUI preview: effects なし
+         └─ export: EffectHandler
 ```
 
 ```lisp
-(// 図形ページ（mm、原点は左下）)
-(page a4
-  (circle 105 148.5 40))
-
-(// エクスポート時だけ動く効果)
-(src
-  (perform log "hello")
-  (handle log (perform log "muted")))
+(// 図形)
+(page a4 (circle 105 148.5 40))
 
 (markup
-@title{Cover}
-@p{Body with @em{emphasis}.})
+@heading(Cover)
+本文と@strong(強調)。)
 ```
 
-## コミット前ゲート
+## ゲート
 
 ```text
 cargo fmt --all
@@ -46,4 +43,9 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 ```
 
-PowerShell では先に `$env:PATH = "$env:USERPROFILE\.cargo\bin;$env:PATH"`。
+```powershell
+$env:PATH = "$env:USERPROFILE\.cargo\bin;$env:PATH"
+$env:CARGO_TARGET_DIR = "d:\reciplexa\target"
+$env:TEMP = "d:\reciplexa\.tmp"
+$env:TMP = "d:\reciplexa\.tmp"
+```

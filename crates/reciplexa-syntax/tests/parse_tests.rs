@@ -90,6 +90,20 @@ fn src_block_stays_lisp() {
 }
 
 #[test]
+fn at_with_paren_markup_body_roundtrip() {
+    let src = "(markup @heading(進捗) @strong(型付き))";
+    let root = parse_ok(src);
+    assert_eq!(unparse(&root), src);
+    assert!(root.descendants().any(|n| n.kind() == SyntaxKind::AtExpr));
+}
+
+#[test]
+fn at_with_bracket_args_and_paren_body() {
+    let src = r#"(markup @link["https://example.com"](docs))"#;
+    assert_eq!(unparse(&parse_ok(src)), src);
+}
+
+#[test]
 fn at_ident_without_brace() {
     let src = "(markup see @ref)";
     assert_eq!(unparse(&parse_ok(src)), src);
