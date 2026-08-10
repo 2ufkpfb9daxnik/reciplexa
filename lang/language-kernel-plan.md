@@ -45,6 +45,10 @@ Goal: complete LEX→SYN→MAC→RES→TYP/ROW/EFF→Core→EVAL/BND (+ MOD/KER/
 
 Language kernel is complete enough for pre-PKG. Intentional deferrals listed below.
 
+## Part II conformance gate
+
+Heading-by-heading inventory and review status live in [`lang/part2-conformance.md`](part2-conformance.md) (counters in `lang/part2-conformance-stats.json`). Packages (PKG) are next.
+
 ## Ordered work
 1. CoreExpr::Var + env; if; n-ary fn/app — **done**
 2. Surface elaborator: val/fn/let/seq → Core — **done** (+ perform/handle/handler/with; ambient apps; local/rec; type aliases; record-update/extend)
