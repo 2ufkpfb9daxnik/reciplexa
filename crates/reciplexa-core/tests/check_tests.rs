@@ -83,7 +83,7 @@ fn if_branch_types_form_union_when_distinct() {
         then_branch: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
         else_branch: Box::new(CoreExpr::Lit(CoreLiteral::String("x".into()))),
     };
-    let (ty, _) = infer_expr(&expr, &TypeEnv::new(), &mut Subst::new(), range()).unwrap();
+    let ty = infer_expr(&expr, &TypeEnv::new(), &mut Subst::new(), range()).unwrap();
     assert!(matches!(ty, CoreType::Union(_)), "got {ty:?}");
 }
 
