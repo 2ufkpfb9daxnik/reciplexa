@@ -2,6 +2,7 @@
 
 use std::collections::HashMap;
 
+use reciplexa_core::elaborate::{elaborate_source, ElaborateError};
 use reciplexa_core::expr::{CoreExpr, CoreLiteral, MatchArm};
 
 use crate::value::RuntimeValue;
@@ -29,6 +30,14 @@ impl EffectHost for UnitHost {
             }),
         }
     }
+}
+
+/// Elaborate surface source to Core, then evaluate with [`UnitHost`].
+pub fn eval_source(src: &str) -> EvalResult {
+    let expr = elaborate_source(src).map_err(|e: ElaborateError| EvalError {
+        message: e.message,
+    })?;
+    eval_expr(&expr, &HashMap::new(), &mut UnitHost)
 }
 
 pub fn eval_expr<H: EffectHost>(

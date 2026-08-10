@@ -1,0 +1,3 @@
+(// language-only: no page/graphics)
+(val f (fn (x) x))
+(val main (f 42))

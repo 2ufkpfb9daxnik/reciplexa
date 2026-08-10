@@ -2895,6 +2895,7 @@ version = "0.1.0"
 dependencies = [
  "reciplexa-identity",
  "reciplexa-source",
+ "reciplexa-syntax",
 ]
 
 [[package]]

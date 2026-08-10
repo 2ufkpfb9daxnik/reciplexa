@@ -511,3 +511,34 @@ fn eval_arity_mismatch_errors() {
     let err = eval_expr(&expr, &HashMap::new(), &mut UnitHost).unwrap_err();
     assert!(err.message.contains("arity"));
 }
+
+#[test]
+fn eval_source_identity_application() {
+    let v = eval_source("(val main ((fn (x) x) 42))").unwrap();
+    assert_eq!(v, RuntimeValue::Number(42.0));
+}
+
+#[test]
+fn eval_source_if_true() {
+    let v = eval_source("(val main (if true 1 2))").unwrap();
+    assert_eq!(v, RuntimeValue::Number(1.0));
+}
+
+#[test]
+fn eval_source_sequential_vals() {
+    let v = eval_source("(val f (fn (x) x))\n(val main (f 42))").unwrap();
+    assert_eq!(v, RuntimeValue::Number(42.0));
+}
+
+#[test]
+fn eval_source_pure_fn_example() {
+    let src = include_str!("../../../examples/pure_fn.rpx");
+    let v = eval_source(src).unwrap();
+    assert_eq!(v, RuntimeValue::Number(42.0));
+}
+
+#[test]
+fn eval_source_parse_error() {
+    let err = eval_source("(val main").unwrap_err();
+    assert!(err.message.contains("parse error"));
+}

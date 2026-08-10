@@ -5,5 +5,5 @@
 pub mod eval;
 pub mod value;
 
-pub use eval::{eval_expr, EffectHost, EvalError, EvalResult, UnitHost};
+pub use eval::{eval_expr, eval_source, EffectHost, EvalError, EvalResult, UnitHost};
 pub use value::RuntimeValue;
