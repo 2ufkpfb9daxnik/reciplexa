@@ -100,14 +100,19 @@ pub enum CoreExpr {
     },
 }
 
-/// DAT-001 §15–16 match pattern.
+/// DAT-001 §15–17 match pattern.
 #[derive(Debug, Clone, PartialEq)]
 pub enum CorePattern {
     /// `_`
     Wildcard,
     /// `bind name` — binds the entire scrutinee.
     Bind(String),
-    /// Nullary `Tag` or payload `Tag pat`.
+    /// Literal pattern (§15.5): int / string / bool / unit (not f64).
+    Lit(CoreLiteral),
+    /// `tuple p0 p1 …` (§17) — matches a positional record `"0"`, `"1"`, …
+    Tuple(Vec<CorePattern>),
+    /// Nullary `Tag` or payload `Tag pat` / multi-payload `Tag p0 p1 …`.
+    /// Multi-payload is encoded as [`CorePattern::Tuple`] in `payload`.
     Variant {
         tag: String,
         payload: Option<Box<CorePattern>>,

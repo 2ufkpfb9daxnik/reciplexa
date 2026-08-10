@@ -479,9 +479,25 @@ fn check_arm(
 
 fn bind_pattern(pat: &CorePattern, scr_ty: &CoreType, env: &mut TypeEnv) {
     match pat {
-        CorePattern::Wildcard => {}
+        CorePattern::Wildcard | CorePattern::Lit(_) => {}
         CorePattern::Bind(name) => {
             env.insert(name.clone(), scr_ty.clone());
+        }
+        CorePattern::Tuple(elems) => {
+            if let CoreType::Record { fields } = scr_ty {
+                for (i, ep) in elems.iter().enumerate() {
+                    let key = i.to_string();
+                    if let Some((_, ty)) = fields.iter().find(|(k, _)| *k == key) {
+                        bind_pattern(ep, ty, env);
+                    } else {
+                        bind_pattern(ep, &CoreType::Dynamic, env);
+                    }
+                }
+            } else {
+                for ep in elems {
+                    bind_pattern(ep, &CoreType::Dynamic, env);
+                }
+            }
         }
         CorePattern::Variant { tag, payload } => {
             if let CoreType::Variant { variants } = scr_ty {

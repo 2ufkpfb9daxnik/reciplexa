@@ -741,6 +741,37 @@ fn match_pattern(pat: &CorePattern, value: &RuntimeValue) -> Option<HashMap<Stri
             m.insert(name.clone(), value.clone());
             Some(m)
         }
+        CorePattern::Lit(lit) => {
+            let ok = match (lit, value) {
+                (CoreLiteral::Number(n), RuntimeValue::Number(v)) => n == v,
+                (CoreLiteral::String(s), RuntimeValue::String(v)) => s == v,
+                (CoreLiteral::Bool(b), RuntimeValue::Bool(v)) => b == v,
+                (CoreLiteral::Unit, RuntimeValue::Unit) => true,
+                (CoreLiteral::Color(_), _) => false,
+                _ => false,
+            };
+            if ok {
+                Some(HashMap::new())
+            } else {
+                None
+            }
+        }
+        CorePattern::Tuple(elems) => {
+            let RuntimeValue::Record(fields) = value else {
+                return None;
+            };
+            if fields.len() != elems.len() {
+                return None;
+            }
+            let mut out = HashMap::new();
+            for (i, ep) in elems.iter().enumerate() {
+                let key = i.to_string();
+                let (_, fv) = fields.iter().find(|(k, _)| *k == key)?;
+                let sub = match_pattern(ep, fv)?;
+                out.extend(sub);
+            }
+            Some(out)
+        }
         CorePattern::Variant { tag, payload } => {
             let RuntimeValue::Variant {
                 tag: vtag,
@@ -759,7 +790,9 @@ fn match_pattern(pat: &CorePattern, value: &RuntimeValue) -> Option<HashMap<Stri
                     None => match inner.as_ref() {
                         // Nullary variant with a simple binder/wildcard: match tag, no bind.
                         CorePattern::Wildcard | CorePattern::Bind(_) => Some(HashMap::new()),
-                        CorePattern::Variant { .. } => None,
+                        CorePattern::Lit(_) | CorePattern::Tuple(_) | CorePattern::Variant { .. } => {
+                            None
+                        }
                     },
                 },
             }

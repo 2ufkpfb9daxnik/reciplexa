@@ -233,12 +233,6 @@ fn register_data(node: &SyntaxNode, ctx: &mut ElabCtx) -> Result<(), ElaborateEr
                     ));
                 }
                 let arity = ca.len() - 1;
-                if arity > 1 {
-                    return Err(ElaborateError::at_node(
-                        "DAT-001 v0 supports at most one payload per constructor",
-                        n,
-                    ));
-                }
                 for payload in &ca[1..] {
                     match payload {
                         Atom::Token(p) if p.kind() == SyntaxKind::Ident => {}
@@ -488,10 +482,16 @@ fn elaborate_list(node: &SyntaxNode, ctx: &ElabCtx) -> Result<CoreExpr, Elaborat
                             node,
                         ));
                     }
-                    let payload = if arity == 0 {
-                        None
-                    } else {
-                        Some(Box::new(elaborate_atom(&atoms[1], ctx)?))
+                    let payload = match arity {
+                        0 => None,
+                        1 => Some(Box::new(elaborate_atom(&atoms[1], ctx)?)),
+                        _ => {
+                            let mut fields = Vec::with_capacity(arity);
+                            for (i, atom) in atoms[1..].iter().enumerate() {
+                                fields.push((i.to_string(), elaborate_atom(atom, ctx)?));
+                            }
+                            Some(Box::new(CoreExpr::Record { fields }))
+                        }
                     };
                     return Ok(CoreExpr::Variant {
                         tag: tag.to_string(),
@@ -789,7 +789,7 @@ fn elaborate_match(
     })
 }
 
-/// Pattern atoms before `->` (DAT-001 §15–16): `_`, `bind name`, `Tag`, `Tag pat`.
+/// Pattern atoms before `->` (DAT-001 §15–17): `_`, `bind`, literals, `tuple`, `Tag`…
 fn elaborate_pattern_atoms(
     atoms: &[Atom],
     parent: &SyntaxNode,
@@ -811,17 +811,41 @@ fn elaborate_pattern_atoms(
             }
             return elaborate_pattern_atoms(&list_atoms(n), n);
         }
+        // §15.5 literal patterns as a sole atom.
+        if let Atom::Token(t) = &atoms[0] {
+            if let Some(lit) = pattern_literal_token(t)? {
+                return Ok(CorePattern::Lit(lit));
+            }
+        }
     }
 
     let Atom::Token(head) = &atoms[0] else {
         return Err(ElaborateError::at_node(
-            "match pattern head must be an identifier",
+            "match pattern head must be an identifier or literal",
             parent,
         ));
     };
+
+    // Literal head with extra atoms is invalid.
+    if matches!(
+        head.kind(),
+        SyntaxKind::Number | SyntaxKind::String
+    ) {
+        if atoms.len() != 1 {
+            return Err(ElaborateError::at_token(
+                "literal pattern takes no arguments",
+                head,
+            ));
+        }
+        let lit = pattern_literal_token(head)?.ok_or_else(|| {
+            ElaborateError::at_token("unsupported literal pattern", head)
+        })?;
+        return Ok(CorePattern::Lit(lit));
+    }
+
     if head.kind() != SyntaxKind::Ident {
         return Err(ElaborateError::at_token(
-            "match pattern head must be an identifier",
+            "match pattern head must be an identifier or literal",
             head,
         ));
     }
@@ -861,7 +885,34 @@ fn elaborate_pattern_atoms(
         return Ok(CorePattern::Bind(b.text().to_string()));
     }
 
-    // Constructor patterns
+    // §15.5 bool / unit literals (identifiers)
+    if matches!(head_text, "true" | "false" | "unit") {
+        if atoms.len() != 1 {
+            return Err(ElaborateError::at_token(
+                "literal pattern takes no arguments",
+                head,
+            ));
+        }
+        let lit = pattern_literal_token(head)?.expect("true/false/unit");
+        return Ok(CorePattern::Lit(lit));
+    }
+
+    // §17 tuple pattern: `(tuple p0 p1 …)`
+    if head_text == "tuple" {
+        if atoms.len() < 2 {
+            return Err(ElaborateError::at_node(
+                "`tuple` pattern requires at least one element pattern",
+                parent,
+            ));
+        }
+        let mut elems = Vec::with_capacity(atoms.len() - 1);
+        for atom in &atoms[1..] {
+            elems.push(elaborate_payload_pattern(atom, parent)?);
+        }
+        return Ok(CorePattern::Tuple(elems));
+    }
+
+    // Constructor patterns: nullary, single payload, or multi-payload (§14.3).
     match atoms.len() {
         1 => Ok(CorePattern::Variant {
             tag: head_text.to_string(),
@@ -874,10 +925,46 @@ fn elaborate_pattern_atoms(
                 payload: Some(Box::new(payload)),
             })
         }
-        _ => Err(ElaborateError::at_node(
-            "match pattern supports at most one payload before `->`",
-            parent,
-        )),
+        _ => {
+            let mut elems = Vec::with_capacity(atoms.len() - 1);
+            for atom in &atoms[1..] {
+                elems.push(elaborate_payload_pattern(atom, parent)?);
+            }
+            Ok(CorePattern::Variant {
+                tag: head_text.to_string(),
+                payload: Some(Box::new(CorePattern::Tuple(elems))),
+            })
+        }
+    }
+}
+
+fn pattern_literal_token(tok: &SyntaxToken) -> Result<Option<CoreLiteral>, ElaborateError> {
+    match tok.kind() {
+        SyntaxKind::Number => {
+            let text = tok.text();
+            if text.contains('.') {
+                return Err(ElaborateError::at_token(
+                    "f64 literal patterns are not allowed (DAT-001 §15.5)",
+                    tok,
+                ));
+            }
+            let n: f64 = text.parse().map_err(|_| {
+                ElaborateError::at_token(format!("invalid number literal `{text}`"), tok)
+            })?;
+            Ok(Some(CoreLiteral::Number(n)))
+        }
+        SyntaxKind::String => {
+            let value = decode_string_literal(tok.text())
+                .map_err(|msg| ElaborateError::at_token(msg, tok))?;
+            Ok(Some(CoreLiteral::String(value)))
+        }
+        SyntaxKind::Ident => match tok.text() {
+            "true" => Ok(Some(CoreLiteral::Bool(true))),
+            "false" => Ok(Some(CoreLiteral::Bool(false))),
+            "unit" => Ok(Some(CoreLiteral::Unit)),
+            _ => Ok(None),
+        },
+        _ => Ok(None),
     }
 }
 
@@ -886,17 +973,23 @@ fn elaborate_payload_pattern(
     _parent: &SyntaxNode,
 ) -> Result<CorePattern, ElaborateError> {
     match atom {
-        Atom::Token(t) if t.kind() == SyntaxKind::Ident => {
-            if t.text() == "_" {
-                Ok(CorePattern::Wildcard)
+        Atom::Token(t) => {
+            if let Some(lit) = pattern_literal_token(t)? {
+                return Ok(CorePattern::Lit(lit));
+            }
+            if t.kind() == SyntaxKind::Ident {
+                if t.text() == "_" {
+                    Ok(CorePattern::Wildcard)
+                } else {
+                    Ok(CorePattern::Bind(t.text().to_string()))
+                }
             } else {
-                Ok(CorePattern::Bind(t.text().to_string()))
+                Err(ElaborateError::at_token(
+                    "match payload pattern must be an identifier, literal, or nested constructor",
+                    t,
+                ))
             }
         }
-        Atom::Token(t) => Err(ElaborateError::at_token(
-            "match payload pattern must be an identifier or nested constructor",
-            t,
-        )),
         Atom::Node(n) => {
             if n.kind() != SyntaxKind::List {
                 return Err(ElaborateError::at_node(

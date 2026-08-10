@@ -116,6 +116,43 @@ fn lang_data_match_non_exhaustive() {
 }
 
 #[test]
+fn lang_literal_tuple_multipayload_patterns() {
+    let case = ConformanceCase::new(
+        "TEST-LANG-DAT-003",
+        "DAT-001",
+        "literal, tuple, and multi-payload patterns",
+    );
+    run_conformance(&case, || {
+        let v = eval_source(
+            r#"
+(val main (match 0 (0 -> "zero") (_ -> "other")))
+"#,
+        )
+        .unwrap();
+        assert_eq!(v, RuntimeValue::String("zero".into()));
+
+        let v = eval_source(
+            r#"
+(val main
+  (match (tuple 1 2)
+    (tuple a b -> (+ a b))))
+"#,
+        )
+        .unwrap();
+        assert_eq!(v, RuntimeValue::Number(3.0));
+
+        let v = eval_source(
+            r#"
+(data Pair (Pair x y))
+(val main (match (Pair 4 5) (Pair a b -> (* a b))))
+"#,
+        )
+        .unwrap();
+        assert_eq!(v, RuntimeValue::Number(20.0));
+    });
+}
+
+#[test]
 fn lang_letrec() {
     let case = ConformanceCase::new("TEST-LANG-BND-001", "BND-001", "letrec self-call");
     run_conformance(&case, || {
