@@ -1,0 +1,7 @@
+(// length/units — millimeter constructor (Number+Ident `40mm` remains interim in lexer).
+(data length
+  (mm value)
+  (pt value)
+  (in value))
+
+(val zero (mm 0))

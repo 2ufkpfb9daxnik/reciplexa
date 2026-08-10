@@ -1,0 +1,7 @@
+(// graphics/shapes — package constructors for basic vector shapes (SYN: not language builtins).
+(data shape
+  (circle x y r)
+  (rect x y w h)
+  (ellipse x y rx ry))
+
+(val unit-circle (circle 0 0 1))

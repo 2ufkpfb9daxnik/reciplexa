@@ -1,0 +1,10 @@
+(// graphics/color — named colors and rgb constructor stub for package import demos.
+(data color
+  (rgb r g b)
+  (rgba r g b a))
+
+(val black (rgb 0 0 0))
+(val white (rgb 1 1 1))
+(val red (rgb 1 0 0))
+(val green (rgb 0 1 0))
+(val blue (rgb 0 0 1))

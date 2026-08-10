@@ -1,0 +1,4 @@
+(// graphics/page — common page size records (mm). Interim document `(page a4 …)` stays in lower.
+(val a4 (record (width 210) (height 297)))
+(val letter (record (width 215.9) (height 279.4)))
+(val a5 (record (width 148) (height 210)))

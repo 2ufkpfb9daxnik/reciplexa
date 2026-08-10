@@ -1,0 +1,6 @@
+(package color
+  format-version 1
+  version "0.1.0"
+  source-root "src"
+  (public-modules
+    srgb))
