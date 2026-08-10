@@ -23,9 +23,6 @@
 - **deferred**: 146
 - **meta**: 87
 
-
-
-
 ---
 
 - [x] **L1 L241: 第II部 RPX言語の基礎仕様** — `meta`
@@ -568,7 +565,7 @@
   - spec: `specification.md:2737`
   - notes: scope/overview prose
 
-- [x] **L5 L2759: 1. `data`宣言** — `ok``
+- [x] **L5 L2759: 1. `data`宣言** — `ok`
   - spec: `specification.md:2759`
   - notes: elaborate.rs `(data …)` → DataEnv constructors
 
@@ -580,7 +577,7 @@
   - spec: `specification.md:2773`
   - notes: elaborate.rs parses ((a type)…); no type-app instantiation
 
-- [x] **L6 L2800: 1.3 Parameterなしの場合** — `ok``
+- [x] **L6 L2800: 1.3 Parameterなしの場合** — `ok`
   - spec: `specification.md:2800`
   - notes: nullary-param path; elaborate.rs DataEnv without type_params
 
@@ -588,7 +585,7 @@
   - spec: `specification.md:2824`
   - notes: elaborate.rs data decl → DataEnv
 
-- [x] **L5 L2847: 2. `data`宣言が生成するbinding** — `partial``
+- [x] **L5 L2847: 2. `data`宣言が生成するbinding** — `partial`
   - spec: `specification.md:2847`
   - notes: ctors registered; parent/sealed/ctor-types incomplete vs §2
 
@@ -616,11 +613,11 @@
   - spec: `specification.md:2946`
   - notes: value-ns ctors via DataEnv; no ctor-type ns / full RES identity
 
-- [x] **L6 L2948: 3.1 型namespaceと値namespace** — `partial``
+- [x] **L6 L2948: 3.1 型namespaceと値namespace** — `partial`
   - spec: `specification.md:2948`
   - notes: value-ns ctors via DataEnv; distinct type-ns ctor types absent
 
-- [x] **L6 L2966: 3.2 型名とconstructor名の同名禁止** — `partial``
+- [x] **L6 L2966: 3.2 型名とconstructor名の同名禁止** — `partial`
   - spec: `specification.md:2966`
   - notes: name clash checks limited; no full dual-namespace enforcement
 
@@ -1208,7 +1205,7 @@
   - spec: `specification.md:5016`
   - notes:
 
-- [x] **L4 L5034: 13.4 `BND-001` `val`、`var`、`let`、`letrec`、`fn`** — `partial``
+- [x] **L4 L5034: 13.4 `BND-001` `val`、`var`、`let`、`letrec`、`fn`** — `partial`
   - spec: `specification.md:5034`
   - notes: let/letrec/var/set done; gen/escape/typed-store deferred (plan BND-001)
 
@@ -2056,15 +2053,15 @@
   - spec: `specification.md:8323`
   - notes: no cast evidence / gradual runtime; Dynamic stub only
 
-- [x] **L6 L8333: 1. 上限全体が要求型へ含まれる場合** — `gap``
+- [x] **L6 L8333: 1. 上限全体が要求型へ含まれる場合** — `gap`
   - spec: `specification.md:8333`
   - notes: no three-stage dynamic cast judgment; Dynamic stub only
 
-- [x] **L6 L8354: 2. 上限と要求型が互いに素である場合** — `gap``
+- [x] **L6 L8354: 2. 上限と要求型が互いに素である場合** — `gap`
   - spec: `specification.md:8354`
   - notes: no disjointness cast path; Dynamic stub only
 
-- [x] **L6 L8376: 3. 一部だけ重なる場合** — `gap``
+- [x] **L6 L8376: 3. 一部だけ重なる場合** — `gap`
   - spec: `specification.md:8376`
   - notes: no partial-overlap cast path; Dynamic stub only
 
@@ -2968,7 +2965,7 @@
   - spec: `specification.md:13781`
   - notes: HandlerValue + With; elaborate.rs / eval.rs
 
-- [x] **L5 L13845: `DD-EFF-013`: ambient effectとnamed/scoped effect instance** — `partial``
+- [x] **L5 L13845: `DD-EFF-013`: ambient effectとnamed/scoped effect instance** — `partial`
   - spec: `specification.md:13845`
   - notes: ambient ok (elaborate Perform); named/scoped instances deferred
 
