@@ -93,7 +93,8 @@ pub fn unify(a: &CoreType, b: &CoreType, subst: &mut Subst) -> Result<(), UnifyE
         | (CoreType::String, CoreType::String)
         | (CoreType::Color, CoreType::Color)
         | (CoreType::Shape, CoreType::Shape)
-        | (CoreType::Unit, CoreType::Unit) => Ok(()),
+        | (CoreType::Unit, CoreType::Unit)
+        | (CoreType::Bool, CoreType::Bool) => Ok(()),
         (
             CoreType::Fun {
                 args: a_args,

@@ -35,6 +35,7 @@ fn effect_row_default_is_empty() {
 #[test]
 fn core_type_variants_eq() {
     assert_eq!(CoreType::Color, CoreType::Color);
+    assert_eq!(CoreType::Bool, CoreType::Bool);
     assert_ne!(CoreType::Shape, CoreType::String);
     let rec = CoreType::Record {
         fields: vec![("x".into(), CoreType::Number)],

@@ -11,6 +11,7 @@ pub enum RuntimeValue {
     Unit,
     Number(f64),
     String(String),
+    Bool(bool),
     ShapeTag(String),
     Closure {
         param: String,
@@ -30,6 +31,7 @@ impl RuntimeValue {
             Self::Unit => CoreType::Unit,
             Self::Number(_) => CoreType::Number,
             Self::String(_) => CoreType::String,
+            Self::Bool(_) => CoreType::Bool,
             Self::ShapeTag(_) => CoreType::Shape,
             Self::Closure { .. } => CoreType::Fun {
                 args: vec![CoreType::Var(TypeVarId::new(0))],
@@ -54,6 +56,7 @@ impl fmt::Display for RuntimeValue {
             Self::Unit => "unit".to_string(),
             Self::Number(n) => n.to_string(),
             Self::String(s) => format!("\"{s}\""),
+            Self::Bool(b) => b.to_string(),
             Self::ShapeTag(s) => format!("shape:{s}"),
             Self::Closure { param, .. } => format!("closure({param})"),
             Self::Record(fields) => {

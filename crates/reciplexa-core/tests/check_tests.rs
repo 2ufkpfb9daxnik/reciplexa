@@ -60,6 +60,38 @@ fn type_env_lookup_for_var() {
 }
 
 #[test]
+fn infers_if_with_bool() {
+    let expr = CoreExpr::If {
+        cond: Box::new(CoreExpr::Lit(CoreLiteral::Bool(true))),
+        then_branch: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
+        else_branch: Box::new(CoreExpr::Lit(CoreLiteral::Number(2.0))),
+    };
+    let mut subst = Subst::new();
+    let ty = infer_expr(&expr, &TypeEnv::new(), &mut subst, range()).unwrap();
+    assert_eq!(subst.apply(&ty), CoreType::Number);
+}
+
+#[test]
+fn if_requires_bool_cond() {
+    let expr = CoreExpr::If {
+        cond: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
+        then_branch: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
+        else_branch: Box::new(CoreExpr::Lit(CoreLiteral::Number(2.0))),
+    };
+    assert!(infer_expr(&expr, &TypeEnv::new(), &mut Subst::new(), range()).is_err());
+}
+
+#[test]
+fn if_branch_types_must_unify() {
+    let expr = CoreExpr::If {
+        cond: Box::new(CoreExpr::Lit(CoreLiteral::Bool(false))),
+        then_branch: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
+        else_branch: Box::new(CoreExpr::Lit(CoreLiteral::String("x".into()))),
+    };
+    assert!(infer_expr(&expr, &TypeEnv::new(), &mut Subst::new(), range()).is_err());
+}
+
+#[test]
 fn infers_record_get() {
     let expr = CoreExpr::RecordGet {
         record: Box::new(CoreExpr::Record {

@@ -7,6 +7,7 @@ pub enum CoreLiteral {
     Number(f64),
     String(String),
     Color(String),
+    Bool(bool),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -31,6 +32,11 @@ pub enum CoreExpr {
     App {
         fun: Box<CoreExpr>,
         arg: Box<CoreExpr>,
+    },
+    If {
+        cond: Box<CoreExpr>,
+        then_branch: Box<CoreExpr>,
+        else_branch: Box<CoreExpr>,
     },
     Record {
         fields: Vec<(String, CoreExpr)>,

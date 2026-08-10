@@ -64,6 +64,53 @@ fn unbound_var_errors() {
 }
 
 #[test]
+fn if_then_else_left_to_right() {
+    let then_expr = CoreExpr::If {
+        cond: Box::new(CoreExpr::Lit(CoreLiteral::Bool(true))),
+        then_branch: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
+        else_branch: Box::new(CoreExpr::Lit(CoreLiteral::Number(2.0))),
+    };
+    assert_eq!(
+        eval_expr(&then_expr, &HashMap::new(), &mut UnitHost).unwrap(),
+        RuntimeValue::Number(1.0)
+    );
+
+    let else_expr = CoreExpr::If {
+        cond: Box::new(CoreExpr::Lit(CoreLiteral::Bool(false))),
+        then_branch: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
+        else_branch: Box::new(CoreExpr::Lit(CoreLiteral::Number(2.0))),
+    };
+    assert_eq!(
+        eval_expr(&else_expr, &HashMap::new(), &mut UnitHost).unwrap(),
+        RuntimeValue::Number(2.0)
+    );
+}
+
+#[test]
+fn if_non_bool_cond_errors() {
+    let expr = CoreExpr::If {
+        cond: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
+        then_branch: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
+        else_branch: Box::new(CoreExpr::Lit(CoreLiteral::Number(2.0))),
+    };
+    let err = eval_expr(&expr, &HashMap::new(), &mut UnitHost).unwrap_err();
+    assert!(err.message.contains("Bool"));
+}
+
+#[test]
+fn eval_bool_literal() {
+    assert_eq!(
+        eval_expr(
+            &CoreExpr::Lit(CoreLiteral::Bool(true)),
+            &HashMap::new(),
+            &mut UnitHost
+        )
+        .unwrap(),
+        RuntimeValue::Bool(true)
+    );
+}
+
+#[test]
 fn pattern_match_variant() {
     let expr = CoreExpr::Match {
         scrutinee: Box::new(CoreExpr::Variant {

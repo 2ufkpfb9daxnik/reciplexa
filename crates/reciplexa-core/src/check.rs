@@ -48,6 +48,7 @@ pub fn infer_expr(
             CoreLiteral::Number(_) => CoreType::Number,
             CoreLiteral::String(_) => CoreType::String,
             CoreLiteral::Color(_) => CoreType::Color,
+            CoreLiteral::Bool(_) => CoreType::Bool,
         }),
         CoreExpr::Var(name) => env
             .vars
@@ -97,6 +98,18 @@ pub fn infer_expr(
             };
             unify_fun(&fun_ty, &expected, subst).map_err(|e| unify_to_check(e, range))?;
             Ok(subst.apply(&ret_var))
+        }
+        CoreExpr::If {
+            cond,
+            then_branch,
+            else_branch,
+        } => {
+            let cond_ty = infer_expr(cond, env, subst, range)?;
+            unify(&cond_ty, &CoreType::Bool, subst).map_err(|e| unify_to_check(e, range))?;
+            let then_ty = infer_expr(then_branch, env, subst, range)?;
+            let else_ty = infer_expr(else_branch, env, subst, range)?;
+            unify(&then_ty, &else_ty, subst).map_err(|e| unify_to_check(e, range))?;
+            Ok(subst.apply(&then_ty))
         }
         CoreExpr::Record { fields } => {
             let mut typed = Vec::new();

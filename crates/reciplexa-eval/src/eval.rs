@@ -81,6 +81,20 @@ pub fn eval_expr<H: EffectHost>(
                 }),
             }
         }
+        CoreExpr::If {
+            cond,
+            then_branch,
+            else_branch,
+        } => {
+            let cond_v = eval_expr(cond, env, host)?;
+            match cond_v {
+                RuntimeValue::Bool(true) => eval_expr(then_branch, env, host),
+                RuntimeValue::Bool(false) => eval_expr(else_branch, env, host),
+                other => Err(EvalError {
+                    message: format!("if condition must be Bool, got {other:?}"),
+                }),
+            }
+        }
         CoreExpr::Record { fields } => {
             let mut out = Vec::new();
             for (k, v) in fields {
@@ -159,5 +173,6 @@ fn eval_lit(lit: &CoreLiteral) -> EvalResult {
             }
         }
         CoreLiteral::Color(c) => RuntimeValue::String(c.clone()),
+        CoreLiteral::Bool(b) => RuntimeValue::Bool(*b),
     })
 }

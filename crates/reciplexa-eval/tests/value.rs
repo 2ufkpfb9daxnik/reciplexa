@@ -8,6 +8,8 @@ fn display_all_variants() {
     assert_eq!(RuntimeValue::Unit.to_string(), "unit");
     assert_eq!(RuntimeValue::Number(3.5).to_string(), "3.5");
     assert_eq!(RuntimeValue::String("hi".into()).to_string(), "\"hi\"");
+    assert_eq!(RuntimeValue::Bool(true).to_string(), "true");
+    assert_eq!(RuntimeValue::Bool(false).to_string(), "false");
     assert_eq!(
         RuntimeValue::ShapeTag("circle".into()).to_string(),
         "shape:circle"
@@ -64,6 +66,7 @@ fn ty_maps_all_variants() {
     assert_eq!(RuntimeValue::Unit.ty(), CoreType::Unit);
     assert_eq!(RuntimeValue::Number(1.0).ty(), CoreType::Number);
     assert_eq!(RuntimeValue::String("s".into()).ty(), CoreType::String);
+    assert_eq!(RuntimeValue::Bool(true).ty(), CoreType::Bool);
     assert_eq!(RuntimeValue::ShapeTag("rect".into()).ty(), CoreType::Shape);
     let closure_ty = RuntimeValue::Closure {
         param: "x".into(),

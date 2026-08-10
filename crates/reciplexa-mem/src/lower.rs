@@ -43,6 +43,7 @@ impl Lowerer {
                 let mem_lit = match lit {
                     CoreLiteral::Number(n) => MemLiteral::Number(*n),
                     CoreLiteral::String(s) | CoreLiteral::Color(s) => MemLiteral::String(s.clone()),
+                    CoreLiteral::Bool(b) => MemLiteral::String(b.to_string()),
                 };
                 self.emit(MemInstr::Lit { dst, lit: mem_lit });
                 dst
@@ -84,6 +85,16 @@ impl Lowerer {
                     arg: a,
                 });
                 dst
+            }
+            CoreExpr::If {
+                cond,
+                then_branch,
+                else_branch,
+            } => {
+                let _ = self.lower_expr(cond, env);
+                let t = self.lower_expr(then_branch, env);
+                let _ = self.lower_expr(else_branch, env);
+                t
             }
             CoreExpr::Record { fields } => {
                 let dst = self.alloc.fresh();

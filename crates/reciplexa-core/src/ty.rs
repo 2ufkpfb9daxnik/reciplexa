@@ -20,6 +20,7 @@ pub enum CoreType {
     Color,
     Shape,
     Unit,
+    Bool,
     Var(TypeVarId),
     Fun {
         args: Vec<CoreType>,
