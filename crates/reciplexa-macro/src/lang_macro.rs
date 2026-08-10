@@ -51,14 +51,11 @@ pub fn expand_language(input: &str) -> Result<String, ExpandError> {
     }
 
     let forms = top_level_forms(&parse.root)?;
-    let mut macros: HashMap<String, MacroDef> = HashMap::new();
-    let mut out_forms = Vec::new();
-    let mut budget = EXPANSION_BUDGET;
-    let mut gensym = 0u64;
-
-    for form in forms {
-        if let Some((name, def)) = try_macro_def(&form)? {
-            if macros.contains_key(&name) {
+    // Pass 1: record where each macro is defined (MAC-10 pre-def use).
+    let mut macro_at: HashMap<String, usize> = HashMap::new();
+    for (i, form) in forms.iter().enumerate() {
+        if let Some(name) = peek_macro_def_name(form)? {
+            if macro_at.contains_key(&name) {
                 return Err(ExpandError::new(format!(
                     "duplicate macro definition `{name}`"
                 )));
@@ -68,13 +65,83 @@ pub fn expand_language(input: &str) -> Result<String, ExpandError> {
                     "cannot define macro with reserved name `{name}`"
                 )));
             }
+            macro_at.insert(name, i);
+        }
+    }
+
+    // Pass 2: expand left-to-right; only macros defined earlier are visible.
+    let mut macros: HashMap<String, MacroDef> = HashMap::new();
+    let mut out_forms = Vec::new();
+    let mut budget = EXPANSION_BUDGET;
+    let mut gensym = 0u64;
+
+    for (i, form) in forms.into_iter().enumerate() {
+        if let Some((name, def)) = try_macro_def(&form)? {
             macros.insert(name, def);
             continue;
         }
+        // MAC §3.3 / MAC-12: expression macros cannot head a top-level form.
+        if let Sexpr::List(items) = &form {
+            if let Some(Sexpr::Atom(head)) = items.first() {
+                if macros.contains_key(head) {
+                    return Err(ExpandError::new(
+                        "expression macro cannot be used in declaration position",
+                    ));
+                }
+            }
+        }
+        // MAC-10: reject uses of macros defined later in the file.
+        check_macro_defined_at(&form, i, &macro_at)?;
         out_forms.push(expand_sexpr(form, &macros, &mut budget, &mut gensym)?);
     }
 
     Ok(render_forms(&out_forms))
+}
+
+/// Name of a well-formed `(macro name …)` definition, without fully validating
+/// the body (validation happens in [`try_macro_def`]).
+fn peek_macro_def_name(form: &Sexpr) -> Result<Option<String>, ExpandError> {
+    let Sexpr::List(items) = form else {
+        return Ok(None);
+    };
+    let Some(Sexpr::Atom(head)) = items.first() else {
+        return Ok(None);
+    };
+    if head != "macro" {
+        return Ok(None);
+    }
+    match items.get(1) {
+        Some(Sexpr::Atom(name)) => Ok(Some(name.clone())),
+        _ => Err(ExpandError::new(
+            "`macro` requires `(macro name ($params...) -> template)`",
+        )),
+    }
+}
+
+/// Walk `expr` and reject calls to macros whose definition appears after `pos`.
+fn check_macro_defined_at(
+    expr: &Sexpr,
+    pos: usize,
+    macro_at: &HashMap<String, usize>,
+) -> Result<(), ExpandError> {
+    match expr {
+        Sexpr::Atom(_) => Ok(()),
+        Sexpr::List(items) => {
+            if let Some(Sexpr::Atom(head)) = items.first() {
+                if let Some(&def_pos) = macro_at.get(head) {
+                    if def_pos > pos {
+                        return Err(ExpandError::new(format!(
+                            "macro is not defined at this source position:\n  {head}"
+                        )));
+                    }
+                }
+            }
+            for item in items {
+                check_macro_defined_at(item, pos, macro_at)?;
+            }
+            Ok(())
+        }
+    }
 }
 
 fn is_reserved(name: &str) -> bool {
@@ -669,5 +736,33 @@ mod tests {
             let err = expand_language(&src).unwrap_err();
             assert!(err.message.contains("reserved"), "{name}: {}", err.message);
         }
+    }
+
+    #[test]
+    fn rejects_macro_use_before_definition() {
+        let src = r#"
+(val result (when true 1))
+(macro when ($condition $body ...+) -> (if $condition (seq $body ...) unit))
+"#;
+        let err = expand_language(src).unwrap_err();
+        assert!(
+            err.message.contains("not defined") && err.message.contains("when"),
+            "unexpected: {}",
+            err.message
+        );
+    }
+
+    #[test]
+    fn rejects_macro_in_declaration_position() {
+        let src = r#"
+(macro define-values ($a $b) -> (seq $a $b))
+(define-values first second)
+"#;
+        let err = expand_language(src).unwrap_err();
+        assert!(
+            err.message.contains("declaration position"),
+            "unexpected: {}",
+            err.message
+        );
     }
 }
