@@ -7,5 +7,5 @@ pub mod eval;
 pub mod value;
 
 pub use control::{EffectHost, EvalError, EvalResult, MemoryFsHost, UnitHost};
-pub use eval::{eval_expr, eval_source, primitive_env};
+pub use eval::{eval_expr, eval_source, eval_source_with_host, primitive_env};
 pub use value::{BuiltinOp, RuntimeValue};

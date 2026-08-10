@@ -1,0 +1,2 @@
+(// language-only: terminal output via residual `log` effect, not REPL result dump)
+(val main (seq (log "hello from log") unit))

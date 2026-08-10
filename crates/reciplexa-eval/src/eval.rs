@@ -30,18 +30,26 @@ pub fn primitive_env() -> HashMap<String, RuntimeValue> {
 }
 
 /// Expand language macros, elaborate surface source to Core, then evaluate with [`UnitHost`].
+///
+/// The returned value is for hosts/tests; the CLI must not print it as a REPL would.
+/// Observable terminal output belongs only to residual effects (e.g. ambient `log`).
 pub fn eval_source(src: &str) -> EvalResult {
+    eval_source_with_host(src, &mut UnitHost)
+}
+
+/// Same pipeline as [`eval_source`], with a caller-supplied [`EffectHost`].
+pub fn eval_source_with_host(src: &str, host: &mut dyn EffectHost) -> EvalResult {
     let expanded =
         reciplexa_macro::expand_language(src).map_err(|e| EvalError { message: e.message })?;
     let expr = elaborate_source(&expanded)
         .map_err(|e: ElaborateError| EvalError { message: e.message })?;
-    eval_expr(&expr, &primitive_env(), &mut UnitHost)
+    eval_expr(&expr, &primitive_env(), host)
 }
 
-pub fn eval_expr<H: EffectHost>(
+pub fn eval_expr(
     expr: &CoreExpr,
     env: &HashMap<String, RuntimeValue>,
-    host: &mut H,
+    host: &mut dyn EffectHost,
 ) -> EvalResult {
     let mut outcome = eval_outcome(expr, env, host)?;
     loop {

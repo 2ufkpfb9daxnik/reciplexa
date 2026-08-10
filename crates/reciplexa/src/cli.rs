@@ -77,11 +77,41 @@ pub fn cmd_inspect_syntax(path: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// Host for `reciplexa eval`: residual effects only (not a REPL).
+///
+/// Ambient `log` writes the message to stdout. Pure programs produce no stdout.
+#[derive(Default)]
+struct CliEvalHost {
+    fs: reciplexa_eval::MemoryFsHost,
+}
+
+impl reciplexa_eval::EffectHost for CliEvalHost {
+    fn perform(
+        &mut self,
+        op: &str,
+        arg: reciplexa_eval::RuntimeValue,
+    ) -> reciplexa_eval::EvalResult {
+        match op {
+            "log" => {
+                match &arg {
+                    reciplexa_eval::RuntimeValue::String(s) => println!("{s}"),
+                    other => println!("{other}"),
+                }
+                Ok(reciplexa_eval::RuntimeValue::Unit)
+            }
+            other => self.fs.perform(other, arg),
+        }
+    }
+}
+
 /// Elaborate + evaluate a language-kernel `.rpx` source (no page/graphics).
+///
+/// Does **not** print the final value (this is not a REPL). Terminal output comes
+/// only from residual effects such as ambient `(log …)`.
 pub fn cmd_eval(path: &str) -> Result<(), String> {
     let src = fs::read_to_string(path).map_err(|e| format!("read {path}: {e}"))?;
-    let value = reciplexa_eval::eval_source(&src).map_err(|e| e.message)?;
-    println!("{value}");
+    let mut host = CliEvalHost::default();
+    let _value = reciplexa_eval::eval_source_with_host(&src, &mut host).map_err(|e| e.message)?;
     Ok(())
 }
 
@@ -285,6 +315,7 @@ mod tests {
     fn eval_pure_fn_example() {
         let manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
         let path = manifest.join("examples/pure_fn.rpx");
+        // Pure programs succeed with no stdout requirement (not a REPL).
         cmd_eval(path.to_str().unwrap()).expect("eval");
     }
 
@@ -292,5 +323,40 @@ mod tests {
     fn eval_missing_file_errors() {
         let err = cmd_eval("/nonexistent/missing.rpx").unwrap_err();
         assert!(err.contains("read"));
+    }
+
+    #[test]
+    fn eval_source_with_host_log_is_only_output_channel() {
+        use reciplexa_eval::{eval_source_with_host, EffectHost, EvalResult, RuntimeValue};
+
+        #[derive(Default)]
+        struct CaptureHost {
+            logs: Vec<String>,
+        }
+
+        impl EffectHost for CaptureHost {
+            fn perform(&mut self, op: &str, arg: RuntimeValue) -> EvalResult {
+                match op {
+                    "log" => {
+                        let msg = match arg {
+                            RuntimeValue::String(s) => s,
+                            other => other.to_string(),
+                        };
+                        self.logs.push(msg);
+                        Ok(RuntimeValue::Unit)
+                    }
+                    "random" => Ok(RuntimeValue::Number(0.5)),
+                    other => Err(reciplexa_eval::EvalError {
+                        message: format!("unknown op `{other}`"),
+                    }),
+                }
+            }
+        }
+
+        let mut host = CaptureHost::default();
+        let v =
+            eval_source_with_host(r#"(val main (seq (log "hello") 42))"#, &mut host).expect("eval");
+        assert_eq!(v, RuntimeValue::Number(42.0));
+        assert_eq!(host.logs, vec!["hello".to_string()]);
     }
 }
