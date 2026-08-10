@@ -2,6 +2,7 @@
 
 use reciplexa_syntax::kind::SyntaxKind;
 use reciplexa_syntax::lexer::*;
+use reciplexa_syntax::parse_source;
 
 fn kinds(src: &str) -> Vec<SyntaxKind> {
     Lexer::new(src)
@@ -425,6 +426,17 @@ fn lone_cr_is_newline_trivia() {
     let mut lx = Lexer::new("\ra");
     let tok = lx.bump_token().unwrap();
     assert_eq!(tok.kind, SyntaxKind::Newline);
+}
+
+#[test]
+fn shebang_at_offset_zero_is_trivia() {
+    let src = "#!/usr/bin/env rpx\n(val x 1)";
+    let mut lx = Lexer::new(src);
+    let tok = lx.bump_token().unwrap();
+    assert_eq!(tok.kind, SyntaxKind::Shebang);
+    assert_eq!(tok.text(src), "#!/usr/bin/env rpx");
+    let parse = parse_source(src);
+    assert!(parse.errors.is_empty(), "{:?}", parse.errors);
 }
 
 #[test]

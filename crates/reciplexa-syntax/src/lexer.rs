@@ -127,6 +127,18 @@ impl<'a> Lexer<'a> {
 
     fn bump_lisp(&mut self) -> Token {
         let start = self.pos;
+
+        // SYN §1.5: shebang at byte offset 0 is lossless trivia (no semantic effect).
+        if start == 0 && self.input.starts_with("#!") {
+            while let Some(ch) = self.peek_char() {
+                if ch == '\n' || ch == '\r' {
+                    break;
+                }
+                self.advance_char();
+            }
+            return self.finish(SyntaxKind::Shebang, start);
+        }
+
         let ch = self.peek_char().expect("caller checked EOF");
 
         // Newline is its own trivia kind so editors can reason about lines

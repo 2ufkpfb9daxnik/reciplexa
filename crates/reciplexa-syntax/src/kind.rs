@@ -37,6 +37,8 @@ pub enum SyntaxKind {
     Whitespace,
     Newline,
     Comment,
+    /// SYN §1.5: `#!/…` first line (lossless; no semantic effect).
+    Shebang,
 
     // --- error recovery leaf ---
     Error,
@@ -86,6 +88,7 @@ impl SyntaxKind {
             x if x == Self::Whitespace as u16 => Self::Whitespace,
             x if x == Self::Newline as u16 => Self::Newline,
             x if x == Self::Comment as u16 => Self::Comment,
+            x if x == Self::Shebang as u16 => Self::Shebang,
             x if x == Self::Error as u16 => Self::Error,
             x if x == Self::SourceFile as u16 => Self::SourceFile,
             x if x == Self::List as u16 => Self::List,
@@ -104,7 +107,10 @@ impl SyntaxKind {
     }
 
     pub const fn is_trivia(self) -> bool {
-        matches!(self, Self::Whitespace | Self::Newline | Self::Comment)
+        matches!(
+            self,
+            Self::Whitespace | Self::Newline | Self::Comment | Self::Shebang
+        )
     }
 
     pub const fn is_token(self) -> bool {

@@ -2,6 +2,27 @@
 
 use unicode_normalization::UnicodeNormalization;
 
+/// Format / bidi / zero-width characters forbidden inside identifiers (SYN §3.7).
+const FORBIDDEN_INVISIBLE: &[char] = &[
+    '\u{00ad}', // soft hyphen
+    '\u{200b}', // zero-width space
+    '\u{200c}', // zero-width non-joiner
+    '\u{200d}', // zero-width joiner
+    '\u{200e}', // LRM
+    '\u{200f}', // RLM
+    '\u{202a}', // LRE
+    '\u{202b}', // RLE
+    '\u{202c}', // PDF
+    '\u{202d}', // LRO
+    '\u{202e}', // RLO
+    '\u{2060}', // word joiner
+    '\u{2066}', // LRI
+    '\u{2067}', // RLI
+    '\u{2068}', // FSI
+    '\u{2069}', // PDI
+    '\u{feff}', // BOM / ZWNBSP
+];
+
 /// NFC-normalize an identifier before name resolution / BindingId (SYN §3.2).
 pub fn normalize_ident(raw: &str) -> String {
     raw.nfc().collect()
@@ -46,15 +67,81 @@ pub fn validate_ident(name: &str) -> Result<(), String> {
         name
     };
 
-    // Joined paths (`graphics/color`, `color/black`) after lexer splits on `/`.
+    // Joined module / package paths (`graphics/color`) — SYN §4 ASCII kebab only.
     if body.contains('/') {
-        for part in body.split('/') {
-            validate_ident_segment(part)?;
-        }
-        return Ok(());
+        return validate_package_path(body);
     }
 
-    validate_ident_segment(body)
+    validate_ident_segment(body)?;
+    reject_invisible_chars(body)
+}
+
+/// SYN §4: package names and module path components are ASCII lowercase kebab-case.
+pub fn validate_package_path(path: &str) -> Result<(), String> {
+    if path.is_empty() {
+        return Err("empty package/module path".into());
+    }
+    for part in path.split('/') {
+        validate_package_path_segment(part)?;
+    }
+    Ok(())
+}
+
+fn validate_package_path_segment(name: &str) -> Result<(), String> {
+    if name.is_empty() {
+        return Err("empty path segment".into());
+    }
+    if !name.is_ascii() {
+        return Err(format!(
+            "package/module path segment `{name}` must be ASCII lowercase kebab-case (SYN §4)"
+        ));
+    }
+    let mut chars = name.chars();
+    let first = chars.next().expect("non-empty");
+    if !first.is_ascii_lowercase() {
+        return Err(format!(
+            "path segment `{name}` must start with a lowercase ASCII letter (SYN §4)"
+        ));
+    }
+    if first == '-' {
+        return Err(format!("path segment `{name}` must not start with `-`"));
+    }
+    let mut prev_hyphen = false;
+    for c in chars {
+        if c == '-' {
+            if prev_hyphen {
+                return Err(format!("path segment `{name}` has consecutive `-`"));
+            }
+            prev_hyphen = true;
+            continue;
+        }
+        if !(c.is_ascii_lowercase() || c.is_ascii_digit()) {
+            return Err(format!(
+                "path segment `{name}` must be ASCII lowercase kebab-case"
+            ));
+        }
+        prev_hyphen = false;
+    }
+    if prev_hyphen {
+        return Err(format!("path segment `{name}` must not end with `-`"));
+    }
+    if name.contains('_') {
+        return Err(format!("path segment `{name}` must not contain `_`"));
+    }
+    Ok(())
+}
+
+/// Reject bidi controls and zero-width characters inside an identifier (SYN §3.7).
+pub fn reject_invisible_chars(name: &str) -> Result<(), String> {
+    for c in name.chars() {
+        if FORBIDDEN_INVISIBLE.contains(&c) || c.is_control() {
+            return Err(format!(
+                "identifier `{name}` contains forbidden invisible/control character U+{:04X} (SYN §3.7)",
+                c as u32
+            ));
+        }
+    }
+    Ok(())
 }
 
 /// Result of coalescing `segment` `/` `segment` runs in a flat atom list.
@@ -203,6 +290,7 @@ mod tests {
         assert!(validate_ident("$body").is_ok());
         assert!(validate_ident("半径").is_ok());
         assert!(validate_ident("graphics/color").is_ok());
+        assert!(validate_ident("日本語/foo").is_err());
     }
 
     #[test]
@@ -221,6 +309,20 @@ mod tests {
         let decomposed = "e\u{0301}";
         let nfc = normalize_ident(decomposed);
         assert_eq!(nfc.chars().count(), 1);
+    }
+
+    #[test]
+    fn rejects_invisible_chars() {
+        assert!(reject_invisible_chars("a\u{200b}b").is_err());
+        assert!(reject_invisible_chars("read-file").is_ok());
+    }
+
+    #[test]
+    fn package_path_ascii_kebab() {
+        assert!(validate_package_path("graphics/color").is_ok());
+        assert!(validate_package_path("japanese-typesetting").is_ok());
+        assert!(validate_package_path("日本語").is_err());
+        assert!(validate_package_path("Report").is_err());
     }
 
     #[test]

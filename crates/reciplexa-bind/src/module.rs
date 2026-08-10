@@ -13,7 +13,8 @@ use reciplexa_core::expr::CoreExpr;
 use reciplexa_identity::package::{ModuleId, PackageInstanceId};
 use reciplexa_source::resource::SourceResourceId;
 use reciplexa_syntax::{
-    coalesce_slash_paths, parse_source, SlashAtom, SyntaxElement, SyntaxKind, SyntaxNode,
+    coalesce_slash_paths, parse_source, validate_package_path, SlashAtom, SyntaxElement,
+    SyntaxKind, SyntaxNode,
 };
 
 /// A single compilable unit within a package instance.
@@ -302,6 +303,9 @@ fn parse_import_list(node: &SyntaxNode) -> Result<Option<ImportDecl>, ModuleErro
             "`import` module path must be an identifier (segments joined by `/`)",
         ));
     };
+    if let Err(msg) = validate_package_path(module) {
+        return Err(ModuleError::new(msg));
+    }
 
     let mut alias = None;
     let mut only = None;
