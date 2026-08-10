@@ -237,3 +237,56 @@ fn language_binding_map_use_site_to_declaration() {
     );
     assert_eq!(r.env.bindings.get(&decl_id).map(String::as_str), Some("x"));
 }
+
+#[test]
+fn rejects_reserved_special_form_as_val_binder() {
+    let r = resolve_language_source("(val if 1)");
+    assert!(!r.is_ok());
+    assert!(
+        r.errors
+            .iter()
+            .any(|e| e.message.contains("reserved special-form") && e.message.contains("`if`")),
+        "{:?}",
+        r.errors
+    );
+}
+
+#[test]
+fn rejects_reserved_special_form_as_fn_name() {
+    let r = resolve_language_source("(fn match (x) x)");
+    assert!(!r.is_ok());
+    assert!(
+        r.errors
+            .iter()
+            .any(|e| e.message.contains("reserved special-form")),
+        "{:?}",
+        r.errors
+    );
+}
+
+#[test]
+fn reserved_table_covers_syn_core_forms() {
+    for name in [
+        "markup",
+        "fn",
+        "val",
+        "type",
+        "type-alias",
+        "local",
+        "rec",
+        "let",
+        "letrec",
+        "if",
+        "seq",
+        "var",
+        "set",
+        "handle",
+        "with",
+    ] {
+        assert!(
+            reciplexa_bind::is_reserved_special_form(name),
+            "{name} should be reserved"
+        );
+    }
+    assert!(!reciplexa_bind::is_reserved_special_form("report"));
+}

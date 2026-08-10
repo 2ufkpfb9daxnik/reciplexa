@@ -9,7 +9,9 @@ use std::collections::HashMap;
 
 use reciplexa_source::offset::ByteOffset;
 use reciplexa_source::range::TextRange;
-use reciplexa_syntax::{parse_source, SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken};
+use reciplexa_syntax::{
+    is_reserved_special_form, parse_source, SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken,
+};
 
 use crate::expr::{CoreExpr, CoreLiteral, MatchArm};
 
@@ -294,6 +296,15 @@ fn try_top_decl(
             if atoms.len() >= 3 {
                 if let (Atom::Token(name_tok), Atom::Node(params)) = (&atoms[1], &atoms[2]) {
                     if name_tok.kind() == SyntaxKind::Ident && is_param_list(params) {
+                        if is_reserved_special_form(name_tok.text()) {
+                            return Err(ElaborateError::at_token(
+                                format!(
+                                    "cannot bind reserved special-form name `{}`",
+                                    name_tok.text()
+                                ),
+                                name_tok,
+                            ));
+                        }
                         let params = elaborate_params(params)?;
                         let body = elaborate_body(&atoms[3..], node, ctx)?;
                         return Ok(Some((
@@ -326,6 +337,15 @@ fn elaborate_val(
     }
     match &rest[0] {
         Atom::Token(name_tok) if name_tok.kind() == SyntaxKind::Ident => {
+            if is_reserved_special_form(name_tok.text()) {
+                return Err(ElaborateError::at_token(
+                    format!(
+                        "cannot bind reserved special-form name `{}`",
+                        name_tok.text()
+                    ),
+                    name_tok,
+                ));
+            }
             if rest.len() < 2 {
                 return Err(ElaborateError::at_token(
                     "`val` requires an initializer expression",
@@ -347,6 +367,15 @@ fn elaborate_val(
             if name_tok.kind() != SyntaxKind::Ident {
                 return Err(ElaborateError::at_token(
                     "`val` binder list requires a function name",
+                    name_tok,
+                ));
+            }
+            if is_reserved_special_form(name_tok.text()) {
+                return Err(ElaborateError::at_token(
+                    format!(
+                        "cannot bind reserved special-form name `{}`",
+                        name_tok.text()
+                    ),
                     name_tok,
                 ));
             }

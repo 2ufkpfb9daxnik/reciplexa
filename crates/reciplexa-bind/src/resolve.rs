@@ -10,7 +10,9 @@ use std::collections::HashMap;
 use reciplexa_identity::binding::BindingId;
 use reciplexa_source::offset::ByteOffset;
 use reciplexa_source::range::TextRange;
-use reciplexa_syntax::{parse_source, SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken};
+use reciplexa_syntax::{
+    is_reserved_special_form, parse_source, SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken,
+};
 
 use crate::scope::ScopeStack;
 
@@ -192,18 +194,18 @@ fn lang_resolve_top_form(
             // `(data Name ctor…)` — declare type name; ctors are value constructors.
             if let Some(Atom::Token(name_tok)) = atoms.get(1) {
                 if name_tok.kind() == SyntaxKind::Ident {
-                    declare_binding(name_tok.text(), stack, env);
+                    declare_binding(name_tok, stack, env, errors);
                 }
             }
             for ctor in atoms.iter().skip(2) {
                 match ctor {
                     Atom::Token(t) if t.kind() == SyntaxKind::Ident => {
-                        declare_binding(t.text(), stack, env);
+                        declare_binding(t, stack, env, errors);
                     }
                     Atom::Node(n) if n.kind() == SyntaxKind::List => {
                         if let Some(Atom::Token(tag)) = list_atoms(n).first() {
                             if tag.kind() == SyntaxKind::Ident {
-                                declare_binding(tag.text(), stack, env);
+                                declare_binding(tag, stack, env, errors);
                             }
                         }
                     }
@@ -218,7 +220,7 @@ fn lang_resolve_top_form(
                 if let (Atom::Token(name_tok), Atom::Node(params)) = (&atoms[1], &atoms[2]) {
                     if name_tok.kind() == SyntaxKind::Ident && is_param_list(params) {
                         lang_resolve_fn_body(params, &atoms[3..], stack, env, errors, map);
-                        declare_binding(name_tok.text(), stack, env);
+                        declare_binding(name_tok, stack, env, errors);
                         return;
                     }
                 }
@@ -231,7 +233,7 @@ fn lang_resolve_top_form(
             // namespace and are not walked as value use-sites yet.
             if let Some(Atom::Token(name_tok)) = atoms.get(1) {
                 if name_tok.kind() == SyntaxKind::Ident {
-                    declare_binding(name_tok.text(), stack, env);
+                    declare_binding(name_tok, stack, env, errors);
                 }
             }
         }
@@ -255,7 +257,7 @@ fn lang_resolve_val_decl(
             for atom in &rest[1..] {
                 lang_resolve_atom(atom, stack, env, errors, map);
             }
-            declare_binding(name_tok.text(), stack, env);
+            declare_binding(name_tok, stack, env, errors);
         }
         // (val (name params...) body...) named-function sugar
         Atom::Node(binder) if binder.kind() == SyntaxKind::List => {
@@ -270,7 +272,7 @@ fn lang_resolve_val_decl(
             for atom in &binder_atoms[1..] {
                 if let Atom::Token(t) = atom {
                     if t.kind() == SyntaxKind::Ident {
-                        declare_binding(t.text(), stack, env);
+                        declare_binding(t, stack, env, errors);
                     }
                 }
             }
@@ -278,7 +280,7 @@ fn lang_resolve_val_decl(
                 lang_resolve_atom(atom, stack, env, errors, map);
             }
             stack.pop_scope();
-            declare_binding(name_tok.text(), stack, env);
+            declare_binding(name_tok, stack, env, errors);
         }
         other => {
             // Malformed binder — still try to resolve remaining atoms.
@@ -302,7 +304,7 @@ fn lang_resolve_fn_body(
     for atom in list_atoms(params) {
         if let Atom::Token(t) = atom {
             if t.kind() == SyntaxKind::Ident {
-                declare_binding(t.text(), stack, env);
+                declare_binding(&t, stack, env, errors);
             }
         }
     }
@@ -491,7 +493,7 @@ fn lang_resolve_var(
     stack.push_scope();
     if let Atom::Token(name_tok) = &rest[0] {
         if name_tok.kind() == SyntaxKind::Ident {
-            declare_binding(name_tok.text(), stack, env);
+            declare_binding(name_tok, stack, env, errors);
         }
     }
     for atom in rest.iter().skip(2) {
@@ -533,7 +535,7 @@ fn lang_resolve_letrec(
         let pair_atoms = list_atoms(pair);
         if let Some(Atom::Token(name_tok)) = pair_atoms.first() {
             if name_tok.kind() == SyntaxKind::Ident {
-                declare_binding(name_tok.text(), stack, env);
+                declare_binding(name_tok, stack, env, errors);
             }
         }
     }
@@ -592,7 +594,7 @@ fn lang_resolve_match(
         for binder in pat.iter().skip(1) {
             match binder {
                 Atom::Token(b) if b.kind() == SyntaxKind::Ident => {
-                    declare_binding(b.text(), stack, env);
+                    declare_binding(b, stack, env, errors);
                 }
                 other => lang_resolve_atom(other, stack, env, errors, map),
             }
@@ -652,7 +654,7 @@ fn lang_resolve_let(
             lang_resolve_atom(a, stack, env, errors, map);
         }
         if name_tok.kind() == SyntaxKind::Ident {
-            declare_binding(name_tok.text(), stack, env);
+            declare_binding(name_tok, stack, env, errors);
         }
     }
     for atom in &rest[1..] {
@@ -697,41 +699,31 @@ fn lang_resolve_token(
     });
 }
 
-fn declare_binding(name: &str, stack: &mut ScopeStack, env: &mut BindingEnv) {
+fn declare_binding(
+    tok: &SyntaxToken,
+    stack: &mut ScopeStack,
+    env: &mut BindingEnv,
+    errors: &mut Vec<ResolveError>,
+) {
+    let name = tok.text();
+    if is_reserved_special_form(name) {
+        errors.push(ResolveError {
+            message: format!("cannot bind reserved special-form name `{name}`"),
+            range: token_range(tok),
+        });
+        return;
+    }
     let id = stack.declare(name);
     env.bindings.insert(id, name.to_string());
 }
 
 fn is_language_keyword(name: &str) -> bool {
-    matches!(
-        name,
-        "val"
-            | "fn"
-            | "let"
-            | "letrec"
-            | "var"
-            | "set"
-            | "if"
-            | "seq"
-            | "type"
-            | "data"
-            | "match"
-            | "record"
-            | "field"
-            | "list"
-            | "tuple"
-            | "true"
-            | "false"
-            | "unit"
-            | "perform"
-            | "handle"
+    is_reserved_special_form(name)
+        || matches!(
+            name,
             // KER-001 primitives
-            | "+"
-            | "-"
-            | "*"
-            | "<"
-            | "="
-    )
+            "+" | "-" | "*" | "<" | "="
+        )
 }
 
 fn is_param_list(node: &SyntaxNode) -> bool {

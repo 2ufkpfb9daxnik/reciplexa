@@ -14,6 +14,7 @@ pub use module::{
     ModuleError, ModuleSkeleton, ModuleUnit,
 };
 pub use package::{resolve_package, PackageResolveResult};
+pub use reciplexa_syntax::is_reserved_special_form;
 pub use resolve::{
     resolve_language_source, resolve_source, BindingEnv, BindingMap, ResolveError, ResolveResult,
 };

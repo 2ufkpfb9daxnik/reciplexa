@@ -213,6 +213,16 @@ fn rejects_empty_parens_as_unit() {
 }
 
 #[test]
+fn rejects_reserved_val_binder() {
+    let err = elaborate_source("(val if 1)").unwrap_err();
+    assert!(
+        err.message.contains("reserved special-form"),
+        "got: {}",
+        err.message
+    );
+}
+
+#[test]
 fn elaborates_record_field_list_tuple() {
     let expr = elaborate_source(
         r#"
