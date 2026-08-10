@@ -95,6 +95,108 @@ fn record_field_types() {
 }
 
 #[test]
+fn if_branch_union_when_types_differ() {
+    let ty = typecheck_language_source(
+        r#"
+(val main (if true 42 "unknown"))
+"#,
+    )
+    .unwrap();
+    match ty {
+        CoreType::Union(members) => {
+            assert!(members.contains(&CoreType::Number));
+            assert!(members.contains(&CoreType::String));
+        }
+        other => panic!("expected Union, got {other:?}"),
+    }
+}
+
+#[test]
+fn occurrence_typing_number_pred() {
+    use reciplexa_core::check::{infer_expr, TypeEnv};
+    use reciplexa_core::expr::{CoreExpr, CoreLiteral};
+    use reciplexa_core::unify::Subst;
+    use reciplexa_source::range::TextRange;
+
+    let mut env = TypeEnv::new();
+    env.insert(
+        "x",
+        CoreType::Union(vec![CoreType::Number, CoreType::String]),
+    );
+    env.insert(
+        "number?",
+        CoreType::Fun {
+            args: vec![CoreType::Dynamic],
+            ret: Box::new(CoreType::Bool),
+            effects: Default::default(),
+        },
+    );
+    env.insert(
+        "+",
+        CoreType::Fun {
+            args: vec![CoreType::Number, CoreType::Number],
+            ret: Box::new(CoreType::Number),
+            effects: Default::default(),
+        },
+    );
+    // (if (number? x) (+ x 1) 0)
+    let expr = CoreExpr::If {
+        cond: Box::new(CoreExpr::App {
+            fun: Box::new(CoreExpr::Var("number?".into())),
+            args: vec![CoreExpr::Var("x".into())],
+        }),
+        then_branch: Box::new(CoreExpr::App {
+            fun: Box::new(CoreExpr::Var("+".into())),
+            args: vec![
+                CoreExpr::Var("x".into()),
+                CoreExpr::Lit(CoreLiteral::Number(1.0)),
+            ],
+        }),
+        else_branch: Box::new(CoreExpr::Lit(CoreLiteral::Number(0.0))),
+    };
+    let mut subst = Subst::new();
+    let ty = infer_expr(&expr, &env, &mut subst, TextRange::EMPTY).unwrap();
+    assert_eq!(subst.apply(&ty), CoreType::Number);
+}
+
+#[test]
+fn occurrence_typing_is_none() {
+    use reciplexa_core::check::{infer_expr, TypeEnv};
+    use reciplexa_core::expr::{CoreExpr, CoreLiteral};
+    use reciplexa_core::unify::Subst;
+    use reciplexa_source::range::TextRange;
+
+    let opt = CoreType::Variant {
+        variants: vec![
+            ("none".into(), None),
+            ("some".into(), Some(CoreType::Number)),
+        ],
+    };
+    let mut env = TypeEnv::new();
+    env.insert("x", opt);
+    env.insert(
+        "is-none",
+        CoreType::Fun {
+            args: vec![CoreType::Dynamic],
+            ret: Box::new(CoreType::Bool),
+            effects: Default::default(),
+        },
+    );
+    // (if (is-none x) 0 x) — else branch narrows x to Number (some payload)
+    let expr = CoreExpr::If {
+        cond: Box::new(CoreExpr::App {
+            fun: Box::new(CoreExpr::Var("is-none".into())),
+            args: vec![CoreExpr::Var("x".into())],
+        }),
+        then_branch: Box::new(CoreExpr::Lit(CoreLiteral::Number(0.0))),
+        else_branch: Box::new(CoreExpr::Var("x".into())),
+    };
+    let mut subst = Subst::new();
+    let ty = infer_expr(&expr, &env, &mut subst, TextRange::EMPTY).unwrap();
+    assert_eq!(subst.apply(&ty), CoreType::Number);
+}
+
+#[test]
 fn optional_record_field_access_types_as_option() {
     use reciplexa_core::check::{infer_expr, TypeEnv};
     use reciplexa_core::expr::CoreExpr;

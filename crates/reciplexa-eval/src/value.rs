@@ -63,6 +63,12 @@ pub enum BuiltinOp {
     Ge,
     Eq,
     Ne,
+    /// DD-TYP-IF-001 recognized type predicates (unary → Bool).
+    IsNumber,
+    IsString,
+    IsBool,
+    IsNone,
+    IsSome,
 }
 
 impl fmt::Debug for RuntimeValue {

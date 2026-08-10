@@ -166,6 +166,8 @@ impl MatchArm {
 /// DAT §21.3: index of the first arm that can never match, if any.
 ///
 /// `adt_tags` is the full constructor set for a known sealed ADT (empty when unknown).
+/// A constructor tag is treated as fully covered only when the arm's payload is
+/// irrefutable (`_` / `bind` / nullary). Refining nested patterns do not close the tag.
 pub fn first_unreachable_arm(arms: &[MatchArm], adt_tags: &[&str]) -> Option<usize> {
     let known_adt = !adt_tags.is_empty();
     let mut covered: std::collections::HashSet<&str> = std::collections::HashSet::new();
@@ -182,10 +184,24 @@ pub fn first_unreachable_arm(arms: &[MatchArm], adt_tags: &[&str]) -> Option<usi
             if covered.contains(tag) {
                 return Some(i);
             }
-            covered.insert(tag);
+            if variant_arm_fully_covers(&arm.pattern) {
+                covered.insert(tag);
+            }
         }
     }
     None
+}
+
+/// True when a variant pattern matches every value of that constructor.
+fn variant_arm_fully_covers(pat: &CorePattern) -> bool {
+    match pat {
+        CorePattern::Variant { payload: None, .. } => true,
+        CorePattern::Variant {
+            payload: Some(inner),
+            ..
+        } => matches!(inner.as_ref(), CorePattern::Wildcard | CorePattern::Bind(_)),
+        _ => false,
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]

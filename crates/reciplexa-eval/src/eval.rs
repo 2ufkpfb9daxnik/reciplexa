@@ -26,6 +26,11 @@ pub fn primitive_env() -> HashMap<String, RuntimeValue> {
     env.insert(">=".into(), RuntimeValue::Builtin(BuiltinOp::Ge));
     env.insert("=".into(), RuntimeValue::Builtin(BuiltinOp::Eq));
     env.insert("!=".into(), RuntimeValue::Builtin(BuiltinOp::Ne));
+    env.insert("number?".into(), RuntimeValue::Builtin(BuiltinOp::IsNumber));
+    env.insert("string?".into(), RuntimeValue::Builtin(BuiltinOp::IsString));
+    env.insert("bool?".into(), RuntimeValue::Builtin(BuiltinOp::IsBool));
+    env.insert("is-none".into(), RuntimeValue::Builtin(BuiltinOp::IsNone));
+    env.insert("is-some".into(), RuntimeValue::Builtin(BuiltinOp::IsSome));
     env
 }
 
@@ -455,6 +460,12 @@ fn eval_handle(
             arg,
             resume,
         } if performed_op == op => {
+            // ERR-001 §5: Failure handlers are non-resumable (error payload only).
+            if op == "failure" && handler_params.len() != 1 {
+                return Err(EvalError {
+                    message: "Failure handler must take exactly one parameter (no resume)".into(),
+                });
+            }
             let op = op.to_string();
             let handler_params = handler_params.to_vec();
             let handler_body = Rc::new(handler_body.clone());
@@ -493,6 +504,8 @@ fn run_handler_with_resume(
     let mut child = env.clone();
     match handler_params {
         [p] => {
+            // Discard continuation for 1-param handlers (Failure / non-resumable).
+            let _ = resume;
             child.insert(p.clone(), arg);
         }
         [p, resume_name] => {
@@ -923,14 +936,32 @@ fn match_pattern(pat: &CorePattern, value: &RuntimeValue) -> Option<HashMap<Stri
 }
 
 fn apply_builtin(op: BuiltinOp, args: Vec<RuntimeValue>) -> Result<Outcome, EvalError> {
-    if args.len() != 2 {
-        return Err(EvalError {
-            message: format!("builtin `{op:?}` expects 2 args, got {}", args.len()),
-        });
-    }
-    let a = &args[0];
-    let b = &args[1];
     match op {
+        BuiltinOp::IsNumber
+        | BuiltinOp::IsString
+        | BuiltinOp::IsBool
+        | BuiltinOp::IsNone
+        | BuiltinOp::IsSome => {
+            if args.len() != 1 {
+                return Err(EvalError {
+                    message: format!("builtin `{op:?}` expects 1 arg, got {}", args.len()),
+                });
+            }
+            let v = &args[0];
+            let flag = match op {
+                BuiltinOp::IsNumber => matches!(v, RuntimeValue::Number(_)),
+                BuiltinOp::IsString => matches!(v, RuntimeValue::String(_)),
+                BuiltinOp::IsBool => matches!(v, RuntimeValue::Bool(_)),
+                BuiltinOp::IsNone => {
+                    matches!(v, RuntimeValue::Variant { tag, .. } if tag == "none")
+                }
+                BuiltinOp::IsSome => {
+                    matches!(v, RuntimeValue::Variant { tag, .. } if tag == "some")
+                }
+                _ => unreachable!(),
+            };
+            Ok(Outcome::Value(RuntimeValue::Bool(flag)))
+        }
         BuiltinOp::Add
         | BuiltinOp::Sub
         | BuiltinOp::Mul
@@ -938,26 +969,48 @@ fn apply_builtin(op: BuiltinOp, args: Vec<RuntimeValue>) -> Result<Outcome, Eval
         | BuiltinOp::Lt
         | BuiltinOp::Gt
         | BuiltinOp::Le
-        | BuiltinOp::Ge => {
-            let (RuntimeValue::Number(x), RuntimeValue::Number(y)) = (a, b) else {
+        | BuiltinOp::Ge
+        | BuiltinOp::Eq
+        | BuiltinOp::Ne => {
+            if args.len() != 2 {
                 return Err(EvalError {
-                    message: format!("builtin `{op:?}` expects Number arguments"),
+                    message: format!("builtin `{op:?}` expects 2 args, got {}", args.len()),
                 });
-            };
-            Ok(Outcome::Value(match op {
-                BuiltinOp::Add => RuntimeValue::Number(x + y),
-                BuiltinOp::Sub => RuntimeValue::Number(x - y),
-                BuiltinOp::Mul => RuntimeValue::Number(x * y),
-                BuiltinOp::Div => RuntimeValue::Number(x / y),
-                BuiltinOp::Lt => RuntimeValue::Bool(x < y),
-                BuiltinOp::Gt => RuntimeValue::Bool(x > y),
-                BuiltinOp::Le => RuntimeValue::Bool(x <= y),
-                BuiltinOp::Ge => RuntimeValue::Bool(x >= y),
-                BuiltinOp::Eq | BuiltinOp::Ne => unreachable!(),
-            }))
+            }
+            let a = &args[0];
+            let b = &args[1];
+            match op {
+                BuiltinOp::Add
+                | BuiltinOp::Sub
+                | BuiltinOp::Mul
+                | BuiltinOp::Div
+                | BuiltinOp::Lt
+                | BuiltinOp::Gt
+                | BuiltinOp::Le
+                | BuiltinOp::Ge => {
+                    let (RuntimeValue::Number(x), RuntimeValue::Number(y)) = (a, b) else {
+                        return Err(EvalError {
+                            message: format!("builtin `{op:?}` expects Number arguments"),
+                        });
+                    };
+                    Ok(Outcome::Value(match op {
+                        BuiltinOp::Add => RuntimeValue::Number(x + y),
+                        BuiltinOp::Sub => RuntimeValue::Number(x - y),
+                        BuiltinOp::Mul => RuntimeValue::Number(x * y),
+                        BuiltinOp::Div => RuntimeValue::Number(x / y),
+                        BuiltinOp::Lt => RuntimeValue::Bool(x < y),
+                        BuiltinOp::Gt => RuntimeValue::Bool(x > y),
+                        BuiltinOp::Le => RuntimeValue::Bool(x <= y),
+                        BuiltinOp::Ge => RuntimeValue::Bool(x >= y),
+                        BuiltinOp::Eq | BuiltinOp::Ne => unreachable!(),
+                        _ => unreachable!(),
+                    }))
+                }
+                BuiltinOp::Eq => Ok(Outcome::Value(RuntimeValue::Bool(a == b))),
+                BuiltinOp::Ne => Ok(Outcome::Value(RuntimeValue::Bool(a != b))),
+                _ => unreachable!(),
+            }
         }
-        BuiltinOp::Eq => Ok(Outcome::Value(RuntimeValue::Bool(a == b))),
-        BuiltinOp::Ne => Ok(Outcome::Value(RuntimeValue::Bool(a != b))),
     }
 }
 

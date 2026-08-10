@@ -90,6 +90,8 @@ pub fn infer_with_effects(
                         ));
                     }
                 }
+                // ERR-001 Failure payload is an ordinary RPX value (any type).
+                "failure" => {}
                 "read-file" | "write-file" | "log" | "write-path" | "load-image" => {
                     if !matches!(arg_ty, CoreType::String | CoreType::Dynamic) {
                         return Err(CheckError::at(
@@ -110,6 +112,8 @@ pub fn infer_with_effects(
             let ty = match op.as_str() {
                 "read-file" => CoreType::String,
                 "random" => CoreType::Number,
+                // ERR-001 §4.2 never — stub as Dynamic until a Never type lands.
+                "failure" => CoreType::Dynamic,
                 _ => CoreType::Unit,
             };
             Ok((ty, arg_effs.with_op(op.clone())))
@@ -123,11 +127,19 @@ pub fn infer_with_effects(
             let (_body_ty, body_effs) = infer_with_effects(body, env, subst, range)?;
             let residual = body_effs.without_op(op);
             let mut child = env.clone();
+            let failure_op = op == "failure";
             match handler_params.as_slice() {
                 [arg] => {
-                    child.insert(arg.clone(), CoreType::String);
+                    child.insert(
+                        arg.clone(),
+                        if failure_op {
+                            CoreType::Dynamic
+                        } else {
+                            CoreType::String
+                        },
+                    );
                 }
-                [arg, resume] => {
+                [arg, resume] if !failure_op => {
                     child.insert(arg.clone(), CoreType::String);
                     // Resume continues the handled body: residual effects remain.
                     child.insert(
@@ -138,6 +150,12 @@ pub fn infer_with_effects(
                             effects: residual.clone(),
                         },
                     );
+                }
+                [_, _] if failure_op => {
+                    return Err(CheckError::at(
+                        "Failure handler must not bind a resume continuation (ERR-001 §5.1)",
+                        range,
+                    ));
                 }
                 _ => {
                     return Err(CheckError::at(
@@ -303,13 +321,21 @@ pub fn infer_with_effects(
         } => {
             let (cond_ty, cond_effs) = infer_with_effects(cond, env, subst, range)?;
             unify(&cond_ty, &CoreType::Bool, subst).map_err(|e| unify_to_check(e, range))?;
-            let (then_ty, then_effs) = infer_with_effects(then_branch, env, subst, range)?;
-            let (else_ty, else_effs) = infer_with_effects(else_branch, env, subst, range)?;
-            unify(&then_ty, &else_ty, subst).map_err(|e| unify_to_check(e, range))?;
-            Ok((
-                subst.apply(&then_ty),
-                cond_effs.merge(&then_effs).merge(&else_effs),
-            ))
+            // DD-TYP-IF-001: narrow a direct immutable local under known predicates.
+            let (then_env, else_env) = occurrence_envs(cond, env);
+            let (then_ty, then_effs) = infer_with_effects(then_branch, &then_env, subst, range)?;
+            let (else_ty, else_effs) = infer_with_effects(else_branch, &else_env, subst, range)?;
+            let then_ty = subst.apply(&then_ty);
+            let else_ty = subst.apply(&else_ty);
+            // L4983: when branches disagree, result is a union (not a hard error).
+            let mut trial = subst.clone();
+            let result_ty = if unify(&then_ty, &else_ty, &mut trial).is_ok() {
+                *subst = trial;
+                subst.apply(&then_ty)
+            } else {
+                CoreType::Union(vec![then_ty, else_ty])
+            };
+            Ok((result_ty, cond_effs.merge(&then_effs).merge(&else_effs)))
         }
         CoreExpr::Record { fields } => {
             let mut typed = Vec::new();
@@ -532,12 +558,111 @@ fn unify_to_check(e: UnifyError, range: TextRange) -> CheckError {
 fn field_access_type(field_ty: CoreType) -> CoreType {
     match field_ty {
         CoreType::OptionalField(inner) => CoreType::Variant {
-            variants: vec![
-                ("none".into(), None),
-                ("some".into(), Some(*inner)),
-            ],
+            variants: vec![("none".into(), None), ("some".into(), Some(*inner))],
         },
         other => other,
+    }
+}
+
+/// DD-TYP-IF-001: refine an immutable local under a recognized type predicate.
+fn occurrence_envs(cond: &CoreExpr, env: &TypeEnv) -> (TypeEnv, TypeEnv) {
+    let CoreExpr::App { fun, args } = cond else {
+        return (env.clone(), env.clone());
+    };
+    let (CoreExpr::Var(pred), [CoreExpr::Var(name)]) = (fun.as_ref(), args.as_slice()) else {
+        return (env.clone(), env.clone());
+    };
+    let Some(scr) = env.vars.get(name).cloned() else {
+        return (env.clone(), env.clone());
+    };
+    let Some((then_ty, else_ty)) = refine_predicate(pred, &scr) else {
+        return (env.clone(), env.clone());
+    };
+    let mut then_env = env.clone();
+    let mut else_env = env.clone();
+    then_env.insert(name.clone(), then_ty);
+    else_env.insert(name.clone(), else_ty);
+    (then_env, else_env)
+}
+
+fn refine_predicate(pred: &str, scr: &CoreType) -> Option<(CoreType, CoreType)> {
+    match pred {
+        "number?" => Some((CoreType::Number, diff_type(scr, &CoreType::Number))),
+        "string?" => Some((CoreType::String, diff_type(scr, &CoreType::String))),
+        "bool?" => Some((CoreType::Bool, diff_type(scr, &CoreType::Bool))),
+        "is-none" => Some((
+            CoreType::Variant {
+                variants: vec![("none".into(), None)],
+            },
+            strip_variant_tag(scr, "none"),
+        )),
+        "is-some" => Some((
+            keep_variant_tag(scr, "some"),
+            CoreType::Variant {
+                variants: vec![("none".into(), None)],
+            },
+        )),
+        _ => None,
+    }
+}
+
+fn type_structurally_eq(a: &CoreType, b: &CoreType) -> bool {
+    match (a, b) {
+        (CoreType::Number, CoreType::Number)
+        | (CoreType::String, CoreType::String)
+        | (CoreType::Bool, CoreType::Bool)
+        | (CoreType::Unit, CoreType::Unit)
+        | (CoreType::Dynamic, CoreType::Dynamic) => true,
+        _ => false,
+    }
+}
+
+fn diff_type(scr: &CoreType, removed: &CoreType) -> CoreType {
+    match scr {
+        CoreType::Union(members) => {
+            let left: Vec<CoreType> = members
+                .iter()
+                .filter(|m| !type_structurally_eq(m, removed))
+                .cloned()
+                .collect();
+            match left.as_slice() {
+                [] => CoreType::Dynamic,
+                [one] => one.clone(),
+                _ => CoreType::Union(left),
+            }
+        }
+        other if type_structurally_eq(other, removed) => CoreType::Dynamic,
+        other => other.clone(),
+    }
+}
+
+fn strip_variant_tag(scr: &CoreType, tag: &str) -> CoreType {
+    match scr {
+        CoreType::Variant { variants } => {
+            let rest: Vec<_> = variants.iter().filter(|(t, _)| t != tag).cloned().collect();
+            match rest.as_slice() {
+                [(t, Some(p))] if t == "some" => p.clone(),
+                [] => CoreType::Dynamic,
+                _ => CoreType::Variant { variants: rest },
+            }
+        }
+        other => other.clone(),
+    }
+}
+
+fn keep_variant_tag(scr: &CoreType, tag: &str) -> CoreType {
+    match scr {
+        CoreType::Variant { variants } => {
+            let kept: Vec<_> = variants.iter().filter(|(t, _)| t == tag).cloned().collect();
+            if kept.is_empty() {
+                CoreType::Variant {
+                    variants: vec![(tag.into(), Some(CoreType::Dynamic))],
+                }
+            } else {
+                CoreType::Variant { variants: kept }
+            }
+        }
+        other => other.clone(),
     }
 }
 
@@ -680,6 +805,16 @@ pub fn typecheck_language_source(src: &str) -> Result<CoreType, CheckError> {
     env.insert(">=", cmp2);
     env.insert("=", eq2.clone());
     env.insert("!=", eq2);
+    let pred1 = CoreType::Fun {
+        args: vec![CoreType::Dynamic],
+        ret: Box::new(CoreType::Bool),
+        effects: EffectRow::default(),
+    };
+    env.insert("number?", pred1.clone());
+    env.insert("string?", pred1.clone());
+    env.insert("bool?", pred1.clone());
+    env.insert("is-none", pred1.clone());
+    env.insert("is-some", pred1);
     let ty = infer_expr(&expr, &env, &mut subst, TextRange::EMPTY)?;
     Ok(subst.apply(&ty))
 }

@@ -835,6 +835,7 @@ fn elaborate_list(node: &SyntaxNode, ctx: &ElabCtx) -> Result<CoreExpr, Elaborat
                     return Ok(seq_or_one(elaborate_atoms(&atoms[1..], ctx)?));
                 }
                 "perform" => return elaborate_perform(&atoms[1..], node, ctx),
+                "raise" => return elaborate_raise(&atoms[1..], node, ctx),
                 "handle" => return elaborate_handle(&atoms[1..], node, ctx),
                 "handler" => return elaborate_handler(&atoms[1..], node, ctx),
                 "with" => return elaborate_with(&atoms[1..], node, ctx),
@@ -1586,6 +1587,24 @@ fn elaborate_perform(
     Ok(CoreExpr::Perform {
         op: op_tok.text().to_string(),
         arg: Box::new(elaborate_atom(&rest[1], ctx)?),
+    })
+}
+
+/// ERR-001 §4.1: `(raise e)` → non-resumable `failure` perform (interim Core lowering).
+fn elaborate_raise(
+    rest: &[Atom],
+    parent: &SyntaxNode,
+    ctx: &ElabCtx,
+) -> Result<CoreExpr, ElaborateError> {
+    if rest.len() != 1 {
+        return Err(ElaborateError::at_node(
+            "`raise` requires exactly one error payload argument",
+            parent,
+        ));
+    }
+    Ok(CoreExpr::Perform {
+        op: "failure".to_string(),
+        arg: Box::new(elaborate_atom(&rest[0], ctx)?),
     })
 }
 
