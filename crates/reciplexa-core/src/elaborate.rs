@@ -1182,6 +1182,61 @@ fn elaborate_pattern_atoms(
         return Ok(CorePattern::Tuple(elems));
     }
 
+    // §18 record pattern: `(record (label pat)…)` — partial required fields.
+    if head_text == "record" {
+        if atoms.len() < 2 {
+            return Err(ElaborateError::at_node(
+                "`record` pattern requires at least one `(label pat)` field",
+                parent,
+            ));
+        }
+        let mut fields = Vec::with_capacity(atoms.len() - 1);
+        let mut seen = std::collections::HashSet::new();
+        for atom in &atoms[1..] {
+            let Atom::Node(pair) = atom else {
+                return Err(ElaborateError::at_node(
+                    "`record` pattern fields must be `(label pat)` lists",
+                    parent,
+                ));
+            };
+            if pair.kind() != SyntaxKind::List {
+                return Err(ElaborateError::at_node(
+                    "`record` pattern fields must be `(label pat)` lists",
+                    pair,
+                ));
+            }
+            let pa = list_atoms(pair);
+            if pa.len() != 2 {
+                return Err(ElaborateError::at_node(
+                    "`record` pattern field must be `(label pat)`",
+                    pair,
+                ));
+            }
+            let Atom::Token(lab) = &pa[0] else {
+                return Err(ElaborateError::at_node(
+                    "`record` pattern label must be an identifier",
+                    pair,
+                ));
+            };
+            if lab.kind() != SyntaxKind::Ident {
+                return Err(ElaborateError::at_token(
+                    "`record` pattern label must be an identifier",
+                    lab,
+                ));
+            }
+            let label = lab.text().to_string();
+            if !seen.insert(label.clone()) {
+                return Err(ElaborateError::at_token(
+                    format!("duplicate field `{label}` in record pattern"),
+                    lab,
+                ));
+            }
+            let pat = elaborate_payload_pattern(&pa[1], pair)?;
+            fields.push((label, pat));
+        }
+        return Ok(CorePattern::Record { fields });
+    }
+
     // Constructor patterns: nullary, single payload, or multi-payload (§14.3).
     match atoms.len() {
         1 => Ok(CorePattern::Variant {

@@ -873,6 +873,18 @@ fn match_pattern(pat: &CorePattern, value: &RuntimeValue) -> Option<HashMap<Stri
             }
             Some(out)
         }
+        CorePattern::Record { fields: pats } => {
+            let RuntimeValue::Record(fields) = value else {
+                return None;
+            };
+            let mut out = HashMap::new();
+            for (label, ep) in pats {
+                let (_, fv) = fields.iter().find(|(k, _)| k == label)?;
+                let sub = match_pattern(ep, fv)?;
+                out.extend(sub);
+            }
+            Some(out)
+        }
         CorePattern::Variant { tag, payload } => {
             let RuntimeValue::Variant {
                 tag: vtag,
@@ -893,6 +905,7 @@ fn match_pattern(pat: &CorePattern, value: &RuntimeValue) -> Option<HashMap<Stri
                         CorePattern::Wildcard | CorePattern::Bind(_) => Some(HashMap::new()),
                         CorePattern::Lit(_)
                         | CorePattern::Tuple(_)
+                        | CorePattern::Record { .. }
                         | CorePattern::Variant { .. } => None,
                     },
                 },

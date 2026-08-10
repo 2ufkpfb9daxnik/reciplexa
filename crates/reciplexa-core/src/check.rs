@@ -548,6 +548,23 @@ fn bind_pattern(pat: &CorePattern, scr_ty: &CoreType, env: &mut TypeEnv) {
                 }
             }
         }
+        CorePattern::Record { fields: pats } => match scr_ty {
+            CoreType::Record { fields } | CoreType::OpenRecord { fields, .. } => {
+                for (label, ep) in pats {
+                    if let Some((_, ty)) = fields.iter().find(|(k, _)| k == label) {
+                        bind_pattern(ep, ty, env);
+                    } else {
+                        // §18.6 unknown open-row fields: bind Dynamic interim.
+                        bind_pattern(ep, &CoreType::Dynamic, env);
+                    }
+                }
+            }
+            _ => {
+                for (_, ep) in pats {
+                    bind_pattern(ep, &CoreType::Dynamic, env);
+                }
+            }
+        },
         CorePattern::Variant { tag, payload } => {
             if let CoreType::Variant { variants } = scr_ty {
                 if let Some((_, p_ty)) = variants.iter().find(|(t, _)| t == tag) {

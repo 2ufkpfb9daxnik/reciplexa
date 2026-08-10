@@ -1,7 +1,7 @@
 //! Integration tests moved from src/check.rs for region coverage.
 
 use reciplexa_core::check::*;
-use reciplexa_core::expr::{CoreExpr, CoreLiteral, MatchArm};
+use reciplexa_core::expr::{CoreExpr, CoreLiteral, CorePattern, MatchArm};
 use reciplexa_core::ty::*;
 use reciplexa_core::unify::Subst;
 use reciplexa_source::offset::ByteOffset;
@@ -239,6 +239,33 @@ fn match_binds_payload_in_arm() {
             Some("v".into()),
             CoreExpr::Lit(CoreLiteral::Number(5.0)),
         )],
+    };
+    let mut subst = Subst::new();
+    let ty = infer_expr(&expr, &TypeEnv::new(), &mut subst, range()).unwrap();
+    assert_eq!(subst.apply(&ty), CoreType::Number);
+}
+
+#[test]
+fn match_binds_record_fields_in_arm() {
+    let expr = CoreExpr::Match {
+        scrutinee: Box::new(CoreExpr::Record {
+            fields: vec![
+                (
+                    "title".into(),
+                    CoreExpr::Lit(CoreLiteral::String("Hi".into())),
+                ),
+                ("n".into(), CoreExpr::Lit(CoreLiteral::Number(1.0))),
+            ],
+        }),
+        arms: vec![MatchArm {
+            pattern: CorePattern::Record {
+                fields: vec![
+                    ("title".into(), CorePattern::Bind("t".into())),
+                    ("n".into(), CorePattern::Bind("n".into())),
+                ],
+            },
+            body: CoreExpr::Var("n".into()),
+        }],
     };
     let mut subst = Subst::new();
     let ty = infer_expr(&expr, &TypeEnv::new(), &mut subst, range()).unwrap();

@@ -110,7 +110,7 @@ pub enum CoreExpr {
     },
 }
 
-/// DAT-001 §15–17 match pattern.
+/// DAT-001 §15–18 match pattern.
 #[derive(Debug, Clone, PartialEq)]
 pub enum CorePattern {
     /// `_`
@@ -121,6 +121,8 @@ pub enum CorePattern {
     Lit(CoreLiteral),
     /// `tuple p0 p1 …` (§17) — matches a positional record `"0"`, `"1"`, …
     Tuple(Vec<CorePattern>),
+    /// `(record (label pat)…)` (§18) — partial required-field decomposition.
+    Record { fields: Vec<(String, CorePattern)> },
     /// Nullary `Tag` or payload `Tag pat` / multi-payload `Tag p0 p1 …`.
     /// Multi-payload is encoded as [`CorePattern::Tuple`] in `payload`.
     Variant {

@@ -596,6 +596,46 @@ fn eval_source_record_update_and_extend() {
 }
 
 #[test]
+fn eval_source_record_pattern() {
+    let v = eval_source(
+        r#"
+(val report (record (title "Report") (page-count 10) (extra true)))
+(val main
+  (match report
+    (record
+      (title title)
+      (page-count count)
+    ->
+      (tuple title count))))
+"#,
+    )
+    .unwrap();
+    match v {
+        RuntimeValue::Record(fields) => {
+            assert_eq!(fields.len(), 2);
+            assert_eq!(
+                fields[0],
+                ("0".into(), RuntimeValue::String("Report".into()))
+            );
+            assert_eq!(fields[1], ("1".into(), RuntimeValue::Number(10.0)));
+        }
+        other => panic!("expected tuple record, got {other:?}"),
+    }
+
+    let miss = eval_source(
+        r#"
+(val report (record (title "T")))
+(val main
+  (match report
+    (record (missing x) -> x)
+    (bind v -> 0)))
+"#,
+    )
+    .unwrap();
+    assert_eq!(miss, RuntimeValue::Number(0.0));
+}
+
+#[test]
 fn eval_source_list_and_tuple() {
     let empty = eval_source("(val main (list))").unwrap();
     assert_eq!(

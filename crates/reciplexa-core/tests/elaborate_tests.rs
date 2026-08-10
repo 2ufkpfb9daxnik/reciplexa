@@ -253,6 +253,55 @@ fn elaborates_wildcard_bind_and_nested_patterns() {
 }
 
 #[test]
+fn elaborates_record_patterns() {
+    let expr = elaborate_source(
+        r#"
+(val report (record (title "Report") (page-count 10) (extra true)))
+(val main
+  (match report
+    (record
+      (title title)
+      (page-count count)
+    ->
+      (tuple title count))))
+"#,
+    )
+    .unwrap();
+    let CoreExpr::Let { body, .. } = expr else {
+        panic!("expected Let");
+    };
+    let CoreExpr::Let { value, .. } = *body else {
+        panic!("expected inner Let");
+    };
+    let CoreExpr::Match { arms, .. } = *value else {
+        panic!("expected Match");
+    };
+    assert!(matches!(
+        &arms[0].pattern,
+        reciplexa_core::CorePattern::Record { fields }
+            if fields.len() == 2
+                && fields[0].0 == "title"
+                && matches!(&fields[0].1, reciplexa_core::CorePattern::Bind(n) if n == "title")
+                && fields[1].0 == "page-count"
+                && matches!(&fields[1].1, reciplexa_core::CorePattern::Bind(n) if n == "count")
+    ));
+
+    let dup = elaborate_source(
+        r#"
+(val main
+  (match (record (title "T"))
+    (record (title a) (title b) -> a)))
+"#,
+    )
+    .unwrap_err();
+    assert!(
+        dup.message.contains("duplicate"),
+        "expected duplicate field error, got: {}",
+        dup.message
+    );
+}
+
+#[test]
 fn rejects_old_match_arm_without_arrow() {
     let err = elaborate_source(
         r#"

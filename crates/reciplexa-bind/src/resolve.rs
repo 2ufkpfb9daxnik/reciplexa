@@ -598,26 +598,107 @@ fn lang_resolve_match(
             continue;
         };
         stack.push_scope();
-        // Pattern before `->`: Tag | Tag binder — tag is a constructor use;
-        // remaining idents are binders.
+        // Pattern before `->`: Tag | Tag binder | tuple | record — declare binders.
         let pat = &arm_atoms[..arrow_idx];
-        if let Some(Atom::Token(tag)) = pat.first() {
-            if tag.kind() == SyntaxKind::Ident {
-                lang_resolve_token(tag, stack, errors, map);
-            }
-        }
-        for binder in pat.iter().skip(1) {
-            match binder {
-                Atom::Token(b) if b.kind() == SyntaxKind::Ident => {
-                    declare_binding(b, stack, env, errors);
-                }
-                other => lang_resolve_atom(other, stack, env, errors, map),
-            }
-        }
+        lang_declare_pattern(pat, stack, env, errors, map);
         for body in &arm_atoms[arrow_idx + 1..] {
             lang_resolve_atom(body, stack, env, errors, map);
         }
         stack.pop_scope();
+    }
+}
+
+/// Walk a match pattern and declare binders (`_`, `bind`, literals, tuple, record, ctor).
+fn lang_declare_pattern(
+    pat: &[Atom],
+    stack: &mut ScopeStack,
+    env: &mut BindingEnv,
+    errors: &mut Vec<ResolveError>,
+    map: &mut BindingMap,
+) {
+    if pat.is_empty() {
+        return;
+    }
+    // Nested list as sole pattern atom.
+    if pat.len() == 1 {
+        if let Atom::Node(n) = &pat[0] {
+            if n.kind() == SyntaxKind::List {
+                lang_declare_pattern(&list_atoms(n), stack, env, errors, map);
+                return;
+            }
+        }
+    }
+
+    let Some(Atom::Token(head)) = pat.first() else {
+        for a in pat {
+            lang_resolve_atom(a, stack, env, errors, map);
+        }
+        return;
+    };
+    if head.kind() != SyntaxKind::Ident {
+        return;
+    }
+    let head_text = head.text();
+
+    if head_text == "_" || matches!(head_text, "true" | "false" | "unit") {
+        return;
+    }
+    if head_text == "bind" {
+        if let Some(Atom::Token(b)) = pat.get(1) {
+            if b.kind() == SyntaxKind::Ident {
+                declare_binding(b, stack, env, errors);
+            }
+        }
+        return;
+    }
+    if head_text == "tuple" {
+        for atom in pat.iter().skip(1) {
+            lang_declare_payload_pattern(atom, stack, env, errors, map);
+        }
+        return;
+    }
+    if head_text == "record" {
+        for atom in pat.iter().skip(1) {
+            let Atom::Node(pair) = atom else {
+                continue;
+            };
+            if pair.kind() != SyntaxKind::List {
+                continue;
+            }
+            let pa = list_atoms(pair);
+            // (label pat) — label is static; second atom is the binder/pattern.
+            if let Some(payload) = pa.get(1) {
+                lang_declare_payload_pattern(payload, stack, env, errors, map);
+            }
+        }
+        return;
+    }
+
+    // Constructor: resolve tag as use; remaining atoms are payload patterns.
+    lang_resolve_token(head, stack, errors, map);
+    for binder in pat.iter().skip(1) {
+        lang_declare_payload_pattern(binder, stack, env, errors, map);
+    }
+}
+
+fn lang_declare_payload_pattern(
+    atom: &Atom,
+    stack: &mut ScopeStack,
+    env: &mut BindingEnv,
+    errors: &mut Vec<ResolveError>,
+    map: &mut BindingMap,
+) {
+    match atom {
+        Atom::Token(b) if b.kind() == SyntaxKind::Ident => {
+            if b.text() != "_" && !matches!(b.text(), "true" | "false" | "unit") {
+                declare_binding(b, stack, env, errors);
+            }
+        }
+        Atom::Token(_) => {}
+        Atom::Node(n) if n.kind() == SyntaxKind::List => {
+            lang_declare_pattern(&list_atoms(n), stack, env, errors, map);
+        }
+        other => lang_resolve_atom(other, stack, env, errors, map),
     }
 }
 
