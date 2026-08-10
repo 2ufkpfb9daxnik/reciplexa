@@ -17,9 +17,9 @@
 
 - **total**: 1589
 - **unchecked**: 0
-- **ok**: 307
-- **partial**: 509
-- **gap**: 348
+- **ok**: 309
+- **partial**: 508
+- **gap**: 347
 - **deferred**: 293
 - **meta**: 132
 
@@ -335,9 +335,9 @@
   - spec: `specification.md:1680`
   - notes: (list …)→cons/nil (elaborate)
 
-- [x] **L6 L1706: 15.2 Tuple** — `partial`
+- [x] **L6 L1706: 15.2 Tuple** — `ok`
   - spec: `specification.md:1706`
-  - notes: 2+ record化ok; 1要素はunwrapで非拒否
+  - notes: 0→unit / 2+ record化; 1要素はelaborate拒否 (SYN §20)
 
 - [x] **L6 L1734: 15.3 Record** — `ok`
   - spec: `specification.md:1734`
@@ -485,7 +485,7 @@
 
 - [x] **L5 L2477: 20. 不適合例** — `partial`
   - spec: `specification.md:2477`
-  - notes: 拒否例の多くは検出; 1要素tuple等に差
+  - notes: 拒否例の多くは検出; markup複数式等に差
 
 - [x] **L6 L2479: 不要な先頭ゼロ** — `ok`
   - spec: `specification.md:2479`
@@ -503,9 +503,9 @@
   - spec: `specification.md:2497`
   - notes: duplicate record field拒否
 
-- [x] **L6 L2505: 1要素tuple** — `gap`
+- [x] **L6 L2505: 1要素tuple** — `ok`
   - spec: `specification.md:2505`
-  - notes: (tuple 1)を拒否せずunwrap
+  - notes: (tuple 1) / 1要素patternをelaborate拒否
 
 - [x] **L6 L2511: 自動部分適用** — `ok`
   - spec: `specification.md:2511`
