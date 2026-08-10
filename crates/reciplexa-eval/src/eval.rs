@@ -77,13 +77,20 @@ fn eval_outcome<H: EffectHost>(
 ) -> Result<Outcome, EvalError> {
     match expr {
         CoreExpr::Lit(lit) => Ok(Outcome::Value(eval_lit(lit)?)),
-        CoreExpr::Var(name) => env
-            .get(name)
-            .cloned()
-            .map(Outcome::Value)
-            .ok_or_else(|| EvalError {
+        CoreExpr::Var(name) => match env.get(name) {
+            Some(RuntimeValue::Cell { value, alive }) => {
+                if !alive.get() {
+                    return Err(EvalError {
+                        message: format!("var `{name}` used after scope exit (escaped)"),
+                    });
+                }
+                Ok(Outcome::Value(value.borrow().clone()))
+            }
+            Some(v) => Ok(Outcome::Value(v.clone())),
+            None => Err(EvalError {
                 message: format!("unbound variable `{name}`"),
             }),
+        },
         CoreExpr::Perform { op, arg } => {
             let v = match eval_outcome(arg, env, host)? {
                 Outcome::Value(v) => v,
@@ -153,6 +160,45 @@ fn eval_outcome<H: EffectHost>(
             }
             let child = shared.borrow().clone();
             eval_outcome(body, &child, host)
+        }
+        CoreExpr::LocalVar { name, init, body } => {
+            let init_v = match eval_outcome(init, env, host)? {
+                Outcome::Value(v) => v,
+                other => return Ok(other),
+            };
+            let alive = Rc::new(Cell::new(true));
+            let cell = RuntimeValue::Cell {
+                value: Rc::new(RefCell::new(init_v)),
+                alive: Rc::clone(&alive),
+            };
+            let mut child = env.clone();
+            child.insert(name.clone(), cell);
+            let result = eval_outcome(body, &child, host);
+            alive.set(false);
+            result
+        }
+        CoreExpr::Set { name, value } => {
+            let v = match eval_outcome(value, env, host)? {
+                Outcome::Value(v) => v,
+                other => return Ok(other),
+            };
+            match env.get(name) {
+                Some(RuntimeValue::Cell { value: cell, alive }) => {
+                    if !alive.get() {
+                        return Err(EvalError {
+                            message: format!("set on var `{name}` after scope exit (escaped)"),
+                        });
+                    }
+                    *cell.borrow_mut() = v;
+                    Ok(Outcome::Value(RuntimeValue::Unit))
+                }
+                Some(_) => Err(EvalError {
+                    message: format!("`set` target `{name}` is not a var cell"),
+                }),
+                None => Err(EvalError {
+                    message: format!("unbound variable `{name}` in set"),
+                }),
+            }
         }
         CoreExpr::Lambda { params, body } => Ok(Outcome::Value(RuntimeValue::Closure {
             params: params.clone(),

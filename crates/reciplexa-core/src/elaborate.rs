@@ -1,7 +1,7 @@
 //! Surface syntax → Core elaborator (BND-001 / EVAL-001 / DAT-001).
 //!
-//! Supports language-kernel forms only: `val` / `fn` / `let` / `letrec` / `if` /
-//! `seq` / `data` / `match` / app / lit / perform / handle.
+//! Supports language-kernel forms only: `val` / `fn` / `let` / `letrec` / `var` /
+//! `set` / `if` / `seq` / `data` / `match` / app / lit / perform / handle.
 //! Graphics / page / markup forms are rejected (quarantined to the document pipeline).
 
 use std::collections::HashMap;
@@ -378,6 +378,8 @@ fn elaborate_list(node: &SyntaxNode, ctx: &ElabCtx) -> Result<CoreExpr, Elaborat
                 "fn" => return elaborate_fn_expr(&atoms[1..], node, ctx),
                 "let" => return elaborate_let(&atoms[1..], node, ctx),
                 "letrec" => return elaborate_letrec(&atoms[1..], node, ctx),
+                "var" => return elaborate_var(&atoms[1..], node, ctx),
+                "set" => return elaborate_set(&atoms[1..], node, ctx),
                 "if" => return elaborate_if(&atoms[1..], node, ctx),
                 "match" => return elaborate_match(&atoms[1..], node, ctx),
                 "seq" => {
@@ -810,6 +812,67 @@ fn elaborate_letrec(
     Ok(CoreExpr::LetRec {
         bindings,
         body: Box::new(body),
+    })
+}
+
+fn elaborate_var(
+    rest: &[Atom],
+    parent: &SyntaxNode,
+    ctx: &ElabCtx,
+) -> Result<CoreExpr, ElaborateError> {
+    // (var name init body...)
+    if rest.len() < 3 {
+        return Err(ElaborateError::at_node(
+            "`var` requires name, initializer, and body",
+            parent,
+        ));
+    }
+    let Atom::Token(name_tok) = &rest[0] else {
+        return Err(ElaborateError::at_node(
+            "`var` name must be an identifier",
+            parent,
+        ));
+    };
+    if name_tok.kind() != SyntaxKind::Ident {
+        return Err(ElaborateError::at_token(
+            "`var` name must be an identifier",
+            name_tok,
+        ));
+    }
+    Ok(CoreExpr::LocalVar {
+        name: name_tok.text().to_string(),
+        init: Box::new(elaborate_atom(&rest[1], ctx)?),
+        body: Box::new(elaborate_body(&rest[2..], parent, ctx)?),
+    })
+}
+
+fn elaborate_set(
+    rest: &[Atom],
+    parent: &SyntaxNode,
+    ctx: &ElabCtx,
+) -> Result<CoreExpr, ElaborateError> {
+    // (set name expr)
+    if rest.len() != 2 {
+        return Err(ElaborateError::at_node(
+            "`set` requires a name and an expression",
+            parent,
+        ));
+    }
+    let Atom::Token(name_tok) = &rest[0] else {
+        return Err(ElaborateError::at_node(
+            "`set` name must be an identifier",
+            parent,
+        ));
+    };
+    if name_tok.kind() != SyntaxKind::Ident {
+        return Err(ElaborateError::at_token(
+            "`set` name must be an identifier",
+            name_tok,
+        ));
+    }
+    Ok(CoreExpr::Set {
+        name: name_tok.text().to_string(),
+        value: Box::new(elaborate_atom(&rest[1], ctx)?),
     })
 }
 

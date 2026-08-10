@@ -318,6 +318,17 @@ fn lang_resolve_list(
                     lang_resolve_letrec(&atoms[1..], stack, env, errors);
                     return;
                 }
+                "var" => {
+                    lang_resolve_var(&atoms[1..], stack, env, errors);
+                    return;
+                }
+                "set" => {
+                    // (set name expr) — name is a use of a var binder.
+                    for atom in &atoms[1..] {
+                        lang_resolve_atom(atom, stack, env, errors);
+                    }
+                    return;
+                }
                 "match" => {
                     lang_resolve_match(&atoms[1..], stack, env, errors);
                     return;
@@ -384,6 +395,32 @@ fn lang_resolve_fn_expr(
         }
     };
     lang_resolve_fn_body(params, body, stack, env, errors);
+}
+
+fn lang_resolve_var(
+    rest: &[Atom],
+    stack: &mut ScopeStack,
+    env: &mut BindingEnv,
+    errors: &mut Vec<ResolveError>,
+) {
+    // (var name init body...)
+    if rest.is_empty() {
+        return;
+    }
+    // Resolve init before declaring (non-recursive).
+    if let Some(init) = rest.get(1) {
+        lang_resolve_atom(init, stack, env, errors);
+    }
+    stack.push_scope();
+    if let Atom::Token(name_tok) = &rest[0] {
+        if name_tok.kind() == SyntaxKind::Ident {
+            declare_binding(name_tok.text(), stack, env);
+        }
+    }
+    for atom in rest.iter().skip(2) {
+        lang_resolve_atom(atom, stack, env, errors);
+    }
+    stack.pop_scope();
 }
 
 fn lang_resolve_letrec(

@@ -22,6 +22,12 @@ pub enum RuntimeValue {
         /// Shared so [`CoreExpr::LetRec`] bindings see each other.
         env: Rc<std::cell::RefCell<HashMap<String, RuntimeValue>>>,
     },
+    /// Mutable cell for [`CoreExpr::LocalVar`] / [`CoreExpr::Set`].
+    Cell {
+        value: Rc<std::cell::RefCell<RuntimeValue>>,
+        /// Cleared when the owning `var` scope exits (non-escape check).
+        alive: Rc<Cell<bool>>,
+    },
     /// One-shot resume continuation for [`CoreExpr::Handle`].
     OneShotResume {
         used: Rc<Cell<bool>>,
@@ -53,6 +59,16 @@ impl PartialEq for RuntimeValue {
                     ..
                 },
             ) => p1 == p2 && b1 == b2,
+            (
+                Self::Cell {
+                    value: a,
+                    alive: aa,
+                },
+                Self::Cell {
+                    value: b,
+                    alive: ba,
+                },
+            ) => aa.get() == ba.get() && *a.borrow() == *b.borrow(),
             (Self::OneShotResume { used: a }, Self::OneShotResume { used: b }) => {
                 a.get() == b.get()
             }
@@ -80,6 +96,7 @@ impl RuntimeValue {
             Self::String(_) => CoreType::String,
             Self::Bool(_) => CoreType::Bool,
             Self::ShapeTag(_) => CoreType::Shape,
+            Self::Cell { value, .. } => value.borrow().ty(),
             Self::OneShotResume { .. } => CoreType::Fun {
                 args: vec![CoreType::Dynamic],
                 ret: Box::new(CoreType::Dynamic),
@@ -112,6 +129,13 @@ impl fmt::Display for RuntimeValue {
             Self::String(s) => format!("\"{s}\""),
             Self::Bool(b) => b.to_string(),
             Self::ShapeTag(s) => format!("shape:{s}"),
+            Self::Cell { value, alive } => {
+                if alive.get() {
+                    format!("cell({})", value.borrow())
+                } else {
+                    "cell(dead)".into()
+                }
+            }
             Self::OneShotResume { .. } => "resume".to_string(),
             Self::Closure { params, .. } => format!("closure({})", params.join(", ")),
             Self::Record(fields) => {

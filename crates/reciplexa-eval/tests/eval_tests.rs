@@ -566,3 +566,33 @@ fn eval_source_letrec_simple() {
     let v = eval_source(src).unwrap();
     assert_eq!(v, RuntimeValue::Number(7.0));
 }
+
+#[test]
+fn eval_source_var_set() {
+    let src = r#"
+(val main
+  (var count 0
+    (set count 1)
+    count))
+"#;
+    let v = eval_source(src).unwrap();
+    assert_eq!(v, RuntimeValue::Number(1.0));
+}
+
+#[test]
+fn eval_source_var_escape_fails_after_scope() {
+    // Closure captures the cell; calling it after `var` exits must fail.
+    let src = r#"
+(val main
+  (let ((get
+          (var count 0
+            (fn () count))))
+    (get)))
+"#;
+    let err = eval_source(src).unwrap_err();
+    assert!(
+        err.message.contains("escaped") || err.message.contains("scope"),
+        "{}",
+        err.message
+    );
+}

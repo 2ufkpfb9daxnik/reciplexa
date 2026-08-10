@@ -42,6 +42,17 @@ pub enum CoreExpr {
         bindings: Vec<(String, CoreExpr)>,
         body: Box<CoreExpr>,
     },
+    /// Local mutable cell: evaluate `init`, bind `name` in `body`, invalidate on exit.
+    LocalVar {
+        name: String,
+        init: Box<CoreExpr>,
+        body: Box<CoreExpr>,
+    },
+    /// Mutate a [`LocalVar`] cell; yields unit.
+    Set {
+        name: String,
+        value: Box<CoreExpr>,
+    },
     Lambda {
         params: Vec<String>,
         body: Box<CoreExpr>,

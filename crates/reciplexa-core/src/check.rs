@@ -129,6 +129,20 @@ pub fn infer_expr(
             }
             infer_expr(body, &child, subst, range)
         }
+        CoreExpr::LocalVar { name, init, body } => {
+            let init_ty = infer_expr(init, env, subst, range)?;
+            let mut child = env.clone();
+            child.insert(name.clone(), init_ty);
+            infer_expr(body, &child, subst, range)
+        }
+        CoreExpr::Set { name, value } => {
+            let v_ty = infer_expr(value, env, subst, range)?;
+            let expected = env.vars.get(name).cloned().ok_or_else(|| {
+                CheckError::at(format!("unbound variable `{name}` in set"), range)
+            })?;
+            unify(&v_ty, &expected, subst).map_err(|e| unify_to_check(e, range))?;
+            Ok(CoreType::Unit)
+        }
         CoreExpr::Lambda { params, body } => {
             let mut child = env.clone();
             let mut arg_tys = Vec::with_capacity(params.len());
