@@ -1,0 +1,599 @@
+//! Surface syntax → Core elaborator (BND-001 / EVAL-001).
+//!
+//! Supports language-kernel forms only: `val` / `fn` / `let` / `if` / app / lit.
+//! Graphics / page / markup forms are rejected (quarantined to the document pipeline).
+
+use reciplexa_source::offset::ByteOffset;
+use reciplexa_source::range::TextRange;
+use reciplexa_syntax::{parse_source, SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken};
+
+use crate::expr::{CoreExpr, CoreLiteral};
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ElaborateError {
+    pub message: String,
+    pub range: TextRange,
+}
+
+impl ElaborateError {
+    fn new(message: impl Into<String>, range: TextRange) -> Self {
+        Self {
+            message: message.into(),
+            range,
+        }
+    }
+
+    fn at_node(message: impl Into<String>, node: &SyntaxNode) -> Self {
+        Self::new(message, node_range(node))
+    }
+
+    fn at_token(message: impl Into<String>, tok: &SyntaxToken) -> Self {
+        Self::new(message, token_range(tok))
+    }
+}
+
+enum Atom {
+    Token(SyntaxToken),
+    Node(SyntaxNode),
+}
+
+/// Parse `src` and elaborate top-level `val` / `fn` / expressions to [`CoreExpr`].
+///
+/// Top-level bindings become nested Core `let`s. The result expression is
+/// `main` when that binding exists, otherwise the last binding's name (as a
+/// variable reference), or a trailing bare expression / `seq` of them.
+pub fn elaborate_source(src: &str) -> Result<CoreExpr, ElaborateError> {
+    let parse = parse_source(src);
+    if let Some(err) = parse.errors.first() {
+        return Err(ElaborateError::new(
+            format!("parse error: {}", err.message),
+            TextRange::try_new(
+                ByteOffset::new(err.start as u32),
+                ByteOffset::new(err.end as u32),
+            )
+            .unwrap_or(TextRange::EMPTY),
+        ));
+    }
+    elaborate_file(&parse.root)
+}
+
+fn elaborate_file(root: &SyntaxNode) -> Result<CoreExpr, ElaborateError> {
+    let mut bindings: Vec<(String, CoreExpr)> = Vec::new();
+    let mut trailing: Vec<CoreExpr> = Vec::new();
+
+    for el in root.children_with_tokens() {
+        match el {
+            SyntaxElement::Token(t) => {
+                if t.kind().is_trivia() {
+                    continue;
+                }
+                trailing.push(elaborate_token(&t)?);
+            }
+            SyntaxElement::Node(n) => match n.kind() {
+                SyntaxKind::StructuredComment => continue,
+                SyntaxKind::List => match try_top_decl(&n)? {
+                    Some(binding) => bindings.push(binding),
+                    None => {
+                        if is_quarantined_head(&n) {
+                            let head = list_head_ident(&n).unwrap_or_else(|| "?".into());
+                            return Err(ElaborateError::at_node(
+                                format!(
+                                    "language-kernel elaborator does not support `{head}` forms"
+                                ),
+                                &n,
+                            ));
+                        }
+                        if list_head_ident(&n).as_deref() == Some("type") {
+                            // Type declarations are ignored until TYP/MOD land.
+                            continue;
+                        }
+                        trailing.push(elaborate_expr_node(&n)?);
+                    }
+                },
+                other => {
+                    return Err(ElaborateError::at_node(
+                        format!("unsupported top-level form `{other:?}`"),
+                        &n,
+                    ));
+                }
+            },
+        }
+    }
+
+    if bindings.is_empty() && trailing.is_empty() {
+        return Err(ElaborateError::new(
+            "empty source: expected at least one form",
+            TextRange::EMPTY,
+        ));
+    }
+
+    let body = if trailing.is_empty() {
+        let result_name = bindings
+            .iter()
+            .rev()
+            .find(|(name, _)| name == "main")
+            .map(|(name, _)| name.clone())
+            .unwrap_or_else(|| bindings.last().expect("bindings non-empty").0.clone());
+        CoreExpr::Var(result_name)
+    } else {
+        seq_or_one(trailing)
+    };
+
+    Ok(nest_lets(bindings, body))
+}
+
+fn nest_lets(bindings: Vec<(String, CoreExpr)>, body: CoreExpr) -> CoreExpr {
+    bindings
+        .into_iter()
+        .rev()
+        .fold(body, |body, (name, value)| CoreExpr::Let {
+            name,
+            value: Box::new(value),
+            body: Box::new(body),
+        })
+}
+
+fn try_top_decl(node: &SyntaxNode) -> Result<Option<(String, CoreExpr)>, ElaborateError> {
+    let atoms = list_atoms(node);
+    let Some(Atom::Token(head)) = atoms.first() else {
+        return Ok(None);
+    };
+    if head.kind() != SyntaxKind::Ident {
+        return Ok(None);
+    }
+    match head.text() {
+        "val" => Ok(Some(elaborate_val(&atoms[1..], node)?)),
+        "fn" => {
+            // Top-level named function: (fn name (params...) body...)
+            if atoms.len() >= 3 {
+                if let (Atom::Token(name_tok), Atom::Node(params)) = (&atoms[1], &atoms[2]) {
+                    if name_tok.kind() == SyntaxKind::Ident && is_param_list(params) {
+                        let params = elaborate_params(params)?;
+                        let body = elaborate_body(&atoms[3..], node)?;
+                        return Ok(Some((
+                            name_tok.text().to_string(),
+                            CoreExpr::Lambda {
+                                params,
+                                body: Box::new(body),
+                            },
+                        )));
+                    }
+                }
+            }
+            // Anonymous `(fn (params...) body...)` is an expression, not a decl.
+            Ok(None)
+        }
+        _ => Ok(None),
+    }
+}
+
+fn elaborate_val(
+    rest: &[Atom],
+    parent: &SyntaxNode,
+) -> Result<(String, CoreExpr), ElaborateError> {
+    if rest.is_empty() {
+        return Err(ElaborateError::at_node(
+            "`val` requires a name and expression",
+            parent,
+        ));
+    }
+    match &rest[0] {
+        Atom::Token(name_tok) if name_tok.kind() == SyntaxKind::Ident => {
+            if rest.len() < 2 {
+                return Err(ElaborateError::at_token(
+                    "`val` requires an initializer expression",
+                    name_tok,
+                ));
+            }
+            let value = elaborate_body(&rest[1..], parent)?;
+            Ok((name_tok.text().to_string(), value))
+        }
+        // (val (name params...) body...) named-function sugar
+        Atom::Node(binder) if binder.kind() == SyntaxKind::List => {
+            let binder_atoms = list_atoms(binder);
+            let Some(Atom::Token(name_tok)) = binder_atoms.first() else {
+                return Err(ElaborateError::at_node(
+                    "`val` binder list requires a function name",
+                    binder,
+                ));
+            };
+            if name_tok.kind() != SyntaxKind::Ident {
+                return Err(ElaborateError::at_token(
+                    "`val` binder list requires a function name",
+                    name_tok,
+                ));
+            }
+            let mut params = Vec::new();
+            for atom in &binder_atoms[1..] {
+                match atom {
+                    Atom::Token(t) if t.kind() == SyntaxKind::Ident => {
+                        params.push(t.text().to_string());
+                    }
+                    Atom::Token(t) => {
+                        return Err(ElaborateError::at_token(
+                            "function parameter must be an identifier",
+                            t,
+                        ));
+                    }
+                    Atom::Node(n) => {
+                        return Err(ElaborateError::at_node(
+                            "function parameter must be an identifier",
+                            n,
+                        ));
+                    }
+                }
+            }
+            let body = elaborate_body(&rest[1..], parent)?;
+            Ok((
+                name_tok.text().to_string(),
+                CoreExpr::Lambda {
+                    params,
+                    body: Box::new(body),
+                },
+            ))
+        }
+        Atom::Token(t) => Err(ElaborateError::at_token(
+            "`val` name must be an identifier or `(name params...)` binder",
+            t,
+        )),
+        Atom::Node(n) => Err(ElaborateError::at_node(
+            "`val` name must be an identifier or `(name params...)` binder",
+            n,
+        )),
+    }
+}
+
+fn elaborate_expr_node(node: &SyntaxNode) -> Result<CoreExpr, ElaborateError> {
+    match node.kind() {
+        SyntaxKind::List => elaborate_list(node),
+        other => Err(ElaborateError::at_node(
+            format!("expected expression list, got `{other:?}`"),
+            node,
+        )),
+    }
+}
+
+fn elaborate_list(node: &SyntaxNode) -> Result<CoreExpr, ElaborateError> {
+    let atoms = list_atoms(node);
+    if atoms.is_empty() {
+        return Err(ElaborateError::at_node("empty list is not an expression", node));
+    }
+
+    if let Atom::Token(head) = &atoms[0] {
+        if head.kind() == SyntaxKind::Ident {
+            match head.text() {
+                "fn" => return elaborate_fn_expr(&atoms[1..], node),
+                "let" => return elaborate_let(&atoms[1..], node),
+                "if" => return elaborate_if(&atoms[1..], node),
+                "seq" => {
+                    if atoms.len() < 2 {
+                        return Err(ElaborateError::at_node(
+                            "`seq` requires at least one expression",
+                            node,
+                        ));
+                    }
+                    return Ok(seq_or_one(elaborate_atoms(&atoms[1..])?));
+                }
+                "val" => {
+                    return Err(ElaborateError::at_node(
+                        "`val` is only allowed at top level; use `let` for local bindings",
+                        node,
+                    ));
+                }
+                _ => {}
+            }
+        }
+    }
+
+    // Application: (f a b ...) — operator first, then args left-to-right.
+    let fun = elaborate_atom(&atoms[0])?;
+    let args = elaborate_atoms(&atoms[1..])?;
+    Ok(CoreExpr::App {
+        fun: Box::new(fun),
+        args,
+    })
+}
+
+fn elaborate_fn_expr(rest: &[Atom], parent: &SyntaxNode) -> Result<CoreExpr, ElaborateError> {
+    // (fn (params...) body...)
+    // (fn name (params...) body...) — name ignored in expression position (produces lambda)
+    let (params_node, body_atoms) = match rest {
+        [Atom::Node(params), body @ ..] if is_param_list(params) => (params, body),
+        [Atom::Token(name), Atom::Node(params), body @ ..]
+            if name.kind() == SyntaxKind::Ident && is_param_list(params) =>
+        {
+            let _ = name;
+            (params, body)
+        }
+        _ => {
+            return Err(ElaborateError::at_node(
+                "`fn` expects `(params...)` then one or more body expressions",
+                parent,
+            ));
+        }
+    };
+    let params = elaborate_params(params_node)?;
+    let body = elaborate_body(body_atoms, parent)?;
+    Ok(CoreExpr::Lambda {
+        params,
+        body: Box::new(body),
+    })
+}
+
+fn elaborate_let(rest: &[Atom], parent: &SyntaxNode) -> Result<CoreExpr, ElaborateError> {
+    // (let ((name expr)...) body...)
+    let Some(Atom::Node(bindings_node)) = rest.first() else {
+        return Err(ElaborateError::at_node(
+            "`let` requires a binding list",
+            parent,
+        ));
+    };
+    if bindings_node.kind() != SyntaxKind::List {
+        return Err(ElaborateError::at_node(
+            "`let` binding list must be a parenthesized list",
+            bindings_node,
+        ));
+    }
+    let binding_atoms = list_atoms(bindings_node);
+    if binding_atoms.is_empty() {
+        return Err(ElaborateError::at_node(
+            "`let` binding list must not be empty",
+            bindings_node,
+        ));
+    }
+
+    let mut bindings = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+    for atom in &binding_atoms {
+        let pair = match atom {
+            Atom::Node(n) => n,
+            Atom::Token(t) => {
+                return Err(ElaborateError::at_token(
+                    "`let` binding must be `(name expr)`",
+                    t,
+                ));
+            }
+        };
+        if pair.kind() != SyntaxKind::List {
+            return Err(ElaborateError::at_node(
+                "`let` binding must be `(name expr)`",
+                pair,
+            ));
+        }
+        let pair_atoms = list_atoms(pair);
+        if pair_atoms.len() != 2 {
+            return Err(ElaborateError::at_node(
+                "`let` binding must be `(name expr)`",
+                pair,
+            ));
+        }
+        let Atom::Token(name_tok) = &pair_atoms[0] else {
+            return Err(ElaborateError::at_node(
+                "`let` binder must be an identifier",
+                pair,
+            ));
+        };
+        if name_tok.kind() != SyntaxKind::Ident {
+            return Err(ElaborateError::at_token(
+                "`let` binder must be an identifier",
+                name_tok,
+            ));
+        }
+        let name = name_tok.text().to_string();
+        if !seen.insert(name.clone()) {
+            return Err(ElaborateError::at_token(
+                format!("duplicate binder `{name}` in the same `let`"),
+                name_tok,
+            ));
+        }
+        let value = elaborate_atom(&pair_atoms[1])?;
+        bindings.push((name, value));
+    }
+
+    let body = elaborate_body(&rest[1..], parent)?;
+    Ok(nest_lets(bindings, body))
+}
+
+fn elaborate_if(rest: &[Atom], parent: &SyntaxNode) -> Result<CoreExpr, ElaborateError> {
+    if rest.len() != 3 {
+        return Err(ElaborateError::at_node(
+            "`if` requires exactly three expressions: condition, then, else",
+            parent,
+        ));
+    }
+    Ok(CoreExpr::If {
+        cond: Box::new(elaborate_atom(&rest[0])?),
+        then_branch: Box::new(elaborate_atom(&rest[1])?),
+        else_branch: Box::new(elaborate_atom(&rest[2])?),
+    })
+}
+
+fn elaborate_body(atoms: &[Atom], parent: &SyntaxNode) -> Result<CoreExpr, ElaborateError> {
+    if atoms.is_empty() {
+        return Err(ElaborateError::at_node(
+            "body requires at least one expression",
+            parent,
+        ));
+    }
+    Ok(seq_or_one(elaborate_atoms(atoms)?))
+}
+
+fn elaborate_atoms(atoms: &[Atom]) -> Result<Vec<CoreExpr>, ElaborateError> {
+    atoms.iter().map(elaborate_atom).collect()
+}
+
+fn elaborate_atom(atom: &Atom) -> Result<CoreExpr, ElaborateError> {
+    match atom {
+        Atom::Token(t) => elaborate_token(t),
+        Atom::Node(n) => elaborate_expr_node(n),
+    }
+}
+
+fn elaborate_token(tok: &SyntaxToken) -> Result<CoreExpr, ElaborateError> {
+    match tok.kind() {
+        SyntaxKind::Number => {
+            let text = tok.text();
+            let n: f64 = text.parse().map_err(|_| {
+                ElaborateError::at_token(format!("invalid number literal `{text}`"), tok)
+            })?;
+            Ok(CoreExpr::Lit(CoreLiteral::Number(n)))
+        }
+        SyntaxKind::String => {
+            let raw = tok.text();
+            if raw.len() < 2 || !raw.starts_with('"') || !raw.ends_with('"') {
+                return Err(ElaborateError::at_token("malformed string literal", tok));
+            }
+            Ok(CoreExpr::Lit(CoreLiteral::String(unescape_string(
+                &raw[1..raw.len() - 1],
+            ))))
+        }
+        SyntaxKind::Ident => match tok.text() {
+            "true" => Ok(CoreExpr::Lit(CoreLiteral::Bool(true))),
+            "false" => Ok(CoreExpr::Lit(CoreLiteral::Bool(false))),
+            name => Ok(CoreExpr::Var(name.to_string())),
+        },
+        other => Err(ElaborateError::at_token(
+            format!("unexpected token `{other:?}` in expression"),
+            tok,
+        )),
+    }
+}
+
+fn elaborate_params(params: &SyntaxNode) -> Result<Vec<String>, ElaborateError> {
+    let mut out = Vec::new();
+    for atom in list_atoms(params) {
+        match atom {
+            Atom::Token(t) if t.kind() == SyntaxKind::Ident => {
+                out.push(t.text().to_string());
+            }
+            Atom::Token(t) => {
+                return Err(ElaborateError::at_token(
+                    "function parameter must be an identifier",
+                    &t,
+                ));
+            }
+            Atom::Node(n) => {
+                return Err(ElaborateError::at_node(
+                    "function parameter must be an identifier",
+                    &n,
+                ));
+            }
+        }
+    }
+    Ok(out)
+}
+
+fn is_param_list(node: &SyntaxNode) -> bool {
+    matches!(node.kind(), SyntaxKind::List | SyntaxKind::BracketList)
+}
+
+fn is_quarantined_head(node: &SyntaxNode) -> bool {
+    matches!(
+        list_head_ident(node).as_deref(),
+        Some("page" | "markup" | "src" | "circle" | "rect" | "text" | "group")
+    )
+}
+
+fn seq_or_one(exprs: Vec<CoreExpr>) -> CoreExpr {
+    match exprs.len() {
+        1 => exprs.into_iter().next().expect("len checked"),
+        _ => CoreExpr::Seq(exprs),
+    }
+}
+
+fn list_atoms(node: &SyntaxNode) -> Vec<Atom> {
+    let mut items = Vec::new();
+    for el in node.children_with_tokens() {
+        match el {
+            SyntaxElement::Token(t) => {
+                if t.kind().is_trivia()
+                    || matches!(
+                        t.kind(),
+                        SyntaxKind::LParen
+                            | SyntaxKind::RParen
+                            | SyntaxKind::LBracket
+                            | SyntaxKind::RBracket
+                    )
+                {
+                    continue;
+                }
+                items.push(Atom::Token(t));
+            }
+            SyntaxElement::Node(n) => {
+                if n.kind() == SyntaxKind::StructuredComment {
+                    continue;
+                }
+                items.push(Atom::Node(n));
+            }
+        }
+    }
+    items
+}
+
+fn list_head_ident(node: &SyntaxNode) -> Option<String> {
+    for atom in list_atoms(node) {
+        if let Atom::Token(t) = atom {
+            if t.kind() == SyntaxKind::Ident {
+                return Some(t.text().to_string());
+            }
+            return None;
+        }
+    }
+    None
+}
+
+fn node_range(node: &SyntaxNode) -> TextRange {
+    let start: u32 = node.text_range().start().into();
+    let end: u32 = node.text_range().end().into();
+    TextRange::try_new(ByteOffset::new(start), ByteOffset::new(end)).unwrap_or(TextRange::EMPTY)
+}
+
+fn token_range(tok: &SyntaxToken) -> TextRange {
+    let start: u32 = tok.text_range().start().into();
+    let end: u32 = tok.text_range().end().into();
+    TextRange::try_new(ByteOffset::new(start), ByteOffset::new(end)).unwrap_or(TextRange::EMPTY)
+}
+
+fn unescape_string(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut chars = s.chars();
+    while let Some(c) = chars.next() {
+        if c == '\\' {
+            match chars.next() {
+                Some('n') => out.push('\n'),
+                Some('t') => out.push('\t'),
+                Some('r') => out.push('\r'),
+                Some('\\') => out.push('\\'),
+                Some('"') => out.push('"'),
+                Some(other) => out.push(other),
+                None => out.push('\\'),
+            }
+        } else {
+            out.push(c);
+        }
+    }
+    out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn elaborates_identity_application() {
+        let expr = elaborate_source("(val main ((fn (x) x) 42))").unwrap();
+        match expr {
+            CoreExpr::Let { name, body, .. } => {
+                assert_eq!(name, "main");
+                assert!(matches!(*body, CoreExpr::Var(ref n) if n == "main"));
+            }
+            other => panic!("expected Let, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn rejects_page_forms() {
+        let err = elaborate_source("(page a4)").unwrap_err();
+        assert!(err.message.contains("page"));
+    }
+}
