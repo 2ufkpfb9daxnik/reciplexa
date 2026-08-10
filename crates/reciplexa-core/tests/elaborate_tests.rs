@@ -290,6 +290,62 @@ fn elaborates_ambient_effect_apps() {
 }
 
 #[test]
+fn elaborates_local_and_rec_groups() {
+    let local = elaborate_source(
+        r#"
+(val main
+  (local
+    (val x 1)
+    (val y (+ x 1))
+    y))
+"#,
+    )
+    .unwrap();
+    let CoreExpr::Let { value, .. } = local else {
+        panic!("expected Let");
+    };
+    let CoreExpr::Let {
+        name: x,
+        body: mid,
+        ..
+    } = *value
+    else {
+        panic!("expected local→Let x");
+    };
+    assert_eq!(x, "x");
+    let CoreExpr::Let { name: y, body, .. } = *mid else {
+        panic!("expected local→Let y");
+    };
+    assert_eq!(y, "y");
+    assert!(matches!(*body, CoreExpr::Var(ref n) if n == "y"));
+
+    let rec = elaborate_source(
+        r#"
+(val main
+  (rec
+    (val even?
+      (fn (n)
+        (if (= n 0) true (odd? (- n 1)))))
+    (val odd?
+      (fn (n)
+        (if (= n 0) false (even? (- n 1)))))
+    (even? 4)))
+"#,
+    )
+    .unwrap();
+    let CoreExpr::Let { value, .. } = rec else {
+        panic!("expected Let");
+    };
+    let CoreExpr::LetRec { bindings, body } = *value else {
+        panic!("expected LetRec");
+    };
+    assert_eq!(bindings.len(), 2);
+    assert_eq!(bindings[0].0, "even?");
+    assert_eq!(bindings[1].0, "odd?");
+    assert!(matches!(*body, CoreExpr::App { .. }));
+}
+
+#[test]
 fn elaborates_unit_literal() {
     let expr = elaborate_source("(val main unit)").unwrap();
     let CoreExpr::Let { value, .. } = expr else {
