@@ -147,6 +147,29 @@ fn lang_resolve_top_form(
         return;
     }
     match head.text() {
+        "data" => {
+            // `(data Name ctor…)` — declare type name; ctors are value constructors.
+            if let Some(Atom::Token(name_tok)) = atoms.get(1) {
+                if name_tok.kind() == SyntaxKind::Ident {
+                    declare_binding(name_tok.text(), stack, env);
+                }
+            }
+            for ctor in atoms.iter().skip(2) {
+                match ctor {
+                    Atom::Token(t) if t.kind() == SyntaxKind::Ident => {
+                        declare_binding(t.text(), stack, env);
+                    }
+                    Atom::Node(n) if n.kind() == SyntaxKind::List => {
+                        if let Some(Atom::Token(tag)) = list_atoms(n).first() {
+                            if tag.kind() == SyntaxKind::Ident {
+                                declare_binding(tag.text(), stack, env);
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
         "val" => lang_resolve_val_decl(&atoms[1..], stack, env, errors),
         "fn" => {
             // Top-level named function: (fn name (params...) body...)
@@ -291,13 +314,31 @@ fn lang_resolve_list(
                     lang_resolve_let(&atoms[1..], stack, env, errors);
                     return;
                 }
+                "match" => {
+                    lang_resolve_match(&atoms[1..], stack, env, errors);
+                    return;
+                }
+                "perform" => {
+                    // (perform op arg) — op is an effect name, not a value binding.
+                    for atom in atoms.iter().skip(2) {
+                        lang_resolve_atom(atom, stack, env, errors);
+                    }
+                    return;
+                }
+                "handle" => {
+                    // (handle op handler body) — op is an effect name.
+                    for atom in atoms.iter().skip(2) {
+                        lang_resolve_atom(atom, stack, env, errors);
+                    }
+                    return;
+                }
                 "if" | "seq" => {
                     for atom in &atoms[1..] {
                         lang_resolve_atom(atom, stack, env, errors);
                     }
                     return;
                 }
-                "val" | "type" => {
+                "val" | "type" | "data" => {
                     // Nested `val`/`type` are not local binders on the language
                     // surface; treat remaining atoms as expressions.
                     for atom in &atoms[1..] {
@@ -339,6 +380,54 @@ fn lang_resolve_fn_expr(
         }
     };
     lang_resolve_fn_body(params, body, stack, env, errors);
+}
+
+fn lang_resolve_match(
+    rest: &[Atom],
+    stack: &mut ScopeStack,
+    env: &mut BindingEnv,
+    errors: &mut Vec<ResolveError>,
+) {
+    // (match scrutinee (pattern body...)...)
+    if rest.is_empty() {
+        return;
+    }
+    lang_resolve_atom(&rest[0], stack, env, errors);
+    for arm in &rest[1..] {
+        let Atom::Node(arm_node) = arm else {
+            lang_resolve_atom(arm, stack, env, errors);
+            continue;
+        };
+        let arm_atoms = list_atoms(arm_node);
+        if arm_atoms.is_empty() {
+            continue;
+        }
+        stack.push_scope();
+        // Pattern binders: Tag | (Tag binder)
+        match &arm_atoms[0] {
+            Atom::Token(t) if t.kind() == SyntaxKind::Ident => {
+                lang_resolve_token(t, stack, errors);
+            }
+            Atom::Node(pat) if pat.kind() == SyntaxKind::List => {
+                let pat_atoms = list_atoms(pat);
+                if let Some(Atom::Token(tag)) = pat_atoms.first() {
+                    if tag.kind() == SyntaxKind::Ident {
+                        lang_resolve_token(tag, stack, errors);
+                    }
+                }
+                if let Some(Atom::Token(binder)) = pat_atoms.get(1) {
+                    if binder.kind() == SyntaxKind::Ident {
+                        declare_binding(binder.text(), stack, env);
+                    }
+                }
+            }
+            other => lang_resolve_atom(other, stack, env, errors),
+        }
+        for body in &arm_atoms[1..] {
+            lang_resolve_atom(body, stack, env, errors);
+        }
+        stack.pop_scope();
+    }
 }
 
 fn lang_resolve_let(

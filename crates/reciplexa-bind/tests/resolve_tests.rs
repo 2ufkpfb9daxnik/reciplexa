@@ -193,3 +193,16 @@ fn language_skips_document_forms_without_color_builtins() {
     assert!(r.is_ok(), "{:?}", r.errors);
     assert!(r.env.builtin_colors.is_empty());
 }
+
+#[test]
+fn language_data_and_match_resolve() {
+    let r = resolve_language_source(
+        r#"
+(data Option (None) (Some x))
+(val main (match (Some 1) (None 0) ((Some x) x)))
+"#,
+    );
+    assert!(r.is_ok(), "{:?}", r.errors);
+    assert!(r.env.bindings.values().any(|n| n == "None"));
+    assert!(r.env.bindings.values().any(|n| n == "Some"));
+}

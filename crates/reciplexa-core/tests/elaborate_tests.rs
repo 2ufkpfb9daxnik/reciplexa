@@ -147,3 +147,32 @@ fn elaborates_named_fn_sugar() {
     };
     assert_eq!(name, "id");
 }
+
+#[test]
+fn elaborates_data_option_and_match() {
+    let expr = elaborate_source(
+        r#"
+(data Option (None) (Some x))
+(val main (match (Some 1) (None 0) ((Some x) x)))
+"#,
+    )
+    .unwrap();
+    let CoreExpr::Let { value, .. } = expr else {
+        panic!("expected Let");
+    };
+    let CoreExpr::Match { scrutinee, arms } = *value else {
+        panic!("expected Match");
+    };
+    assert!(matches!(
+        *scrutinee,
+        CoreExpr::Variant {
+            ref tag,
+            payload: Some(_),
+        } if tag == "Some"
+    ));
+    assert_eq!(arms.len(), 2);
+    assert_eq!(arms[0].tag, "None");
+    assert_eq!(arms[0].bind, None);
+    assert_eq!(arms[1].tag, "Some");
+    assert_eq!(arms[1].bind.as_deref(), Some("x"));
+}

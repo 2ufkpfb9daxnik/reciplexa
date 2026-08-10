@@ -544,3 +544,13 @@ fn eval_source_call1_macro_expands_before_eval() {
     let v = eval_source(src).unwrap();
     assert_eq!(v, RuntimeValue::Number(42.0));
 }
+
+#[test]
+fn eval_source_data_match_some() {
+    let src = r#"
+(data Option (None) (Some x))
+(val main (match (Some 1) (None 0) ((Some x) x)))
+"#;
+    let v = eval_source(src).unwrap();
+    assert_eq!(v, RuntimeValue::Number(1.0));
+}

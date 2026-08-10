@@ -1,13 +1,16 @@
-//! Surface syntax → Core elaborator (BND-001 / EVAL-001).
+//! Surface syntax → Core elaborator (BND-001 / EVAL-001 / DAT-001).
 //!
-//! Supports language-kernel forms only: `val` / `fn` / `let` / `if` / app / lit.
+//! Supports language-kernel forms only: `val` / `fn` / `let` / `if` / `seq` /
+//! `data` / `match` / app / lit / perform / handle.
 //! Graphics / page / markup forms are rejected (quarantined to the document pipeline).
+
+use std::collections::HashMap;
 
 use reciplexa_source::offset::ByteOffset;
 use reciplexa_source::range::TextRange;
 use reciplexa_syntax::{parse_source, SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken};
 
-use crate::expr::{CoreExpr, CoreLiteral};
+use crate::expr::{CoreExpr, CoreLiteral, MatchArm};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ElaborateError {
@@ -37,6 +40,12 @@ enum Atom {
     Node(SyntaxNode),
 }
 
+/// Constructor table from top-level `(data …)` (tag → arity).
+#[derive(Debug, Default, Clone)]
+struct ElabCtx {
+    ctors: HashMap<String, usize>,
+}
+
 /// Parse `src` and elaborate top-level `val` / `fn` / expressions to [`CoreExpr`].
 ///
 /// Top-level bindings become nested Core `let`s. The result expression is
@@ -58,6 +67,7 @@ pub fn elaborate_source(src: &str) -> Result<CoreExpr, ElaborateError> {
 }
 
 fn elaborate_file(root: &SyntaxNode) -> Result<CoreExpr, ElaborateError> {
+    let mut ctx = ElabCtx::default();
     let mut bindings: Vec<(String, CoreExpr)> = Vec::new();
     let mut trailing: Vec<CoreExpr> = Vec::new();
 
@@ -67,29 +77,35 @@ fn elaborate_file(root: &SyntaxNode) -> Result<CoreExpr, ElaborateError> {
                 if t.kind().is_trivia() {
                     continue;
                 }
-                trailing.push(elaborate_token(&t)?);
+                trailing.push(elaborate_token(&t, &ctx)?);
             }
             SyntaxElement::Node(n) => match n.kind() {
                 SyntaxKind::StructuredComment => continue,
-                SyntaxKind::List => match try_top_decl(&n)? {
-                    Some(binding) => bindings.push(binding),
-                    None => {
-                        if is_quarantined_head(&n) {
-                            let head = list_head_ident(&n).unwrap_or_else(|| "?".into());
-                            return Err(ElaborateError::at_node(
-                                format!(
-                                    "language-kernel elaborator does not support `{head}` forms"
-                                ),
-                                &n,
-                            ));
-                        }
-                        if list_head_ident(&n).as_deref() == Some("type") {
-                            // Type declarations are ignored until TYP/MOD land.
-                            continue;
-                        }
-                        trailing.push(elaborate_expr_node(&n)?);
+                SyntaxKind::List => {
+                    if list_head_ident(&n).as_deref() == Some("data") {
+                        register_data(&n, &mut ctx)?;
+                        continue;
                     }
-                },
+                    match try_top_decl(&n, &ctx)? {
+                        Some(binding) => bindings.push(binding),
+                        None => {
+                            if is_quarantined_head(&n) {
+                                let head = list_head_ident(&n).unwrap_or_else(|| "?".into());
+                                return Err(ElaborateError::at_node(
+                                    format!(
+                                        "language-kernel elaborator does not support `{head}` forms"
+                                    ),
+                                    &n,
+                                ));
+                            }
+                            if list_head_ident(&n).as_deref() == Some("type") {
+                                // Type declarations are ignored until TYP/MOD land.
+                                continue;
+                            }
+                            trailing.push(elaborate_expr_node(&n, &ctx)?);
+                        }
+                    }
+                }
                 other => {
                     return Err(ElaborateError::at_node(
                         format!("unsupported top-level form `{other:?}`"),
@@ -133,7 +149,100 @@ fn nest_lets(bindings: Vec<(String, CoreExpr)>, body: CoreExpr) -> CoreExpr {
         })
 }
 
-fn try_top_decl(node: &SyntaxNode) -> Result<Option<(String, CoreExpr)>, ElaborateError> {
+/// `(data Name (Tag) (Tag payload) …)` — registers constructors; no Core binding.
+fn register_data(node: &SyntaxNode, ctx: &mut ElabCtx) -> Result<(), ElaborateError> {
+    let atoms = list_atoms(node);
+    if atoms.len() < 3 {
+        return Err(ElaborateError::at_node(
+            "`data` requires a type name and at least one constructor",
+            node,
+        ));
+    }
+    let Atom::Token(name_tok) = &atoms[1] else {
+        return Err(ElaborateError::at_node(
+            "`data` type name must be an identifier",
+            node,
+        ));
+    };
+    if name_tok.kind() != SyntaxKind::Ident {
+        return Err(ElaborateError::at_token(
+            "`data` type name must be an identifier",
+            name_tok,
+        ));
+    }
+    let _type_name = name_tok.text();
+    for ctor in &atoms[2..] {
+        match ctor {
+            Atom::Token(t) if t.kind() == SyntaxKind::Ident => {
+                ctx.ctors.insert(t.text().to_string(), 0);
+            }
+            Atom::Node(n) if n.kind() == SyntaxKind::List => {
+                let ca = list_atoms(n);
+                if ca.is_empty() {
+                    return Err(ElaborateError::at_node(
+                        "`data` constructor list must not be empty",
+                        n,
+                    ));
+                }
+                let Atom::Token(tag_tok) = &ca[0] else {
+                    return Err(ElaborateError::at_node(
+                        "`data` constructor tag must be an identifier",
+                        n,
+                    ));
+                };
+                if tag_tok.kind() != SyntaxKind::Ident {
+                    return Err(ElaborateError::at_token(
+                        "`data` constructor tag must be an identifier",
+                        tag_tok,
+                    ));
+                }
+                let arity = ca.len() - 1;
+                if arity > 1 {
+                    return Err(ElaborateError::at_node(
+                        "DAT-001 v0 supports at most one payload per constructor",
+                        n,
+                    ));
+                }
+                for payload in &ca[1..] {
+                    match payload {
+                        Atom::Token(p) if p.kind() == SyntaxKind::Ident => {}
+                        Atom::Token(p) => {
+                            return Err(ElaborateError::at_token(
+                                "constructor payload binder must be an identifier",
+                                p,
+                            ));
+                        }
+                        Atom::Node(pn) => {
+                            return Err(ElaborateError::at_node(
+                                "constructor payload binder must be an identifier",
+                                pn,
+                            ));
+                        }
+                    }
+                }
+                ctx.ctors.insert(tag_tok.text().to_string(), arity);
+            }
+            Atom::Token(t) => {
+                return Err(ElaborateError::at_token(
+                    "`data` constructor must be an identifier or `(Tag …)`",
+                    t,
+                ));
+            }
+            Atom::Node(n) => {
+                return Err(ElaborateError::at_node(
+                    "`data` constructor must be an identifier or `(Tag …)`",
+                    n,
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn try_top_decl(
+    node: &SyntaxNode,
+    ctx: &ElabCtx,
+) -> Result<Option<(String, CoreExpr)>, ElaborateError> {
     let atoms = list_atoms(node);
     let Some(Atom::Token(head)) = atoms.first() else {
         return Ok(None);
@@ -142,14 +251,14 @@ fn try_top_decl(node: &SyntaxNode) -> Result<Option<(String, CoreExpr)>, Elabora
         return Ok(None);
     }
     match head.text() {
-        "val" => Ok(Some(elaborate_val(&atoms[1..], node)?)),
+        "val" => Ok(Some(elaborate_val(&atoms[1..], node, ctx)?)),
         "fn" => {
             // Top-level named function: (fn name (params...) body...)
             if atoms.len() >= 3 {
                 if let (Atom::Token(name_tok), Atom::Node(params)) = (&atoms[1], &atoms[2]) {
                     if name_tok.kind() == SyntaxKind::Ident && is_param_list(params) {
                         let params = elaborate_params(params)?;
-                        let body = elaborate_body(&atoms[3..], node)?;
+                        let body = elaborate_body(&atoms[3..], node, ctx)?;
                         return Ok(Some((
                             name_tok.text().to_string(),
                             CoreExpr::Lambda {
@@ -167,7 +276,11 @@ fn try_top_decl(node: &SyntaxNode) -> Result<Option<(String, CoreExpr)>, Elabora
     }
 }
 
-fn elaborate_val(rest: &[Atom], parent: &SyntaxNode) -> Result<(String, CoreExpr), ElaborateError> {
+fn elaborate_val(
+    rest: &[Atom],
+    parent: &SyntaxNode,
+    ctx: &ElabCtx,
+) -> Result<(String, CoreExpr), ElaborateError> {
     if rest.is_empty() {
         return Err(ElaborateError::at_node(
             "`val` requires a name and expression",
@@ -182,7 +295,7 @@ fn elaborate_val(rest: &[Atom], parent: &SyntaxNode) -> Result<(String, CoreExpr
                     name_tok,
                 ));
             }
-            let value = elaborate_body(&rest[1..], parent)?;
+            let value = elaborate_body(&rest[1..], parent, ctx)?;
             Ok((name_tok.text().to_string(), value))
         }
         // (val (name params...) body...) named-function sugar
@@ -220,7 +333,7 @@ fn elaborate_val(rest: &[Atom], parent: &SyntaxNode) -> Result<(String, CoreExpr
                     }
                 }
             }
-            let body = elaborate_body(&rest[1..], parent)?;
+            let body = elaborate_body(&rest[1..], parent, ctx)?;
             Ok((
                 name_tok.text().to_string(),
                 CoreExpr::Lambda {
@@ -240,9 +353,9 @@ fn elaborate_val(rest: &[Atom], parent: &SyntaxNode) -> Result<(String, CoreExpr
     }
 }
 
-fn elaborate_expr_node(node: &SyntaxNode) -> Result<CoreExpr, ElaborateError> {
+fn elaborate_expr_node(node: &SyntaxNode, ctx: &ElabCtx) -> Result<CoreExpr, ElaborateError> {
     match node.kind() {
-        SyntaxKind::List => elaborate_list(node),
+        SyntaxKind::List => elaborate_list(node, ctx),
         other => Err(ElaborateError::at_node(
             format!("expected expression list, got `{other:?}`"),
             node,
@@ -250,7 +363,7 @@ fn elaborate_expr_node(node: &SyntaxNode) -> Result<CoreExpr, ElaborateError> {
     }
 }
 
-fn elaborate_list(node: &SyntaxNode) -> Result<CoreExpr, ElaborateError> {
+fn elaborate_list(node: &SyntaxNode, ctx: &ElabCtx) -> Result<CoreExpr, ElaborateError> {
     let atoms = list_atoms(node);
     if atoms.is_empty() {
         return Err(ElaborateError::at_node(
@@ -262,9 +375,10 @@ fn elaborate_list(node: &SyntaxNode) -> Result<CoreExpr, ElaborateError> {
     if let Atom::Token(head) = &atoms[0] {
         if head.kind() == SyntaxKind::Ident {
             match head.text() {
-                "fn" => return elaborate_fn_expr(&atoms[1..], node),
-                "let" => return elaborate_let(&atoms[1..], node),
-                "if" => return elaborate_if(&atoms[1..], node),
+                "fn" => return elaborate_fn_expr(&atoms[1..], node, ctx),
+                "let" => return elaborate_let(&atoms[1..], node, ctx),
+                "if" => return elaborate_if(&atoms[1..], node, ctx),
+                "match" => return elaborate_match(&atoms[1..], node, ctx),
                 "seq" => {
                     if atoms.len() < 2 {
                         return Err(ElaborateError::at_node(
@@ -272,15 +386,39 @@ fn elaborate_list(node: &SyntaxNode) -> Result<CoreExpr, ElaborateError> {
                             node,
                         ));
                     }
-                    return Ok(seq_or_one(elaborate_atoms(&atoms[1..])?));
+                    return Ok(seq_or_one(elaborate_atoms(&atoms[1..], ctx)?));
                 }
-                "perform" => return elaborate_perform(&atoms[1..], node),
-                "handle" => return elaborate_handle(&atoms[1..], node),
+                "perform" => return elaborate_perform(&atoms[1..], node, ctx),
+                "handle" => return elaborate_handle(&atoms[1..], node, ctx),
                 "val" => {
                     return Err(ElaborateError::at_node(
                         "`val` is only allowed at top level; use `let` for local bindings",
                         node,
                     ));
+                }
+                "data" => {
+                    return Err(ElaborateError::at_node(
+                        "`data` is only allowed at top level",
+                        node,
+                    ));
+                }
+                tag if ctx.ctors.contains_key(tag) => {
+                    let arity = ctx.ctors[tag];
+                    if atoms.len() - 1 != arity {
+                        return Err(ElaborateError::at_node(
+                            format!("constructor `{tag}` expects {arity} payload(s)"),
+                            node,
+                        ));
+                    }
+                    let payload = if arity == 0 {
+                        None
+                    } else {
+                        Some(Box::new(elaborate_atom(&atoms[1], ctx)?))
+                    };
+                    return Ok(CoreExpr::Variant {
+                        tag: tag.to_string(),
+                        payload,
+                    });
                 }
                 _ => {}
             }
@@ -288,15 +426,127 @@ fn elaborate_list(node: &SyntaxNode) -> Result<CoreExpr, ElaborateError> {
     }
 
     // Application: (f a b ...) — operator first, then args left-to-right.
-    let fun = elaborate_atom(&atoms[0])?;
-    let args = elaborate_atoms(&atoms[1..])?;
+    let fun = elaborate_atom(&atoms[0], ctx)?;
+    let args = elaborate_atoms(&atoms[1..], ctx)?;
     Ok(CoreExpr::App {
         fun: Box::new(fun),
         args,
     })
 }
 
-fn elaborate_perform(rest: &[Atom], parent: &SyntaxNode) -> Result<CoreExpr, ElaborateError> {
+fn elaborate_match(
+    rest: &[Atom],
+    parent: &SyntaxNode,
+    ctx: &ElabCtx,
+) -> Result<CoreExpr, ElaborateError> {
+    // (match scrutinee (pattern body...)...)
+    // Patterns: Tag | (Tag) | (Tag binder)
+    if rest.len() < 2 {
+        return Err(ElaborateError::at_node(
+            "`match` requires a scrutinee and at least one arm",
+            parent,
+        ));
+    }
+    let scrutinee = elaborate_atom(&rest[0], ctx)?;
+    let mut arms = Vec::new();
+    for arm_atom in &rest[1..] {
+        let Atom::Node(arm_node) = arm_atom else {
+            return Err(ElaborateError::at_node(
+                "`match` arm must be `(pattern body...)`",
+                parent,
+            ));
+        };
+        if arm_node.kind() != SyntaxKind::List {
+            return Err(ElaborateError::at_node(
+                "`match` arm must be `(pattern body...)`",
+                arm_node,
+            ));
+        }
+        let arm_atoms = list_atoms(arm_node);
+        if arm_atoms.len() < 2 {
+            return Err(ElaborateError::at_node(
+                "`match` arm must be `(pattern body...)`",
+                arm_node,
+            ));
+        }
+        let (tag, bind) = elaborate_pattern(&arm_atoms[0], arm_node)?;
+        let body = elaborate_body(&arm_atoms[1..], arm_node, ctx)?;
+        arms.push(MatchArm { tag, bind, body });
+    }
+    Ok(CoreExpr::Match {
+        scrutinee: Box::new(scrutinee),
+        arms,
+    })
+}
+
+fn elaborate_pattern(
+    atom: &Atom,
+    parent: &SyntaxNode,
+) -> Result<(String, Option<String>), ElaborateError> {
+    match atom {
+        Atom::Token(t) if t.kind() == SyntaxKind::Ident => Ok((t.text().to_string(), None)),
+        Atom::Node(n) if n.kind() == SyntaxKind::List => {
+            let atoms = list_atoms(n);
+            if atoms.is_empty() {
+                return Err(ElaborateError::at_node(
+                    "match pattern list must not be empty",
+                    n,
+                ));
+            }
+            let Atom::Token(tag_tok) = &atoms[0] else {
+                return Err(ElaborateError::at_node(
+                    "match pattern tag must be an identifier",
+                    n,
+                ));
+            };
+            if tag_tok.kind() != SyntaxKind::Ident {
+                return Err(ElaborateError::at_token(
+                    "match pattern tag must be an identifier",
+                    tag_tok,
+                ));
+            }
+            let bind = match atoms.get(1) {
+                None => None,
+                Some(Atom::Token(b)) if b.kind() == SyntaxKind::Ident => {
+                    if atoms.len() > 2 {
+                        return Err(ElaborateError::at_node(
+                            "DAT-001 v0 patterns support at most one binder",
+                            n,
+                        ));
+                    }
+                    Some(b.text().to_string())
+                }
+                Some(Atom::Token(b)) => {
+                    return Err(ElaborateError::at_token(
+                        "match pattern binder must be an identifier",
+                        b,
+                    ));
+                }
+                Some(Atom::Node(bn)) => {
+                    return Err(ElaborateError::at_node(
+                        "match pattern binder must be an identifier",
+                        bn,
+                    ));
+                }
+            };
+            Ok((tag_tok.text().to_string(), bind))
+        }
+        Atom::Token(t) => Err(ElaborateError::at_token(
+            "match pattern must be a tag or `(Tag binder)`",
+            t,
+        )),
+        Atom::Node(_) => Err(ElaborateError::at_node(
+            "match pattern must be a tag or `(Tag binder)`",
+            parent,
+        )),
+    }
+}
+
+fn elaborate_perform(
+    rest: &[Atom],
+    parent: &SyntaxNode,
+    ctx: &ElabCtx,
+) -> Result<CoreExpr, ElaborateError> {
     // (perform op arg)
     if rest.len() != 2 {
         return Err(ElaborateError::at_node(
@@ -318,11 +568,15 @@ fn elaborate_perform(rest: &[Atom], parent: &SyntaxNode) -> Result<CoreExpr, Ela
     }
     Ok(CoreExpr::Perform {
         op: op_tok.text().to_string(),
-        arg: Box::new(elaborate_atom(&rest[1])?),
+        arg: Box::new(elaborate_atom(&rest[1], ctx)?),
     })
 }
 
-fn elaborate_handle(rest: &[Atom], parent: &SyntaxNode) -> Result<CoreExpr, ElaborateError> {
+fn elaborate_handle(
+    rest: &[Atom],
+    parent: &SyntaxNode,
+    ctx: &ElabCtx,
+) -> Result<CoreExpr, ElaborateError> {
     // (handle op (fn (params...) handler-body...) body)
     if rest.len() != 3 {
         return Err(ElaborateError::at_node(
@@ -342,7 +596,7 @@ fn elaborate_handle(rest: &[Atom], parent: &SyntaxNode) -> Result<CoreExpr, Elab
             op_tok,
         ));
     }
-    let handler_expr = elaborate_atom(&rest[1])?;
+    let handler_expr = elaborate_atom(&rest[1], ctx)?;
     let CoreExpr::Lambda { params, body } = handler_expr else {
         return Err(ElaborateError::at_node(
             "`handle` handler must be `(fn (params...) ...)`",
@@ -359,11 +613,15 @@ fn elaborate_handle(rest: &[Atom], parent: &SyntaxNode) -> Result<CoreExpr, Elab
         op: op_tok.text().to_string(),
         handler_params: params,
         handler_body: body,
-        body: Box::new(elaborate_atom(&rest[2])?),
+        body: Box::new(elaborate_atom(&rest[2], ctx)?),
     })
 }
 
-fn elaborate_fn_expr(rest: &[Atom], parent: &SyntaxNode) -> Result<CoreExpr, ElaborateError> {
+fn elaborate_fn_expr(
+    rest: &[Atom],
+    parent: &SyntaxNode,
+    ctx: &ElabCtx,
+) -> Result<CoreExpr, ElaborateError> {
     // (fn (params...) body...)
     // (fn name (params...) body...) — name ignored in expression position (produces lambda)
     let (params_node, body_atoms) = match rest {
@@ -382,14 +640,18 @@ fn elaborate_fn_expr(rest: &[Atom], parent: &SyntaxNode) -> Result<CoreExpr, Ela
         }
     };
     let params = elaborate_params(params_node)?;
-    let body = elaborate_body(body_atoms, parent)?;
+    let body = elaborate_body(body_atoms, parent, ctx)?;
     Ok(CoreExpr::Lambda {
         params,
         body: Box::new(body),
     })
 }
 
-fn elaborate_let(rest: &[Atom], parent: &SyntaxNode) -> Result<CoreExpr, ElaborateError> {
+fn elaborate_let(
+    rest: &[Atom],
+    parent: &SyntaxNode,
+    ctx: &ElabCtx,
+) -> Result<CoreExpr, ElaborateError> {
     // (let ((name expr)...) body...)
     let Some(Atom::Node(bindings_node)) = rest.first() else {
         return Err(ElaborateError::at_node(
@@ -455,15 +717,19 @@ fn elaborate_let(rest: &[Atom], parent: &SyntaxNode) -> Result<CoreExpr, Elabora
                 name_tok,
             ));
         }
-        let value = elaborate_atom(&pair_atoms[1])?;
+        let value = elaborate_atom(&pair_atoms[1], ctx)?;
         bindings.push((name, value));
     }
 
-    let body = elaborate_body(&rest[1..], parent)?;
+    let body = elaborate_body(&rest[1..], parent, ctx)?;
     Ok(nest_lets(bindings, body))
 }
 
-fn elaborate_if(rest: &[Atom], parent: &SyntaxNode) -> Result<CoreExpr, ElaborateError> {
+fn elaborate_if(
+    rest: &[Atom],
+    parent: &SyntaxNode,
+    ctx: &ElabCtx,
+) -> Result<CoreExpr, ElaborateError> {
     if rest.len() != 3 {
         return Err(ElaborateError::at_node(
             "`if` requires exactly three expressions: condition, then, else",
@@ -471,34 +737,38 @@ fn elaborate_if(rest: &[Atom], parent: &SyntaxNode) -> Result<CoreExpr, Elaborat
         ));
     }
     Ok(CoreExpr::If {
-        cond: Box::new(elaborate_atom(&rest[0])?),
-        then_branch: Box::new(elaborate_atom(&rest[1])?),
-        else_branch: Box::new(elaborate_atom(&rest[2])?),
+        cond: Box::new(elaborate_atom(&rest[0], ctx)?),
+        then_branch: Box::new(elaborate_atom(&rest[1], ctx)?),
+        else_branch: Box::new(elaborate_atom(&rest[2], ctx)?),
     })
 }
 
-fn elaborate_body(atoms: &[Atom], parent: &SyntaxNode) -> Result<CoreExpr, ElaborateError> {
+fn elaborate_body(
+    atoms: &[Atom],
+    parent: &SyntaxNode,
+    ctx: &ElabCtx,
+) -> Result<CoreExpr, ElaborateError> {
     if atoms.is_empty() {
         return Err(ElaborateError::at_node(
             "body requires at least one expression",
             parent,
         ));
     }
-    Ok(seq_or_one(elaborate_atoms(atoms)?))
+    Ok(seq_or_one(elaborate_atoms(atoms, ctx)?))
 }
 
-fn elaborate_atoms(atoms: &[Atom]) -> Result<Vec<CoreExpr>, ElaborateError> {
-    atoms.iter().map(elaborate_atom).collect()
+fn elaborate_atoms(atoms: &[Atom], ctx: &ElabCtx) -> Result<Vec<CoreExpr>, ElaborateError> {
+    atoms.iter().map(|a| elaborate_atom(a, ctx)).collect()
 }
 
-fn elaborate_atom(atom: &Atom) -> Result<CoreExpr, ElaborateError> {
+fn elaborate_atom(atom: &Atom, ctx: &ElabCtx) -> Result<CoreExpr, ElaborateError> {
     match atom {
-        Atom::Token(t) => elaborate_token(t),
-        Atom::Node(n) => elaborate_expr_node(n),
+        Atom::Token(t) => elaborate_token(t, ctx),
+        Atom::Node(n) => elaborate_expr_node(n, ctx),
     }
 }
 
-fn elaborate_token(tok: &SyntaxToken) -> Result<CoreExpr, ElaborateError> {
+fn elaborate_token(tok: &SyntaxToken, ctx: &ElabCtx) -> Result<CoreExpr, ElaborateError> {
     match tok.kind() {
         SyntaxKind::Number => {
             let text = tok.text();
@@ -519,6 +789,10 @@ fn elaborate_token(tok: &SyntaxToken) -> Result<CoreExpr, ElaborateError> {
         SyntaxKind::Ident => match tok.text() {
             "true" => Ok(CoreExpr::Lit(CoreLiteral::Bool(true))),
             "false" => Ok(CoreExpr::Lit(CoreLiteral::Bool(false))),
+            name if ctx.ctors.get(name) == Some(&0) => Ok(CoreExpr::Variant {
+                tag: name.to_string(),
+                payload: None,
+            }),
             name => Ok(CoreExpr::Var(name.to_string())),
         },
         other => Err(ElaborateError::at_token(
@@ -664,5 +938,20 @@ mod tests {
     fn rejects_page_forms() {
         let err = elaborate_source("(page a4)").unwrap_err();
         assert!(err.message.contains("page"));
+    }
+
+    #[test]
+    fn elaborates_data_and_match() {
+        let expr = elaborate_source(
+            r#"
+(data Option (None) (Some x))
+(val main (match (Some 1) (None 0) ((Some x) x)))
+"#,
+        )
+        .unwrap();
+        let CoreExpr::Let { value, .. } = expr else {
+            panic!("expected Let");
+        };
+        assert!(matches!(*value, CoreExpr::Match { .. }));
     }
 }
