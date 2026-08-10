@@ -917,15 +917,13 @@ fn set_atom_string(
         _ => return Err(SyncError::new(format!("missing string at slot {slot}"))),
     };
     let escaped = escape_rpx_string(value);
-    let (_, out) = replace_token_text(&tok, &format!("\"{escaped}\""));
+    let (_, out) = replace_token_text(&tok, &escaped);
     Ok(out)
 }
 
 fn escape_rpx_string(s: &str) -> String {
-    // SYN-001 §8.1: no backslash escapes in RPX string literals.
-    // Callers wrap the result in `"…"`; content with `"` / newlines needs
-    // triple-quote delimiters (deferred) — pass through raw characters.
-    s.to_string()
+    // SYN-001 §8: complete literal; no backslash escapes.
+    reciplexa_syntax::encode_string_literal(s)
 }
 
 fn unquote(raw: &str) -> String {

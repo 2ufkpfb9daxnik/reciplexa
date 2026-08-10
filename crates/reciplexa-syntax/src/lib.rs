@@ -22,4 +22,4 @@ pub use lexer::{Lexer, LexerMode, Token};
 pub use markup::{flatten_lines, flatten_readable, markup_parts, MarkupPart, MarkupWalkError};
 pub use parse::{parse_source, unparse, Parse, ParseError};
 pub use reserved::is_reserved_special_form;
-pub use string_lit::decode_string_literal;
+pub use string_lit::{decode_string_literal, encode_string_literal};

@@ -112,7 +112,7 @@ fn sync_literal(
             format_drag_number(*width),
             format_drag_number(*height)
         ),
-        ApplyEdit::SetText { text, .. } => format!("\"{}\"", escape_string(text)),
+        ApplyEdit::SetText { text, .. } => reciplexa_syntax::encode_string_literal(text),
     };
 
     let mut out = String::with_capacity(source.len() + new_literal.len());
@@ -131,16 +131,4 @@ fn sync_literal(
         .find_map(|el| el.into_token())
         .filter(|t| t.kind() == SyntaxKind::Number || t.kind() == SyntaxKind::String);
     Ok(out)
-}
-
-fn escape_string(s: &str) -> String {
-    let mut out = String::with_capacity(s.len());
-    for c in s.chars() {
-        match c {
-            '\\' => out.push_str("\\\\"),
-            '"' => out.push_str("\\\""),
-            _ => out.push(c),
-        }
-    }
-    out
 }

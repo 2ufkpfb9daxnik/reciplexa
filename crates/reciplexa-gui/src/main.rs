@@ -128,15 +128,8 @@ fn highlight_source_range(ctx: &egui::Context, source: &str, start: usize, end: 
 }
 
 fn escape_lisp_string(s: &str) -> String {
-    let mut out = String::with_capacity(s.len());
-    for c in s.chars() {
-        match c {
-            '\\' => out.push_str("\\\\"),
-            '"' => out.push_str("\\\""),
-            _ => out.push(c),
-        }
-    }
-    out
+    // SYN-001 §8: complete literal; no backslash escapes.
+    reciplexa_syntax::encode_string_literal(s)
 }
 
 /// Prefer a path relative to the `.rpx` directory, using `/` separators.
@@ -2506,7 +2499,7 @@ impl PreviewApp {
             return;
         };
         let rel = path_for_rpx(&self.path, &asset);
-        let form = format!("(image \"{}\" 40 120 80 60)", escape_lisp_string(&rel));
+        let form = format!("(image {} 40 120 80 60)", escape_lisp_string(&rel));
         self.insert_shape(&form);
     }
 

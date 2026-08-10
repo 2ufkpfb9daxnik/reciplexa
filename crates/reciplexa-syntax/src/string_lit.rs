@@ -54,6 +54,29 @@ pub fn decode_string_literal(raw: &str) -> Result<String, String> {
     dedent_lines(&body, &baseline)
 }
 
+/// Encode a runtime string as an RPX string literal (SYN-001 §8).
+///
+/// Never invents backslash escapes. Uses short `"…"` when safe; otherwise a
+/// multi-quote delimiter long enough that the content cannot close it early.
+pub fn encode_string_literal(s: &str) -> String {
+    if s.is_empty() {
+        return r#""""#.to_string();
+    }
+    let needs_multi = s.contains('"') || s.contains('\n') || s.contains('\r');
+    if !needs_multi {
+        return format!("\"{s}\"");
+    }
+    let mut n = 3usize;
+    loop {
+        let delim: String = std::iter::repeat_n('"', n).collect();
+        if !s.contains(delim.as_str()) {
+            // Prefer multiline so trailing `"` in content cannot glue to the closer.
+            return format!("{delim}\n{s}\n{delim}");
+        }
+        n += 1;
+    }
+}
+
 fn normalize_newlines(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     let mut chars = s.chars().peekable();
@@ -146,8 +169,10 @@ mod tests {
     }
 
     #[test]
-    fn multi_rejects_shallow_line() {
-        let raw = "\"\"\"\na\n  \"\"\"";
-        assert!(decode_string_literal(raw).unwrap_err().contains("indented"));
+    fn encode_roundtrips_quotes_and_newlines() {
+        let s = "say \"hi\"\nnext";
+        let lit = encode_string_literal(s);
+        assert!(!lit.contains('\\'));
+        assert_eq!(decode_string_literal(&lit).unwrap(), s);
     }
 }

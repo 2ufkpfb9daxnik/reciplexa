@@ -640,11 +640,11 @@ fn format_frac_strips_trailing_zeros() {
 }
 
 #[test]
-fn escape_lisp_string_all_escapes() {
-    assert_eq!(
-        escape_lisp_string("a\nb\tc\\d\"e\r"),
-        "a\\nb\\tc\\\\d\\\"e\\r"
-    );
+fn escape_lisp_string_uses_multi_quote_for_specials() {
+    let src = "a\nb\tc\\d\"e";
+    let lit = escape_lisp_string(src);
+    assert!(lit.starts_with("\"\"\""));
+    assert_eq!(reciplexa_syntax::decode_string_literal(&lit).unwrap(), src);
 }
 
 #[test]

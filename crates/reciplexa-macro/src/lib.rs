@@ -288,7 +288,7 @@ fn find_markup(root: &SyntaxNode) -> Option<(usize, usize, String)> {
                     match p {
                         PlacedItem::Text(t) => {
                             repl.push_str(&format!(
-                                " (text {} {} {} \"{}\" black)",
+                                " (text {} {} {} {} black)",
                                 format_frac(t.x_mm),
                                 format_frac(t.y_mm),
                                 format_frac(t.size_mm),
@@ -321,7 +321,7 @@ fn find_markup(root: &SyntaxNode) -> Option<(usize, usize, String)> {
                             ..
                         } => {
                             repl.push_str(&format!(
-                                " (image \"{}\" {} {} {} {})",
+                                " (image {} {} {} {} {})",
                                 escape_lisp_string(path),
                                 format_frac(*x_mm),
                                 format_frac(*y_mm),
@@ -341,18 +341,8 @@ fn find_markup(root: &SyntaxNode) -> Option<(usize, usize, String)> {
 }
 
 pub fn escape_lisp_string(s: &str) -> String {
-    let mut out = String::with_capacity(s.len());
-    for c in s.chars() {
-        match c {
-            '\\' => out.push_str("\\\\"),
-            '"' => out.push_str("\\\""),
-            '\n' => out.push_str("\\n"),
-            '\r' => out.push_str("\\r"),
-            '\t' => out.push_str("\\t"),
-            _ => out.push(c),
-        }
-    }
-    out
+    // SYN-001 §8: no backslash escapes — return a complete literal via multi-quote when needed.
+    reciplexa_syntax::encode_string_literal(s)
 }
 
 fn atom_text(child: &Child) -> String {

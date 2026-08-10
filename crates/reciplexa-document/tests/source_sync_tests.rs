@@ -285,7 +285,14 @@ fn set_text_with_provenance_escapes_quotes() {
     .unwrap();
     match outcome {
         SourceSyncOutcome::SourceUpdated { new_source, .. } => {
-            assert!(new_source.contains(r#""say \"hi\""#));
+            assert!(
+                new_source.contains("say \"hi\""),
+                "expected quoted content preserved, got {new_source}"
+            );
+            assert!(
+                new_source.contains("\"\"\""),
+                "expected multi-quote delimiter, got {new_source}"
+            );
         }
         other => panic!("expected SourceUpdated, got {other:?}"),
     }
@@ -351,7 +358,11 @@ fn set_text_escapes_backslash_and_rejects_broken_span() {
     .unwrap();
     match outcome {
         SourceSyncOutcome::SourceUpdated { new_source, .. } => {
-            assert!(new_source.contains(r#""a\\b""#));
+            // SYN §8.1: backslash is a normal character inside short strings.
+            assert!(
+                new_source.contains(r#""a\b""#),
+                "got {new_source}"
+            );
         }
         other => panic!("expected SourceUpdated, got {other:?}"),
     }
