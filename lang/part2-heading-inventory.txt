@@ -1,0 +1,1589 @@
+241|1|第II部 RPX言語の基礎仕様
+243|2|共通用語と記号
+263|4|10.1 Effect用語
+272|2|記号一覧
+294|2|言語機能の一覧
+320|4|12.1 依存関係の要約
+338|2|言語機能の詳細仕様
+343|4|13.1 `LEX-001` Lossless lexer/CST
+345|5|概要・目的・状態
+353|5|構文・字句
+379|5|静的・動的意味
+385|5|正常例・拒否例
+402|5|Progress/Preservation・その他
+408|5|実装構造・処理
+417|5|相互作用・テスト
+427|5|未決定
+432|4|13.2 `SYN-001` Code mode・字句・Surface構文・markup reader
+434|5|統合方針
+449|5|0. 結論
+471|5|1. Source fileと文字コード
+473|6|1.1 文字コード
+493|6|1.2 BOM
+508|6|1.3 改行
+524|6|1.4 Source span
+538|6|1.5 Shebang
+558|5|2. 空白とコメント
+560|6|2.1 Code modeの空白
+577|6|2.2 構造化コメント
+609|6|2.3 コメントの入れ子
+636|6|2.4 コメント内部の括弧
+654|6|2.5 採用しないコメント
+670|6|2.6 CSTでの保持
+689|5|3. 識別子
+691|6|3.1 Unicode識別子
+715|6|3.2 Unicode正規化
+733|6|3.3 先頭文字
+756|6|3.4 Kebab-case
+778|6|3.5 Underscore
+801|6|3.6 `?`と`!`
+825|6|3.7 不可視文字
+841|5|4. Package名とmodule path component
+867|5|5. Operator identifier
+900|5|6. Core特殊形式
+936|5|7. 数値リテラル
+938|6|7.1 整数
+969|6|7.2 先頭ゼロ
+990|6|7.3 負数
+1018|6|7.4 数字separator
+1045|6|7.5 `f64`
+1077|6|7.6 非有限値
+1097|5|8. 文字列
+1099|6|8.1 基本方針
+1126|6|8.2 文字列delimiter
+1157|6|8.3 複数行文字列
+1184|6|8.4 特殊文字
+1211|6|8.5 `str`の意味
+1241|5|9. Boolとunit
+1275|5|10. Symbolとkeyword
+1310|5|11. Bytes
+1360|5|12. 単位と色
+1362|6|12.1 単位
+1402|6|12.2 色
+1435|5|13. Source fileの宣言グループ
+1437|6|13.1 Top-level
+1455|6|13.2 型注釈
+1485|6|13.3 `val`
+1511|6|13.4 `rec`
+1548|6|13.5 `local`
+1573|6|13.6 重複binding
+1590|5|14. 関数
+1592|6|14.1 値構文
+1610|6|14.2 関数型
+1649|6|14.3 Fixed arity
+1678|5|15. List、tuple、record
+1680|6|15.1 List
+1706|6|15.2 Tuple
+1734|6|15.3 Record
+1760|6|15.4 Field access
+1770|6|15.5 Updateとextension
+1790|5|16. 型構文
+1792|6|16.1 型適用
+1814|6|16.2 `forall`
+1840|6|16.3 集合論的型
+1871|6|16.4 Dynamic
+1887|6|16.5 Open record
+1924|6|16.6 Effect row
+1952|6|16.7 型alias
+1967|5|17. `markup` reader
+1969|6|17.1 位置づけ
+1986|6|17.2 Coreとpackageの分担
+2017|6|17.3 Markup command
+2061|6|17.4 `[]`
+2089|6|17.5 `()`
+2111|6|17.6 任意のcode埋込み
+2129|6|17.7 糖衣展開
+2176|6|17.8 `@at()`
+2204|6|17.9 丸括弧
+2226|6|17.10 改行と空白
+2253|6|17.11 Markupの型
+2274|5|18. 構文エラー回復
+2276|6|18.1 基本原則
+2294|6|18.2 不足した閉じ括弧
+2304|6|18.3 余分な閉じ括弧
+2312|6|18.4 未終了文字列
+2322|6|18.5 未終了コメント
+2330|6|18.6 Markupの`[]`
+2342|6|18.7 Markup body
+2350|6|18.8 不正な`@`
+2371|6|18.9 未知command
+2391|6|18.10 型検査のcascade抑制
+2401|6|18.11 Formatter
+2425|5|19. 適合例
+2477|5|20. 不適合例
+2479|6|不要な先頭ゼロ
+2485|6|大文字開始識別子
+2491|6|Underscoreを含む識別子
+2497|6|重複field
+2505|6|1要素tuple
+2511|6|自動部分適用
+2520|6|Markup引数内の複数式
+2526|6|文字としての`@`に`@@`を使用
+2540|5|21. 本項目で意図的に確定しない事項
+2569|5|22. 状態
+2608|4|13.2.1 `RES-001` 名前解決とnamespace
+2610|5|概要・状態
+2646|4|13.2.3 `DAT-001` 代数的データ型・constructor・pattern・match
+2648|5|DD-001 決定概要
+2650|6|DD-001.1 状態
+2668|6|DD-001.2 中心的な決定
+2685|6|DD-001.3 宣言名
+2712|5|0. 適用範囲
+2714|6|0.1 本項目が定めるもの
+2737|6|0.2 本項目が定めないもの
+2759|5|1. `data`宣言
+2761|6|1.1 Parameterを持たないdata型
+2773|6|1.2 Parameterを持つdata型
+2800|6|1.3 Parameterなしの場合
+2824|6|1.4 Constructor payload
+2847|5|2. `data`宣言が生成するbinding
+2849|6|2.1 親type constructor
+2876|6|2.2 Value constructor
+2897|6|2.3 Constructor固有型
+2916|6|2.4 Sealed constructor集合
+2930|6|2.5 Runtime reflection
+2946|5|3. 名前とnamespace
+2948|6|3.1 型namespaceと値namespace
+2966|6|3.2 型名とconstructor名の同名禁止
+2988|6|3.3 Constructor名の重複
+3000|6|3.4 Constructor identity
+3013|5|4. Nullary constructor
+3015|6|4.1 宣言
+3026|6|4.2 値
+3042|6|4.3 関数ではない
+3055|5|5. Payload constructor
+3057|6|5.1 値構築
+3065|6|5.2 Constructorの高階利用
+3079|6|5.3 Arity
+3106|5|6. Constructor固有型
+3108|6|6.1 精密な結果型
+3128|6|6.2 Subtyping
+3137|6|6.3 親型とのsealed union関係
+3149|6|6.4 表示上の単純化
+3166|5|7. 型parameter推論
+3168|6|7.1 Payloadからの推論
+3182|6|7.2 期待型からの推論
+3200|6|7.3 一部未確定のparameter
+3222|6|7.4 Value restriction
+3251|6|7.5 値位置の明示型argument
+3259|5|8. Variance
+3261|6|8.1 自動推論
+3265|6|8.2 共変
+3283|6|8.3 反変
+3295|6|8.4 不変
+3308|6|8.5 Phantom parameter
+3323|5|9. 再帰data型
+3325|6|9.1 自己再帰
+3341|6|9.2 Strict positivity
+3365|6|9.3 関数戻り値位置
+3382|5|10. 相互再帰data型
+3384|6|10.1 `rec` group
+3399|6|10.2 Group内の可視性
+3403|6|10.3 宣言kindの混在禁止
+3435|6|10.4 Group全体のpositivity
+3441|5|11. Data値の実行意味
+3443|6|11.1 不変性
+3449|6|11.2 Strict評価
+3469|6|11.3 Effect
+3475|6|11.4 途中失敗
+3481|5|12. 非循環性とsharing
+3483|6|12.1 Cyclic data値
+3497|6|12.2 Structural sharing
+3509|6|12.3 Sharingの非観測性
+3515|6|12.4 無限構造
+3530|5|13. Patternの適用場所
+3532|6|13.1 v1の制限
+3558|6|13.2 Binder
+3569|6|13.3 Wildcard
+3577|6|13.4 Duplicate binder
+3592|5|14. `match`構文
+3594|6|14.1 基本構文
+3605|6|14.2 Payload constructor
+3616|6|14.3 複数payload
+3630|6|14.4 `->`
+3636|6|14.5 Case body
+3651|5|15. Patternの種類
+3653|6|15.1 Nullary constructor pattern
+3662|6|15.2 Payload constructor pattern
+3671|6|15.3 Wildcard pattern
+3678|6|15.4 Catch-all binder
+3689|6|15.5 Literal pattern
+3716|5|16. Nested pattern
+3718|6|16.1 Nested payload constructor
+3732|6|16.2 Nested tuple
+3743|6|16.3 Nested nullary constructor
+3765|5|17. Tuple pattern
+3767|6|17.1 基本形
+3775|6|17.2 Arity
+3779|6|17.3 Binding型
+3800|6|17.4 Refutability
+3806|5|18. Record pattern
+3808|6|18.1 基本形
+3819|6|18.2 Partial decomposition
+3832|6|18.3 Closed pattern
+3836|6|18.4 Required fieldのみ
+3842|6|18.5 Optional field
+3855|6|18.6 Unknown row field
+3863|5|19. Pattern typing
+3865|6|19.1 三つの結果
+3880|6|19.2 Constructor pattern
+3907|6|19.3 Literal pattern
+3931|6|19.4 Wildcard
+3944|6|19.5 Disjoint pattern
+3954|5|20. `match`の型・effect・評価
+3956|6|20.1 対象式
+3960|6|20.2 Case順序
+3964|6|20.3 結果型
+3985|6|20.4 `never`
+3993|6|20.5 Effect
+4007|5|21. 網羅性・公開・適合試験
+4009|6|21.1 網羅性
+4035|6|21.2 非網羅match
+4054|6|21.3 到達不能case
+4067|6|21.4 空match
+4071|6|21.5 Sealed data
+4079|6|21.6 Transparent export
+4085|6|21.7 Abstract export
+4091|6|21.8 一部constructor公開
+4095|6|21.9 適合試験 ADT-01
+4122|6|21.10 適合試験 ADT-02
+4141|6|21.11 適合試験 ADT-03
+4159|6|21.12 適合試験 ADT-04
+4177|6|21.13 適合試験 ADT-05
+4194|6|21.14 不適合試験 ADT-06
+4209|6|21.15 適合試験 ADT-07
+4224|6|21.16 不適合試験 ADT-08
+4244|6|21.17 適合試験 ADT-09
+4269|6|21.18 不適合試験 ADT-10
+4291|5|22. 移管先OPEN・下位項目・状態
+4293|6|22.1 `OPEN-SYN-002`への追補
+4303|6|22.2 `OPEN-MOD-001`
+4317|6|22.3 `OPEN-SEM-001`
+4328|6|22.4 `OPEN-DERIVE-001`
+4341|6|22.5 `OPEN-GADT-001`
+4355|6|22.6 `OPEN-DYNAMIC-001`
+4369|6|22.7 `OPEN-LAZY-001`
+4381|6|22.8 `OPEN-GRAPH-001`
+4395|6|22.9 下位項目
+4435|6|22.10 最終状態
+4456|4|13.3 `EVAL-001` Strict lexical Core evaluator
+4460|5|状態
+4472|5|`DD-EVAL-001`: 評価戦略と評価順序
+4497|5|`DD-EVAL-002`: 最小Coreの項
+4545|5|`DD-EVAL-003`: `let`
+4592|5|`DD-EVAL-004`: 複数式bodyと`seq`
+4634|5|`DD-EVAL-005`: `if`
+4670|5|`DD-TYP-IF-001`: 条件分岐による型の絞り込み
+4706|5|値
+4744|5|Closureとlexical scope
+4764|5|関数適用
+4788|5|評価文脈
+4817|5|最小Coreの終端状態
+4839|5|未決定事項の移管
+4867|5|適合試験
+4869|6|lexical closure
+4884|6|sequential `let`
+4898|6|duplicate binder
+4912|6|application order
+4927|6|sequence result
+4949|6|selected branch only
+4969|6|strict Bool condition
+4983|6|union result
+4997|6|occurrence typing
+5016|5|解決後の最小Core
+5034|4|13.4 `BND-001` `val`、`var`、`let`、`letrec`、`fn`
+5038|5|状態
+5071|5|`DD-BND-001`: 通常の不変束縛
+5130|5|`DD-BND-002`: sequentialなSurface `let`
+5165|5|`DD-BND-003`: `(type ...)`による型注釈
+5230|5|`DD-BND-004`: 型注釈のscopeと対応関係
+5302|5|`DD-BND-005`: 型注釈は検査される
+5348|5|`DD-BND-006`: `letrec`の対象
+5400|5|`DD-BND-007`: `letrec`内の型注釈
+5478|5|`DD-BND-008`: `letrec`の実行意味
+5509|5|`DD-BND-009`: 相互再帰
+5546|5|`DD-BND-010`: 再帰関数の型推論
+5597|5|`DD-BND-011`: 多相再帰の禁止
+5619|5|`DD-BND-012`: `var`の基本意味
+5656|5|`DD-BND-013`: `var`の型注釈
+5696|5|`DD-BND-014`: `var`の格納型は固定
+5740|5|`DD-BND-015`: `var`の読出し
+5771|5|`DD-BND-016`: `set`
+5810|5|`DD-BND-017`: closureによる`var`のcapture
+5834|5|`DD-BND-018`: local state identity
+5866|5|`DD-BND-019`: local state escapeの禁止
+5907|5|`DD-BND-020`: non-escaping callback
+5936|5|`DD-BND-021`: local state effectの除去
+5974|5|`DD-BND-022`: one-shot resumptionと局所state
+6003|5|`DD-BND-023`: escape可能な状態との分離
+6035|5|`DD-BND-024`: 型一般化point
+6064|5|`DD-BND-025`: 構文的value restriction
+6108|5|`DD-BND-026`: effectful function valueの一般化
+6145|5|`DD-BND-027`: capability captureによる一般化禁止
+6176|5|`DD-BND-028`: 明示的`forall`注釈
+6223|5|`DD-BND-029`: 一般化される変数
+6251|5|`DD-BND-030`: 一般化されないmetavariable
+6267|5|`DD-BND-031`: `letrec`とvalue restriction
+6292|5|`DD-BND-032`: relaxed value restrictionの保留
+6306|5|Coreおよびdeclaration elaboration
+6352|5|適合試験
+6354|6|top-level型注釈
+6369|6|関数型注釈
+6386|6|注釈不一致
+6400|6|対応bindingのない型注釈
+6413|6|自己再帰の型注釈
+6434|6|相互再帰の型注釈
+6464|6|一部だけ注釈
+6492|6|任意式の再帰拒否
+6508|6|明示的多相型
+6528|6|注釈によるvalue restriction回避の拒否
+6546|6|local `var`
+6561|6|`set`の戻り値
+6574|6|格納型の固定
+6589|6|明示union格納型
+6609|6|closure capture
+6628|6|closure escape
+6646|6|effectful関数値の一般化
+6669|5|関連する後続設計課題
+6671|6|`OPEN-SYN-002`
+6682|6|`OPEN-TYP-002`
+6693|6|`OPEN-MEM-001`
+6703|6|`OPEN-MOD-001`
+6711|6|将来拡張
+6724|5|確立された基本原則
+6790|4|13.5 `MAC-001` 最小式マクロ・展開・衛生性
+6791|5|DD-001 決定概要
+6792|6|DD-001.1 状態
+6808|6|DD-001.2 設計原則
+6821|6|DD-001.3 中心的な決定
+6838|5|0. 適用範囲
+6839|6|0.1 本項目が定めるもの
+6858|6|0.2 本項目が定めないもの
+6877|5|1. マクロと通常関数
+6878|6|1.1 通常関数の優先
+6900|6|1.2 マクロが適する場合
+6926|5|2. マクロの基本構文
+6927|6|2.1 宣言形式
+6933|6|2.2 固定arityの例
+6954|6|2.3 可変長本文の例
+6978|6|2.4 ->
+6991|5|3. 式マクロ
+6992|6|3.1 使用可能な位置
+7009|6|3.2 展開結果
+7022|6|3.3 宣言位置
+7032|6|3.4 型位置
+7039|6|3.5 Pattern位置
+7047|6|3.6 Interfaceおよびmanifest
+7059|5|4. マクロpattern変数
+7060|6|4.1 基本表記
+7070|6|4.2 通常identifierとの区別
+7082|6|4.3 受け取るもの
+7103|6|4.4 Pattern変数の重複
+7120|6|4.5 Template内での再利用
+7134|5|5. 固定arity
+7135|6|5.1 基本方針
+7144|6|5.2 引数不足
+7152|6|5.3 引数過剰
+7162|6|5.4 通常関数との整合
+7168|5|6. 末尾反復
+7169|6|6.1 一個以上の入力
+7175|6|6.2 Templateでの展開
+7181|6|6.3 使用例
+7206|6|6.4 反復位置
+7219|6|6.5 反復数
+7223|6|6.6 0個以上の反復
+7229|5|7. Template
+7230|6|7.1 Template変数
+7247|6|7.2 通常identifier
+7258|6|7.3 Templateの構文妥当性
+7264|6|7.4 評価回数
+7276|5|8. Scope
+7277|6|8.1 コンパイル単位内限定
+7285|6|8.2 宣言順序
+7312|6|8.3 下位モジュール
+7327|6|8.4 子scopeから親scope
+7333|5|9. マクロ名と呼出し
+7334|6|9.1 呼出し構文
+7341|6|9.2 判別
+7347|6|9.3 名前衝突
+7356|6|9.4 名前変更
+7362|5|10. 展開段階
+7363|6|10.1 処理順序
+7367|5|1. Sourceをreaderで読む
+7368|5|2. Lossless CSTを構築する
+7369|5|3. 逐次scopeに従ってマクロ定義を認識する
+7370|5|4. 式マクロを展開する
+7371|5|5. 通常の名前解決を行う
+7372|5|6. 型検査する
+7373|5|7. IRへ変換する
+7374|5|8. 実行可能artifactを生成する
+7376|6|10.2 型検査前展開
+7382|6|10.3 型情報
+7392|6|10.4 Typed macro
+7396|5|11. 展開順序
+7397|6|11.1 Source order
+7401|6|11.2 外側からの展開
+7407|6|11.3 決定性
+7413|6|11.4 展開後の再検査
+7419|5|12. 再帰マクロ
+7420|6|12.1 自己再帰
+7431|6|12.2 相互再帰
+7441|6|12.3 先行マクロの利用
+7456|6|12.4 参照graph
+7464|5|13. 衛生性
+7465|6|13.1 定義
+7474|6|13.2 基本保証
+7480|6|13.3 Fresh identity
+7486|6|13.4 入力構文の再挿入
+7492|5|14. 衛生性の例
+7493|6|14.1 マクロ定義
+7503|6|14.2 利用
+7510|6|14.3 概念的なidentity
+7532|5|15. 意図的capture
+7533|6|15.1 v1の方針
+7543|6|15.2 Binder名の明示
+7555|6|15.3 理由
+7561|5|16. 純粋性
+7562|6|16.1 展開入力
+7571|6|16.2 禁止される外部入力
+7586|6|16.3 通常値
+7592|6|16.4 再現性
+7596|5|17. 展開予算
+7597|6|17.1 基本原則
+7603|6|17.2 監視対象
+7611|6|17.3 具体値
+7617|6|17.4 上限超過
+7631|6|17.5 Sourceからの無制限化
+7637|5|18. エラー診断
+7638|6|18.1 Pattern不一致
+7644|6|18.2 引数数
+7654|6|18.3 ...+
+7660|6|18.4 未束縛pattern変数
+7664|6|18.5 不正な展開結果
+7668|6|18.6 型エラー
+7672|5|19. Provenance
+7673|6|19.1 保持する情報
+7683|6|19.2 診断例
+7692|6|19.3 Source map
+7696|6|19.4 正式identity
+7702|5|20. マクロの外部公開
+7703|6|20.1 v1の制限
+7712|6|20.2 標準構文
+7720|6|20.3 将来拡張
+7724|5|21. 適合試験
+7725|6|21.1 適合試験 MAC-01：固定arity
+7747|6|21.2 不適合試験 MAC-02：引数不足
+7756|6|21.3 不適合試験 MAC-03：引数過剰
+7767|6|21.4 適合試験 MAC-04：末尾反復
+7791|6|21.5 不適合試験 MAC-05：空の...+
+7800|6|21.6 不適合試験 MAC-06：反復が末尾以外
+7812|6|21.7 不適合試験 MAC-07：重複pattern変数
+7825|6|21.8 不適合試験 MAC-08：未束縛template変数
+7838|6|21.9 適合試験 MAC-09：衛生的binder
+7862|6|21.10 不適合試験 MAC-10：定義前使用
+7879|6|21.11 不適合試験 MAC-11：自己再帰
+7891|6|21.12 不適合試験 MAC-12：宣言位置
+7900|6|21.13 不適合試験 MAC-13：Interface
+7912|6|21.14 不適合試験 MAC-14：展開上限
+7919|5|22. 移管先OPEN・下位項目・状態
+7920|6|22.1 `OPEN-MAC-EXT-001`
+7933|6|22.2 `OPEN-MAC-PKG-001`
+7944|6|22.3 `OPEN-MAC-PROC-001`
+7954|6|22.4 `OPEN-MAC-TYPED-001`
+7963|6|22.5 `OPEN-MAC-CAP-001`
+7971|6|22.6 `OPEN-EDT-001`
+7980|6|22.7 下位項目
+8016|6|22.8 最終状態
+8036|4|13.6 `TYP-001` Gradual set-theoretic types
+8038|5|概要・状態
+8045|5|13.6.1 `TYP-DYN-001` Bounded dynamic、cast evidence、dynamic failure
+8049|6|状態
+8086|6|`DD-TYP-DYN-001`: static型とgradual型の分離
+8154|6|`DD-TYP-DYN-002`: `dynamic S`の意味
+8199|6|`DD-TYP-DYN-003`: static top型`any`
+8275|6|`DD-TYP-DYN-004`: `never`およびdynamicの正規形
+8323|6|`DD-TYP-DYN-005`: dynamic値をstatic型として使用する三段階判定
+8333|6|1. 上限全体が要求型へ含まれる場合
+8354|6|2. 上限と要求型が互いに素である場合
+8376|6|3. 一部だけ重なる場合
+8409|6|`DD-TYP-DYN-006`: cast成功後の型
+8455|6|`DD-TYP-DYN-007`: occurrence typingとの関係
+8513|6|`DD-TYP-DYN-008`: static値からdynamic値への導入
+8564|6|`DD-TYP-DYN-009`: dynamic上限のwidening
+8609|6|`DD-TYP-DYN-010`: foreign値のdynamic導入
+8660|6|`DD-TYP-DYN-011`: decoderとgradual foreign boundaryの分離
+8667|6|Static decoder
+8676|6|Gradual foreign boundary
+8690|6|`DD-TYP-DYN-012`: runtime-checkableな型
+8742|6|`DD-TYP-DYN-013`: implicit cast failure
+8785|6|`DD-TYP-DYN-014`: 明示的safe cast
+8824|6|`DD-TYP-DYN-015`: cast evidence
+8854|6|`Identity`
+8858|6|`Widen`
+8862|6|`TagCheck`
+8866|6|`UnionCheck`
+8870|6|`IntersectionCheck`
+8874|6|`RecordCheck`
+8878|6|`VariantCheck`
+8882|6|`FunctionGuard`
+8886|6|`NominalCheck`
+8890|6|`Compose`
+8907|6|`DD-TYP-DYN-016`: cast evidenceの純粋性
+8936|6|`DD-TYP-DYN-017`: evidence compositionと最適化
+8992|6|`DD-TYP-DYN-018`: cast provenance
+9027|6|`DD-TYP-DYN-019`: recordおよびvariant cast
+9054|6|`DD-TYP-DYN-020`: opaque abstract typeのcast
+9089|6|`DD-TYP-DYN-021`: fixed-arity function cast
+9128|6|`DD-TYP-DYN-022`: function引数の反変cast
+9169|6|`DD-TYP-DYN-023`: function結果の共変cast
+9205|6|`DD-TYP-DYN-024`: function arityの制限
+9235|6|`DD-TYP-DYN-025`: effectful function cast
+9301|6|`DD-TYP-DYN-026`: dynamic境界を通れない制御値
+9339|6|`DD-TYP-DYN-027`: polymorphismとdynamic境界
+9394|6|`DD-TYP-DYN-028`: gradual guarantee
+9412|6|Static gradual guarantee
+9426|6|Dynamic gradual guarantee
+9474|6|`DD-TYP-NUM-001`: RPX v1の基本数値型
+9485|6|`int`
+9494|6|`f64`
+9503|6|`number`
+9537|6|`DD-TYP-NUM-002`: 数値promotion
+9586|6|`DD-TYP-NUM-003`: dynamic castとnumeric promotionの順序
+9644|6|`DD-NAME-001`: 組込み型名と識別子の小文字規約
+9734|6|`DD-NAME-002`: namespace間の同綴り衝突
+9772|6|dynamic typingのCore構文
+9812|6|dynamic typingの終端状態
+9840|6|適合試験
+9842|6|static injection
+9861|6|invalid static injection
+9874|6|dynamic widening
+9889|6|safe static use
+9904|6|partial overlap
+9930|6|disjoint use
+9944|6|cast precision
+9958|6|`any`と`dynamic any`
+9988|6|foreign ingress
+10007|6|implicit cast failure
+10030|6|explicit safe cast
+10044|6|fixed-arity function cast
+10067|6|function result cast
+10083|6|effect-compatible function cast
+10099|6|effect-incompatible function cast
+10115|6|polymorphic value boundary
+10147|6|dynamicからforall
+10160|6|numeric promotion
+10176|6|namespace collision warning
+10197|6|関連する後続設計課題
+10201|6|`OPEN-TYP-002`
+10210|6|`OPEN-SYN-002`／`LIT-001`
+10225|6|`OPEN-ERR-001`
+10233|6|`OPEN-MOD-001`
+10240|6|`OPEN-KER-001`
+10248|6|将来拡張
+10262|6|確立された基本原則
+10340|5|13.6.2 `TYP-ALG-001` Algorithmic型検査、semantic subtypingの判定範囲、型推論
+10388|6|`DD-TYP-ALG-001`: 宣言的型関係とalgorithmic判定の分離
+10432|6|`DD-TYP-ALG-002`: algorithmic判定の三値結果
+10444|6|`proved`
+10453|6|`disproved`
+10464|6|`unknown`
+10489|6|`DD-TYP-ALG-003`: 診断分類
+10503|6|`type-error`
+10520|6|`annotation-required`
+10537|6|`checker-limitation`
+10556|6|`checker-resource-limit`
+10562|6|`unsupported-language-feature`
+10573|6|`DD-TYP-ALG-004`: soundness、completeness、terminationの優先順位
+10610|6|`DD-TYP-ALG-005`: principal type
+10639|6|`DD-TYP-ALG-006`: 決定的なsolver budget
+10672|3|Effectに関するalgorithmic用語
+10674|6|`DD-TYP-EFF-001`: effect関連用語
+10690|6|`effect-signature-environment`
+10696|6|`effect-environment`
+10707|6|`expression-effects`
+10721|6|`function-required-effects`
+10733|6|`handled-effects`
+10737|6|`residual-effects`
+10741|6|`effect-row`
+10757|6|`DD-TYP-EFF-002`: 最小required effects
+10798|6|`DD-TYP-EFF-003`: 関数値とrequired effects
+10823|6|`DD-TYP-EFF-004`: effect-row polymorphism
+10853|6|`DD-TYP-EFF-005`: handlerとrunnerによるeffect縮小
+10878|6|`DD-TYP-EFF-006`: EffectRow alias
+10915|6|`DD-TYP-EFF-007`: 注釈されたrequired effects
+10941|3|Static型のBoolean代数
+10943|6|`DD-TYP-BOOL-001`: 型のBoolean演算
+10990|6|`DD-TYP-BOOL-002`: Surface negationの制限
+11031|3|Singleton型
+11033|6|`DD-TYP-SINGLETON-001`: singleton型
+11096|3|Function型
+11098|6|`DD-TYP-FN-001`: fixed-arity function
+11126|6|`DD-TYP-FN-002`: fixed-arity function subtyping
+11201|6|`DD-TYP-FN-003`: function intersection
+11227|6|`DD-TYP-FN-004`: function intersectionの適用可能性
+11277|6|`DD-TYP-FN-005`: branch specificity
+11333|6|`DD-TYP-FN-006`: function intersectionのcoherence
+11339|6|入力領域が互いに素
+11347|6|片方が他方を包含
+11351|6|入力領域が等価
+11357|6|入力領域が重なるが非比較
+11373|6|`DD-TYP-FN-007`: union引数とdispatch
+11396|3|RecordRow
+11398|6|`DD-TYP-ROW-001`: closed、open、row-polymorphic record
+11404|6|Closed record
+11412|6|Open record
+11420|6|Row-polymorphic record
+11434|6|`DD-TYP-ROW-002`: closed recordの正確なshape
+11458|6|`DD-TYP-ROW-003`: immutable field covariance
+11478|6|`DD-TYP-ROW-004`: RecordRow変数とlacks制約
+11501|6|`DD-TYP-ROW-005`: field extensionとupdate
+11507|6|Extension
+11516|6|Update
+11531|6|`DD-TYP-ROW-006`: row-preserving update
+11551|6|`DD-TYP-ROW-007`: optional field
+11591|6|`DD-TYP-ROW-008`: recordのBoolean演算
+11626|3|Recursive data type
+11628|6|`DD-TYP-REC-001`: recursive data type
+11644|6|`DD-TYP-REC-002`: equi-recursiveな利用者意味論
+11664|6|`DD-TYP-REC-003`: contractiveness
+11699|6|`DD-TYP-REC-004`: strict positivity
+11727|6|`DD-TYP-REC-005`: regularity
+11758|6|`DD-TYP-REC-006`: base constructor
+11786|6|`DD-TYP-REC-007`: recursive dataの完全判定範囲
+11809|3|Bidirectional type checking
+11811|6|`DD-TYP-BIDI-001`: bidirectional typing
+11819|6|Synthesis
+11827|6|Checking
+11839|6|`DD-TYP-BIDI-002`: 型注釈付きbinding
+11862|6|`DD-TYP-BIDI-003`: 無注釈binding
+11885|6|`DD-TYP-BIDI-004`: synthesis可能な式
+11907|6|`DD-TYP-BIDI-005`: checkingを優先する式
+11928|6|`DD-TYP-BIDI-006`: `if`と`match`
+11952|6|`DD-TYP-BIDI-007`: subtyping、promotion、dynamic cast
+11982|6|`DD-TYP-BIDI-008`: annotation-requiredとchecker-limitation
+12003|3|明示的多相型
+12005|6|`DD-TYP-POLY-001`: 明示的`forall`
+12046|6|`DD-TYP-POLY-002`: `forall` binderのkind
+12077|6|`DD-TYP-POLY-003`: `forall`のscope
+12100|6|`DD-TYP-POLY-004`: rank-1／prenex制限
+12136|3|完全性分類
+12138|6|`DD-TYP-FRAG-001`: A — 完全判定fragment
+12180|6|`DD-TYP-FRAG-002`: B — `unknown`を返し得るfragment
+12208|6|`DD-TYP-FRAG-003`: C — 注釈を要求し得るfragment
+12231|6|`DD-TYP-FRAG-004`: D — RPX v1で禁止するfragment
+12266|3|共通constraint worklist
+12268|6|`DD-TYP-SOLVER-001`: shared constraint worklist
+12303|6|`DD-TYP-SOLVER-002`: solver間のconstraint生成
+12382|6|`DD-TYP-SOLVER-003`: constraint処理の優先度
+12409|6|`DD-TYP-SOLVER-004`: canonicalizationとmemoization
+12436|6|`DD-TYP-SOLVER-005`: solver終了状態
+12442|6|成功
+12454|6|Type error
+12458|6|Annotation required
+12462|6|Checker limitation
+12466|6|Resource limit
+12472|6|`DD-TYP-SOLVER-006`: cast insertionとgeneralizationの順序
+12494|3|型検査器の概念pipeline
+12496|6|`DD-TYP-SOLVER-007`: checkerの全体処理順序
+12542|3|適合試験
+12544|6|三値判定
+12574|6|診断分類
+12615|6|最小required effects
+12634|6|関数値のeffect
+12656|6|EffectRow polymorphism
+12680|6|Handlerによるeffect縮小
+12696|6|Singleton型
+12722|6|Function subtyping
+12744|6|Function intersection coherence
+12770|6|非比較なbranch overlap
+12786|6|Union引数の暗黙dispatch禁止
+12810|6|Closed record
+12840|6|Row preservation
+12871|6|Optional field
+12893|6|Recursive data
+12916|6|非contractive再帰
+12930|6|Non-regular recursion
+12948|6|Bidirectional checking
+12979|6|Explicit `forall`
+13007|6|Kind error
+13022|6|Solver determinism
+13037|3|関連する後続設計課題
+13039|6|`OPEN-SYN-002`
+13053|6|`OPEN-DAT-001`
+13063|6|`OPEN-EFF-001`の後続仕様
+13071|6|`OPEN-MOD-001`
+13079|6|`OPEN-ERR-001`
+13087|6|将来拡張
+13104|3|確立された基本原則
+13203|4|13.7 `ROW-001` Row-polymorphic records
+13205|5|概要・状態
+13226|4|13.8 `EFF-001` Algebraic effects and handlers
+13230|5|状態
+13262|5|`DD-EFF-001`: deep handler
+13295|5|`DD-EFF-002`: one-shot resumption
+13351|5|`DD-EFF-003`: resumptionの型とscope
+13426|5|`DD-EFF-004`: effect operationの呼出し
+13459|5|`DD-EFF-005`: nearest matching handlerと自動伝播
+13489|5|`DD-EFF-006`: 明示的forward
+13539|5|`DD-EFF-007`: handler clauseの実行scope
+13579|5|`DD-EFF-008`: return clause
+13634|5|`DD-EFF-009`: handler単位の結果型変換
+13681|5|`DD-EFF-010`: handler valueのrank-1多相性
+13725|5|`DD-EFF-011`: first-class handler value
+13781|5|`DD-EFF-012`: Core `handle`とSurface `with`
+13845|5|`DD-EFF-013`: ambient effectとnamed/scoped effect instance
+13854|6|Ambient effect
+13875|6|Named/scoped effect instance
+13931|5|`DD-EFF-014`: EffectRowの意味
+14013|5|`DD-EFF-015`: ambient effect rowと制約生成
+14109|5|`DD-EFF-016`: handlerの型付け骨格
+14189|5|`DD-EFF-017`: 利用者向けmaskの禁止
+14232|5|`DD-EFF-018`: residual effectと実行境界
+14291|5|`DD-EFF-019`: 未処理effectの動的分類
+14371|5|`DD-EFF-020`: cleanupとの接続要件
+14412|4|13.9 `MOD-001` モジュール・シグネチャ・Functor・分割コンパイル
+14413|5|DD-001 決定概要
+14414|6|DD-001.1 状態
+14434|6|DD-001.2 中心的な決定
+14452|5|0. 適用範囲
+14453|6|0.1 本項目が定めるもの
+14477|6|0.2 本項目が直接定めないもの
+14495|5|1. コンパイル単位
+14496|6|1.1 基本単位
+14507|6|1.2 外側モジュールのwrapper
+14519|6|1.3 一ファイル内の外側モジュール数
+14531|6|1.4 一ファイル一モジュールとの違い
+14542|5|2. モジュールpathとファイルpath
+14543|6|2.1 Source root
+14549|6|2.2 Module path
+14560|6|2.3 Interface path
+14573|6|2.4 Path変更
+14585|5|3. 下位モジュール
+14586|6|3.1 基本構文
+14603|6|3.2 下位モジュールのpath
+14609|6|3.3 下位モジュールの外部ファイル化
+14620|6|3.4 Module body
+14636|5|4. 下位モジュールのscopeと純粋性
+14637|6|4.1 Importの位置
+14655|6|4.2 親scopeの参照
+14667|6|4.3 後方参照
+14679|6|4.4 新しいscope
+14685|6|4.5 Top-level effect
+14698|6|4.6 モジュールは通常値ではない
+14707|5|5. 修飾参照
+14708|6|5.1 区切り記号
+14718|6|5.2 除算との区別
+14727|6|5.3 内部表現
+14737|6|5.4 .
+14743|5|6. Import
+14744|6|6.1 通常import
+14755|6|6.2 モジュール別名
+14766|6|6.3 選択的インポート
+14776|6|6.4 個別項目の改名
+14787|6|6.5 asとonlyの併用
+14803|6|6.6 Import item
+14811|6|6.7 自動再公開
+14821|5|7. Importと正式identity
+14822|6|7.1 Aliasの効果
+14832|6|7.2 選択的import
+14843|6|7.3 Source spelling
+14853|6|7.4 同じidentityの重複import
+14859|5|8. .rpiインターフェース
+14860|6|8.1 役割
+14870|6|8.2 Wrapper
+14879|6|8.3 .rpi内のimport
+14891|6|8.4 Public module
+14897|6|8.5 Internal module
+14903|6|8.6 Script／実行entry
+14907|5|9. 推論シグネチャと抽象化境界
+14908|6|9.1 .rpiなしの内部モジュール
+14912|6|9.2 .rpiありのモジュール
+14918|6|9.3 Interface追加
+14924|5|10. .rpiの値仕様
+14925|6|10.1 type
+14938|6|10.2 実装
+14946|6|10.3 型注釈の省略
+14952|6|10.4 実装側にも型がある場合
+14958|5|11. 型の公開方法
+14959|6|11.1 抽象型仕様
+14977|6|11.2 Parameter付き抽象型
+14986|6|11.3 Constructor公開data仕様
+14998|6|11.4 実装との一致
+15011|6|11.5 type-alias
+15025|5|12. 名前付きシグネチャ
+15026|6|12.1 基本構文
+15033|6|12.2 日本語上の意味
+15042|6|12.3 .rpiとの違い
+15049|6|12.4 Signature identity
+15055|5|13. シグネチャ指定
+15056|6|13.1 基本構文
+15069|6|13.2 適合判定
+15075|6|13.3 追加構成要素
+15081|6|13.4 抽象型identity
+15089|6|13.5 実装内部のalias
+15103|5|14. 下位モジュール仕様
+15104|6|14.1 名前付きシグネチャ
+15119|6|14.2 インラインシグネチャ
+15128|6|14.3 下位モジュール型の参照
+15134|6|14.4 抽象型の独立性
+15142|6|14.5 非公開型の漏出
+15151|5|15. シグネチャの精緻化と型共有
+15152|6|15.1 基本構文
+15156|6|15.2 抽象型の具体化
+15163|6|15.3 別モジュールとの型共有
+15174|6|15.4 日本語用語
+15185|6|15.5 許可される精緻化
+15189|6|15.6 禁止される変更
+15198|6|15.7 Parameter付き型constructor
+15205|6|15.8 下位モジュール内の型
+15212|5|16. Functor
+15213|6|16.1 概念
+15223|6|16.2 基本構文
+15233|6|16.3 Parameter
+15243|6|16.4 結果シグネチャ
+15249|6|16.5 Fixed arity
+15255|6|16.6 通常値ではない
+15261|5|17. Functor適用
+15262|6|17.1 基本構文
+15269|6|17.2 複数引数
+15276|6|17.3 名前付きモジュールのみ
+15282|6|17.4 適用結果の再利用
+15294|5|18. 適用的Functor
+15295|6|18.1 基本規則
+15305|6|18.2 同一入力
+15319|6|18.3 異なる入力
+15333|6|18.4 Aliasの影響
+15339|6|18.5 生成的Functor
+15343|5|19. 再公開とシグネチャ合成
+15344|6|19.1 module-alias
+15353|6|19.2 re-export
+15362|6|19.3 Identity
+15368|6|19.4 Dataの原子性
+15379|6|19.5 include
+15388|6|19.6 衝突
+15394|6|19.7 実装moduleのinclude
+15400|5|20. 正式identity
+15401|6|20.1 PackageInstanceId
+15415|6|20.2 ModuleId
+15421|6|20.3 DefinitionId
+15435|6|20.4 BindingId
+15441|6|20.5 TypeId
+15447|6|20.6 ConstructorId
+15458|6|20.7 SignatureId
+15467|6|20.8 FunctorId
+15473|6|20.9 Functor適用結果
+15482|6|20.10 Rename
+15488|6|20.11 Source span
+15492|5|21. 分割コンパイルと適合試験
+15493|6|21.1 Interface metadata
+15513|6|21.2 非公開情報
+15523|6|21.3 InterfaceHash
+15530|6|21.4 Hashに含めるもの
+15540|6|21.5 Hashに含めないもの
+15548|6|21.6 Documentation hash
+15552|6|21.7 再コンパイル
+15558|6|21.8 ABI hash
+15564|6|21.9 適合試験 MOD-01
+15574|6|21.10 適合試験 MOD-02
+15594|6|21.11 適合試験 MOD-03
+15621|6|21.12 不適合試験 MOD-04
+15650|6|21.13 適合試験 MOD-05
+15677|6|21.14 適合試験 MOD-06
+15689|6|21.15 不適合試験 MOD-07
+15699|6|21.16 適合試験 MOD-08
+15708|6|21.17 不適合試験 MOD-09
+15719|5|22. 移管先OPEN・下位項目・状態
+15720|6|22.1 `OPEN-PKG-001`
+15740|6|22.2 `OPEN-MAC-001`
+15751|6|22.3 `OPEN-KER-001`
+15761|6|22.4 `OPEN-MOD-REC-001`
+15773|6|22.5 `OPEN-MOD-FC-001`
+15783|6|22.6 `OPEN-MOD-GEN-001`
+15792|6|22.7 下位項目
+15831|6|22.8 最終状態
+15855|4|13.10 `PKG-001` パッケージmanifest・依存解決・ワークスペース・リソース
+15856|5|DD-001 決定概要
+15857|6|DD-001.1 状態
+15878|6|DD-001.2 中心的な決定
+15903|5|0. 適用範囲
+15904|6|0.1 本項目が定めるもの
+15934|6|0.2 本項目が直接定めないもの
+15954|5|1. パッケージ
+15955|6|1.1 定義
+15969|6|1.2 モジュールとの違い
+15979|6|1.3 パッケージの種類
+15992|5|2. パッケージmanifest
+15993|6|2.1 ファイル名
+16011|6|2.2 Package root
+16021|6|2.3 制限付きRPX形式
+16036|6|2.4 静的schema
+16052|6|2.5 未知field
+16062|5|3. Manifestの基本構文
+16063|6|3.1 最小形
+16068|6|3.2 明示形
+16077|6|3.3 Fieldの括弧
+16091|6|3.4 Format version
+16106|5|4. パッケージ名
+16107|6|4.1 基本規則
+16129|6|4.2 用途
+16140|6|4.3 表示名
+16149|5|5. パッケージversion
+16150|6|5.1 基本形式
+16159|6|5.2 Version要素
+16165|6|5.3 互換性の一般原則
+16175|6|5.4 Breaking changeの例
+16188|6|5.5 Pre-release
+16199|5|6. Source rootとinterface root
+16200|6|6.1 Source root
+16211|6|6.2 Module path
+16218|6|6.3 Interface root
+16229|6|6.4 Interface対応
+16242|6|6.5 Root数
+16255|6|6.6 Root pathの制限
+16265|5|7. 公開モジュール
+16266|6|7.1 Manifest構文
+16274|6|7.2 .rpi必須
+16287|6|7.3 内部モジュール
+16297|6|7.4 Internal moduleの.rpi
+16307|6|7.5 Inline下位モジュール
+16313|6|7.6 自動公開
+16326|5|8. 実行エントリ
+16327|6|8.1 Manifest構文
+16335|6|8.2 Entry module
+16342|6|8.3 .rpi
+16348|6|8.4 main
+16354|6|8.5 一module一entry
+16360|6|8.6 実行契約
+16366|5|9. Manifestなしscript
+16367|6|9.1 基本形
+16376|6|9.2 必要な値
+16384|6|9.3 単一ファイル制限
+16392|6|9.4 外部dependency
+16398|6|9.5 Public API
+16402|5|10. 依存宣言
+16403|6|10.1 基本構文
+16413|6|10.2 Dependency alias
+16428|6|10.3 正式identity
+16434|6|10.4 正式パッケージ名
+16443|6|10.5 Aliasの重複
+16450|5|11. Version constraint
+16451|6|11.1 完全一致
+16469|6|11.2 範囲指定
+16475|6|11.3 初期演算子集合
+16485|6|11.4 条件の結合
+16494|6|11.5 Pre-release
+16498|5|12. Dependency source
+16499|6|12.1 既定Registry
+16510|6|12.2 Local path
+16519|6|12.3 Local packageの検証
+16525|6|12.4 Supported source
+16533|6|12.5 Git／URL
+16537|6|12.6 Sourceの排他性
+16541|5|13. Development dependency
+16542|6|13.1 構文
+16548|6|13.2 用途
+16559|6|13.3 Public APIへの漏出
+16568|6|13.4 Optional dependency
+16574|5|14. Public dependency
+16575|6|14.1 定義
+16582|6|14.2 自動導出
+16588|6|14.3 用途
+16597|5|15. 依存解決
+16598|6|15.1 Manifestの役割
+16604|6|15.2 初回解決
+16610|6|15.3 Pre-release
+16614|6|15.4 統合
+16618|6|15.5 分割
+16622|6|15.6 決定性
+16628|5|16. 同一パッケージの複数version
+16629|6|16.1 基本方針
+16639|6|16.2 型identity
+16647|6|16.3 直接依存での明示
+16663|6|16.4 単一instance制約
+16667|5|17. Lockfile
+16668|6|17.1 ファイル名
+16674|6|17.2 役割
+16681|6|17.3 通常build
+16687|6|17.4 初回build
+16698|6|17.5 不整合
+16704|6|17.6 更新
+16710|6|17.7 部分更新
+16716|5|18. Lockfileの内容
+16717|6|18.1 Package node
+16730|6|18.2 Registry package
+16736|6|18.3 Local path package
+16742|6|18.4 Version control
+16748|6|18.5 Offline build
+16760|5|19. Package identityとcontent hash
+16761|6|19.1 論理identityと内容identity
+16771|6|19.2 Registry package
+16783|6|19.3 Workspace／local package
+16793|6|19.4 Content hash対象
+16813|5|20. ワークスペース
+16814|6|20.1 定義
+16824|6|20.2 Manifest
+16830|6|20.3 基本構文
+16839|6|20.4 Member
+16843|6|20.5 Member path
+16849|6|20.6 Memberの外部配置
+16855|6|20.7 Package名重複
+16859|6|20.8 Nested workspace
+16865|5|21. Workspace依存・リソース・適合試験
+16866|6|21.1 共通lockfile
+16872|6|21.2 Member単独build
+16876|6|21.3 Workspace member優先
+16884|6|21.4 明示source
+16895|6|21.5 Member version
+16899|6|21.6 Member依存graph
+16905|6|21.7 Workspace外path dependency
+16911|6|21.8 Workspace identity
+16917|6|21.9 Resource root
+16928|6|21.10 Resource一覧
+16945|6|21.11 Resource path
+16959|6|21.12 Symbolic link
+16963|6|21.13 Resource identity
+16973|6|21.14 Resource参照
+16982|6|21.15 Pure／effectfulの区別
+16989|6|21.16 Resourceの外部公開
+16995|6|21.17 Resource hash
+17001|6|21.18 Generated resource
+17005|6|21.19 Test fixture
+17009|6|21.20 適合試験 PKG-01
+17028|6|21.21 不適合試験 PKG-02
+17039|6|21.22 適合試験 PKG-03
+17049|6|21.23 不適合試験 PKG-04
+17059|6|21.24 適合試験 PKG-05
+17069|6|21.25 適合試験 PKG-06
+17082|6|21.26 適合試験 PKG-07
+17094|6|21.27 不適合試験 PKG-08
+17113|6|21.28 適合試験 PKG-09
+17127|6|21.29 不適合試験 PKG-10
+17137|6|21.30 適合試験 PKG-11
+17147|6|21.31 不適合試験 PKG-12
+17157|5|22. 移管先OPEN・下位項目・状態
+17158|6|22.1 `OPEN-BLD-001`
+17171|6|22.2 `OPEN-PKG-FEAT-001`
+17181|6|22.3 `OPEN-REG-001`
+17193|6|22.4 `OPEN-KER-001`
+17204|6|22.5 `OPEN-TST-001`
+17215|6|22.6 `OPEN-ERR-001`
+17224|6|22.7 `OPEN-CON-001`
+17232|6|22.8 下位項目
+17260|5|Compiler-native package実装
+17273|6|22.9 最終状態
+17299|4|13.10.1 `KER-001` Rust kernelとforeign primitive境界
+17301|5|概要・状態
+17326|4|13.10.2 `RSC-001` Resource、I/O、host-handler境界
+17328|5|概要・状態
+17355|4|13.11 `EDT-001` 編集スナップショット・トランザクション・競合・由来情報
+17356|5|DD-001 決定概要
+17357|6|DD-001.1 状態
+17375|6|DD-001.2 位置付け
+17400|5|0. 適用範囲
+17401|6|0.1 本項目が扱う編集
+17412|6|0.2 直接の対象としないもの
+17435|5|1. 編集モデルの基本原則
+17436|6|1.1 不変値と継続的identity
+17460|6|1.2 スナップショット
+17477|6|1.3 現在文書
+17487|5|2. 文書の所有構造
+17488|6|2.1 単一rootの所有tree
+17505|6|2.2 所有と参照の分離
+17524|6|2.3 共有
+17535|6|2.4 規範的な親子情報
+17548|5|3. 文書treeの不変条件
+17552|5|1. RootNodeIdがnode storeに存在する
+17553|5|2. Rootは親を持たない
+17554|5|3. Root以外の全ノードはちょうど一つの親を持つ
+17555|5|4. 所有edgeにcycleがない
+17556|5|5. 同じ親のchildren列内に同一NodeIdが重複しない
+17557|5|6. 全ノードが同じDocumentIdに所属する
+17558|5|7. 全ノードがRootから到達可能である
+17559|5|8. 必須propertyが存在する
+17560|5|9. Property値がNode kindのschemaに適合する
+17561|5|10. 強いNodeId参照が有効な対象を指す
+17563|6|3.1 到達不能ノード
+17578|5|4. 識別子
+17579|6|4.1 識別子の種類
+17601|6|4.2 Opaque型
+17623|6|4.3 DocumentId
+17637|6|4.4 NodeId
+17653|6|4.5 TransactionId
+17665|6|4.6 ID表現
+17671|5|5. 保存・複製・Fork
+17672|6|5.1 通常保存
+17683|6|5.2 Save As
+17693|6|5.3 Duplicate／Fork
+17708|6|5.4 内部参照の複製
+17718|6|5.5 文書間参照
+17724|5|6. Revision
+17725|6|6.1 直線的な履歴
+17738|6|6.2 Commitの直列化
+17753|6|6.3 Revision増加
+17772|6|6.4 保存後のrevision
+17780|5|7. Snapshotの保持
+17781|6|7.1 不変性
+17792|6|7.2 過去版の永久取得
+17798|6|7.3 履歴の種類
+17811|5|8. 編集トランザクション
+17812|6|8.1 概念構造
+17822|6|8.2 不変の第一級値
+17835|6|8.3 原子性
+17848|6|8.4 Operation順序
+17856|5|9. 編集Operation
+17867|6|9.1 CreateNode
+17885|6|9.2 DeleteNode
+17900|6|9.3 SetProperty
+17925|6|9.4 InsertChild
+17950|6|9.5 RemoveChild
+17958|6|9.6 MoveNode
+17985|5|10. NodeIdの予約
+17986|6|10.1 発行方式
+17999|6|10.2 予約済みID
+18005|6|10.3 Copy
+18011|5|11. 適用前条件
+18012|6|11.1 Operation固有条件
+18027|6|11.2 Transaction全体の条件
+18037|6|11.3 Base revision
+18043|5|12. Stale transaction
+18044|6|12.1 定義
+18048|6|12.2 分類
+18063|6|12.3 保守的な再適用
+18069|6|12.4 無関係な変更
+18073|5|13. 競合
+18074|6|13.1 基本分類
+18091|6|13.2 競合と不正トランザクション
+18109|6|13.3 競合の収集
+18115|6|13.4 自動併合
+18135|5|14. 適用手順
+18139|5|1. TransactionIdを確認
+18140|5|2. DocumentIdを確認
+18141|5|3. Base revisionを比較
+18142|5|4. Transaction-level preconditionを検査
+18143|5|5. 現在snapshotから作業状態を作成
+18144|5|6. Operationを順番に仮適用
+18145|5|7. 文書全体の不変条件を検査
+18146|5|8. 成功時だけcommit
+18147|5|9. 新revisionとUndo情報を生成
+18152|5|15. 適用結果
+18153|6|15.1 結果型
+18160|6|15.2 Applied
+18170|6|15.3 AppliedNoChange
+18176|6|15.4 Rejected
+18185|6|15.5 AlreadyApplied
+18191|6|15.6 Transaction content hash
+18205|5|16. UndoとRedo
+18206|6|16.1 新revision
+18218|6|16.2 Undo情報
+18234|6|16.3 UndoToken
+18241|6|16.4 Undo競合
+18247|6|16.5 Redo
+18251|6|16.6 履歴保持
+18264|5|17. Provenance
+18265|6|17.1 定義
+18278|6|17.2 Optional metadata
+18284|6|17.3 構造
+18296|6|17.4 種類
+18305|6|17.5 UserCreated
+18312|6|17.6 SourceGenerated
+18327|6|17.7 MacroGenerated
+18336|6|17.8 Imported
+18342|6|17.9 Copied
+18348|6|17.10 Derived
+18362|5|18. 派生ノードと逆編集
+18363|6|18.1 編集可能性
+18379|6|18.2 Provenanceと逆編集
+18385|6|18.3 逆編集結果
+18392|6|18.4 自動選択
+18396|6|18.5 逆写像不能
+18409|6|18.6 Stale provenance
+18415|5|19. 派生ノードのID継承
+18416|6|19.1 DerivationKey
+18426|6|19.2 曖昧な対応
+18432|6|19.3 NodeIdとの違い
+18436|5|20. Provenanceの安全性
+18437|6|20.1 真正性
+18443|6|20.2 Privacy
+18454|6|20.3 書換え
+18460|5|21. 公開API階層
+18461|6|21.1 純粋な第一級値
+18474|6|21.2 状態付きhandle
+18478|6|21.3 抽象型
+18491|6|21.4 Constructor付き公開data
+18500|5|22. 高水準APIと低水準API
+18501|6|22.1 高水準API
+18515|6|22.2 低水準API
+18525|6|22.3 信頼境界
+18529|5|23. Pure処理とEffectful処理
+18530|6|23.1 Pure処理
+18538|6|23.2 Effectful処理
+18546|6|23.3 Effectの暫定分類
+18559|5|24. 競合・不正・実行障害の分離
+18560|6|24.1 正常な結果
+18565|6|24.2 意味的拒否
+18573|6|24.3 実行障害
+18586|6|24.4 競合は例外ではない
+18590|5|25. Undo履歴・Transaction履歴
+18591|6|25.1 有限保持
+18600|6|25.2 AlreadyApplied保証
+18606|6|25.3 Undo不可
+18612|5|26. 永続化
+18613|6|26.1 標準保存
+18624|6|26.2 編集履歴
+18630|6|26.3 Version付きcodec
+18638|5|27. 適合試験
+18776|5|28. 移管先OPEN
+18778|6|`OPEN-ERR-001`
+18787|6|`OPEN-MEM-001`
+18795|6|`OPEN-CON-001`
+18804|6|`OPEN-IR-001`
+18812|6|`OPEN-EDT-CODEC-001`
+18819|6|`OPEN-EDT-COLLAB-001`
+18828|6|`OPEN-EDT-OVERRIDE-001`
+18835|5|29. 最終状態
+18860|4|13.12 `IR-001` Layered visual/motion/render IR
+18862|5|概要・状態
+18875|5|SurfaceとArtifact
+18889|5|RenderIR node algebra
+18935|5|MotionIR
+18949|5|Backend lowering
+18962|5|不変条件
+18972|5|メタ理論・反例
+18981|5|テスト
+18993|4|13.13 `ERR-001` 通常の失敗・Failure effect・後始末・Defect・最上位実行境界
+18994|5|DD-001 決定概要
+18995|6|DD-001.1 状態
+19015|6|DD-001.2 既存仕様との関係
+19041|5|0. 設計原則
+19042|6|0.1 失敗を一種類に統合しない
+19063|6|0.2 判断基準
+19076|6|0.3 公開APIと内部実装
+19091|5|1. option
+19092|6|1.1 用途
+19110|6|1.2 不適切な用途
+19114|5|2. resultおよび専用結果型
+19115|6|2.1 用途
+19135|6|2.2 専用結果型
+19150|6|2.3 複数errorの収集
+19159|5|3. failure E
+19160|6|3.1 定義
+19180|6|3.2 正常経路と失敗経路
+19187|6|3.3 Error payload
+19195|5|4. Failureの発生
+19196|6|4.1 raise
+19214|6|4.2 never
+19239|6|4.3 基礎機構
+19245|5|5. Failure handler
+19246|6|5.1 非再開性
+19265|6|5.2 Resume禁止
+19271|6|5.3 内部実装
+19275|6|5.4 Handlerの結果型
+19306|5|6. Failureとeffect row
+19307|6|6.1 型への明示
+19320|6|6.2 Handlerによる除去
+19333|6|6.3 Handler節自身のEffect
+19346|6|6.4 Handler節内の新しいFailure
+19359|5|7. 一つのFailure型への統合
+19360|6|7.1 基本指針
+19384|6|7.2 Error変換
+19401|6|7.3 位置付け
+19407|5|8. resultとFailureの変換
+19408|6|8.1 暗黙変換の禁止
+19421|6|8.2 resultからFailure
+19441|6|8.3 Failureからresult
+19468|5|9. resultとFailureの選択指針
+19469|6|9.1 resultを推奨する場合
+19479|6|9.2 Failureを認める場合
+19486|6|9.3 公開API
+19496|5|10. Resource cleanup
+19497|6|10.1 基本primitive
+19515|6|10.2 役割
+19525|6|10.3 特別な保証
+19535|5|11. Acquire規則
+19536|6|11.1 Release登録
+19540|6|11.2 Acquire failure
+19552|6|11.3 部分取得
+19558|5|12. Useの正常終了
+19570|5|13. Use中のFailure
+19581|5|14. 一般Effectと継続
+19582|6|14.1 一時中断
+19594|6|14.2 Resume
+19598|6|14.3 Discard
+19602|6|14.4 継続状態
+19620|6|14.5 継続escape
+19638|5|15. Cleanup順序と回数
+19639|6|15.1 LIFO
+19653|6|15.2 高々一回
+19668|6|15.3 一つのRelease失敗
+19676|5|16. Cleanup中のFailure
+19677|6|16.1 Primary failure
+19681|6|16.2 Suppressed failure
+19702|6|16.3 正常終了後のRelease failure
+19709|6|16.4 複数のSuppressed failure
+19720|6|16.5 通常Handlerへの公開
+19734|5|17. finally
+19749|5|18. Cancellation
+19750|6|18.1 分類
+19757|6|18.2 Cleanup
+19761|6|18.3 詳細
+19772|5|19. Defect
+19773|6|19.1 定義
+19788|6|19.2 Effect row
+19794|6|19.3 再開
+19798|6|19.4 通常Handler
+19802|6|19.5 Cleanup
+19808|5|20. Fault boundary
+19809|6|20.1 定義
+19823|6|20.2 一般公開
+19827|6|20.3 処理
+19838|6|20.4 継続条件
+19851|5|21. Terminal failure
+19852|6|21.1 定義
+19866|6|21.2 通常Handler
+19870|6|21.3 Cleanup
+19874|6|21.4 可能な最小処理
+19886|5|22. 個別事例の分類
+19887|6|22.1 Assertion
+19897|6|22.2 Match
+19904|6|22.3 Dynamic cast
+19911|6|22.4 Index access
+19918|6|22.5 Arithmetic overflow
+19934|6|22.6 Division by zero
+19944|6|22.7 Continuationの二重resume
+19950|6|22.8 Validator
+19957|6|22.9 Foreign adapter
+19964|6|22.10 Resource exhaustion
+19974|5|23. DefectReport
+19975|6|23.1 内容
+19993|6|23.2 安全性
+20007|6|23.3 権限・機密性
+20011|5|24. ジョブ結果
+20039|5|25. Entry pointと実行環境
+20040|6|25.1 Runtime capability
+20078|6|25.2 実行環境ごとのmain
+20097|5|26. 未処理Failure
+20098|6|26.1 原則
+20108|6|26.2 最終防御
+20119|6|26.3 Runtime default表示
+20136|5|27. 実行環境別の処理
+20137|6|27.1 CLI
+20159|6|27.2 GUI
+20168|6|27.3 Server
+20174|6|27.4 Plugin
+20181|6|27.5 Render job
+20190|5|28. Diagnostic
+20191|6|28.1 構築と出力の分離
+20208|6|28.2 PrimaryとSuppressed
+20220|6|28.3 Libraryの責務
+20226|5|29. 適合試験
+20399|5|30. 移管先OPEN
+20401|6|`OPEN-MEM-001`
+20410|6|`OPEN-CON-001`
+20419|6|`OPEN-KER-001`
+20427|6|`OPEN-TST-001`
+20435|6|`OPEN-PKG-ENTRY-001`
+20442|6|`OPEN-ERR-DIAG-001`
+20450|5|31. 最終状態
+20476|4|13.14 `MEM-001` Perceusメモリ管理・スコープ付きリソース・継続・メモリ予算
+20477|5|DD-001 決定概要
+20478|6|DD-001.1 状態
+20496|6|DD-001.2 既存仕様との関係
+20515|6|DD-001.3 中心的な決定
+20530|5|0. 用語
+20531|6|0.1 Perceus
+20549|6|0.2 自動メモリ管理
+20562|6|0.3 Resource
+20577|5|1. メモリとResourceの分離
+20578|6|1.1 通常値
+20594|6|1.2 外部Resource
+20604|6|1.3 基本原則
+20614|5|2. Perceusによる自動メモリ管理
+20615|6|2.1 利用者から見える意味
+20627|6|2.2 回収時点
+20639|6|2.3 物理identity
+20660|5|3. Compilation pipeline
+20661|6|3.1 適用順序
+20684|6|3.2 Surface所有権注釈
+20708|6|3.3 Trusted boundary
+20717|5|4. 所有権Core IR
+20718|6|4.1 必須のCore要素
+20749|6|4.2 評価順序
+20755|5|5. dup
+20756|6|5.1 意味
+20765|6|5.2 挿入条件
+20769|6|5.3 利用者からの不可視性
+20775|5|6. drop
+20776|6|6.1 意味
+20789|6|6.2 最終使用位置
+20809|6|6.3 制御フロー
+20816|5|7. 分岐とJoin point
+20817|6|7.1 排他的分岐
+20828|6|7.2 Join時の整合
+20858|5|8. Reuse
+20859|6|8.1 位置付け
+20869|6|8.2 一意性
+20877|6|8.3 Reuse不成立
+20885|6|8.4 非保証
+20894|6|8.5 Reuse禁止値
+20916|5|9. Closure環境
+20917|6|9.1 表現
+20926|6|9.2 生成
+20933|6|9.3 解放
+20940|6|9.4 Closure identity
+20950|6|9.5 Scoped値のcapture
+20956|5|10. var
+20957|6|10.1 既存意味論
+20966|6|10.2 物理表現
+20976|6|10.3 Perceusとの関係
+20982|5|11. cell／ref
+20983|6|11.1 v1の方針
+20991|6|11.2 理由
+21007|6|11.3 将来拡張
+21019|5|12. 再帰型と循環値
+21020|6|12.1 再帰data型
+21028|6|12.2 循環する実行時値
+21041|6|12.3 論理的なID参照
+21047|5|13. Continuation
+21048|6|13.1 表現
+21061|6|13.2 Capture
+21069|6|13.3 Resume
+21078|6|13.4 Discard
+21086|6|13.5 One-shot
+21098|6|13.6 Escape
+21106|5|14. Failure unwind
+21107|6|14.1 明示的なunwind
+21118|6|14.2 Dropの欠落禁止
+21124|6|14.3 Handler節
+21135|5|15. Scoped Resource handle
+21136|6|15.1 隠れたscope
+21153|6|15.2 bracketの概念型
+21168|6|15.3 Escape禁止
+21182|6|15.4 Scope内Closure
+21188|6|15.5 独立した結果値
+21201|5|16. Resource API
+21202|6|16.1 With-style API
+21210|6|16.2 低水準API
+21216|6|16.3 Release責任
+21223|6|16.4 自発的な無効化
+21236|5|17. Borrowed view
+21237|6|17.1 所有値とBorrowed view
+21247|6|17.2 v1の方針
+21261|5|18. Weak referenceとFinalizer
+21262|6|18.1 Weak reference
+21275|6|18.2 利用者定義Finalizer
+21288|6|18.3 Resource安全網
+21296|5|19. Foreign boundary
+21297|6|19.1 Ownership metadata
+21320|6|19.2 Borrowed契約違反
+21330|6|19.3 Owned移送
+21338|5|20. Concurrencyへの接続
+21339|6|20.1 v1の範囲
+21345|6|20.2 共有値
+21360|6|20.3 Scoped Resource
+21366|5|21. SnapshotとPerceus
+21367|6|21.1 構造共有
+21380|6|21.2 解放
+21386|6|21.3 一意性
+21390|6|21.4 観測不能
+21394|5|22. メモリ割当とEffect
+21395|6|22.1 通常Allocation
+21408|6|22.2 Perceus操作
+21418|6|22.3 理由
+21424|5|23. メモリ予算
+21425|6|23.1 適用単位
+21440|6|23.2 Job増分方式
+21459|6|23.3 Commit時の移管
+21475|5|24. 予算超過
+21476|6|24.1 型付きFailure
+21492|6|24.2 処理
+21506|6|24.3 予約領域
+21512|5|25. 単一巨大Allocation
+21513|6|25.1 事前検査
+21522|6|25.2 分類
+21538|5|26. Continuation予算
+21539|6|26.1 課金対象
+21552|6|26.2 超過時
+21564|5|27. Snapshot保持量
+21565|6|27.1 有効なSnapshot handle
+21571|6|27.2 保持policy
+21584|6|27.3 履歴破棄
+21588|5|28. 一般heap OOM
+21589|6|28.1 管理予算との区別
+21593|6|28.2 分類
+21600|6|28.3 Cleanup
+21606|5|29. Reference count overflow
+21607|6|29.1 Wraparound禁止
+21613|6|29.2 実装
+21617|6|29.3 分類
+21627|6|29.4 その他の内部不変条件
+21640|5|30. Verification
+21641|6|30.1 Ownership verifier
+21656|6|30.2 Reuse verifier
+21666|6|30.3 Verifier failure
+21677|5|31. メモリ観測API
+21678|6|31.1 非公開情報
+21691|6|31.2 許可される情報
+21701|6|31.3 安定性
+21714|5|32. GUI状態
+21715|6|32.1 暗黙cellへの非依存
+21719|6|32.2 推奨モデル
+21728|5|33. 適合試験
+21906|5|34. 移管先OPEN
+21908|6|`OPEN-MEM-CELL-001`
+21917|6|`OPEN-MEM-BORROW-001`
+21926|6|`OPEN-CON-001`
+21935|6|`OPEN-KER-001`
+21943|6|`OPEN-GUI-STATE-001`
+21950|6|`OPEN-MEM-PROF-001`
+21958|5|35. 最終状態
+21988|4|13.14.1 `ASY-001` Concurrency and async
+21990|5|状態
+22012|4|13.15 `TST-001` Tests and conformance
+22014|5|概要・状態
+22039|5|Black/white box
+22045|5|既存実装
+22051|5|テスト原則
+22067|5|メタ理論
+22072|2|構文の統合仕様
+22074|4|14.1 全体EBNF（未完成）
+22123|4|14.2 優先順位・結合
+22128|4|14.3 予約語
+22134|4|14.4 糖衣とCore
+22146|2|静的意味論の統合仕様
+22148|4|15.1 Kind
+22156|4|15.2 共通判断
+22168|4|15.3 基本規則
+22222|4|15.4 一般化
+22228|4|15.5 Subtypingと制約解決
+22236|4|15.6 Module境界
+22241|2|動的意味論の統合仕様
+22243|4|16.1 構成
+22257|4|16.2 評価順序
+22267|4|16.3 効果伝播
+22272|4|16.4 SourceEdit
+22287|4|16.5 観測可能な振る舞い
+22300|2|エラーと停止状態
+22319|2|機能間の相互作用
+22339|2|メタ理論上の性質
+22384|2|実装アーキテクチャ
+22386|4|20.1 最終目標パイプライン
+22404|4|20.2 必要データ構造
+22422|4|20.3 現行crateとの対応
+22440|2|仕様と実装の対応
+22460|4|21.1 型検査器要件
+22474|2|テスト計画
+22476|4|22.1 構文
+22487|4|22.2 静的意味
+22502|4|22.3 動的意味
+22514|4|22.4 統合
+22529|4|22.5 Property/differential/fuzz
+22549|3|22.6 横断適合試験
+22559|2|完成判定基準
+22561|4|段階1: 設計案が記録された
+22569|4|段階2: 仕様が明確になった
+22577|4|段階3: 参照実装が動く
+22585|4|段階4: 適合試験を通過
+22593|4|段階5: 統合試験を通過
+22601|4|段階6: 差分・生成・fuzzを通過
+22609|4|段階7: メタ理論が確認された
+22618|4|段階8: 実装と形式仕様の対応を確認
