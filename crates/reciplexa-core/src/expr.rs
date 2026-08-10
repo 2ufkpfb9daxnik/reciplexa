@@ -26,12 +26,12 @@ pub enum CoreExpr {
         body: Box<CoreExpr>,
     },
     Lambda {
-        param: String,
+        params: Vec<String>,
         body: Box<CoreExpr>,
     },
     App {
         fun: Box<CoreExpr>,
-        arg: Box<CoreExpr>,
+        args: Vec<CoreExpr>,
     },
     If {
         cond: Box<CoreExpr>,

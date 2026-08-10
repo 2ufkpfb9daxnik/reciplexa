@@ -16,7 +16,7 @@ fn display_all_variants() {
     );
     assert_eq!(
         RuntimeValue::Closure {
-            param: "x".into(),
+            params: vec!["x".into()],
             body: CoreExpr::Lit(reciplexa_core::expr::CoreLiteral::Number(0.0)),
             env: HashMap::new(),
         }
@@ -69,7 +69,7 @@ fn ty_maps_all_variants() {
     assert_eq!(RuntimeValue::Bool(true).ty(), CoreType::Bool);
     assert_eq!(RuntimeValue::ShapeTag("rect".into()).ty(), CoreType::Shape);
     let closure_ty = RuntimeValue::Closure {
-        param: "x".into(),
+        params: vec!["x".into()],
         body: CoreExpr::Lit(reciplexa_core::expr::CoreLiteral::Number(0.0)),
         env: HashMap::new(),
     }
@@ -142,7 +142,7 @@ fn ty_nullary_variant_and_unit_record() {
 #[test]
 fn closure_ty_has_fun_shape() {
     let v = RuntimeValue::Closure {
-        param: "n".into(),
+        params: vec!["n".into()],
         body: CoreExpr::Lit(reciplexa_core::expr::CoreLiteral::Number(0.0)),
         env: HashMap::new(),
     };
@@ -202,7 +202,7 @@ fn display_formats_multi_field_record_and_variants() {
         format!(
             "{}",
             RuntimeValue::Closure {
-                param: "x".into(),
+                params: vec!["x".into()],
                 body: CoreExpr::Lit(reciplexa_core::expr::CoreLiteral::Number(0.0)),
                 env: HashMap::new(),
             }

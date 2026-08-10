@@ -58,22 +58,36 @@ pub fn eval_expr<H: EffectHost>(
             child.insert(name.clone(), v);
             eval_expr(body, &child, host)
         }
-        CoreExpr::Lambda { param, body } => Ok(RuntimeValue::Closure {
-            param: param.clone(),
+        CoreExpr::Lambda { params, body } => Ok(RuntimeValue::Closure {
+            params: params.clone(),
             body: *body.clone(),
             env: env.clone(),
         }),
-        CoreExpr::App { fun, arg } => {
+        CoreExpr::App { fun, args } => {
             let fun_v = eval_expr(fun, env, host)?;
-            let arg_v = eval_expr(arg, env, host)?;
+            let mut arg_vs = Vec::with_capacity(args.len());
+            for arg in args {
+                arg_vs.push(eval_expr(arg, env, host)?);
+            }
             match fun_v {
                 RuntimeValue::Closure {
-                    param,
+                    params,
                     body,
                     env: closure_env,
                 } => {
+                    if params.len() != arg_vs.len() {
+                        return Err(EvalError {
+                            message: format!(
+                                "arity mismatch: expected {} args, got {}",
+                                params.len(),
+                                arg_vs.len()
+                            ),
+                        });
+                    }
                     let mut child = closure_env;
-                    child.insert(param, arg_v);
+                    for (param, arg_v) in params.into_iter().zip(arg_vs) {
+                        child.insert(param, arg_v);
+                    }
                     eval_expr(&body, &child, host)
                 }
                 other => Err(EvalError {

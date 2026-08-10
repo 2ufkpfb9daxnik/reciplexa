@@ -48,10 +48,10 @@ fn lowers_variant_and_match() {
 fn lowers_lambda_and_app() {
     let expr = CoreExpr::App {
         fun: Box::new(CoreExpr::Lambda {
-            param: "x".into(),
+            params: vec!["x".into()],
             body: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
         }),
-        arg: Box::new(CoreExpr::Lit(CoreLiteral::Number(2.0))),
+        args: vec![CoreExpr::Lit(CoreLiteral::Number(2.0))],
     };
     let prog = lower_core_linear(&expr);
     assert!(prog
@@ -129,7 +129,7 @@ fn lowers_lambda_with_capture() {
         name: "x".into(),
         value: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
         body: Box::new(CoreExpr::Lambda {
-            param: "y".into(),
+            params: vec!["y".into()],
             body: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
         }),
     };

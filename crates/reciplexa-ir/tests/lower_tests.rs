@@ -46,14 +46,14 @@ fn empty_seq_lowers_to_empty_program() {
 #[test]
 fn unsupported_expr_lowers_to_return() {
     let lambda = lower_expr(&CoreExpr::Lambda {
-        param: "x".into(),
+        params: vec!["x".into()],
         body: Box::new(CoreExpr::Lit(CoreLiteral::Number(0.0))),
     });
     assert_eq!(lambda.ops, vec![LoweredOp::Return]);
 
     let app = lower_expr(&CoreExpr::App {
         fun: Box::new(CoreExpr::Lit(CoreLiteral::Number(0.0))),
-        arg: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
+        args: vec![CoreExpr::Lit(CoreLiteral::Number(1.0))],
     });
     assert_eq!(app.ops, vec![LoweredOp::Return]);
 }

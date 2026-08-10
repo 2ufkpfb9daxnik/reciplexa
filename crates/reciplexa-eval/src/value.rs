@@ -14,7 +14,7 @@ pub enum RuntimeValue {
     Bool(bool),
     ShapeTag(String),
     Closure {
-        param: String,
+        params: Vec<String>,
         body: CoreExpr,
         env: HashMap<String, RuntimeValue>,
     },
@@ -33,8 +33,12 @@ impl RuntimeValue {
             Self::String(_) => CoreType::String,
             Self::Bool(_) => CoreType::Bool,
             Self::ShapeTag(_) => CoreType::Shape,
-            Self::Closure { .. } => CoreType::Fun {
-                args: vec![CoreType::Var(TypeVarId::new(0))],
+            Self::Closure { params, .. } => CoreType::Fun {
+                args: params
+                    .iter()
+                    .enumerate()
+                    .map(|(i, _)| CoreType::Var(TypeVarId::new(i as u32)))
+                    .collect(),
                 ret: Box::new(CoreType::Unit),
                 effects: Default::default(),
             },
@@ -58,7 +62,7 @@ impl fmt::Display for RuntimeValue {
             Self::String(s) => format!("\"{s}\""),
             Self::Bool(b) => b.to_string(),
             Self::ShapeTag(s) => format!("shape:{s}"),
-            Self::Closure { param, .. } => format!("closure({param})"),
+            Self::Closure { params, .. } => format!("closure({})", params.join(", ")),
             Self::Record(fields) => {
                 let parts: Vec<String> = fields.iter().map(|(k, v)| format!("{k}: {v}")).collect();
                 format!("record{{{}}}", parts.join(", "))

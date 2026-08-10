@@ -143,7 +143,7 @@ pub fn exec_linear(prog: &LinearProgram, trace: &mut RcTrace) -> Result<RuntimeV
                     env.insert(format!("cap{i}"), value);
                 }
                 let closure = RuntimeValue::Closure {
-                    param: param.clone(),
+                    params: vec![param.clone()],
                     body: CoreExpr::Lit(reciplexa_core::expr::CoreLiteral::Number(0.0)),
                     env,
                 };

@@ -76,23 +76,30 @@ pub fn infer_expr(
             child.insert(name.clone(), v_ty);
             infer_expr(body, &child, subst, range)
         }
-        CoreExpr::Lambda { param, body } => {
-            let p_ty = CoreType::Var(subst.fresh_var());
+        CoreExpr::Lambda { params, body } => {
             let mut child = env.clone();
-            child.insert(param.clone(), p_ty.clone());
+            let mut arg_tys = Vec::with_capacity(params.len());
+            for param in params {
+                let p_ty = CoreType::Var(subst.fresh_var());
+                child.insert(param.clone(), p_ty.clone());
+                arg_tys.push(p_ty);
+            }
             let ret = infer_expr(body, &child, subst, range)?;
             Ok(CoreType::Fun {
-                args: vec![p_ty],
+                args: arg_tys,
                 ret: Box::new(ret),
                 effects: EffectRow::default(),
             })
         }
-        CoreExpr::App { fun, arg } => {
+        CoreExpr::App { fun, args } => {
             let fun_ty = infer_expr(fun, env, subst, range)?;
-            let arg_ty = infer_expr(arg, env, subst, range)?;
+            let mut arg_tys = Vec::with_capacity(args.len());
+            for arg in args {
+                arg_tys.push(infer_expr(arg, env, subst, range)?);
+            }
             let ret_var = CoreType::Var(subst.fresh_var());
             let expected = CoreType::Fun {
-                args: vec![arg_ty],
+                args: arg_tys,
                 ret: Box::new(ret_var.clone()),
                 effects: EffectRow::default(),
             };

@@ -163,7 +163,7 @@ fn mem06_closure_capture_observational_equiv() {
         name: "x".into(),
         value: Box::new(CoreExpr::Lit(CoreLiteral::Number(10.0))),
         body: Box::new(CoreExpr::Lambda {
-            param: "y".into(),
+            params: vec!["y".into()],
             body: Box::new(CoreExpr::Lit(CoreLiteral::Number(10.0))),
         }),
     };
@@ -472,7 +472,7 @@ fn mem_construct_record_fields() {
 #[test]
 fn mem_lambda_no_capture_drop() {
     let expr = CoreExpr::Lambda {
-        param: "x".into(),
+        params: vec!["x".into()],
         body: Box::new(CoreExpr::Lit(CoreLiteral::Number(0.0))),
     };
     assert_observational_equiv(&expr).unwrap();

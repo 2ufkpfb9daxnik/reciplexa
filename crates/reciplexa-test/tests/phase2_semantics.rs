@@ -32,10 +32,10 @@ fn test_sem_c002_typed_lambda() {
     run_conformance(&case, || {
         let expr = CoreExpr::App {
             fun: Box::new(CoreExpr::Lambda {
-                param: "x".into(),
+                params: vec!["x".into()],
                 body: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
             }),
-            arg: Box::new(CoreExpr::Lit(CoreLiteral::Number(2.0))),
+            args: vec![CoreExpr::Lit(CoreLiteral::Number(2.0))],
         };
         let cv = typecheck_value(expr, &TypeEnv::new(), range()).unwrap();
         assert_eq!(cv.ty, CoreType::Number);
@@ -76,7 +76,7 @@ fn test_sem_c004_structured_typecheck_outcome() {
     run_conformance(&case, || {
         let bad = CoreExpr::App {
             fun: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
-            arg: Box::new(CoreExpr::Lit(CoreLiteral::Number(2.0))),
+            args: vec![CoreExpr::Lit(CoreLiteral::Number(2.0))],
         };
         let outcome: TestOutcome<CoreValue> = typecheck_value(bad, &TypeEnv::new(), range())
             .map(TestOutcome::Passed)
@@ -91,7 +91,7 @@ fn test_sem_c005_unification_infers_polymorphic_use() {
     run_conformance(&case, || {
         let mut subst = Subst::new();
         let id = CoreExpr::Lambda {
-            param: "x".into(),
+            params: vec!["x".into()],
             body: Box::new(CoreExpr::Lit(CoreLiteral::Number(0.0))),
         };
         let ty = infer_expr(&id, &TypeEnv::new(), &mut subst, range()).unwrap();
@@ -181,10 +181,10 @@ fn test_sem_c011_lambda_application() {
     run_conformance(&case, || {
         let expr = CoreExpr::App {
             fun: Box::new(CoreExpr::Lambda {
-                param: "x".into(),
+                params: vec!["x".into()],
                 body: Box::new(CoreExpr::Lit(CoreLiteral::Number(42.0))),
             }),
-            arg: Box::new(CoreExpr::Lit(CoreLiteral::Number(0.0))),
+            args: vec![CoreExpr::Lit(CoreLiteral::Number(0.0))],
         };
         let v = eval_expr(&expr, &HashMap::new(), &mut UnitHost).unwrap();
         assert_eq!(v, reciplexa_eval::RuntimeValue::Number(42.0));
@@ -197,7 +197,7 @@ fn test_sem_c012_type_mismatch_on_app() {
     run_conformance(&case, || {
         let bad = CoreExpr::App {
             fun: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
-            arg: Box::new(CoreExpr::Lit(CoreLiteral::Number(2.0))),
+            args: vec![CoreExpr::Lit(CoreLiteral::Number(2.0))],
         };
         assert!(typecheck_value(bad, &TypeEnv::new(), range()).is_err());
     });

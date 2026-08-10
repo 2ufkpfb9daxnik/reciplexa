@@ -62,12 +62,12 @@ impl Lowerer {
                 child.insert(name.clone(), v);
                 self.lower_expr(body, &child)
             }
-            CoreExpr::Lambda { param, body } => {
+            CoreExpr::Lambda { params, body } => {
                 let dst = self.alloc.fresh();
                 let captures: Vec<Reg> = env.values().copied().collect();
                 self.emit(MemInstr::MakeClosure {
                     dst,
-                    param: param.clone(),
+                    param: params.join(","),
                     body: crate::ir::BlockId(0),
                     captures,
                 });
@@ -75,16 +75,29 @@ impl Lowerer {
                 let _ = body;
                 dst
             }
-            CoreExpr::App { fun, arg } => {
+            CoreExpr::App { fun, args } => {
                 let f = self.lower_expr(fun, env);
-                let a = self.lower_expr(arg, env);
-                let dst = self.alloc.fresh();
-                self.emit(MemInstr::Call {
-                    dst,
-                    closure: f,
-                    arg: a,
-                });
-                dst
+                let arg_regs: Vec<Reg> = args.iter().map(|a| self.lower_expr(a, env)).collect();
+                let mut closure = f;
+                if arg_regs.is_empty() {
+                    let dst = self.alloc.fresh();
+                    self.emit(MemInstr::Call {
+                        dst,
+                        closure,
+                        arg: self.unit(),
+                    });
+                    return dst;
+                }
+                for a in arg_regs {
+                    let dst = self.alloc.fresh();
+                    self.emit(MemInstr::Call {
+                        dst,
+                        closure,
+                        arg: a,
+                    });
+                    closure = dst;
+                }
+                closure
             }
             CoreExpr::If {
                 cond,

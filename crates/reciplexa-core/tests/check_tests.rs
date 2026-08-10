@@ -15,10 +15,10 @@ fn range() -> TextRange {
 fn infers_lambda_application() {
     let expr = CoreExpr::App {
         fun: Box::new(CoreExpr::Lambda {
-            param: "x".into(),
+            params: vec!["x".into()],
             body: Box::new(CoreExpr::Var("x".into())),
         }),
-        arg: Box::new(CoreExpr::Lit(CoreLiteral::Number(2.0))),
+        args: vec![CoreExpr::Lit(CoreLiteral::Number(2.0))],
     };
     let mut subst = Subst::new();
     let ty = infer_expr(&expr, &TypeEnv::new(), &mut subst, range()).unwrap();
@@ -343,7 +343,7 @@ fn infer_propagates_nested_errors() {
 
     assert!(infer_expr(
         &CoreExpr::Lambda {
-            param: "x".into(),
+            params: vec!["x".into()],
             body: Box::new(bad.clone()),
         },
         &env,
@@ -355,7 +355,7 @@ fn infer_propagates_nested_errors() {
     assert!(infer_expr(
         &CoreExpr::App {
             fun: Box::new(bad.clone()),
-            arg: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
+            args: vec![CoreExpr::Lit(CoreLiteral::Number(1.0))],
         },
         &env,
         &mut subst,
@@ -366,10 +366,10 @@ fn infer_propagates_nested_errors() {
     assert!(infer_expr(
         &CoreExpr::App {
             fun: Box::new(CoreExpr::Lambda {
-                param: "x".into(),
+                params: vec!["x".into()],
                 body: Box::new(CoreExpr::Lit(CoreLiteral::Number(0.0))),
             }),
-            arg: Box::new(bad.clone()),
+            args: vec![bad.clone()],
         },
         &env,
         &mut subst,
@@ -408,7 +408,7 @@ fn infer_propagates_nested_errors() {
 fn app_non_function_unify_fails() {
     let expr = CoreExpr::App {
         fun: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
-        arg: Box::new(CoreExpr::Lit(CoreLiteral::Number(2.0))),
+        args: vec![CoreExpr::Lit(CoreLiteral::Number(2.0))],
     };
     let err = infer_expr(&expr, &TypeEnv::new(), &mut Subst::new(), range()).unwrap_err();
     assert!(err.message.contains("Mismatch"));
@@ -427,7 +427,7 @@ fn infers_empty_seq_and_lambda() {
     assert_eq!(empty, CoreType::Unit);
 
     let lam = CoreExpr::Lambda {
-        param: "x".into(),
+        params: vec!["x".into()],
         body: Box::new(CoreExpr::Lit(CoreLiteral::String("ok".into()))),
     };
     let ty = infer_expr(&lam, &TypeEnv::new(), &mut subst, range()).unwrap();
@@ -499,4 +499,22 @@ fn match_arm_bind_without_payload_and_unknown_tag() {
     };
     let mut subst = Subst::new();
     assert!(infer_expr(&mismatch_tag, &TypeEnv::new(), &mut subst, range()).is_ok());
+}
+
+#[test]
+fn infers_nary_lambda_application() {
+    // (λ(x y). x) 1 2
+    let expr = CoreExpr::App {
+        fun: Box::new(CoreExpr::Lambda {
+            params: vec!["x".into(), "y".into()],
+            body: Box::new(CoreExpr::Var("x".into())),
+        }),
+        args: vec![
+            CoreExpr::Lit(CoreLiteral::Number(1.0)),
+            CoreExpr::Lit(CoreLiteral::Number(2.0)),
+        ],
+    };
+    let mut subst = Subst::new();
+    let ty = infer_expr(&expr, &TypeEnv::new(), &mut subst, range()).unwrap();
+    assert_eq!(subst.apply(&ty), CoreType::Number);
 }

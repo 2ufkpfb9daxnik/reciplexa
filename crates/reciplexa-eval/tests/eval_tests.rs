@@ -31,10 +31,10 @@ fn lambda_application() {
     // (λx. x) 2
     let expr = CoreExpr::App {
         fun: Box::new(CoreExpr::Lambda {
-            param: "x".into(),
+            params: vec!["x".into()],
             body: Box::new(CoreExpr::Var("x".into())),
         }),
-        arg: Box::new(CoreExpr::Lit(CoreLiteral::Number(2.0))),
+        args: vec![CoreExpr::Lit(CoreLiteral::Number(2.0))],
     };
     let v = eval_expr(&expr, &HashMap::new(), &mut UnitHost).unwrap();
     assert_eq!(v, RuntimeValue::Number(2.0));
@@ -172,7 +172,7 @@ fn eval_shape_literal_tags() {
 fn eval_app_non_closure_errors() {
     let expr = CoreExpr::App {
         fun: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
-        arg: Box::new(CoreExpr::Lit(CoreLiteral::Number(2.0))),
+        args: vec![CoreExpr::Lit(CoreLiteral::Number(2.0))],
     };
     assert!(eval_expr(&expr, &HashMap::new(), &mut UnitHost).is_err());
 }
@@ -358,7 +358,7 @@ fn eval_propagates_nested_errors() {
     assert!(eval_expr(
         &CoreExpr::App {
             fun: Box::new(bad.clone()),
-            arg: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
+            args: vec![CoreExpr::Lit(CoreLiteral::Number(1.0))],
         },
         &env,
         &mut host
@@ -368,10 +368,10 @@ fn eval_propagates_nested_errors() {
     assert!(eval_expr(
         &CoreExpr::App {
             fun: Box::new(CoreExpr::Lambda {
-                param: "x".into(),
+                params: vec!["x".into()],
                 body: Box::new(CoreExpr::Lit(CoreLiteral::Number(0.0))),
             }),
-            arg: Box::new(bad.clone()),
+            args: vec![bad.clone()],
         },
         &env,
         &mut host
@@ -412,7 +412,7 @@ fn eval_match_without_bind() {
 fn eval_lambda_and_multi_field_record() {
     let closure = eval_expr(
         &CoreExpr::Lambda {
-            param: "x".into(),
+            params: vec!["x".into()],
             body: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
         },
         &HashMap::new(),
@@ -460,21 +460,54 @@ fn eval_match_bind_without_payload() {
 
 #[test]
 fn eval_app_closure_chain() {
+    // Nested unary apps still work; prefer n-ary (λ(x y). …) for multi-arg.
     let expr = CoreExpr::App {
         fun: Box::new(CoreExpr::App {
             fun: Box::new(CoreExpr::Lambda {
-                param: "x".into(),
+                params: vec!["x".into()],
                 body: Box::new(CoreExpr::Lambda {
-                    param: "y".into(),
+                    params: vec!["y".into()],
                     body: Box::new(CoreExpr::Lit(CoreLiteral::Number(9.0))),
                 }),
             }),
-            arg: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
+            args: vec![CoreExpr::Lit(CoreLiteral::Number(1.0))],
         }),
-        arg: Box::new(CoreExpr::Lit(CoreLiteral::Number(2.0))),
+        args: vec![CoreExpr::Lit(CoreLiteral::Number(2.0))],
     };
     assert_eq!(
         eval_expr(&expr, &HashMap::new(), &mut UnitHost).unwrap(),
         RuntimeValue::Number(9.0)
     );
+}
+
+#[test]
+fn eval_nary_lambda_application() {
+    // (λ(x y). x) 1 2 — true n-ary params/args, not nested currying
+    let expr = CoreExpr::App {
+        fun: Box::new(CoreExpr::Lambda {
+            params: vec!["x".into(), "y".into()],
+            body: Box::new(CoreExpr::Var("x".into())),
+        }),
+        args: vec![
+            CoreExpr::Lit(CoreLiteral::Number(1.0)),
+            CoreExpr::Lit(CoreLiteral::Number(2.0)),
+        ],
+    };
+    assert_eq!(
+        eval_expr(&expr, &HashMap::new(), &mut UnitHost).unwrap(),
+        RuntimeValue::Number(1.0)
+    );
+}
+
+#[test]
+fn eval_arity_mismatch_errors() {
+    let expr = CoreExpr::App {
+        fun: Box::new(CoreExpr::Lambda {
+            params: vec!["x".into(), "y".into()],
+            body: Box::new(CoreExpr::Var("x".into())),
+        }),
+        args: vec![CoreExpr::Lit(CoreLiteral::Number(1.0))],
+    };
+    let err = eval_expr(&expr, &HashMap::new(), &mut UnitHost).unwrap_err();
+    assert!(err.message.contains("arity"));
 }
