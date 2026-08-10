@@ -148,6 +148,15 @@ impl Lowerer {
                 });
                 dst
             }
+            // Mem IR has no dedicated update/extend; evaluate operands and keep base.
+            CoreExpr::RecordUpdate { record, fields }
+            | CoreExpr::RecordExtend { record, fields } => {
+                let base = self.lower_expr(record, env);
+                for (_, v) in fields {
+                    let _ = self.lower_expr(v, env);
+                }
+                base
+            }
             CoreExpr::Variant { tag, payload } => {
                 let dst = self.alloc.fresh();
                 let fields = if let Some(p) = payload {

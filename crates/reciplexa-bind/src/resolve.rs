@@ -751,8 +751,8 @@ fn is_language_keyword(name: &str) -> bool {
     is_reserved_special_form(name)
         || matches!(
             name,
-            // KER-001 primitives
-            "+" | "-" | "*" | "<" | "="
+            // KER-001 primitives (SYN §5)
+            "+" | "-" | "*" | "/" | "<" | ">" | "<=" | ">=" | "=" | "!="
         )
 }
 

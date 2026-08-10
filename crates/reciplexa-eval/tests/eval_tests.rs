@@ -575,6 +575,27 @@ fn eval_source_record_field() {
 }
 
 #[test]
+fn eval_source_record_update_and_extend() {
+    let updated = eval_source(
+        r#"
+(val report (record (title "Old") (n 1)))
+(val main (field (record-update report (title "New")) title))
+"#,
+    )
+    .unwrap();
+    assert_eq!(updated, RuntimeValue::String("New".into()));
+
+    let extended = eval_source(
+        r#"
+(val report (record (title "T")))
+(val main (field (record-extend report (author "A")) author))
+"#,
+    )
+    .unwrap();
+    assert_eq!(extended, RuntimeValue::String("A".into()));
+}
+
+#[test]
 fn eval_source_list_and_tuple() {
     let empty = eval_source("(val main (list))").unwrap();
     assert_eq!(

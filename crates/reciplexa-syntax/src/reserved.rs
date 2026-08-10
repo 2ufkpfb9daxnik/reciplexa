@@ -28,6 +28,8 @@ pub fn is_reserved_special_form(name: &str) -> bool {
             | "data"
             | "match"
             | "record"
+            | "record-update"
+            | "record-extend"
             | "field"
             | "list"
             | "tuple"

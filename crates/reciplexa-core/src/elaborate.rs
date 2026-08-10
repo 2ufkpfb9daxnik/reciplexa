@@ -489,6 +489,8 @@ fn elaborate_list(node: &SyntaxNode, ctx: &ElabCtx) -> Result<CoreExpr, Elaborat
                 "if" => return elaborate_if(&atoms[1..], node, ctx),
                 "match" => return elaborate_match(&atoms[1..], node, ctx),
                 "record" => return elaborate_record(&atoms[1..], node, ctx),
+                "record-update" => return elaborate_record_update(&atoms[1..], node, ctx),
+                "record-extend" => return elaborate_record_extend(&atoms[1..], node, ctx),
                 "field" => return elaborate_field(&atoms[1..], node, ctx),
                 "list" => return elaborate_list_lit(&atoms[1..], ctx),
                 "tuple" => return elaborate_tuple(&atoms[1..], node, ctx),
@@ -676,6 +678,111 @@ fn elaborate_field(
     Ok(CoreExpr::RecordGet {
         record: Box::new(record),
         field: label_tok.text().to_string(),
+    })
+}
+
+fn parse_record_field_pairs(
+    rest: &[Atom],
+    parent: &SyntaxNode,
+    ctx: &ElabCtx,
+    form: &str,
+) -> Result<Vec<(String, CoreExpr)>, ElaborateError> {
+    let mut fields = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+    for atom in rest {
+        let Atom::Node(pair) = atom else {
+            return Err(ElaborateError::at_node(
+                format!("`{form}` field must be `(label expr)`"),
+                parent,
+            ));
+        };
+        if pair.kind() != SyntaxKind::List {
+            return Err(ElaborateError::at_node(
+                format!("`{form}` field must be `(label expr)`"),
+                pair,
+            ));
+        }
+        let pair_atoms = list_atoms(pair);
+        if pair_atoms.len() != 2 {
+            return Err(ElaborateError::at_node(
+                format!("`{form}` field must be `(label expr)`"),
+                pair,
+            ));
+        }
+        let Atom::Token(label_tok) = &pair_atoms[0] else {
+            return Err(ElaborateError::at_node(
+                format!("`{form}` field label must be an identifier"),
+                pair,
+            ));
+        };
+        if label_tok.kind() != SyntaxKind::Ident {
+            return Err(ElaborateError::at_token(
+                format!("`{form}` field label must be an identifier"),
+                label_tok,
+            ));
+        }
+        let label = normalize_ident(label_tok.text());
+        if !seen.insert(label.clone()) {
+            return Err(ElaborateError::at_token(
+                format!("duplicate record field `{label}`"),
+                label_tok,
+            ));
+        }
+        let value = elaborate_atom(&pair_atoms[1], ctx)?;
+        fields.push((label, value));
+    }
+    Ok(fields)
+}
+
+/// SYN §15.5: `(record-update base (label expr)…)` → [`CoreExpr::RecordUpdate`].
+fn elaborate_record_update(
+    rest: &[Atom],
+    parent: &SyntaxNode,
+    ctx: &ElabCtx,
+) -> Result<CoreExpr, ElaborateError> {
+    if rest.is_empty() {
+        return Err(ElaborateError::at_node(
+            "`record-update` requires a base record and at least one field",
+            parent,
+        ));
+    }
+    if rest.len() < 2 {
+        return Err(ElaborateError::at_node(
+            "`record-update` requires at least one field update",
+            parent,
+        ));
+    }
+    let record = elaborate_atom(&rest[0], ctx)?;
+    let fields = parse_record_field_pairs(&rest[1..], parent, ctx, "record-update")?;
+    Ok(CoreExpr::RecordUpdate {
+        record: Box::new(record),
+        fields,
+    })
+}
+
+/// SYN §15.5: `(record-extend base (label expr)…)` → [`CoreExpr::RecordExtend`].
+fn elaborate_record_extend(
+    rest: &[Atom],
+    parent: &SyntaxNode,
+    ctx: &ElabCtx,
+) -> Result<CoreExpr, ElaborateError> {
+    if rest.is_empty() {
+        return Err(ElaborateError::at_node(
+            "`record-extend` requires a base record and at least one field",
+            parent,
+        ));
+    }
+    if rest.len() < 2 {
+        return Err(ElaborateError::at_node(
+            "`record-extend` requires at least one field to add",
+            parent,
+        ));
+    }
+    let record = elaborate_atom(&rest[0], ctx)?;
+    let fields = parse_record_field_pairs(&rest[1..], parent, ctx, "record-extend")?;
+    Ok(CoreExpr::RecordExtend {
+        record: Box::new(record),
+        fields,
     })
 }
 

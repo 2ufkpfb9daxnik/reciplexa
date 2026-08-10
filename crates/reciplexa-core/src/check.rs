@@ -353,6 +353,53 @@ pub fn infer_with_effects(
             };
             Ok((ty, rec_effs))
         }
+        CoreExpr::RecordUpdate { record, fields } => {
+            let (rec_ty, mut effs) = infer_with_effects(record, env, subst, range)?;
+            let rec_ty = subst.apply(&rec_ty);
+            let CoreType::Record { fields: base } = &rec_ty else {
+                return Err(CheckError::at(
+                    format!("`record-update` requires a closed record, got {rec_ty:?}"),
+                    range,
+                ));
+            };
+            let mut out = base.clone();
+            for (label, value) in fields {
+                let (v_ty, v_effs) = infer_with_effects(value, env, subst, range)?;
+                effs = effs.merge(&v_effs);
+                let Some((_, slot)) = out.iter_mut().find(|(n, _)| n == label) else {
+                    return Err(CheckError::at(
+                        format!("`record-update` field `{label}` is not present"),
+                        range,
+                    ));
+                };
+                unify(&v_ty, slot, subst).map_err(|e| unify_to_check(e, range))?;
+                *slot = subst.apply(&v_ty);
+            }
+            Ok((CoreType::Record { fields: out }, effs))
+        }
+        CoreExpr::RecordExtend { record, fields } => {
+            let (rec_ty, mut effs) = infer_with_effects(record, env, subst, range)?;
+            let rec_ty = subst.apply(&rec_ty);
+            let CoreType::Record { fields: base } = &rec_ty else {
+                return Err(CheckError::at(
+                    format!("`record-extend` requires a closed record, got {rec_ty:?}"),
+                    range,
+                ));
+            };
+            let mut out = base.clone();
+            for (label, value) in fields {
+                if out.iter().any(|(n, _)| n == label) {
+                    return Err(CheckError::at(
+                        format!("`record-extend` field `{label}` already present"),
+                        range,
+                    ));
+                }
+                let (v_ty, v_effs) = infer_with_effects(value, env, subst, range)?;
+                effs = effs.merge(&v_effs);
+                out.push((label.clone(), v_ty));
+            }
+            Ok((CoreType::Record { fields: out }, effs))
+        }
         CoreExpr::Variant { tag, payload } => {
             let (payload_ty, payload_effs) = if let Some(p) = payload {
                 let (t, e) = infer_with_effects(p, env, subst, range)?;
@@ -570,9 +617,14 @@ pub fn typecheck_language_source(src: &str) -> Result<CoreType, CheckError> {
     };
     env.insert("+", num2.clone());
     env.insert("-", num2.clone());
-    env.insert("*", num2);
-    env.insert("<", cmp2);
-    env.insert("=", eq2);
+    env.insert("*", num2.clone());
+    env.insert("/", num2);
+    env.insert("<", cmp2.clone());
+    env.insert(">", cmp2.clone());
+    env.insert("<=", cmp2.clone());
+    env.insert(">=", cmp2);
+    env.insert("=", eq2.clone());
+    env.insert("!=", eq2);
     let ty = infer_expr(&expr, &env, &mut subst, TextRange::EMPTY)?;
     Ok(subst.apply(&ty))
 }

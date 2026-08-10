@@ -90,6 +90,16 @@ pub enum CoreExpr {
         record: Box<CoreExpr>,
         field: String,
     },
+    /// SYN §15.5: rewrite existing fields only (`record-update`).
+    RecordUpdate {
+        record: Box<CoreExpr>,
+        fields: Vec<(String, CoreExpr)>,
+    },
+    /// SYN §15.5: add absent fields only (`record-extend`).
+    RecordExtend {
+        record: Box<CoreExpr>,
+        fields: Vec<(String, CoreExpr)>,
+    },
     Variant {
         tag: String,
         payload: Option<Box<CoreExpr>>,

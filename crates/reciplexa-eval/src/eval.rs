@@ -301,6 +301,56 @@ fn eval_outcome(
             }
             Outcome::Resumed(v) => Ok(Outcome::Resumed(v)),
         },
+        CoreExpr::RecordUpdate { record, fields } => {
+            match eval_outcome(record, env, host)? {
+                Outcome::Value(v) => record_update(v, fields, env, host),
+                Outcome::Performed {
+                    op,
+                    arg,
+                    resume: inner,
+                } => {
+                    let fields = fields.clone();
+                    let env = env.clone();
+                    Ok(Outcome::Performed {
+                        op,
+                        arg,
+                        resume: Rc::new(move |v, host| {
+                            let v = match inner(v, host)? {
+                                Outcome::Value(v) => v,
+                                other => return Ok(other),
+                            };
+                            record_update(v, &fields, &env, host)
+                        }),
+                    })
+                }
+                Outcome::Resumed(v) => Ok(Outcome::Resumed(v)),
+            }
+        }
+        CoreExpr::RecordExtend { record, fields } => {
+            match eval_outcome(record, env, host)? {
+                Outcome::Value(v) => record_extend(v, fields, env, host),
+                Outcome::Performed {
+                    op,
+                    arg,
+                    resume: inner,
+                } => {
+                    let fields = fields.clone();
+                    let env = env.clone();
+                    Ok(Outcome::Performed {
+                        op,
+                        arg,
+                        resume: Rc::new(move |v, host| {
+                            let v = match inner(v, host)? {
+                                Outcome::Value(v) => v,
+                                other => return Ok(other),
+                            };
+                            record_extend(v, &fields, &env, host)
+                        }),
+                    })
+                }
+                Outcome::Resumed(v) => Ok(Outcome::Resumed(v)),
+            }
+        },
         CoreExpr::Variant { tag, payload } => {
             if let Some(e) = payload {
                 match eval_outcome(e, env, host)? {
@@ -662,6 +712,56 @@ fn record_get(v: RuntimeValue, field: &str) -> Result<Outcome, EvalError> {
             message: format!("expected record, got {other:?}"),
         }),
     }
+}
+
+fn record_update(
+    base: RuntimeValue,
+    updates: &[(String, CoreExpr)],
+    env: &HashMap<String, RuntimeValue>,
+    host: &mut dyn EffectHost,
+) -> Result<Outcome, EvalError> {
+    let RuntimeValue::Record(mut fields) = base else {
+        return Err(EvalError {
+            message: format!("`record-update` expected record, got {base:?}"),
+        });
+    };
+    for (label, expr) in updates {
+        let idx = fields.iter().position(|(k, _)| k == label).ok_or_else(|| {
+            EvalError {
+                message: format!("`record-update` field `{label}` is not present"),
+            }
+        })?;
+        match eval_outcome(expr, env, host)? {
+            Outcome::Value(v) => fields[idx].1 = v,
+            other => return Ok(other),
+        }
+    }
+    Ok(Outcome::Value(RuntimeValue::Record(fields)))
+}
+
+fn record_extend(
+    base: RuntimeValue,
+    additions: &[(String, CoreExpr)],
+    env: &HashMap<String, RuntimeValue>,
+    host: &mut dyn EffectHost,
+) -> Result<Outcome, EvalError> {
+    let RuntimeValue::Record(mut fields) = base else {
+        return Err(EvalError {
+            message: format!("`record-extend` expected record, got {base:?}"),
+        });
+    };
+    for (label, expr) in additions {
+        if fields.iter().any(|(k, _)| k == label) {
+            return Err(EvalError {
+                message: format!("`record-extend` field `{label}` already present"),
+            });
+        }
+        match eval_outcome(expr, env, host)? {
+            Outcome::Value(v) => fields.push((label.clone(), v)),
+            other => return Ok(other),
+        }
+    }
+    Ok(Outcome::Value(RuntimeValue::Record(fields)))
 }
 
 fn apply_value(

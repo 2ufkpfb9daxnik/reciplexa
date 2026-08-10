@@ -480,6 +480,39 @@ fn elaborates_record_field_list_tuple() {
 }
 
 #[test]
+fn elaborates_record_update_and_extend() {
+    let expr = elaborate_source(
+        r#"
+(val report (record (title "Old") (page-count 1)))
+(val main (record-update report (title "New")))
+"#,
+    )
+    .unwrap();
+    let CoreExpr::Let { body, .. } = expr else {
+        panic!("expected Let");
+    };
+    let CoreExpr::Let { value, .. } = *body else {
+        panic!("expected main Let");
+    };
+    assert!(matches!(*value, CoreExpr::RecordUpdate { .. }));
+
+    let ext = elaborate_source(
+        r#"
+(val report (record (title "T")))
+(val main (record-extend report (author "A")))
+"#,
+    )
+    .unwrap();
+    let CoreExpr::Let { body, .. } = ext else {
+        panic!("expected Let");
+    };
+    let CoreExpr::Let { value, .. } = *body else {
+        panic!("expected main Let");
+    };
+    assert!(matches!(*value, CoreExpr::RecordExtend { .. }));
+}
+
+#[test]
 fn elaborates_radix_and_scientific_numbers() {
     let hex = elaborate_source("(val main 0x2a)").unwrap();
     let CoreExpr::Let { value, .. } = hex else {
