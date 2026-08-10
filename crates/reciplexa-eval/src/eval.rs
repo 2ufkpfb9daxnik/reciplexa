@@ -32,11 +32,12 @@ impl EffectHost for UnitHost {
     }
 }
 
-/// Elaborate surface source to Core, then evaluate with [`UnitHost`].
+/// Expand language macros, elaborate surface source to Core, then evaluate with [`UnitHost`].
 pub fn eval_source(src: &str) -> EvalResult {
-    let expr = elaborate_source(src).map_err(|e: ElaborateError| EvalError {
-        message: e.message,
-    })?;
+    let expanded =
+        reciplexa_macro::expand_language(src).map_err(|e| EvalError { message: e.message })?;
+    let expr = elaborate_source(&expanded)
+        .map_err(|e: ElaborateError| EvalError { message: e.message })?;
     eval_expr(&expr, &HashMap::new(), &mut UnitHost)
 }
 

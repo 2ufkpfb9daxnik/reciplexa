@@ -1,16 +1,22 @@
-//! Minimal macro expansion for `.rpx` sources.
+//! Macro expansion for `.rpx` sources.
 //!
-//! This is the package/macro seam: expand known heads before typecheck/lower.
-//! Full hygienic macros come later; for now we rewrite concrete forms in place
-//! while preserving surrounding source text outside the matched span.
+//! Two seams:
+//! - [`expand_language`] — MAC-001 user macros (language kernel pipeline)
+//! - [`expand_document_surface`] — graphics / markup sugar (document pipeline)
+//!
+//! [`expand_source`] remains an alias of [`expand_document_surface`] so existing
+//! document tooling keeps working while language macros stay quarantined.
 
 #![forbid(unsafe_code)]
 
 pub mod doc_layout;
+pub mod lang_macro;
 
 use reciplexa_syntax::{parse_source, SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken};
 
 use doc_layout::layout_markup_parts;
+
+pub use lang_macro::{expand_language, EXPANSION_BUDGET};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ExpandError {
@@ -25,11 +31,11 @@ impl ExpandError {
     }
 }
 
-/// Expand surface macros until a fixed point.
+/// Document-pipeline surface macros (`color-byte`, `markup`→`page`, …).
 ///
 /// Known surface macros always rewrite to forms without the same heads, so the
 /// loop is guaranteed to terminate without an artificial iteration cap.
-pub fn expand_source(input: &str) -> Result<String, ExpandError> {
+pub fn expand_document_surface(input: &str) -> Result<String, ExpandError> {
     let mut src = input.to_string();
     loop {
         let parse = parse_source(&src);
@@ -44,6 +50,11 @@ pub fn expand_source(input: &str) -> Result<String, ExpandError> {
         };
         src = splice(&src, start, end, &replacement);
     }
+}
+
+/// Alias of [`expand_document_surface`] for existing document callers.
+pub fn expand_source(input: &str) -> Result<String, ExpandError> {
+    expand_document_surface(input)
 }
 
 fn find_next_rewrite(root: &SyntaxNode) -> Option<(usize, usize, String)> {
