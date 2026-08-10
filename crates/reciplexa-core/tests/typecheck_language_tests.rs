@@ -20,8 +20,8 @@ fn dynamic_unifies_as_gradual_stub() {
 fn match_non_exhaustive_errors() {
     let err = typecheck_language_source(
         r#"
-(data Option (None) (Some x))
-(val main (match (Some 1) (Some x -> x)))
+(data option (none) (some x))
+(val main (match (some 1) (some x -> x)))
 "#,
     )
     .unwrap_err();
@@ -36,8 +36,8 @@ fn match_non_exhaustive_errors() {
 fn match_exhaustive_option_ok() {
     let ty = typecheck_language_source(
         r#"
-(data Option (None) (Some x))
-(val main (match (Some 1) (None -> 0) (Some x -> x)))
+(data option (none) (some x))
+(val main (match (some 1) (none -> 0) (some x -> x)))
 "#,
     )
     .unwrap();

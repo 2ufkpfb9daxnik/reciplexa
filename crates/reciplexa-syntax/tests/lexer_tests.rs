@@ -173,6 +173,25 @@ fn lexes_brackets_and_braces() {
 }
 
 #[test]
+fn rejects_underscore_idents_and_accepts_kebab() {
+    assert_eq!(kinds("read-file"), vec![SyntaxKind::Ident]);
+    assert_eq!(kinds("empty?"), vec![SyntaxKind::Ident]);
+    assert_eq!(kinds("commit!"), vec![SyntaxKind::Ident]);
+    assert_eq!(kinds("_"), vec![SyntaxKind::Ident]);
+    assert_eq!(kinds("report_title"), vec![SyntaxKind::Error]);
+    assert_eq!(kinds("_value"), vec![SyntaxKind::Error]);
+}
+
+#[test]
+fn freestanding_ops_do_not_glue_letters() {
+    assert_eq!(kinds("+"), vec![SyntaxKind::Ident]);
+    assert_eq!(texts("+"), vec!["+"]);
+    // `+x` → freestanding `+` then Ident `x` (SYN §5).
+    assert_eq!(kinds("+x"), vec![SyntaxKind::Ident, SyntaxKind::Ident]);
+    assert_eq!(texts("+x"), vec!["+", "x"]);
+}
+
+#[test]
 fn japanese_ident_is_accepted_in_lisp_mode() {
     // Alphabetic in Unicode — needed early for Japanese report workflow.
     assert_eq!(kinds("円"), vec![SyntaxKind::Ident]);

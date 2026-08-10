@@ -707,7 +707,9 @@ fn apply_value(
             }
             let mut child = closure_env.borrow().clone();
             for (param, arg_v) in params.into_iter().zip(arg_vs) {
-                child.insert(param, arg_v);
+                if param != "_" {
+                    child.insert(param, arg_v);
+                }
             }
             eval_outcome(&body, &child, host)
         }

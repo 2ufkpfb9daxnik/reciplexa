@@ -11,7 +11,8 @@ use reciplexa_identity::binding::BindingId;
 use reciplexa_source::offset::ByteOffset;
 use reciplexa_source::range::TextRange;
 use reciplexa_syntax::{
-    is_reserved_special_form, parse_source, SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken,
+    is_reserved_special_form, is_wildcard_ident, normalize_ident, parse_source, validate_ident,
+    SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken,
 };
 
 use crate::scope::ScopeStack;
@@ -699,11 +700,14 @@ fn lang_resolve_token(
     if tok.kind() != SyntaxKind::Ident {
         return;
     }
-    let name = tok.text();
-    if is_language_keyword(name) {
+    let name = normalize_ident(tok.text());
+    if is_wildcard_ident(&name) {
         return;
     }
-    if let Some(id) = stack.lookup(name) {
+    if is_language_keyword(&name) {
+        return;
+    }
+    if let Some(id) = stack.lookup(&name) {
         map.record(token_range(tok), id);
         return;
     }
@@ -719,16 +723,28 @@ fn declare_binding(
     env: &mut BindingEnv,
     errors: &mut Vec<ResolveError>,
 ) {
-    let name = tok.text();
-    if is_reserved_special_form(name) {
+    let raw = tok.text();
+    let name = normalize_ident(raw);
+    if is_wildcard_ident(&name) {
+        // `_` does not create a binding (SYN §3.5).
+        return;
+    }
+    if let Err(msg) = validate_ident(&name) {
+        errors.push(ResolveError {
+            message: msg,
+            range: token_range(tok),
+        });
+        return;
+    }
+    if is_reserved_special_form(&name) {
         errors.push(ResolveError {
             message: format!("cannot bind reserved special-form name `{name}`"),
             range: token_range(tok),
         });
         return;
     }
-    let id = stack.declare(name);
-    env.bindings.insert(id, name.to_string());
+    let id = stack.declare(name.clone());
+    env.bindings.insert(id, name);
 }
 
 fn is_language_keyword(name: &str) -> bool {
@@ -894,11 +910,11 @@ fn resolve_token(
     if tok.kind() != SyntaxKind::Ident {
         return;
     }
-    let name = tok.text();
-    if is_surface_keyword(name) {
+    let name = normalize_ident(tok.text());
+    if is_surface_keyword(&name) {
         return;
     }
-    if stack.lookup(name).is_some() || env.builtin_colors.contains_key(name) {
+    if stack.lookup(&name).is_some() || env.builtin_colors.contains_key(&name) {
         return;
     }
     let start: u32 = tok.text_range().start().into();
@@ -959,9 +975,12 @@ fn declare_named_binding(node: &SyntaxNode, stack: &mut ScopeStack, env: &mut Bi
             seen_head = true;
             continue;
         }
-        let name = t.text();
-        let id = stack.declare(name);
-        env.bindings.insert(id, name.to_string());
+        let name = normalize_ident(t.text());
+        if is_wildcard_ident(&name) {
+            break;
+        }
+        let id = stack.declare(name.clone());
+        env.bindings.insert(id, name);
         break;
     }
 }

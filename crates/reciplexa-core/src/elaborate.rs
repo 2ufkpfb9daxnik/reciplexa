@@ -10,8 +10,9 @@ use std::collections::HashMap;
 use reciplexa_source::offset::ByteOffset;
 use reciplexa_source::range::TextRange;
 use reciplexa_syntax::{
-    decode_string_literal, is_reserved_special_form, parse_number_literal, parse_source,
-    SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken,
+    decode_string_literal, is_reserved_special_form, is_wildcard_ident, normalize_ident,
+    parse_number_literal, parse_source, validate_ident, SyntaxElement, SyntaxKind, SyntaxNode,
+    SyntaxToken,
 };
 
 use crate::expr::{CoreExpr, CoreLiteral, CorePattern, MatchArm};
@@ -233,12 +234,12 @@ fn register_data(node: &SyntaxNode, ctx: &mut ElabCtx) -> Result<(), ElaborateEr
             name_tok,
         ));
     }
-    let type_name = name_tok.text().to_string();
+    let type_name = binder_name(name_tok)?;
     let mut ctors = Vec::new();
     for ctor in &atoms[2..] {
         match ctor {
             Atom::Token(t) if t.kind() == SyntaxKind::Ident => {
-                let tag = t.text().to_string();
+                let tag = binder_name(t)?;
                 ctx.data.ctors.insert(tag.clone(), 0);
                 ctx.data.ctor_type.insert(tag.clone(), type_name.clone());
                 ctors.push((tag, 0));
@@ -281,7 +282,7 @@ fn register_data(node: &SyntaxNode, ctx: &mut ElabCtx) -> Result<(), ElaborateEr
                         }
                     }
                 }
-                let tag = tag_tok.text().to_string();
+                let tag = binder_name(tag_tok)?;
                 ctx.data.ctors.insert(tag.clone(), arity);
                 ctx.data.ctor_type.insert(tag.clone(), type_name.clone());
                 ctors.push((tag, arity));
@@ -345,7 +346,7 @@ fn try_top_decl(node: &SyntaxNode, ctx: &ElabCtx) -> Result<Option<TopBinding>, 
                         let params = elaborate_params(params)?;
                         let body = elaborate_body(&atoms[3..], node, ctx)?;
                         return Ok(Some(TopBinding::Single(
-                            name_tok.text().to_string(),
+                            binder_name(name_tok)?,
                             CoreExpr::Lambda {
                                 params,
                                 body: Box::new(body),
@@ -390,7 +391,7 @@ fn elaborate_val(
                 ));
             }
             let value = elaborate_body(&rest[1..], parent, ctx)?;
-            Ok((name_tok.text().to_string(), value))
+            Ok((binder_name(name_tok)?, value))
         }
         // (val (name params...) body...) named-function sugar
         Atom::Node(binder) if binder.kind() == SyntaxKind::List => {
@@ -438,7 +439,7 @@ fn elaborate_val(
             }
             let body = elaborate_body(&rest[1..], parent, ctx)?;
             Ok((
-                name_tok.text().to_string(),
+                binder_name(name_tok)?,
                 CoreExpr::Lambda {
                     params,
                     body: Box::new(body),
@@ -678,17 +679,17 @@ fn elaborate_field(
     })
 }
 
-/// SYN §15.1 list encoding: nested variants `Cons` / `Nil`.
-/// `Cons` payload is a 2-field record `("head", x) ("tail", rest)`.
+/// SYN §15.1 list encoding: nested variants `cons` / `nil`.
+/// `cons` payload is a 2-field record `("head", x) ("tail", rest)`.
 fn elaborate_list_lit(rest: &[Atom], ctx: &ElabCtx) -> Result<CoreExpr, ElaborateError> {
     let mut acc = CoreExpr::Variant {
-        tag: "Nil".into(),
+        tag: "nil".into(),
         payload: None,
     };
     for atom in rest.iter().rev() {
         let head = elaborate_atom(atom, ctx)?;
         acc = CoreExpr::Variant {
-            tag: "Cons".into(),
+            tag: "cons".into(),
             payload: Some(Box::new(CoreExpr::Record {
                 fields: vec![("head".into(), head), ("tail".into(), acc)],
             })),
@@ -1270,7 +1271,7 @@ fn elaborate_let(
                 name_tok,
             ));
         }
-        let name = name_tok.text().to_string();
+        let name = binder_name(name_tok)?;
         if !seen.insert(name.clone()) {
             return Err(ElaborateError::at_token(
                 format!("duplicate binder `{name}` in the same `let`"),
@@ -1348,7 +1349,7 @@ fn elaborate_letrec(
                 name_tok,
             ));
         }
-        let name = name_tok.text().to_string();
+        let name = binder_name(name_tok)?;
         if !seen.insert(name.clone()) {
             return Err(ElaborateError::at_token(
                 format!("duplicate binder `{name}` in the same `letrec`"),
@@ -1445,7 +1446,7 @@ fn elaborate_local_decls(
                     name_tok,
                 ));
             }
-            let name = name_tok.text().to_string();
+            let name = binder_name(name_tok)?;
             if is_reserved_special_form(&name) {
                 return Err(ElaborateError::at_token(
                     format!("cannot bind reserved special-form `{name}`"),
@@ -1479,7 +1480,7 @@ fn elaborate_local_decls(
                     name_tok,
                 ));
             }
-            let name = name_tok.text().to_string();
+            let name = binder_name(name_tok)?;
             if is_reserved_special_form(&name) {
                 return Err(ElaborateError::at_token(
                     format!("cannot bind reserved special-form `{name}`"),
@@ -1614,7 +1615,7 @@ fn parse_rec_val_bindings(
                 name_tok,
             ));
         }
-        let name = name_tok.text().to_string();
+        let name = binder_name(name_tok)?;
         if is_reserved_special_form(&name) {
             return Err(ElaborateError::at_token(
                 format!("cannot bind reserved special-form `{name}`"),
@@ -1664,7 +1665,7 @@ fn elaborate_var(
         ));
     }
     Ok(CoreExpr::LocalVar {
-        name: name_tok.text().to_string(),
+        name: binder_name(name_tok)?,
         init: Box::new(elaborate_atom(&rest[1], ctx)?),
         body: Box::new(elaborate_body(&rest[2..], parent, ctx)?),
     })
@@ -1695,7 +1696,7 @@ fn elaborate_set(
         ));
     }
     Ok(CoreExpr::Set {
-        name: name_tok.text().to_string(),
+        name: binder_name(name_tok)?,
         value: Box::new(elaborate_atom(&rest[1], ctx)?),
     })
 }
@@ -1756,16 +1757,19 @@ fn elaborate_token(tok: &SyntaxToken, ctx: &ElabCtx) -> Result<CoreExpr, Elabora
                 decode_string_literal(raw).map_err(|msg| ElaborateError::at_token(msg, tok))?;
             Ok(CoreExpr::Lit(CoreLiteral::String(value)))
         }
-        SyntaxKind::Ident => match tok.text() {
-            "true" => Ok(CoreExpr::Lit(CoreLiteral::Bool(true))),
-            "false" => Ok(CoreExpr::Lit(CoreLiteral::Bool(false))),
-            "unit" => Ok(CoreExpr::Lit(CoreLiteral::Unit)),
-            name if ctx.data.ctors.get(name) == Some(&0) => Ok(CoreExpr::Variant {
-                tag: name.to_string(),
-                payload: None,
-            }),
-            name => Ok(CoreExpr::Var(name.to_string())),
-        },
+        SyntaxKind::Ident => {
+            let name = binder_name(tok)?;
+            match name.as_str() {
+                "true" => Ok(CoreExpr::Lit(CoreLiteral::Bool(true))),
+                "false" => Ok(CoreExpr::Lit(CoreLiteral::Bool(false))),
+                "unit" => Ok(CoreExpr::Lit(CoreLiteral::Unit)),
+                n if ctx.data.ctors.get(n) == Some(&0) => Ok(CoreExpr::Variant {
+                    tag: n.to_string(),
+                    payload: None,
+                }),
+                n => Ok(CoreExpr::Var(n.to_string())),
+            }
+        }
         other => Err(ElaborateError::at_token(
             format!("unexpected token `{other:?}` in expression"),
             tok,
@@ -1773,12 +1777,29 @@ fn elaborate_token(tok: &SyntaxToken, ctx: &ElabCtx) -> Result<CoreExpr, Elabora
     }
 }
 
+/// NFC-normalize and validate a binder / reference identifier (SYN §3).
+fn binder_name(tok: &SyntaxToken) -> Result<String, ElaborateError> {
+    let name = normalize_ident(tok.text());
+    if is_wildcard_ident(&name) {
+        return Ok(name);
+    }
+    if is_operator_ident_local(&name) {
+        return Ok(name);
+    }
+    validate_ident(&name).map_err(|msg| ElaborateError::at_token(msg, tok))?;
+    Ok(name)
+}
+
+fn is_operator_ident_local(name: &str) -> bool {
+    reciplexa_syntax::is_operator_ident(name)
+}
+
 fn elaborate_params(params: &SyntaxNode) -> Result<Vec<String>, ElaborateError> {
     let mut out = Vec::new();
     for atom in list_atoms(params) {
         match atom {
             Atom::Token(t) if t.kind() == SyntaxKind::Ident => {
-                out.push(t.text().to_string());
+                out.push(binder_name(&t)?);
             }
             Atom::Token(t) => {
                 return Err(ElaborateError::at_token(
@@ -1894,8 +1915,8 @@ mod tests {
     fn elaborates_data_and_match() {
         let expr = elaborate_source(
             r#"
-(data Option (None) (Some x))
-(val main (match (Some 1) (None -> 0) (Some x -> x)))
+(data option (none) (some x))
+(val main (match (some 1) (none -> 0) (some x -> x)))
 "#,
         )
         .unwrap();

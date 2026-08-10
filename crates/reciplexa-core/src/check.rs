@@ -1,6 +1,7 @@
 //! Bidirectional type checking for Core expressions (Phase 2 §4.2 step 9).
 
 use reciplexa_source::range::TextRange;
+use reciplexa_syntax::is_wildcard_ident;
 
 use crate::elaborate::DataEnv;
 use crate::expr::{CoreExpr, CoreLiteral, CorePattern, CoreValue, MatchArm};
@@ -245,6 +246,10 @@ pub fn infer_with_effects(
             let mut child = env.clone();
             let mut arg_tys = Vec::with_capacity(params.len());
             for param in params {
+                if is_wildcard_ident(param) {
+                    arg_tys.push(CoreType::Var(subst.fresh_var()));
+                    continue;
+                }
                 let p_ty = CoreType::Var(subst.fresh_var());
                 child.insert(param.clone(), p_ty.clone());
                 arg_tys.push(p_ty);

@@ -549,8 +549,8 @@ fn eval_source_call1_macro_expands_before_eval() {
 #[test]
 fn eval_source_data_match_some() {
     let src = r#"
-(data Option (None) (Some x))
-(val main (match (Some 1) (None -> 0) (Some x -> x)))
+(data option (none) (some x))
+(val main (match (some 1) (none -> 0) (some x -> x)))
 "#;
     let v = eval_source(src).unwrap();
     assert_eq!(v, RuntimeValue::Number(1.0));
@@ -580,7 +580,7 @@ fn eval_source_list_and_tuple() {
     assert_eq!(
         empty,
         RuntimeValue::Variant {
-            tag: "Nil".into(),
+            tag: "nil".into(),
             payload: None
         }
     );

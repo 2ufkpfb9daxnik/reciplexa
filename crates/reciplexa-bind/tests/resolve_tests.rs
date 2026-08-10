@@ -181,10 +181,10 @@ fn language_fn_param_binding_resolves() {
 
 #[test]
 fn language_named_fn_and_type_declare() {
-    let r = resolve_language_source("(fn id (x) x)\n(type T Num)\n(val main (id 1))");
+    let r = resolve_language_source("(fn id (x) x)\n(type t num)\n(val main (id 1))");
     assert!(r.is_ok(), "{:?}", r.errors);
     assert!(r.env.bindings.values().any(|n| n == "id"));
-    assert!(r.env.bindings.values().any(|n| n == "T"));
+    assert!(r.env.bindings.values().any(|n| n == "t"));
 }
 
 #[test]
@@ -198,13 +198,13 @@ fn language_skips_document_forms_without_color_builtins() {
 fn language_data_and_match_resolve() {
     let r = resolve_language_source(
         r#"
-(data Option (None) (Some x))
-(val main (match (Some 1) (None -> 0) (Some x -> x)))
+(data option (none) (some x))
+(val main (match (some 1) (none -> 0) (some x -> x)))
 "#,
     );
     assert!(r.is_ok(), "{:?}", r.errors);
-    assert!(r.env.bindings.values().any(|n| n == "None"));
-    assert!(r.env.bindings.values().any(|n| n == "Some"));
+    assert!(r.env.bindings.values().any(|n| n == "none"));
+    assert!(r.env.bindings.values().any(|n| n == "some"));
 }
 
 #[test]

@@ -152,8 +152,8 @@ fn elaborates_named_fn_sugar() {
 fn elaborates_data_option_and_match() {
     let expr = elaborate_source(
         r#"
-(data Option (None) (Some x))
-(val main (match (Some 1) (None -> 0) (Some x -> x)))
+(data option (none) (some x))
+(val main (match (some 1) (none -> 0) (some x -> x)))
 "#,
     )
     .unwrap();
@@ -168,15 +168,15 @@ fn elaborates_data_option_and_match() {
         CoreExpr::Variant {
             ref tag,
             payload: Some(_),
-        } if tag == "Some"
+        } if tag == "some"
     ));
     assert_eq!(arms.len(), 2);
-    assert_eq!(arms[0].tag(), Some("None"));
+    assert_eq!(arms[0].tag(), Some("none"));
     assert!(matches!(
         arms[0].pattern,
         reciplexa_core::CorePattern::Variant { payload: None, .. }
     ));
-    assert_eq!(arms[1].tag(), Some("Some"));
+    assert_eq!(arms[1].tag(), Some("some"));
     assert!(matches!(
         &arms[1].pattern,
         reciplexa_core::CorePattern::Variant {
@@ -190,11 +190,11 @@ fn elaborates_data_option_and_match() {
 fn elaborates_wildcard_bind_and_nested_patterns() {
     let expr = elaborate_source(
         r#"
-(data Option (None) (Some x))
+(data option (none) (some x))
 (val main
-  (match (Some (Some 1))
-    (Some (Some item) -> item)
-    (Some _ -> 0)
+  (match (some (some 1))
+    (some (some item) -> item)
+    (some _ -> 0)
     (_ -> -1)))
 "#,
     )
@@ -211,13 +211,13 @@ fn elaborates_wildcard_bind_and_nested_patterns() {
         reciplexa_core::CorePattern::Variant {
             tag,
             payload: Some(inner),
-        } if tag == "Some"
+        } if tag == "some"
             && matches!(
                 inner.as_ref(),
                 reciplexa_core::CorePattern::Variant {
                     tag: t2,
                     payload: Some(b),
-                } if t2 == "Some"
+                } if t2 == "some"
                     && matches!(b.as_ref(), reciplexa_core::CorePattern::Bind(n) if n == "item")
             )
     ));
@@ -226,7 +226,7 @@ fn elaborates_wildcard_bind_and_nested_patterns() {
         reciplexa_core::CorePattern::Variant {
             tag,
             payload: Some(inner),
-        } if tag == "Some" && matches!(inner.as_ref(), reciplexa_core::CorePattern::Wildcard)
+        } if tag == "some" && matches!(inner.as_ref(), reciplexa_core::CorePattern::Wildcard)
     ));
     assert!(matches!(
         arms[2].pattern,
@@ -235,8 +235,8 @@ fn elaborates_wildcard_bind_and_nested_patterns() {
 
     let bind = elaborate_source(
         r#"
-(data Option (None) (Some x))
-(val main (match (Some 1) (bind v -> v)))
+(data option (none) (some x))
+(val main (match (some 1) (bind v -> v)))
 "#,
     )
     .unwrap();
@@ -256,8 +256,8 @@ fn elaborates_wildcard_bind_and_nested_patterns() {
 fn rejects_old_match_arm_without_arrow() {
     let err = elaborate_source(
         r#"
-(data Option (None) (Some x))
-(val main (match (Some 1) (None 0) ((Some x) x)))
+(data option (none) (some x))
+(val main (match (some 1) (none 0) ((some x) x)))
 "#,
     )
     .unwrap_err();
@@ -451,7 +451,7 @@ fn elaborates_record_field_list_tuple() {
     };
     assert!(matches!(
         *value,
-        CoreExpr::Variant { ref tag, payload: Some(_) } if tag == "Cons"
+        CoreExpr::Variant { ref tag, payload: Some(_) } if tag == "cons"
     ));
 
     let tup = elaborate_source(r#"(val main (tuple 1 "title" true))"#).unwrap();

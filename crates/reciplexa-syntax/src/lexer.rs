@@ -327,6 +327,24 @@ impl<'a> Lexer<'a> {
                 return self.finish(SyntaxKind::Arrow, start);
             }
         }
+
+        // SYN §5: freestanding operators are the fixed list only (no `++`, `<>`, …).
+        if let Some(tok) = self.try_bump_operator(start) {
+            return tok;
+        }
+
+        // SYN §3.5: bare `_` is the wildcard; `_foo` is rejected.
+        if self.peek_char() == Some('_') {
+            self.advance_char();
+            if self.peek_char().is_some_and(is_ident_continue) {
+                while self.peek_char().is_some_and(is_ident_continue) {
+                    self.advance_char();
+                }
+                return self.finish(SyntaxKind::Error, start);
+            }
+            return self.finish(SyntaxKind::Ident, start);
+        }
+
         self.advance_char();
         while let Some(c) = self.peek_char() {
             if !is_ident_continue(c) {
@@ -334,7 +352,75 @@ impl<'a> Lexer<'a> {
             }
             self.advance_char();
         }
+        // Optional single trailing `?` / `!` (SYN §3.6).
+        if matches!(self.peek_char(), Some('?') | Some('!')) {
+            let mark = self.peek_char().unwrap();
+            let after = self.peek_char_at(mark.len_utf8());
+            if !after.is_some_and(is_ident_continue) && !matches!(after, Some('?') | Some('!')) {
+                self.advance_char();
+            }
+        }
+
+        let text = &self.input[start..self.pos];
+        // Underscore-in-name and leading/trailing/double `-` are hard lex errors.
+        // Uppercase-start is left as Ident so elaborate/resolve can diagnose clearly.
+        if text.contains('_')
+            || (text.starts_with('-') && text != "-")
+            || text.ends_with('-')
+            || text.contains("--")
+        {
+            return Token {
+                kind: SyntaxKind::Error,
+                start,
+                end: self.pos,
+            };
+        }
         self.finish(SyntaxKind::Ident, start)
+    }
+
+    /// Match a SYN §5 operator as a single Ident; does not glue into letters.
+    fn try_bump_operator(&mut self, start: usize) -> Option<Token> {
+        let c = self.peek_char()?;
+        let two = match c {
+            '<' | '>' | '!' => {
+                let n = self.peek_char_at(c.len_utf8());
+                match (c, n) {
+                    ('<', Some('=')) => Some("<="),
+                    ('>', Some('=')) => Some(">="),
+                    ('!', Some('=')) => Some("!="),
+                    _ => None,
+                }
+            }
+            _ => None,
+        };
+        if let Some(op) = two {
+            // Ensure not followed by ident-continue (operators are freestanding).
+            let len = op.len();
+            let after = self.peek_char_at(len);
+            if after.is_some_and(|ch| is_ident_continue(ch) || ch == '?' || ch == '!') {
+                return None;
+            }
+            for _ in 0..len {
+                self.advance_char();
+            }
+            return Some(self.finish(SyntaxKind::Ident, start));
+        }
+
+        if matches!(c, '+' | '-' | '*' | '/' | '=' | '<' | '>' | '!') {
+            let after = self.peek_char_at(c.len_utf8());
+            // `/` may continue into MOD path idents (`graphics/color`) — interim.
+            if c == '/' && after.is_some_and(|ch| ch.is_alphabetic() || ch.is_ascii_digit()) {
+                return None;
+            }
+            // `-` before a letter is leading-hyphen reject (fall through).
+            if c == '-' && after.is_some_and(|ch| ch.is_alphabetic()) {
+                return None;
+            }
+            // Other ops are always freestanding — do not glue into `+x`.
+            self.advance_char();
+            return Some(self.finish(SyntaxKind::Ident, start));
+        }
+        None
     }
 
     /// SYN §7 numeric literals: decimal / `0b`/`0o`/`0x` / `_` / scientific `e`.
@@ -488,15 +574,17 @@ impl<'a> Lexer<'a> {
 }
 
 fn is_ident_start(c: char) -> bool {
-    // Lisp-ish: letters, symbols common in Scheme-like dialects, underscore.
-    // Digits alone start numbers; `+`/`-` handled in bump_ident_or_number.
+    // Letters, `$` (macro params), `_` (wildcard), and SYN §5 operator starters.
+    // Digits alone start numbers; `/` may start a path-ish ident via continue.
     c.is_alphabetic()
         || matches!(
             c,
-            '_' | '+' | '-' | '*' | '/' | '%' | '=' | '<' | '>' | '!' | '?' | '$'
+            '_' | '+' | '-' | '*' | '/' | '=' | '<' | '>' | '!' | '?' | '$'
         )
 }
 
 fn is_ident_continue(c: char) -> bool {
-    is_ident_start(c) || c.is_ascii_digit()
+    // Include `_` so `report_title` is one Error token (SYN §3.5), not three.
+    // Kebab `-` and interim `/` for MOD paths; `?`/`!` are optional trailers.
+    c.is_alphabetic() || c.is_ascii_digit() || matches!(c, '-' | '/' | '$' | '_')
 }

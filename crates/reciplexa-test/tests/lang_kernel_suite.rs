@@ -105,8 +105,8 @@ fn lang_data_match_non_exhaustive() {
     );
     run_conformance(&case, || {
         let src = r#"
-(data Option (None) (Some x))
-(val main (match (Some 1) (Some x -> x)))
+(data option (none) (some x))
+(val main (match (some 1) (some x -> x)))
 "#;
         let err = elaborate_source(src).unwrap_err();
         assert!(err.message.contains("non-exhaustive"), "{}", err.message);
@@ -143,8 +143,8 @@ fn lang_literal_tuple_multipayload_patterns() {
 
         let v = eval_source(
             r#"
-(data Pair (Pair x y))
-(val main (match (Pair 4 5) (Pair a b -> (* a b))))
+(data pair (pair x y))
+(val main (match (pair 4 5) (pair a b -> (* a b))))
 "#,
         )
         .unwrap();
