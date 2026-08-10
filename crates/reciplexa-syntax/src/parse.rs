@@ -534,7 +534,5 @@ fn unparse_into(node: &SyntaxNode, out: &mut String) {
 }
 
 fn is_ident_continue(c: char) -> bool {
-    c.is_alphabetic()
-        || c.is_ascii_digit()
-        || matches!(c, '-' | '/' | '$' | '_')
+    c.is_alphabetic() || c.is_ascii_digit() || matches!(c, '-' | '/' | '$' | '_')
 }

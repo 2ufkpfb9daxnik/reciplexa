@@ -73,10 +73,7 @@ fn parse_decimal(body: &str, raw: &str) -> Result<f64, String> {
 
 fn reject_leading_zeros(body: &str, raw: &str) -> Result<(), String> {
     // Integer part before `.` or `e`.
-    let int_part = body
-        .split_once(['.', 'e'])
-        .map(|(a, _)| a)
-        .unwrap_or(body);
+    let int_part = body.split_once(['.', 'e']).map(|(a, _)| a).unwrap_or(body);
     let digits: String = int_part.chars().filter(|c| c.is_ascii_digit()).collect();
     if digits.len() > 1 && digits.starts_with('0') {
         return Err(format!(
@@ -129,7 +126,11 @@ fn strip_decimal_separators(body: &str, raw: &str) -> Result<String, String> {
         None => (mant, None),
     };
 
-    out.push_str(&strip_digit_separators(int_part, |c| c.is_ascii_digit(), raw)?);
+    out.push_str(&strip_digit_separators(
+        int_part,
+        |c| c.is_ascii_digit(),
+        raw,
+    )?);
     if let Some(f) = frac {
         if f.is_empty() {
             return Err(format!("invalid number literal `{raw}`"));

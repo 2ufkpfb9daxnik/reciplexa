@@ -301,55 +301,51 @@ fn eval_outcome(
             }
             Outcome::Resumed(v) => Ok(Outcome::Resumed(v)),
         },
-        CoreExpr::RecordUpdate { record, fields } => {
-            match eval_outcome(record, env, host)? {
-                Outcome::Value(v) => record_update(v, fields, env, host),
-                Outcome::Performed {
+        CoreExpr::RecordUpdate { record, fields } => match eval_outcome(record, env, host)? {
+            Outcome::Value(v) => record_update(v, fields, env, host),
+            Outcome::Performed {
+                op,
+                arg,
+                resume: inner,
+            } => {
+                let fields = fields.clone();
+                let env = env.clone();
+                Ok(Outcome::Performed {
                     op,
                     arg,
-                    resume: inner,
-                } => {
-                    let fields = fields.clone();
-                    let env = env.clone();
-                    Ok(Outcome::Performed {
-                        op,
-                        arg,
-                        resume: Rc::new(move |v, host| {
-                            let v = match inner(v, host)? {
-                                Outcome::Value(v) => v,
-                                other => return Ok(other),
-                            };
-                            record_update(v, &fields, &env, host)
-                        }),
-                    })
-                }
-                Outcome::Resumed(v) => Ok(Outcome::Resumed(v)),
+                    resume: Rc::new(move |v, host| {
+                        let v = match inner(v, host)? {
+                            Outcome::Value(v) => v,
+                            other => return Ok(other),
+                        };
+                        record_update(v, &fields, &env, host)
+                    }),
+                })
             }
-        }
-        CoreExpr::RecordExtend { record, fields } => {
-            match eval_outcome(record, env, host)? {
-                Outcome::Value(v) => record_extend(v, fields, env, host),
-                Outcome::Performed {
+            Outcome::Resumed(v) => Ok(Outcome::Resumed(v)),
+        },
+        CoreExpr::RecordExtend { record, fields } => match eval_outcome(record, env, host)? {
+            Outcome::Value(v) => record_extend(v, fields, env, host),
+            Outcome::Performed {
+                op,
+                arg,
+                resume: inner,
+            } => {
+                let fields = fields.clone();
+                let env = env.clone();
+                Ok(Outcome::Performed {
                     op,
                     arg,
-                    resume: inner,
-                } => {
-                    let fields = fields.clone();
-                    let env = env.clone();
-                    Ok(Outcome::Performed {
-                        op,
-                        arg,
-                        resume: Rc::new(move |v, host| {
-                            let v = match inner(v, host)? {
-                                Outcome::Value(v) => v,
-                                other => return Ok(other),
-                            };
-                            record_extend(v, &fields, &env, host)
-                        }),
-                    })
-                }
-                Outcome::Resumed(v) => Ok(Outcome::Resumed(v)),
+                    resume: Rc::new(move |v, host| {
+                        let v = match inner(v, host)? {
+                            Outcome::Value(v) => v,
+                            other => return Ok(other),
+                        };
+                        record_extend(v, &fields, &env, host)
+                    }),
+                })
             }
+            Outcome::Resumed(v) => Ok(Outcome::Resumed(v)),
         },
         CoreExpr::Variant { tag, payload } => {
             if let Some(e) = payload {
@@ -726,11 +722,12 @@ fn record_update(
         });
     };
     for (label, expr) in updates {
-        let idx = fields.iter().position(|(k, _)| k == label).ok_or_else(|| {
-            EvalError {
+        let idx = fields
+            .iter()
+            .position(|(k, _)| k == label)
+            .ok_or_else(|| EvalError {
                 message: format!("`record-update` field `{label}` is not present"),
-            }
-        })?;
+            })?;
         match eval_outcome(expr, env, host)? {
             Outcome::Value(v) => fields[idx].1 = v,
             other => return Ok(other),

@@ -136,10 +136,10 @@ fn nudge_xy_slots_of_list(
         _ => return Err(SyncError::new("translate missing numeric y")),
     };
     // Lexer `Number` tokens are always f64-parseable.
-    let x: f64 = reciplexa_syntax::parse_number_literal(x_tok.text())
-        .expect("lexer Number parses as f64");
-    let y: f64 = reciplexa_syntax::parse_number_literal(y_tok.text())
-        .expect("lexer Number parses as f64");
+    let x: f64 =
+        reciplexa_syntax::parse_number_literal(x_tok.text()).expect("lexer Number parses as f64");
+    let y: f64 =
+        reciplexa_syntax::parse_number_literal(y_tok.text()).expect("lexer Number parses as f64");
     let (_, after_x) = replace_token_text(&x_tok, &format_drag_number(x + dx));
     // `format_drag_number` always emits a parseable patch.
     let root2 = parse_root(&after_x).expect("parse ok after translate x patch");
@@ -414,8 +414,10 @@ fn text_box_dims(root: &SyntaxNode, index: usize) -> Result<Option<(f64, f64)>, 
                 && h.kind() == SyntaxKind::Number
                 && s.kind() == SyntaxKind::String =>
         {
-            let ww: f64 = reciplexa_syntax::parse_number_literal(w.text()).expect("lexer Number parses as f64");
-            let hh: f64 = reciplexa_syntax::parse_number_literal(h.text()).expect("lexer Number parses as f64");
+            let ww: f64 = reciplexa_syntax::parse_number_literal(w.text())
+                .expect("lexer Number parses as f64");
+            let hh: f64 = reciplexa_syntax::parse_number_literal(h.text())
+                .expect("lexer Number parses as f64");
             Ok(Some((ww, hh)))
         }
         _ => Ok(None),
@@ -471,7 +473,10 @@ pub fn layer_rotation_deg(
     let node = find_list_covering(&root, layer.root_start, layer.root_end)
         .expect("layer root span from collect_layers");
     match find_rotate_degrees_token(&node) {
-        Some(tok) => Ok(reciplexa_syntax::parse_number_literal(tok.text()).expect("lexer Number parses as f64")),
+        Some(tok) => {
+            Ok(reciplexa_syntax::parse_number_literal(tok.text())
+                .expect("lexer Number parses as f64"))
+        }
         None => Ok(0.0),
     }
 }
@@ -659,7 +664,8 @@ pub fn layer_opacity(src: &str, page_index: usize, flat_index: usize) -> Result<
     }
     match items.get(1) {
         Some(Child::Token(t)) if t.kind() == SyntaxKind::Number => {
-            let a: f64 = reciplexa_syntax::parse_number_literal(t.text()).expect("lexer Number parses as f64");
+            let a: f64 = reciplexa_syntax::parse_number_literal(t.text())
+                .expect("lexer Number parses as f64");
             Ok(a.clamp(0.0, 1.0))
         }
         _ => Err(SyncError::new("opacity form missing alpha")),
@@ -953,10 +959,10 @@ fn nudge_nth_pair(
     let (x_tok, y_tok) = find_nth_number_pair(&root, head, index, x_slot, y_slot)
         .ok_or_else(|| SyncError::new(format!("no `{head}` #{index} with numeric x/y")))?;
 
-    let x: f64 = reciplexa_syntax::parse_number_literal(x_tok.text())
-        .expect("lexer Number parses as f64");
-    let y: f64 = reciplexa_syntax::parse_number_literal(y_tok.text())
-        .expect("lexer Number parses as f64");
+    let x: f64 =
+        reciplexa_syntax::parse_number_literal(x_tok.text()).expect("lexer Number parses as f64");
+    let y: f64 =
+        reciplexa_syntax::parse_number_literal(y_tok.text()).expect("lexer Number parses as f64");
 
     let (_, after_x) = replace_token_text(&x_tok, &format_drag_number(x + dx));
     let root2 = parse_root(&after_x).expect("parse ok after x patch");
@@ -976,7 +982,8 @@ fn multiply_nth_number(
     let root = parse_root(src)?;
     let tok = find_nth_number(&root, head, index, slot)
         .ok_or_else(|| SyncError::new(format!("no `{head}` #{index} slot {slot}")))?;
-    let v: f64 = reciplexa_syntax::parse_number_literal(tok.text()).expect("lexer Number parses as f64");
+    let v: f64 =
+        reciplexa_syntax::parse_number_literal(tok.text()).expect("lexer Number parses as f64");
     let (_, out) = replace_token_text(&tok, &format_drag_number(v * factor));
     Ok(out)
 }

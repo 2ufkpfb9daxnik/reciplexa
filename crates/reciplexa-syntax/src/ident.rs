@@ -76,9 +76,7 @@ fn validate_ident_segment(name: &str) -> Result<(), String> {
         return Err(format!("identifier `{name}` must not start with `-`"));
     }
     if first == '?' || first == '!' {
-        return Err(format!(
-            "identifier `{name}` must not start with `{first}`"
-        ));
+        return Err(format!("identifier `{name}` must not start with `{first}`"));
     }
     // Case-bearing letters must be lowercase at start (SYN §3.3).
     if first.is_uppercase() {
