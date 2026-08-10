@@ -15,7 +15,7 @@ use reciplexa_syntax::{
     SyntaxKind, SyntaxNode, SyntaxToken,
 };
 
-use crate::expr::{CoreExpr, CoreLiteral, CorePattern, MatchArm};
+use crate::expr::{first_unreachable_arm, CoreExpr, CoreLiteral, CorePattern, MatchArm};
 use crate::ty::CoreType;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1068,16 +1068,19 @@ fn elaborate_list_lit(rest: &[Atom], ctx: &ElabCtx) -> Result<CoreExpr, Elaborat
 
 /// SYN §15.2 tuple encoding: closed record with positional labels `"0"`, `"1"`, …
 /// - 0 elems → `unit`
-/// - 1 elem → the element itself
+/// - 1 elem → reject (SYN §20; use the element type/value directly)
 /// - 2+ → [`CoreExpr::Record`]
 fn elaborate_tuple(
     rest: &[Atom],
-    _parent: &SyntaxNode,
+    parent: &SyntaxNode,
     ctx: &ElabCtx,
 ) -> Result<CoreExpr, ElaborateError> {
     match rest.len() {
         0 => Ok(CoreExpr::Lit(CoreLiteral::Unit)),
-        1 => elaborate_atom(&rest[0], ctx),
+        1 => Err(ElaborateError::at_node(
+            "1-element `tuple` is not allowed; use the element directly (SYN §15.2 / §20)",
+            parent,
+        )),
         _ => {
             let mut fields = Vec::with_capacity(rest.len());
             for (i, atom) in rest.iter().enumerate() {
@@ -1153,46 +1156,56 @@ fn elaborate_match(
     }
     // Static exhaustiveness from known `(data …)` constructors (via arm tags
     // or a direct constructor scrutinee). Catch-all `_` / `bind` cover all.
+    let adt = if let CoreExpr::Variant { tag, .. } = &scrutinee {
+        ctx.data.adt_for_tag(tag)
+    } else {
+        Vec::new()
+    };
+    let adt = if adt.is_empty() {
+        arms.iter()
+            .find_map(|a| {
+                let tag = a.tag()?;
+                let a = ctx.data.adt_for_tag(tag);
+                if a.is_empty() {
+                    None
+                } else {
+                    Some(a)
+                }
+            })
+            .unwrap_or_default()
+    } else {
+        adt
+    };
     let has_catch_all = arms.iter().any(|a| a.is_catch_all());
-    if !has_catch_all {
-        let adt = if let CoreExpr::Variant { tag, .. } = &scrutinee {
-            ctx.data.adt_for_tag(tag)
-        } else {
-            Vec::new()
-        };
-        let adt = if adt.is_empty() {
-            arms.iter()
-                .find_map(|a| {
-                    let tag = a.tag()?;
-                    let a = ctx.data.adt_for_tag(tag);
-                    if a.is_empty() {
-                        None
-                    } else {
-                        Some(a)
-                    }
-                })
-                .unwrap_or_default()
-        } else {
-            adt
-        };
-        if !adt.is_empty() {
-            let covered: std::collections::HashSet<&str> =
-                arms.iter().filter_map(|a| a.tag()).collect();
-            let missing: Vec<&str> = adt
-                .iter()
-                .map(|(t, _)| t.as_str())
-                .filter(|t| !covered.contains(t))
-                .collect();
-            if !missing.is_empty() {
-                return Err(ElaborateError::at_node(
-                    format!(
-                        "non-exhaustive match: missing constructor(s) {}",
-                        missing.join(", ")
-                    ),
-                    parent,
-                ));
-            }
+    if !has_catch_all && !adt.is_empty() {
+        let covered: std::collections::HashSet<&str> =
+            arms.iter().filter_map(|a| a.tag()).collect();
+        let missing: Vec<&str> = adt
+            .iter()
+            .map(|(t, _)| t.as_str())
+            .filter(|t| !covered.contains(t))
+            .collect();
+        if !missing.is_empty() {
+            return Err(ElaborateError::at_node(
+                format!(
+                    "non-exhaustive match: missing constructor(s) {}",
+                    missing.join(", ")
+                ),
+                parent,
+            ));
         }
+    }
+    // DAT §21.3: cases after a catch-all or after covering every constructor.
+    let adt_tags: Vec<&str> = adt.iter().map(|(t, _)| t.as_str()).collect();
+    if let Some(idx) = first_unreachable_arm(&arms, &adt_tags) {
+        let detail = arms[idx]
+            .tag()
+            .map(|t| format!(": constructor `{t}` is already covered"))
+            .unwrap_or_default();
+        return Err(ElaborateError::at_node(
+            format!("unreachable match case{detail}"),
+            parent,
+        ));
     }
     Ok(CoreExpr::Match {
         scrutinee: Box::new(scrutinee),
@@ -1304,11 +1317,11 @@ fn elaborate_pattern_atoms(
         return Ok(CorePattern::Lit(lit));
     }
 
-    // §17 tuple pattern: `(tuple p0 p1 …)`
+    // §17 tuple pattern: `(tuple p0 p1 …)` — arity ≥ 2 (SYN §15.2 / §20).
     if head_text == "tuple" {
-        if atoms.len() < 2 {
+        if atoms.len() < 3 {
             return Err(ElaborateError::at_node(
-                "`tuple` pattern requires at least one element pattern",
+                "`tuple` pattern requires at least two element patterns (1-element tuple is not allowed)",
                 parent,
             ));
         }

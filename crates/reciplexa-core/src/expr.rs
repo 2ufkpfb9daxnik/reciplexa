@@ -163,6 +163,31 @@ impl MatchArm {
     }
 }
 
+/// DAT §21.3: index of the first arm that can never match, if any.
+///
+/// `adt_tags` is the full constructor set for a known sealed ADT (empty when unknown).
+pub fn first_unreachable_arm(arms: &[MatchArm], adt_tags: &[&str]) -> Option<usize> {
+    let known_adt = !adt_tags.is_empty();
+    let mut covered: std::collections::HashSet<&str> = std::collections::HashSet::new();
+    let mut catch_all = false;
+    for (i, arm) in arms.iter().enumerate() {
+        let fully_covered =
+            catch_all || (known_adt && adt_tags.iter().all(|t| covered.contains(t)));
+        if fully_covered {
+            return Some(i);
+        }
+        if arm.is_catch_all() {
+            catch_all = true;
+        } else if let Some(tag) = arm.tag() {
+            if covered.contains(tag) {
+                return Some(i);
+            }
+            covered.insert(tag);
+        }
+    }
+    None
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct CoreValue {
     pub ty: CoreType,

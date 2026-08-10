@@ -45,6 +45,38 @@ fn match_exhaustive_option_ok() {
 }
 
 #[test]
+fn match_unreachable_after_wildcard_errors() {
+    let err = typecheck_language_source(
+        r#"
+(data option (none) (some x))
+(val main (match (some 1) (_ -> 0) (some x -> x)))
+"#,
+    )
+    .unwrap_err();
+    assert!(
+        err.message.contains("unreachable"),
+        "unexpected: {}",
+        err.message
+    );
+}
+
+#[test]
+fn match_unreachable_duplicate_ctor_errors() {
+    let err = typecheck_language_source(
+        r#"
+(data option (none) (some x))
+(val main (match (some 1) (none -> 0) (some x -> x) (none -> 1)))
+"#,
+    )
+    .unwrap_err();
+    assert!(
+        err.message.contains("unreachable"),
+        "unexpected: {}",
+        err.message
+    );
+}
+
+#[test]
 fn unit_literal_types_as_unit() {
     let ty = typecheck_language_source("(val main unit)").unwrap();
     assert_eq!(ty, CoreType::Unit);

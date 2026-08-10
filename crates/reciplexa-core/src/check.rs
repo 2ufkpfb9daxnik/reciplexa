@@ -4,7 +4,9 @@ use reciplexa_source::range::TextRange;
 use reciplexa_syntax::is_wildcard_ident;
 
 use crate::elaborate::DataEnv;
-use crate::expr::{CoreExpr, CoreLiteral, CorePattern, CoreValue, MatchArm};
+use crate::expr::{
+    first_unreachable_arm, CoreExpr, CoreLiteral, CorePattern, CoreValue, MatchArm,
+};
 use crate::ty::{CoreType, EffectRow};
 use crate::unify::{unify, Subst, UnifyError};
 
@@ -428,17 +430,17 @@ pub fn infer_with_effects(
         CoreExpr::Match { scrutinee, arms } => {
             let (scr_ty, scr_effs) = infer_with_effects(scrutinee, env, subst, range)?;
             let scr_ty = subst.apply(&scr_ty);
+            let expected_adt = arms.iter().find_map(|a| {
+                let tag = a.tag()?;
+                let adt = env.data.adt_for_tag(tag);
+                if adt.is_empty() {
+                    None
+                } else {
+                    Some(adt)
+                }
+            });
             let has_catch_all = arms.iter().any(|a| a.is_catch_all());
             if !has_catch_all {
-                let expected_adt = arms.iter().find_map(|a| {
-                    let tag = a.tag()?;
-                    let adt = env.data.adt_for_tag(tag);
-                    if adt.is_empty() {
-                        None
-                    } else {
-                        Some(adt)
-                    }
-                });
                 if let Some(adt) = &expected_adt {
                     let covered: std::collections::HashSet<&str> =
                         arms.iter().filter_map(|a| a.tag()).collect();
@@ -457,6 +459,20 @@ pub fn infer_with_effects(
                         ));
                     }
                 }
+            }
+            let adt_tags: Vec<&str> = expected_adt
+                .as_ref()
+                .map(|adt| adt.iter().map(|(t, _)| t.as_str()).collect())
+                .unwrap_or_default();
+            if let Some(idx) = first_unreachable_arm(arms, &adt_tags) {
+                let detail = arms[idx]
+                    .tag()
+                    .map(|t| format!(": constructor `{t}` is already covered"))
+                    .unwrap_or_default();
+                return Err(CheckError::at(
+                    format!("unreachable match case{detail}"),
+                    range,
+                ));
             }
             let ret_var = CoreType::Var(subst.fresh_var());
             let mut arm_effs = EffectRow::default();
