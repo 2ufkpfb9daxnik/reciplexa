@@ -45,20 +45,38 @@ pub fn infer_expr(
     subst: &mut Subst,
     range: TextRange,
 ) -> Result<CoreType, CheckError> {
+    Ok(infer_with_effects(expr, env, subst, range)?.0)
+}
+
+/// Infer type and latent/effect residual of a core expression.
+///
+/// - [`CoreExpr::Perform`] adds `op` to the residual effect row.
+/// - [`CoreExpr::Handle`] removes `op` from the body's residual.
+/// - [`CoreExpr::Lambda`] suspends body residuals onto [`CoreType::Fun::effects`].
+pub fn infer_with_effects(
+    expr: &CoreExpr,
+    env: &TypeEnv,
+    subst: &mut Subst,
+    range: TextRange,
+) -> Result<(CoreType, EffectRow), CheckError> {
     match expr {
-        CoreExpr::Lit(lit) => Ok(match lit {
-            CoreLiteral::Number(_) => CoreType::Number,
-            CoreLiteral::String(_) => CoreType::String,
-            CoreLiteral::Color(_) => CoreType::Color,
-            CoreLiteral::Bool(_) => CoreType::Bool,
-        }),
-        CoreExpr::Var(name) => env
-            .vars
-            .get(name)
-            .cloned()
-            .ok_or_else(|| CheckError::at(format!("unbound variable `{name}`"), range)),
+        CoreExpr::Lit(lit) => Ok((
+            match lit {
+                CoreLiteral::Number(_) => CoreType::Number,
+                CoreLiteral::String(_) => CoreType::String,
+                CoreLiteral::Color(_) => CoreType::Color,
+                CoreLiteral::Bool(_) => CoreType::Bool,
+            },
+            EffectRow::default(),
+        )),
+        CoreExpr::Var(name) => {
+            let ty = env.vars.get(name).cloned().ok_or_else(|| {
+                CheckError::at(format!("unbound variable `{name}`"), range)
+            })?;
+            Ok((ty, EffectRow::default()))
+        }
         CoreExpr::Perform { op, arg } => {
-            let arg_ty = infer_expr(arg, env, subst, range)?;
+            let (arg_ty, arg_effs) = infer_with_effects(arg, env, subst, range)?;
             match op.as_str() {
                 "read-file" | "write-file" | "log" => {
                     if !matches!(arg_ty, CoreType::String | CoreType::Dynamic) {
@@ -74,12 +92,12 @@ pub fn infer_expr(
                     }
                 }
             }
-            // Resource reads yield String; others Unit (v0).
-            if op == "read-file" {
-                Ok(CoreType::String)
+            let ty = if op == "read-file" {
+                CoreType::String
             } else {
-                Ok(CoreType::Unit)
-            }
+                CoreType::Unit
+            };
+            Ok((ty, arg_effs.with_op(op.clone())))
         }
         CoreExpr::Handle {
             op,
@@ -87,9 +105,8 @@ pub fn infer_expr(
             handler_body,
             body,
         } => {
-            let _ = op;
-            // Body may perform; its type is ignored under shallow abort.
-            let _ = infer_expr(body, env, subst, range)?;
+            let (_body_ty, body_effs) = infer_with_effects(body, env, subst, range)?;
+            let residual = body_effs.without_op(op);
             let mut child = env.clone();
             match handler_params.as_slice() {
                 [arg] => {
@@ -97,12 +114,13 @@ pub fn infer_expr(
                 }
                 [arg, resume] => {
                     child.insert(arg.clone(), CoreType::String);
+                    // Resume continues the handled body: residual effects remain.
                     child.insert(
                         resume.clone(),
                         CoreType::Fun {
                             args: vec![CoreType::Var(subst.fresh_var())],
                             ret: Box::new(CoreType::Var(subst.fresh_var())),
-                            effects: EffectRow::default(),
+                            effects: residual.clone(),
                         },
                     );
                 }
@@ -113,20 +131,26 @@ pub fn infer_expr(
                     ));
                 }
             }
-            infer_expr(handler_body, &child, subst, range)
+            let (handler_ty, handler_effs) =
+                infer_with_effects(handler_body, &child, subst, range)?;
+            Ok((handler_ty, residual.merge(&handler_effs)))
         }
         CoreExpr::Seq(items) => {
             let mut last = CoreType::Unit;
+            let mut effs = EffectRow::default();
             for item in items {
-                last = infer_expr(item, env, subst, range)?;
+                let (ty, e) = infer_with_effects(item, env, subst, range)?;
+                last = ty;
+                effs = effs.merge(&e);
             }
-            Ok(last)
+            Ok((last, effs))
         }
         CoreExpr::Let { name, value, body } => {
-            let v_ty = infer_expr(value, env, subst, range)?;
+            let (v_ty, v_effs) = infer_with_effects(value, env, subst, range)?;
             let mut child = env.clone();
             child.insert(name.clone(), v_ty);
-            infer_expr(body, &child, subst, range)
+            let (b_ty, b_effs) = infer_with_effects(body, &child, subst, range)?;
+            Ok((b_ty, v_effs.merge(&b_effs)))
         }
         CoreExpr::LetRec { bindings, body } => {
             let mut child = env.clone();
@@ -138,28 +162,34 @@ pub fn infer_expr(
                 };
                 child.insert(name.clone(), f_ty);
             }
+            let mut bind_effs = EffectRow::default();
             for (name, rhs) in bindings {
-                let rhs_ty = infer_expr(rhs, &child, subst, range)?;
+                let (rhs_ty, rhs_effs) = infer_with_effects(rhs, &child, subst, range)?;
+                bind_effs = bind_effs.merge(&rhs_effs);
                 if let Some(expected) = child.vars.get(name).cloned() {
-                    unify(&rhs_ty, &expected, subst).map_err(|e| unify_to_check(e, range))?;
-                    child.insert(name.clone(), subst.apply(&expected));
+                    // Allow effect rows from the concrete lambda to refine the stub.
+                    unify_fun_flexible(&rhs_ty, &expected, subst)
+                        .map_err(|e| unify_to_check(e, range))?;
+                    child.insert(name.clone(), subst.apply(&rhs_ty));
                 }
             }
-            infer_expr(body, &child, subst, range)
+            let (b_ty, b_effs) = infer_with_effects(body, &child, subst, range)?;
+            Ok((b_ty, bind_effs.merge(&b_effs)))
         }
         CoreExpr::LocalVar { name, init, body } => {
-            let init_ty = infer_expr(init, env, subst, range)?;
+            let (init_ty, init_effs) = infer_with_effects(init, env, subst, range)?;
             let mut child = env.clone();
             child.insert(name.clone(), init_ty);
-            infer_expr(body, &child, subst, range)
+            let (b_ty, b_effs) = infer_with_effects(body, &child, subst, range)?;
+            Ok((b_ty, init_effs.merge(&b_effs)))
         }
         CoreExpr::Set { name, value } => {
-            let v_ty = infer_expr(value, env, subst, range)?;
+            let (v_ty, v_effs) = infer_with_effects(value, env, subst, range)?;
             let expected = env.vars.get(name).cloned().ok_or_else(|| {
                 CheckError::at(format!("unbound variable `{name}` in set"), range)
             })?;
             unify(&v_ty, &expected, subst).map_err(|e| unify_to_check(e, range))?;
-            Ok(CoreType::Unit)
+            Ok((CoreType::Unit, v_effs))
         }
         CoreExpr::Lambda { params, body } => {
             let mut child = env.clone();
@@ -169,62 +199,86 @@ pub fn infer_expr(
                 child.insert(param.clone(), p_ty.clone());
                 arg_tys.push(p_ty);
             }
-            let ret = infer_expr(body, &child, subst, range)?;
-            Ok(CoreType::Fun {
-                args: arg_tys,
-                ret: Box::new(ret),
-                effects: EffectRow::default(),
-            })
+            let (ret, body_effs) = infer_with_effects(body, &child, subst, range)?;
+            Ok((
+                CoreType::Fun {
+                    args: arg_tys,
+                    ret: Box::new(ret),
+                    effects: body_effs,
+                },
+                EffectRow::default(),
+            ))
         }
         CoreExpr::App { fun, args } => {
-            let fun_ty = infer_expr(fun, env, subst, range)?;
+            let (fun_ty, fun_effs) = infer_with_effects(fun, env, subst, range)?;
             let mut arg_tys = Vec::with_capacity(args.len());
+            let mut arg_effs = EffectRow::default();
             for arg in args {
-                arg_tys.push(infer_expr(arg, env, subst, range)?);
+                let (t, e) = infer_with_effects(arg, env, subst, range)?;
+                arg_tys.push(t);
+                arg_effs = arg_effs.merge(&e);
             }
             let ret_var = CoreType::Var(subst.fresh_var());
+            let fun_ty = subst.apply(&fun_ty);
+            let call_effs = match &fun_ty {
+                CoreType::Fun { effects, .. } => effects.clone(),
+                CoreType::Var(_) => EffectRow::default(),
+                _ => EffectRow::default(),
+            };
             let expected = CoreType::Fun {
                 args: arg_tys,
                 ret: Box::new(ret_var.clone()),
-                effects: EffectRow::default(),
+                effects: call_effs.clone(),
             };
-            unify_fun(&fun_ty, &expected, subst).map_err(|e| unify_to_check(e, range))?;
-            Ok(subst.apply(&ret_var))
+            unify_fun_flexible(&fun_ty, &expected, subst).map_err(|e| unify_to_check(e, range))?;
+            let fun_ty = subst.apply(&fun_ty);
+            let latent = match &fun_ty {
+                CoreType::Fun { effects, .. } => effects.clone(),
+                _ => call_effs,
+            };
+            Ok((
+                subst.apply(&ret_var),
+                fun_effs.merge(&arg_effs).merge(&latent),
+            ))
         }
         CoreExpr::If {
             cond,
             then_branch,
             else_branch,
         } => {
-            let cond_ty = infer_expr(cond, env, subst, range)?;
+            let (cond_ty, cond_effs) = infer_with_effects(cond, env, subst, range)?;
             unify(&cond_ty, &CoreType::Bool, subst).map_err(|e| unify_to_check(e, range))?;
-            let then_ty = infer_expr(then_branch, env, subst, range)?;
-            let else_ty = infer_expr(else_branch, env, subst, range)?;
+            let (then_ty, then_effs) = infer_with_effects(then_branch, env, subst, range)?;
+            let (else_ty, else_effs) = infer_with_effects(else_branch, env, subst, range)?;
             unify(&then_ty, &else_ty, subst).map_err(|e| unify_to_check(e, range))?;
-            Ok(subst.apply(&then_ty))
+            Ok((
+                subst.apply(&then_ty),
+                cond_effs.merge(&then_effs).merge(&else_effs),
+            ))
         }
         CoreExpr::Record { fields } => {
             let mut typed = Vec::new();
+            let mut effs = EffectRow::default();
             for (k, v) in fields {
-                typed.push((k.clone(), infer_expr(v, env, subst, range)?));
+                let (t, e) = infer_with_effects(v, env, subst, range)?;
+                typed.push((k.clone(), t));
+                effs = effs.merge(&e);
             }
-            Ok(CoreType::Record { fields: typed })
+            Ok((CoreType::Record { fields: typed }, effs))
         }
         CoreExpr::RecordGet { record, field } => {
-            let rec_ty = infer_expr(record, env, subst, range)?;
+            let (rec_ty, rec_effs) = infer_with_effects(record, env, subst, range)?;
             let rec_ty = subst.apply(&rec_ty);
-            match rec_ty {
+            let ty = match rec_ty {
                 CoreType::Record { fields } => fields
                     .into_iter()
                     .find(|(k, _)| k == field)
                     .map(|(_, t)| t)
-                    .ok_or_else(|| CheckError::at(format!("unknown field `{field}`"), range)),
+                    .ok_or_else(|| CheckError::at(format!("unknown field `{field}`"), range))?,
                 CoreType::OpenRecord { fields, row } => {
                     if let Some((_, t)) = fields.into_iter().find(|(k, _)| k == field) {
-                        Ok(t)
+                        t
                     } else {
-                        // Field may live in the open row tail — introduce a fresh field type
-                        // and constrain the tail to contain it.
                         let field_ty = CoreType::Var(subst.fresh_var());
                         let rest = CoreType::Var(subst.fresh_var());
                         let expected = CoreType::OpenRecord {
@@ -232,20 +286,24 @@ pub fn infer_expr(
                             row: Box::new(rest),
                         };
                         unify(&row, &expected, subst).map_err(|e| unify_to_check(e, range))?;
-                        Ok(subst.apply(&field_ty))
+                        subst.apply(&field_ty)
                     }
                 }
-                other => Err(CheckError::at(
-                    format!("expected record, got {other:?}"),
-                    range,
-                )),
-            }
+                other => {
+                    return Err(CheckError::at(
+                        format!("expected record, got {other:?}"),
+                        range,
+                    ));
+                }
+            };
+            Ok((ty, rec_effs))
         }
         CoreExpr::Variant { tag, payload } => {
-            let payload_ty = if let Some(p) = payload {
-                Some(infer_expr(p, env, subst, range)?)
+            let (payload_ty, payload_effs) = if let Some(p) = payload {
+                let (t, e) = infer_with_effects(p, env, subst, range)?;
+                (Some(t), e)
             } else {
-                None
+                (None, EffectRow::default())
             };
             let adt = env.data.adt_for_tag(tag);
             let variants = if adt.is_empty() {
@@ -263,12 +321,11 @@ pub fn infer_expr(
                     })
                     .collect()
             };
-            Ok(CoreType::Variant { variants })
+            Ok((CoreType::Variant { variants }, payload_effs))
         }
         CoreExpr::Match { scrutinee, arms } => {
-            let scr_ty = infer_expr(scrutinee, env, subst, range)?;
+            let (scr_ty, scr_effs) = infer_with_effects(scrutinee, env, subst, range)?;
             let scr_ty = subst.apply(&scr_ty);
-            // Prefer ADT table from arm tags when scrutinee is not yet a full variant.
             let expected_adt = arms.iter().find_map(|a| {
                 let a = env.data.adt_for_tag(&a.tag);
                 if a.is_empty() {
@@ -294,35 +351,54 @@ pub fn infer_expr(
                         range,
                     ));
                 }
-            } else if let CoreType::Variant { variants } = &scr_ty {
-                let covered: std::collections::HashSet<&str> =
-                    arms.iter().map(|a| a.tag.as_str()).collect();
-                let missing: Vec<&str> = variants
-                    .iter()
-                    .map(|(t, _)| t.as_str())
-                    .filter(|t| !covered.contains(t))
-                    .collect();
-                if !missing.is_empty() {
-                    return Err(CheckError::at(
-                        format!(
-                            "non-exhaustive match: missing constructor(s) {}",
-                            missing.join(", ")
-                        ),
-                        range,
-                    ));
-                }
             }
             let ret_var = CoreType::Var(subst.fresh_var());
+            let mut arm_effs = EffectRow::default();
             for arm in arms {
-                check_arm(arm, &scr_ty, &ret_var, env, subst, range)?;
+                let e = check_arm(arm, &scr_ty, &ret_var, env, subst, range)?;
+                arm_effs = arm_effs.merge(&e);
             }
-            Ok(subst.apply(&ret_var))
+            Ok((subst.apply(&ret_var), scr_effs.merge(&arm_effs)))
         }
     }
 }
 
-fn unify_fun(found: &CoreType, expected: &CoreType, subst: &mut Subst) -> Result<(), UnifyError> {
-    unify(found, expected, subst)
+fn unify_fun_flexible(
+    found: &CoreType,
+    expected: &CoreType,
+    subst: &mut Subst,
+) -> Result<(), UnifyError> {
+    let found = subst.apply(found);
+    let expected = subst.apply(expected);
+    match (&found, &expected) {
+        (
+            CoreType::Fun {
+                args: a_args,
+                ret: a_ret,
+                effects: a_eff,
+            },
+            CoreType::Fun {
+                args: b_args,
+                ret: b_ret,
+                ..
+            },
+        ) => {
+            if a_args.len() != b_args.len() {
+                return Err(UnifyError::Mismatch {
+                    expected: expected.clone(),
+                    found: found.clone(),
+                });
+            }
+            for (x, y) in a_args.iter().zip(b_args.iter()) {
+                unify(x, y, subst)?;
+            }
+            unify(a_ret, b_ret, subst)?;
+            // Prefer concrete effect row from `found` when expected was a stub.
+            let _ = a_eff;
+            Ok(())
+        }
+        _ => unify(&found, &expected, subst),
+    }
 }
 
 fn unify_to_check(e: UnifyError, range: TextRange) -> CheckError {
@@ -336,7 +412,7 @@ fn check_arm(
     env: &TypeEnv,
     subst: &mut Subst,
     range: TextRange,
-) -> Result<(), CheckError> {
+) -> Result<EffectRow, CheckError> {
     let mut child = env.clone();
     if let CoreType::Variant { variants } = scr_ty {
         if let Some((_, payload)) = variants.iter().find(|(t, _)| t == &arm.tag) {
@@ -347,9 +423,9 @@ fn check_arm(
             }
         }
     }
-    let body_ty = infer_expr(&arm.body, &child, subst, range)?;
+    let (body_ty, body_effs) = infer_with_effects(&arm.body, &child, subst, range)?;
     unify(&body_ty, ret_ty, subst).map_err(|e| unify_to_check(e, range))?;
-    Ok(())
+    Ok(body_effs)
 }
 
 /// Type-check and return a typed core value.

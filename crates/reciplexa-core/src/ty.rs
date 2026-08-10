@@ -57,6 +57,37 @@ pub struct EffectRow {
     pub ops: Vec<String>,
 }
 
+impl EffectRow {
+    pub fn with_op(mut self, op: impl Into<String>) -> Self {
+        let op = op.into();
+        if !self.ops.iter().any(|o| o == &op) {
+            self.ops.push(op);
+        }
+        self
+    }
+
+    pub fn without_op(&self, op: &str) -> Self {
+        Self {
+            ops: self
+                .ops
+                .iter()
+                .filter(|o| o.as_str() != op)
+                .cloned()
+                .collect(),
+        }
+    }
+
+    pub fn merge(&self, other: &Self) -> Self {
+        let mut out = self.clone();
+        for op in &other.ops {
+            if !out.ops.iter().any(|o| o == op) {
+                out.ops.push(op.clone());
+            }
+        }
+        out
+    }
+}
+
 impl fmt::Display for CoreType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{self:?}")

@@ -9,7 +9,9 @@ pub mod lower;
 pub mod ty;
 pub mod unify;
 
-pub use check::{infer_expr, typecheck_language_source, typecheck_value, CheckError, TypeEnv};
+pub use check::{
+    infer_expr, infer_with_effects, typecheck_language_source, typecheck_value, CheckError, TypeEnv,
+};
 pub use elaborate::{elaborate_source, elaborate_with_data, DataEnv, ElaborateError};
 pub use expr::{CoreExpr, CoreLiteral, CoreValue, MatchArm};
 pub use lower::{lower_surface_form, LowerError, LoweredForm};
