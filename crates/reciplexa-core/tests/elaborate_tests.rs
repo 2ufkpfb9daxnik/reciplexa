@@ -153,7 +153,7 @@ fn elaborates_data_option_and_match() {
     let expr = elaborate_source(
         r#"
 (data Option (None) (Some x))
-(val main (match (Some 1) (None 0) ((Some x) x)))
+(val main (match (Some 1) (None -> 0) (Some x -> x)))
 "#,
     )
     .unwrap();
@@ -175,4 +175,20 @@ fn elaborates_data_option_and_match() {
     assert_eq!(arms[0].bind, None);
     assert_eq!(arms[1].tag, "Some");
     assert_eq!(arms[1].bind.as_deref(), Some("x"));
+}
+
+#[test]
+fn rejects_old_match_arm_without_arrow() {
+    let err = elaborate_source(
+        r#"
+(data Option (None) (Some x))
+(val main (match (Some 1) (None 0) ((Some x) x)))
+"#,
+    )
+    .unwrap_err();
+    assert!(
+        err.message.contains("->"),
+        "expected arrow requirement, got: {}",
+        err.message
+    );
 }

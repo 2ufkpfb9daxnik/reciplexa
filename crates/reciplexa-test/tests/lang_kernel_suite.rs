@@ -106,7 +106,7 @@ fn lang_data_match_non_exhaustive() {
     run_conformance(&case, || {
         let src = r#"
 (data Option (None) (Some x))
-(val main (match (Some 1) ((Some x) x)))
+(val main (match (Some 1) (Some x -> x)))
 "#;
         let err = elaborate_source(src).unwrap_err();
         assert!(err.message.contains("non-exhaustive"), "{}", err.message);

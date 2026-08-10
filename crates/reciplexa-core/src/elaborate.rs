@@ -478,8 +478,8 @@ fn elaborate_match(
     parent: &SyntaxNode,
     ctx: &ElabCtx,
 ) -> Result<CoreExpr, ElaborateError> {
-    // (match scrutinee (pattern body...)...)
-    // Patterns: Tag | (Tag) | (Tag binder)
+    // DAT-001 §14: (match scrutinee (pat… -> expr)…)
+    // Patterns before `->`: Tag | Tag binder
     if rest.len() < 2 {
         return Err(ElaborateError::at_node(
             "`match` requires a scrutinee and at least one arm",
@@ -491,25 +491,49 @@ fn elaborate_match(
     for arm_atom in &rest[1..] {
         let Atom::Node(arm_node) = arm_atom else {
             return Err(ElaborateError::at_node(
-                "`match` arm must be `(pattern body...)`",
+                "`match` arm must be `(pattern -> expression)`",
                 parent,
             ));
         };
         if arm_node.kind() != SyntaxKind::List {
             return Err(ElaborateError::at_node(
-                "`match` arm must be `(pattern body...)`",
+                "`match` arm must be `(pattern -> expression)`",
                 arm_node,
             ));
         }
         let arm_atoms = list_atoms(arm_node);
-        if arm_atoms.len() < 2 {
+        let arrow_idx = arm_atoms
+            .iter()
+            .position(|a| matches!(a, Atom::Token(t) if t.kind() == SyntaxKind::Arrow));
+        let Some(arrow_idx) = arrow_idx else {
             return Err(ElaborateError::at_node(
-                "`match` arm must be `(pattern body...)`",
+                "`match` arm must use `->` between pattern and expression (DAT-001); \
+                 old `(pattern body)` form is rejected",
+                arm_node,
+            ));
+        };
+        if arrow_idx == 0 {
+            return Err(ElaborateError::at_node(
+                "`match` arm requires a pattern before `->`",
                 arm_node,
             ));
         }
-        let (tag, bind) = elaborate_pattern(&arm_atoms[0], arm_node)?;
-        let body = elaborate_body(&arm_atoms[1..], arm_node, ctx)?;
+        let body_atoms = &arm_atoms[arrow_idx + 1..];
+        if body_atoms.is_empty() {
+            return Err(ElaborateError::at_node(
+                "`match` arm requires an expression after `->`",
+                arm_node,
+            ));
+        }
+        if body_atoms.len() > 1 {
+            return Err(ElaborateError::at_node(
+                "`match` arm body must be a single expression after `->`; \
+                 wrap multiple forms in `seq` (DAT-001 §14.5)",
+                arm_node,
+            ));
+        }
+        let (tag, bind) = elaborate_pattern_atoms(&arm_atoms[..arrow_idx], arm_node)?;
+        let body = elaborate_atom(&body_atoms[0], ctx)?;
         arms.push(MatchArm { tag, bind, body });
     }
     // Static exhaustiveness from known `(data …)` constructors (via arm tags
@@ -557,64 +581,46 @@ fn elaborate_match(
     })
 }
 
-fn elaborate_pattern(
-    atom: &Atom,
+/// Pattern atoms before `->`: nullary `Tag` or payload `Tag binder` (DAT-001 §15).
+fn elaborate_pattern_atoms(
+    atoms: &[Atom],
     parent: &SyntaxNode,
 ) -> Result<(String, Option<String>), ElaborateError> {
-    match atom {
-        Atom::Token(t) if t.kind() == SyntaxKind::Ident => Ok((t.text().to_string(), None)),
-        Atom::Node(n) if n.kind() == SyntaxKind::List => {
-            let atoms = list_atoms(n);
-            if atoms.is_empty() {
-                return Err(ElaborateError::at_node(
-                    "match pattern list must not be empty",
-                    n,
-                ));
+    if atoms.is_empty() {
+        return Err(ElaborateError::at_node(
+            "match pattern must not be empty",
+            parent,
+        ));
+    }
+    let Atom::Token(tag_tok) = &atoms[0] else {
+        return Err(ElaborateError::at_node(
+            "match pattern tag must be an identifier",
+            parent,
+        ));
+    };
+    if tag_tok.kind() != SyntaxKind::Ident {
+        return Err(ElaborateError::at_token(
+            "match pattern tag must be an identifier",
+            tag_tok,
+        ));
+    }
+    match atoms.len() {
+        1 => Ok((tag_tok.text().to_string(), None)),
+        2 => match &atoms[1] {
+            Atom::Token(b) if b.kind() == SyntaxKind::Ident => {
+                Ok((tag_tok.text().to_string(), Some(b.text().to_string())))
             }
-            let Atom::Token(tag_tok) = &atoms[0] else {
-                return Err(ElaborateError::at_node(
-                    "match pattern tag must be an identifier",
-                    n,
-                ));
-            };
-            if tag_tok.kind() != SyntaxKind::Ident {
-                return Err(ElaborateError::at_token(
-                    "match pattern tag must be an identifier",
-                    tag_tok,
-                ));
-            }
-            let bind = match atoms.get(1) {
-                None => None,
-                Some(Atom::Token(b)) if b.kind() == SyntaxKind::Ident => {
-                    if atoms.len() > 2 {
-                        return Err(ElaborateError::at_node(
-                            "DAT-001 v0 patterns support at most one binder",
-                            n,
-                        ));
-                    }
-                    Some(b.text().to_string())
-                }
-                Some(Atom::Token(b)) => {
-                    return Err(ElaborateError::at_token(
-                        "match pattern binder must be an identifier",
-                        b,
-                    ));
-                }
-                Some(Atom::Node(bn)) => {
-                    return Err(ElaborateError::at_node(
-                        "match pattern binder must be an identifier",
-                        bn,
-                    ));
-                }
-            };
-            Ok((tag_tok.text().to_string(), bind))
-        }
-        Atom::Token(t) => Err(ElaborateError::at_token(
-            "match pattern must be a tag or `(Tag binder)`",
-            t,
-        )),
-        Atom::Node(_) => Err(ElaborateError::at_node(
-            "match pattern must be a tag or `(Tag binder)`",
+            Atom::Token(b) => Err(ElaborateError::at_token(
+                "match pattern binder must be an identifier",
+                b,
+            )),
+            Atom::Node(n) => Err(ElaborateError::at_node(
+                "match pattern binder must be an identifier (nested patterns deferred)",
+                n,
+            )),
+        },
+        _ => Err(ElaborateError::at_node(
+            "DAT-001 v0 patterns support at most one binder before `->`",
             parent,
         )),
     }
@@ -1171,7 +1177,7 @@ mod tests {
         let expr = elaborate_source(
             r#"
 (data Option (None) (Some x))
-(val main (match (Some 1) (None 0) ((Some x) x)))
+(val main (match (Some 1) (None -> 0) (Some x -> x)))
 "#,
         )
         .unwrap();

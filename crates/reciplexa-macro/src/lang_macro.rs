@@ -413,9 +413,11 @@ fn node_to_sexpr(node: &SyntaxNode) -> Result<Sexpr, ExpandError> {
 
 fn token_to_sexpr(tok: &SyntaxToken) -> Result<Sexpr, ExpandError> {
     match tok.kind() {
-        SyntaxKind::Ident | SyntaxKind::Number | SyntaxKind::String | SyntaxKind::TextChunk => {
-            Ok(Sexpr::Atom(tok.text().to_string()))
-        }
+        SyntaxKind::Ident
+        | SyntaxKind::Number
+        | SyntaxKind::String
+        | SyntaxKind::TextChunk
+        | SyntaxKind::Arrow => Ok(Sexpr::Atom(tok.text().to_string())),
         other => Err(ExpandError::new(format!(
             "unexpected token `{other:?}` in language expand"
         ))),

@@ -528,7 +528,7 @@ fn lang_resolve_match(
     errors: &mut Vec<ResolveError>,
     map: &mut BindingMap,
 ) {
-    // (match scrutinee (pattern body...)...)
+    // DAT-001: (match scrutinee (pat… -> expr)…)
     if rest.is_empty() {
         return;
     }
@@ -542,28 +542,34 @@ fn lang_resolve_match(
         if arm_atoms.is_empty() {
             continue;
         }
+        let arrow_idx = arm_atoms
+            .iter()
+            .position(|a| matches!(a, Atom::Token(t) if t.kind() == SyntaxKind::Arrow));
+        let Some(arrow_idx) = arrow_idx else {
+            // Missing `->`: still walk atoms so diagnostics stay useful.
+            for a in &arm_atoms {
+                lang_resolve_atom(a, stack, env, errors, map);
+            }
+            continue;
+        };
         stack.push_scope();
-        // Pattern binders: Tag | (Tag binder)
-        match &arm_atoms[0] {
-            Atom::Token(t) if t.kind() == SyntaxKind::Ident => {
-                lang_resolve_token(t, stack, errors, map);
+        // Pattern before `->`: Tag | Tag binder — tag is a constructor use;
+        // remaining idents are binders.
+        let pat = &arm_atoms[..arrow_idx];
+        if let Some(Atom::Token(tag)) = pat.first() {
+            if tag.kind() == SyntaxKind::Ident {
+                lang_resolve_token(tag, stack, errors, map);
             }
-            Atom::Node(pat) if pat.kind() == SyntaxKind::List => {
-                let pat_atoms = list_atoms(pat);
-                if let Some(Atom::Token(tag)) = pat_atoms.first() {
-                    if tag.kind() == SyntaxKind::Ident {
-                        lang_resolve_token(tag, stack, errors, map);
-                    }
-                }
-                if let Some(Atom::Token(binder)) = pat_atoms.get(1) {
-                    if binder.kind() == SyntaxKind::Ident {
-                        declare_binding(binder.text(), stack, env);
-                    }
-                }
-            }
-            other => lang_resolve_atom(other, stack, env, errors, map),
         }
-        for body in &arm_atoms[1..] {
+        for binder in pat.iter().skip(1) {
+            match binder {
+                Atom::Token(b) if b.kind() == SyntaxKind::Ident => {
+                    declare_binding(b.text(), stack, env);
+                }
+                other => lang_resolve_atom(other, stack, env, errors, map),
+            }
+        }
+        for body in &arm_atoms[arrow_idx + 1..] {
             lang_resolve_atom(body, stack, env, errors, map);
         }
         stack.pop_scope();

@@ -21,7 +21,7 @@ fn match_non_exhaustive_errors() {
     let err = typecheck_language_source(
         r#"
 (data Option (None) (Some x))
-(val main (match (Some 1) ((Some x) x)))
+(val main (match (Some 1) (Some x -> x)))
 "#,
     )
     .unwrap_err();
@@ -37,7 +37,7 @@ fn match_exhaustive_option_ok() {
     let ty = typecheck_language_source(
         r#"
 (data Option (None) (Some x))
-(val main (match (Some 1) (None 0) ((Some x) x)))
+(val main (match (Some 1) (None -> 0) (Some x -> x)))
 "#,
     )
     .unwrap();
