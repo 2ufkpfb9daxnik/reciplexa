@@ -1,6 +1,6 @@
 //! Integration tests moved from src/resolve.rs for region coverage.
 
-use reciplexa_bind::resolve_source;
+use reciplexa_bind::{resolve_language_source, resolve_source};
 
 #[test]
 fn resolves_builtin_colors() {
@@ -141,4 +141,53 @@ fn type_and_val_declare_binding_names() {
 #[test]
 fn top_level_perform_handle_resolve() {
     assert!(resolve_source(r#"(perform log "x")(handle log (perform log "y"))(page a4)"#).is_ok());
+}
+
+#[test]
+fn language_shadowing_let_over_val_resolves() {
+    let r = resolve_language_source("(val x 1) (val main (let ((x 2)) x))");
+    assert!(r.is_ok(), "{:?}", r.errors);
+    assert!(r.env.bindings.values().any(|n| n == "x"));
+    assert!(r.env.bindings.values().any(|n| n == "main"));
+    assert!(r.env.builtin_colors.is_empty());
+}
+
+#[test]
+fn language_unbound_identifier_errors_with_span() {
+    let r = resolve_language_source("(val main y)");
+    assert!(!r.is_ok());
+    assert!(
+        r.errors.iter().any(|e| e.message.contains("unbound identifier `y`")),
+        "{:?}",
+        r.errors
+    );
+    let err = r
+        .errors
+        .iter()
+        .find(|e| e.message.contains("`y`"))
+        .expect("y error");
+    let start: u32 = err.range.start().into();
+    let end: u32 = err.range.end().into();
+    assert!(end > start, "expected non-empty span for unbound y");
+}
+
+#[test]
+fn language_fn_param_binding_resolves() {
+    let r = resolve_language_source("(val main ((fn (x) x) 1))");
+    assert!(r.is_ok(), "{:?}", r.errors);
+}
+
+#[test]
+fn language_named_fn_and_type_declare() {
+    let r = resolve_language_source("(fn id (x) x)\n(type T Num)\n(val main (id 1))");
+    assert!(r.is_ok(), "{:?}", r.errors);
+    assert!(r.env.bindings.values().any(|n| n == "id"));
+    assert!(r.env.bindings.values().any(|n| n == "T"));
+}
+
+#[test]
+fn language_skips_document_forms_without_color_builtins() {
+    let r = resolve_language_source("(page a4 (circle 1 2 3 red))\n(val main 1)");
+    assert!(r.is_ok(), "{:?}", r.errors);
+    assert!(r.env.builtin_colors.is_empty());
 }
