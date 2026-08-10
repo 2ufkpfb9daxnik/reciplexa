@@ -1,4 +1,3 @@
-(// Language example: shape constructor from local packages/graphics.
-(// Document surface still uses interim (page …) (circle …) for the GUI.)
+(// language-only: package import of graphics/shapes circle constructor)
 (import graphics/shapes only circle)
 (val main (circle 105 148.5 40))

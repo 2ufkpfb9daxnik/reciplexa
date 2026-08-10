@@ -89,8 +89,8 @@ cargo check --offline -p reciplexa-gui
 
 ## Done when (Slice A)
 
-- [ ] DD-001-ish manifests parse for std packages
-- [ ] `(import graphics/shapes)` loads from `packages/graphics`
-- [ ] Example elaborates/evaluates via package import
-- [ ] Interim document `page`/`circle` still green
-- [ ] PKG-001 conformance rows updated; stats recomputed
+- [x] DD-001-ish manifests parse for std packages
+- [x] `(import graphics/shapes)` loads from `packages/graphics`
+- [x] Example elaborates/evaluates via package import
+- [x] Interim document `page`/`circle` still green
+- [x] PKG-001 conformance rows updated; stats recomputed

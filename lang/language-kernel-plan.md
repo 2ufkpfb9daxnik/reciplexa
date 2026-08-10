@@ -47,7 +47,7 @@ Language kernel is complete enough for pre-PKG. Intentional deferrals listed bel
 
 ## Part II conformance gate
 
-Heading-by-heading inventory and review status live in [`lang/part2-conformance.md`](part2-conformance.md) (counters in `lang/part2-conformance-stats.json`). Packages (PKG) are next.
+Heading-by-heading inventory and review status live in [`lang/part2-conformance.md`](part2-conformance.md) (counters in `lang/part2-conformance-stats.json`). Packages (PKG) work is underway — see [`lang/package-plan.md`](package-plan.md).
 
 ## Ordered work
 1. CoreExpr::Var + env; if; n-ary fn/app — **done**
@@ -77,7 +77,7 @@ cargo check --offline -p reciplexa-gui
 ## Intentional deferrals (post pre-PKG / PKG+)
 | ID | Deferred |
 |---|---|
-| **PKG-001** | graphics/math/Japanese packages |
+| **PKG-001** | Registry / workspace / full lockfile / .rpi (Slice A local packages started — see package-plan) |
 | **EFF-001** | Multi-shot / shallow choice handlers; full return-clause handler typing |
 | **MOD-001** | Full ML functors / signatures |
 | **KER-001** | Full typed Rust/foreign ABI (beyond BuiltinOp + EffectHost) |

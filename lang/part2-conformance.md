@@ -2,7 +2,7 @@
 
 ## 概要
 
-本チェックリストは、`lang/specification.md` の**第II部**（見出し行およそ `241`–`22618`）に現れる**すべての見出し**（深さ不問）を、PKG 作業に入る前に実装と突き合わせるための進捗台帳である。
+本チェックリストは、`lang/specification.md` の**第II部**（見出し行およそ `241`–`22618`）に現れる**すべての見出し**（深さ不問）を実装と突き合わせるための進捗台帳である。PKG Slice A（local packages）更新済み — 詳細は `lang/package-plan.md`。
 
 ### ステータス凡例
 
@@ -18,9 +18,9 @@
 - **total**: 1589
 - **unchecked**: 0
 - **ok**: 290
-- **partial**: 473
+- **partial**: 488
 - **gap**: 410
-- **deferred**: 284
+- **deferred**: 269
 - **meta**: 132
 
 （LEX/SYN/MAC および導入メタ節を照合済み。他機能ブロックも並行更新済み。）
@@ -3647,9 +3647,9 @@
   - spec: `specification.md:15831`
   - notes: MOD final-state prose; impl = outer+import skeleton
 
-- [x] **L4 L15855: 13.10 `PKG-001` パッケージmanifest・依存解決・ワークスペース・リソース** — `deferred`
+- [x] **L4 L15855: 13.10 `PKG-001` パッケージmanifest・依存解決・ワークスペース・リソース** — `partial`
   - spec: `specification.md:15855`
-  - notes: PKG-001 deferred (post language-kernel); language-kernel-plan intentional deferral
+  - notes: Slice A: DD-001-ish parse_rpxm + LocalPackageIndex + packages/{graphics,length,color}; registry/workspace still deferred (package-plan)
 
 - [x] **L5 L15856: DD-001 決定概要** — `meta`
   - spec: `specification.md:15856`
@@ -3699,9 +3699,9 @@
   - spec: `specification.md:15993`
   - notes: package.rpxm name convention in rpxm.rs; not full PKG path rules
 
-- [x] **L6 L16011: 2.2 Package root** — `deferred`
+- [x] **L6 L16011: 2.2 Package root** — `partial`
   - spec: `specification.md:16011`
-  - notes: PKG-001 deferred (post language-kernel)
+  - notes: package.rpxm directory is package root via LocalPackageIndex::discover
 
 - [x] **L6 L16021: 2.3 制限付きRPX形式** — `partial`
   - spec: `specification.md:16021`
@@ -3727,13 +3727,13 @@
   - spec: `specification.md:16068`
   - notes: restricted sexp via tokenize in rpxm.rs; not full static schema
 
-- [x] **L6 L16077: 3.3 Fieldの括弧** — `deferred`
+- [x] **L6 L16077: 3.3 Fieldの括弧** — `partial`
   - spec: `specification.md:16077`
-  - notes: PKG-001 deferred (post language-kernel)
+  - notes: flat fields + parenthesized public-modules/entry-points/dependencies parsed; unknown fields still ignored
 
-- [x] **L6 L16091: 3.4 Format version** — `gap`
+- [x] **L6 L16091: 3.4 Format version** — `partial`
   - spec: `specification.md:16091`
-  - notes: unknown field / format-version policy not enforced
+  - notes: format-version 1 accepted; other versions rejected; unknown fields still gap
 
 - [x] **L5 L16106: 4. パッケージ名** — `partial`
   - spec: `specification.md:16106`
@@ -3743,9 +3743,9 @@
   - spec: `specification.md:16107`
   - notes: name/version/entry/dep/target fields parsed; naming rules incomplete
 
-- [x] **L6 L16129: 4.2 用途** — `deferred`
+- [x] **L6 L16129: 4.2 用途** — `partial`
   - spec: `specification.md:16129`
-  - notes: PKG-001 deferred (post language-kernel)
+  - notes: package name used as identity key in LocalPackageIndex / import first segment
 
 - [x] **L6 L16140: 4.3 表示名** — `deferred`
   - spec: `specification.md:16140`
@@ -3775,21 +3775,21 @@
   - spec: `specification.md:16188`
   - notes: PKG-001 deferred (post language-kernel)
 
-- [x] **L5 L16199: 6. Source rootとinterface root** — `deferred`
+- [x] **L5 L16199: 6. Source rootとinterface root** — `partial`
   - spec: `specification.md:16199`
-  - notes: PKG-001 deferred (post language-kernel)
+  - notes: source-root parsed (default src); module files loaded via PackageManifest::module_source_path
 
-- [x] **L6 L16200: 6.1 Source root** — `deferred`
+- [x] **L6 L16200: 6.1 Source root** — `partial`
   - spec: `specification.md:16200`
-  - notes: PKG-001 deferred (post language-kernel)
+  - notes: source-root field + default src; used by local package module load
 
-- [x] **L6 L16211: 6.2 Module path** — `deferred`
+- [x] **L6 L16211: 6.2 Module path** — `partial`
   - spec: `specification.md:16211`
-  - notes: PKG-001 deferred (post language-kernel)
+  - notes: import graphics/shapes maps to src/shapes.rpx under package root
 
-- [x] **L6 L16218: 6.3 Interface root** — `deferred`
+- [x] **L6 L16218: 6.3 Interface root** — `partial`
   - spec: `specification.md:16218`
-  - notes: PKG-001 deferred (post language-kernel)
+  - notes: interface-root parsed optionally; .rpi enforcement not implemented
 
 - [x] **L6 L16229: 6.4 Interface対応** — `deferred`
   - spec: `specification.md:16229`
@@ -3803,21 +3803,21 @@
   - spec: `specification.md:16255`
   - notes: PKG-001 deferred (post language-kernel)
 
-- [x] **L5 L16265: 7. 公開モジュール** — `deferred`
+- [x] **L5 L16265: 7. 公開モジュール** — `partial`
   - spec: `specification.md:16265`
-  - notes: PKG-001 deferred (post language-kernel)
+  - notes: public-modules parsed; LocalPackageIndex rejects non-public module imports
 
 - [x] **L6 L16266: 7.1 Manifest構文** — `partial`
   - spec: `specification.md:16266`
-  - notes: Phase 10 skeleton (rpxm/json/resolver/lockfile); full PKG-001 deferred
+  - notes: (public-modules …) parsed in DD-001 form; used as export allow-list on load
 
-- [x] **L6 L16274: 7.2 .rpi必須** — `deferred`
+- [x] **L6 L16274: 7.2 .rpi必須** — `gap`
   - spec: `specification.md:16274`
-  - notes: PKG-001 deferred (post language-kernel)
+  - notes: .rpi not required yet for public modules
 
-- [x] **L6 L16287: 7.3 内部モジュール** — `deferred`
+- [x] **L6 L16287: 7.3 内部モジュール** — `partial`
   - spec: `specification.md:16287`
-  - notes: PKG-001 deferred (post language-kernel)
+  - notes: non-public modules rejected on cross-package import; intra-package graph incomplete
 
 - [x] **L6 L16297: 7.4 Internal moduleの.rpi** — `deferred`
   - spec: `specification.md:16297`
@@ -3833,11 +3833,11 @@
 
 - [x] **L5 L16326: 8. 実行エントリ** — `partial`
   - spec: `specification.md:16326`
-  - notes: Phase 10 skeleton (rpxm/json/resolver/lockfile); full PKG-001 deferred
+  - notes: entry-points parsed; legacy entry still supported; library packages may omit entry
 
 - [x] **L6 L16327: 8.1 Manifest構文** — `partial`
   - spec: `specification.md:16327`
-  - notes: Phase 10 skeleton (rpxm/json/resolver/lockfile); full PKG-001 deferred
+  - notes: (entry-points …) DD-001 list parsed into PackageManifest.entry_points
 
 - [x] **L6 L16335: 8.2 Entry module** — `partial`
   - spec: `specification.md:16335`
@@ -3861,11 +3861,11 @@
 
 - [x] **L5 L16366: 9. Manifestなしscript** — `partial`
   - spec: `specification.md:16366`
-  - notes: Phase 10 skeleton (rpxm/json/resolver/lockfile); full PKG-001 deferred
+  - notes: script .rpx can import std packages via load_module_tree_with_packages (examples/pkg_circle.rpx)
 
-- [x] **L6 L16367: 9.1 基本形** — `deferred`
+- [x] **L6 L16367: 9.1 基本形** — `partial`
   - spec: `specification.md:16367`
-  - notes: PKG-001 deferred (post language-kernel)
+  - notes: single-file script + package imports from search roots; no auto sibling package merge
 
 - [x] **L6 L16376: 9.2 必要な値** — `deferred`
   - spec: `specification.md:16376`
@@ -3875,9 +3875,9 @@
   - spec: `specification.md:16384`
   - notes: PKG-001 deferred (post language-kernel)
 
-- [x] **L6 L16392: 9.4 外部dependency** — `deferred`
+- [x] **L6 L16392: 9.4 外部dependency** — `partial`
   - spec: `specification.md:16392`
-  - notes: PKG-001 deferred (post language-kernel)
+  - notes: scripts may import local std packages without consumer manifest; non-std deps still need manifest (Slice B)
 
 - [x] **L6 L16398: 9.5 Public API** — `deferred`
   - spec: `specification.md:16398`
@@ -3885,23 +3885,23 @@
 
 - [x] **L5 L16402: 10. 依存宣言** — `partial`
   - spec: `specification.md:16402`
-  - notes: DependencySpec path + version_req string; no full constraint solver
+  - notes: DD-001 (dependencies (alias package name version path)) parsed; Phase 10 (dep …) kept
 
 - [x] **L6 L16403: 10.1 基本構文** — `partial`
   - spec: `specification.md:16403`
-  - notes: DependencySpec path + version_req string; no full constraint solver
+  - notes: DD-001 dependencies block + legacy (dep) forms
 
-- [x] **L6 L16413: 10.2 Dependency alias** — `deferred`
+- [x] **L6 L16413: 10.2 Dependency alias** — `partial`
   - spec: `specification.md:16413`
-  - notes: PKG-001 deferred (post language-kernel)
+  - notes: dependency alias is DependencySpec.name; package field optional formal name
 
 - [x] **L6 L16428: 10.3 正式identity** — `deferred`
   - spec: `specification.md:16428`
   - notes: PKG-001 deferred (post language-kernel)
 
-- [x] **L6 L16434: 10.4 正式パッケージ名** — `deferred`
+- [x] **L6 L16434: 10.4 正式パッケージ名** — `partial`
   - spec: `specification.md:16434`
-  - notes: PKG-001 deferred (post language-kernel)
+  - notes: package field in dependency entry parsed into DependencySpec.package
 
 - [x] **L6 L16443: 10.5 Aliasの重複** — `deferred`
   - spec: `specification.md:16443`
@@ -3941,7 +3941,7 @@
 
 - [x] **L6 L16510: 12.2 Local path** — `partial`
   - spec: `specification.md:16510`
-  - notes: Phase 10 skeleton (rpxm/json/resolver/lockfile); full PKG-001 deferred
+  - notes: path deps parsed; LocalPackageIndex loads from packages/ search roots (consumer path-dep resolve = Slice B)
 
 - [x] **L6 L16519: 12.3 Local packageの検証** — `deferred`
   - spec: `specification.md:16519`
@@ -4089,7 +4089,7 @@
 
 - [x] **L6 L16736: 18.3 Local path package** — `partial`
   - spec: `specification.md:16736`
-  - notes: Phase 10 skeleton (rpxm/json/resolver/lockfile); full PKG-001 deferred
+  - notes: local packages on disk under packages/; lockfile path source still stub
 
 - [x] **L6 L16742: 18.4 Version control** — `deferred`
   - spec: `specification.md:16742`
