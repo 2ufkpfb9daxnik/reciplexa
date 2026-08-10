@@ -15,3 +15,32 @@ fn dynamic_unifies_as_gradual_stub() {
     assert!(unify(&CoreType::Dynamic, &CoreType::Number, &mut s).is_ok());
     assert!(unify(&CoreType::String, &CoreType::Dynamic, &mut s).is_ok());
 }
+
+#[test]
+fn match_non_exhaustive_errors() {
+    let err = typecheck_language_source(
+        r#"
+(data Option (None) (Some x))
+(val main (match (Some 1) ((Some x) x)))
+"#,
+    )
+    .unwrap_err();
+    assert!(
+        err.message.contains("non-exhaustive"),
+        "unexpected: {}",
+        err.message
+    );
+}
+
+#[test]
+fn match_exhaustive_option_ok() {
+    let ty = typecheck_language_source(
+        r#"
+(data Option (None) (Some x))
+(val main (match (Some 1) (None 0) ((Some x) x)))
+"#,
+    )
+    .unwrap();
+    assert_eq!(ty, CoreType::Number);
+}
+

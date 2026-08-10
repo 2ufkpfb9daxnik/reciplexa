@@ -40,10 +40,32 @@ enum Atom {
     Node(SyntaxNode),
 }
 
-/// Constructor table from top-level `(data …)` (tag → arity).
+/// Constructor / ADT table from top-level `(data …)` (for exhaustiveness).
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct DataEnv {
+    /// tag → arity
+    pub ctors: HashMap<String, usize>,
+    /// tag → owning data type name
+    pub ctor_type: HashMap<String, String>,
+    /// type name → ordered constructors `(tag, arity)`
+    pub data_ctors: HashMap<String, Vec<(String, usize)>>,
+}
+
+impl DataEnv {
+    /// Full constructor list for a tag's ADT, if known.
+    pub fn adt_for_tag(&self, tag: &str) -> Vec<(String, usize)> {
+        self.ctor_type
+            .get(tag)
+            .and_then(|ty| self.data_ctors.get(ty))
+            .cloned()
+            .unwrap_or_default()
+    }
+}
+
+/// Constructor table from top-level `(data …)`.
 #[derive(Debug, Default, Clone)]
 struct ElabCtx {
-    ctors: HashMap<String, usize>,
+    data: DataEnv,
 }
 
 /// Parse `src` and elaborate top-level `val` / `fn` / expressions to [`CoreExpr`].
@@ -52,6 +74,11 @@ struct ElabCtx {
 /// `main` when that binding exists, otherwise the last binding's name (as a
 /// variable reference), or a trailing bare expression / `seq` of them.
 pub fn elaborate_source(src: &str) -> Result<CoreExpr, ElaborateError> {
+    Ok(elaborate_with_data(src)?.0)
+}
+
+/// Elaborate source and return the ADT/`data` environment for typechecking.
+pub fn elaborate_with_data(src: &str) -> Result<(CoreExpr, DataEnv), ElaborateError> {
     let parse = parse_source(src);
     if let Some(err) = parse.errors.first() {
         return Err(ElaborateError::new(
@@ -63,10 +90,11 @@ pub fn elaborate_source(src: &str) -> Result<CoreExpr, ElaborateError> {
             .unwrap_or(TextRange::EMPTY),
         ));
     }
-    elaborate_file(&parse.root)
+    let (expr, ctx) = elaborate_file(&parse.root)?;
+    Ok((expr, ctx.data))
 }
 
-fn elaborate_file(root: &SyntaxNode) -> Result<CoreExpr, ElaborateError> {
+fn elaborate_file(root: &SyntaxNode) -> Result<(CoreExpr, ElabCtx), ElaborateError> {
     let mut ctx = ElabCtx::default();
     let mut bindings: Vec<(String, CoreExpr)> = Vec::new();
     let mut trailing: Vec<CoreExpr> = Vec::new();
@@ -135,7 +163,7 @@ fn elaborate_file(root: &SyntaxNode) -> Result<CoreExpr, ElaborateError> {
         seq_or_one(trailing)
     };
 
-    Ok(nest_lets(bindings, body))
+    Ok((nest_lets(bindings, body), ctx))
 }
 
 fn nest_lets(bindings: Vec<(String, CoreExpr)>, body: CoreExpr) -> CoreExpr {
@@ -170,11 +198,15 @@ fn register_data(node: &SyntaxNode, ctx: &mut ElabCtx) -> Result<(), ElaborateEr
             name_tok,
         ));
     }
-    let _type_name = name_tok.text();
+    let type_name = name_tok.text().to_string();
+    let mut ctors = Vec::new();
     for ctor in &atoms[2..] {
         match ctor {
             Atom::Token(t) if t.kind() == SyntaxKind::Ident => {
-                ctx.ctors.insert(t.text().to_string(), 0);
+                let tag = t.text().to_string();
+                ctx.data.ctors.insert(tag.clone(), 0);
+                ctx.data.ctor_type.insert(tag.clone(), type_name.clone());
+                ctors.push((tag, 0));
             }
             Atom::Node(n) if n.kind() == SyntaxKind::List => {
                 let ca = list_atoms(n);
@@ -220,7 +252,10 @@ fn register_data(node: &SyntaxNode, ctx: &mut ElabCtx) -> Result<(), ElaborateEr
                         }
                     }
                 }
-                ctx.ctors.insert(tag_tok.text().to_string(), arity);
+                let tag = tag_tok.text().to_string();
+                ctx.data.ctors.insert(tag.clone(), arity);
+                ctx.data.ctor_type.insert(tag.clone(), type_name.clone());
+                ctors.push((tag, arity));
             }
             Atom::Token(t) => {
                 return Err(ElaborateError::at_token(
@@ -236,6 +271,7 @@ fn register_data(node: &SyntaxNode, ctx: &mut ElabCtx) -> Result<(), ElaborateEr
             }
         }
     }
+    ctx.data.data_ctors.insert(type_name, ctors);
     Ok(())
 }
 
@@ -405,8 +441,8 @@ fn elaborate_list(node: &SyntaxNode, ctx: &ElabCtx) -> Result<CoreExpr, Elaborat
                         node,
                     ));
                 }
-                tag if ctx.ctors.contains_key(tag) => {
-                    let arity = ctx.ctors[tag];
+                tag if ctx.data.ctors.contains_key(tag) => {
+                    let arity = ctx.data.ctors[tag];
                     if atoms.len() - 1 != arity {
                         return Err(ElaborateError::at_node(
                             format!("constructor `{tag}` expects {arity} payload(s)"),
@@ -475,6 +511,45 @@ fn elaborate_match(
         let (tag, bind) = elaborate_pattern(&arm_atoms[0], arm_node)?;
         let body = elaborate_body(&arm_atoms[1..], arm_node, ctx)?;
         arms.push(MatchArm { tag, bind, body });
+    }
+    // Static exhaustiveness from known `(data …)` constructors (via arm tags
+    // or a direct constructor scrutinee).
+    let adt = if let CoreExpr::Variant { tag, .. } = &scrutinee {
+        ctx.data.adt_for_tag(tag)
+    } else {
+        Vec::new()
+    };
+    let adt = if adt.is_empty() {
+        arms.iter()
+            .find_map(|a| {
+                let a = ctx.data.adt_for_tag(&a.tag);
+                if a.is_empty() {
+                    None
+                } else {
+                    Some(a)
+                }
+            })
+            .unwrap_or_default()
+    } else {
+        adt
+    };
+    if !adt.is_empty() {
+        let covered: std::collections::HashSet<&str> =
+            arms.iter().map(|a| a.tag.as_str()).collect();
+        let missing: Vec<&str> = adt
+            .iter()
+            .map(|(t, _)| t.as_str())
+            .filter(|t| !covered.contains(t))
+            .collect();
+        if !missing.is_empty() {
+            return Err(ElaborateError::at_node(
+                format!(
+                    "non-exhaustive match: missing constructor(s) {}",
+                    missing.join(", ")
+                ),
+                parent,
+            ));
+        }
     }
     Ok(CoreExpr::Match {
         scrutinee: Box::new(scrutinee),
@@ -940,7 +1015,7 @@ fn elaborate_token(tok: &SyntaxToken, ctx: &ElabCtx) -> Result<CoreExpr, Elabora
         SyntaxKind::Ident => match tok.text() {
             "true" => Ok(CoreExpr::Lit(CoreLiteral::Bool(true))),
             "false" => Ok(CoreExpr::Lit(CoreLiteral::Bool(false))),
-            name if ctx.ctors.get(name) == Some(&0) => Ok(CoreExpr::Variant {
+            name if ctx.data.ctors.get(name) == Some(&0) => Ok(CoreExpr::Variant {
                 tag: name.to_string(),
                 payload: None,
             }),

@@ -91,6 +91,35 @@ fn lang_data_match() {
         let src = include_str!("../../../examples/lang_match.rpx");
         let v = eval_source(src).unwrap();
         assert_eq!(v, RuntimeValue::Number(1.0));
+        let ty = typecheck_language_source(src).unwrap();
+        assert_eq!(ty, CoreType::Number);
+    });
+}
+
+#[test]
+fn lang_data_match_non_exhaustive() {
+    let case = ConformanceCase::new(
+        "TEST-LANG-DAT-002",
+        "DAT-001",
+        "non-exhaustive match is a static error",
+    );
+    run_conformance(&case, || {
+        let src = r#"
+(data Option (None) (Some x))
+(val main (match (Some 1) ((Some x) x)))
+"#;
+        let err = elaborate_source(src).unwrap_err();
+        assert!(
+            err.message.contains("non-exhaustive"),
+            "{}",
+            err.message
+        );
+        let err = typecheck_language_source(src).unwrap_err();
+        assert!(
+            err.message.contains("non-exhaustive"),
+            "{}",
+            err.message
+        );
     });
 }
 

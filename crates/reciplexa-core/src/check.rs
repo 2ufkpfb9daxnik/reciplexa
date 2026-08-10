@@ -2,6 +2,7 @@
 
 use reciplexa_source::range::TextRange;
 
+use crate::elaborate::DataEnv;
 use crate::expr::{CoreExpr, CoreLiteral, CoreValue, MatchArm};
 use crate::ty::{CoreType, EffectRow};
 use crate::unify::{unify, Subst, UnifyError};
@@ -24,6 +25,7 @@ impl CheckError {
 #[derive(Debug, Clone, Default)]
 pub struct TypeEnv {
     pub vars: std::collections::HashMap<String, CoreType>,
+    pub data: DataEnv,
 }
 
 impl TypeEnv {
@@ -228,12 +230,71 @@ pub fn infer_expr(
             } else {
                 None
             };
-            Ok(CoreType::Variant {
-                variants: vec![(tag.clone(), payload_ty)],
-            })
+            let adt = env.data.adt_for_tag(tag);
+            let variants = if adt.is_empty() {
+                vec![(tag.clone(), payload_ty)]
+            } else {
+                adt.iter()
+                    .map(|(t, arity)| {
+                        if t == tag {
+                            (t.clone(), payload_ty.clone())
+                        } else if *arity == 0 {
+                            (t.clone(), None)
+                        } else {
+                            (t.clone(), Some(CoreType::Dynamic))
+                        }
+                    })
+                    .collect()
+            };
+            Ok(CoreType::Variant { variants })
         }
         CoreExpr::Match { scrutinee, arms } => {
             let scr_ty = infer_expr(scrutinee, env, subst, range)?;
+            let scr_ty = subst.apply(&scr_ty);
+            // Prefer ADT table from arm tags when scrutinee is not yet a full variant.
+            let expected_adt = arms.iter().find_map(|a| {
+                let a = env.data.adt_for_tag(&a.tag);
+                if a.is_empty() {
+                    None
+                } else {
+                    Some(a)
+                }
+            });
+            if let Some(adt) = &expected_adt {
+                let covered: std::collections::HashSet<&str> =
+                    arms.iter().map(|a| a.tag.as_str()).collect();
+                let missing: Vec<&str> = adt
+                    .iter()
+                    .map(|(t, _)| t.as_str())
+                    .filter(|t| !covered.contains(t))
+                    .collect();
+                if !missing.is_empty() {
+                    return Err(CheckError::at(
+                        format!(
+                            "non-exhaustive match: missing constructor(s) {}",
+                            missing.join(", ")
+                        ),
+                        range,
+                    ));
+                }
+            } else if let CoreType::Variant { variants } = &scr_ty {
+                let covered: std::collections::HashSet<&str> =
+                    arms.iter().map(|a| a.tag.as_str()).collect();
+                let missing: Vec<&str> = variants
+                    .iter()
+                    .map(|(t, _)| t.as_str())
+                    .filter(|t| !covered.contains(t))
+                    .collect();
+                if !missing.is_empty() {
+                    return Err(CheckError::at(
+                        format!(
+                            "non-exhaustive match: missing constructor(s) {}",
+                            missing.join(", ")
+                        ),
+                        range,
+                    ));
+                }
+            }
             let ret_var = CoreType::Var(subst.fresh_var());
             for arm in arms {
                 check_arm(arm, &scr_ty, &ret_var, env, subst, range)?;
@@ -293,12 +354,14 @@ pub fn typecheck_language_source(src: &str) -> Result<CoreType, CheckError> {
         message: e.message,
         range: TextRange::EMPTY,
     })?;
-    let expr = crate::elaborate::elaborate_source(&expanded).map_err(|e| CheckError {
-        message: e.message,
-        range: e.range,
-    })?;
+    let (expr, data) =
+        crate::elaborate::elaborate_with_data(&expanded).map_err(|e| CheckError {
+            message: e.message,
+            range: e.range,
+        })?;
     let mut subst = Subst::new();
     let mut env = TypeEnv::new();
+    env.data = data;
     // KER-001 primitive types
     let num2 = CoreType::Fun {
         args: vec![CoreType::Number, CoreType::Number],
