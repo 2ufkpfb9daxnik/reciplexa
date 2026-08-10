@@ -89,3 +89,32 @@ fn deep_resume_with_modified_value_in_let() {
     .unwrap();
     assert_eq!(v, RuntimeValue::Number(7.0));
 }
+
+#[test]
+fn raise_lowers_to_failure_perform() {
+    let expr = elaborate_source(r#"(val main (raise "boom"))"#).unwrap();
+    assert!(matches!(
+        expr,
+        CoreExpr::Let {
+            ref value,
+            ..
+        } if matches!(**value, CoreExpr::Perform { ref op, .. } if op == "failure")
+    ));
+}
+
+#[test]
+fn handle_failure_catches_raise() {
+    let v = eval_source(r#"(val main (handle failure (fn (err) err) (raise "caught")))"#).unwrap();
+    assert_eq!(v, RuntimeValue::String("caught".into()));
+}
+
+#[test]
+fn handle_failure_rejects_resume_param() {
+    let err =
+        eval_source(r#"(val main (handle failure (fn (err k) err) (raise "x")))"#).unwrap_err();
+    assert!(
+        err.message.contains("Failure") || err.message.contains("resume"),
+        "unexpected: {}",
+        err.message
+    );
+}

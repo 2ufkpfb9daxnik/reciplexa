@@ -897,6 +897,7 @@ fn is_quarantined_head(node: &SyntaxNode) -> bool {
                 | "scale"
                 | "opacity"
                 | "perform"
+                | "raise"
                 | "handle"
         )
     )
@@ -1073,6 +1074,7 @@ fn is_surface_keyword(name: &str) -> bool {
             | "scale"
             | "opacity"
             | "perform"
+            | "raise"
             | "handle"
             | "with"
             | "handler"
