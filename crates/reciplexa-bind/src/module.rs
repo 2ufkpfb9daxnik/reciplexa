@@ -401,9 +401,8 @@ fn load_directory_units(dir: &Path) -> Result<Vec<(String, String)>, ModuleError
             .and_then(|s| s.to_str())
             .ok_or_else(|| ModuleError::new(format!("non-UTF-8 module path `{}`", path.display())))?
             .to_string();
-        let src = fs::read_to_string(&path).map_err(|e| {
-            ModuleError::new(format!("failed to read `{}`: {e}", path.display()))
-        })?;
+        let src = fs::read_to_string(&path)
+            .map_err(|e| ModuleError::new(format!("failed to read `{}`: {e}", path.display())))?;
         units.push((name, src));
     }
     if units.is_empty() {

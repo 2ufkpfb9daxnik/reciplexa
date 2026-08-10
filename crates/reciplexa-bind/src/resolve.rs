@@ -108,7 +108,9 @@ pub fn resolve_language_source(source: &str) -> ResolveResult {
                 SyntaxKind::List => {
                     lang_resolve_top_form(&n, &mut stack, &mut env, &mut errors, &mut binding_map)
                 }
-                _ => lang_resolve_expr_node(&n, &mut stack, &mut env, &mut errors, &mut binding_map),
+                _ => {
+                    lang_resolve_expr_node(&n, &mut stack, &mut env, &mut errors, &mut binding_map)
+                }
             },
         }
     }
@@ -159,7 +161,11 @@ pub fn resolve_source(source: &str) -> ResolveResult {
         resolve_form(&form, &mut stack, &mut env, &mut errors);
     }
 
-    ResolveResult { env, errors, binding_map: BindingMap::default() }
+    ResolveResult {
+        env,
+        errors,
+        binding_map: BindingMap::default(),
+    }
 }
 
 fn lang_resolve_top_form(
@@ -314,7 +320,9 @@ fn lang_resolve_expr_node(
     map: &mut BindingMap,
 ) {
     match node.kind() {
-        SyntaxKind::List | SyntaxKind::BracketList => lang_resolve_list(node, stack, env, errors, map),
+        SyntaxKind::List | SyntaxKind::BracketList => {
+            lang_resolve_list(node, stack, env, errors, map)
+        }
         _ => {
             for el in node.children_with_tokens() {
                 if let SyntaxElement::Token(t) = el {

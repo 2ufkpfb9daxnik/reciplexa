@@ -7,9 +7,15 @@ use crate::ty::{CoreType, TypeVarId};
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum UnifyError {
     OccursCheck(TypeVarId, CoreType),
-    Mismatch { expected: CoreType, found: CoreType },
+    Mismatch {
+        expected: CoreType,
+        found: CoreType,
+    },
     /// `Lacks` violated: `label` is present in `found`.
-    LacksViolation { label: String, found: CoreType },
+    LacksViolation {
+        label: String,
+        found: CoreType,
+    },
 }
 
 /// Substitution map for type variables.
@@ -121,10 +127,7 @@ fn enforce_lacks(label: &str, row: &CoreType, subst: &mut Subst) -> Result<(), U
             if record_has_label(&fields, label) {
                 return Err(UnifyError::LacksViolation {
                     label: label.to_string(),
-                    found: CoreType::OpenRecord {
-                        fields,
-                        row: rest,
-                    },
+                    found: CoreType::OpenRecord { fields, row: rest },
                 });
             }
             enforce_lacks(label, &rest, subst)
@@ -345,7 +348,8 @@ pub fn unify(a: &CoreType, b: &CoreType, subst: &mut Subst) -> Result<(), UnifyE
             Ok(())
         }
         // Empty closed record ≈ unit row tail for open-row fragments.
-        (CoreType::Record { fields }, CoreType::Unit) | (CoreType::Unit, CoreType::Record { fields })
+        (CoreType::Record { fields }, CoreType::Unit)
+        | (CoreType::Unit, CoreType::Record { fields })
             if fields.is_empty() =>
         {
             Ok(())

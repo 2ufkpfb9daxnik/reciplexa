@@ -4,11 +4,11 @@
 
 ## いまの位置
 
-**言語カーネル**と**ドキュメント表面**を分離した。
+**言語カーネルは pre-PKG 向けに COMPLETE。** ドキュメント表面と分離済み。PKG（graphics/math/日本語）と一部高度な言語機能は意図的に延期。
 
 | 経路 | API | 状態 |
 |---|---|---|
-| Language | `expand_language` → `elaborate_source` / `elaborate_units` → `typecheck_language_source` / `eval_source` | TYP/EFF/ROW/MOD/DAT/BND/KER/RSC v0 |
+| Language | `expand_language` → `elaborate_source` / `elaborate_units` / `load_module_tree` → `typecheck_language_source` / `eval_source` | pre-PKG COMPLETE |
 | Document | `expand_document_surface` → `reciplexa_types::typecheck_source` → lower → scene | page/circle 等（PKG 待ち） |
 
 ### 機能 ID ステータス（言語）
@@ -16,18 +16,27 @@
 | ID | 状態 | メモ |
 |---|---|---|
 | LEX/SYN | 既存 | コメント・markup reader 等 |
-| MAC-001 | v0 | `expand_language` + gensym |
-| RES-001 | v0 | `resolve_language_source` |
-| TYP-001 | v0 | Core `infer` + `Dynamic` stub |
-| ROW-001 | 断片 | closed record unify + `Lacks` stub |
-| EFF-001 | deep one-shot v0 | resume 後に body 継続；handler 再インストール |
-| MOD-001 | v0 | `elaborate_units` インメモリ import |
-| DAT-001 | v0 | surface `data`/`match` → Variant/Match（単一 binder） |
-| BND letrec/var/set | v0 | `LetRec` + `LocalVar`/`Set` cells（alive escape） |
-| KER-001 | v0 | `+ - * < =` BuiltinOp |
-| RSC-001 | v0 | `MemoryFsHost` + `read-file`/`write-file` |
-| EDT-001 | 部分 | BindingId 未スレッド；prototype を DOCUMENT SURFACE に隔離 |
-| PKG-001 | 延期 | graphics/math/日本語 |
+| MAC-001 | **done** | `expand_language` + gensym |
+| RES-001 | **done** | `resolve_language_source` |
+| TYP-001 | **done** | Core `infer` / `infer_with_effects` + `Dynamic` stub |
+| ROW-001 | **done** (fragment) | closed + `OpenRecord`; `Lacks` enforced |
+| EFF-001 | **done** (deep one-shot) | EffectRow on Fun; multi-shot deferred |
+| MOD-001 | **done** (v0) | `elaborate_units` + `load_module_tree` sibling `.rpx`; functors deferred |
+| DAT-001 | **done** (v0) | data/match + **static exhaustiveness**; multi-payload deferred |
+| BND letrec/var/set | **done** (v0) | LetRec + cells; full escape analysis deferred |
+| KER-001 | **done** (v0) | `+ - * < =` BuiltinOp; full foreign ABI deferred |
+| RSC-001 | **done** (v0) | MemoryFsHost; richer catalog deferred |
+| EDT-001 | **done** (BindingId map) | `BindingMap` use→decl; SyntaxNodeId thread deferred |
+| PKG-001 | **延期** | graphics/math/日本語 |
+
+### 意図的な延期（pre-PKG 後）
+
+- multi-shot / shallow effect handlers
+- full ML functors / module signatures
+- foreign/Rust ABI beyond BuiltinOp + EffectHost
+- multi-payload / parameterized ADTs
+- unrestricted row tallying
+- SyntaxNodeId provenance through elaborate→eval
 
 コメント `(// …)`、文章 reader `(markup …)`、トップレベル `perform`/`handle`（document）、最小の `(type …)` / `(val …)` スタブまで SYN-001 に寄せた。図形はまだ組込み `(page …)` プレリュード。
 
@@ -48,9 +57,10 @@
 ```text
 Language:
   .rpx → expand_language → elaborate → typecheck_language / eval
+  multi-unit: load_module_tree → elaborate_units
 
 Document:
-  .rpx → expand_document_surface → typecheck (types) → lower → scene
+  .rpx → expand_document_surface → typecheck (types::document_surface) → lower → scene
          ├─ GUI preview: effects なし
          └─ export: EffectHandler
 ```

@@ -237,4 +237,3 @@ fn language_binding_map_use_site_to_declaration() {
     );
     assert_eq!(r.env.bindings.get(&decl_id).map(String::as_str), Some("x"));
 }
-

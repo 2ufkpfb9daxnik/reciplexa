@@ -457,9 +457,13 @@ fn lacks_rejects_present_field() {
         }),
     };
     assert!(matches!(
-        unify(&lacks, &CoreType::Record {
-            fields: vec![("x".into(), CoreType::Number)],
-        }, &mut s),
+        unify(
+            &lacks,
+            &CoreType::Record {
+                fields: vec![("x".into(), CoreType::Number)],
+            },
+            &mut s
+        ),
         Err(UnifyError::LacksViolation { .. })
     ));
 }
@@ -534,4 +538,3 @@ fn lacks_on_open_record_checks_fields() {
         Err(UnifyError::LacksViolation { label, .. }) if label == "x"
     ));
 }
-

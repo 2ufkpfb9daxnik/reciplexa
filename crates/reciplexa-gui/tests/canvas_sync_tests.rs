@@ -23,7 +23,9 @@ fn japanese_page_text_nudge_keeps_sibling() {
         "first CJK text should nudge: {out}"
     );
     assert!(
-        out.contains(r#"(text 25 250 4 "本文。ページ上の text として置く現行の書き方です。" black)"#),
+        out.contains(
+            r#"(text 25 250 4 "本文。ページ上の text として置く現行の書き方です。" black)"#
+        ),
         "sibling japanese body text must stay put: {out}"
     );
 }

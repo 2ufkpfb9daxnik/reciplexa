@@ -109,17 +109,9 @@ fn lang_data_match_non_exhaustive() {
 (val main (match (Some 1) ((Some x) x)))
 "#;
         let err = elaborate_source(src).unwrap_err();
-        assert!(
-            err.message.contains("non-exhaustive"),
-            "{}",
-            err.message
-        );
+        assert!(err.message.contains("non-exhaustive"), "{}", err.message);
         let err = typecheck_language_source(src).unwrap_err();
-        assert!(
-            err.message.contains("non-exhaustive"),
-            "{}",
-            err.message
-        );
+        assert!(err.message.contains("non-exhaustive"), "{}", err.message);
     });
 }
 

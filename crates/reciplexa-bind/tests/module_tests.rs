@@ -64,17 +64,10 @@ fn elaborate_units_rejects_unknown_import() {
 
 #[test]
 fn load_module_tree_reads_sibling_imports() {
-    let dir = std::env::temp_dir().join(format!(
-        "reciplexa-mod-{}",
-        std::process::id()
-    ));
+    let dir = std::env::temp_dir().join(format!("reciplexa-mod-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
-    std::fs::write(
-        dir.join("lib.rpx"),
-        "(val id (fn (x) x))\n",
-    )
-    .unwrap();
+    std::fs::write(dir.join("lib.rpx"), "(val id (fn (x) x))\n").unwrap();
     std::fs::write(
         dir.join("main.rpx"),
         "(import lib only (id))\n(val main (id 7))\n",
@@ -94,4 +87,3 @@ fn load_module_tree_reads_sibling_imports() {
     assert_eq!(dir_units.len(), 2);
     let _ = std::fs::remove_dir_all(&dir);
 }
-

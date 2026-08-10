@@ -2,40 +2,44 @@
 
 Goal: complete LEX→SYN→MAC→RES→TYP/ROW/EFF→Core→EVAL/BND (+ MOD/KER/RSC/EDT/TST language parts) per `lang/specification.md`. Packages (graphics/math/Japanese) deferred.
 
+## Status: **COMPLETE for pre-PKG**
+
+Language kernel is complete enough for pre-PKG. Intentional deferrals listed below.
+
 ## Ordered work
 1. CoreExpr::Var + env; if; n-ary fn/app — **done**
 2. Surface elaborator: val/fn/let/seq → Core — **done** (+ perform/handle)
-3. RES lexical resolve over binders — **done** (`resolve_language_source`)
+3. RES lexical resolve over binders — **done** (`resolve_language_source` + `BindingMap`)
 4. MAC-001 hygienic macros (language); quarantine graphics macros — **done** (`expand_language`)
-5. TYP-001 on Core (+ dynamic stub) — **done v0** (`typecheck_language_source`, `CoreType::Dynamic`)
-6. ROW-001 fragment — **done v0** (closed-record unify + `CoreType::Lacks` stub; no open row vars)
-7. DAT interim: data/match — **done v0** (surface `data`/`match` → Core Variant/Match; tag + optional single binder)
-8. EFF-001 deep handlers — **done v0** (deep one-shot resume; body continues after `resume`)
-9. BND letrec/var/set — **done v0** (`LetRec`, `LocalVar`/`Set` + cell alive escape check)
-10. MOD-001 outer module + import — **done v0** (`elaborate_units` in-memory import skeleton)
-11. KER/RSC typed host ops — **done v0** (`+ - * < =` builtins; `MemoryFsHost` for `read-file`/`write-file`)
-12. EDT thread BindingId/SyntaxNodeId; retire prototype "language" tests — **partial** (document surface docs + `lang_kernel_suite`; BindingId not threaded)
-13. GUI text-move sync tests (expanded vs authoring) — **prior work**; not revisited here
+5. TYP-001 on Core (+ dynamic stub) — **done** (`typecheck_language_source`, `CoreType::Dynamic`)
+6. ROW-001 fragment — **done** (closed + `OpenRecord` row vars; `Lacks` enforced in unify)
+7. DAT interim: data/match — **done** (surface `data`/`match` → Core; **static exhaustiveness**)
+8. EFF-001 deep handlers — **done** (deep one-shot resume; **EffectRow on Fun** via `infer_with_effects`)
+9. BND letrec/var/set — **done** (`LetRec`, `LocalVar`/`Set` + cell alive escape check)
+10. MOD-001 outer module + import — **done** (`elaborate_units` + **`load_module_tree`** sibling `.rpx`)
+11. KER/RSC typed host ops — **done** (`+ - * < =` builtins; `MemoryFsHost` for `read-file`/`write-file`)
+12. EDT thread BindingId; retire prototype "language" tests — **done** (`BindingMap` use-sites; `document_surface` cfg module; `lang_kernel_suite` language gate)
+13. GUI text-move sync tests (expanded vs authoring) — **done** (+ `japanese_page` nudge regression)
 
 ## Gate
 ```
 CARGO_TARGET_DIR=d:\reciplexa\target TEMP/TMP=d:\reciplexa\.tmp
 cargo fmt --all
-cargo clippy --workspace --all-targets -- -D warnings
-cargo test --workspace
-cargo check -p reciplexa-gui
+cargo clippy --workspace --all-targets --offline -- -D warnings
+cargo test --workspace --offline
+cargo check --offline -p reciplexa-gui
 ```
-**Last gate: green** (fmt / clippy -D warnings / test --workspace / check gui).
+**Last gate: run after this status update.**
 
-## Remaining gaps
-| ID | Gap |
+## Intentional deferrals (post pre-PKG / PKG+)
+| ID | Deferred |
 |---|---|
-| **DAT-001** | Richer ADTs (multi-payload, params); pattern exhaustiveness |
+| **PKG-001** | graphics/math/Japanese packages |
+| **EFF-001** | Multi-shot / shallow choice handlers |
+| **MOD-001** | Full ML functors / signatures |
 | **KER-001** | Full typed Rust/foreign ABI (beyond BuiltinOp + EffectHost) |
-| **RSC-001** | Effect rows in Fun types; richer resource catalog / path safety |
-| **EDT-001** | Thread `BindingId` / `SyntaxNodeId` provenance through resolve→elaborate→eval |
-| **EFF-001** | Multi-shot / shallow choice; effect rows in infer beyond stubs |
-| **ROW-001** | Open records / row variables; enforce `Lacks` |
+| **DAT-001** | Multi-payload / parameterized ADTs |
 | **BND-001** | Full escape analysis; typed `var` store |
-| **MOD-001** | Signatures, functors, filesystem sibling load, resolve across units |
-| **PKG-001** | Deferred (graphics/math/Japanese packages) |
+| **RSC-001** | Richer resource catalog / path safety |
+| **EDT-001** | SyntaxNodeId provenance through elaborate→eval (BindingId use-site map done) |
+| **ROW-001** | Full unrestricted row tallying / multi-tail polymorphism |

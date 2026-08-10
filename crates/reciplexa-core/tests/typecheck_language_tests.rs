@@ -46,8 +46,8 @@ fn match_exhaustive_option_ok() {
 
 #[test]
 fn perform_adds_effect_to_fun() {
-    use reciplexa_core::{elaborate_source, infer_with_effects, TypeEnv};
     use reciplexa_core::unify::Subst;
+    use reciplexa_core::{elaborate_source, infer_with_effects, TypeEnv};
     use reciplexa_source::range::TextRange;
 
     let expr = elaborate_source(r#"(val main (fn () (perform log "hi")))"#).unwrap();
@@ -58,7 +58,10 @@ fn perform_adds_effect_to_fun() {
     let mut subst = Subst::new();
     let (ty, residual) =
         infer_with_effects(&value, &TypeEnv::new(), &mut subst, TextRange::EMPTY).unwrap();
-    assert!(residual.ops.is_empty(), "lambda suspends effects: {residual:?}");
+    assert!(
+        residual.ops.is_empty(),
+        "lambda suspends effects: {residual:?}"
+    );
     match subst.apply(&ty) {
         CoreType::Fun { effects, .. } => {
             assert_eq!(effects.ops, vec!["log".to_string()]);
@@ -69,10 +72,10 @@ fn perform_adds_effect_to_fun() {
 
 #[test]
 fn handle_removes_effect_from_residual() {
-    use reciplexa_core::{infer_with_effects, typecheck_language_source, TypeEnv};
-    use reciplexa_core::unify::Subst;
-    use reciplexa_source::range::TextRange;
     use reciplexa_core::elaborate_source;
+    use reciplexa_core::unify::Subst;
+    use reciplexa_core::{infer_with_effects, typecheck_language_source, TypeEnv};
+    use reciplexa_source::range::TextRange;
 
     let src = r#"(val main (handle log (fn (msg) msg) (perform log "ok")))"#;
     let ty = typecheck_language_source(src).unwrap();
@@ -90,5 +93,3 @@ fn handle_removes_effect_from_residual() {
         "handle should remove log: {residual:?}"
     );
 }
-
-

@@ -70,9 +70,11 @@ pub fn infer_with_effects(
             EffectRow::default(),
         )),
         CoreExpr::Var(name) => {
-            let ty = env.vars.get(name).cloned().ok_or_else(|| {
-                CheckError::at(format!("unbound variable `{name}`"), range)
-            })?;
+            let ty = env
+                .vars
+                .get(name)
+                .cloned()
+                .ok_or_else(|| CheckError::at(format!("unbound variable `{name}`"), range))?;
             Ok((ty, EffectRow::default()))
         }
         CoreExpr::Perform { op, arg } => {
