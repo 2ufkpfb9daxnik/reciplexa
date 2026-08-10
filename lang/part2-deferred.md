@@ -6,10 +6,10 @@
 
 ### 分類ごとの件数
 
-- **合計**: 269
-- **仕様未決定**: 56
-- **意図的後回し**: 201
-- **依存待ち**: 12
+- **合計**: 293
+- **仕様未決定**: 49
+- **意図的後回し**: 244
+- **依存待ち**: 0
 - **要確認**: 0
 
 分類の見方:
@@ -21,7 +21,7 @@
 
 ---
 
-## 仕様未決定（56）
+## 仕様未決定（49）
 
 ### L427: 未決定
 - **機能ブロック**: `LEX`
@@ -43,11 +43,6 @@
 - **notes**: OPEN-GRAPH / cyclic values deferred
 - **分類**: 仕様未決定
 
-### L6292: `DD-BND-032`: relaxed value restrictionの保留
-- **機能ブロック**: `BND`
-- **notes**: relaxed value restriction reserved
-- **分類**: 仕様未決定
-
 ### L7392: 10.4 Typed macro
 - **機能ブロック**: `MAC`
 - **notes**: typed macroはOPEN-MAC-TYPED
@@ -61,11 +56,6 @@
 ### L7702: 20. マクロの外部公開
 - **機能ブロック**: `MAC`
 - **notes**: 外部公開はv1制限/OPEN-MAC-PKG
-- **分類**: 仕様未決定
-
-### L7919: 22. 移管先OPEN・下位項目・状態
-- **機能ブロック**: `MAC`
-- **notes**: OPEN移管カタログ
 - **分類**: 仕様未決定
 
 ### L7920: 22.1 `OPEN-MAC-EXT-001`
@@ -96,11 +86,6 @@
 ### L7971: 22.6 `OPEN-EDT-001`
 - **機能ブロック**: `MAC`
 - **notes**: OPEN-EDT-001
-- **分類**: 仕様未決定
-
-### L14477: 0.2 本項目が直接定めないもの
-- **機能ブロック**: `MOD`
-- **notes**: PKG/MAC/KER/recursive/1st-class/generative → OPEN
 - **分類**: 仕様未決定
 
 ### L15558: 21.8 ABI hash
@@ -138,11 +123,6 @@
 - **notes**: generative functors out of v1
 - **分類**: 仕様未決定
 
-### L17157: 22. 移管先OPEN・下位項目・状態
-- **機能ブロック**: `PKG`
-- **notes**: OPEN transferred; deferred with PKG
-- **分類**: 仕様未決定
-
 ### L17158: 22.1 `OPEN-BLD-001`
 - **機能ブロック**: `PKG`
 - **notes**: OPEN transferred; deferred with PKG
@@ -174,11 +154,6 @@
 - **分類**: 仕様未決定
 
 ### L17224: 22.7 `OPEN-CON-001`
-- **機能ブロック**: `PKG`
-- **notes**: OPEN transferred; deferred with PKG
-- **分類**: 仕様未決定
-
-### L17232: 22.8 下位項目
 - **機能ブロック**: `PKG`
 - **notes**: OPEN transferred; deferred with PKG
 - **分類**: 仕様未決定
@@ -228,11 +203,6 @@
 - **notes**: OPEN-EDT-OVERRIDE-001 transferred / out of pre-PKG kernel
 - **分類**: 仕様未決定
 
-### L20399: 30. 移管先OPEN
-- **機能ブロック**: `ERR`
-- **notes**: OPEN transfer; deferred
-- **分類**: 仕様未決定
-
 ### L20401: `OPEN-MEM-001`
 - **機能ブロック**: `ERR`
 - **notes**: OPEN transfer; deferred
@@ -260,11 +230,6 @@
 
 ### L20442: `OPEN-ERR-DIAG-001`
 - **機能ブロック**: `ERR`
-- **notes**: OPEN transfer; deferred
-- **分類**: 仕様未決定
-
-### L21906: 34. 移管先OPEN
-- **機能ブロック**: `MEM`
 - **notes**: OPEN transfer; deferred
 - **分類**: 仕様未決定
 
@@ -303,7 +268,24 @@
 - **notes**: ASY-001 未決定; runtime scheduler exists but language async unspecified
 - **分類**: 仕様未決定
 
-## 意図的後回し（201）
+---
+
+## 意図的後回し（244）
+
+### L1360: 12. 単位と色
+- **機能ブロック**: `SYN`
+- **notes**: 単位・色はPKG担当; suffixはinterim分割
+- **分類**: 意図的後回し
+
+### L1362: 12.1 単位
+- **機能ブロック**: `SYN`
+- **notes**: 40mm→Number+Ident; typed (mm 40)はPKG
+- **分類**: 意図的後回し
+
+### L1402: 12.2 色
+- **機能ブロック**: `SYN`
+- **notes**: #hexなし; 色ctorはPKG
+- **分類**: 意図的後回し
 
 ### L2897: 2.3 Constructor固有型
 - **機能ブロック**: `DAT`
@@ -353,6 +335,21 @@
 ### L3251: 7.5 値位置の明示型argument
 - **機能ブロック**: `DAT`
 - **notes**: DAT param typing still Dynamic; plan DAT-001 deferral
+- **分類**: 意図的後回し
+
+### L4079: 21.6 Transparent export
+- **機能ブロック**: `DAT`
+- **notes**: MOD export/abstract data boundary; MOD-001 deferral
+- **分類**: 意図的後回し
+
+### L4085: 21.7 Abstract export
+- **機能ブロック**: `DAT`
+- **notes**: MOD export/abstract data boundary; MOD-001 deferral
+- **分類**: 意図的後回し
+
+### L4091: 21.8 一部constructor公開
+- **機能ブロック**: `DAT`
+- **notes**: MOD export/abstract data boundary; MOD-001 deferral
 - **分類**: 意図的後回し
 
 ### L5597: `DD-BND-011`: 多相再帰の禁止
@@ -415,13 +412,38 @@
 - **notes**: full generalization / value-restriction regime deferred (plan BND-001)
 - **分類**: 意図的後回し
 
+### L6292: `DD-BND-032`: relaxed value restrictionの保留
+- **機能ブロック**: `BND`
+- **notes**: relaxed value restriction reserved
+- **分類**: 意図的後回し
+
+### L7047: 3.6 Interfaceおよびmanifest
+- **機能ブロック**: `MAC`
+- **notes**: interface/manifestはPKG/OPEN
+- **分類**: 意図的後回し
+
 ### L7223: 6.6 0個以上の反復
 - **機能ブロック**: `MAC`
 - **notes**: 0個以上`...`はv1対象外
 - **分類**: 意図的後回し
 
+### L7720: 20.3 将来拡張
+- **機能ブロック**: `MAC`
+- **notes**: 将来のpkg公開
+- **分類**: 意図的後回し
+
+### L7900: 21.13 不適合試験 MAC-13：Interface
+- **機能ブロック**: `MAC`
+- **notes**: MAC-13 interface未（PKG）
+- **分類**: 意図的後回し
+
+### L7919: 22. 移管先OPEN・下位項目・状態
+- **機能ブロック**: `MAC`
+- **notes**: OPEN移管カタログ
+- **分類**: 意図的後回し
+
 ### L10878: `DD-TYP-EFF-006`: EffectRow alias
-- **機能ブロック**: `LIT`
+- **機能ブロック**: `TYP`
 - **notes**: effect-row polymorphism / aliases not full
 - **分類**: 意図的後回し
 
@@ -440,9 +462,74 @@
 - **notes**: named/scoped effect instances not in kernel
 - **分類**: 意図的後回し
 
+### L14371: `DD-EFF-020`: cleanupとの接続要件
+- **機能ブロック**: `EFF`
+- **notes**: cleanup/finalization → ERR; plan deferral
+- **分類**: 意図的後回し
+
+### L14477: 0.2 本項目が直接定めないもの
+- **機能ブロック**: `MOD`
+- **notes**: PKG/MAC/KER/recursive/1st-class/generative → OPEN
+- **分類**: 意図的後回し
+
 ### L14560: 2.3 Interface path
 - **機能ブロック**: `MOD`
 - **notes**: .rpi interface path not implemented
+- **分類**: 意図的後回し
+
+### L14573: 2.4 Path変更
+- **機能ブロック**: `MOD`
+- **notes**: 意図的後回し: path-rename / remapping API
+- **分類**: 意図的後回し
+
+### L14585: 3. 下位モジュール
+- **機能ブロック**: `MOD`
+- **notes**: 意図的後回し: nested (module …) surface; flat outer units only (MOD-001)
+- **分類**: 意図的後回し
+
+### L14586: 3.1 基本構文
+- **機能ブロック**: `MOD`
+- **notes**: 意図的後回し: nested (module …) surface; flat outer units only (MOD-001)
+- **分類**: 意図的後回し
+
+### L14603: 3.2 下位モジュールのpath
+- **機能ブロック**: `MOD`
+- **notes**: 意図的後回し: nested (module …) surface; flat outer units only (MOD-001)
+- **分類**: 意図的後回し
+
+### L14609: 3.3 下位モジュールの外部ファイル化
+- **機能ブロック**: `MOD`
+- **notes**: 意図的後回し: nested (module …) surface; flat outer units only (MOD-001)
+- **分類**: 意図的後回し
+
+### L14620: 3.4 Module body
+- **機能ブロック**: `MOD`
+- **notes**: 意図的後回し: nested (module …) surface; flat outer units only (MOD-001)
+- **分類**: 意図的後回し
+
+### L14636: 4. 下位モジュールのscopeと純粋性
+- **機能ブロック**: `MOD`
+- **notes**: 意図的後回し: nested-module scope N/A until nested modules
+- **分類**: 意図的後回し
+
+### L14655: 4.2 親scopeの参照
+- **機能ブロック**: `MOD`
+- **notes**: 意図的後回し: nested parent-scope N/A until nested modules
+- **分類**: 意図的後回し
+
+### L14667: 4.3 後方参照
+- **機能ブロック**: `MOD`
+- **notes**: 意図的後回し: nested forward-ref N/A until nested modules
+- **分類**: 意図的後回し
+
+### L14737: 5.4 .
+- **機能ブロック**: `MOD`
+- **notes**: 意図的後回し: dot-qualified module refs; slash paths are primary
+- **分類**: 意図的後回し
+
+### L14811: 6.7 自動再公開
+- **機能ブロック**: `MOD`
+- **notes**: 意図的後回し: auto re-export of imports not in bind skeleton
 - **分類**: 意図的後回し
 
 ### L14859: 8. .rpiインターフェース
@@ -818,6 +905,71 @@
 ### L15473: 20.9 Functor適用結果
 - **機能ブロック**: `MOD`
 - **notes**: functor apply identity N/A until functors
+- **分類**: 意図的後回し
+
+### L15492: 21. 分割コンパイルと適合試験
+- **機能ブロック**: `MOD`
+- **notes**: 意図的後回し: InterfaceHash / compiled interface metadata
+- **分類**: 意図的後回し
+
+### L15493: 21.1 Interface metadata
+- **機能ブロック**: `MOD`
+- **notes**: 意図的後回し: .rpi → interface metadata emitter
+- **分類**: 意図的後回し
+
+### L15523: 21.3 InterfaceHash
+- **機能ブロック**: `MOD`
+- **notes**: 意図的後回し: InterfaceHash absent
+- **分類**: 意図的後回し
+
+### L15530: 21.4 Hashに含めるもの
+- **機能ブロック**: `MOD`
+- **notes**: 意図的後回し: hash inputs N/A until InterfaceHash
+- **分類**: 意図的後回し
+
+### L15548: 21.6 Documentation hash
+- **機能ブロック**: `MOD`
+- **notes**: 意図的後回し: DocumentationHash absent
+- **分類**: 意図的後回し
+
+### L15552: 21.7 再コンパイル
+- **機能ブロック**: `MOD`
+- **notes**: 意図的後回し: incremental recompile by InterfaceHash
+- **分類**: 意図的後回し
+
+### L15594: 21.11 適合試験 MOD-03
+- **機能ブロック**: `MOD`
+- **notes**: 意図的後回し: MOD-03 conformance corpus
+- **分類**: 意図的後回し
+
+### L15621: 21.12 不適合試験 MOD-04
+- **機能ブロック**: `MOD`
+- **notes**: 意図的後回し: MOD-04 negative suite
+- **分類**: 意図的後回し
+
+### L15650: 21.13 適合試験 MOD-05
+- **機能ブロック**: `MOD`
+- **notes**: 意図的後回し: MOD-05 suite
+- **分類**: 意図的後回し
+
+### L15677: 21.14 適合試験 MOD-06
+- **機能ブロック**: `MOD`
+- **notes**: 意図的後回し: MOD-06 suite
+- **分類**: 意図的後回し
+
+### L15689: 21.15 不適合試験 MOD-07
+- **機能ブロック**: `MOD`
+- **notes**: 意図的後回し: MOD-07 suite
+- **分類**: 意図的後回し
+
+### L15699: 21.16 適合試験 MOD-08
+- **機能ブロック**: `MOD`
+- **notes**: 意図的後回し: MOD-08 suite
+- **分類**: 意図的後回し
+
+### L15708: 21.17 不適合試験 MOD-09
+- **機能ブロック**: `MOD`
+- **notes**: 意図的後回し: MOD-09 suite
 - **分類**: 意図的後回し
 
 ### L16140: 4.3 表示名
@@ -1310,68 +1462,41 @@
 - **notes**: PKG conformance suite deferred / not wired
 - **分類**: 意図的後回し
 
-## 依存待ち（12）
+### L17157: 22. 移管先OPEN・下位項目・状態
+- **機能ブロック**: `PKG`
+- **notes**: OPEN transferred; deferred with PKG
+- **分類**: 意図的後回し
 
-### L1360: 12. 単位と色
-- **機能ブロック**: `SYN`
-- **notes**: 単位・色はPKG担当; suffixはinterim分割
-- **分類**: 依存待ち
+### L17232: 22.8 下位項目
+- **機能ブロック**: `PKG`
+- **notes**: OPEN transferred; deferred with PKG
+- **分類**: 意図的後回し
 
-### L1362: 12.1 単位
-- **機能ブロック**: `SYN`
-- **notes**: 40mm→Number+Ident; typed (mm 40)はPKG
-- **分類**: 依存待ち
+### L20399: 30. 移管先OPEN
+- **機能ブロック**: `ERR`
+- **notes**: OPEN transfer; deferred
+- **分類**: 意図的後回し
 
-### L1402: 12.2 色
-- **機能ブロック**: `SYN`
-- **notes**: #hexなし; 色ctorはPKG
-- **分類**: 依存待ち
-
-### L4079: 21.6 Transparent export
-- **機能ブロック**: `DAT`
-- **notes**: MOD export/abstract data boundary; MOD-001 deferral
-- **分類**: 依存待ち
-
-### L4085: 21.7 Abstract export
-- **機能ブロック**: `DAT`
-- **notes**: MOD export/abstract data boundary; MOD-001 deferral
-- **分類**: 依存待ち
-
-### L4091: 21.8 一部constructor公開
-- **機能ブロック**: `DAT`
-- **notes**: MOD export/abstract data boundary; MOD-001 deferral
-- **分類**: 依存待ち
-
-### L7047: 3.6 Interfaceおよびmanifest
-- **機能ブロック**: `MAC`
-- **notes**: interface/manifestはPKG/OPEN
-- **分類**: 依存待ち
-
-### L7720: 20.3 将来拡張
-- **機能ブロック**: `MAC`
-- **notes**: 将来のpkg公開
-- **分類**: 依存待ち
-
-### L7900: 21.13 不適合試験 MAC-13：Interface
-- **機能ブロック**: `MAC`
-- **notes**: MAC-13 interface未（PKG）
-- **分類**: 依存待ち
-
-### L14371: `DD-EFF-020`: cleanupとの接続要件
-- **機能ブロック**: `EFF`
-- **notes**: cleanup/finalization → ERR; plan deferral
-- **分類**: 依存待ち
+### L21906: 34. 移管先OPEN
+- **機能ブロック**: `MEM`
+- **notes**: OPEN transfer; deferred
+- **分類**: 意図的後回し
 
 ### L22236: 15.6 Module境界
 - **機能ブロック**: `TST`
 - **notes**: module signature checking deferred with MOD signatures
-- **分類**: 依存待ち
+- **分類**: 意図的後回し
 
 ### L22593: 段階5: 統合試験を通過
 - **機能ブロック**: `TST`
 - **notes**: multi-package/GUI/resource integration post-PKG
-- **分類**: 依存待ち
+- **分類**: 意図的後回し
+
+---
+
+## 依存待ち（0）
+
+---
 
 ## 要確認（0）
 
-（なし）
