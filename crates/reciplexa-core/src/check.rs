@@ -607,14 +607,14 @@ fn refine_predicate(pred: &str, scr: &CoreType) -> Option<(CoreType, CoreType)> 
 }
 
 fn type_structurally_eq(a: &CoreType, b: &CoreType) -> bool {
-    match (a, b) {
+    matches!(
+        (a, b),
         (CoreType::Number, CoreType::Number)
-        | (CoreType::String, CoreType::String)
-        | (CoreType::Bool, CoreType::Bool)
-        | (CoreType::Unit, CoreType::Unit)
-        | (CoreType::Dynamic, CoreType::Dynamic) => true,
-        _ => false,
-    }
+            | (CoreType::String, CoreType::String)
+            | (CoreType::Bool, CoreType::Bool)
+            | (CoreType::Unit, CoreType::Unit)
+            | (CoreType::Dynamic, CoreType::Dynamic)
+    )
 }
 
 fn diff_type(scr: &CoreType, removed: &CoreType) -> CoreType {
