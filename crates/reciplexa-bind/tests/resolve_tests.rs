@@ -62,6 +62,21 @@ fn doc_and_src_forms_resolve() {
 }
 
 #[test]
+fn markup_at_commands_are_not_unbound_idents() {
+    assert!(resolve_source("(markup @heading(Hi))").is_ok());
+    assert!(resolve_source("(page a4 (circle 1 2 3 red))").is_ok());
+    let unbound = resolve_source("(page a4 (circle 1 2 3 puce))");
+    assert!(!unbound.is_ok());
+    assert!(unbound.errors[0].message.contains("puce"));
+}
+
+#[test]
+fn structured_comment_top_level_is_skipped() {
+    let r = resolve_source("(// note with weird)\n(page a4 (circle 1 2 3 red))");
+    assert!(r.is_ok(), "{:?}", r.errors);
+}
+
+#[test]
 fn nested_unknown_ident_reports_error() {
     let r = resolve_source("(page a4 (group (circle 0 0 1 mauve)))");
     assert!(!r.is_ok());
@@ -110,4 +125,20 @@ fn resolve_expr_on_bracket_child_of_group() {
     // BracketList child exercises the non-List arm of resolve_expr.
     let r = resolve_source("(group [1 2] (circle 1 2 3 red))");
     assert!(r.is_ok(), "{:?}", r.errors);
+}
+
+#[test]
+fn type_and_val_declare_binding_names() {
+    let r = resolve_source(
+        r#"(type title str)
+(val title "Hello")
+(page a4 (circle 1 2 3 red))"#,
+    );
+    assert!(r.is_ok(), "{:?}", r.errors);
+    assert!(r.env.bindings.values().any(|n| n == "title"));
+}
+
+#[test]
+fn top_level_perform_handle_resolve() {
+    assert!(resolve_source(r#"(perform log "x")(handle log (perform log "y"))(page a4)"#).is_ok());
 }

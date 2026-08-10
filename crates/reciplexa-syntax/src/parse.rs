@@ -6,7 +6,7 @@
 //! (SATySFi-style fail-fast at the API boundary).
 //!
 //! Mode switching: after the head of `(markup …)` the parser pushes
-//! [`LexerMode::Scribble`] and re-lexes lookahead. `@` escapes push Lisp
+//! [`LexerMode::Markup`] and re-lexes lookahead. `@` escapes push Lisp
 //! for one form (and an optional `{…}` Scribble body).
 //! Structured comments `(// …)` are SYN-001 trivia forms (not semantic).
 
@@ -248,7 +248,7 @@ impl<'a> Parser<'a> {
         match head.as_deref() {
             Some("markup") => {
                 self.bump(); // markup
-                self.push_mode_relex(LexerMode::Scribble);
+                self.push_mode_relex(LexerMode::Markup);
                 self.parse_scribble_until(SyntaxKind::RParen);
                 self.pop_mode_relex();
                 if self
@@ -407,7 +407,7 @@ impl<'a> Parser<'a> {
         {
             self.builder.start_node(SyntaxKind::List.into());
             self.bump(); // (
-            self.push_mode_relex(LexerMode::Scribble);
+            self.push_mode_relex(LexerMode::Markup);
             self.parse_scribble_until(SyntaxKind::RParen);
             self.pop_mode_relex();
             if self
@@ -434,7 +434,7 @@ impl<'a> Parser<'a> {
             // Brace opens in Lisp mode; body should be Scribble.
             self.builder.start_node(SyntaxKind::BraceList.into());
             self.bump(); // {
-            self.push_mode_relex(LexerMode::Scribble);
+            self.push_mode_relex(LexerMode::Markup);
             self.parse_scribble_until(SyntaxKind::RBrace);
             self.pop_mode_relex();
             if self

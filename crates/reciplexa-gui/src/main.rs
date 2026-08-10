@@ -376,6 +376,11 @@ impl PreviewApp {
         pipeline_doc(&self.source).is_ok()
     }
 
+    /// Expanded buffer for read-only layer/size sync (falls back to authoring source).
+    fn expanded_for_sync(&self) -> String {
+        reciplexa::pipeline::expand(&self.source).unwrap_or_else(|_| self.source.clone())
+    }
+
     fn push_undo(&mut self) {
         self.undo_stack.push(self.source.clone());
         if self.undo_stack.len() > 100 {
@@ -929,18 +934,19 @@ impl PreviewApp {
             }
         });
 
-        let size_bindings = match collect_size_targets_page(&self.source, self.page_index) {
+        let expanded = self.expanded_for_sync();
+        let size_bindings = match collect_size_targets_page(&expanded, self.page_index) {
             Ok(b) => b,
             Err(e) => {
-                ui.colored_label(egui::Color32::RED, &e.message);
-                return;
+                ui.colored_label(egui::Color32::YELLOW, &e.message);
+                Vec::new()
             }
         };
-        let layers = match collect_layers_page(&self.source, self.page_index) {
+        let layers = match collect_layers_page(&expanded, self.page_index) {
             Ok(l) => l,
             Err(e) => {
-                ui.colored_label(egui::Color32::RED, &e.message);
-                return;
+                ui.colored_label(egui::Color32::YELLOW, &e.message);
+                Vec::new()
             }
         };
         let Some((page, shapes)) = flatten_page(&doc, self.page_index) else {
@@ -3027,7 +3033,8 @@ impl eframe::App for PreviewApp {
             }
         }
         if !source_focused && ctx.input(|i| i.modifiers.command && i.key_pressed(egui::Key::A)) {
-            if let Ok(layers) = collect_layers_page(&self.source, self.page_index) {
+            let expanded = self.expanded_for_sync();
+            if let Ok(layers) = collect_layers_page(&expanded, self.page_index) {
                 self.selected = (0..layers.len()).collect();
             }
         }
@@ -3277,7 +3284,7 @@ impl eframe::App for PreviewApp {
         });
 
         let layers_for_panel =
-            collect_layers_page(&self.source, self.page_index).unwrap_or_default();
+            collect_layers_page(&self.expanded_for_sync(), self.page_index).unwrap_or_default();
 
         // --- Docked bento panes ---
         if self.show_source && !self.float_source {

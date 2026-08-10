@@ -407,3 +407,27 @@ fn perform_op_must_be_ident_at_runtime() {
         err.message
     );
 }
+
+#[test]
+fn top_level_perform_and_handle_without_src() {
+    let ps = collect_performs(
+        r#"(perform log "a")
+(handle log (perform log "b"))
+(page a4)"#,
+    )
+    .unwrap();
+    assert_eq!(ps.len(), 2);
+    assert_eq!(ps[0].payload, "a");
+    assert_eq!(ps[1].payload, "b");
+
+    let mut h = TestHandler::default();
+    let vals = run_source_effects(
+        &mut h,
+        r#"(perform log "top")
+(handle log (perform log "muted"))
+(perform random)"#,
+    )
+    .unwrap();
+    assert_eq!(h.logs, vec!["top"]);
+    assert!(vals.len() >= 2);
+}

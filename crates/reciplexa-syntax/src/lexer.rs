@@ -16,8 +16,8 @@ use crate::SyntaxKind;
 pub enum LexerMode {
     /// Pure S-expression tokenization (identifiers, numbers, strings, punct).
     Lisp,
-    /// Plain text chunks until `@` introduces a Lisp escape.
-    Scribble,
+    /// Markup / Scribble-like text chunks until `@` introduces a Lisp escape.
+    Markup,
 }
 
 /// A single lexeme with byte offsets into the original source.
@@ -49,7 +49,7 @@ pub struct Lexer<'a> {
 impl<'a> Lexer<'a> {
     /// Start in [`LexerMode::Lisp`].
     ///
-    /// Files are S-expression rooted (`(src …)` / `(markup …)`); Scribble is
+    /// Files are S-expression rooted (`(src …)` / `(markup …)`); Markup mode is
     /// entered only when the parser recognizes a `markup` form and pushes mode.
     pub fn new(input: &'a str) -> Self {
         Self {
@@ -112,7 +112,7 @@ impl<'a> Lexer<'a> {
         }
         match self.mode() {
             LexerMode::Lisp => Some(self.bump_lisp()),
-            LexerMode::Scribble => Some(self.bump_scribble()),
+            LexerMode::Markup => Some(self.bump_scribble()),
         }
     }
 

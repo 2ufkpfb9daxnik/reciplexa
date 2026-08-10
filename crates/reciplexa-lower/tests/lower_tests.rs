@@ -1021,3 +1021,16 @@ fn coverage_hooks_number_at_and_parse() {
     assert_eq!(coverage_parse_num_text("-1"), -1.0);
     assert_eq!(coverage_parse_num_text("abc"), 0.0);
 }
+
+#[test]
+fn type_val_and_top_level_effects_are_skipped() {
+    let src = r#"
+(type title str)
+(val title "Hello")
+(perform log "x")
+(handle log (perform log "y"))
+(page a4 (circle 1 2 3))
+"#;
+    let doc = lower_source(src).unwrap();
+    assert_eq!(doc.pages.len(), 1);
+}

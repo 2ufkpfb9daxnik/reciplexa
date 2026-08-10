@@ -30,17 +30,17 @@ fn new_lexer_starts_in_lisp_with_single_frame() {
 #[test]
 fn push_and_pop_modes_nest_explicitly() {
     let mut lex = Lexer::new("");
-    lex.push_mode(LexerMode::Scribble);
-    assert_eq!(lex.mode(), LexerMode::Scribble);
+    lex.push_mode(LexerMode::Markup);
+    assert_eq!(lex.mode(), LexerMode::Markup);
     lex.push_mode(LexerMode::Lisp);
     assert_eq!(lex.mode(), LexerMode::Lisp);
     assert_eq!(
         lex.mode_stack(),
-        &[LexerMode::Lisp, LexerMode::Scribble, LexerMode::Lisp]
+        &[LexerMode::Lisp, LexerMode::Markup, LexerMode::Lisp]
     );
     assert_eq!(lex.pop_mode(), Some(LexerMode::Lisp));
-    assert_eq!(lex.mode(), LexerMode::Scribble);
-    assert_eq!(lex.pop_mode(), Some(LexerMode::Scribble));
+    assert_eq!(lex.mode(), LexerMode::Markup);
+    assert_eq!(lex.pop_mode(), Some(LexerMode::Markup));
     assert_eq!(lex.mode(), LexerMode::Lisp);
 }
 
@@ -140,7 +140,7 @@ fn japanese_ident_is_accepted_in_lisp_mode() {
 #[test]
 fn scribble_emits_closing_paren_as_delimiter() {
     let mut lex = Lexer::new("hi)");
-    lex.push_mode(LexerMode::Scribble);
+    lex.push_mode(LexerMode::Markup);
     assert_eq!(
         lex.tokenize_all()
             .into_iter()
@@ -153,7 +153,7 @@ fn scribble_emits_closing_paren_as_delimiter() {
 #[test]
 fn scribble_emits_text_chunks_and_at() {
     let mut lex = Lexer::new("hello @world");
-    lex.push_mode(LexerMode::Scribble);
+    lex.push_mode(LexerMode::Markup);
     assert_eq!(
         lex.tokenize_all()
             .into_iter()
@@ -169,7 +169,7 @@ fn parser_driven_mode_switch_after_at_lexes_ident() {
     // pushes Lisp so the escape name tokenizes as Ident, not TextChunk.
     let src = "hi @circle more";
     let mut lex = Lexer::new(src);
-    lex.push_mode(LexerMode::Scribble);
+    lex.push_mode(LexerMode::Markup);
     assert_eq!(lex.bump_token().unwrap().kind, SyntaxKind::TextChunk);
     assert_eq!(lex.bump_token().unwrap().kind, SyntaxKind::At);
     lex.push_mode(LexerMode::Lisp);
@@ -183,7 +183,7 @@ fn parser_driven_mode_switch_after_at_lexes_ident() {
 #[test]
 fn scribble_preserves_newlines_separately() {
     let mut lex = Lexer::new("a\nb");
-    lex.push_mode(LexerMode::Scribble);
+    lex.push_mode(LexerMode::Markup);
     let tokens = lex.tokenize_all();
     assert_eq!(
         tokens.iter().map(|t| t.kind).collect::<Vec<_>>(),
@@ -239,7 +239,7 @@ fn lexer_input_accessor() {
 #[test]
 fn scribble_lexes_brackets_and_crlf() {
     let mut lex = Lexer::new("[\r\n]");
-    lex.push_mode(LexerMode::Scribble);
+    lex.push_mode(LexerMode::Markup);
     let kinds: Vec<_> = lex.tokenize_all().into_iter().map(|t| t.kind).collect();
     assert_eq!(
         kinds,
@@ -254,7 +254,7 @@ fn scribble_lexes_brackets_and_crlf() {
 #[test]
 fn scribble_bare_cr_is_newline() {
     let mut lex = Lexer::new("a\rb");
-    lex.push_mode(LexerMode::Scribble);
+    lex.push_mode(LexerMode::Markup);
     let kinds: Vec<_> = lex.tokenize_all().into_iter().map(|t| t.kind).collect();
     assert_eq!(
         kinds,

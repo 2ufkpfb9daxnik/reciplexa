@@ -99,14 +99,14 @@ pub fn lower_syntax(root: &SyntaxNode) -> Result<Document, LowerError> {
         };
         match head {
             "page" => pages.push(lower_page(&form)?),
-            "markup" | "src" | "//" => {
+            "markup" | "src" | "type" | "val" | "perform" | "handle" | "//" => {
                 // `markup` is normally expanded to `(page …)` by reciplexa-macro (M8).
-                // Leftover `markup`/`src` forms are skipped (logic / package seams).
+                // Leftover markup/src/effects/decls are skipped (logic / package seams).
                 // `//` should be StructuredComment; skip if it ever appears as a list.
             }
             other => {
                 return Err(LowerError::new(format!(
-                    "expected head `page`, `markup`, or `src`, found `{other}`"
+                    "expected head `page`, `markup`, `src`, `type`/`val`, or perform/handle, found `{other}`"
                 )));
             }
         }

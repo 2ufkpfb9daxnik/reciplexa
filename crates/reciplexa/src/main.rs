@@ -229,6 +229,7 @@ mod tests {
             "image.rpx",
             "markup_doc.rpx",
             "markup_ja.rpx",
+            "decls_stub.rpx",
         ] {
             if example_needs_cjk_font(name) && !has_cjk {
                 eprintln!(

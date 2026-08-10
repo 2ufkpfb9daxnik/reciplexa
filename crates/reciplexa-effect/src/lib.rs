@@ -1,9 +1,10 @@
 //! Algebraic-effect skeleton for reciplexa (M9).
 //!
-//! Side effects are expressed as `perform` operations run under top-level
-//! `(src …)` blocks (and nested `(handle log|write-path …)` for muted ops). A tiny
-//! sequential interpreter returns [`Value`]s so hosts can grow against a stable
-//! surface without embedding effects in the PDF or GUI crates.
+//! Side effects are expressed as top-level `perform` / `handle` forms (SYN-001).
+//! Deprecated `(src …)` wrappers still work: their children are walked the same way.
+//! Nested `(handle log|write-path …)` mutes those ops. A tiny sequential interpreter
+//! returns [`Value`]s so hosts can grow against a stable surface without embedding
+//! effects in the PDF or GUI crates.
 
 #![forbid(unsafe_code)]
 
@@ -130,20 +131,24 @@ pub fn run_perform(handler: &mut dyn EffectHandler, perf: &Perform) -> Result<Va
     }
 }
 
-/// Collect `(perform …)` forms nested under top-level `(src …)` blocks.
+/// Collect `(perform …)` forms from top-level `perform` / `handle`, and inside `(src …)`.
 pub fn collect_performs(input: &str) -> Result<Vec<Perform>, EffectError> {
     let parse = parse_root(input)?;
     let mut out = Vec::new();
     for form in parse.root.children() {
-        if !is_list_headed(&form, "src") {
-            continue;
+        if is_list_headed(&form, "perform") {
+            out.push(parse_perform_node(&form)?);
+        } else if is_list_headed(&form, "handle") {
+            collect_performs_in_list(&form, &mut out)?;
+        } else if is_list_headed(&form, "src") {
+            // Deprecated wrapper: still walk children.
+            collect_performs_in_list(&form, &mut out)?;
         }
-        collect_performs_in_list(&form, &mut out)?;
     }
     Ok(out)
 }
 
-/// Run every top-level `(src …)` block in order, returning performed values.
+/// Run top-level `(perform …)` / `(handle …)`, and deprecated `(src …)` blocks, in order.
 pub fn run_source_effects(
     handler: &mut dyn EffectHandler,
     input: &str,
@@ -153,6 +158,8 @@ pub fn run_source_effects(
     for form in parse.root.children() {
         if is_list_headed(&form, "src") {
             values.extend(run_src_forms(handler, &form)?);
+        } else if is_list_headed(&form, "perform") || is_list_headed(&form, "handle") {
+            values.push(run_src_form(handler, &form)?);
         }
     }
     Ok(values)

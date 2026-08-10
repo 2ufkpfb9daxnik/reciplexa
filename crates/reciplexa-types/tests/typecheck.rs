@@ -518,6 +518,7 @@ fn type_debug_covers_variants() {
             Type::Markup,
             Type::Src,
             Type::Unit,
+            Type::Decl,
             Type::Document
         )
     );
@@ -721,4 +722,31 @@ fn remaining_require_ty_err_partitions() {
     );
     let err = typecheck_source("(src (()))\n(page a4)").unwrap_err();
     assert!(!err.message.is_empty());
+}
+
+#[test]
+fn top_level_perform_handle_and_decls() {
+    assert_eq!(
+        typecheck_source(r#"(perform log "hi")(page a4)"#).unwrap(),
+        Type::Document
+    );
+    assert_eq!(
+        typecheck_source(r#"(handle log (perform log "x"))(page a4)"#).unwrap(),
+        Type::Document
+    );
+    assert_eq!(
+        typecheck_source(r#"(type title str)(val title "Hello")(page a4)"#).unwrap(),
+        Type::Document
+    );
+}
+
+#[test]
+fn type_val_arity_and_name_errors() {
+    assert!(typecheck_source("(type title)\n(page a4)").is_err());
+    assert!(typecheck_source("(val title)\n(page a4)").is_err());
+    assert!(typecheck_source("(type)\n(page a4)").is_err());
+    let err = typecheck_source("(type 1 str)\n(page a4)").unwrap_err();
+    assert!(err.message.contains("identifier") || err.message.contains("name"));
+    let err = typecheck_source("(val 1 \"x\")\n(page a4)").unwrap_err();
+    assert!(err.message.contains("identifier") || err.message.contains("name"));
 }

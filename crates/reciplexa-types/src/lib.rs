@@ -17,14 +17,16 @@ pub enum Type {
     Shape,
     Paper,
     Page,
-    /// Scribble `(markup …)` block (body not deeply checked yet).
+    /// `(markup …)` block (body not deeply checked yet).
     Markup,
-    /// Lisp `(src …)` block for logic / effects (not drawn).
+    /// Deprecated Lisp `(src …)` block for logic / effects (not drawn).
     Src,
     String,
-    /// Result of `(perform …)` and similar side-effecting forms.
+    /// Result of `(perform …)` / `(handle …)` and similar side-effecting forms.
     Unit,
-    /// Top-level file: pages / markup / src blocks.
+    /// Minimal stub for top-level `(type …)` / `(val …)` (bodies not checked yet).
+    Decl,
+    /// Top-level file: pages / markup / effects / decls (and deprecated src).
     Document,
 }
 
@@ -77,10 +79,12 @@ pub fn typecheck_syntax(root: &SyntaxNode) -> Result<Type, TypeError> {
     for form in &forms {
         let ty = check_form(form)?;
         match ty {
-            Type::Page | Type::Markup | Type::Src => {}
+            Type::Page | Type::Markup | Type::Src | Type::Unit | Type::Decl => {}
             other => {
                 return Err(TypeError::at(
-                    format!("top-level form must be page, markup, or src, got {other:?}"),
+                    format!(
+                        "top-level form must be page, markup, src, perform/handle, or type/val, got {other:?}"
+                    ),
                     form.text_range().start().into(),
                     form.text_range().end().into(),
                 ));
@@ -128,7 +132,7 @@ fn check_form(node: &SyntaxNode) -> Result<Type, TypeError> {
             Ok(Type::Page)
         }
         "markup" => {
-            // M8 / SYN-001: accept scribble markup without typing TextChunk/@ bodies yet.
+            // M8 / SYN-001: accept markup without typing TextChunk/@ bodies yet.
             Ok(Type::Markup)
         }
         "src" => {
@@ -138,6 +142,9 @@ fn check_form(node: &SyntaxNode) -> Result<Type, TypeError> {
             Ok(Type::Src)
         }
         "perform" => check_perform(&args, node, span),
+        "handle" => check_handle(&args, node, span),
+        "type" => check_decl("type", &args, span),
+        "val" => check_decl("val", &args, span),
         "circle" => {
             // (circle Num Num Num) | (circle Num Num Num Color)
             if args.len() != 3 && args.len() != 4 {
@@ -442,6 +449,28 @@ fn check_src_child(child: &Child) -> Result<Type, TypeError> {
             ))
         }
     }
+}
+
+/// Minimal `(type name …)` / `(val name …)` — arity only; bodies not checked yet.
+fn check_decl(head: &str, args: &[Child], span: (usize, usize)) -> Result<Type, TypeError> {
+    if args.len() < 2 {
+        return Err(TypeError::at(
+            format!("`{head}` needs a name and a body (≥2 args)"),
+            span.0,
+            span.1,
+        ));
+    }
+    match &args[0] {
+        Child::Token(t) if t.kind() == SyntaxKind::Ident => {}
+        _ => {
+            return Err(TypeError::at(
+                format!("`{head}` name must be an identifier"),
+                span.0,
+                span.1,
+            ));
+        }
+    }
+    Ok(Type::Decl)
 }
 
 /// `(handle log BODY…)` / `(handle write-path BODY…)` — body forms must be Unit.

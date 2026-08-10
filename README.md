@@ -14,4 +14,4 @@ cargo run -p reciplexa -- examples\black_circle.rpx target\out.pdf
 cargo run -p reciplexa-gui -- examples\black_circle.rpx
 ```
 
-出力拡張子でバックエンドを選びます（`.pdf` / `.svg` / `.pptx`）。サンプルは `examples/`（`(//)` コメントと `(markup …)`）。
+出力拡張子でバックエンドを選びます（`.pdf` / `.svg` / `.pptx`）。サンプルは `examples/`（`(//)` コメント、`(markup …)`、トップレベル `perform`/`handle`、最小 `(type …)`/`(val …)`）。`page`/`circle` はまだ interim 組込み。brace の `@form{…}` も受理します。

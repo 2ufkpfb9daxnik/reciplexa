@@ -1,0 +1,4 @@
+(// SYN-001 declarations (minimal); page still interim prelude)
+(type title str)
+(val title "Hello")
+(page a4 (text 30 260 8 "Hello" black))

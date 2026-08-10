@@ -27,11 +27,14 @@ pub fn document_snapshot_from_lowered(
     ))
 }
 
-/// Parse, lower, and build an editable document snapshot with provenance.
+/// Expand, resolve, parse, lower, and build an editable document snapshot with provenance.
 pub fn document_snapshot_from_source(
     source: &str,
     identity: DocumentIdentity,
 ) -> Result<DocumentSnapshot, String> {
+    // Expand-first: markup / macros must become page forms before bind/lower.
+    let expanded = reciplexa_macro::expand_source(source).map_err(|e| e.message)?;
+    let source = expanded.as_str();
     let resolve = resolve_source(source);
     if !resolve.is_ok() {
         return Err(resolve.errors[0].message.clone());
@@ -166,6 +169,19 @@ mod tests {
         let src = "(page a4 (circle 105 148.5 40))";
         let snap = document_snapshot_from_source(src, DocumentIdentity::new(1)).unwrap();
         assert!(snap.nodes.iter().count() > 1);
+    }
+
+    #[test]
+    fn builds_snapshot_from_markup_after_expand() {
+        let src = "(markup @heading(Hi)\nBody text.\n)";
+        let snap = document_snapshot_from_source(src, DocumentIdentity::new(20)).unwrap();
+        assert!(snap.nodes.iter().count() > 1);
+    }
+
+    #[test]
+    fn expand_error_rejects_snapshot() {
+        let err = document_snapshot_from_source("(page a4", DocumentIdentity::new(21)).unwrap_err();
+        assert!(!err.is_empty());
     }
 
     #[test]

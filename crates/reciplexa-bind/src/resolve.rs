@@ -64,6 +64,10 @@ pub fn resolve_source(source: &str) -> ResolveResult {
     }
 
     for form in parse.root.children() {
+        // Top-level `(// …)` forms are not binding targets.
+        if form.kind() == SyntaxKind::StructuredComment {
+            continue;
+        }
         resolve_form(&form, &mut stack, &mut env, &mut errors);
     }
 
@@ -86,6 +90,19 @@ fn resolve_form(
         "src" => {
             stack.push_scope();
             for child in node.children() {
+                resolve_src_form(&child, stack, env, errors);
+            }
+            stack.pop_scope();
+        }
+        // Markup @commands are package names per SYN-001; not unbound lisp idents.
+        "markup" => {}
+        // SYN-001 stubs: declare the binding name; skip deep walk of type/value bodies.
+        "type" | "val" => {
+            declare_named_binding(node, stack, env);
+        }
+        "handle" => {
+            stack.push_scope();
+            for child in node.children().skip(1) {
                 resolve_src_form(&child, stack, env, errors);
             }
             stack.pop_scope();
@@ -170,6 +187,8 @@ fn is_surface_keyword(name: &str) -> bool {
         "page"
             | "markup"
             | "src"
+            | "type"
+            | "val"
             | "circle"
             | "rect"
             | "ellipse"
@@ -183,12 +202,37 @@ fn is_surface_keyword(name: &str) -> bool {
             | "perform"
             | "handle"
             | "rgb"
+            | "color-byte"
             | "polyline"
             | "polygon"
             | "image"
             | "ring"
             | "frame"
     )
+}
+
+/// Declare the first argument name of `(type name …)` / `(val name …)`.
+fn declare_named_binding(node: &SyntaxNode, stack: &mut ScopeStack, env: &mut BindingEnv) {
+    let mut seen_head = false;
+    for el in node.children_with_tokens() {
+        let SyntaxElement::Token(t) = el else {
+            continue;
+        };
+        if t.kind() != SyntaxKind::Ident {
+            if !t.kind().is_trivia() && t.kind() != SyntaxKind::LParen {
+                break;
+            }
+            continue;
+        }
+        if !seen_head {
+            seen_head = true;
+            continue;
+        }
+        let name = t.text();
+        let id = stack.declare(name);
+        env.bindings.insert(id, name.to_string());
+        break;
+    }
 }
 
 fn list_head_ident(node: &SyntaxNode) -> Option<String> {
