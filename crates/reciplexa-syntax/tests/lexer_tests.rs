@@ -263,6 +263,34 @@ fn string_backslash_is_literal_char() {
 }
 
 #[test]
+fn empty_string_two_quotes() {
+    let src = r#""""#;
+    let mut lex = Lexer::new(src);
+    let tok = lex.bump_token().unwrap();
+    assert_eq!(tok.kind, SyntaxKind::String);
+    assert_eq!(tok.text(src), r#""""#);
+}
+
+#[test]
+fn multi_quote_string_with_inner_quotes() {
+    let src = "\"\"\"She said \"hello\".\"\"\"";
+    let mut lex = Lexer::new(src);
+    let tok = lex.bump_token().unwrap();
+    assert_eq!(tok.kind, SyntaxKind::String);
+    assert_eq!(tok.text(src), src);
+    assert!(lex.bump_token().is_none());
+}
+
+#[test]
+fn multi_quote_multiline() {
+    let src = "\"\"\"\nline1\nline2\n\"\"\"";
+    let mut lex = Lexer::new(src);
+    let tok = lex.bump_token().unwrap();
+    assert_eq!(tok.kind, SyntaxKind::String);
+    assert_eq!(tok.text(src), src);
+}
+
+#[test]
 fn quote_after_backslash_terminates_string() {
     // Without escapes, `"` always ends the string even after `\`.
     let src = r#""a\"b""#;

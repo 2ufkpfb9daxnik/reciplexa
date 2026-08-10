@@ -241,14 +241,53 @@ impl<'a> Lexer<'a> {
     }
 
     fn bump_string(&mut self, start: usize) -> Token {
-        self.advance_char(); // opening quote
-                             // SYN-001 §8.1: no backslash escapes — `"` always terminates.
+        // SYN §8.2: `"` opens a short string; `"""`+ is a variable-length delimiter.
+        // `""` is the empty string (delimiter length 2 is reserved for that).
+        let mut open = 0usize;
+        while self.peek_char() == Some('"') {
+            self.advance_char();
+            open += 1;
+        }
+        if open == 0 {
+            return self.finish(SyntaxKind::Error, start);
+        }
+        if open == 2 {
+            return self.finish(SyntaxKind::String, start);
+        }
+        if open == 1 {
+            // Short one-line string: first unescaped `"` terminates (§8.1: no escapes).
+            loop {
+                match self.peek_char() {
+                    None => return self.finish(SyntaxKind::Error, start),
+                    Some('"') => {
+                        self.advance_char();
+                        return self.finish(SyntaxKind::String, start);
+                    }
+                    Some(_) => {
+                        self.advance_char();
+                    }
+                }
+            }
+        }
+        // Multi-quote (n ≥ 3): close on the first run of ≥ n quotes (consume n).
         loop {
             match self.peek_char() {
                 None => return self.finish(SyntaxKind::Error, start),
                 Some('"') => {
-                    self.advance_char();
-                    return self.finish(SyntaxKind::String, start);
+                    let mut n = 0usize;
+                    while self.peek_char() == Some('"') {
+                        self.advance_char();
+                        n += 1;
+                    }
+                    if n >= open {
+                        // Extra quotes beyond `open` remain for the next token.
+                        let extra = n - open;
+                        if extra > 0 {
+                            self.pos -= extra; // rewind leftover `"` bytes (ASCII)
+                        }
+                        return self.finish(SyntaxKind::String, start);
+                    }
+                    // Fewer than `open`: already consumed as content.
                 }
                 Some(_) => {
                     self.advance_char();

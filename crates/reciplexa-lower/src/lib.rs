@@ -574,9 +574,8 @@ fn string_at(items: &[Child], index: usize, ctx: &str) -> Result<String, LowerEr
     // Callers only request in-range slots after arity checks.
     match &items[index] {
         Child::Token(t) if t.kind() == SyntaxKind::String => {
-            let raw = t.text();
-            // SYN-001 §8.1: string literals have no backslash escapes.
-            Ok(raw[1..raw.len() - 1].to_string())
+            reciplexa_syntax::decode_string_literal(t.text())
+                .map_err(|msg| LowerError::new(format!("{ctx}: {msg}")))
         }
         Child::Token(t) => Err(LowerError::new(format!(
             "{ctx}: expected String, got {:?}",

@@ -929,12 +929,14 @@ fn escape_rpx_string(s: &str) -> String {
 }
 
 fn unquote(raw: &str) -> String {
-    // SYN-001 §8.1: strip surrounding quotes only; `\` is a normal character.
-    if raw.len() >= 2 && raw.starts_with('"') && raw.ends_with('"') {
-        raw[1..raw.len() - 1].to_string()
-    } else {
-        raw.trim_matches('"').to_string()
-    }
+    // SYN-001 §8: decode short / multi-quote literals; `\` is a normal character.
+    reciplexa_syntax::decode_string_literal(raw).unwrap_or_else(|_| {
+        if raw.len() >= 2 && raw.starts_with('"') && raw.ends_with('"') {
+            raw[1..raw.len() - 1].to_string()
+        } else {
+            raw.trim_matches('"').to_string()
+        }
+    })
 }
 
 fn string_at(items: &[Child], slot: usize) -> Option<&str> {

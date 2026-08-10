@@ -10,7 +10,8 @@ use std::collections::HashMap;
 use reciplexa_source::offset::ByteOffset;
 use reciplexa_source::range::TextRange;
 use reciplexa_syntax::{
-    is_reserved_special_form, parse_source, SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken,
+    decode_string_literal, is_reserved_special_form, parse_source, SyntaxElement, SyntaxKind,
+    SyntaxNode, SyntaxToken,
 };
 
 use crate::expr::{CoreExpr, CoreLiteral, CorePattern, MatchArm};
@@ -1530,12 +1531,10 @@ fn elaborate_token(tok: &SyntaxToken, ctx: &ElabCtx) -> Result<CoreExpr, Elabora
         }
         SyntaxKind::String => {
             let raw = tok.text();
-            if raw.len() < 2 || !raw.starts_with('"') || !raw.ends_with('"') {
-                return Err(ElaborateError::at_token("malformed string literal", tok));
-            }
-            Ok(CoreExpr::Lit(CoreLiteral::String(
-                raw[1..raw.len() - 1].to_string(),
-            )))
+            let value = decode_string_literal(raw).map_err(|msg| {
+                ElaborateError::at_token(msg, tok)
+            })?;
+            Ok(CoreExpr::Lit(CoreLiteral::String(value)))
         }
         SyntaxKind::Ident => match tok.text() {
             "true" => Ok(CoreExpr::Lit(CoreLiteral::Bool(true))),

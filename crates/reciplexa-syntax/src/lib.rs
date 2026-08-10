@@ -13,6 +13,7 @@ pub mod lexer;
 pub mod markup;
 pub mod parse;
 pub mod reserved;
+pub mod string_lit;
 
 pub use edit::{format_drag_number, replace_token_text, token_at_offset};
 pub use identity::{build_identity_map, preserve_identity_on_reparse, SyntaxIdentityMap};
@@ -21,3 +22,4 @@ pub use lexer::{Lexer, LexerMode, Token};
 pub use markup::{flatten_lines, flatten_readable, markup_parts, MarkupPart, MarkupWalkError};
 pub use parse::{parse_source, unparse, Parse, ParseError};
 pub use reserved::is_reserved_special_form;
+pub use string_lit::decode_string_literal;
