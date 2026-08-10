@@ -1,0 +1,96 @@
+# Package plan (PKG-001 + std domain libs)
+
+Goal: land local-path packages and std domain libraries after Part II conformance, without waiting on `OPEN-PKG-001` registry distribution.
+
+## Spec anchors
+
+- `PKG-001` — `specification.md` §13.10 (~L15855+): `package.rpxm`, source/interface/resource roots, public modules, deps, lockfile, workspace, resources
+- `MOD-001` — outer modules + `(import …)` (already done); package path resolution is the next link
+- SYN — `circle` / `page` / colors / units are **not** language builtins; packages supply constructors
+- `OPEN-PKG-001*` — registry protocol, signing, git/URL deps: **stub / defer**
+
+## Current baseline
+
+| Piece | Status |
+|---|---|
+| `crates/reciplexa-package` | Phase 10 skeleton: nested `(name)/(version)/(entry)/(dep)` `parse_rpxm`, JSON manifest, resolver/lockfile/build graph |
+| `crates/reciplexa-bind` | `load_module_tree` sibling `.rpx` only; no package search path |
+| Document surface | Interim `(page …) (circle …)` in lower/effect — **keep until migration** |
+| `crates/reciplexa-std` | Rust typed façade (Length/Color/…); not RPX packages yet |
+
+## Ordered work
+
+### Slice A — plan + DD-001 manifest surface (this pass)
+
+1. This plan file.
+2. Extend `PackageManifest` / `parse_rpxm` toward DD-001:
+   - `(package <name> format-version … version "…" …)` flat fields
+   - `source-root` / `interface-root` / `resource-root`
+   - `(public-modules …)`
+   - optional `entry` / `(entry-points …)` for libraries
+   - keep Phase 10 nested form working for existing tests
+3. Std RPX packages on disk under `packages/`:
+   - `graphics` — `shapes` (+ minimal `color` / page-size vals as needed by examples)
+   - stubs or thin follow-ons: `length`, `color`, `math`, `japanese` / markup (as separate commits)
+4. Wire local import: `(import graphics/shapes)` resolves via package search roots → `source-root` module file → existing `elaborate_units`.
+5. One language example using package import for a shape constructor; do **not** break GUI interim `page`/`circle`.
+6. Gate (fmt / clippy `-D warnings` / test workspace / check gui) after each commit batch.
+7. Update `lang/part2-conformance.md` PKG-001 items from blanket `deferred` → `partial` / `ok` / `gap` where implemented; recompute stats JSON.
+
+### Slice B — consumer packages + path deps
+
+- Consumer `package.rpxm` with `(dependencies (graphics package graphics version "…" path "…"))`
+- Alias → package instance mapping for import first segment
+- `rpx.lock` write/read for path deps (no registry)
+
+### Slice C — std domain depth
+
+- `packages/length` — `mm` / unit constructors (retire Number+Ident interim where safe)
+- `packages/color` — `rgb` / named colors as package constructors
+- `packages/math` — math atoms / helpers aligned with `reciplexa-std::math`
+- `packages/japanese` + markup — align with `examples/markup_ja.rpx` / japanese page
+
+### Slice D — document migration (strangler)
+
+- Package-defined shape/page constructors consumed by lower/eval
+- Keep interim surface until GUI + examples migrate atomically
+- Retire hard-coded `"circle"` / `"page"` keyword tables gradually
+
+### Slice E — workspace / resources / OPEN stubs
+
+- `workspace.rpxm` + shared lockfile
+- Resource root + declared distributable resources
+- Registry client: stub errors only (`OPEN-PKG-001`)
+
+## Conventions (v1 local)
+
+```text
+packages/<pkg>/
+  package.rpxm
+  src/<module>.rpx          # module path = relative to source-root
+  interface/<module>.rpi    # required later for public modules (may stub)
+  resources/                # optional
+```
+
+- Package names: ASCII lowercase kebab-case
+- Search roots: repo `packages/` (and later env / workspace members)
+- Script without manifest may import std packages by **package name as first path segment** (`graphics/shapes`)
+- Registry / multi-version / features: out of scope until Slice E
+
+## Gate
+
+```
+CARGO_TARGET_DIR=d:\reciplexa\target TEMP/TMP=d:\reciplexa\.tmp
+cargo fmt --all
+cargo clippy --workspace --all-targets --offline -- -D warnings
+cargo test --workspace --offline
+cargo check --offline -p reciplexa-gui
+```
+
+## Done when (Slice A)
+
+- [ ] DD-001-ish manifests parse for std packages
+- [ ] `(import graphics/shapes)` loads from `packages/graphics`
+- [ ] Example elaborates/evaluates via package import
+- [ ] Interim document `page`/`circle` still green
+- [ ] PKG-001 conformance rows updated; stats recomputed
