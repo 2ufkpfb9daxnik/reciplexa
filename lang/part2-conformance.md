@@ -16,12 +16,12 @@
 ### 進捗カウンタ
 
 - **total**: 1589
-- **unchecked**: 498
-- **ok**: 265
-- **partial**: 310
-- **gap**: 283
-- **deferred**: 146
-- **meta**: 87
+- **unchecked**: 0
+- **ok**: 290
+- **partial**: 473
+- **gap**: 410
+- **deferred**: 284
+- **meta**: 132
 
 （LEX/SYN/MAC および導入メタ節を照合済み。他機能ブロックも並行更新済み。）
 
@@ -1107,105 +1107,105 @@
   - spec: `specification.md:4435`
   - notes: spec OPEN/status prose; no direct code surface
 
-- [ ] **L4 L4456: 13.3 `EVAL-001` Strict lexical Core evaluator** — `unchecked`
+- [x] **L4 L4456: 13.3 `EVAL-001` Strict lexical Core evaluator** — `partial`
   - spec: `specification.md:4456`
-  - notes:
+  - notes: eval.rs CBV Core; also letrec/match/effects beyond min-Core v1
 
-- [ ] **L5 L4460: 状態** — `unchecked`
+- [x] **L5 L4460: 状態** — `meta`
   - spec: `specification.md:4460`
-  - notes:
+  - notes: EVAL-001 status prose (解決済み)
 
-- [ ] **L5 L4472: `DD-EVAL-001`: 評価戦略と評価順序** — `unchecked`
+- [x] **L5 L4472: `DD-EVAL-001`: 評価戦略と評価順序** — `ok`
   - spec: `specification.md:4472`
-  - notes:
+  - notes: strict CBV; fun then LTR args; let/seq/if order in eval.rs
 
-- [ ] **L5 L4497: `DD-EVAL-002`: 最小Coreの項** — `unchecked`
+- [x] **L5 L4497: `DD-EVAL-002`: 最小Coreの項** — `partial`
   - spec: `specification.md:4497`
-  - notes:
+  - notes: min-Core terms in CoreExpr; also LetRec/Match/Perform/Handle/Record
 
-- [ ] **L5 L4545: `DD-EVAL-003`: `let`** — `unchecked`
+- [x] **L5 L4545: `DD-EVAL-003`: `let`** — `ok`
   - spec: `specification.md:4545`
-  - notes:
+  - notes: CoreExpr::Let single binding; nested surface let via elaborate
 
-- [ ] **L5 L4592: `DD-EVAL-004`: 複数式bodyと`seq`** — `unchecked`
+- [x] **L5 L4592: `DD-EVAL-004`: 複数式bodyと`seq`** — `ok`
   - spec: `specification.md:4592`
-  - notes:
+  - notes: CoreExpr::Seq; last-value result in eval_seq
 
-- [ ] **L5 L4634: `DD-EVAL-005`: `if`** — `unchecked`
+- [x] **L5 L4634: `DD-EVAL-005`: `if`** — `ok`
   - spec: `specification.md:4634`
-  - notes:
+  - notes: CoreExpr::If; selected branch only; non-Bool rejects
 
-- [ ] **L5 L4670: `DD-TYP-IF-001`: 条件分岐による型の絞り込み** — `unchecked`
+- [x] **L5 L4670: `DD-TYP-IF-001`: 条件分岐による型の絞り込み** — `gap`
   - spec: `specification.md:4670`
-  - notes:
+  - notes: no occurrence typing / intersect-diff narrowing in check.rs
 
-- [ ] **L5 L4706: 値** — `unchecked`
+- [x] **L5 L4706: 値** — `partial`
   - spec: `specification.md:4706`
-  - notes:
+  - notes: Lit/Closure + records/handlers/cells beyond min-Core values
 
-- [ ] **L5 L4744: Closureとlexical scope** — `unchecked`
+- [x] **L5 L4744: Closureとlexical scope** — `partial`
   - spec: `specification.md:4744`
-  - notes:
+  - notes: Closure captures env; eval still string names not BindingId
 
-- [ ] **L5 L4764: 関数適用** — `unchecked`
+- [x] **L5 L4764: 関数適用** — `ok`
   - spec: `specification.md:4764`
-  - notes:
+  - notes: eval_app: operator then LTR args then apply
 
-- [ ] **L5 L4788: 評価文脈** — `unchecked`
+- [x] **L5 L4788: 評価文脈** — `partial`
   - spec: `specification.md:4788`
-  - notes:
+  - notes: evaluation contexts via Outcome/resume; not formal EC grammar
 
-- [ ] **L5 L4817: 最小Coreの終端状態** — `unchecked`
+- [x] **L5 L4817: 最小Coreの終端状態** — `ok`
   - spec: `specification.md:4817`
-  - notes:
+  - notes: Value or EvalError terminal; effects via host/handlers
 
-- [ ] **L5 L4839: 未決定事項の移管** — `unchecked`
+- [x] **L5 L4839: 未決定事項の移管** — `meta`
   - spec: `specification.md:4839`
-  - notes:
+  - notes: OPEN transfer table out of EVAL-001
 
-- [ ] **L5 L4867: 適合試験** — `unchecked`
+- [x] **L5 L4867: 適合試験** — `partial`
   - spec: `specification.md:4867`
-  - notes:
+  - notes: eval_tests cover core cases; named EVAL suite incomplete
 
-- [ ] **L6 L4869: lexical closure** — `unchecked`
+- [x] **L6 L4869: lexical closure** — `ok`
   - spec: `specification.md:4869`
-  - notes:
+  - notes: lexical closure via captured env (eval Closure)
 
-- [ ] **L6 L4884: sequential `let`** — `unchecked`
+- [x] **L6 L4884: sequential `let`** — `ok`
   - spec: `specification.md:4884`
-  - notes:
+  - notes: sequential surface let → nested Core let (elaborate)
 
-- [ ] **L6 L4898: duplicate binder** — `unchecked`
+- [x] **L6 L4898: duplicate binder** — `ok`
   - spec: `specification.md:4898`
-  - notes:
+  - notes: duplicate binder rejected in elaborate.rs
 
-- [ ] **L6 L4912: application order** — `unchecked`
+- [x] **L6 L4912: application order** — `ok`
   - spec: `specification.md:4912`
-  - notes:
+  - notes: application order: fun then LTR args
 
-- [ ] **L6 L4927: sequence result** — `unchecked`
+- [x] **L6 L4927: sequence result** — `ok`
   - spec: `specification.md:4927`
-  - notes:
+  - notes: seq returns last value
 
-- [ ] **L6 L4949: selected branch only** — `unchecked`
+- [x] **L6 L4949: selected branch only** — `ok`
   - spec: `specification.md:4949`
-  - notes:
+  - notes: if evaluates only selected branch
 
-- [ ] **L6 L4969: strict Bool condition** — `unchecked`
+- [x] **L6 L4969: strict Bool condition** — `ok`
   - spec: `specification.md:4969`
-  - notes:
+  - notes: non-Bool if condition → EvalError
 
-- [ ] **L6 L4983: union result** — `unchecked`
+- [x] **L6 L4983: union result** — `gap`
   - spec: `specification.md:4983`
-  - notes:
+  - notes: Union type stub only; if branch union typing not enforced
 
-- [ ] **L6 L4997: occurrence typing** — `unchecked`
+- [x] **L6 L4997: occurrence typing** — `gap`
   - spec: `specification.md:4997`
-  - notes:
+  - notes: occurrence typing absent (DD-TYP-IF-001)
 
-- [ ] **L5 L5016: 解決後の最小Core** — `unchecked`
+- [x] **L5 L5016: 解決後の最小Core** — `partial`
   - spec: `specification.md:5016`
-  - notes:
+  - notes: resolve BindingMap exists; eval still name-string Core
 
 - [x] **L4 L5034: 13.4 `BND-001` `val`、`var`、`let`、`letrec`、`fn`** — `partial`
   - spec: `specification.md:5034`
@@ -3647,685 +3647,685 @@
   - spec: `specification.md:15831`
   - notes: MOD final-state prose; impl = outer+import skeleton
 
-- [ ] **L4 L15855: 13.10 `PKG-001` パッケージmanifest・依存解決・ワークスペース・リソース** — `unchecked`
+- [x] **L4 L15855: 13.10 `PKG-001` パッケージmanifest・依存解決・ワークスペース・リソース** — `deferred`
   - spec: `specification.md:15855`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel); language-kernel-plan intentional deferral
 
-- [ ] **L5 L15856: DD-001 決定概要** — `unchecked`
+- [x] **L5 L15856: DD-001 決定概要** — `meta`
   - spec: `specification.md:15856`
-  - notes:
+  - notes: PKG glossary/decision prose; no direct impl obligation
 
-- [ ] **L6 L15857: DD-001.1 状態** — `unchecked`
+- [x] **L6 L15857: DD-001.1 状態** — `meta`
   - spec: `specification.md:15857`
-  - notes:
+  - notes: PKG glossary/decision prose; no direct impl obligation
 
-- [ ] **L6 L15878: DD-001.2 中心的な決定** — `unchecked`
+- [x] **L6 L15878: DD-001.2 中心的な決定** — `meta`
   - spec: `specification.md:15878`
-  - notes:
+  - notes: PKG glossary/decision prose; no direct impl obligation
 
-- [ ] **L5 L15903: 0. 適用範囲** — `unchecked`
+- [x] **L5 L15903: 0. 適用範囲** — `meta`
   - spec: `specification.md:15903`
-  - notes:
+  - notes: PKG glossary/decision prose; no direct impl obligation
 
-- [ ] **L6 L15904: 0.1 本項目が定めるもの** — `unchecked`
+- [x] **L6 L15904: 0.1 本項目が定めるもの** — `meta`
   - spec: `specification.md:15904`
-  - notes:
+  - notes: PKG glossary/decision prose; no direct impl obligation
 
-- [ ] **L6 L15934: 0.2 本項目が直接定めないもの** — `unchecked`
+- [x] **L6 L15934: 0.2 本項目が直接定めないもの** — `meta`
   - spec: `specification.md:15934`
-  - notes:
+  - notes: PKG glossary/decision prose; no direct impl obligation
 
-- [ ] **L5 L15954: 1. パッケージ** — `unchecked`
+- [x] **L5 L15954: 1. パッケージ** — `meta`
   - spec: `specification.md:15954`
-  - notes:
+  - notes: PKG glossary/decision prose; no direct impl obligation
 
-- [ ] **L6 L15955: 1.1 定義** — `unchecked`
+- [x] **L6 L15955: 1.1 定義** — `meta`
   - spec: `specification.md:15955`
-  - notes:
+  - notes: PKG glossary/decision prose; no direct impl obligation
 
-- [ ] **L6 L15969: 1.2 モジュールとの違い** — `unchecked`
+- [x] **L6 L15969: 1.2 モジュールとの違い** — `meta`
   - spec: `specification.md:15969`
-  - notes:
+  - notes: PKG glossary/decision prose; no direct impl obligation
 
-- [ ] **L6 L15979: 1.3 パッケージの種類** — `unchecked`
+- [x] **L6 L15979: 1.3 パッケージの種類** — `meta`
   - spec: `specification.md:15979`
-  - notes:
+  - notes: PKG glossary/decision prose; no direct impl obligation
 
-- [ ] **L5 L15992: 2. パッケージmanifest** — `unchecked`
+- [x] **L5 L15992: 2. パッケージmanifest** — `partial`
   - spec: `specification.md:15992`
-  - notes:
+  - notes: parse_rpxm + PackageManifest JSON; schema incomplete vs PKG-001
 
-- [ ] **L6 L15993: 2.1 ファイル名** — `unchecked`
+- [x] **L6 L15993: 2.1 ファイル名** — `partial`
   - spec: `specification.md:15993`
-  - notes:
+  - notes: package.rpxm name convention in rpxm.rs; not full PKG path rules
 
-- [ ] **L6 L16011: 2.2 Package root** — `unchecked`
+- [x] **L6 L16011: 2.2 Package root** — `deferred`
   - spec: `specification.md:16011`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16021: 2.3 制限付きRPX形式** — `unchecked`
+- [x] **L6 L16021: 2.3 制限付きRPX形式** — `partial`
   - spec: `specification.md:16021`
-  - notes:
+  - notes: restricted sexp via tokenize in rpxm.rs; not full static schema
 
-- [ ] **L6 L16036: 2.4 静的schema** — `unchecked`
+- [x] **L6 L16036: 2.4 静的schema** — `partial`
   - spec: `specification.md:16036`
-  - notes:
+  - notes: restricted sexp via tokenize in rpxm.rs; not full static schema
 
-- [ ] **L6 L16052: 2.5 未知field** — `unchecked`
+- [x] **L6 L16052: 2.5 未知field** — `gap`
   - spec: `specification.md:16052`
-  - notes:
+  - notes: unknown field / format-version policy not enforced
 
-- [ ] **L5 L16062: 3. Manifestの基本構文** — `unchecked`
+- [x] **L5 L16062: 3. Manifestの基本構文** — `partial`
   - spec: `specification.md:16062`
-  - notes:
+  - notes: restricted sexp via tokenize in rpxm.rs; not full static schema
 
-- [ ] **L6 L16063: 3.1 最小形** — `unchecked`
+- [x] **L6 L16063: 3.1 最小形** — `partial`
   - spec: `specification.md:16063`
-  - notes:
+  - notes: restricted sexp via tokenize in rpxm.rs; not full static schema
 
-- [ ] **L6 L16068: 3.2 明示形** — `unchecked`
+- [x] **L6 L16068: 3.2 明示形** — `partial`
   - spec: `specification.md:16068`
-  - notes:
+  - notes: restricted sexp via tokenize in rpxm.rs; not full static schema
 
-- [ ] **L6 L16077: 3.3 Fieldの括弧** — `unchecked`
+- [x] **L6 L16077: 3.3 Fieldの括弧** — `deferred`
   - spec: `specification.md:16077`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16091: 3.4 Format version** — `unchecked`
+- [x] **L6 L16091: 3.4 Format version** — `gap`
   - spec: `specification.md:16091`
-  - notes:
+  - notes: unknown field / format-version policy not enforced
 
-- [ ] **L5 L16106: 4. パッケージ名** — `unchecked`
+- [x] **L5 L16106: 4. パッケージ名** — `partial`
   - spec: `specification.md:16106`
-  - notes:
+  - notes: name/version/entry/dep/target fields parsed; naming rules incomplete
 
-- [ ] **L6 L16107: 4.1 基本規則** — `unchecked`
+- [x] **L6 L16107: 4.1 基本規則** — `partial`
   - spec: `specification.md:16107`
-  - notes:
+  - notes: name/version/entry/dep/target fields parsed; naming rules incomplete
 
-- [ ] **L6 L16129: 4.2 用途** — `unchecked`
+- [x] **L6 L16129: 4.2 用途** — `deferred`
   - spec: `specification.md:16129`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16140: 4.3 表示名** — `unchecked`
+- [x] **L6 L16140: 4.3 表示名** — `deferred`
   - spec: `specification.md:16140`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L5 L16149: 5. パッケージversion** — `unchecked`
+- [x] **L5 L16149: 5. パッケージversion** — `partial`
   - spec: `specification.md:16149`
-  - notes:
+  - notes: name/version/entry/dep/target fields parsed; naming rules incomplete
 
-- [ ] **L6 L16150: 5.1 基本形式** — `unchecked`
+- [x] **L6 L16150: 5.1 基本形式** — `partial`
   - spec: `specification.md:16150`
-  - notes:
+  - notes: name/version/entry/dep/target fields parsed; naming rules incomplete
 
-- [ ] **L6 L16159: 5.2 Version要素** — `unchecked`
+- [x] **L6 L16159: 5.2 Version要素** — `deferred`
   - spec: `specification.md:16159`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16165: 5.3 互換性の一般原則** — `unchecked`
+- [x] **L6 L16165: 5.3 互換性の一般原則** — `deferred`
   - spec: `specification.md:16165`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16175: 5.4 Breaking changeの例** — `unchecked`
+- [x] **L6 L16175: 5.4 Breaking changeの例** — `deferred`
   - spec: `specification.md:16175`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16188: 5.5 Pre-release** — `unchecked`
+- [x] **L6 L16188: 5.5 Pre-release** — `deferred`
   - spec: `specification.md:16188`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L5 L16199: 6. Source rootとinterface root** — `unchecked`
+- [x] **L5 L16199: 6. Source rootとinterface root** — `deferred`
   - spec: `specification.md:16199`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16200: 6.1 Source root** — `unchecked`
+- [x] **L6 L16200: 6.1 Source root** — `deferred`
   - spec: `specification.md:16200`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16211: 6.2 Module path** — `unchecked`
+- [x] **L6 L16211: 6.2 Module path** — `deferred`
   - spec: `specification.md:16211`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16218: 6.3 Interface root** — `unchecked`
+- [x] **L6 L16218: 6.3 Interface root** — `deferred`
   - spec: `specification.md:16218`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16229: 6.4 Interface対応** — `unchecked`
+- [x] **L6 L16229: 6.4 Interface対応** — `deferred`
   - spec: `specification.md:16229`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16242: 6.5 Root数** — `unchecked`
+- [x] **L6 L16242: 6.5 Root数** — `deferred`
   - spec: `specification.md:16242`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16255: 6.6 Root pathの制限** — `unchecked`
+- [x] **L6 L16255: 6.6 Root pathの制限** — `deferred`
   - spec: `specification.md:16255`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L5 L16265: 7. 公開モジュール** — `unchecked`
+- [x] **L5 L16265: 7. 公開モジュール** — `deferred`
   - spec: `specification.md:16265`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16266: 7.1 Manifest構文** — `unchecked`
+- [x] **L6 L16266: 7.1 Manifest構文** — `partial`
   - spec: `specification.md:16266`
-  - notes:
+  - notes: Phase 10 skeleton (rpxm/json/resolver/lockfile); full PKG-001 deferred
 
-- [ ] **L6 L16274: 7.2 .rpi必須** — `unchecked`
+- [x] **L6 L16274: 7.2 .rpi必須** — `deferred`
   - spec: `specification.md:16274`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16287: 7.3 内部モジュール** — `unchecked`
+- [x] **L6 L16287: 7.3 内部モジュール** — `deferred`
   - spec: `specification.md:16287`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16297: 7.4 Internal moduleの.rpi** — `unchecked`
+- [x] **L6 L16297: 7.4 Internal moduleの.rpi** — `deferred`
   - spec: `specification.md:16297`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16307: 7.5 Inline下位モジュール** — `unchecked`
+- [x] **L6 L16307: 7.5 Inline下位モジュール** — `deferred`
   - spec: `specification.md:16307`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16313: 7.6 自動公開** — `unchecked`
+- [x] **L6 L16313: 7.6 自動公開** — `deferred`
   - spec: `specification.md:16313`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L5 L16326: 8. 実行エントリ** — `unchecked`
+- [x] **L5 L16326: 8. 実行エントリ** — `partial`
   - spec: `specification.md:16326`
-  - notes:
+  - notes: Phase 10 skeleton (rpxm/json/resolver/lockfile); full PKG-001 deferred
 
-- [ ] **L6 L16327: 8.1 Manifest構文** — `unchecked`
+- [x] **L6 L16327: 8.1 Manifest構文** — `partial`
   - spec: `specification.md:16327`
-  - notes:
+  - notes: Phase 10 skeleton (rpxm/json/resolver/lockfile); full PKG-001 deferred
 
-- [ ] **L6 L16335: 8.2 Entry module** — `unchecked`
+- [x] **L6 L16335: 8.2 Entry module** — `partial`
   - spec: `specification.md:16335`
-  - notes:
+  - notes: Phase 10 skeleton (rpxm/json/resolver/lockfile); full PKG-001 deferred
 
-- [ ] **L6 L16342: 8.3 .rpi** — `unchecked`
+- [x] **L6 L16342: 8.3 .rpi** — `deferred`
   - spec: `specification.md:16342`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16348: 8.4 main** — `unchecked`
+- [x] **L6 L16348: 8.4 main** — `deferred`
   - spec: `specification.md:16348`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16354: 8.5 一module一entry** — `unchecked`
+- [x] **L6 L16354: 8.5 一module一entry** — `partial`
   - spec: `specification.md:16354`
-  - notes:
+  - notes: Phase 10 skeleton (rpxm/json/resolver/lockfile); full PKG-001 deferred
 
-- [ ] **L6 L16360: 8.6 実行契約** — `unchecked`
+- [x] **L6 L16360: 8.6 実行契約** — `deferred`
   - spec: `specification.md:16360`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L5 L16366: 9. Manifestなしscript** — `unchecked`
+- [x] **L5 L16366: 9. Manifestなしscript** — `partial`
   - spec: `specification.md:16366`
-  - notes:
+  - notes: Phase 10 skeleton (rpxm/json/resolver/lockfile); full PKG-001 deferred
 
-- [ ] **L6 L16367: 9.1 基本形** — `unchecked`
+- [x] **L6 L16367: 9.1 基本形** — `deferred`
   - spec: `specification.md:16367`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16376: 9.2 必要な値** — `unchecked`
+- [x] **L6 L16376: 9.2 必要な値** — `deferred`
   - spec: `specification.md:16376`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16384: 9.3 単一ファイル制限** — `unchecked`
+- [x] **L6 L16384: 9.3 単一ファイル制限** — `deferred`
   - spec: `specification.md:16384`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16392: 9.4 外部dependency** — `unchecked`
+- [x] **L6 L16392: 9.4 外部dependency** — `deferred`
   - spec: `specification.md:16392`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16398: 9.5 Public API** — `unchecked`
+- [x] **L6 L16398: 9.5 Public API** — `deferred`
   - spec: `specification.md:16398`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L5 L16402: 10. 依存宣言** — `unchecked`
+- [x] **L5 L16402: 10. 依存宣言** — `partial`
   - spec: `specification.md:16402`
-  - notes:
+  - notes: DependencySpec path + version_req string; no full constraint solver
 
-- [ ] **L6 L16403: 10.1 基本構文** — `unchecked`
+- [x] **L6 L16403: 10.1 基本構文** — `partial`
   - spec: `specification.md:16403`
-  - notes:
+  - notes: DependencySpec path + version_req string; no full constraint solver
 
-- [ ] **L6 L16413: 10.2 Dependency alias** — `unchecked`
+- [x] **L6 L16413: 10.2 Dependency alias** — `deferred`
   - spec: `specification.md:16413`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16428: 10.3 正式identity** — `unchecked`
+- [x] **L6 L16428: 10.3 正式identity** — `deferred`
   - spec: `specification.md:16428`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16434: 10.4 正式パッケージ名** — `unchecked`
+- [x] **L6 L16434: 10.4 正式パッケージ名** — `deferred`
   - spec: `specification.md:16434`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16443: 10.5 Aliasの重複** — `unchecked`
+- [x] **L6 L16443: 10.5 Aliasの重複** — `deferred`
   - spec: `specification.md:16443`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L5 L16450: 11. Version constraint** — `unchecked`
+- [x] **L5 L16450: 11. Version constraint** — `partial`
   - spec: `specification.md:16450`
-  - notes:
+  - notes: DependencySpec path + version_req string; no full constraint solver
 
-- [ ] **L6 L16451: 11.1 完全一致** — `unchecked`
+- [x] **L6 L16451: 11.1 完全一致** — `partial`
   - spec: `specification.md:16451`
-  - notes:
+  - notes: DependencySpec path + version_req string; no full constraint solver
 
-- [ ] **L6 L16469: 11.2 範囲指定** — `unchecked`
+- [x] **L6 L16469: 11.2 範囲指定** — `deferred`
   - spec: `specification.md:16469`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16475: 11.3 初期演算子集合** — `unchecked`
+- [x] **L6 L16475: 11.3 初期演算子集合** — `deferred`
   - spec: `specification.md:16475`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16485: 11.4 条件の結合** — `unchecked`
+- [x] **L6 L16485: 11.4 条件の結合** — `deferred`
   - spec: `specification.md:16485`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16494: 11.5 Pre-release** — `unchecked`
+- [x] **L6 L16494: 11.5 Pre-release** — `deferred`
   - spec: `specification.md:16494`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L5 L16498: 12. Dependency source** — `unchecked`
+- [x] **L5 L16498: 12. Dependency source** — `partial`
   - spec: `specification.md:16498`
-  - notes:
+  - notes: Phase 10 skeleton (rpxm/json/resolver/lockfile); full PKG-001 deferred
 
-- [ ] **L6 L16499: 12.1 既定Registry** — `unchecked`
+- [x] **L6 L16499: 12.1 既定Registry** — `deferred`
   - spec: `specification.md:16499`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16510: 12.2 Local path** — `unchecked`
+- [x] **L6 L16510: 12.2 Local path** — `partial`
   - spec: `specification.md:16510`
-  - notes:
+  - notes: Phase 10 skeleton (rpxm/json/resolver/lockfile); full PKG-001 deferred
 
-- [ ] **L6 L16519: 12.3 Local packageの検証** — `unchecked`
+- [x] **L6 L16519: 12.3 Local packageの検証** — `deferred`
   - spec: `specification.md:16519`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16525: 12.4 Supported source** — `unchecked`
+- [x] **L6 L16525: 12.4 Supported source** — `deferred`
   - spec: `specification.md:16525`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16533: 12.5 Git／URL** — `unchecked`
+- [x] **L6 L16533: 12.5 Git／URL** — `deferred`
   - spec: `specification.md:16533`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16537: 12.6 Sourceの排他性** — `unchecked`
+- [x] **L6 L16537: 12.6 Sourceの排他性** — `deferred`
   - spec: `specification.md:16537`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L5 L16541: 13. Development dependency** — `unchecked`
+- [x] **L5 L16541: 13. Development dependency** — `deferred`
   - spec: `specification.md:16541`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16542: 13.1 構文** — `unchecked`
+- [x] **L6 L16542: 13.1 構文** — `deferred`
   - spec: `specification.md:16542`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16548: 13.2 用途** — `unchecked`
+- [x] **L6 L16548: 13.2 用途** — `deferred`
   - spec: `specification.md:16548`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16559: 13.3 Public APIへの漏出** — `unchecked`
+- [x] **L6 L16559: 13.3 Public APIへの漏出** — `deferred`
   - spec: `specification.md:16559`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16568: 13.4 Optional dependency** — `unchecked`
+- [x] **L6 L16568: 13.4 Optional dependency** — `deferred`
   - spec: `specification.md:16568`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L5 L16574: 14. Public dependency** — `unchecked`
+- [x] **L5 L16574: 14. Public dependency** — `deferred`
   - spec: `specification.md:16574`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16575: 14.1 定義** — `unchecked`
+- [x] **L6 L16575: 14.1 定義** — `deferred`
   - spec: `specification.md:16575`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16582: 14.2 自動導出** — `unchecked`
+- [x] **L6 L16582: 14.2 自動導出** — `deferred`
   - spec: `specification.md:16582`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16588: 14.3 用途** — `unchecked`
+- [x] **L6 L16588: 14.3 用途** — `deferred`
   - spec: `specification.md:16588`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L5 L16597: 15. 依存解決** — `unchecked`
+- [x] **L5 L16597: 15. 依存解決** — `partial`
   - spec: `specification.md:16597`
-  - notes:
+  - notes: resolve_packages deterministic sort + lockfile stub
 
-- [ ] **L6 L16598: 15.1 Manifestの役割** — `unchecked`
+- [x] **L6 L16598: 15.1 Manifestの役割** — `partial`
   - spec: `specification.md:16598`
-  - notes:
+  - notes: resolve_packages deterministic sort + lockfile stub
 
-- [ ] **L6 L16604: 15.2 初回解決** — `unchecked`
+- [x] **L6 L16604: 15.2 初回解決** — `deferred`
   - spec: `specification.md:16604`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16610: 15.3 Pre-release** — `unchecked`
+- [x] **L6 L16610: 15.3 Pre-release** — `deferred`
   - spec: `specification.md:16610`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16614: 15.4 統合** — `unchecked`
+- [x] **L6 L16614: 15.4 統合** — `deferred`
   - spec: `specification.md:16614`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16618: 15.5 分割** — `unchecked`
+- [x] **L6 L16618: 15.5 分割** — `deferred`
   - spec: `specification.md:16618`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16622: 15.6 決定性** — `unchecked`
+- [x] **L6 L16622: 15.6 決定性** — `partial`
   - spec: `specification.md:16622`
-  - notes:
+  - notes: resolve_packages deterministic sort + lockfile stub
 
-- [ ] **L5 L16628: 16. 同一パッケージの複数version** — `unchecked`
+- [x] **L5 L16628: 16. 同一パッケージの複数version** — `deferred`
   - spec: `specification.md:16628`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16629: 16.1 基本方針** — `unchecked`
+- [x] **L6 L16629: 16.1 基本方針** — `deferred`
   - spec: `specification.md:16629`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16639: 16.2 型identity** — `unchecked`
+- [x] **L6 L16639: 16.2 型identity** — `deferred`
   - spec: `specification.md:16639`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16647: 16.3 直接依存での明示** — `unchecked`
+- [x] **L6 L16647: 16.3 直接依存での明示** — `deferred`
   - spec: `specification.md:16647`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16663: 16.4 単一instance制約** — `unchecked`
+- [x] **L6 L16663: 16.4 単一instance制約** — `deferred`
   - spec: `specification.md:16663`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L5 L16667: 17. Lockfile** — `unchecked`
+- [x] **L5 L16667: 17. Lockfile** — `partial`
   - spec: `specification.md:16667`
-  - notes:
+  - notes: resolve_packages deterministic sort + lockfile stub
 
-- [ ] **L6 L16668: 17.1 ファイル名** — `unchecked`
+- [x] **L6 L16668: 17.1 ファイル名** — `partial`
   - spec: `specification.md:16668`
-  - notes:
+  - notes: resolve_packages deterministic sort + lockfile stub
 
-- [ ] **L6 L16674: 17.2 役割** — `unchecked`
+- [x] **L6 L16674: 17.2 役割** — `deferred`
   - spec: `specification.md:16674`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16681: 17.3 通常build** — `unchecked`
+- [x] **L6 L16681: 17.3 通常build** — `deferred`
   - spec: `specification.md:16681`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16687: 17.4 初回build** — `unchecked`
+- [x] **L6 L16687: 17.4 初回build** — `deferred`
   - spec: `specification.md:16687`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16698: 17.5 不整合** — `unchecked`
+- [x] **L6 L16698: 17.5 不整合** — `deferred`
   - spec: `specification.md:16698`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16704: 17.6 更新** — `unchecked`
+- [x] **L6 L16704: 17.6 更新** — `deferred`
   - spec: `specification.md:16704`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16710: 17.7 部分更新** — `unchecked`
+- [x] **L6 L16710: 17.7 部分更新** — `deferred`
   - spec: `specification.md:16710`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L5 L16716: 18. Lockfileの内容** — `unchecked`
+- [x] **L5 L16716: 18. Lockfileの内容** — `partial`
   - spec: `specification.md:16716`
-  - notes:
+  - notes: Phase 10 skeleton (rpxm/json/resolver/lockfile); full PKG-001 deferred
 
-- [ ] **L6 L16717: 18.1 Package node** — `unchecked`
+- [x] **L6 L16717: 18.1 Package node** — `deferred`
   - spec: `specification.md:16717`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16730: 18.2 Registry package** — `unchecked`
+- [x] **L6 L16730: 18.2 Registry package** — `deferred`
   - spec: `specification.md:16730`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16736: 18.3 Local path package** — `unchecked`
+- [x] **L6 L16736: 18.3 Local path package** — `partial`
   - spec: `specification.md:16736`
-  - notes:
+  - notes: Phase 10 skeleton (rpxm/json/resolver/lockfile); full PKG-001 deferred
 
-- [ ] **L6 L16742: 18.4 Version control** — `unchecked`
+- [x] **L6 L16742: 18.4 Version control** — `deferred`
   - spec: `specification.md:16742`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16748: 18.5 Offline build** — `unchecked`
+- [x] **L6 L16748: 18.5 Offline build** — `deferred`
   - spec: `specification.md:16748`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L5 L16760: 19. Package identityとcontent hash** — `unchecked`
+- [x] **L5 L16760: 19. Package identityとcontent hash** — `deferred`
   - spec: `specification.md:16760`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16761: 19.1 論理identityと内容identity** — `unchecked`
+- [x] **L6 L16761: 19.1 論理identityと内容identity** — `deferred`
   - spec: `specification.md:16761`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16771: 19.2 Registry package** — `unchecked`
+- [x] **L6 L16771: 19.2 Registry package** — `deferred`
   - spec: `specification.md:16771`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16783: 19.3 Workspace／local package** — `unchecked`
+- [x] **L6 L16783: 19.3 Workspace／local package** — `deferred`
   - spec: `specification.md:16783`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16793: 19.4 Content hash対象** — `unchecked`
+- [x] **L6 L16793: 19.4 Content hash対象** — `deferred`
   - spec: `specification.md:16793`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L5 L16813: 20. ワークスペース** — `unchecked`
+- [x] **L5 L16813: 20. ワークスペース** — `deferred`
   - spec: `specification.md:16813`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16814: 20.1 定義** — `unchecked`
+- [x] **L6 L16814: 20.1 定義** — `meta`
   - spec: `specification.md:16814`
-  - notes:
+  - notes: PKG glossary/decision prose; no direct impl obligation
 
-- [ ] **L6 L16824: 20.2 Manifest** — `unchecked`
+- [x] **L6 L16824: 20.2 Manifest** — `partial`
   - spec: `specification.md:16824`
-  - notes:
+  - notes: Phase 10 skeleton (rpxm/json/resolver/lockfile); full PKG-001 deferred
 
-- [ ] **L6 L16830: 20.3 基本構文** — `unchecked`
+- [x] **L6 L16830: 20.3 基本構文** — `partial`
   - spec: `specification.md:16830`
-  - notes:
+  - notes: Phase 10 skeleton (rpxm/json/resolver/lockfile); full PKG-001 deferred
 
-- [ ] **L6 L16839: 20.4 Member** — `unchecked`
+- [x] **L6 L16839: 20.4 Member** — `deferred`
   - spec: `specification.md:16839`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16843: 20.5 Member path** — `unchecked`
+- [x] **L6 L16843: 20.5 Member path** — `deferred`
   - spec: `specification.md:16843`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16849: 20.6 Memberの外部配置** — `unchecked`
+- [x] **L6 L16849: 20.6 Memberの外部配置** — `deferred`
   - spec: `specification.md:16849`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16855: 20.7 Package名重複** — `unchecked`
+- [x] **L6 L16855: 20.7 Package名重複** — `deferred`
   - spec: `specification.md:16855`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16859: 20.8 Nested workspace** — `unchecked`
+- [x] **L6 L16859: 20.8 Nested workspace** — `deferred`
   - spec: `specification.md:16859`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L5 L16865: 21. Workspace依存・リソース・適合試験** — `unchecked`
+- [x] **L5 L16865: 21. Workspace依存・リソース・適合試験** — `deferred`
   - spec: `specification.md:16865`
-  - notes:
+  - notes: PKG conformance suite deferred / not wired
 
-- [ ] **L6 L16866: 21.1 共通lockfile** — `unchecked`
+- [x] **L6 L16866: 21.1 共通lockfile** — `partial`
   - spec: `specification.md:16866`
-  - notes:
+  - notes: Phase 10 skeleton (rpxm/json/resolver/lockfile); full PKG-001 deferred
 
-- [ ] **L6 L16872: 21.2 Member単独build** — `unchecked`
+- [x] **L6 L16872: 21.2 Member単独build** — `deferred`
   - spec: `specification.md:16872`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16876: 21.3 Workspace member優先** — `unchecked`
+- [x] **L6 L16876: 21.3 Workspace member優先** — `deferred`
   - spec: `specification.md:16876`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16884: 21.4 明示source** — `unchecked`
+- [x] **L6 L16884: 21.4 明示source** — `deferred`
   - spec: `specification.md:16884`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16895: 21.5 Member version** — `unchecked`
+- [x] **L6 L16895: 21.5 Member version** — `deferred`
   - spec: `specification.md:16895`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16899: 21.6 Member依存graph** — `unchecked`
+- [x] **L6 L16899: 21.6 Member依存graph** — `deferred`
   - spec: `specification.md:16899`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16905: 21.7 Workspace外path dependency** — `unchecked`
+- [x] **L6 L16905: 21.7 Workspace外path dependency** — `deferred`
   - spec: `specification.md:16905`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16911: 21.8 Workspace identity** — `unchecked`
+- [x] **L6 L16911: 21.8 Workspace identity** — `deferred`
   - spec: `specification.md:16911`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16917: 21.9 Resource root** — `unchecked`
+- [x] **L6 L16917: 21.9 Resource root** — `deferred`
   - spec: `specification.md:16917`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16928: 21.10 Resource一覧** — `unchecked`
+- [x] **L6 L16928: 21.10 Resource一覧** — `deferred`
   - spec: `specification.md:16928`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16945: 21.11 Resource path** — `unchecked`
+- [x] **L6 L16945: 21.11 Resource path** — `deferred`
   - spec: `specification.md:16945`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16959: 21.12 Symbolic link** — `unchecked`
+- [x] **L6 L16959: 21.12 Symbolic link** — `deferred`
   - spec: `specification.md:16959`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16963: 21.13 Resource identity** — `unchecked`
+- [x] **L6 L16963: 21.13 Resource identity** — `deferred`
   - spec: `specification.md:16963`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16973: 21.14 Resource参照** — `unchecked`
+- [x] **L6 L16973: 21.14 Resource参照** — `deferred`
   - spec: `specification.md:16973`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16982: 21.15 Pure／effectfulの区別** — `unchecked`
+- [x] **L6 L16982: 21.15 Pure／effectfulの区別** — `deferred`
   - spec: `specification.md:16982`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16989: 21.16 Resourceの外部公開** — `unchecked`
+- [x] **L6 L16989: 21.16 Resourceの外部公開** — `deferred`
   - spec: `specification.md:16989`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L16995: 21.17 Resource hash** — `unchecked`
+- [x] **L6 L16995: 21.17 Resource hash** — `deferred`
   - spec: `specification.md:16995`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L17001: 21.18 Generated resource** — `unchecked`
+- [x] **L6 L17001: 21.18 Generated resource** — `deferred`
   - spec: `specification.md:17001`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L17005: 21.19 Test fixture** — `unchecked`
+- [x] **L6 L17005: 21.19 Test fixture** — `deferred`
   - spec: `specification.md:17005`
-  - notes:
+  - notes: PKG-001 deferred (post language-kernel)
 
-- [ ] **L6 L17009: 21.20 適合試験 PKG-01** — `unchecked`
+- [x] **L6 L17009: 21.20 適合試験 PKG-01** — `deferred`
   - spec: `specification.md:17009`
-  - notes:
+  - notes: PKG conformance suite deferred / not wired
 
-- [ ] **L6 L17028: 21.21 不適合試験 PKG-02** — `unchecked`
+- [x] **L6 L17028: 21.21 不適合試験 PKG-02** — `deferred`
   - spec: `specification.md:17028`
-  - notes:
+  - notes: PKG conformance suite deferred / not wired
 
-- [ ] **L6 L17039: 21.22 適合試験 PKG-03** — `unchecked`
+- [x] **L6 L17039: 21.22 適合試験 PKG-03** — `deferred`
   - spec: `specification.md:17039`
-  - notes:
+  - notes: PKG conformance suite deferred / not wired
 
-- [ ] **L6 L17049: 21.23 不適合試験 PKG-04** — `unchecked`
+- [x] **L6 L17049: 21.23 不適合試験 PKG-04** — `deferred`
   - spec: `specification.md:17049`
-  - notes:
+  - notes: PKG conformance suite deferred / not wired
 
-- [ ] **L6 L17059: 21.24 適合試験 PKG-05** — `unchecked`
+- [x] **L6 L17059: 21.24 適合試験 PKG-05** — `deferred`
   - spec: `specification.md:17059`
-  - notes:
+  - notes: PKG conformance suite deferred / not wired
 
-- [ ] **L6 L17069: 21.25 適合試験 PKG-06** — `unchecked`
+- [x] **L6 L17069: 21.25 適合試験 PKG-06** — `deferred`
   - spec: `specification.md:17069`
-  - notes:
+  - notes: PKG conformance suite deferred / not wired
 
-- [ ] **L6 L17082: 21.26 適合試験 PKG-07** — `unchecked`
+- [x] **L6 L17082: 21.26 適合試験 PKG-07** — `deferred`
   - spec: `specification.md:17082`
-  - notes:
+  - notes: PKG conformance suite deferred / not wired
 
-- [ ] **L6 L17094: 21.27 不適合試験 PKG-08** — `unchecked`
+- [x] **L6 L17094: 21.27 不適合試験 PKG-08** — `deferred`
   - spec: `specification.md:17094`
-  - notes:
+  - notes: PKG conformance suite deferred / not wired
 
-- [ ] **L6 L17113: 21.28 適合試験 PKG-09** — `unchecked`
+- [x] **L6 L17113: 21.28 適合試験 PKG-09** — `deferred`
   - spec: `specification.md:17113`
-  - notes:
+  - notes: PKG conformance suite deferred / not wired
 
-- [ ] **L6 L17127: 21.29 不適合試験 PKG-10** — `unchecked`
+- [x] **L6 L17127: 21.29 不適合試験 PKG-10** — `deferred`
   - spec: `specification.md:17127`
-  - notes:
+  - notes: PKG conformance suite deferred / not wired
 
-- [ ] **L6 L17137: 21.30 適合試験 PKG-11** — `unchecked`
+- [x] **L6 L17137: 21.30 適合試験 PKG-11** — `deferred`
   - spec: `specification.md:17137`
-  - notes:
+  - notes: PKG conformance suite deferred / not wired
 
-- [ ] **L6 L17147: 21.31 不適合試験 PKG-12** — `unchecked`
+- [x] **L6 L17147: 21.31 不適合試験 PKG-12** — `deferred`
   - spec: `specification.md:17147`
-  - notes:
+  - notes: PKG conformance suite deferred / not wired
 
-- [ ] **L5 L17157: 22. 移管先OPEN・下位項目・状態** — `unchecked`
+- [x] **L5 L17157: 22. 移管先OPEN・下位項目・状態** — `deferred`
   - spec: `specification.md:17157`
-  - notes:
+  - notes: OPEN transferred; deferred with PKG
 
-- [ ] **L6 L17158: 22.1 `OPEN-BLD-001`** — `unchecked`
+- [x] **L6 L17158: 22.1 `OPEN-BLD-001`** — `deferred`
   - spec: `specification.md:17158`
-  - notes:
+  - notes: OPEN transferred; deferred with PKG
 
-- [ ] **L6 L17171: 22.2 `OPEN-PKG-FEAT-001`** — `unchecked`
+- [x] **L6 L17171: 22.2 `OPEN-PKG-FEAT-001`** — `deferred`
   - spec: `specification.md:17171`
-  - notes:
+  - notes: OPEN transferred; deferred with PKG
 
-- [ ] **L6 L17181: 22.3 `OPEN-REG-001`** — `unchecked`
+- [x] **L6 L17181: 22.3 `OPEN-REG-001`** — `deferred`
   - spec: `specification.md:17181`
-  - notes:
+  - notes: OPEN transferred; deferred with PKG
 
-- [ ] **L6 L17193: 22.4 `OPEN-KER-001`** — `unchecked`
+- [x] **L6 L17193: 22.4 `OPEN-KER-001`** — `deferred`
   - spec: `specification.md:17193`
-  - notes:
+  - notes: OPEN transferred; deferred with PKG
 
-- [ ] **L6 L17204: 22.5 `OPEN-TST-001`** — `unchecked`
+- [x] **L6 L17204: 22.5 `OPEN-TST-001`** — `deferred`
   - spec: `specification.md:17204`
-  - notes:
+  - notes: OPEN transferred; deferred with PKG
 
-- [ ] **L6 L17215: 22.6 `OPEN-ERR-001`** — `unchecked`
+- [x] **L6 L17215: 22.6 `OPEN-ERR-001`** — `deferred`
   - spec: `specification.md:17215`
-  - notes:
+  - notes: OPEN transferred; deferred with PKG
 
-- [ ] **L6 L17224: 22.7 `OPEN-CON-001`** — `unchecked`
+- [x] **L6 L17224: 22.7 `OPEN-CON-001`** — `deferred`
   - spec: `specification.md:17224`
-  - notes:
+  - notes: OPEN transferred; deferred with PKG
 
-- [ ] **L6 L17232: 22.8 下位項目** — `unchecked`
+- [x] **L6 L17232: 22.8 下位項目** — `deferred`
   - spec: `specification.md:17232`
-  - notes:
+  - notes: OPEN transferred; deferred with PKG
 
-- [ ] **L5 L17260: Compiler-native package実装** — `unchecked`
+- [x] **L5 L17260: Compiler-native package実装** — `deferred`
   - spec: `specification.md:17260`
-  - notes:
+  - notes: native package swap deferred (OPEN-NATIVE-PKG)
 
-- [ ] **L6 L17273: 22.9 最終状態** — `unchecked`
+- [x] **L6 L17273: 22.9 最終状態** — `meta`
   - spec: `specification.md:17273`
-  - notes:
+  - notes: PKG final-state / resolved declaration prose
 
 - [x] **L4 L17299: 13.10.1 `KER-001` Rust kernelとforeign primitive境界** — `partial`
   - spec: `specification.md:17299`
@@ -5007,1217 +5007,1217 @@
   - spec: `specification.md:18835`
   - notes: claimed final EDT capabilities mostly aspirational vs current document crate
 
-- [ ] **L4 L18860: 13.12 `IR-001` Layered visual/motion/render IR** — `unchecked`
+- [x] **L4 L18860: 13.12 `IR-001` Layered visual/motion/render IR** — `partial`
   - spec: `specification.md:18860`
-  - notes:
+  - notes: backends+motion+view exist; full layered IR schema still provisional
 
-- [ ] **L5 L18862: 概要・状態** — `unchecked`
+- [x] **L5 L18862: 概要・状態** — `meta`
   - spec: `specification.md:18862`
-  - notes:
+  - notes: IR-001 overview/status (単一万能IR拒否確定; schema暫定)
 
-- [ ] **L5 L18875: SurfaceとArtifact** — `unchecked`
+- [x] **L5 L18875: SurfaceとArtifact** — `partial`
   - spec: `specification.md:18875`
-  - notes:
+  - notes: scene/document surfaces exist; Artifact algebra incomplete
 
-- [ ] **L5 L18889: RenderIR node algebra** — `unchecked`
+- [x] **L5 L18889: RenderIR node algebra** — `partial`
   - spec: `specification.md:18889`
-  - notes:
+  - notes: pdf/svg/pptx/view primitives; full RenderIR node algebra incomplete
 
-- [ ] **L5 L18935: MotionIR** — `unchecked`
+- [x] **L5 L18935: MotionIR** — `partial`
   - spec: `specification.md:18935`
-  - notes:
+  - notes: reciplexa-motion MotionTrack Constant/Keyframes/Samples
 
-- [ ] **L5 L18949: Backend lowering** — `unchecked`
+- [x] **L5 L18949: Backend lowering** — `partial`
   - spec: `specification.md:18949`
-  - notes:
+  - notes: pdf/svg/pptx lowering; AE/edit-preserving path incomplete
 
-- [ ] **L5 L18962: 不変条件** — `unchecked`
+- [x] **L5 L18962: 不変条件** — `meta`
   - spec: `specification.md:18962`
-  - notes:
+  - notes: IR invariants prose
 
-- [ ] **L5 L18972: メタ理論・反例** — `unchecked`
+- [x] **L5 L18972: メタ理論・反例** — `meta`
   - spec: `specification.md:18972`
-  - notes:
+  - notes: IR metatheory / CE notes
 
-- [ ] **L5 L18981: テスト** — `unchecked`
+- [x] **L5 L18981: テスト** — `gap`
   - spec: `specification.md:18981`
-  - notes:
+  - notes: named IR-001 conformance tests not present
 
-- [ ] **L4 L18993: 13.13 `ERR-001` 通常の失敗・Failure effect・後始末・Defect・最上位実行境界** — `unchecked`
+- [x] **L4 L18993: 13.13 `ERR-001` 通常の失敗・Failure effect・後始末・Defect・最上位実行境界** — `partial`
   - spec: `specification.md:18993`
-  - notes:
+  - notes: outcome Failure/Defect/Cancel/Job; language Failure effect gap
 
-- [ ] **L5 L18994: DD-001 決定概要** — `unchecked`
+- [x] **L5 L18994: DD-001 決定概要** — `meta`
   - spec: `specification.md:18994`
-  - notes:
+  - notes: ERR design principle / guideline prose
 
-- [ ] **L6 L18995: DD-001.1 状態** — `unchecked`
+- [x] **L6 L18995: DD-001.1 状態** — `meta`
   - spec: `specification.md:18995`
-  - notes:
+  - notes: ERR design principle / guideline prose
 
-- [ ] **L6 L19015: DD-001.2 既存仕様との関係** — `unchecked`
+- [x] **L6 L19015: DD-001.2 既存仕様との関係** — `meta`
   - spec: `specification.md:19015`
-  - notes:
+  - notes: ERR design principle / guideline prose
 
-- [ ] **L5 L19041: 0. 設計原則** — `unchecked`
+- [x] **L5 L19041: 0. 設計原則** — `meta`
   - spec: `specification.md:19041`
-  - notes:
+  - notes: ERR design principle / guideline prose
 
-- [ ] **L6 L19042: 0.1 失敗を一種類に統合しない** — `unchecked`
+- [x] **L6 L19042: 0.1 失敗を一種類に統合しない** — `meta`
   - spec: `specification.md:19042`
-  - notes:
+  - notes: ERR design principle / guideline prose
 
-- [ ] **L6 L19063: 0.2 判断基準** — `unchecked`
+- [x] **L6 L19063: 0.2 判断基準** — `meta`
   - spec: `specification.md:19063`
-  - notes:
+  - notes: ERR design principle / guideline prose
 
-- [ ] **L6 L19076: 0.3 公開APIと内部実装** — `unchecked`
+- [x] **L6 L19076: 0.3 公開APIと内部実装** — `meta`
   - spec: `specification.md:19076`
-  - notes:
+  - notes: ERR design principle / guideline prose
 
-- [ ] **L5 L19091: 1. option** — `unchecked`
+- [x] **L5 L19091: 1. option** — `partial`
   - spec: `specification.md:19091`
-  - notes:
+  - notes: option ADT via DAT; ERR option policy prose
 
-- [ ] **L6 L19092: 1.1 用途** — `unchecked`
+- [x] **L6 L19092: 1.1 用途** — `partial`
   - spec: `specification.md:19092`
-  - notes:
+  - notes: option ADT via DAT; ERR option policy prose
 
-- [ ] **L6 L19110: 1.2 不適切な用途** — `unchecked`
+- [x] **L6 L19110: 1.2 不適切な用途** — `partial`
   - spec: `specification.md:19110`
-  - notes:
+  - notes: option ADT via DAT; ERR option policy prose
 
-- [ ] **L5 L19114: 2. resultおよび専用結果型** — `unchecked`
+- [x] **L5 L19114: 2. resultおよび専用結果型** — `partial`
   - spec: `specification.md:19114`
-  - notes:
+  - notes: result-like data possible; dedicated ERR result API incomplete
 
-- [ ] **L6 L19115: 2.1 用途** — `unchecked`
+- [x] **L6 L19115: 2.1 用途** — `partial`
   - spec: `specification.md:19115`
-  - notes:
+  - notes: result-like data possible; dedicated ERR result API incomplete
 
-- [ ] **L6 L19135: 2.2 専用結果型** — `unchecked`
+- [x] **L6 L19135: 2.2 専用結果型** — `partial`
   - spec: `specification.md:19135`
-  - notes:
+  - notes: result-like data possible; dedicated ERR result API incomplete
 
-- [ ] **L6 L19150: 2.3 複数errorの収集** — `unchecked`
+- [x] **L6 L19150: 2.3 複数errorの収集** — `partial`
   - spec: `specification.md:19150`
-  - notes:
+  - notes: result-like data possible; dedicated ERR result API incomplete
 
-- [ ] **L5 L19159: 3. failure E** — `unchecked`
+- [x] **L5 L19159: 3. failure E** — `gap`
   - spec: `specification.md:19159`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L19160: 3.1 定義** — `unchecked`
+- [x] **L6 L19160: 3.1 定義** — `gap`
   - spec: `specification.md:19160`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L19180: 3.2 正常経路と失敗経路** — `unchecked`
+- [x] **L6 L19180: 3.2 正常経路と失敗経路** — `gap`
   - spec: `specification.md:19180`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L19187: 3.3 Error payload** — `unchecked`
+- [x] **L6 L19187: 3.3 Error payload** — `gap`
   - spec: `specification.md:19187`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L5 L19195: 4. Failureの発生** — `unchecked`
+- [x] **L5 L19195: 4. Failureの発生** — `gap`
   - spec: `specification.md:19195`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L19196: 4.1 raise** — `unchecked`
+- [x] **L6 L19196: 4.1 raise** — `gap`
   - spec: `specification.md:19196`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L19214: 4.2 never** — `unchecked`
+- [x] **L6 L19214: 4.2 never** — `gap`
   - spec: `specification.md:19214`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L19239: 4.3 基礎機構** — `unchecked`
+- [x] **L6 L19239: 4.3 基礎機構** — `gap`
   - spec: `specification.md:19239`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L5 L19245: 5. Failure handler** — `unchecked`
+- [x] **L5 L19245: 5. Failure handler** — `gap`
   - spec: `specification.md:19245`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L19246: 5.1 非再開性** — `unchecked`
+- [x] **L6 L19246: 5.1 非再開性** — `gap`
   - spec: `specification.md:19246`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L19265: 5.2 Resume禁止** — `unchecked`
+- [x] **L6 L19265: 5.2 Resume禁止** — `gap`
   - spec: `specification.md:19265`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L19271: 5.3 内部実装** — `unchecked`
+- [x] **L6 L19271: 5.3 内部実装** — `gap`
   - spec: `specification.md:19271`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L19275: 5.4 Handlerの結果型** — `unchecked`
+- [x] **L6 L19275: 5.4 Handlerの結果型** — `gap`
   - spec: `specification.md:19275`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L5 L19306: 6. Failureとeffect row** — `unchecked`
+- [x] **L5 L19306: 6. Failureとeffect row** — `gap`
   - spec: `specification.md:19306`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L19307: 6.1 型への明示** — `unchecked`
+- [x] **L6 L19307: 6.1 型への明示** — `gap`
   - spec: `specification.md:19307`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L19320: 6.2 Handlerによる除去** — `unchecked`
+- [x] **L6 L19320: 6.2 Handlerによる除去** — `gap`
   - spec: `specification.md:19320`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L19333: 6.3 Handler節自身のEffect** — `unchecked`
+- [x] **L6 L19333: 6.3 Handler節自身のEffect** — `gap`
   - spec: `specification.md:19333`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L19346: 6.4 Handler節内の新しいFailure** — `unchecked`
+- [x] **L6 L19346: 6.4 Handler節内の新しいFailure** — `gap`
   - spec: `specification.md:19346`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L5 L19359: 7. 一つのFailure型への統合** — `unchecked`
+- [x] **L5 L19359: 7. 一つのFailure型への統合** — `gap`
   - spec: `specification.md:19359`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L19360: 7.1 基本指針** — `unchecked`
+- [x] **L6 L19360: 7.1 基本指針** — `meta`
   - spec: `specification.md:19360`
-  - notes:
+  - notes: ERR design principle / guideline prose
 
-- [ ] **L6 L19384: 7.2 Error変換** — `unchecked`
+- [x] **L6 L19384: 7.2 Error変換** — `gap`
   - spec: `specification.md:19384`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L19401: 7.3 位置付け** — `unchecked`
+- [x] **L6 L19401: 7.3 位置付け** — `meta`
   - spec: `specification.md:19401`
-  - notes:
+  - notes: ERR design principle / guideline prose
 
-- [ ] **L5 L19407: 8. resultとFailureの変換** — `unchecked`
+- [x] **L5 L19407: 8. resultとFailureの変換** — `gap`
   - spec: `specification.md:19407`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L19408: 8.1 暗黙変換の禁止** — `unchecked`
+- [x] **L6 L19408: 8.1 暗黙変換の禁止** — `gap`
   - spec: `specification.md:19408`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L19421: 8.2 resultからFailure** — `unchecked`
+- [x] **L6 L19421: 8.2 resultからFailure** — `gap`
   - spec: `specification.md:19421`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L19441: 8.3 Failureからresult** — `unchecked`
+- [x] **L6 L19441: 8.3 Failureからresult** — `gap`
   - spec: `specification.md:19441`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L5 L19468: 9. resultとFailureの選択指針** — `unchecked`
+- [x] **L5 L19468: 9. resultとFailureの選択指針** — `partial`
   - spec: `specification.md:19468`
-  - notes:
+  - notes: DAT option/result data path; not full ERR result/Failure policy
 
-- [ ] **L6 L19469: 9.1 resultを推奨する場合** — `unchecked`
+- [x] **L6 L19469: 9.1 resultを推奨する場合** — `partial`
   - spec: `specification.md:19469`
-  - notes:
+  - notes: DAT option/result data path; not full ERR result/Failure policy
 
-- [ ] **L6 L19479: 9.2 Failureを認める場合** — `unchecked`
+- [x] **L6 L19479: 9.2 Failureを認める場合** — `meta`
   - spec: `specification.md:19479`
-  - notes:
+  - notes: ERR design principle / guideline prose
 
-- [ ] **L6 L19486: 9.3 公開API** — `unchecked`
+- [x] **L6 L19486: 9.3 公開API** — `gap`
   - spec: `specification.md:19486`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L5 L19496: 10. Resource cleanup** — `unchecked`
+- [x] **L5 L19496: 10. Resource cleanup** — `gap`
   - spec: `specification.md:19496`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L19497: 10.1 基本primitive** — `unchecked`
+- [x] **L6 L19497: 10.1 基本primitive** — `gap`
   - spec: `specification.md:19497`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L19515: 10.2 役割** — `unchecked`
+- [x] **L6 L19515: 10.2 役割** — `gap`
   - spec: `specification.md:19515`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L19525: 10.3 特別な保証** — `unchecked`
+- [x] **L6 L19525: 10.3 特別な保証** — `gap`
   - spec: `specification.md:19525`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L5 L19535: 11. Acquire規則** — `unchecked`
+- [x] **L5 L19535: 11. Acquire規則** — `gap`
   - spec: `specification.md:19535`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L19536: 11.1 Release登録** — `unchecked`
+- [x] **L6 L19536: 11.1 Release登録** — `gap`
   - spec: `specification.md:19536`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L19540: 11.2 Acquire failure** — `unchecked`
+- [x] **L6 L19540: 11.2 Acquire failure** — `gap`
   - spec: `specification.md:19540`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L19552: 11.3 部分取得** — `unchecked`
+- [x] **L6 L19552: 11.3 部分取得** — `gap`
   - spec: `specification.md:19552`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L5 L19558: 12. Useの正常終了** — `unchecked`
+- [x] **L5 L19558: 12. Useの正常終了** — `gap`
   - spec: `specification.md:19558`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L5 L19570: 13. Use中のFailure** — `unchecked`
+- [x] **L5 L19570: 13. Use中のFailure** — `gap`
   - spec: `specification.md:19570`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L5 L19581: 14. 一般Effectと継続** — `unchecked`
+- [x] **L5 L19581: 14. 一般Effectと継続** — `gap`
   - spec: `specification.md:19581`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L19582: 14.1 一時中断** — `unchecked`
+- [x] **L6 L19582: 14.1 一時中断** — `gap`
   - spec: `specification.md:19582`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L19594: 14.2 Resume** — `unchecked`
+- [x] **L6 L19594: 14.2 Resume** — `gap`
   - spec: `specification.md:19594`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L19598: 14.3 Discard** — `unchecked`
+- [x] **L6 L19598: 14.3 Discard** — `gap`
   - spec: `specification.md:19598`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L19602: 14.4 継続状態** — `unchecked`
+- [x] **L6 L19602: 14.4 継続状態** — `meta`
   - spec: `specification.md:19602`
-  - notes:
+  - notes: ERR design principle / guideline prose
 
-- [ ] **L6 L19620: 14.5 継続escape** — `unchecked`
+- [x] **L6 L19620: 14.5 継続escape** — `gap`
   - spec: `specification.md:19620`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L5 L19638: 15. Cleanup順序と回数** — `unchecked`
+- [x] **L5 L19638: 15. Cleanup順序と回数** — `gap`
   - spec: `specification.md:19638`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L19639: 15.1 LIFO** — `unchecked`
+- [x] **L6 L19639: 15.1 LIFO** — `gap`
   - spec: `specification.md:19639`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L19653: 15.2 高々一回** — `unchecked`
+- [x] **L6 L19653: 15.2 高々一回** — `gap`
   - spec: `specification.md:19653`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L19668: 15.3 一つのRelease失敗** — `unchecked`
+- [x] **L6 L19668: 15.3 一つのRelease失敗** — `gap`
   - spec: `specification.md:19668`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L5 L19676: 16. Cleanup中のFailure** — `unchecked`
+- [x] **L5 L19676: 16. Cleanup中のFailure** — `gap`
   - spec: `specification.md:19676`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L19677: 16.1 Primary failure** — `unchecked`
+- [x] **L6 L19677: 16.1 Primary failure** — `gap`
   - spec: `specification.md:19677`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L19681: 16.2 Suppressed failure** — `unchecked`
+- [x] **L6 L19681: 16.2 Suppressed failure** — `gap`
   - spec: `specification.md:19681`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L19702: 16.3 正常終了後のRelease failure** — `unchecked`
+- [x] **L6 L19702: 16.3 正常終了後のRelease failure** — `gap`
   - spec: `specification.md:19702`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L19709: 16.4 複数のSuppressed failure** — `unchecked`
+- [x] **L6 L19709: 16.4 複数のSuppressed failure** — `gap`
   - spec: `specification.md:19709`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L19720: 16.5 通常Handlerへの公開** — `unchecked`
+- [x] **L6 L19720: 16.5 通常Handlerへの公開** — `gap`
   - spec: `specification.md:19720`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L5 L19734: 17. finally** — `unchecked`
+- [x] **L5 L19734: 17. finally** — `gap`
   - spec: `specification.md:19734`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L5 L19749: 18. Cancellation** — `unchecked`
+- [x] **L5 L19749: 18. Cancellation** — `partial`
   - spec: `specification.md:19749`
-  - notes:
+  - notes: CancellationToken/Report in outcome+runtime; not full ERR cancel model
 
-- [ ] **L6 L19750: 18.1 分類** — `unchecked`
+- [x] **L6 L19750: 18.1 分類** — `meta`
   - spec: `specification.md:19750`
-  - notes:
+  - notes: ERR design principle / guideline prose
 
-- [ ] **L6 L19757: 18.2 Cleanup** — `unchecked`
+- [x] **L6 L19757: 18.2 Cleanup** — `gap`
   - spec: `specification.md:19757`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L19761: 18.3 詳細** — `unchecked`
+- [x] **L6 L19761: 18.3 詳細** — `gap`
   - spec: `specification.md:19761`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L5 L19772: 19. Defect** — `unchecked`
+- [x] **L5 L19772: 19. Defect** — `gap`
   - spec: `specification.md:19772`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L19773: 19.1 定義** — `unchecked`
+- [x] **L6 L19773: 19.1 定義** — `gap`
   - spec: `specification.md:19773`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L19788: 19.2 Effect row** — `unchecked`
+- [x] **L6 L19788: 19.2 Effect row** — `gap`
   - spec: `specification.md:19788`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L19794: 19.3 再開** — `unchecked`
+- [x] **L6 L19794: 19.3 再開** — `gap`
   - spec: `specification.md:19794`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L19798: 19.4 通常Handler** — `unchecked`
+- [x] **L6 L19798: 19.4 通常Handler** — `gap`
   - spec: `specification.md:19798`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L19802: 19.5 Cleanup** — `unchecked`
+- [x] **L6 L19802: 19.5 Cleanup** — `gap`
   - spec: `specification.md:19802`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L5 L19808: 20. Fault boundary** — `unchecked`
+- [x] **L5 L19808: 20. Fault boundary** — `gap`
   - spec: `specification.md:19808`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L19809: 20.1 定義** — `unchecked`
+- [x] **L6 L19809: 20.1 定義** — `gap`
   - spec: `specification.md:19809`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L19823: 20.2 一般公開** — `unchecked`
+- [x] **L6 L19823: 20.2 一般公開** — `gap`
   - spec: `specification.md:19823`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L19827: 20.3 処理** — `unchecked`
+- [x] **L6 L19827: 20.3 処理** — `gap`
   - spec: `specification.md:19827`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L19838: 20.4 継続条件** — `unchecked`
+- [x] **L6 L19838: 20.4 継続条件** — `gap`
   - spec: `specification.md:19838`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L5 L19851: 21. Terminal failure** — `unchecked`
+- [x] **L5 L19851: 21. Terminal failure** — `gap`
   - spec: `specification.md:19851`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L19852: 21.1 定義** — `unchecked`
+- [x] **L6 L19852: 21.1 定義** — `gap`
   - spec: `specification.md:19852`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L19866: 21.2 通常Handler** — `unchecked`
+- [x] **L6 L19866: 21.2 通常Handler** — `gap`
   - spec: `specification.md:19866`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L19870: 21.3 Cleanup** — `unchecked`
+- [x] **L6 L19870: 21.3 Cleanup** — `gap`
   - spec: `specification.md:19870`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L19874: 21.4 可能な最小処理** — `unchecked`
+- [x] **L6 L19874: 21.4 可能な最小処理** — `gap`
   - spec: `specification.md:19874`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L5 L19886: 22. 個別事例の分類** — `unchecked`
+- [x] **L5 L19886: 22. 個別事例の分類** — `meta`
   - spec: `specification.md:19886`
-  - notes:
+  - notes: ERR design principle / guideline prose
 
-- [ ] **L6 L19887: 22.1 Assertion** — `unchecked`
+- [x] **L6 L19887: 22.1 Assertion** — `gap`
   - spec: `specification.md:19887`
-  - notes:
+  - notes: case classification not wired to typed Failure/Defect runtime
 
-- [ ] **L6 L19897: 22.2 Match** — `unchecked`
+- [x] **L6 L19897: 22.2 Match** — `gap`
   - spec: `specification.md:19897`
-  - notes:
+  - notes: case classification not wired to typed Failure/Defect runtime
 
-- [ ] **L6 L19904: 22.3 Dynamic cast** — `unchecked`
+- [x] **L6 L19904: 22.3 Dynamic cast** — `gap`
   - spec: `specification.md:19904`
-  - notes:
+  - notes: case classification not wired to typed Failure/Defect runtime
 
-- [ ] **L6 L19911: 22.4 Index access** — `unchecked`
+- [x] **L6 L19911: 22.4 Index access** — `gap`
   - spec: `specification.md:19911`
-  - notes:
+  - notes: case classification not wired to typed Failure/Defect runtime
 
-- [ ] **L6 L19918: 22.5 Arithmetic overflow** — `unchecked`
+- [x] **L6 L19918: 22.5 Arithmetic overflow** — `gap`
   - spec: `specification.md:19918`
-  - notes:
+  - notes: case classification not wired to typed Failure/Defect runtime
 
-- [ ] **L6 L19934: 22.6 Division by zero** — `unchecked`
+- [x] **L6 L19934: 22.6 Division by zero** — `gap`
   - spec: `specification.md:19934`
-  - notes:
+  - notes: case classification not wired to typed Failure/Defect runtime
 
-- [ ] **L6 L19944: 22.7 Continuationの二重resume** — `unchecked`
+- [x] **L6 L19944: 22.7 Continuationの二重resume** — `gap`
   - spec: `specification.md:19944`
-  - notes:
+  - notes: case classification not wired to typed Failure/Defect runtime
 
-- [ ] **L6 L19950: 22.8 Validator** — `unchecked`
+- [x] **L6 L19950: 22.8 Validator** — `gap`
   - spec: `specification.md:19950`
-  - notes:
+  - notes: case classification not wired to typed Failure/Defect runtime
 
-- [ ] **L6 L19957: 22.9 Foreign adapter** — `unchecked`
+- [x] **L6 L19957: 22.9 Foreign adapter** — `gap`
   - spec: `specification.md:19957`
-  - notes:
+  - notes: case classification not wired to typed Failure/Defect runtime
 
-- [ ] **L6 L19964: 22.10 Resource exhaustion** — `unchecked`
+- [x] **L6 L19964: 22.10 Resource exhaustion** — `gap`
   - spec: `specification.md:19964`
-  - notes:
+  - notes: case classification not wired to typed Failure/Defect runtime
 
-- [ ] **L5 L19974: 23. DefectReport** — `unchecked`
+- [x] **L5 L19974: 23. DefectReport** — `partial`
   - spec: `specification.md:19974`
-  - notes:
+  - notes: FailureReport/DefectReport/Cancellation/JobResult in reciplexa-outcome
 
-- [ ] **L6 L19975: 23.1 内容** — `unchecked`
+- [x] **L6 L19975: 23.1 内容** — `partial`
   - spec: `specification.md:19975`
-  - notes:
+  - notes: FailureReport/DefectReport/Cancellation/JobResult in reciplexa-outcome
 
-- [ ] **L6 L19993: 23.2 安全性** — `unchecked`
+- [x] **L6 L19993: 23.2 安全性** — `partial`
   - spec: `specification.md:19993`
-  - notes:
+  - notes: FailureReport/DefectReport/Cancellation/JobResult in reciplexa-outcome
 
-- [ ] **L6 L20007: 23.3 権限・機密性** — `unchecked`
+- [x] **L6 L20007: 23.3 権限・機密性** — `partial`
   - spec: `specification.md:20007`
-  - notes:
+  - notes: FailureReport/DefectReport/Cancellation/JobResult in reciplexa-outcome
 
-- [ ] **L5 L20011: 24. ジョブ結果** — `unchecked`
+- [x] **L5 L20011: 24. ジョブ結果** — `partial`
   - spec: `specification.md:20011`
-  - notes:
+  - notes: FailureReport/DefectReport/Cancellation/JobResult in reciplexa-outcome
 
-- [ ] **L5 L20039: 25. Entry pointと実行環境** — `unchecked`
+- [x] **L5 L20039: 25. Entry pointと実行環境** — `gap`
   - spec: `specification.md:20039`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L20040: 25.1 Runtime capability** — `unchecked`
+- [x] **L6 L20040: 25.1 Runtime capability** — `gap`
   - spec: `specification.md:20040`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L20078: 25.2 実行環境ごとのmain** — `unchecked`
+- [x] **L6 L20078: 25.2 実行環境ごとのmain** — `gap`
   - spec: `specification.md:20078`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L5 L20097: 26. 未処理Failure** — `unchecked`
+- [x] **L5 L20097: 26. 未処理Failure** — `gap`
   - spec: `specification.md:20097`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L20098: 26.1 原則** — `unchecked`
+- [x] **L6 L20098: 26.1 原則** — `gap`
   - spec: `specification.md:20098`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L20108: 26.2 最終防御** — `unchecked`
+- [x] **L6 L20108: 26.2 最終防御** — `gap`
   - spec: `specification.md:20108`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L20119: 26.3 Runtime default表示** — `unchecked`
+- [x] **L6 L20119: 26.3 Runtime default表示** — `gap`
   - spec: `specification.md:20119`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L5 L20136: 27. 実行環境別の処理** — `unchecked`
+- [x] **L5 L20136: 27. 実行環境別の処理** — `gap`
   - spec: `specification.md:20136`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L20137: 27.1 CLI** — `unchecked`
+- [x] **L6 L20137: 27.1 CLI** — `gap`
   - spec: `specification.md:20137`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L20159: 27.2 GUI** — `unchecked`
+- [x] **L6 L20159: 27.2 GUI** — `gap`
   - spec: `specification.md:20159`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L20168: 27.3 Server** — `unchecked`
+- [x] **L6 L20168: 27.3 Server** — `gap`
   - spec: `specification.md:20168`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L20174: 27.4 Plugin** — `unchecked`
+- [x] **L6 L20174: 27.4 Plugin** — `gap`
   - spec: `specification.md:20174`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L20181: 27.5 Render job** — `unchecked`
+- [x] **L6 L20181: 27.5 Render job** — `gap`
   - spec: `specification.md:20181`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L5 L20190: 28. Diagnostic** — `unchecked`
+- [x] **L5 L20190: 28. Diagnostic** — `partial`
   - spec: `specification.md:20190`
-  - notes:
+  - notes: reciplexa-diagnostic exists; ERR primary/suppressed model incomplete
 
-- [ ] **L6 L20191: 28.1 構築と出力の分離** — `unchecked`
+- [x] **L6 L20191: 28.1 構築と出力の分離** — `gap`
   - spec: `specification.md:20191`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L20208: 28.2 PrimaryとSuppressed** — `unchecked`
+- [x] **L6 L20208: 28.2 PrimaryとSuppressed** — `gap`
   - spec: `specification.md:20208`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L6 L20220: 28.3 Libraryの責務** — `unchecked`
+- [x] **L6 L20220: 28.3 Libraryの責務** — `gap`
   - spec: `specification.md:20220`
-  - notes:
+  - notes: Failure effect/raise/bracket/cleanup not in language eval
 
-- [ ] **L5 L20226: 29. 適合試験** — `unchecked`
+- [x] **L5 L20226: 29. 適合試験** — `gap`
   - spec: `specification.md:20226`
-  - notes:
+  - notes: ERR-001 named conformance suite not present
 
-- [ ] **L5 L20399: 30. 移管先OPEN** — `unchecked`
+- [x] **L5 L20399: 30. 移管先OPEN** — `deferred`
   - spec: `specification.md:20399`
-  - notes:
+  - notes: OPEN transfer; deferred
 
-- [ ] **L6 L20401: `OPEN-MEM-001`** — `unchecked`
+- [x] **L6 L20401: `OPEN-MEM-001`** — `deferred`
   - spec: `specification.md:20401`
-  - notes:
+  - notes: OPEN transfer; deferred
 
-- [ ] **L6 L20410: `OPEN-CON-001`** — `unchecked`
+- [x] **L6 L20410: `OPEN-CON-001`** — `deferred`
   - spec: `specification.md:20410`
-  - notes:
+  - notes: OPEN transfer; deferred
 
-- [ ] **L6 L20419: `OPEN-KER-001`** — `unchecked`
+- [x] **L6 L20419: `OPEN-KER-001`** — `deferred`
   - spec: `specification.md:20419`
-  - notes:
+  - notes: OPEN transfer; deferred
 
-- [ ] **L6 L20427: `OPEN-TST-001`** — `unchecked`
+- [x] **L6 L20427: `OPEN-TST-001`** — `deferred`
   - spec: `specification.md:20427`
-  - notes:
+  - notes: OPEN transfer; deferred
 
-- [ ] **L6 L20435: `OPEN-PKG-ENTRY-001`** — `unchecked`
+- [x] **L6 L20435: `OPEN-PKG-ENTRY-001`** — `deferred`
   - spec: `specification.md:20435`
-  - notes:
+  - notes: OPEN transfer; deferred
 
-- [ ] **L6 L20442: `OPEN-ERR-DIAG-001`** — `unchecked`
+- [x] **L6 L20442: `OPEN-ERR-DIAG-001`** — `deferred`
   - spec: `specification.md:20442`
-  - notes:
+  - notes: OPEN transfer; deferred
 
-- [ ] **L5 L20450: 31. 最終状態** — `unchecked`
+- [x] **L5 L20450: 31. 最終状態** — `meta`
   - spec: `specification.md:20450`
-  - notes:
+  - notes: ERR final-state prose
 
-- [ ] **L4 L20476: 13.14 `MEM-001` Perceusメモリ管理・スコープ付きリソース・継続・メモリ予算** — `unchecked`
+- [x] **L4 L20476: 13.14 `MEM-001` Perceusメモリ管理・スコープ付きリソース・継続・メモリ予算** — `partial`
   - spec: `specification.md:20476`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path; eval uses Rc not Perceus by default
 
-- [ ] **L5 L20477: DD-001 決定概要** — `unchecked`
+- [x] **L5 L20477: DD-001 決定概要** — `meta`
   - spec: `specification.md:20477`
-  - notes:
+  - notes: MEM glossary / policy prose
 
-- [ ] **L6 L20478: DD-001.1 状態** — `unchecked`
+- [x] **L6 L20478: DD-001.1 状態** — `meta`
   - spec: `specification.md:20478`
-  - notes:
+  - notes: MEM glossary / policy prose
 
-- [ ] **L6 L20496: DD-001.2 既存仕様との関係** — `unchecked`
+- [x] **L6 L20496: DD-001.2 既存仕様との関係** — `meta`
   - spec: `specification.md:20496`
-  - notes:
+  - notes: MEM glossary / policy prose
 
-- [ ] **L6 L20515: DD-001.3 中心的な決定** — `unchecked`
+- [x] **L6 L20515: DD-001.3 中心的な決定** — `meta`
   - spec: `specification.md:20515`
-  - notes:
+  - notes: MEM glossary / policy prose
 
-- [ ] **L5 L20530: 0. 用語** — `unchecked`
+- [x] **L5 L20530: 0. 用語** — `meta`
   - spec: `specification.md:20530`
-  - notes:
+  - notes: MEM glossary / policy prose
 
-- [ ] **L6 L20531: 0.1 Perceus** — `unchecked`
+- [x] **L6 L20531: 0.1 Perceus** — `meta`
   - spec: `specification.md:20531`
-  - notes:
+  - notes: MEM glossary / policy prose
 
-- [ ] **L6 L20549: 0.2 自動メモリ管理** — `unchecked`
+- [x] **L6 L20549: 0.2 自動メモリ管理** — `meta`
   - spec: `specification.md:20549`
-  - notes:
+  - notes: MEM glossary / policy prose
 
-- [ ] **L6 L20562: 0.3 Resource** — `unchecked`
+- [x] **L6 L20562: 0.3 Resource** — `meta`
   - spec: `specification.md:20562`
-  - notes:
+  - notes: MEM glossary / policy prose
 
-- [ ] **L5 L20577: 1. メモリとResourceの分離** — `unchecked`
+- [x] **L5 L20577: 1. メモリとResourceの分離** — `partial`
   - spec: `specification.md:20577`
-  - notes:
+  - notes: policy: values vs resources; RSC/bracket separation incomplete
 
-- [ ] **L6 L20578: 1.1 通常値** — `unchecked`
+- [x] **L6 L20578: 1.1 通常値** — `partial`
   - spec: `specification.md:20578`
-  - notes:
+  - notes: policy: values vs resources; RSC/bracket separation incomplete
 
-- [ ] **L6 L20594: 1.2 外部Resource** — `unchecked`
+- [x] **L6 L20594: 1.2 外部Resource** — `partial`
   - spec: `specification.md:20594`
-  - notes:
+  - notes: policy: values vs resources; RSC/bracket separation incomplete
 
-- [ ] **L6 L20604: 1.3 基本原則** — `unchecked`
+- [x] **L6 L20604: 1.3 基本原則** — `partial`
   - spec: `specification.md:20604`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L5 L20614: 2. Perceusによる自動メモリ管理** — `unchecked`
+- [x] **L5 L20614: 2. Perceusによる自動メモリ管理** — `partial`
   - spec: `specification.md:20614`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L6 L20615: 2.1 利用者から見える意味** — `unchecked`
+- [x] **L6 L20615: 2.1 利用者から見える意味** — `partial`
   - spec: `specification.md:20615`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L6 L20627: 2.2 回収時点** — `unchecked`
+- [x] **L6 L20627: 2.2 回収時点** — `partial`
   - spec: `specification.md:20627`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L6 L20639: 2.3 物理identity** — `unchecked`
+- [x] **L6 L20639: 2.3 物理identity** — `partial`
   - spec: `specification.md:20639`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L5 L20660: 3. Compilation pipeline** — `unchecked`
+- [x] **L5 L20660: 3. Compilation pipeline** — `partial`
   - spec: `specification.md:20660`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L6 L20661: 3.1 適用順序** — `unchecked`
+- [x] **L6 L20661: 3.1 適用順序** — `partial`
   - spec: `specification.md:20661`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L6 L20684: 3.2 Surface所有権注釈** — `unchecked`
+- [x] **L6 L20684: 3.2 Surface所有権注釈** — `partial`
   - spec: `specification.md:20684`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L6 L20708: 3.3 Trusted boundary** — `unchecked`
+- [x] **L6 L20708: 3.3 Trusted boundary** — `partial`
   - spec: `specification.md:20708`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L5 L20717: 4. 所有権Core IR** — `unchecked`
+- [x] **L5 L20717: 4. 所有権Core IR** — `partial`
   - spec: `specification.md:20717`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L6 L20718: 4.1 必須のCore要素** — `unchecked`
+- [x] **L6 L20718: 4.1 必須のCore要素** — `partial`
   - spec: `specification.md:20718`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L6 L20749: 4.2 評価順序** — `unchecked`
+- [x] **L6 L20749: 4.2 評価順序** — `partial`
   - spec: `specification.md:20749`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L5 L20755: 5. dup** — `unchecked`
+- [x] **L5 L20755: 5. dup** — `partial`
   - spec: `specification.md:20755`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L6 L20756: 5.1 意味** — `unchecked`
+- [x] **L6 L20756: 5.1 意味** — `partial`
   - spec: `specification.md:20756`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L6 L20765: 5.2 挿入条件** — `unchecked`
+- [x] **L6 L20765: 5.2 挿入条件** — `partial`
   - spec: `specification.md:20765`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L6 L20769: 5.3 利用者からの不可視性** — `unchecked`
+- [x] **L6 L20769: 5.3 利用者からの不可視性** — `partial`
   - spec: `specification.md:20769`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L5 L20775: 6. drop** — `unchecked`
+- [x] **L5 L20775: 6. drop** — `partial`
   - spec: `specification.md:20775`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L6 L20776: 6.1 意味** — `unchecked`
+- [x] **L6 L20776: 6.1 意味** — `partial`
   - spec: `specification.md:20776`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L6 L20789: 6.2 最終使用位置** — `unchecked`
+- [x] **L6 L20789: 6.2 最終使用位置** — `partial`
   - spec: `specification.md:20789`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L6 L20809: 6.3 制御フロー** — `unchecked`
+- [x] **L6 L20809: 6.3 制御フロー** — `partial`
   - spec: `specification.md:20809`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L5 L20816: 7. 分岐とJoin point** — `unchecked`
+- [x] **L5 L20816: 7. 分岐とJoin point** — `partial`
   - spec: `specification.md:20816`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L6 L20817: 7.1 排他的分岐** — `unchecked`
+- [x] **L6 L20817: 7.1 排他的分岐** — `partial`
   - spec: `specification.md:20817`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L6 L20828: 7.2 Join時の整合** — `unchecked`
+- [x] **L6 L20828: 7.2 Join時の整合** — `partial`
   - spec: `specification.md:20828`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L5 L20858: 8. Reuse** — `unchecked`
+- [x] **L5 L20858: 8. Reuse** — `partial`
   - spec: `specification.md:20858`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L6 L20859: 8.1 位置付け** — `unchecked`
+- [x] **L6 L20859: 8.1 位置付け** — `partial`
   - spec: `specification.md:20859`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L6 L20869: 8.2 一意性** — `unchecked`
+- [x] **L6 L20869: 8.2 一意性** — `partial`
   - spec: `specification.md:20869`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L6 L20877: 8.3 Reuse不成立** — `unchecked`
+- [x] **L6 L20877: 8.3 Reuse不成立** — `partial`
   - spec: `specification.md:20877`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L6 L20885: 8.4 非保証** — `unchecked`
+- [x] **L6 L20885: 8.4 非保証** — `partial`
   - spec: `specification.md:20885`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L6 L20894: 8.5 Reuse禁止値** — `unchecked`
+- [x] **L6 L20894: 8.5 Reuse禁止値** — `partial`
   - spec: `specification.md:20894`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L5 L20916: 9. Closure環境** — `unchecked`
+- [x] **L5 L20916: 9. Closure環境** — `gap`
   - spec: `specification.md:20916`
-  - notes:
+  - notes: not wired as language default memory / resource model
 
-- [ ] **L6 L20917: 9.1 表現** — `unchecked`
+- [x] **L6 L20917: 9.1 表現** — `partial`
   - spec: `specification.md:20917`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L6 L20926: 9.2 生成** — `unchecked`
+- [x] **L6 L20926: 9.2 生成** — `partial`
   - spec: `specification.md:20926`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L6 L20933: 9.3 解放** — `unchecked`
+- [x] **L6 L20933: 9.3 解放** — `partial`
   - spec: `specification.md:20933`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L6 L20940: 9.4 Closure identity** — `unchecked`
+- [x] **L6 L20940: 9.4 Closure identity** — `gap`
   - spec: `specification.md:20940`
-  - notes:
+  - notes: not wired as language default memory / resource model
 
-- [ ] **L6 L20950: 9.5 Scoped値のcapture** — `unchecked`
+- [x] **L6 L20950: 9.5 Scoped値のcapture** — `partial`
   - spec: `specification.md:20950`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L5 L20956: 10. var** — `unchecked`
+- [x] **L5 L20956: 10. var** — `partial`
   - spec: `specification.md:20956`
-  - notes:
+  - notes: LocalVar escape check in eval; full Perceus-var integration incomplete
 
-- [ ] **L6 L20957: 10.1 既存意味論** — `unchecked`
+- [x] **L6 L20957: 10.1 既存意味論** — `partial`
   - spec: `specification.md:20957`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L6 L20966: 10.2 物理表現** — `unchecked`
+- [x] **L6 L20966: 10.2 物理表現** — `partial`
   - spec: `specification.md:20966`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L6 L20976: 10.3 Perceusとの関係** — `unchecked`
+- [x] **L6 L20976: 10.3 Perceusとの関係** — `meta`
   - spec: `specification.md:20976`
-  - notes:
+  - notes: MEM glossary / policy prose
 
-- [ ] **L5 L20982: 11. cell／ref** — `unchecked`
+- [x] **L5 L20982: 11. cell／ref** — `ok`
   - spec: `specification.md:20982`
-  - notes:
+  - notes: escape cell/ref out of v1 (spec); LocalVar only
 
-- [ ] **L6 L20983: 11.1 v1の方針** — `unchecked`
+- [x] **L6 L20983: 11.1 v1の方針** — `ok`
   - spec: `specification.md:20983`
-  - notes:
+  - notes: escape cell/ref out of v1 (spec); LocalVar only
 
-- [ ] **L6 L20991: 11.2 理由** — `unchecked`
+- [x] **L6 L20991: 11.2 理由** — `ok`
   - spec: `specification.md:20991`
-  - notes:
+  - notes: escape cell/ref out of v1 (spec); LocalVar only
 
-- [ ] **L6 L21007: 11.3 将来拡張** — `unchecked`
+- [x] **L6 L21007: 11.3 将来拡張** — `ok`
   - spec: `specification.md:21007`
-  - notes:
+  - notes: escape cell/ref out of v1 (spec); LocalVar only
 
-- [ ] **L5 L21019: 12. 再帰型と循環値** — `unchecked`
+- [x] **L5 L21019: 12. 再帰型と循環値** — `partial`
   - spec: `specification.md:21019`
-  - notes:
+  - notes: spec forbids heap cycles in v1; no cycle detector beyond policy
 
-- [ ] **L6 L21020: 12.1 再帰data型** — `unchecked`
+- [x] **L6 L21020: 12.1 再帰data型** — `partial`
   - spec: `specification.md:21020`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L6 L21028: 12.2 循環する実行時値** — `unchecked`
+- [x] **L6 L21028: 12.2 循環する実行時値** — `partial`
   - spec: `specification.md:21028`
-  - notes:
+  - notes: spec forbids heap cycles in v1; no cycle detector beyond policy
 
-- [ ] **L6 L21041: 12.3 論理的なID参照** — `unchecked`
+- [x] **L6 L21041: 12.3 論理的なID参照** — `partial`
   - spec: `specification.md:21041`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L5 L21047: 13. Continuation** — `unchecked`
+- [x] **L5 L21047: 13. Continuation** — `gap`
   - spec: `specification.md:21047`
-  - notes:
+  - notes: not wired as language default memory / resource model
 
-- [ ] **L6 L21048: 13.1 表現** — `unchecked`
+- [x] **L6 L21048: 13.1 表現** — `partial`
   - spec: `specification.md:21048`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L6 L21061: 13.2 Capture** — `unchecked`
+- [x] **L6 L21061: 13.2 Capture** — `partial`
   - spec: `specification.md:21061`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L6 L21069: 13.3 Resume** — `unchecked`
+- [x] **L6 L21069: 13.3 Resume** — `partial`
   - spec: `specification.md:21069`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L6 L21078: 13.4 Discard** — `unchecked`
+- [x] **L6 L21078: 13.4 Discard** — `partial`
   - spec: `specification.md:21078`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L6 L21086: 13.5 One-shot** — `unchecked`
+- [x] **L6 L21086: 13.5 One-shot** — `partial`
   - spec: `specification.md:21086`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L6 L21098: 13.6 Escape** — `unchecked`
+- [x] **L6 L21098: 13.6 Escape** — `partial`
   - spec: `specification.md:21098`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L5 L21106: 14. Failure unwind** — `unchecked`
+- [x] **L5 L21106: 14. Failure unwind** — `gap`
   - spec: `specification.md:21106`
-  - notes:
+  - notes: not wired as language default memory / resource model
 
-- [ ] **L6 L21107: 14.1 明示的なunwind** — `unchecked`
+- [x] **L6 L21107: 14.1 明示的なunwind** — `partial`
   - spec: `specification.md:21107`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L6 L21118: 14.2 Dropの欠落禁止** — `unchecked`
+- [x] **L6 L21118: 14.2 Dropの欠落禁止** — `partial`
   - spec: `specification.md:21118`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L6 L21124: 14.3 Handler節** — `unchecked`
+- [x] **L6 L21124: 14.3 Handler節** — `partial`
   - spec: `specification.md:21124`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L5 L21135: 15. Scoped Resource handle** — `unchecked`
+- [x] **L5 L21135: 15. Scoped Resource handle** — `gap`
   - spec: `specification.md:21135`
-  - notes:
+  - notes: not wired as language default memory / resource model
 
-- [ ] **L6 L21136: 15.1 隠れたscope** — `unchecked`
+- [x] **L6 L21136: 15.1 隠れたscope** — `partial`
   - spec: `specification.md:21136`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L6 L21153: 15.2 bracketの概念型** — `unchecked`
+- [x] **L6 L21153: 15.2 bracketの概念型** — `gap`
   - spec: `specification.md:21153`
-  - notes:
+  - notes: not wired as language default memory / resource model
 
-- [ ] **L6 L21168: 15.3 Escape禁止** — `unchecked`
+- [x] **L6 L21168: 15.3 Escape禁止** — `partial`
   - spec: `specification.md:21168`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L6 L21182: 15.4 Scope内Closure** — `unchecked`
+- [x] **L6 L21182: 15.4 Scope内Closure** — `gap`
   - spec: `specification.md:21182`
-  - notes:
+  - notes: not wired as language default memory / resource model
 
-- [ ] **L6 L21188: 15.5 独立した結果値** — `unchecked`
+- [x] **L6 L21188: 15.5 独立した結果値** — `partial`
   - spec: `specification.md:21188`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L5 L21201: 16. Resource API** — `unchecked`
+- [x] **L5 L21201: 16. Resource API** — `gap`
   - spec: `specification.md:21201`
-  - notes:
+  - notes: not wired as language default memory / resource model
 
-- [ ] **L6 L21202: 16.1 With-style API** — `unchecked`
+- [x] **L6 L21202: 16.1 With-style API** — `partial`
   - spec: `specification.md:21202`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L6 L21210: 16.2 低水準API** — `unchecked`
+- [x] **L6 L21210: 16.2 低水準API** — `partial`
   - spec: `specification.md:21210`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L6 L21216: 16.3 Release責任** — `unchecked`
+- [x] **L6 L21216: 16.3 Release責任** — `partial`
   - spec: `specification.md:21216`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L6 L21223: 16.4 自発的な無効化** — `unchecked`
+- [x] **L6 L21223: 16.4 自発的な無効化** — `partial`
   - spec: `specification.md:21223`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L5 L21236: 17. Borrowed view** — `unchecked`
+- [x] **L5 L21236: 17. Borrowed view** — `ok`
   - spec: `specification.md:21236`
-  - notes:
+  - notes: borrow system out of v1 per spec
 
-- [ ] **L6 L21237: 17.1 所有値とBorrowed view** — `unchecked`
+- [x] **L6 L21237: 17.1 所有値とBorrowed view** — `ok`
   - spec: `specification.md:21237`
-  - notes:
+  - notes: borrow system out of v1 per spec
 
-- [ ] **L6 L21247: 17.2 v1の方針** — `unchecked`
+- [x] **L6 L21247: 17.2 v1の方針** — `ok`
   - spec: `specification.md:21247`
-  - notes:
+  - notes: borrow system out of v1 per spec
 
-- [ ] **L5 L21261: 18. Weak referenceとFinalizer** — `unchecked`
+- [x] **L5 L21261: 18. Weak referenceとFinalizer** — `ok`
   - spec: `specification.md:21261`
-  - notes:
+  - notes: weak/finalizer out of v1 per spec
 
-- [ ] **L6 L21262: 18.1 Weak reference** — `unchecked`
+- [x] **L6 L21262: 18.1 Weak reference** — `ok`
   - spec: `specification.md:21262`
-  - notes:
+  - notes: weak/finalizer out of v1 per spec
 
-- [ ] **L6 L21275: 18.2 利用者定義Finalizer** — `unchecked`
+- [x] **L6 L21275: 18.2 利用者定義Finalizer** — `ok`
   - spec: `specification.md:21275`
-  - notes:
+  - notes: weak/finalizer out of v1 per spec
 
-- [ ] **L6 L21288: 18.3 Resource安全網** — `unchecked`
+- [x] **L6 L21288: 18.3 Resource安全網** — `ok`
   - spec: `specification.md:21288`
-  - notes:
+  - notes: weak/finalizer out of v1 per spec
 
-- [ ] **L5 L21296: 19. Foreign boundary** — `unchecked`
+- [x] **L5 L21296: 19. Foreign boundary** — `gap`
   - spec: `specification.md:21296`
-  - notes:
+  - notes: not wired as language default memory / resource model
 
-- [ ] **L6 L21297: 19.1 Ownership metadata** — `unchecked`
+- [x] **L6 L21297: 19.1 Ownership metadata** — `partial`
   - spec: `specification.md:21297`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L6 L21320: 19.2 Borrowed契約違反** — `unchecked`
+- [x] **L6 L21320: 19.2 Borrowed契約違反** — `partial`
   - spec: `specification.md:21320`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L6 L21330: 19.3 Owned移送** — `unchecked`
+- [x] **L6 L21330: 19.3 Owned移送** — `partial`
   - spec: `specification.md:21330`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L5 L21338: 20. Concurrencyへの接続** — `unchecked`
+- [x] **L5 L21338: 20. Concurrencyへの接続** — `gap`
   - spec: `specification.md:21338`
-  - notes:
+  - notes: not wired as language default memory / resource model
 
-- [ ] **L6 L21339: 20.1 v1の範囲** — `unchecked`
+- [x] **L6 L21339: 20.1 v1の範囲** — `partial`
   - spec: `specification.md:21339`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L6 L21345: 20.2 共有値** — `unchecked`
+- [x] **L6 L21345: 20.2 共有値** — `partial`
   - spec: `specification.md:21345`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L6 L21360: 20.3 Scoped Resource** — `unchecked`
+- [x] **L6 L21360: 20.3 Scoped Resource** — `gap`
   - spec: `specification.md:21360`
-  - notes:
+  - notes: not wired as language default memory / resource model
 
-- [ ] **L5 L21366: 21. SnapshotとPerceus** — `unchecked`
+- [x] **L5 L21366: 21. SnapshotとPerceus** — `gap`
   - spec: `specification.md:21366`
-  - notes:
+  - notes: not wired as language default memory / resource model
 
-- [ ] **L6 L21367: 21.1 構造共有** — `unchecked`
+- [x] **L6 L21367: 21.1 構造共有** — `partial`
   - spec: `specification.md:21367`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L6 L21380: 21.2 解放** — `unchecked`
+- [x] **L6 L21380: 21.2 解放** — `partial`
   - spec: `specification.md:21380`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L6 L21386: 21.3 一意性** — `unchecked`
+- [x] **L6 L21386: 21.3 一意性** — `partial`
   - spec: `specification.md:21386`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L6 L21390: 21.4 観測不能** — `unchecked`
+- [x] **L6 L21390: 21.4 観測不能** — `partial`
   - spec: `specification.md:21390`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L5 L21394: 22. メモリ割当とEffect** — `unchecked`
+- [x] **L5 L21394: 22. メモリ割当とEffect** — `partial`
   - spec: `specification.md:21394`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L6 L21395: 22.1 通常Allocation** — `unchecked`
+- [x] **L6 L21395: 22.1 通常Allocation** — `gap`
   - spec: `specification.md:21395`
-  - notes:
+  - notes: not wired as language default memory / resource model
 
-- [ ] **L6 L21408: 22.2 Perceus操作** — `unchecked`
+- [x] **L6 L21408: 22.2 Perceus操作** — `partial`
   - spec: `specification.md:21408`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L6 L21418: 22.3 理由** — `unchecked`
+- [x] **L6 L21418: 22.3 理由** — `partial`
   - spec: `specification.md:21418`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L5 L21424: 23. メモリ予算** — `unchecked`
+- [x] **L5 L21424: 23. メモリ予算** — `gap`
   - spec: `specification.md:21424`
-  - notes:
+  - notes: not wired as language default memory / resource model
 
-- [ ] **L6 L21425: 23.1 適用単位** — `unchecked`
+- [x] **L6 L21425: 23.1 適用単位** — `partial`
   - spec: `specification.md:21425`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L6 L21440: 23.2 Job増分方式** — `unchecked`
+- [x] **L6 L21440: 23.2 Job増分方式** — `partial`
   - spec: `specification.md:21440`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L6 L21459: 23.3 Commit時の移管** — `unchecked`
+- [x] **L6 L21459: 23.3 Commit時の移管** — `partial`
   - spec: `specification.md:21459`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L5 L21475: 24. 予算超過** — `unchecked`
+- [x] **L5 L21475: 24. 予算超過** — `gap`
   - spec: `specification.md:21475`
-  - notes:
+  - notes: not wired as language default memory / resource model
 
-- [ ] **L6 L21476: 24.1 型付きFailure** — `unchecked`
+- [x] **L6 L21476: 24.1 型付きFailure** — `partial`
   - spec: `specification.md:21476`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L6 L21492: 24.2 処理** — `unchecked`
+- [x] **L6 L21492: 24.2 処理** — `partial`
   - spec: `specification.md:21492`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L6 L21506: 24.3 予約領域** — `unchecked`
+- [x] **L6 L21506: 24.3 予約領域** — `partial`
   - spec: `specification.md:21506`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L5 L21512: 25. 単一巨大Allocation** — `unchecked`
+- [x] **L5 L21512: 25. 単一巨大Allocation** — `gap`
   - spec: `specification.md:21512`
-  - notes:
+  - notes: not wired as language default memory / resource model
 
-- [ ] **L6 L21513: 25.1 事前検査** — `unchecked`
+- [x] **L6 L21513: 25.1 事前検査** — `partial`
   - spec: `specification.md:21513`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L6 L21522: 25.2 分類** — `unchecked`
+- [x] **L6 L21522: 25.2 分類** — `partial`
   - spec: `specification.md:21522`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L5 L21538: 26. Continuation予算** — `unchecked`
+- [x] **L5 L21538: 26. Continuation予算** — `gap`
   - spec: `specification.md:21538`
-  - notes:
+  - notes: not wired as language default memory / resource model
 
-- [ ] **L6 L21539: 26.1 課金対象** — `unchecked`
+- [x] **L6 L21539: 26.1 課金対象** — `partial`
   - spec: `specification.md:21539`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L6 L21552: 26.2 超過時** — `unchecked`
+- [x] **L6 L21552: 26.2 超過時** — `partial`
   - spec: `specification.md:21552`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L5 L21564: 27. Snapshot保持量** — `unchecked`
+- [x] **L5 L21564: 27. Snapshot保持量** — `gap`
   - spec: `specification.md:21564`
-  - notes:
+  - notes: not wired as language default memory / resource model
 
-- [ ] **L6 L21565: 27.1 有効なSnapshot handle** — `unchecked`
+- [x] **L6 L21565: 27.1 有効なSnapshot handle** — `gap`
   - spec: `specification.md:21565`
-  - notes:
+  - notes: not wired as language default memory / resource model
 
-- [ ] **L6 L21571: 27.2 保持policy** — `unchecked`
+- [x] **L6 L21571: 27.2 保持policy** — `partial`
   - spec: `specification.md:21571`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L6 L21584: 27.3 履歴破棄** — `unchecked`
+- [x] **L6 L21584: 27.3 履歴破棄** — `partial`
   - spec: `specification.md:21584`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L5 L21588: 28. 一般heap OOM** — `unchecked`
+- [x] **L5 L21588: 28. 一般heap OOM** — `gap`
   - spec: `specification.md:21588`
-  - notes:
+  - notes: not wired as language default memory / resource model
 
-- [ ] **L6 L21589: 28.1 管理予算との区別** — `unchecked`
+- [x] **L6 L21589: 28.1 管理予算との区別** — `gap`
   - spec: `specification.md:21589`
-  - notes:
+  - notes: not wired as language default memory / resource model
 
-- [ ] **L6 L21593: 28.2 分類** — `unchecked`
+- [x] **L6 L21593: 28.2 分類** — `partial`
   - spec: `specification.md:21593`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L6 L21600: 28.3 Cleanup** — `unchecked`
+- [x] **L6 L21600: 28.3 Cleanup** — `partial`
   - spec: `specification.md:21600`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L5 L21606: 29. Reference count overflow** — `unchecked`
+- [x] **L5 L21606: 29. Reference count overflow** — `gap`
   - spec: `specification.md:21606`
-  - notes:
+  - notes: not wired as language default memory / resource model
 
-- [ ] **L6 L21607: 29.1 Wraparound禁止** — `unchecked`
+- [x] **L6 L21607: 29.1 Wraparound禁止** — `partial`
   - spec: `specification.md:21607`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L6 L21613: 29.2 実装** — `unchecked`
+- [x] **L6 L21613: 29.2 実装** — `partial`
   - spec: `specification.md:21613`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L6 L21617: 29.3 分類** — `unchecked`
+- [x] **L6 L21617: 29.3 分類** — `partial`
   - spec: `specification.md:21617`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L6 L21627: 29.4 その他の内部不変条件** — `unchecked`
+- [x] **L6 L21627: 29.4 その他の内部不変条件** — `partial`
   - spec: `specification.md:21627`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L5 L21640: 30. Verification** — `unchecked`
+- [x] **L5 L21640: 30. Verification** — `partial`
   - spec: `specification.md:21640`
-  - notes:
+  - notes: verify_ownership/verify_reuse in reciplexa-mem
 
-- [ ] **L6 L21641: 30.1 Ownership verifier** — `unchecked`
+- [x] **L6 L21641: 30.1 Ownership verifier** — `partial`
   - spec: `specification.md:21641`
-  - notes:
+  - notes: verify_ownership/verify_reuse in reciplexa-mem
 
-- [ ] **L6 L21656: 30.2 Reuse verifier** — `unchecked`
+- [x] **L6 L21656: 30.2 Reuse verifier** — `partial`
   - spec: `specification.md:21656`
-  - notes:
+  - notes: verify_ownership/verify_reuse in reciplexa-mem
 
-- [ ] **L6 L21666: 30.3 Verifier failure** — `unchecked`
+- [x] **L6 L21666: 30.3 Verifier failure** — `partial`
   - spec: `specification.md:21666`
-  - notes:
+  - notes: verify_ownership/verify_reuse in reciplexa-mem
 
-- [ ] **L5 L21677: 31. メモリ観測API** — `unchecked`
+- [x] **L5 L21677: 31. メモリ観測API** — `gap`
   - spec: `specification.md:21677`
-  - notes:
+  - notes: not wired as language default memory / resource model
 
-- [ ] **L6 L21678: 31.1 非公開情報** — `unchecked`
+- [x] **L6 L21678: 31.1 非公開情報** — `partial`
   - spec: `specification.md:21678`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L6 L21691: 31.2 許可される情報** — `unchecked`
+- [x] **L6 L21691: 31.2 許可される情報** — `partial`
   - spec: `specification.md:21691`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L6 L21701: 31.3 安定性** — `unchecked`
+- [x] **L6 L21701: 31.3 安定性** — `partial`
   - spec: `specification.md:21701`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L5 L21714: 32. GUI状態** — `unchecked`
+- [x] **L5 L21714: 32. GUI状態** — `gap`
   - spec: `specification.md:21714`
-  - notes:
+  - notes: not wired as language default memory / resource model
 
-- [ ] **L6 L21715: 32.1 暗黙cellへの非依存** — `unchecked`
+- [x] **L6 L21715: 32.1 暗黙cellへの非依存** — `ok`
   - spec: `specification.md:21715`
-  - notes:
+  - notes: v1 intentional non-feature (matches spec) — escape cell/weak/borrow out of v1
 
-- [ ] **L6 L21719: 32.2 推奨モデル** — `unchecked`
+- [x] **L6 L21719: 32.2 推奨モデル** — `partial`
   - spec: `specification.md:21719`
-  - notes:
+  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [ ] **L5 L21728: 33. 適合試験** — `unchecked`
+- [x] **L5 L21728: 33. 適合試験** — `partial`
   - spec: `specification.md:21728`
-  - notes:
+  - notes: phase6_mem / mem tests exist; full MEM-001 suite incomplete
 
-- [ ] **L5 L21906: 34. 移管先OPEN** — `unchecked`
+- [x] **L5 L21906: 34. 移管先OPEN** — `deferred`
   - spec: `specification.md:21906`
-  - notes:
+  - notes: OPEN transfer; deferred
 
-- [ ] **L6 L21908: `OPEN-MEM-CELL-001`** — `unchecked`
+- [x] **L6 L21908: `OPEN-MEM-CELL-001`** — `deferred`
   - spec: `specification.md:21908`
-  - notes:
+  - notes: OPEN transfer; deferred
 
-- [ ] **L6 L21917: `OPEN-MEM-BORROW-001`** — `unchecked`
+- [x] **L6 L21917: `OPEN-MEM-BORROW-001`** — `deferred`
   - spec: `specification.md:21917`
-  - notes:
+  - notes: OPEN transfer; deferred
 
-- [ ] **L6 L21926: `OPEN-CON-001`** — `unchecked`
+- [x] **L6 L21926: `OPEN-CON-001`** — `deferred`
   - spec: `specification.md:21926`
-  - notes:
+  - notes: OPEN transfer; deferred
 
-- [ ] **L6 L21935: `OPEN-KER-001`** — `unchecked`
+- [x] **L6 L21935: `OPEN-KER-001`** — `deferred`
   - spec: `specification.md:21935`
-  - notes:
+  - notes: OPEN transfer; deferred
 
-- [ ] **L6 L21943: `OPEN-GUI-STATE-001`** — `unchecked`
+- [x] **L6 L21943: `OPEN-GUI-STATE-001`** — `deferred`
   - spec: `specification.md:21943`
-  - notes:
+  - notes: OPEN transfer; deferred
 
-- [ ] **L6 L21950: `OPEN-MEM-PROF-001`** — `unchecked`
+- [x] **L6 L21950: `OPEN-MEM-PROF-001`** — `deferred`
   - spec: `specification.md:21950`
-  - notes:
+  - notes: OPEN transfer; deferred
 
-- [ ] **L5 L21958: 35. 最終状態** — `unchecked`
+- [x] **L5 L21958: 35. 最終状態** — `meta`
   - spec: `specification.md:21958`
-  - notes:
+  - notes: MEM final-state prose
 
-- [ ] **L4 L21988: 13.14.1 `ASY-001` Concurrency and async** — `unchecked`
+- [x] **L4 L21988: 13.14.1 `ASY-001` Concurrency and async** — `deferred`
   - spec: `specification.md:21988`
-  - notes:
+  - notes: ASY-001 未決定; runtime scheduler exists but language async unspecified
 
-- [ ] **L5 L21990: 状態** — `unchecked`
+- [x] **L5 L21990: 状態** — `meta`
   - spec: `specification.md:21990`
-  - notes:
+  - notes: ASY status: 未決定 (thread/task/async not specified)
 
-- [ ] **L4 L22012: 13.15 `TST-001` Tests and conformance** — `unchecked`
+- [x] **L4 L22012: 13.15 `TST-001` Tests and conformance** — `partial`
   - spec: `specification.md:22012`
-  - notes:
+  - notes: Rust test/conformance IDs exist; language test surface 未決定
 
-- [ ] **L5 L22014: 概要・状態** — `unchecked`
+- [x] **L5 L22014: 概要・状態** — `meta`
   - spec: `specification.md:22014`
-  - notes:
+  - notes: TST overview: product testing確定; surface syntax 未決定
 
-- [ ] **L5 L22039: Black/white box** — `unchecked`
+- [x] **L5 L22039: Black/white box** — `gap`
   - spec: `specification.md:22039`
-  - notes:
+  - notes: test-module/test-of white-box companion not implemented
 
-- [ ] **L5 L22045: 既存実装** — `unchecked`
+- [x] **L5 L22045: 既存実装** — `meta`
   - spec: `specification.md:22045`
-  - notes:
+  - notes: describes current Rust tests empirically
 
-- [ ] **L5 L22051: テスト原則** — `unchecked`
+- [x] **L5 L22051: テスト原則** — `partial`
   - spec: `specification.md:22051`
-  - notes:
+  - notes: conformance.rs SpecSection/ConformanceId; full artifact trace incomplete
 
-- [ ] **L5 L22067: メタ理論** — `unchecked`
+- [x] **L5 L22067: メタ理論** — `meta`
   - spec: `specification.md:22067`
-  - notes:
+  - notes: tests ≠ proofs metatheory note
 
 ## 構文の統合仕様
 
