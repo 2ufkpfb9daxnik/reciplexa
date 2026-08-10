@@ -3,6 +3,7 @@
 mod fonts;
 mod preview_paint;
 
+use reciplexa_gui::canvas_sync::{nudge_authoring_layers, SyncRefuse};
 use reciplexa_gui::document_state::DocumentPathState;
 
 use std::env;
@@ -205,6 +206,7 @@ fn main() -> ExitCode {
                 source: src.clone(),
                 saved_source: src,
                 error: initial_error,
+                sync_warning: None,
                 drag: None,
                 page_index: 0,
                 zoom: prefs.zoom,
@@ -258,6 +260,8 @@ struct PreviewApp {
     /// Last-saved / last-loaded buffer; dirty when differs from `source`.
     saved_source: String,
     error: Option<String>,
+    /// Soft CST sync refusal (e.g. markup-expanded layers); does not block preview.
+    sync_warning: Option<String>,
     drag: Option<DragState>,
     page_index: usize,
     zoom: f32,
@@ -379,6 +383,46 @@ impl PreviewApp {
     /// Expanded buffer for read-only layer/size sync (falls back to authoring source).
     fn expanded_for_sync(&self) -> String {
         reciplexa::pipeline::expand(&self.source).unwrap_or_else(|_| self.source.clone())
+    }
+
+    /// Soft sync refusal: warn in yellow, keep authoring source, never sticky hard-error.
+    fn soft_sync_refuse(&mut self, refuse: SyncRefuse) {
+        self.sync_warning = Some(refuse.message);
+        // Do not set `self.error` — preview stays usable.
+    }
+
+    fn clear_sync_warning(&mut self) {
+        self.sync_warning = None;
+    }
+
+    /// Nudge selection in authoring source; soft-refuse when layers are synthetic.
+    fn try_nudge_selection(&mut self, indices: &[usize], dx: f64, dy: f64) -> bool {
+        if dx == 0.0 && dy == 0.0 {
+            return false;
+        }
+        let expanded = self.expanded_for_sync();
+        match nudge_authoring_layers(&self.source, &expanded, self.page_index, indices, dx, dy) {
+            Ok(new_src) => {
+                if new_src != self.source {
+                    self.push_undo();
+                    self.source = new_src;
+                    self.clear_sync_warning();
+                    self.error = if self.reload_ok() {
+                        None
+                    } else {
+                        Some("edit produced invalid program".into())
+                    };
+                    self.rebuild_document_path();
+                    true
+                } else {
+                    false
+                }
+            }
+            Err(refuse) => {
+                self.soft_sync_refuse(refuse);
+                false
+            }
+        }
     }
 
     fn push_undo(&mut self) {
@@ -682,6 +726,7 @@ impl PreviewApp {
             }
             self.drag = None;
             self.error = pipeline_doc(&self.source).err();
+            self.sync_warning = None;
             self.rebuild_document_path();
         }
         if !response.has_focus() {
@@ -690,6 +735,10 @@ impl PreviewApp {
         if let Some(err) = &self.error {
             ui.add_space(4.0);
             ui.colored_label(egui::Color32::RED, err);
+        }
+        if let Some(warn) = &self.sync_warning {
+            ui.add_space(4.0);
+            ui.colored_label(egui::Color32::from_rgb(180, 120, 0), warn);
         }
     }
 
@@ -866,6 +915,9 @@ impl PreviewApp {
                 return;
             }
         };
+        if let Some(warn) = &self.sync_warning {
+            ui.colored_label(egui::Color32::from_rgb(180, 120, 0), warn);
+        }
         let page_count = doc.pages.len();
         if page_count == 0 {
             ui.colored_label(egui::Color32::RED, "Document has no pages.");
@@ -1297,38 +1349,51 @@ impl PreviewApp {
                             }
                             let mut indices = flat_indices;
                             if dx.abs() > 1e-9 || dy.abs() > 1e-9 {
-                                let mut undo_pushed = drag.undo_pushed;
-                                if !undo_pushed {
-                                    self.push_undo();
-                                    undo_pushed = true;
-                                }
-                                let mut src = self.source.clone();
                                 indices.sort_unstable();
-                                let mut ok = true;
-                                for &idx in &indices {
-                                    match nudge_layer_page(&src, self.page_index, idx, dx, dy) {
-                                        Ok(new_src) => src = new_src,
-                                        Err(e) => {
-                                            self.error = Some(e.message);
-                                            ok = false;
-                                            break;
+                                let expanded = self.expanded_for_sync();
+                                match nudge_authoring_layers(
+                                    &self.source,
+                                    &expanded,
+                                    self.page_index,
+                                    &indices,
+                                    dx,
+                                    dy,
+                                ) {
+                                    Ok(new_src) => {
+                                        let mut undo_pushed = drag.undo_pushed;
+                                        if new_src != self.source {
+                                            if !undo_pushed {
+                                                self.push_undo();
+                                                undo_pushed = true;
+                                            }
+                                            self.source = new_src;
+                                            self.clear_sync_warning();
+                                            self.error = if self.reload_ok() {
+                                                None
+                                            } else {
+                                                Some("edit produced invalid program".into())
+                                            };
+                                            self.rebuild_document_path();
                                         }
+                                        self.drag = Some(DragState {
+                                            kind: DragKind::Move {
+                                                last_mm: (mx, my),
+                                                flat_indices: indices,
+                                            },
+                                            undo_pushed,
+                                        });
                                     }
-                                }
-                                if ok {
-                                    self.source = src;
-                                    self.error = if self.reload_ok() {
-                                        None
-                                    } else {
-                                        Some("edit produced invalid program".into())
-                                    };
-                                    self.drag = Some(DragState {
-                                        kind: DragKind::Move {
-                                            last_mm: (mx, my),
-                                            flat_indices: indices,
-                                        },
-                                        undo_pushed,
-                                    });
+                                    Err(refuse) => {
+                                        self.soft_sync_refuse(refuse);
+                                        // Keep last_mm so the gesture does not accumulate delta.
+                                        self.drag = Some(DragState {
+                                            kind: DragKind::Move {
+                                                last_mm: (mx, my),
+                                                flat_indices: indices,
+                                            },
+                                            undo_pushed: drag.undo_pushed,
+                                        });
+                                    }
                                 }
                             }
                         }
@@ -1449,14 +1514,19 @@ impl PreviewApp {
                                         undo_pushed = true;
                                     }
                                     self.source = new_src;
+                                    self.clear_sync_warning();
                                     self.error = if self.reload_ok() {
                                         None
                                     } else {
                                         Some("edit produced invalid program".into())
                                     };
+                                    self.rebuild_document_path();
                                     self.drag = Some(DragState { kind, undo_pushed });
                                 }
-                                Err(e) => self.error = Some(e.message),
+                                Err(e) => self.soft_sync_refuse(SyncRefuse::new(format!(
+                                    "canvas resize skipped: {} (authoring source unchanged)",
+                                    e.message
+                                ))),
                             }
                         }
                         DragKind::LineEndpoint {
@@ -1483,14 +1553,19 @@ impl PreviewApp {
                                         undo_pushed = true;
                                     }
                                     self.source = new_src;
+                                    self.clear_sync_warning();
                                     self.error = if self.reload_ok() {
                                         None
                                     } else {
                                         Some("edit produced invalid program".into())
                                     };
+                                    self.rebuild_document_path();
                                     self.drag = Some(DragState { kind, undo_pushed });
                                 }
-                                Err(e) => self.error = Some(e.message),
+                                Err(e) => self.soft_sync_refuse(SyncRefuse::new(format!(
+                                    "canvas edit skipped: {} (authoring source unchanged)",
+                                    e.message
+                                ))),
                             }
                         }
                         DragKind::PolyVertex {
@@ -1519,14 +1594,19 @@ impl PreviewApp {
                                         undo_pushed = true;
                                     }
                                     self.source = new_src;
+                                    self.clear_sync_warning();
                                     self.error = if self.reload_ok() {
                                         None
                                     } else {
                                         Some("edit produced invalid program".into())
                                     };
+                                    self.rebuild_document_path();
                                     self.drag = Some(DragState { kind, undo_pushed });
                                 }
-                                Err(e) => self.error = Some(e.message),
+                                Err(e) => self.soft_sync_refuse(SyncRefuse::new(format!(
+                                    "canvas edit skipped: {} (authoring source unchanged)",
+                                    e.message
+                                ))),
                             }
                         }
                         DragKind::Rotate {
@@ -1563,14 +1643,19 @@ impl PreviewApp {
                                         undo_pushed = true;
                                     }
                                     self.source = new_src;
+                                    self.clear_sync_warning();
                                     self.error = if self.reload_ok() {
                                         None
                                     } else {
                                         Some("edit produced invalid program".into())
                                     };
+                                    self.rebuild_document_path();
                                     self.drag = Some(DragState { kind, undo_pushed });
                                 }
-                                Err(e) => self.error = Some(e.message),
+                                Err(e) => self.soft_sync_refuse(SyncRefuse::new(format!(
+                                    "canvas rotate skipped: {} (authoring source unchanged)",
+                                    e.message
+                                ))),
                             }
                         }
                     }
@@ -2045,10 +2130,14 @@ impl PreviewApp {
                                 Ok(new_src) => {
                                     self.push_undo();
                                     self.source = new_src;
+                                    self.clear_sync_warning();
                                     self.error = pipeline_doc(&self.source).err();
-        self.rebuild_document_path();
+                                    self.rebuild_document_path();
                                 }
-                                Err(e) => self.error = Some(e.message),
+                                Err(e) => self.soft_sync_refuse(SyncRefuse::new(format!(
+                                    "layout box skipped: {} (authoring source unchanged)",
+                                    e.message
+                                ))),
                             }
                         }
                 }
@@ -2515,8 +2604,9 @@ impl PreviewApp {
             }
         };
         items.sort_by_key(|(i, _)| *i);
-        self.push_undo();
+        let expanded = self.expanded_for_sync();
         let mut src = self.source.clone();
+        let mut any = false;
         for &(i, (x0, y0, x1, y1)) in &items {
             let (dx, dy) = match edge {
                 AlignEdge::Left => (target - x0, 0.0),
@@ -2529,17 +2619,24 @@ impl PreviewApp {
             if dx.abs() < 1e-12 && dy.abs() < 1e-12 {
                 continue;
             }
-            match nudge_layer_page(&src, self.page_index, i, dx, dy) {
-                Ok(new_src) => src = new_src,
-                Err(e) => {
-                    self.error = Some(e.message);
+            match nudge_authoring_layers(&src, &expanded, self.page_index, &[i], dx, dy) {
+                Ok(new_src) => {
+                    src = new_src;
+                    any = true;
+                }
+                Err(refuse) => {
+                    self.soft_sync_refuse(refuse);
                     return;
                 }
             }
         }
-        self.source = src;
-        self.error = pipeline_doc(&self.source).err();
-        self.rebuild_document_path();
+        if any {
+            self.push_undo();
+            self.source = src;
+            self.clear_sync_warning();
+            self.error = pipeline_doc(&self.source).err();
+            self.rebuild_document_path();
+        }
     }
 
     fn distribute_selection(&mut self, horizontal: bool) {
@@ -2570,8 +2667,9 @@ impl PreviewApp {
         let last = items[items.len() - 1].1;
         let n = items.len();
         let step = (last - first) / (n - 1) as f64;
-        self.push_undo();
+        let expanded = self.expanded_for_sync();
         let mut src = self.source.clone();
+        let mut any = false;
         for (k, &(i, center)) in items.iter().enumerate() {
             let want = first + step * k as f64;
             let delta = want - center;
@@ -2583,17 +2681,24 @@ impl PreviewApp {
             } else {
                 (0.0, delta)
             };
-            match nudge_layer_page(&src, self.page_index, i, dx, dy) {
-                Ok(new_src) => src = new_src,
-                Err(e) => {
-                    self.error = Some(e.message);
+            match nudge_authoring_layers(&src, &expanded, self.page_index, &[i], dx, dy) {
+                Ok(new_src) => {
+                    src = new_src;
+                    any = true;
+                }
+                Err(refuse) => {
+                    self.soft_sync_refuse(refuse);
                     return;
                 }
             }
         }
-        self.source = src;
-        self.error = pipeline_doc(&self.source).err();
-        self.rebuild_document_path();
+        if any {
+            self.push_undo();
+            self.source = src;
+            self.clear_sync_warning();
+            self.error = pipeline_doc(&self.source).err();
+            self.rebuild_document_path();
+        }
     }
 
     fn bring_selection_to_front(&mut self) {
@@ -3065,20 +3170,7 @@ impl eframe::App for PreviewApp {
             if delta != (0.0, 0.0) {
                 let mut indices = self.selected.clone();
                 indices.sort_unstable();
-                self.push_undo();
-                let mut src = self.source.clone();
-                for &sel in &indices {
-                    match nudge_layer_page(&src, self.page_index, sel, delta.0, delta.1) {
-                        Ok(new_src) => src = new_src,
-                        Err(e) => {
-                            self.error = Some(e.message);
-                            break;
-                        }
-                    }
-                }
-                self.source = src;
-                self.error = pipeline_doc(&self.source).err();
-                self.rebuild_document_path();
+                self.try_nudge_selection(&indices, delta.0, delta.1);
             }
             if ctx
                 .input(|i| i.key_pressed(egui::Key::Delete) || i.key_pressed(egui::Key::Backspace))

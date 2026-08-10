@@ -786,3 +786,36 @@ fn insert_page_pads_when_adjacent_without_newline() {
     assert_eq!(idx, 1);
     assert!(out.contains("\n(page 100 100)\n") || out.contains("(page 100 100)"));
 }
+
+#[test]
+fn nudge_text_layer_on_page_updates_position() {
+    // Mirrors examples/text_line.rpx / japanese_page.rpx authoring form.
+    let src = r#"(page a4
+  (text 30 260 8 "Reciplexa" black)
+  (text 25 250 4 "本文" black))"#;
+    let out = nudge_layer_page(src, 0, 0, 5.0, -3.0).unwrap();
+    assert!(
+        out.contains(r#"(translate 5 -3 (text 30 260 8 "Reciplexa" black))"#),
+        "unexpected rewrite: {out}"
+    );
+    assert!(
+        out.contains(r#"(text 25 250 4 "本文" black)"#),
+        "sibling text must stay put: {out}"
+    );
+    let out2 = nudge_layer_page(&out, 0, 1, 2.0, 1.0).unwrap();
+    assert!(
+        out2.contains(r#"(translate 2 1 (text 25 250 4 "本文" black))"#),
+        "second text nudge: {out2}"
+    );
+}
+
+#[test]
+fn markup_without_page_nudge_errors_without_panic() {
+    let src = "(markup @heading(Hi)\n\nbody text\n)";
+    let err = nudge_layer_page(src, 0, 0, 1.0, 0.0).unwrap_err();
+    assert!(
+        err.message.contains("page") || err.message.contains("layer"),
+        "expected clear refuse, got: {}",
+        err.message
+    );
+}
