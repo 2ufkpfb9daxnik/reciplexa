@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use reciplexa_eval::{eval_expr, UnitHost};
 use reciplexa_package::{
     elaborate_with_packages, load_module_tree_with_packages, parse_rpxm, LocalPackageIndex,
+    Lockfile,
 };
 
 fn workspace_packages() -> PathBuf {
@@ -21,6 +22,8 @@ fn discovers_std_packages() {
     assert!(names.contains(&"graphics"));
     assert!(names.contains(&"length"));
     assert!(names.contains(&"color"));
+    assert!(names.contains(&"math"));
+    assert!(names.contains(&"japanese"));
 }
 
 #[test]
@@ -73,6 +76,54 @@ fn elaborate_and_eval_circle_from_package() {
         s.contains("circle") || s.contains("105"),
         "expected circle record value, got {s}"
     );
+}
+
+#[test]
+fn path_dep_alias_resolves_import() {
+    let consumer = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/pkg_consumer");
+    let (idx, manifest) =
+        LocalPackageIndex::discover_with_consumer(&[workspace_packages()], &consumer).unwrap();
+    assert_eq!(manifest.name, "pkg-consumer");
+    assert_eq!(idx.resolve_alias("g"), "graphics");
+    let (name, src) = idx.resolve_import("g/shapes").unwrap();
+    assert_eq!(name, "g/shapes");
+    assert!(src.contains("(val circle"));
+}
+
+#[test]
+fn path_dep_lockfile_roundtrip() {
+    let consumer = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/pkg_consumer");
+    let (idx, manifest) =
+        LocalPackageIndex::discover_with_consumer(&[workspace_packages()], &consumer).unwrap();
+    let lock = idx.lock_consumer(&manifest).unwrap();
+    assert!(lock.packages.iter().any(|p| p.source.starts_with("path:")));
+    let dir = tempfile_dir();
+    let lock_path = dir.join("rpx.lock");
+    lock.write_rpx_lock(&lock_path).unwrap();
+    let loaded = Lockfile::read_rpx_lock(&lock_path).unwrap();
+    assert_eq!(loaded, lock);
+}
+
+#[test]
+fn resolve_math_and_japanese_stubs() {
+    let idx = index();
+    let (_, math) = idx.resolve_import("math/atoms").unwrap();
+    assert!(math.contains("math-symbol") || math.contains("symbol"));
+    let (_, ja) = idx.resolve_import("japanese/markup").unwrap();
+    assert!(ja.contains("ja-heading") || ja.contains("heading"));
+}
+
+#[test]
+fn elaborate_consumer_via_alias_import() {
+    let consumer = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/pkg_consumer");
+    let (idx, _) =
+        LocalPackageIndex::discover_with_consumer(&[workspace_packages()], &consumer).unwrap();
+    let entry = consumer.join("src/main.rpx");
+    let units = elaborate_with_packages(&entry, &idx).unwrap();
+    let main = units.iter().find(|u| u.name == "main").unwrap();
+    let v = eval_expr(&main.expr, &HashMap::new(), &mut UnitHost).unwrap();
+    let s = format!("{v}");
+    assert!(s.contains("circle") || s.contains("10"), "got {s}");
 }
 
 fn tempfile_dir() -> PathBuf {

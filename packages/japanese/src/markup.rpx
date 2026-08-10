@@ -1,0 +1,7 @@
+(// japanese/markup — stub helpers for examples/markup_ja.rpx (Slice B).)
+(val heading (fn (title)
+  (record (tag "ja-heading") (title title))))
+(val note (fn (body)
+  (record (tag "ja-note") (body body))))
+(val section (fn (title)
+  (record (tag "ja-section") (title title))))

@@ -1,0 +1,4 @@
+(// stub .rpi for color/srgb)
+(val srgb)
+(val black)
+(val white)

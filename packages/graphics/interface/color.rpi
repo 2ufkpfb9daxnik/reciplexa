@@ -1,0 +1,7 @@
+(// stub .rpi for graphics/color)
+(val rgb)
+(val black)
+(val white)
+(val red)
+(val green)
+(val blue)

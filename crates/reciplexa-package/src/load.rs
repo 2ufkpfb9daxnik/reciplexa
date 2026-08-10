@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 
 use reciplexa_bind::{elaborate_units, parse_imports, ElaboratedUnit, ModuleError};
 
-use crate::manifest::PackageManifest;
+use crate::manifest::{DependencySpec, PackageManifest};
 use crate::rpxm::{parse_rpxm, RpxmError};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -45,6 +45,8 @@ impl std::fmt::Display for PackageLoadError {
 pub struct LocalPackageIndex {
     /// Formal package name → (package root, manifest).
     packages: BTreeMap<String, (PathBuf, PackageManifest)>,
+    /// Import first-segment alias → formal package name (Slice B path deps).
+    aliases: BTreeMap<String, String>,
 }
 
 impl LocalPackageIndex {
@@ -84,22 +86,94 @@ impl LocalPackageIndex {
                 packages.insert(manifest.name.clone(), (path, manifest));
             }
         }
-        Ok(Self { packages })
+        Ok(Self {
+            packages,
+            aliases: BTreeMap::new(),
+        })
     }
 
     pub fn get(&self, name: &str) -> Option<&(PathBuf, PackageManifest)> {
-        self.packages.get(name)
+        let formal = self.aliases.get(name).map(String::as_str).unwrap_or(name);
+        self.packages.get(formal)
     }
 
     pub fn package_names(&self) -> impl Iterator<Item = &str> {
         self.packages.keys().map(String::as_str)
     }
 
+    pub fn resolve_alias<'a>(&'a self, alias: &'a str) -> &'a str {
+        self.aliases.get(alias).map(String::as_str).unwrap_or(alias)
+    }
+
+    /// Slice B: register `(dependencies (alias package name version path "…"))` entries
+    /// relative to `consumer_root`, mapping import aliases to package instances.
+    pub fn register_path_dependencies(
+        &mut self,
+        consumer_root: &Path,
+        manifest: &PackageManifest,
+    ) -> Result<(), PackageLoadError> {
+        for dep in &manifest.dependencies {
+            let Some(rel) = &dep.path else {
+                continue;
+            };
+            let dep_root = consumer_root.join(rel);
+            let manifest_path = dep_root.join("package.rpxm");
+            if !manifest_path.is_file() {
+                return Err(PackageLoadError::NotFound(format!(
+                    "path dependency `{}` missing package.rpxm at `{}`",
+                    dep.name,
+                    manifest_path.display()
+                )));
+            }
+            let src = fs::read_to_string(&manifest_path).map_err(|e| {
+                PackageLoadError::Io(format!("read `{}`: {e}", manifest_path.display()))
+            })?;
+            let parsed = parse_rpxm(&src)?;
+            let formal = dep.package.clone().unwrap_or_else(|| parsed.name.clone());
+            if formal != parsed.name {
+                return Err(PackageLoadError::NotFound(format!(
+                    "path dependency `{}` expects package `{formal}` but found `{}`",
+                    dep.name, parsed.name
+                )));
+            }
+            // Exact version match for path deps (Slice B; no range solver).
+            if dep.version_req != "*" && !version_matches_exact(&dep.version_req, &parsed.version) {
+                return Err(PackageLoadError::NotFound(format!(
+                    "path dependency `{}` wants version `{}` but `{}` is `{}`",
+                    dep.name, dep.version_req, formal, parsed.version
+                )));
+            }
+            // If already discovered via search roots, keep that instance and only wire the alias.
+            if !self.packages.contains_key(&formal) {
+                self.packages.insert(formal.clone(), (dep_root, parsed));
+            }
+            self.aliases.insert(dep.name.clone(), formal);
+        }
+        Ok(())
+    }
+
+    /// Discover search roots, then overlay a consumer manifest's path deps / aliases.
+    pub fn discover_with_consumer(
+        search_roots: &[impl AsRef<Path>],
+        consumer_root: impl AsRef<Path>,
+    ) -> Result<(Self, PackageManifest), PackageLoadError> {
+        let mut index = Self::discover(search_roots)?;
+        let consumer_root = consumer_root.as_ref();
+        let manifest_path = consumer_root.join("package.rpxm");
+        let src = fs::read_to_string(&manifest_path).map_err(|e| {
+            PackageLoadError::Io(format!("read `{}`: {e}", manifest_path.display()))
+        })?;
+        let manifest = parse_rpxm(&src)?;
+        index.register_path_dependencies(consumer_root, &manifest)?;
+        Ok((index, manifest))
+    }
+
     /// Resolve `package` or `package/module/…` to `(unit_name, source)`.
     pub fn resolve_import(&self, import_path: &str) -> Result<(String, String), PackageLoadError> {
-        let (pkg_name, module_path) = split_package_import(import_path);
+        let (pkg_alias, module_path) = split_package_import(import_path);
+        let pkg_name = self.resolve_alias(pkg_alias);
         let (root, manifest) = self.packages.get(pkg_name).ok_or_else(|| {
-            PackageLoadError::NotFound(format!("package `{pkg_name}` not found on search path"))
+            PackageLoadError::NotFound(format!("package `{pkg_alias}` not found on search path"))
         })?;
 
         let module_path = if module_path.is_empty() {
@@ -125,6 +199,17 @@ impl LocalPackageIndex {
             )));
         }
 
+        // Slice B stub: when interface-root is set, require a sibling `.rpi` for public modules.
+        if let Some(iface) = &manifest.interface_root {
+            let rpi = root.join(iface).join(format!("{module_path}.rpi"));
+            if !rpi.is_file() {
+                return Err(PackageLoadError::NotFound(format!(
+                    "public module `{module_path}` in `{pkg_name}` missing interface stub `{}`",
+                    rpi.display()
+                )));
+            }
+        }
+
         let file = manifest.module_source_path(root, &module_path);
         let src = fs::read_to_string(&file).map_err(|e| {
             PackageLoadError::Io(format!(
@@ -135,6 +220,34 @@ impl LocalPackageIndex {
         // Unit name matches the import path the dependent wrote (`graphics` or `graphics/shapes`).
         Ok((import_path.to_string(), src))
     }
+
+    /// Build a path-dep lockfile for a consumer package root.
+    pub fn lock_consumer(
+        &self,
+        consumer: &PackageManifest,
+    ) -> Result<crate::lockfile::Lockfile, PackageLoadError> {
+        let mut dep_manifests: Vec<(DependencySpec, PackageManifest)> = Vec::new();
+        for spec in &consumer.dependencies {
+            if spec.path.is_none() {
+                continue;
+            }
+            let formal = self.resolve_alias(&spec.name);
+            let (_, manifest) = self.packages.get(formal).ok_or_else(|| {
+                PackageLoadError::NotFound(format!(
+                    "cannot lock missing path dependency `{}`",
+                    spec.name
+                ))
+            })?;
+            dep_manifests.push((spec.clone(), manifest.clone()));
+        }
+        let refs: Vec<(&DependencySpec, &PackageManifest)> =
+            dep_manifests.iter().map(|(s, m)| (s, m)).collect();
+        Ok(crate::lockfile::Lockfile::from_consumer(consumer, &refs))
+    }
+}
+
+fn version_matches_exact(req: &str, version: &str) -> bool {
+    req.trim_matches('"') == version.trim_matches('"')
 }
 
 fn split_package_import(import_path: &str) -> (&str, &str) {

@@ -1,0 +1,4 @@
+(// stub .rpi for math/atoms — full signature checking deferred (MOD/PKG))
+(val symbol)
+(val row)
+(val fraction)

@@ -1,0 +1,7 @@
+(// math/atoms — stub constructors aligned with reciplexa-std::math (Slice B/C).)
+(val symbol (fn (glyph class)
+  (record (tag "math-symbol") (glyph glyph) (class class))))
+(val row (fn (children)
+  (record (tag "math-row") (children children))))
+(val fraction (fn (num den)
+  (record (tag "math-fraction") (numerator num) (denominator den))))

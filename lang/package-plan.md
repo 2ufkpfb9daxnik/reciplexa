@@ -39,16 +39,17 @@ Goal: land local-path packages and std domain libraries after Part II conformanc
 
 ### Slice B — consumer packages + path deps
 
-- Consumer `package.rpxm` with `(dependencies (graphics package graphics version "…" path "…"))`
-- Alias → package instance mapping for import first segment
-- `rpx.lock` write/read for path deps (no registry)
+- [x] Consumer `package.rpxm` with `(dependencies (alias package name version path "…"))` (`examples/pkg_consumer`)
+- [x] Alias → package instance mapping for import first segment (`LocalPackageIndex::aliases`)
+- [x] `rpx.lock` write/read for path deps (no registry) (`Lockfile::from_consumer` / `write_rpx_lock`)
+- [x] `packages/math` + `packages/japanese` stubs; `.rpi` stubs when `interface-root` set
 
 ### Slice C — std domain depth
 
-- `packages/length` — `mm` / unit constructors (retire Number+Ident interim where safe)
-- `packages/color` — `rgb` / named colors as package constructors
-- `packages/math` — math atoms / helpers aligned with `reciplexa-std::math`
-- `packages/japanese` + markup — align with `examples/markup_ja.rpx` / japanese page
+- `packages/length` — deepen beyond stub (`mm` / unit constructors; retire Number+Ident interim where safe)
+- `packages/color` — deepen beyond stub (`rgb` / named colors)
+- `packages/math` — deepen atoms / helpers aligned with `reciplexa-std::math` (stub landed in Slice B)
+- `packages/japanese` + markup — deepen vs `examples/markup_ja.rpx` (stub landed in Slice B)
 
 ### Slice D — document migration (strangler)
 
@@ -94,3 +95,9 @@ cargo check --offline -p reciplexa-gui
 - [x] Example elaborates/evaluates via package import
 - [x] Interim document `page`/`circle` still green
 - [x] PKG-001 conformance rows updated; stats recomputed
+
+## Done when (Slice B)
+
+- [x] Consumer path deps + alias import (`g/shapes` → graphics)
+- [x] `rpx.lock` path sources round-trip
+- [x] math / japanese package stubs + public-module `.rpi` stubs

@@ -1,0 +1,8 @@
+(package pkg-consumer
+  format-version 1
+  version "0.1.0"
+  source-root "src"
+  (entry-points main)
+  (public-modules main)
+  (dependencies
+    (g package graphics version "0.1.0" path "../../packages/graphics")))

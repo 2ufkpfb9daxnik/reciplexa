@@ -1,0 +1,3 @@
+(// Consumer package: import via dependency alias `g` → graphics)
+(import g/shapes only circle)
+(val main (circle 10 20 5))

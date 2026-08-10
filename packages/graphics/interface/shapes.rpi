@@ -1,0 +1,4 @@
+(// stub .rpi for graphics/shapes — full signature checking deferred)
+(val circle)
+(val rect)
+(val ellipse)

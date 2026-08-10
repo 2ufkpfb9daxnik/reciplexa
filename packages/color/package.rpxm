@@ -2,5 +2,6 @@
   format-version 1
   version "0.1.0"
   source-root "src"
+  interface-root "interface"
   (public-modules
     srgb))
