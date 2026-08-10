@@ -690,6 +690,7 @@ fn is_language_keyword(name: &str) -> bool {
             | "match"
             | "true"
             | "false"
+            | "unit"
             | "perform"
             | "handle"
             // KER-001 primitives

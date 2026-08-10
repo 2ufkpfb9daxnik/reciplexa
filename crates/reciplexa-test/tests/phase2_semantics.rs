@@ -107,6 +107,7 @@ fn test_sem_c006_literal_types() {
             (CoreLiteral::Number(std::f64::consts::PI), CoreType::Number),
             (CoreLiteral::String("x".into()), CoreType::String),
             (CoreLiteral::Color("red".into()), CoreType::Color),
+            (CoreLiteral::Unit, CoreType::Unit),
         ] {
             let cv = typecheck_value(CoreExpr::Lit(lit), &TypeEnv::new(), range()).unwrap();
             assert_eq!(cv.ty, expected);

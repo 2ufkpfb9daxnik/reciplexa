@@ -1021,6 +1021,7 @@ fn elaborate_token(tok: &SyntaxToken, ctx: &ElabCtx) -> Result<CoreExpr, Elabora
         SyntaxKind::Ident => match tok.text() {
             "true" => Ok(CoreExpr::Lit(CoreLiteral::Bool(true))),
             "false" => Ok(CoreExpr::Lit(CoreLiteral::Bool(false))),
+            "unit" => Ok(CoreExpr::Lit(CoreLiteral::Unit)),
             name if ctx.data.ctors.get(name) == Some(&0) => Ok(CoreExpr::Variant {
                 tag: name.to_string(),
                 payload: None,

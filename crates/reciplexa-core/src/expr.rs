@@ -8,6 +8,8 @@ pub enum CoreLiteral {
     String(String),
     Color(String),
     Bool(bool),
+    /// SYN-001 / DAT-001: bare `unit` literal (not `()`).
+    Unit,
 }
 
 #[derive(Debug, Clone, PartialEq)]

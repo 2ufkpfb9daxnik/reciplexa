@@ -45,6 +45,12 @@ fn match_exhaustive_option_ok() {
 }
 
 #[test]
+fn unit_literal_types_as_unit() {
+    let ty = typecheck_language_source("(val main unit)").unwrap();
+    assert_eq!(ty, CoreType::Unit);
+}
+
+#[test]
 fn perform_adds_effect_to_fun() {
     use reciplexa_core::unify::Subst;
     use reciplexa_core::{elaborate_source, infer_with_effects, TypeEnv};

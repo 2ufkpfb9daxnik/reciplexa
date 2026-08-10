@@ -743,5 +743,6 @@ fn eval_lit(lit: &CoreLiteral) -> EvalResult {
         }
         CoreLiteral::Color(c) => RuntimeValue::String(c.clone()),
         CoreLiteral::Bool(b) => RuntimeValue::Bool(*b),
+        CoreLiteral::Unit => RuntimeValue::Unit,
     })
 }

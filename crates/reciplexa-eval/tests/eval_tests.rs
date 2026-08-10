@@ -557,6 +557,12 @@ fn eval_source_data_match_some() {
 }
 
 #[test]
+fn eval_source_unit_literal() {
+    let v = eval_source("(val main unit)").unwrap();
+    assert_eq!(v, RuntimeValue::Unit);
+}
+
+#[test]
 fn eval_source_letrec_simple() {
     // Recurse once then return 7 (no numeric primitives required).
     let src = r#"

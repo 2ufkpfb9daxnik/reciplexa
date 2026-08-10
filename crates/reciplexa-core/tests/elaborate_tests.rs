@@ -192,3 +192,22 @@ fn rejects_old_match_arm_without_arrow() {
         err.message
     );
 }
+
+#[test]
+fn elaborates_unit_literal() {
+    let expr = elaborate_source("(val main unit)").unwrap();
+    let CoreExpr::Let { value, .. } = expr else {
+        panic!("expected Let");
+    };
+    assert_eq!(*value, CoreExpr::Lit(CoreLiteral::Unit));
+}
+
+#[test]
+fn rejects_empty_parens_as_unit() {
+    let err = elaborate_source("(val main ())").unwrap_err();
+    assert!(
+        err.message.contains("empty list"),
+        "() must not be unit; got: {}",
+        err.message
+    );
+}
