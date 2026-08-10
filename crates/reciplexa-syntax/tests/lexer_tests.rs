@@ -113,10 +113,7 @@ fn lexes_mac_ellipsis_as_ident() {
     assert_eq!(texts("..."), vec!["..."]);
     assert_eq!(kinds("...+"), vec![SyntaxKind::Ident]);
     assert_eq!(texts("...+"), vec!["...+"]);
-    assert_eq!(
-        texts("($body ...+)"),
-        vec!["(", "$body", " ", "...+", ")"]
-    );
+    assert_eq!(texts("($body ...+)"), vec!["(", "$body", " ", "...+", ")"]);
 }
 
 #[test]
@@ -189,6 +186,12 @@ fn freestanding_ops_do_not_glue_letters() {
     // `+x` → freestanding `+` then Ident `x` (SYN §5).
     assert_eq!(kinds("+x"), vec![SyntaxKind::Ident, SyntaxKind::Ident]);
     assert_eq!(texts("+x"), vec!["+", "x"]);
+}
+
+#[test]
+fn structured_comment_slash_slash_is_one_ident() {
+    assert_eq!(kinds("//"), vec![SyntaxKind::Ident]);
+    assert_eq!(texts("//"), vec!["//"]);
 }
 
 #[test]

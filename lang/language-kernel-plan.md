@@ -7,11 +7,16 @@ Goal: complete LEX→SYN→MAC→RES→TYP/ROW/EFF→Core→EVAL/BND (+ MOD/KER/
 ### Fixed this round
 | Area | Spec | Status |
 |---|---|---|
+| MAC-001 `$params ...+` / template `...`; reject legacy no-`->` | MAC-001 | **done** (`lang_macro`; reserved via SYN table) |
+| SYN §7 numeric: radix / `_` / scientific / reject leading zeros | SYN §7 | **done** (`number_lit` + lexer; unit suffix stays Number+Ident) |
+| SYN §3 identifiers: NFC, kebab, no `_` in binders, trailing `?!` | SYN §3–5 | **done** (`ident.rs` + lexer/resolve/elaborate) |
+| `record-update` / `record-extend` | SYN §15.5 | **done** (CoreExpr + elaborate/check/eval) |
+| KER ops `/ > <= >= !=` in typecheck + resolve keywords | SYN §5 / KER | **done** (`check.rs` env + `is_language_keyword`) |
+| Surface `(type name Ty)` / `(dynamic)` / `(union …)` stub | SYN §16 | **done** (`DataEnv.type_aliases`, `CoreType::Union`) |
 | DAT match `_` / `bind` / nested payload patterns | DAT §14–16 | **done** (`CorePattern`; elaborate + eval + check) |
 | EFF ambient `(log …)` / `(random)` | EFF-001 DD-EFF-013 | **done** (→ `Perform`; Core `handle` still primary) |
 | `local` / `rec` declaration groups | SYN §13.4–13.5 | **done** (local→lets; rec→`LetRec`) |
 | MOD `import` path / `as` / flat `only` | MOD §6 | **done** (parse + link skeleton; qualified refs deferred) |
-| KER ops `/ > <= >= !=` | SYN §5 / KER | **done** (`primitive_env` + Ident lex) |
 | String literals: no backslash escapes | SYN §8.1 | **done** (lexer + elaborate/effect/lower read path) |
 | EFF Surface `with` / first-class `handler` | DD-EFF-011/012 | **done** (`HandlerValue` + `With`; interim op+fn shape) |
 | `"""` multi-quote string delimiters | SYN §8.2–8.3 | **done** (lexer + `decode_string_literal` / encode) |
@@ -25,11 +30,14 @@ Goal: complete LEX→SYN→MAC→RES→TYP/ROW/EFF→Core→EVAL/BND (+ MOD/KER/
 |---|---|
 | EFF multi-shot / shallow handlers | intentional deferral |
 | EFF handler `return` clauses / full `Handler<L,A,B,H>` typing | interim op+fn handlers only |
-| `/` not in normal idents (path-only) | `/` still `ident_continue` so `graphics/color` is one Ident |
+| `/` not in normal idents (path-only) | `/` still joins MOD path idents so `graphics/color` is one Ident; freestanding `/` is the div op; `//` kept as one Ident for structured comments |
 | ROW unrestricted / multi-tail | ROW-001 deferral |
 | Full MOD functors / signatures | MOD-001 deferral |
 | DAT parameterized ADTs | DAT-001 deferral |
 | Record patterns (§18) | not started |
+| Unit suffixes as typed constructors | interim Number+Ident (`40mm`); NumberWithUnit / package apply deferred with PKG |
+| `CoreType::Union` / local type-alias registration | union unifies like Dynamic; local `(type …)` parse-checked only |
+| Mem IR for `record-update` / `record-extend` | evaluates field exprs but returns base register (eval path is correct) |
 
 ## Status: **COMPLETE for pre-PKG** (with gaps above tracked)
 
@@ -37,10 +45,10 @@ Language kernel is complete enough for pre-PKG. Intentional deferrals listed bel
 
 ## Ordered work
 1. CoreExpr::Var + env; if; n-ary fn/app — **done**
-2. Surface elaborator: val/fn/let/seq → Core — **done** (+ perform/handle/handler/with; ambient apps; local/rec)
-3. RES lexical resolve over binders — **done** (`resolve_language_source` + `BindingMap`)
-4. MAC-001 hygienic macros (language); quarantine graphics macros — **done** (`expand_language`)
-5. TYP-001 on Core (+ dynamic stub) — **done** (`typecheck_language_source`, `CoreType::Dynamic`)
+2. Surface elaborator: val/fn/let/seq → Core — **done** (+ perform/handle/handler/with; ambient apps; local/rec; type aliases; record-update/extend)
+3. RES lexical resolve over binders — **done** (`resolve_language_source` + `BindingMap` + NFC)
+4. MAC-001 hygienic macros (language); quarantine graphics macros — **done** (`expand_language`; `...+` / reject legacy)
+5. TYP-001 on Core (+ dynamic stub) — **done** (`typecheck_language_source`, `CoreType::Dynamic` / `Union`)
 6. ROW-001 fragment — **done** (closed + `OpenRecord` row vars; `Lacks` enforced in unify)
 7. DAT interim: data/match — **done** (surface `data`/`match` → Core; `_`/`bind`/nested/literal/tuple/multi-payload; **static exhaustiveness**)
 8. EFF-001 deep handlers — **done** (deep one-shot resume; ambient apps; first-class `handler`/`with`; **EffectRow on Fun** via `infer_with_effects`)

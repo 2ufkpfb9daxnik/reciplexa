@@ -115,7 +115,7 @@ fn try_macro_def(form: &Sexpr) -> Result<Option<(String, MacroDef)>, ExpandError
 
     let (params, rest) = parse_macro_params(param_items)?;
     // Unbound template pattern vars are a definition-time error (MAC §18.4).
-    check_template_vars(&template, &params, rest.as_deref())?;
+    check_template_vars(template, &params, rest.as_deref())?;
 
     Ok(Some((
         name.clone(),
@@ -127,9 +127,7 @@ fn try_macro_def(form: &Sexpr) -> Result<Option<(String, MacroDef)>, ExpandError
     )))
 }
 
-fn parse_macro_params(
-    param_items: &[Sexpr],
-) -> Result<(Vec<String>, Option<String>), ExpandError> {
+fn parse_macro_params(param_items: &[Sexpr]) -> Result<(Vec<String>, Option<String>), ExpandError> {
     let mut params = Vec::new();
     let mut rest = None;
     let mut seen = std::collections::HashSet::new();
@@ -669,11 +667,7 @@ mod tests {
         for name in ["perform", "handle", "data", "var", "set", "with"] {
             let src = format!("(macro {name} ($x) -> $x)\n(val main 1)");
             let err = expand_language(&src).unwrap_err();
-            assert!(
-                err.message.contains("reserved"),
-                "{name}: {}",
-                err.message
-            );
+            assert!(err.message.contains("reserved"), "{name}: {}", err.message);
         }
     }
 }

@@ -408,6 +408,12 @@ impl<'a> Lexer<'a> {
 
         if matches!(c, '+' | '-' | '*' | '/' | '=' | '<' | '>' | '!') {
             let after = self.peek_char_at(c.len_utf8());
+            // Structured comments use Ident `//` (SYN); keep as one token.
+            if c == '/' && after == Some('/') {
+                self.advance_char();
+                self.advance_char();
+                return Some(self.finish(SyntaxKind::Ident, start));
+            }
             // `/` may continue into MOD path idents (`graphics/color`) — interim.
             if c == '/' && after.is_some_and(|ch| ch.is_alphabetic() || ch.is_ascii_digit()) {
                 return None;
