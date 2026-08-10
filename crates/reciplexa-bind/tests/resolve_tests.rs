@@ -206,3 +206,35 @@ fn language_data_and_match_resolve() {
     assert!(r.env.bindings.values().any(|n| n == "None"));
     assert!(r.env.bindings.values().any(|n| n == "Some"));
 }
+
+#[test]
+fn language_binding_map_use_site_to_declaration() {
+    use reciplexa_source::offset::ByteOffset;
+    use reciplexa_source::range::TextRange;
+
+    let src = "(val x 1) (val main x)";
+    let r = resolve_language_source(src);
+    assert!(r.is_ok(), "{:?}", r.errors);
+    let decl_id = r
+        .env
+        .bindings
+        .iter()
+        .find(|(_, name)| *name == "x")
+        .map(|(id, _)| *id)
+        .expect("x declaration");
+    // Last `x` is the use-site in `(val main x)`.
+    let use_start = src.rfind('x').expect("use site");
+    let range = TextRange::try_new(
+        ByteOffset::new(use_start as u32),
+        ByteOffset::new((use_start + 1) as u32),
+    )
+    .unwrap();
+    assert_eq!(
+        r.binding_map.binding_at(range),
+        Some(decl_id),
+        "use-site should map to declaration BindingId; map={:?}",
+        r.binding_map.uses
+    );
+    assert_eq!(r.env.bindings.get(&decl_id).map(String::as_str), Some("x"));
+}
+

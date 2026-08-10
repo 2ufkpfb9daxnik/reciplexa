@@ -14,6 +14,6 @@ pub use module::{
 };
 pub use package::{resolve_package, PackageResolveResult};
 pub use resolve::{
-    resolve_language_source, resolve_source, BindingEnv, ResolveError, ResolveResult,
+    resolve_language_source, resolve_source, BindingEnv, BindingMap, ResolveError, ResolveResult,
 };
 pub use scope::{ScopeStack, ScopeTree};

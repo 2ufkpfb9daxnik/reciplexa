@@ -21,6 +21,23 @@ pub struct BindingEnv {
     pub builtin_colors: HashMap<String, BindingId>,
 }
 
+/// Use-site → declaration [`BindingId`] map (EDT-001).
+#[derive(Debug, Clone, Default)]
+pub struct BindingMap {
+    /// Source range of an identifier use → declaring binding.
+    pub uses: HashMap<TextRange, BindingId>,
+}
+
+impl BindingMap {
+    pub fn record(&mut self, range: TextRange, id: BindingId) {
+        self.uses.insert(range, id);
+    }
+
+    pub fn binding_at(&self, range: TextRange) -> Option<BindingId> {
+        self.uses.get(&range).copied()
+    }
+}
+
 /// A single resolution diagnostic.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResolveError {
@@ -33,6 +50,8 @@ pub struct ResolveError {
 pub struct ResolveResult {
     pub env: BindingEnv,
     pub errors: Vec<ResolveError>,
+    /// Populated by [`resolve_language_source`] for use-site BindingId lookup.
+    pub binding_map: BindingMap,
 }
 
 impl ResolveResult {
@@ -56,6 +75,7 @@ pub fn resolve_language_source(source: &str) -> ResolveResult {
     let mut stack = ScopeStack::new();
     let mut env = BindingEnv::default();
     let mut errors = Vec::new();
+    let mut binding_map = BindingMap::default();
 
     if parse.has_errors() {
         for e in &parse.errors {
@@ -68,7 +88,11 @@ pub fn resolve_language_source(source: &str) -> ResolveResult {
                 .expect("parse error spans are ordered"),
             });
         }
-        return ResolveResult { env, errors };
+        return ResolveResult {
+            env,
+            errors,
+            binding_map,
+        };
     }
 
     for el in parse.root.children_with_tokens() {
@@ -77,17 +101,23 @@ pub fn resolve_language_source(source: &str) -> ResolveResult {
                 if t.kind().is_trivia() {
                     continue;
                 }
-                lang_resolve_token(&t, &stack, &mut errors);
+                lang_resolve_token(&t, &stack, &mut errors, &mut binding_map);
             }
             SyntaxElement::Node(n) => match n.kind() {
                 SyntaxKind::StructuredComment => continue,
-                SyntaxKind::List => lang_resolve_top_form(&n, &mut stack, &mut env, &mut errors),
-                _ => lang_resolve_expr_node(&n, &mut stack, &mut env, &mut errors),
+                SyntaxKind::List => {
+                    lang_resolve_top_form(&n, &mut stack, &mut env, &mut errors, &mut binding_map)
+                }
+                _ => lang_resolve_expr_node(&n, &mut stack, &mut env, &mut errors, &mut binding_map),
             },
         }
     }
 
-    ResolveResult { env, errors }
+    ResolveResult {
+        env,
+        errors,
+        binding_map,
+    }
 }
 
 /// Resolve builtin color names and top-level form heads in a document source.
@@ -114,7 +144,11 @@ pub fn resolve_source(source: &str) -> ResolveResult {
                 .expect("parse error spans are ordered"),
             });
         }
-        return ResolveResult { env, errors };
+        return ResolveResult {
+            env,
+            errors,
+            binding_map: BindingMap::default(),
+        };
     }
 
     for form in parse.root.children() {
@@ -125,7 +159,7 @@ pub fn resolve_source(source: &str) -> ResolveResult {
         resolve_form(&form, &mut stack, &mut env, &mut errors);
     }
 
-    ResolveResult { env, errors }
+    ResolveResult { env, errors, binding_map: BindingMap::default() }
 }
 
 fn lang_resolve_top_form(
@@ -133,17 +167,18 @@ fn lang_resolve_top_form(
     stack: &mut ScopeStack,
     env: &mut BindingEnv,
     errors: &mut Vec<ResolveError>,
+    map: &mut BindingMap,
 ) {
     if is_quarantined_head(node) {
         return;
     }
     let atoms = list_atoms(node);
     let Some(Atom::Token(head)) = atoms.first() else {
-        lang_resolve_expr_node(node, stack, env, errors);
+        lang_resolve_expr_node(node, stack, env, errors, map);
         return;
     };
     if head.kind() != SyntaxKind::Ident {
-        lang_resolve_expr_node(node, stack, env, errors);
+        lang_resolve_expr_node(node, stack, env, errors, map);
         return;
     }
     match head.text() {
@@ -170,20 +205,20 @@ fn lang_resolve_top_form(
                 }
             }
         }
-        "val" => lang_resolve_val_decl(&atoms[1..], stack, env, errors),
+        "val" => lang_resolve_val_decl(&atoms[1..], stack, env, errors, map),
         "fn" => {
             // Top-level named function: (fn name (params...) body...)
             if atoms.len() >= 3 {
                 if let (Atom::Token(name_tok), Atom::Node(params)) = (&atoms[1], &atoms[2]) {
                     if name_tok.kind() == SyntaxKind::Ident && is_param_list(params) {
-                        lang_resolve_fn_body(params, &atoms[3..], stack, env, errors);
+                        lang_resolve_fn_body(params, &atoms[3..], stack, env, errors, map);
                         declare_binding(name_tok.text(), stack, env);
                         return;
                     }
                 }
             }
             // Anonymous `(fn …)` at top level is an expression.
-            lang_resolve_expr_node(node, stack, env, errors);
+            lang_resolve_expr_node(node, stack, env, errors, map);
         }
         "type" => {
             // Declare the type binder; type-expression bodies are a separate
@@ -194,7 +229,7 @@ fn lang_resolve_top_form(
                 }
             }
         }
-        _ => lang_resolve_expr_node(node, stack, env, errors),
+        _ => lang_resolve_expr_node(node, stack, env, errors, map),
     }
 }
 
@@ -203,6 +238,7 @@ fn lang_resolve_val_decl(
     stack: &mut ScopeStack,
     env: &mut BindingEnv,
     errors: &mut Vec<ResolveError>,
+    map: &mut BindingMap,
 ) {
     if rest.is_empty() {
         return;
@@ -211,7 +247,7 @@ fn lang_resolve_val_decl(
         Atom::Token(name_tok) if name_tok.kind() == SyntaxKind::Ident => {
             // Resolve initializer before declaring (non-recursive).
             for atom in &rest[1..] {
-                lang_resolve_atom(atom, stack, env, errors);
+                lang_resolve_atom(atom, stack, env, errors, map);
             }
             declare_binding(name_tok.text(), stack, env);
         }
@@ -233,16 +269,16 @@ fn lang_resolve_val_decl(
                 }
             }
             for atom in &rest[1..] {
-                lang_resolve_atom(atom, stack, env, errors);
+                lang_resolve_atom(atom, stack, env, errors, map);
             }
             stack.pop_scope();
             declare_binding(name_tok.text(), stack, env);
         }
         other => {
             // Malformed binder — still try to resolve remaining atoms.
-            lang_resolve_atom(other, stack, env, errors);
+            lang_resolve_atom(other, stack, env, errors, map);
             for atom in &rest[1..] {
-                lang_resolve_atom(atom, stack, env, errors);
+                lang_resolve_atom(atom, stack, env, errors, map);
             }
         }
     }
@@ -254,6 +290,7 @@ fn lang_resolve_fn_body(
     stack: &mut ScopeStack,
     env: &mut BindingEnv,
     errors: &mut Vec<ResolveError>,
+    map: &mut BindingMap,
 ) {
     stack.push_scope();
     for atom in list_atoms(params) {
@@ -264,7 +301,7 @@ fn lang_resolve_fn_body(
         }
     }
     for atom in body {
-        lang_resolve_atom(atom, stack, env, errors);
+        lang_resolve_atom(atom, stack, env, errors, map);
     }
     stack.pop_scope();
 }
@@ -274,15 +311,16 @@ fn lang_resolve_expr_node(
     stack: &mut ScopeStack,
     env: &mut BindingEnv,
     errors: &mut Vec<ResolveError>,
+    map: &mut BindingMap,
 ) {
     match node.kind() {
-        SyntaxKind::List | SyntaxKind::BracketList => lang_resolve_list(node, stack, env, errors),
+        SyntaxKind::List | SyntaxKind::BracketList => lang_resolve_list(node, stack, env, errors, map),
         _ => {
             for el in node.children_with_tokens() {
                 if let SyntaxElement::Token(t) = el {
-                    lang_resolve_token(&t, stack, errors);
+                    lang_resolve_token(&t, stack, errors, map);
                 } else if let SyntaxElement::Node(n) = el {
-                    lang_resolve_expr_node(&n, stack, env, errors);
+                    lang_resolve_expr_node(&n, stack, env, errors, map);
                 }
             }
         }
@@ -294,6 +332,7 @@ fn lang_resolve_list(
     stack: &mut ScopeStack,
     env: &mut BindingEnv,
     errors: &mut Vec<ResolveError>,
+    map: &mut BindingMap,
 ) {
     if is_quarantined_head(node) {
         return;
@@ -307,49 +346,49 @@ fn lang_resolve_list(
         if head.kind() == SyntaxKind::Ident {
             match head.text() {
                 "fn" => {
-                    lang_resolve_fn_expr(&atoms[1..], stack, env, errors);
+                    lang_resolve_fn_expr(&atoms[1..], stack, env, errors, map);
                     return;
                 }
                 "let" => {
-                    lang_resolve_let(&atoms[1..], stack, env, errors);
+                    lang_resolve_let(&atoms[1..], stack, env, errors, map);
                     return;
                 }
                 "letrec" => {
-                    lang_resolve_letrec(&atoms[1..], stack, env, errors);
+                    lang_resolve_letrec(&atoms[1..], stack, env, errors, map);
                     return;
                 }
                 "var" => {
-                    lang_resolve_var(&atoms[1..], stack, env, errors);
+                    lang_resolve_var(&atoms[1..], stack, env, errors, map);
                     return;
                 }
                 "set" => {
                     // (set name expr) — name is a use of a var binder.
                     for atom in &atoms[1..] {
-                        lang_resolve_atom(atom, stack, env, errors);
+                        lang_resolve_atom(atom, stack, env, errors, map);
                     }
                     return;
                 }
                 "match" => {
-                    lang_resolve_match(&atoms[1..], stack, env, errors);
+                    lang_resolve_match(&atoms[1..], stack, env, errors, map);
                     return;
                 }
                 "perform" => {
                     // (perform op arg) — op is an effect name, not a value binding.
                     for atom in atoms.iter().skip(2) {
-                        lang_resolve_atom(atom, stack, env, errors);
+                        lang_resolve_atom(atom, stack, env, errors, map);
                     }
                     return;
                 }
                 "handle" => {
                     // (handle op handler body) — op is an effect name.
                     for atom in atoms.iter().skip(2) {
-                        lang_resolve_atom(atom, stack, env, errors);
+                        lang_resolve_atom(atom, stack, env, errors, map);
                     }
                     return;
                 }
                 "if" | "seq" => {
                     for atom in &atoms[1..] {
-                        lang_resolve_atom(atom, stack, env, errors);
+                        lang_resolve_atom(atom, stack, env, errors, map);
                     }
                     return;
                 }
@@ -357,7 +396,7 @@ fn lang_resolve_list(
                     // Nested `val`/`type` are not local binders on the language
                     // surface; treat remaining atoms as expressions.
                     for atom in &atoms[1..] {
-                        lang_resolve_atom(atom, stack, env, errors);
+                        lang_resolve_atom(atom, stack, env, errors, map);
                     }
                     return;
                 }
@@ -368,7 +407,7 @@ fn lang_resolve_list(
 
     // Application / other list: every atom is a use-site (or nested form).
     for atom in &atoms {
-        lang_resolve_atom(atom, stack, env, errors);
+        lang_resolve_atom(atom, stack, env, errors, map);
     }
 }
 
@@ -377,6 +416,7 @@ fn lang_resolve_fn_expr(
     stack: &mut ScopeStack,
     env: &mut BindingEnv,
     errors: &mut Vec<ResolveError>,
+    map: &mut BindingMap,
 ) {
     // (fn (params...) body...)
     // (fn name (params...) body...) — optional name is not bound in expression position
@@ -389,12 +429,12 @@ fn lang_resolve_fn_expr(
         }
         _ => {
             for atom in rest {
-                lang_resolve_atom(atom, stack, env, errors);
+                lang_resolve_atom(atom, stack, env, errors, map);
             }
             return;
         }
     };
-    lang_resolve_fn_body(params, body, stack, env, errors);
+    lang_resolve_fn_body(params, body, stack, env, errors, map);
 }
 
 fn lang_resolve_var(
@@ -402,6 +442,7 @@ fn lang_resolve_var(
     stack: &mut ScopeStack,
     env: &mut BindingEnv,
     errors: &mut Vec<ResolveError>,
+    map: &mut BindingMap,
 ) {
     // (var name init body...)
     if rest.is_empty() {
@@ -409,7 +450,7 @@ fn lang_resolve_var(
     }
     // Resolve init before declaring (non-recursive).
     if let Some(init) = rest.get(1) {
-        lang_resolve_atom(init, stack, env, errors);
+        lang_resolve_atom(init, stack, env, errors, map);
     }
     stack.push_scope();
     if let Atom::Token(name_tok) = &rest[0] {
@@ -418,7 +459,7 @@ fn lang_resolve_var(
         }
     }
     for atom in rest.iter().skip(2) {
-        lang_resolve_atom(atom, stack, env, errors);
+        lang_resolve_atom(atom, stack, env, errors, map);
     }
     stack.pop_scope();
 }
@@ -428,17 +469,18 @@ fn lang_resolve_letrec(
     stack: &mut ScopeStack,
     env: &mut BindingEnv,
     errors: &mut Vec<ResolveError>,
+    map: &mut BindingMap,
 ) {
     // (letrec ((name (fn …))...) body...) — all binders visible in every RHS.
     let Some(Atom::Node(bindings_node)) = rest.first() else {
         for atom in rest {
-            lang_resolve_atom(atom, stack, env, errors);
+            lang_resolve_atom(atom, stack, env, errors, map);
         }
         return;
     };
     if bindings_node.kind() != SyntaxKind::List {
         for atom in rest {
-            lang_resolve_atom(atom, stack, env, errors);
+            lang_resolve_atom(atom, stack, env, errors, map);
         }
         return;
     }
@@ -462,11 +504,11 @@ fn lang_resolve_letrec(
     for pair in &pairs {
         let pair_atoms = list_atoms(pair);
         for a in pair_atoms.iter().skip(1) {
-            lang_resolve_atom(a, stack, env, errors);
+            lang_resolve_atom(a, stack, env, errors, map);
         }
     }
     for atom in &rest[1..] {
-        lang_resolve_atom(atom, stack, env, errors);
+        lang_resolve_atom(atom, stack, env, errors, map);
     }
     stack.pop_scope();
 }
@@ -476,15 +518,16 @@ fn lang_resolve_match(
     stack: &mut ScopeStack,
     env: &mut BindingEnv,
     errors: &mut Vec<ResolveError>,
+    map: &mut BindingMap,
 ) {
     // (match scrutinee (pattern body...)...)
     if rest.is_empty() {
         return;
     }
-    lang_resolve_atom(&rest[0], stack, env, errors);
+    lang_resolve_atom(&rest[0], stack, env, errors, map);
     for arm in &rest[1..] {
         let Atom::Node(arm_node) = arm else {
-            lang_resolve_atom(arm, stack, env, errors);
+            lang_resolve_atom(arm, stack, env, errors, map);
             continue;
         };
         let arm_atoms = list_atoms(arm_node);
@@ -495,13 +538,13 @@ fn lang_resolve_match(
         // Pattern binders: Tag | (Tag binder)
         match &arm_atoms[0] {
             Atom::Token(t) if t.kind() == SyntaxKind::Ident => {
-                lang_resolve_token(t, stack, errors);
+                lang_resolve_token(t, stack, errors, map);
             }
             Atom::Node(pat) if pat.kind() == SyntaxKind::List => {
                 let pat_atoms = list_atoms(pat);
                 if let Some(Atom::Token(tag)) = pat_atoms.first() {
                     if tag.kind() == SyntaxKind::Ident {
-                        lang_resolve_token(tag, stack, errors);
+                        lang_resolve_token(tag, stack, errors, map);
                     }
                 }
                 if let Some(Atom::Token(binder)) = pat_atoms.get(1) {
@@ -510,10 +553,10 @@ fn lang_resolve_match(
                     }
                 }
             }
-            other => lang_resolve_atom(other, stack, env, errors),
+            other => lang_resolve_atom(other, stack, env, errors, map),
         }
         for body in &arm_atoms[1..] {
-            lang_resolve_atom(body, stack, env, errors);
+            lang_resolve_atom(body, stack, env, errors, map);
         }
         stack.pop_scope();
     }
@@ -524,18 +567,19 @@ fn lang_resolve_let(
     stack: &mut ScopeStack,
     env: &mut BindingEnv,
     errors: &mut Vec<ResolveError>,
+    map: &mut BindingMap,
 ) {
     // (let ((name expr)...) body...) — sequential (let*) so later inits see
     // earlier binders; matches Core elaborator nesting.
     let Some(Atom::Node(bindings_node)) = rest.first() else {
         for atom in rest {
-            lang_resolve_atom(atom, stack, env, errors);
+            lang_resolve_atom(atom, stack, env, errors, map);
         }
         return;
     };
     if bindings_node.kind() != SyntaxKind::List {
         for atom in rest {
-            lang_resolve_atom(atom, stack, env, errors);
+            lang_resolve_atom(atom, stack, env, errors, map);
         }
         return;
     }
@@ -551,26 +595,26 @@ fn lang_resolve_let(
         let pair_atoms = list_atoms(&pair);
         if pair_atoms.len() < 2 {
             for a in &pair_atoms {
-                lang_resolve_atom(a, stack, env, errors);
+                lang_resolve_atom(a, stack, env, errors, map);
             }
             continue;
         }
         let Atom::Token(name_tok) = &pair_atoms[0] else {
             for a in &pair_atoms {
-                lang_resolve_atom(a, stack, env, errors);
+                lang_resolve_atom(a, stack, env, errors, map);
             }
             continue;
         };
         // Resolve init in current (already extended) scope, then declare.
         for a in &pair_atoms[1..] {
-            lang_resolve_atom(a, stack, env, errors);
+            lang_resolve_atom(a, stack, env, errors, map);
         }
         if name_tok.kind() == SyntaxKind::Ident {
             declare_binding(name_tok.text(), stack, env);
         }
     }
     for atom in &rest[1..] {
-        lang_resolve_atom(atom, stack, env, errors);
+        lang_resolve_atom(atom, stack, env, errors, map);
     }
     stack.pop_scope();
 }
@@ -580,14 +624,20 @@ fn lang_resolve_atom(
     stack: &mut ScopeStack,
     env: &mut BindingEnv,
     errors: &mut Vec<ResolveError>,
+    map: &mut BindingMap,
 ) {
     match atom {
-        Atom::Token(t) => lang_resolve_token(t, stack, errors),
-        Atom::Node(n) => lang_resolve_expr_node(n, stack, env, errors),
+        Atom::Token(t) => lang_resolve_token(t, stack, errors, map),
+        Atom::Node(n) => lang_resolve_expr_node(n, stack, env, errors, map),
     }
 }
 
-fn lang_resolve_token(tok: &SyntaxToken, stack: &ScopeStack, errors: &mut Vec<ResolveError>) {
+fn lang_resolve_token(
+    tok: &SyntaxToken,
+    stack: &ScopeStack,
+    errors: &mut Vec<ResolveError>,
+    map: &mut BindingMap,
+) {
     if tok.kind() != SyntaxKind::Ident {
         return;
     }
@@ -595,7 +645,8 @@ fn lang_resolve_token(tok: &SyntaxToken, stack: &ScopeStack, errors: &mut Vec<Re
     if is_language_keyword(name) {
         return;
     }
-    if stack.lookup(name).is_some() {
+    if let Some(id) = stack.lookup(name) {
+        map.record(token_range(tok), id);
         return;
     }
     errors.push(ResolveError {
