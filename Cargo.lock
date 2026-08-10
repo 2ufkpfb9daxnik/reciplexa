@@ -2875,6 +2875,8 @@ dependencies = [
 name = "reciplexa-bind"
 version = "0.1.0"
 dependencies = [
+ "reciplexa-core",
+ "reciplexa-eval",
  "reciplexa-identity",
  "reciplexa-source",
  "reciplexa-syntax",

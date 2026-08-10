@@ -1,7 +1,15 @@
-//! Module skeleton for multi-unit programs.
+//! Module skeleton for multi-unit programs (MOD-001).
+//!
+//! Outer module = one source unit. `(import other)` / `(import other only (a b))`
+//! are resolved in-memory via [`elaborate_units`] (no filesystem IO).
 
+use std::collections::HashMap;
+
+use reciplexa_core::elaborate::{elaborate_source, ElaborateError};
+use reciplexa_core::expr::CoreExpr;
 use reciplexa_identity::package::{ModuleId, PackageInstanceId};
 use reciplexa_source::resource::SourceResourceId;
+use reciplexa_syntax::{parse_source, SyntaxElement, SyntaxKind, SyntaxNode};
 
 /// A single compilable unit within a package instance.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -38,4 +46,275 @@ impl ModuleSkeleton {
     pub fn find(&self, module_id: ModuleId) -> Option<&ModuleUnit> {
         self.units.iter().find(|u| u.module_id == module_id)
     }
+}
+
+/// `(import other)` or `(import other only (a b))`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ImportDecl {
+    pub module: String,
+    pub only: Option<Vec<String>>,
+}
+
+/// One elaborated outer module unit.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ElaboratedUnit {
+    pub name: String,
+    pub imports: Vec<ImportDecl>,
+    /// Core expression for this unit with imports linked as outer `let`s.
+    pub expr: CoreExpr,
+    /// Top-level binding names defined in this unit (before import linking).
+    pub exports: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ModuleError {
+    pub message: String,
+}
+
+impl ModuleError {
+    fn new(message: impl Into<String>) -> Self {
+        Self {
+            message: message.into(),
+        }
+    }
+}
+
+impl From<ElaborateError> for ModuleError {
+    fn from(e: ElaborateError) -> Self {
+        Self {
+            message: e.message,
+        }
+    }
+}
+
+/// Elaborate multiple in-memory units and link `(import …)` skeletons.
+///
+/// Each `(name, src)` pair is one outer module. Imports refer to sibling names
+/// in the same slice (no path IO).
+pub fn elaborate_units(units: &[(&str, &str)]) -> Result<Vec<ElaboratedUnit>, ModuleError> {
+    if units.is_empty() {
+        return Err(ModuleError::new(
+            "elaborate_units requires at least one unit",
+        ));
+    }
+
+    let mut names = HashMap::new();
+    for (name, _) in units {
+        if names.insert((*name).to_string(), ()).is_some() {
+            return Err(ModuleError::new(format!("duplicate module name `{name}`")));
+        }
+    }
+
+    let mut parsed: Vec<(String, Vec<ImportDecl>, CoreExpr, Vec<String>)> = Vec::new();
+    for (name, src) in units {
+        let (imports, body_src) = split_imports(src)?;
+        for imp in &imports {
+            if !names.contains_key(&imp.module) {
+                return Err(ModuleError::new(format!(
+                    "module `{name}` imports unknown unit `{}`",
+                    imp.module
+                )));
+            }
+            if imp.module == *name {
+                return Err(ModuleError::new(format!(
+                    "module `{name}` cannot import itself"
+                )));
+            }
+        }
+        let expr = if body_src.trim().is_empty() {
+            CoreExpr::Seq(vec![])
+        } else {
+            elaborate_source(&body_src)?
+        };
+        let exports = collect_export_names(&expr);
+        parsed.push(((*name).to_string(), imports, expr, exports));
+    }
+
+    let binding_tables: HashMap<String, HashMap<String, CoreExpr>> = parsed
+        .iter()
+        .map(|(name, _, expr, _)| (name.clone(), collect_bindings(expr)))
+        .collect();
+
+    let mut out = Vec::with_capacity(parsed.len());
+    for (name, imports, expr, exports) in parsed {
+        let mut linked = expr;
+        for imp in imports.iter().rev() {
+            let table = binding_tables.get(&imp.module).ok_or_else(|| {
+                ModuleError::new(format!("missing unit `{}` during link", imp.module))
+            })?;
+            let export_names: Vec<String> = match &imp.only {
+                Some(only) => only.clone(),
+                None => {
+                    let mut keys: Vec<_> = table.keys().cloned().collect();
+                    keys.sort();
+                    keys
+                }
+            };
+            for export_name in export_names.into_iter().rev() {
+                let value = table.get(&export_name).ok_or_else(|| {
+                    ModuleError::new(format!(
+                        "module `{name}` imports `{export_name}` from `{}`, but it is not exported",
+                        imp.module
+                    ))
+                })?;
+                linked = CoreExpr::Let {
+                    name: export_name,
+                    value: Box::new(value.clone()),
+                    body: Box::new(linked),
+                };
+            }
+        }
+        out.push(ElaboratedUnit {
+            name,
+            imports,
+            expr: linked,
+            exports,
+        });
+    }
+    Ok(out)
+}
+
+fn split_imports(src: &str) -> Result<(Vec<ImportDecl>, String), ModuleError> {
+    let parse = parse_source(src);
+    if let Some(err) = parse.errors.first() {
+        return Err(ModuleError::new(format!("parse error: {}", err.message)));
+    }
+    let mut imports = Vec::new();
+    let mut body_parts = Vec::new();
+    for el in parse.root.children_with_tokens() {
+        match el {
+            SyntaxElement::Token(t) => {
+                body_parts.push(t.text().to_string());
+            }
+            SyntaxElement::Node(n) => {
+                if n.kind() == SyntaxKind::StructuredComment {
+                    continue;
+                }
+                if n.kind() == SyntaxKind::List {
+                    if let Some(imp) = parse_import_list(&n)? {
+                        imports.push(imp);
+                        continue;
+                    }
+                }
+                let range = n.text_range();
+                let start: usize = range.start().into();
+                let end: usize = range.end().into();
+                body_parts.push(src[start..end].to_string());
+                body_parts.push("\n".into());
+            }
+        }
+    }
+    Ok((imports, body_parts.concat()))
+}
+
+fn parse_import_list(node: &SyntaxNode) -> Result<Option<ImportDecl>, ModuleError> {
+    let atoms = list_idents_and_nodes(node);
+    let Some(head) = atoms.first() else {
+        return Ok(None);
+    };
+    let AtomRef::Ident(h) = head else {
+        return Ok(None);
+    };
+    if h != "import" {
+        return Ok(None);
+    }
+    if atoms.len() < 2 {
+        return Err(ModuleError::new("`import` requires a module name"));
+    }
+    let AtomRef::Ident(module) = &atoms[1] else {
+        return Err(ModuleError::new(
+            "`import` module name must be an identifier",
+        ));
+    };
+    if atoms.len() == 2 {
+        return Ok(Some(ImportDecl {
+            module: module.clone(),
+            only: None,
+        }));
+    }
+    // (import other only (a b))
+    if atoms.len() != 4 {
+        return Err(ModuleError::new(
+            "`import` form is `(import name)` or `(import name only (a b …))`",
+        ));
+    }
+    let AtomRef::Ident(only_kw) = &atoms[2] else {
+        return Err(ModuleError::new("expected `only` in import form"));
+    };
+    if only_kw != "only" {
+        return Err(ModuleError::new("expected `only` in import form"));
+    }
+    let AtomRef::Node(list) = &atoms[3] else {
+        return Err(ModuleError::new("`import … only` requires a name list"));
+    };
+    let mut names = Vec::new();
+    for a in list_idents_and_nodes(list) {
+        match a {
+            AtomRef::Ident(n) => names.push(n),
+            AtomRef::Node(_) => {
+                return Err(ModuleError::new(
+                    "`import … only` list entries must be identifiers",
+                ));
+            }
+        }
+    }
+    Ok(Some(ImportDecl {
+        module: module.clone(),
+        only: Some(names),
+    }))
+}
+
+enum AtomRef {
+    Ident(String),
+    Node(SyntaxNode),
+}
+
+fn list_idents_and_nodes(node: &SyntaxNode) -> Vec<AtomRef> {
+    let mut items = Vec::new();
+    for el in node.children_with_tokens() {
+        match el {
+            SyntaxElement::Token(t) => {
+                if t.kind().is_trivia()
+                    || matches!(
+                        t.kind(),
+                        SyntaxKind::LParen
+                            | SyntaxKind::RParen
+                            | SyntaxKind::LBracket
+                            | SyntaxKind::RBracket
+                    )
+                {
+                    continue;
+                }
+                if t.kind() == SyntaxKind::Ident {
+                    items.push(AtomRef::Ident(t.text().to_string()));
+                }
+            }
+            SyntaxElement::Node(n) => {
+                if n.kind() != SyntaxKind::StructuredComment {
+                    items.push(AtomRef::Node(n));
+                }
+            }
+        }
+    }
+    items
+}
+
+fn collect_bindings(expr: &CoreExpr) -> HashMap<String, CoreExpr> {
+    let mut map = HashMap::new();
+    let mut cur = expr;
+    while let CoreExpr::Let { name, value, body } = cur {
+        map.insert(name.clone(), *value.clone());
+        cur = body;
+    }
+    map
+}
+
+fn collect_export_names(expr: &CoreExpr) -> Vec<String> {
+    let mut names = Vec::new();
+    let mut cur = expr;
+    while let CoreExpr::Let { name, body, .. } = cur {
+        names.push(name.clone());
+        cur = body;
+    }
+    names
 }

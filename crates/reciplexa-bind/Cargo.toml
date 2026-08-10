@@ -10,5 +10,10 @@ publish = false
 reciplexa-identity = { workspace = true }
 reciplexa-source = { workspace = true }
 reciplexa-syntax = { workspace = true }
+reciplexa-core = { workspace = true }
 
 [dev-dependencies]
+reciplexa-core = { workspace = true }
+reciplexa-eval = { workspace = true }
+reciplexa-identity = { workspace = true }
+reciplexa-source = { workspace = true }
