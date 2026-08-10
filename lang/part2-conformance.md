@@ -17,10 +17,10 @@
 
 - **total**: 1589
 - **unchecked**: 0
-- **ok**: 301
-- **partial**: 489
-- **gap**: 398
-- **deferred**: 269
+- **ok**: 307
+- **partial**: 509
+- **gap**: 348
+- **deferred**: 293
 - **meta**: 132
 
 （LEX/SYN/MAC および導入メタ節を照合済み。他機能ブロックも並行更新済み。）
@@ -3043,9 +3043,9 @@
   - spec: `specification.md:14496`
   - notes: one source unit ≈ one outer module (bind/module.rs)
 
-- [x] **L6 L14507: 1.2 外側モジュールのwrapper** — `gap`
+- [x] **L6 L14507: 1.2 外側モジュールのwrapper** — `ok`
   - spec: `specification.md:14507`
-  - notes: no explicit outer-module wrapper syntax
+  - notes: spec forbids explicit outer-module wrapper; file body is the outer module
 
 - [x] **L6 L14519: 1.3 一ファイル内の外側モジュール数** — `partial`
   - spec: `specification.md:14519`
@@ -3059,9 +3059,9 @@
   - spec: `specification.md:14542`
   - notes: slash module paths + sibling .rpx load
 
-- [x] **L6 L14543: 2.1 Source root** — `gap`
+- [x] **L6 L14543: 2.1 Source root** — `partial`
   - spec: `specification.md:14543`
-  - notes: no package Source root / PKG wiring
+  - notes: package source-root via PKG LocalPackageIndex / PackageManifest
 
 - [x] **L6 L14549: 2.2 Module path** — `ok`
   - spec: `specification.md:14549`
@@ -3071,45 +3071,45 @@
   - spec: `specification.md:14560`
   - notes: .rpi interface path not implemented
 
-- [x] **L6 L14573: 2.4 Path変更** — `gap`
+- [x] **L6 L14573: 2.4 Path変更** — `deferred`
   - spec: `specification.md:14573`
-  - notes: no path-rename / remapping API
+  - notes: 意図的後回し: path-rename / remapping API
 
-- [x] **L5 L14585: 3. 下位モジュール** — `gap`
+- [x] **L5 L14585: 3. 下位モジュール** — `deferred`
   - spec: `specification.md:14585`
-  - notes: no nested `(module …)` surface; flat outer units only
+  - notes: 意図的後回し: nested (module …) surface; flat outer units only (MOD-001)
 
-- [x] **L6 L14586: 3.1 基本構文** — `gap`
+- [x] **L6 L14586: 3.1 基本構文** — `deferred`
   - spec: `specification.md:14586`
-  - notes: no nested `(module …)` surface; flat outer units only
+  - notes: 意図的後回し: nested (module …) surface; flat outer units only (MOD-001)
 
-- [x] **L6 L14603: 3.2 下位モジュールのpath** — `gap`
+- [x] **L6 L14603: 3.2 下位モジュールのpath** — `deferred`
   - spec: `specification.md:14603`
-  - notes: no nested `(module …)` surface; flat outer units only
+  - notes: 意図的後回し: nested (module …) surface; flat outer units only (MOD-001)
 
-- [x] **L6 L14609: 3.3 下位モジュールの外部ファイル化** — `gap`
+- [x] **L6 L14609: 3.3 下位モジュールの外部ファイル化** — `deferred`
   - spec: `specification.md:14609`
-  - notes: no nested `(module …)` surface; flat outer units only
+  - notes: 意図的後回し: nested (module …) surface; flat outer units only (MOD-001)
 
-- [x] **L6 L14620: 3.4 Module body** — `gap`
+- [x] **L6 L14620: 3.4 Module body** — `deferred`
   - spec: `specification.md:14620`
-  - notes: no nested `(module …)` surface; flat outer units only
+  - notes: 意図的後回し: nested (module …) surface; flat outer units only (MOD-001)
 
-- [x] **L5 L14636: 4. 下位モジュールのscopeと純粋性** — `gap`
+- [x] **L5 L14636: 4. 下位モジュールのscopeと純粋性** — `deferred`
   - spec: `specification.md:14636`
-  - notes: nested-module scope rules N/A without nested modules
+  - notes: 意図的後回し: nested-module scope N/A until nested modules
 
 - [x] **L6 L14637: 4.1 Importの位置** — `partial`
   - spec: `specification.md:14637`
   - notes: imports collected at unit top via split_imports
 
-- [x] **L6 L14655: 4.2 親scopeの参照** — `gap`
+- [x] **L6 L14655: 4.2 親scopeの参照** — `deferred`
   - spec: `specification.md:14655`
-  - notes: no parent-scope nested module
+  - notes: 意図的後回し: nested parent-scope N/A until nested modules
 
-- [x] **L6 L14667: 4.3 後方参照** — `gap`
+- [x] **L6 L14667: 4.3 後方参照** — `deferred`
   - spec: `specification.md:14667`
-  - notes: no nested forward-ref rules
+  - notes: 意図的後回し: nested forward-ref N/A until nested modules
 
 - [x] **L6 L14679: 4.4 新しいscope** — `meta`
   - spec: `specification.md:14679`
@@ -3139,9 +3139,9 @@
   - spec: `specification.md:14727`
   - notes: qualified name is string binder `alias/export`, not ModuleId path IR
 
-- [x] **L6 L14737: 5.4 .** — `gap`
+- [x] **L6 L14737: 5.4 .** — `deferred`
   - spec: `specification.md:14737`
-  - notes: dot-qualified module refs not implemented
+  - notes: 意図的後回し: dot-qualified module refs; slash paths are primary
 
 - [x] **L5 L14743: 6. Import** — `ok`
   - spec: `specification.md:14743`
@@ -3171,9 +3171,9 @@
   - spec: `specification.md:14803`
   - notes: ImportItem {name, rename}
 
-- [x] **L6 L14811: 6.7 自動再公開** — `gap`
+- [x] **L6 L14811: 6.7 自動再公開** — `deferred`
   - spec: `specification.md:14811`
-  - notes: no auto re-export of imports
+  - notes: 意図的後回し: auto re-export of imports not in bind skeleton
 
 - [x] **L5 L14821: 7. Importと正式identity** — `partial`
   - spec: `specification.md:14821`
@@ -3191,9 +3191,9 @@
   - spec: `specification.md:14843`
   - notes: source spelling vs identity
 
-- [x] **L6 L14853: 7.4 同じidentityの重複import** — `gap`
+- [x] **L6 L14853: 7.4 同じidentityの重複import** — `ok`
   - spec: `specification.md:14853`
-  - notes: duplicate same-identity import not specially checked
+  - notes: same-identity duplicate import ok; distinct-module local collision error (module.rs §7.4)
 
 - [x] **L5 L14859: 8. .rpiインターフェース** — `deferred`
   - spec: `specification.md:14859`
@@ -3503,9 +3503,9 @@
   - spec: `specification.md:15415`
   - notes: ModuleId in identity/package.rs
 
-- [x] **L6 L15421: 20.3 DefinitionId** — `gap`
+- [x] **L6 L15421: 20.3 DefinitionId** — `ok`
   - spec: `specification.md:15421`
-  - notes: no DefinitionId type
+  - notes: DefinitionId opaque id in identity/package.rs
 
 - [x] **L6 L15435: 20.4 BindingId** — `ok`
   - spec: `specification.md:15435`
@@ -3519,13 +3519,13 @@
   - spec: `specification.md:15447`
   - notes: ConstructorId opaque id exists; not MOD metadata
 
-- [x] **L6 L15458: 20.7 SignatureId** — `gap`
+- [x] **L6 L15458: 20.7 SignatureId** — `ok`
   - spec: `specification.md:15458`
-  - notes: no SignatureId
+  - notes: SignatureId opaque id in identity/package.rs (functor/sig use deferred)
 
-- [x] **L6 L15467: 20.8 FunctorId** — `gap`
+- [x] **L6 L15467: 20.8 FunctorId** — `ok`
   - spec: `specification.md:15467`
-  - notes: no FunctorId
+  - notes: FunctorId opaque id in identity/package.rs (functor impl deferred)
 
 - [x] **L6 L15473: 20.9 Functor適用結果** — `deferred`
   - spec: `specification.md:15473`
@@ -3539,37 +3539,37 @@
   - spec: `specification.md:15488`
   - notes: spans kept separate (TextRange / provenance)
 
-- [x] **L5 L15492: 21. 分割コンパイルと適合試験** — `gap`
+- [x] **L5 L15492: 21. 分割コンパイルと適合試験** — `deferred`
   - spec: `specification.md:15492`
-  - notes: no InterfaceHash / compiled interface metadata
+  - notes: 意図的後回し: InterfaceHash / compiled interface metadata
 
-- [x] **L6 L15493: 21.1 Interface metadata** — `gap`
+- [x] **L6 L15493: 21.1 Interface metadata** — `deferred`
   - spec: `specification.md:15493`
-  - notes: no .rpi → interface metadata
+  - notes: 意図的後回し: .rpi → interface metadata emitter
 
 - [x] **L6 L15513: 21.2 非公開情報** — `meta`
   - spec: `specification.md:15513`
   - notes: privacy rules; no metadata emitter yet
 
-- [x] **L6 L15523: 21.3 InterfaceHash** — `gap`
+- [x] **L6 L15523: 21.3 InterfaceHash** — `deferred`
   - spec: `specification.md:15523`
-  - notes: InterfaceHash absent
+  - notes: 意図的後回し: InterfaceHash absent
 
-- [x] **L6 L15530: 21.4 Hashに含めるもの** — `gap`
+- [x] **L6 L15530: 21.4 Hashに含めるもの** — `deferred`
   - spec: `specification.md:15530`
-  - notes: hash inputs N/A
+  - notes: 意図的後回し: hash inputs N/A until InterfaceHash
 
 - [x] **L6 L15540: 21.5 Hashに含めないもの** — `meta`
   - spec: `specification.md:15540`
   - notes: hash exclusions; no hasher
 
-- [x] **L6 L15548: 21.6 Documentation hash** — `gap`
+- [x] **L6 L15548: 21.6 Documentation hash** — `deferred`
   - spec: `specification.md:15548`
-  - notes: DocumentationHash absent
+  - notes: 意図的後回し: DocumentationHash absent
 
-- [x] **L6 L15552: 21.7 再コンパイル** — `gap`
+- [x] **L6 L15552: 21.7 再コンパイル** — `deferred`
   - spec: `specification.md:15552`
-  - notes: no incremental recompile by InterfaceHash
+  - notes: 意図的後回し: incremental recompile by InterfaceHash
 
 - [x] **L6 L15558: 21.8 ABI hash** — `deferred`
   - spec: `specification.md:15558`
@@ -3583,33 +3583,33 @@
   - spec: `specification.md:15574`
   - notes: as+only+rename covered by elaborate_units_* tests; not MOD-02 harness
 
-- [x] **L6 L15594: 21.11 適合試験 MOD-03** — `gap`
+- [x] **L6 L15594: 21.11 適合試験 MOD-03** — `deferred`
   - spec: `specification.md:15594`
-  - notes: MOD-03 conformance corpus not present
+  - notes: 意図的後回し: MOD-03 conformance corpus
 
-- [x] **L6 L15621: 21.12 不適合試験 MOD-04** — `gap`
+- [x] **L6 L15621: 21.12 不適合試験 MOD-04** — `deferred`
   - spec: `specification.md:15621`
-  - notes: MOD-04 negative suite not present
+  - notes: 意図的後回し: MOD-04 negative suite
 
-- [x] **L6 L15650: 21.13 適合試験 MOD-05** — `gap`
+- [x] **L6 L15650: 21.13 適合試験 MOD-05** — `deferred`
   - spec: `specification.md:15650`
-  - notes: MOD-05 suite not present
+  - notes: 意図的後回し: MOD-05 suite
 
-- [x] **L6 L15677: 21.14 適合試験 MOD-06** — `gap`
+- [x] **L6 L15677: 21.14 適合試験 MOD-06** — `deferred`
   - spec: `specification.md:15677`
-  - notes: MOD-06 suite not present
+  - notes: 意図的後回し: MOD-06 suite
 
-- [x] **L6 L15689: 21.15 不適合試験 MOD-07** — `gap`
+- [x] **L6 L15689: 21.15 不適合試験 MOD-07** — `deferred`
   - spec: `specification.md:15689`
-  - notes: MOD-07 suite not present
+  - notes: 意図的後回し: MOD-07 suite
 
-- [x] **L6 L15699: 21.16 適合試験 MOD-08** — `gap`
+- [x] **L6 L15699: 21.16 適合試験 MOD-08** — `deferred`
   - spec: `specification.md:15699`
-  - notes: MOD-08 suite not present
+  - notes: 意図的後回し: MOD-08 suite
 
-- [x] **L6 L15708: 21.17 不適合試験 MOD-09** — `gap`
+- [x] **L6 L15708: 21.17 不適合試験 MOD-09** — `deferred`
   - spec: `specification.md:15708`
-  - notes: MOD-09 suite not present
+  - notes: 意図的後回し: MOD-09 suite
 
 - [x] **L5 L15719: 22. 移管先OPEN・下位項目・状態** — `meta`
   - spec: `specification.md:15719`
@@ -3649,7 +3649,7 @@
 
 - [x] **L4 L15855: 13.10 `PKG-001` パッケージmanifest・依存解決・ワークスペース・リソース** — `partial`
   - spec: `specification.md:15855`
-  - notes: Slice A: DD-001-ish parse_rpxm + LocalPackageIndex + packages/{graphics,length,color}; registry/workspace still deferred (package-plan)
+  - notes: Slice A+B: local packages + path-dep aliases + rpx.lock path sources + math/japanese stubs + .rpi stubs; registry/workspace still deferred
 
 - [x] **L5 L15856: DD-001 決定概要** — `meta`
   - spec: `specification.md:15856`
@@ -3711,9 +3711,9 @@
   - spec: `specification.md:16036`
   - notes: restricted sexp via tokenize in rpxm.rs; not full static schema
 
-- [x] **L6 L16052: 2.5 未知field** — `gap`
+- [x] **L6 L16052: 2.5 未知field** — `partial`
   - spec: `specification.md:16052`
-  - notes: unknown field / format-version policy not enforced
+  - notes: format-version enforced; unknown fields still skipped (strict unknown-field reject deferred)
 
 - [x] **L5 L16062: 3. Manifestの基本構文** — `partial`
   - spec: `specification.md:16062`
@@ -3811,9 +3811,9 @@
   - spec: `specification.md:16266`
   - notes: (public-modules …) parsed in DD-001 form; used as export allow-list on load
 
-- [x] **L6 L16274: 7.2 .rpi必須** — `gap`
+- [x] **L6 L16274: 7.2 .rpi必須** — `partial`
   - spec: `specification.md:16274`
-  - notes: .rpi not required yet for public modules
+  - notes: public modules require interface-root .rpi stub when interface-root set; signature check deferred
 
 - [x] **L6 L16287: 7.3 内部モジュール** — `partial`
   - spec: `specification.md:16287`
@@ -3941,7 +3941,7 @@
 
 - [x] **L6 L16510: 12.2 Local path** — `partial`
   - spec: `specification.md:16510`
-  - notes: path deps parsed; LocalPackageIndex loads from packages/ search roots (consumer path-dep resolve = Slice B)
+  - notes: path deps + alias map via LocalPackageIndex::register_path_dependencies; lockfile path: sources
 
 - [x] **L6 L16519: 12.3 Local packageの検証** — `deferred`
   - spec: `specification.md:16519`
@@ -5045,7 +5045,7 @@
 
 - [x] **L4 L18993: 13.13 `ERR-001` 通常の失敗・Failure effect・後始末・Defect・最上位実行境界** — `partial`
   - spec: `specification.md:18993`
-  - notes: outcome Failure/Defect/Cancel/Job; language Failure effect gap
+  - notes: outcome Failure/Defect/Cancel/Job; language raise/Failure handle path partial; bracket/cleanup/defect still gap
 
 - [x] **L5 L18994: DD-001 決定概要** — `meta`
   - spec: `specification.md:18994`
@@ -5103,77 +5103,77 @@
   - spec: `specification.md:19150`
   - notes: result-like data possible; dedicated ERR result API incomplete
 
-- [x] **L5 L19159: 3. failure E** — `gap`
+- [x] **L5 L19159: 3. failure E** — `partial`
   - spec: `specification.md:19159`
-  - notes: Failure effect/raise/bracket/cleanup not in language eval
+  - notes: raise→Perform failure; handle failure 1-param non-resume; bracket/cleanup/defect still gap
 
-- [x] **L6 L19160: 3.1 定義** — `gap`
+- [x] **L6 L19160: 3.1 定義** — `partial`
   - spec: `specification.md:19160`
-  - notes: Failure effect/raise/bracket/cleanup not in language eval
+  - notes: failure E via Core Perform op failure
 
-- [x] **L6 L19180: 3.2 正常経路と失敗経路** — `gap`
+- [x] **L6 L19180: 3.2 正常経路と失敗経路** — `partial`
   - spec: `specification.md:19180`
-  - notes: Failure effect/raise/bracket/cleanup not in language eval
+  - notes: raise aborts to Failure handler; resume path rejected
 
-- [x] **L6 L19187: 3.3 Error payload** — `gap`
+- [x] **L6 L19187: 3.3 Error payload** — `partial`
   - spec: `specification.md:19187`
-  - notes: Failure effect/raise/bracket/cleanup not in language eval
+  - notes: error payload is ordinary Core value (Dynamic typed interim)
 
-- [x] **L5 L19195: 4. Failureの発生** — `gap`
+- [x] **L5 L19195: 4. Failureの発生** — `partial`
   - spec: `specification.md:19195`
-  - notes: Failure effect/raise/bracket/cleanup not in language eval
+  - notes: raise elaborates to failure perform
 
-- [x] **L6 L19196: 4.1 raise** — `gap`
+- [x] **L6 L19196: 4.1 raise** — `partial`
   - spec: `specification.md:19196`
-  - notes: Failure effect/raise/bracket/cleanup not in language eval
+  - notes: (raise e) → Perform{op:failure}; reserved special form
 
-- [x] **L6 L19214: 4.2 never** — `gap`
+- [x] **L6 L19214: 4.2 never** — `partial`
   - spec: `specification.md:19214`
-  - notes: Failure effect/raise/bracket/cleanup not in language eval
+  - notes: never stubbed as Dynamic return of failure perform
 
-- [x] **L6 L19239: 4.3 基礎機構** — `gap`
+- [x] **L6 L19239: 4.3 基礎機構** — `partial`
   - spec: `specification.md:19239`
-  - notes: Failure effect/raise/bracket/cleanup not in language eval
+  - notes: raise uses existing effect perform mechanism (no separate exception runtime)
 
-- [x] **L5 L19245: 5. Failure handler** — `gap`
+- [x] **L5 L19245: 5. Failure handler** — `partial`
   - spec: `specification.md:19245`
-  - notes: Failure effect/raise/bracket/cleanup not in language eval
+  - notes: Failure handled via (handle failure (fn (err) …) body); clause sugar deferred
 
-- [x] **L6 L19246: 5.1 非再開性** — `gap`
+- [x] **L6 L19246: 5.1 非再開性** — `partial`
   - spec: `specification.md:19246`
-  - notes: Failure effect/raise/bracket/cleanup not in language eval
+  - notes: 1-param Failure handler; resume binding rejected
 
-- [x] **L6 L19265: 5.2 Resume禁止** — `gap`
+- [x] **L6 L19265: 5.2 Resume禁止** — `ok`
   - spec: `specification.md:19265`
-  - notes: Failure effect/raise/bracket/cleanup not in language eval
+  - notes: Failure resume param rejected at check+eval
 
-- [x] **L6 L19271: 5.3 内部実装** — `gap`
+- [x] **L6 L19271: 5.3 内部実装** — `partial`
   - spec: `specification.md:19271`
-  - notes: Failure effect/raise/bracket/cleanup not in language eval
+  - notes: lowered onto Handle/Perform; continuation not exposed for failure
 
-- [x] **L6 L19275: 5.4 Handlerの結果型** — `gap`
+- [x] **L6 L19275: 5.4 Handlerの結果型** — `partial`
   - spec: `specification.md:19275`
-  - notes: Failure effect/raise/bracket/cleanup not in language eval
+  - notes: handler result typing via existing handle infer (shared result interim)
 
-- [x] **L5 L19306: 6. Failureとeffect row** — `gap`
+- [x] **L5 L19306: 6. Failureとeffect row** — `partial`
   - spec: `specification.md:19306`
-  - notes: Failure effect/raise/bracket/cleanup not in language eval
+  - notes: failure op appears in effect row; removed by handle failure
 
-- [x] **L6 L19307: 6.1 型への明示** — `gap`
+- [x] **L6 L19307: 6.1 型への明示** — `partial`
   - spec: `specification.md:19307`
-  - notes: Failure effect/raise/bracket/cleanup not in language eval
+  - notes: perform failure adds op to residual row
 
-- [x] **L6 L19320: 6.2 Handlerによる除去** — `gap`
+- [x] **L6 L19320: 6.2 Handlerによる除去** — `partial`
   - spec: `specification.md:19320`
-  - notes: Failure effect/raise/bracket/cleanup not in language eval
+  - notes: handle failure removes failure from residual
 
-- [x] **L6 L19333: 6.3 Handler節自身のEffect** — `gap`
+- [x] **L6 L19333: 6.3 Handler節自身のEffect** — `partial`
   - spec: `specification.md:19333`
-  - notes: Failure effect/raise/bracket/cleanup not in language eval
+  - notes: handler body effects merged like other handles
 
-- [x] **L6 L19346: 6.4 Handler節内の新しいFailure** — `gap`
+- [x] **L6 L19346: 6.4 Handler節内の新しいFailure** — `partial`
   - spec: `specification.md:19346`
-  - notes: Failure effect/raise/bracket/cleanup not in language eval
+  - notes: re-raise inside handler propagates (deep handle semantics)
 
 - [x] **L5 L19359: 7. 一つのFailure型への統合** — `gap`
   - spec: `specification.md:19359`
