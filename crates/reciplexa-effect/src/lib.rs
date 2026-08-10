@@ -371,37 +371,16 @@ pub fn parse_perform_node(node: &SyntaxNode) -> Result<Perform, EffectError> {
                 )));
             }
             let raw = atoms[2].text();
-            // Lexer string tokens always include the surrounding quotes.
-            unescape_string(&raw[1..raw.len() - 1])
+            // SYN-001 §8.1: string literals have no backslash escapes.
+            raw[1..raw.len() - 1].to_string()
         }
     };
     Ok(Perform { op, payload })
 }
 
-fn unescape_string(s: &str) -> String {
-    let mut out = String::with_capacity(s.len());
-    let mut chars = s.chars();
-    while let Some(c) = chars.next() {
-        if c == '\\' {
-            match chars.next() {
-                Some('n') => out.push('\n'),
-                Some('t') => out.push('\t'),
-                Some('r') => out.push('\r'),
-                Some('\\') => out.push('\\'),
-                Some('"') => out.push('"'),
-                Some(other) => out.push(other),
-                None => out.push('\\'),
-            }
-        } else {
-            out.push(c);
-        }
-    }
-    out
-}
-
-/// Exposed for conformance tests of perform string payloads.
+/// Exposed for conformance tests of perform string payloads (identity; no escapes).
 pub fn unescape_string_for_test(s: &str) -> String {
-    unescape_string(s)
+    s.to_string()
 }
 
 /// Default handler used in unit tests: logs are collected, random is fixed.

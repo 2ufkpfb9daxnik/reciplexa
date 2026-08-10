@@ -1464,9 +1464,9 @@ fn elaborate_token(tok: &SyntaxToken, ctx: &ElabCtx) -> Result<CoreExpr, Elabora
             if raw.len() < 2 || !raw.starts_with('"') || !raw.ends_with('"') {
                 return Err(ElaborateError::at_token("malformed string literal", tok));
             }
-            Ok(CoreExpr::Lit(CoreLiteral::String(unescape_string(
-                &raw[1..raw.len() - 1],
-            ))))
+            Ok(CoreExpr::Lit(CoreLiteral::String(
+                raw[1..raw.len() - 1].to_string(),
+            )))
         }
         SyntaxKind::Ident => match tok.text() {
             "true" => Ok(CoreExpr::Lit(CoreLiteral::Bool(true))),
@@ -1578,27 +1578,6 @@ fn token_range(tok: &SyntaxToken) -> TextRange {
     let start: u32 = tok.text_range().start().into();
     let end: u32 = tok.text_range().end().into();
     TextRange::try_new(ByteOffset::new(start), ByteOffset::new(end)).unwrap_or(TextRange::EMPTY)
-}
-
-fn unescape_string(s: &str) -> String {
-    let mut out = String::with_capacity(s.len());
-    let mut chars = s.chars();
-    while let Some(c) = chars.next() {
-        if c == '\\' {
-            match chars.next() {
-                Some('n') => out.push('\n'),
-                Some('t') => out.push('\t'),
-                Some('r') => out.push('\r'),
-                Some('\\') => out.push('\\'),
-                Some('"') => out.push('"'),
-                Some(other) => out.push(other),
-                None => out.push('\\'),
-            }
-        } else {
-            out.push(c);
-        }
-    }
-    out
 }
 
 #[cfg(test)]

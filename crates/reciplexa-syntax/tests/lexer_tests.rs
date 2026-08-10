@@ -256,12 +256,23 @@ fn tokenize_all_on_empty_is_empty() {
 }
 
 #[test]
-fn string_with_escape_roundtrips_span() {
-    let src = r#""a\"b""#;
+fn string_backslash_is_literal_char() {
+    // SYN-001 §8.1: no escapes — `"a\nb"` is a, backslash, n, b.
+    let src = "\"a\\nb\"";
     let mut lex = Lexer::new(src);
     let tok = lex.bump_token().unwrap();
     assert_eq!(tok.kind, SyntaxKind::String);
     assert_eq!(tok.text(src), src);
+}
+
+#[test]
+fn quote_after_backslash_terminates_string() {
+    // Without escapes, `"` always ends the string even after `\`.
+    let src = r#""a\"b""#;
+    let mut lex = Lexer::new(src);
+    let tok = lex.bump_token().unwrap();
+    assert_eq!(tok.kind, SyntaxKind::String);
+    assert_eq!(tok.text(src), "\"a\\\"");
 }
 
 #[test]

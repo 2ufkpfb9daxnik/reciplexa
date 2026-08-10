@@ -922,45 +922,19 @@ fn set_atom_string(
 }
 
 fn escape_rpx_string(s: &str) -> String {
-    let mut out = String::with_capacity(s.len());
-    for c in s.chars() {
-        match c {
-            '\\' => out.push_str("\\\\"),
-            '"' => out.push_str("\\\""),
-            '\n' => out.push_str("\\n"),
-            '\r' => out.push_str("\\r"),
-            '\t' => out.push_str("\\t"),
-            _ => out.push(c),
-        }
-    }
-    out
+    // SYN-001 §8.1: no backslash escapes in RPX string literals.
+    // Callers wrap the result in `"…"`; content with `"` / newlines needs
+    // triple-quote delimiters (deferred) — pass through raw characters.
+    s.to_string()
 }
 
 fn unquote(raw: &str) -> String {
-    let inner = raw.trim_matches('"');
-    // Minimal unescape for display / edit round-trip of common escapes.
-    let mut out = String::with_capacity(inner.len());
-    let mut chars = inner.chars();
-    while let Some(c) = chars.next() {
-        if c != '\\' {
-            out.push(c);
-            continue;
-        }
-        // Lone trailing `\` is treated as a literal backslash.
-        let esc = chars.next().unwrap_or('\\');
-        match esc {
-            'n' => out.push('\n'),
-            'r' => out.push('\r'),
-            't' => out.push('\t'),
-            '\\' => out.push('\\'),
-            '"' => out.push('"'),
-            other => {
-                out.push('\\');
-                out.push(other);
-            }
-        }
+    // SYN-001 §8.1: strip surrounding quotes only; `\` is a normal character.
+    if raw.len() >= 2 && raw.starts_with('"') && raw.ends_with('"') {
+        raw[1..raw.len() - 1].to_string()
+    } else {
+        raw.trim_matches('"').to_string()
     }
-    out
 }
 
 fn string_at(items: &[Child], slot: usize) -> Option<&str> {

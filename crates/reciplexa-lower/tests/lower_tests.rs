@@ -385,10 +385,10 @@ fn lowers_uniform_scale_single_factor() {
 }
 
 #[test]
-fn lowers_string_escapes_in_text() {
+fn lowers_backslash_chars_in_text() {
     let doc = lower_source(r#"(page a4 (text 1 2 3 "a\nb"))"#).unwrap();
     match &doc.pages[0].shapes[0] {
-        Shape::Text(t) => assert_eq!(t.content, "a\nb"),
+        Shape::Text(t) => assert_eq!(t.content, "a\\nb"),
         _ => panic!("expected text"),
     }
 }
@@ -514,15 +514,15 @@ fn lowers_polygon_with_named_color() {
 }
 
 #[test]
-fn string_unescape_all_sequences() {
-    let doc = lower_source(r#"(page a4 (text 0 0 3 "a\nb\tc\\d\"e\r"))"#).unwrap();
+fn string_literals_keep_backslash_chars() {
+    let doc = lower_source(r#"(page a4 (text 0 0 3 "a\nb\tc\\d"))"#).unwrap();
     match &doc.pages[0].shapes[0] {
-        Shape::Text(t) => assert_eq!(t.content, "a\nb\tc\\d\"e\r"),
+        Shape::Text(t) => assert_eq!(t.content, "a\\nb\\tc\\\\d"),
         _ => panic!("expected text"),
     }
     let doc2 = lower_source(r#"(page a4 (text 0 0 3 "trail\\"))"#).unwrap();
     match &doc2.pages[0].shapes[0] {
-        Shape::Text(t) => assert_eq!(t.content, "trail\\"),
+        Shape::Text(t) => assert_eq!(t.content, "trail\\\\"),
         _ => panic!("expected text"),
     }
 }
@@ -660,10 +660,10 @@ fn number_at_wrong_token_kind_fails() {
 }
 
 #[test]
-fn unescape_trailing_backslash_only() {
+fn trailing_backslash_in_string_is_literal() {
     let doc = lower_source(r#"(page a4 (text 0 0 3 "x\\"))"#).unwrap();
     match &doc.pages[0].shapes[0] {
-        Shape::Text(t) => assert_eq!(t.content, "x\\"),
+        Shape::Text(t) => assert_eq!(t.content, "x\\\\"),
         _ => panic!("expected text"),
     }
 }
@@ -752,16 +752,10 @@ fn lower_text_variants_and_escapes() {
     assert!(matches!(plain.pages[0].shapes[0], Shape::Text(_)));
     let boxed = lower_source(r#"(page a4 (text 1 2 12 40 20 "box" red))"#).unwrap();
     assert!(matches!(boxed.pages[0].shapes[0], Shape::Text(_)));
-    let esc = lower_source(r#"(page a4 (text 1 2 12 "a\"b\\c\n\t"))"#).unwrap();
+    let esc = lower_source(r#"(page a4 (text 1 2 12 "a\\b\n\t"))"#).unwrap();
     match &esc.pages[0].shapes[0] {
         Shape::Text(t) => {
-            assert!(
-                t.content.contains('"')
-                    || t.content.contains('\\')
-                    || t.content.contains('\n')
-                    || t.content.contains('\t')
-                    || !t.content.is_empty()
-            );
+            assert_eq!(t.content, "a\\\\b\\n\\t");
         }
         _ => panic!("expected text"),
     }
@@ -838,10 +832,10 @@ fn lower_line_width_and_image_path() {
 }
 
 #[test]
-fn unescape_unknown_escape_keeps_char() {
+fn string_unknown_backslash_sequences_kept() {
     let doc = lower_source(r#"(page a4 (text 0 0 3 "a\qb\\z"))"#).unwrap();
     match &doc.pages[0].shapes[0] {
-        Shape::Text(t) => assert_eq!(t.content, "aqb\\z"),
+        Shape::Text(t) => assert_eq!(t.content, "a\\qb\\\\z"),
         _ => panic!("expected text"),
     }
 }

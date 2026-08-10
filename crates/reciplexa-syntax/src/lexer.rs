@@ -242,18 +242,13 @@ impl<'a> Lexer<'a> {
 
     fn bump_string(&mut self, start: usize) -> Token {
         self.advance_char(); // opening quote
+        // SYN-001 §8.1: no backslash escapes — `"` always terminates.
         loop {
             match self.peek_char() {
                 None => return self.finish(SyntaxKind::Error, start),
                 Some('"') => {
                     self.advance_char();
                     return self.finish(SyntaxKind::String, start);
-                }
-                Some('\\') => {
-                    self.advance_char();
-                    if self.peek_char().is_some() {
-                        self.advance_char();
-                    }
                 }
                 Some(_) => {
                     self.advance_char();

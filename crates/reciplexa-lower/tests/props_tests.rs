@@ -441,7 +441,7 @@ fn set_content_text_errors_on_non_text() {
 }
 
 #[test]
-fn set_text_content_escapes_special_chars() {
+fn set_text_content_writes_raw_chars() {
     let src = "(page a4 (text 0 0 12 \"old\"))";
     let ctx = test_ctx((0.0, 0.0, 10.0, 10.0));
     let out = set_layer_prop(
@@ -449,18 +449,16 @@ fn set_text_content_escapes_special_chars() {
         0,
         0,
         "content.text",
-        &PropValue::Text("a\"b\\c\n\td".into()),
+        &PropValue::Text("a\\b\\c".into()),
         &ctx,
     )
     .unwrap();
-    assert!(out.contains("\\\""));
-    assert!(out.contains("\\\\"));
-    assert!(out.contains("\\n"));
-    assert!(out.contains("\\t"));
+    // SYN-001 §8.1: no invented backslash escapes when writing.
+    assert!(out.contains("a\\b\\c"));
 
     let props = collect_layer_props(&out, 0, 0, &ctx).unwrap();
     let text = props.iter().find(|p| p.id == "content.text").unwrap();
-    assert_eq!(text.value, PropValue::Text("a\"b\\c\n\td".into()));
+    assert_eq!(text.value, PropValue::Text("a\\b\\c".into()));
 }
 
 #[test]
@@ -679,16 +677,16 @@ fn set_text_content_missing_string_slot_errors() {
 }
 
 #[test]
-fn unquote_handles_r_and_unknown_escapes() {
+fn unquote_keeps_backslash_sequences() {
     let src = r#"(page a4 (text 0 0 12 "a\rb\\c\q"))"#;
     let ctx = test_ctx((0.0, 0.0, 10.0, 10.0));
     let props = collect_layer_props(src, 0, 0, &ctx).unwrap();
     let text = props.iter().find(|p| p.id == "content.text").unwrap();
-    assert_eq!(text.value, PropValue::Text("a\rb\\c\\q".into()));
+    assert_eq!(text.value, PropValue::Text("a\\rb\\\\c\\q".into()));
 }
 
 #[test]
-fn set_text_content_escapes_carriage_return() {
+fn set_text_content_writes_carriage_return_raw() {
     let src = "(page a4 (text 0 0 12 \"old\"))";
     let ctx = test_ctx((0.0, 0.0, 10.0, 10.0));
     let out = set_layer_prop(
@@ -700,7 +698,8 @@ fn set_text_content_escapes_carriage_return() {
         &ctx,
     )
     .unwrap();
-    assert!(out.contains("\\r"));
+    // SYN-001: no `\r` escape invented — raw CR is written into the literal.
+    assert!(out.contains('\r'));
 }
 
 #[test]
@@ -757,7 +756,7 @@ fn unquote_trailing_backslash() {
     let ctx = test_ctx((0.0, 0.0, 10.0, 10.0));
     let props = collect_layer_props(src, 0, 0, &ctx).unwrap();
     let text = props.iter().find(|p| p.id == "content.text").unwrap();
-    assert_eq!(text.value, PropValue::Text("trail\\".into()));
+    assert_eq!(text.value, PropValue::Text("trail\\\\".into()));
 }
 
 #[test]

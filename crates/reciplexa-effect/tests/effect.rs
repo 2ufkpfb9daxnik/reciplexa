@@ -259,10 +259,11 @@ fn handle_missing_op_name_errors() {
 }
 
 #[test]
-fn unescape_string_all_escapes() {
-    let src = r#"(src (perform log "a\nb\tc\\d\"e"))"#;
+fn string_literals_keep_backslash_chars() {
+    // SYN-001 §8.1: no escapes — backslash is a normal character.
+    let src = r#"(src (perform log "a\nb\tc\\d"))"#;
     let ps = collect_performs(src).unwrap();
-    assert_eq!(ps[0].payload, "a\nb\tc\\d\"e");
+    assert_eq!(ps[0].payload, "a\\nb\\tc\\\\d");
 }
 
 #[test]
@@ -374,18 +375,14 @@ fn handle_body_before_op_errors() {
 }
 
 #[test]
-fn unescape_cr_unknown_and_trailing_backslash() {
+fn string_payload_keeps_backslash_sequences() {
     let ps = collect_performs(r#"(src (perform log "a\rb\q c\ "))"#).unwrap();
-    // `\r` → CR, `\q` → q, trailing `\` kept when escape is incomplete inside quotes —
-    // the source uses `\ ` (backslash + space) as unknown escape → space.
-    assert!(ps[0].payload.contains('\r'));
-    assert!(ps[0].payload.contains('q'));
+    assert_eq!(ps[0].payload, "a\\rb\\q c\\ ");
     let ps = collect_performs(r#"(src (perform log "trail\\"))"#).unwrap();
-    assert!(ps[0].payload.ends_with('\\'));
-    // Direct unit coverage for trailing lone backslash in unescape_string.
+    assert_eq!(ps[0].payload, "trail\\\\");
     assert_eq!(unescape_string_for_test("x\\"), "x\\");
-    assert_eq!(unescape_string_for_test("a\\r"), "a\r");
-    assert_eq!(unescape_string_for_test("a\\z"), "az");
+    assert_eq!(unescape_string_for_test("a\\r"), "a\\r");
+    assert_eq!(unescape_string_for_test("a\\z"), "a\\z");
 }
 
 #[test]

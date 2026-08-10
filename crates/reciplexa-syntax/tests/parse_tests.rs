@@ -230,8 +230,8 @@ fn structured_comment_roundtrip_and_nesting() {
 }
 
 #[test]
-fn string_escape_roundtrip() {
-    let src = r#"(text 1 2 3 "say \"hi\"")"#;
+fn string_literal_roundtrip() {
+    let src = r#"(text 1 2 3 "say hi")"#;
     assert_eq!(unparse(&parse_ok(src)), src);
 }
 
@@ -355,8 +355,8 @@ fn comment_and_whitespace_only_trivia() {
 }
 
 #[test]
-fn nested_lists_and_string_escapes() {
-    let src = r#"(page a4 (text 1 2 3 "a\"b"))"#;
+fn nested_lists_and_string_literals() {
+    let src = r#"(page a4 (text 1 2 3 "a\\b"))"#;
     assert_eq!(unparse(&parse_ok(src)), src);
 }
 

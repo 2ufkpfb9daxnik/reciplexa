@@ -575,7 +575,8 @@ fn string_at(items: &[Child], index: usize, ctx: &str) -> Result<String, LowerEr
     match &items[index] {
         Child::Token(t) if t.kind() == SyntaxKind::String => {
             let raw = t.text();
-            Ok(unescape_string(&raw[1..raw.len() - 1]))
+            // SYN-001 §8.1: string literals have no backslash escapes.
+            Ok(raw[1..raw.len() - 1].to_string())
         }
         Child::Token(t) => Err(LowerError::new(format!(
             "{ctx}: expected String, got {:?}",
@@ -586,30 +587,6 @@ fn string_at(items: &[Child], index: usize, ctx: &str) -> Result<String, LowerEr
             n.kind()
         ))),
     }
-}
-
-fn unescape_string(s: &str) -> String {
-    let mut out = String::with_capacity(s.len());
-    let mut chars = s.chars();
-    while let Some(c) = chars.next() {
-        if c == '\\' {
-            // Treat a lone trailing `\` as a literal backslash (well-formed
-            // String tokens from the lexer always pair escapes, but keep this
-            // defensive path executable without a separate dead break arm).
-            let esc = chars.next().unwrap_or('\\');
-            match esc {
-                'n' => out.push('\n'),
-                't' => out.push('\t'),
-                'r' => out.push('\r'),
-                '\\' => out.push('\\'),
-                '"' => out.push('"'),
-                other => out.push(other),
-            }
-        } else {
-            out.push(c);
-        }
-    }
-    out
 }
 
 fn lower_color(child: &Child) -> Result<Color, LowerError> {
