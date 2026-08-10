@@ -88,6 +88,7 @@ pub fn observably_equal(a: &RuntimeValue, b: &RuntimeValue) -> bool {
         (RuntimeValue::Unit, RuntimeValue::Unit) => true,
         (RuntimeValue::Number(x), RuntimeValue::Number(y)) => x == y,
         (RuntimeValue::String(x), RuntimeValue::String(y)) => x == y,
+        (RuntimeValue::Bool(x), RuntimeValue::Bool(y)) => x == y,
         (RuntimeValue::ShapeTag(x), RuntimeValue::ShapeTag(y)) => x == y,
         (RuntimeValue::Record(ax), RuntimeValue::Record(bx)) => {
             ax.len() == bx.len()
@@ -119,6 +120,7 @@ pub fn observably_equal(a: &RuntimeValue, b: &RuntimeValue) -> bool {
             RuntimeValue::Unit
             | RuntimeValue::Number(_)
             | RuntimeValue::String(_)
+            | RuntimeValue::Bool(_)
             | RuntimeValue::ShapeTag(_)
             | RuntimeValue::Record(_)
             | RuntimeValue::Variant { .. }

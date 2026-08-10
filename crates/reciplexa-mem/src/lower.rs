@@ -80,11 +80,12 @@ impl Lowerer {
                 let arg_regs: Vec<Reg> = args.iter().map(|a| self.lower_expr(a, env)).collect();
                 let mut closure = f;
                 if arg_regs.is_empty() {
+                    let arg = self.unit();
                     let dst = self.alloc.fresh();
                     self.emit(MemInstr::Call {
                         dst,
                         closure,
-                        arg: self.unit(),
+                        arg,
                     });
                     return dst;
                 }
