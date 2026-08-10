@@ -116,6 +116,7 @@ pub fn observably_equal(a: &RuntimeValue, b: &RuntimeValue) -> bool {
         }
         // Closures compared by tag only in Phase 6 slice
         (RuntimeValue::Closure { .. }, RuntimeValue::Closure { .. }) => true,
+        (RuntimeValue::OneShotResume { .. }, RuntimeValue::OneShotResume { .. }) => true,
         (
             RuntimeValue::Unit
             | RuntimeValue::Number(_)
@@ -124,7 +125,8 @@ pub fn observably_equal(a: &RuntimeValue, b: &RuntimeValue) -> bool {
             | RuntimeValue::ShapeTag(_)
             | RuntimeValue::Record(_)
             | RuntimeValue::Variant { .. }
-            | RuntimeValue::Closure { .. },
+            | RuntimeValue::Closure { .. }
+            | RuntimeValue::OneShotResume { .. },
             _,
         ) => false,
     }

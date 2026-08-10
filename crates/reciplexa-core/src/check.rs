@@ -57,11 +57,45 @@ pub fn infer_expr(
             .ok_or_else(|| CheckError::at(format!("unbound variable `{name}`"), range)),
         CoreExpr::Perform { op, arg } => {
             let arg_ty = infer_expr(arg, env, subst, range)?;
-            if !matches!(arg_ty, CoreType::String) {
+            if !matches!(arg_ty, CoreType::String | CoreType::Dynamic) {
                 return Err(CheckError::at("perform arg must be string", range));
             }
             let _ = op;
             Ok(CoreType::Unit)
+        }
+        CoreExpr::Handle {
+            op,
+            handler_params,
+            handler_body,
+            body,
+        } => {
+            let _ = op;
+            // Body may perform; its type is ignored under shallow abort.
+            let _ = infer_expr(body, env, subst, range)?;
+            let mut child = env.clone();
+            match handler_params.as_slice() {
+                [arg] => {
+                    child.insert(arg.clone(), CoreType::String);
+                }
+                [arg, resume] => {
+                    child.insert(arg.clone(), CoreType::String);
+                    child.insert(
+                        resume.clone(),
+                        CoreType::Fun {
+                            args: vec![CoreType::Var(subst.fresh_var())],
+                            ret: Box::new(CoreType::Var(subst.fresh_var())),
+                            effects: EffectRow::default(),
+                        },
+                    );
+                }
+                _ => {
+                    return Err(CheckError::at(
+                        "`handle` handler expects 1 or 2 parameters",
+                        range,
+                    ));
+                }
+            }
+            infer_expr(handler_body, &child, subst, range)
         }
         CoreExpr::Seq(items) => {
             let mut last = CoreType::Unit;

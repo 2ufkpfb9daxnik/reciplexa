@@ -1,10 +1,13 @@
 //! Runtime values during evaluation.
 
+use std::cell::Cell;
 use std::collections::HashMap;
 use std::fmt;
+use std::rc::Rc;
 
 use reciplexa_core::expr::CoreExpr;
 use reciplexa_core::ty::CoreType;
+use reciplexa_core::ty::TypeVarId;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum RuntimeValue {
@@ -17,6 +20,10 @@ pub enum RuntimeValue {
         params: Vec<String>,
         body: CoreExpr,
         env: HashMap<String, RuntimeValue>,
+    },
+    /// One-shot resume continuation for shallow [`CoreExpr::Handle`] (EFF-001 v0).
+    OneShotResume {
+        used: Rc<Cell<bool>>,
     },
     Record(Vec<(String, RuntimeValue)>),
     Variant {
@@ -33,6 +40,11 @@ impl RuntimeValue {
             Self::String(_) => CoreType::String,
             Self::Bool(_) => CoreType::Bool,
             Self::ShapeTag(_) => CoreType::Shape,
+            Self::OneShotResume { .. } => CoreType::Fun {
+                args: vec![CoreType::Dynamic],
+                ret: Box::new(CoreType::Dynamic),
+                effects: Default::default(),
+            },
             Self::Closure { params, .. } => CoreType::Fun {
                 args: params
                     .iter()
@@ -52,8 +64,6 @@ impl RuntimeValue {
     }
 }
 
-use reciplexa_core::ty::TypeVarId;
-
 impl fmt::Display for RuntimeValue {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let rendered = match self {
@@ -62,6 +72,7 @@ impl fmt::Display for RuntimeValue {
             Self::String(s) => format!("\"{s}\""),
             Self::Bool(b) => b.to_string(),
             Self::ShapeTag(s) => format!("shape:{s}"),
+            Self::OneShotResume { .. } => "resume".to_string(),
             Self::Closure { params, .. } => format!("closure({})", params.join(", ")),
             Self::Record(fields) => {
                 let parts: Vec<String> = fields.iter().map(|(k, v)| format!("{k}: {v}")).collect();

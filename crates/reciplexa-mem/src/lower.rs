@@ -172,6 +172,15 @@ impl Lowerer {
                 });
                 dst
             }
+            CoreExpr::Handle {
+                handler_body,
+                body,
+                ..
+            } => {
+                // Mem lowering does not model handlers yet; evaluate body then handler stub.
+                let _ = self.lower_expr(body, env);
+                self.lower_expr(handler_body, env)
+            }
         }
     }
 

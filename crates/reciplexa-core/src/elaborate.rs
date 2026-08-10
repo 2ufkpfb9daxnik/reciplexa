@@ -274,6 +274,8 @@ fn elaborate_list(node: &SyntaxNode) -> Result<CoreExpr, ElaborateError> {
                     }
                     return Ok(seq_or_one(elaborate_atoms(&atoms[1..])?));
                 }
+                "perform" => return elaborate_perform(&atoms[1..], node),
+                "handle" => return elaborate_handle(&atoms[1..], node),
                 "val" => {
                     return Err(ElaborateError::at_node(
                         "`val` is only allowed at top level; use `let` for local bindings",
@@ -291,6 +293,73 @@ fn elaborate_list(node: &SyntaxNode) -> Result<CoreExpr, ElaborateError> {
     Ok(CoreExpr::App {
         fun: Box::new(fun),
         args,
+    })
+}
+
+fn elaborate_perform(rest: &[Atom], parent: &SyntaxNode) -> Result<CoreExpr, ElaborateError> {
+    // (perform op arg)
+    if rest.len() != 2 {
+        return Err(ElaborateError::at_node(
+            "`perform` requires an op identifier and one argument",
+            parent,
+        ));
+    }
+    let Atom::Token(op_tok) = &rest[0] else {
+        return Err(ElaborateError::at_node(
+            "`perform` op must be an identifier",
+            parent,
+        ));
+    };
+    if op_tok.kind() != SyntaxKind::Ident {
+        return Err(ElaborateError::at_token(
+            "`perform` op must be an identifier",
+            op_tok,
+        ));
+    }
+    Ok(CoreExpr::Perform {
+        op: op_tok.text().to_string(),
+        arg: Box::new(elaborate_atom(&rest[1])?),
+    })
+}
+
+fn elaborate_handle(rest: &[Atom], parent: &SyntaxNode) -> Result<CoreExpr, ElaborateError> {
+    // (handle op (fn (params...) handler-body...) body)
+    if rest.len() != 3 {
+        return Err(ElaborateError::at_node(
+            "`handle` requires op, handler fn, and body",
+            parent,
+        ));
+    }
+    let Atom::Token(op_tok) = &rest[0] else {
+        return Err(ElaborateError::at_node(
+            "`handle` op must be an identifier",
+            parent,
+        ));
+    };
+    if op_tok.kind() != SyntaxKind::Ident {
+        return Err(ElaborateError::at_token(
+            "`handle` op must be an identifier",
+            op_tok,
+        ));
+    }
+    let handler_expr = elaborate_atom(&rest[1])?;
+    let CoreExpr::Lambda { params, body } = handler_expr else {
+        return Err(ElaborateError::at_node(
+            "`handle` handler must be `(fn (params...) ...)`",
+            parent,
+        ));
+    };
+    if !(1..=2).contains(&params.len()) {
+        return Err(ElaborateError::at_node(
+            "`handle` handler expects 1 or 2 parameters (arg) or (arg resume)",
+            parent,
+        ));
+    }
+    Ok(CoreExpr::Handle {
+        op: op_tok.text().to_string(),
+        handler_params: params,
+        handler_body: body,
+        body: Box::new(elaborate_atom(&rest[2])?),
     })
 }
 

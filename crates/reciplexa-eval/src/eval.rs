@@ -1,6 +1,8 @@
 //! Reference evaluation of Core expressions.
 
+use std::cell::Cell;
 use std::collections::HashMap;
+use std::rc::Rc;
 
 use reciplexa_core::elaborate::{elaborate_source, ElaborateError};
 use reciplexa_core::expr::{CoreExpr, CoreLiteral, MatchArm};
@@ -41,79 +43,122 @@ pub fn eval_source(src: &str) -> EvalResult {
     eval_expr(&expr, &HashMap::new(), &mut UnitHost)
 }
 
+/// Internal control for shallow handlers / one-shot resume (EFF-001 v0).
+enum Outcome {
+    Value(RuntimeValue),
+    /// Uncaught perform — bubbles to the nearest matching [`CoreExpr::Handle`].
+    Performed { op: String, arg: RuntimeValue },
+    /// One-shot resume fired inside a handler; becomes the handle result.
+    Resumed(RuntimeValue),
+}
+
 pub fn eval_expr<H: EffectHost>(
     expr: &CoreExpr,
     env: &HashMap<String, RuntimeValue>,
     host: &mut H,
 ) -> EvalResult {
-    match expr {
-        CoreExpr::Lit(lit) => eval_lit(lit),
-        CoreExpr::Var(name) => env.get(name).cloned().ok_or_else(|| EvalError {
-            message: format!("unbound variable `{name}`"),
+    match eval_outcome(expr, env, host)? {
+        Outcome::Value(v) => Ok(v),
+        Outcome::Performed { op, arg } => host.perform(&op, arg),
+        Outcome::Resumed(_) => Err(EvalError {
+            message: "resume outside handle".into(),
         }),
+    }
+}
+
+fn eval_outcome<H: EffectHost>(
+    expr: &CoreExpr,
+    env: &HashMap<String, RuntimeValue>,
+    host: &mut H,
+) -> Result<Outcome, EvalError> {
+    match expr {
+        CoreExpr::Lit(lit) => Ok(Outcome::Value(eval_lit(lit)?)),
+        CoreExpr::Var(name) => env
+            .get(name)
+            .cloned()
+            .map(Outcome::Value)
+            .ok_or_else(|| EvalError {
+                message: format!("unbound variable `{name}`"),
+            }),
         CoreExpr::Perform { op, arg } => {
-            let v = eval_expr(arg, env, host)?;
-            host.perform(op, v)
+            let v = match eval_outcome(arg, env, host)? {
+                Outcome::Value(v) => v,
+                other => return Ok(other),
+            };
+            // Defer to host only when no handle will catch; handlers intercept via Outcome.
+            Ok(Outcome::Performed {
+                op: op.clone(),
+                arg: v,
+            })
+        }
+        CoreExpr::Handle {
+            op,
+            handler_params,
+            handler_body,
+            body,
+        } => {
+            match eval_outcome(body, env, host)? {
+                Outcome::Value(v) => Ok(Outcome::Value(v)),
+                Outcome::Resumed(v) => Ok(Outcome::Resumed(v)),
+                Outcome::Performed {
+                    op: performed_op,
+                    arg,
+                } if performed_op == *op => {
+                    run_handler(handler_params, handler_body, arg, env, host)
+                }
+                Outcome::Performed { op, arg } => Ok(Outcome::Performed { op, arg }),
+            }
         }
         CoreExpr::Seq(items) => {
             let mut last = RuntimeValue::Unit;
             for item in items {
-                last = eval_expr(item, env, host)?;
+                match eval_outcome(item, env, host)? {
+                    Outcome::Value(v) => last = v,
+                    other => return Ok(other),
+                }
             }
-            Ok(last)
+            Ok(Outcome::Value(last))
         }
         CoreExpr::Let { name, value, body } => {
-            let v = eval_expr(value, env, host)?;
+            let v = match eval_outcome(value, env, host)? {
+                Outcome::Value(v) => v,
+                other => return Ok(other),
+            };
             let mut child = env.clone();
             child.insert(name.clone(), v);
-            eval_expr(body, &child, host)
+            eval_outcome(body, &child, host)
         }
-        CoreExpr::Lambda { params, body } => Ok(RuntimeValue::Closure {
+        CoreExpr::Lambda { params, body } => Ok(Outcome::Value(RuntimeValue::Closure {
             params: params.clone(),
             body: *body.clone(),
             env: env.clone(),
-        }),
+        })),
         CoreExpr::App { fun, args } => {
-            let fun_v = eval_expr(fun, env, host)?;
+            let fun_v = match eval_outcome(fun, env, host)? {
+                Outcome::Value(v) => v,
+                other => return Ok(other),
+            };
             let mut arg_vs = Vec::with_capacity(args.len());
             for arg in args {
-                arg_vs.push(eval_expr(arg, env, host)?);
-            }
-            match fun_v {
-                RuntimeValue::Closure {
-                    params,
-                    body,
-                    env: closure_env,
-                } => {
-                    if params.len() != arg_vs.len() {
-                        return Err(EvalError {
-                            message: format!(
-                                "arity mismatch: expected {} args, got {}",
-                                params.len(),
-                                arg_vs.len()
-                            ),
-                        });
-                    }
-                    let mut child = closure_env;
-                    for (param, arg_v) in params.into_iter().zip(arg_vs) {
-                        child.insert(param, arg_v);
-                    }
-                    eval_expr(&body, &child, host)
+                match eval_outcome(arg, env, host)? {
+                    Outcome::Value(v) => arg_vs.push(v),
+                    other => return Ok(other),
                 }
-                other => Err(EvalError {
-                    message: format!("expected closure, got {other:?}"),
-                }),
             }
+            apply_value(fun_v, arg_vs, host)
         }
         CoreExpr::If {
             cond,
             then_branch,
             else_branch,
         } => {
-            let cond_v = eval_expr(cond, env, host)?;
+            let cond_v = match eval_outcome(cond, env, host)? {
+                Outcome::Value(v) => v,
+                other => return Ok(other),
+            };
             match cond_v {
-                RuntimeValue::Bool(true) => eval_expr(then_branch, env, host),
-                RuntimeValue::Bool(false) => eval_expr(else_branch, env, host),
+                RuntimeValue::Bool(true) => eval_outcome(then_branch, env, host),
+                RuntimeValue::Bool(false) => eval_outcome(else_branch, env, host),
                 other => Err(EvalError {
                     message: format!("if condition must be Bool, got {other:?}"),
                 }),
@@ -122,17 +167,23 @@ pub fn eval_expr<H: EffectHost>(
         CoreExpr::Record { fields } => {
             let mut out = Vec::new();
             for (k, v) in fields {
-                out.push((k.clone(), eval_expr(v, env, host)?));
+                match eval_outcome(v, env, host)? {
+                    Outcome::Value(val) => out.push((k.clone(), val)),
+                    other => return Ok(other),
+                }
             }
-            Ok(RuntimeValue::Record(out))
+            Ok(Outcome::Value(RuntimeValue::Record(out)))
         }
         CoreExpr::RecordGet { record, field } => {
-            let v = eval_expr(record, env, host)?;
+            let v = match eval_outcome(record, env, host)? {
+                Outcome::Value(v) => v,
+                other => return Ok(other),
+            };
             match v {
                 RuntimeValue::Record(fields) => fields
                     .into_iter()
                     .find(|(k, _)| k == field)
-                    .map(|(_, v)| v)
+                    .map(|(_, v)| Outcome::Value(v))
                     .ok_or_else(|| EvalError {
                         message: format!("unknown field `{field}`"),
                     }),
@@ -143,19 +194,108 @@ pub fn eval_expr<H: EffectHost>(
         }
         CoreExpr::Variant { tag, payload } => {
             let p = if let Some(e) = payload {
-                Some(Box::new(eval_expr(e, env, host)?))
+                match eval_outcome(e, env, host)? {
+                    Outcome::Value(v) => Some(Box::new(v)),
+                    other => return Ok(other),
+                }
             } else {
                 None
             };
-            Ok(RuntimeValue::Variant {
+            Ok(Outcome::Value(RuntimeValue::Variant {
                 tag: tag.clone(),
                 payload: p,
-            })
+            }))
         }
         CoreExpr::Match { scrutinee, arms } => {
-            let v = eval_expr(scrutinee, env, host)?;
+            let v = match eval_outcome(scrutinee, env, host)? {
+                Outcome::Value(v) => v,
+                other => return Ok(other),
+            };
             eval_match(&v, arms, env, host)
         }
+    }
+}
+
+fn run_handler<H: EffectHost>(
+    handler_params: &[String],
+    handler_body: &CoreExpr,
+    arg: RuntimeValue,
+    env: &HashMap<String, RuntimeValue>,
+    host: &mut H,
+) -> Result<Outcome, EvalError> {
+    let mut child = env.clone();
+    match handler_params {
+        [p] => {
+            child.insert(p.clone(), arg);
+        }
+        [p, resume] => {
+            child.insert(p.clone(), arg);
+            child.insert(
+                resume.clone(),
+                RuntimeValue::OneShotResume {
+                    used: Rc::new(Cell::new(false)),
+                },
+            );
+        }
+        _ => {
+            return Err(EvalError {
+                message: "handle handler expects 1 or 2 parameters".into(),
+            });
+        }
+    }
+    match eval_outcome(handler_body, &child, host)? {
+        Outcome::Value(v) => Ok(Outcome::Value(v)),
+        // One-shot resume: resumed value is the handle result (shallow — body does not continue).
+        Outcome::Resumed(v) => Ok(Outcome::Value(v)),
+        Outcome::Performed { op, arg } => Ok(Outcome::Performed { op, arg }),
+    }
+}
+
+fn apply_value<H: EffectHost>(
+    fun_v: RuntimeValue,
+    arg_vs: Vec<RuntimeValue>,
+    host: &mut H,
+) -> Result<Outcome, EvalError> {
+    match fun_v {
+        RuntimeValue::OneShotResume { used } => {
+            if arg_vs.len() != 1 {
+                return Err(EvalError {
+                    message: format!(
+                        "resume expects 1 arg, got {}",
+                        arg_vs.len()
+                    ),
+                });
+            }
+            if used.replace(true) {
+                return Err(EvalError {
+                    message: "one-shot resume already used".into(),
+                });
+            }
+            Ok(Outcome::Resumed(arg_vs.into_iter().next().expect("len 1")))
+        }
+        RuntimeValue::Closure {
+            params,
+            body,
+            env: closure_env,
+        } => {
+            if params.len() != arg_vs.len() {
+                return Err(EvalError {
+                    message: format!(
+                        "arity mismatch: expected {} args, got {}",
+                        params.len(),
+                        arg_vs.len()
+                    ),
+                });
+            }
+            let mut child = closure_env;
+            for (param, arg_v) in params.into_iter().zip(arg_vs) {
+                child.insert(param, arg_v);
+            }
+            eval_outcome(&body, &child, host)
+        }
+        other => Err(EvalError {
+            message: format!("expected closure, got {other:?}"),
+        }),
     }
 }
 
@@ -164,7 +304,7 @@ fn eval_match<H: EffectHost>(
     arms: &[MatchArm],
     env: &HashMap<String, RuntimeValue>,
     host: &mut H,
-) -> EvalResult {
+) -> Result<Outcome, EvalError> {
     let RuntimeValue::Variant { tag, payload } = value else {
         return Err(EvalError {
             message: "match scrutinee must be variant".into(),
@@ -178,7 +318,7 @@ fn eval_match<H: EffectHost>(
                     child.insert(bind.clone(), (**p).clone());
                 }
             }
-            return eval_expr(&arm.body, &child, host);
+            return eval_outcome(&arm.body, &child, host);
         }
     }
     Err(EvalError {
