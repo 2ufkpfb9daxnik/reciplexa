@@ -76,13 +76,15 @@ fn if_requires_bool_cond() {
 }
 
 #[test]
-fn if_branch_types_must_unify() {
+fn if_branch_types_form_union_when_distinct() {
+    // TYP if-branch: distinct branch types yield Union rather than hard error.
     let expr = CoreExpr::If {
         cond: Box::new(CoreExpr::Lit(CoreLiteral::Bool(false))),
         then_branch: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
         else_branch: Box::new(CoreExpr::Lit(CoreLiteral::String("x".into()))),
     };
-    assert!(infer_expr(&expr, &TypeEnv::new(), &mut Subst::new(), range()).is_err());
+    let (ty, _) = infer_expr(&expr, &TypeEnv::new(), &mut Subst::new(), range()).unwrap();
+    assert!(matches!(ty, CoreType::Union(_)), "got {ty:?}");
 }
 
 #[test]
