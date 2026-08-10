@@ -136,6 +136,9 @@ pub fn elaborate_units(units: &[(&str, &str)]) -> Result<Vec<ElaboratedUnit>, Mo
                 )));
             }
         }
+        // MOD-001 §7.4: same identity via multiple imports is ok; colliding
+        // local names from different module identities are errors.
+        check_import_local_collisions(name, &imports)?;
         let expr = if body_src.trim().is_empty() {
             CoreExpr::Seq(vec![])
         } else {
@@ -201,6 +204,44 @@ pub fn elaborate_units(units: &[(&str, &str)]) -> Result<Vec<ElaboratedUnit>, Mo
         });
     }
     Ok(out)
+}
+
+/// MOD-001 §7.4: same formal identity may be imported multiple times; distinct
+/// identities that introduce the same local name collide.
+fn check_import_local_collisions(unit: &str, imports: &[ImportDecl]) -> Result<(), ModuleError> {
+    let mut bare: HashMap<String, String> = HashMap::new();
+    let mut prefixes: HashMap<String, String> = HashMap::new();
+    for imp in imports {
+        if let Some(items) = &imp.only {
+            for item in items {
+                let local = item.rename.clone().unwrap_or_else(|| item.name.clone());
+                if let Some(prev) = bare.get(&local) {
+                    if prev != &imp.module {
+                        return Err(ModuleError::new(format!(
+                            "module `{unit}`: local name `{local}` imported from distinct modules `{prev}` and `{}`",
+                            imp.module
+                        )));
+                    }
+                } else {
+                    bare.insert(local, imp.module.clone());
+                }
+            }
+        }
+        if imp.alias.is_some() || imp.only.is_none() {
+            let prefix = imp.alias.clone().unwrap_or_else(|| imp.module.clone());
+            if let Some(prev) = prefixes.get(&prefix) {
+                if prev != &imp.module {
+                    return Err(ModuleError::new(format!(
+                        "module `{unit}`: import prefix `{prefix}` maps to distinct modules `{prev}` and `{}`",
+                        imp.module
+                    )));
+                }
+            } else {
+                prefixes.insert(prefix, imp.module.clone());
+            }
+        }
+    }
+    Ok(())
 }
 
 /// Parse leading `(import …)` forms from a source unit (body discarded).

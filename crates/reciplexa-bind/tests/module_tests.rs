@@ -130,6 +130,37 @@ fn elaborate_units_only_rename() {
 }
 
 #[test]
+fn elaborate_units_same_identity_duplicate_import_ok() {
+    let units = elaborate_units(&[
+        ("lib", r#"(val id (fn (x) x))"#),
+        (
+            "main",
+            r#"(import lib only id) (import lib only id) (val main (id 1))"#,
+        ),
+    ])
+    .unwrap();
+    assert!(units.iter().any(|u| u.name == "main"));
+}
+
+#[test]
+fn elaborate_units_rejects_colliding_local_from_distinct_modules() {
+    let err = elaborate_units(&[
+        ("a", r#"(val id 1)"#),
+        ("b", r#"(val id 2)"#),
+        (
+            "main",
+            r#"(import a only id) (import b only id) (val main id)"#,
+        ),
+    ])
+    .unwrap_err();
+    assert!(
+        err.message.contains("distinct modules"),
+        "unexpected: {}",
+        err.message
+    );
+}
+
+#[test]
 fn elaborate_units_rejects_unknown_import() {
     let err = elaborate_units(&[("main", "(import missing) (val main 1)")]).unwrap_err();
     assert!(err.message.contains("unknown"));
