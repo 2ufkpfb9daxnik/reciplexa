@@ -1,0 +1,4 @@
+(// BND-001: letrec — recurse once then return)
+(val main
+  (letrec ((f (fn (x) (if x (f false) 7))))
+    (f true)))

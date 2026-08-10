@@ -8,7 +8,7 @@
 
 | 経路 | API | 状態 |
 |---|---|---|
-| Language | `expand_language` → `elaborate_source` / `elaborate_units` → `typecheck_language_source` / `eval_source` | TYP/EFF/ROW/MOD v0 |
+| Language | `expand_language` → `elaborate_source` / `elaborate_units` → `typecheck_language_source` / `eval_source` | TYP/EFF/ROW/MOD/DAT/BND/KER/RSC v0 |
 | Document | `expand_document_surface` → `reciplexa_types::typecheck_source` → lower → scene | page/circle 等（PKG 待ち） |
 
 ### 機能 ID ステータス（言語）
@@ -20,12 +20,12 @@
 | RES-001 | v0 | `resolve_language_source` |
 | TYP-001 | v0 | Core `infer` + `Dynamic` stub |
 | ROW-001 | 断片 | closed record unify + `Lacks` stub |
-| EFF-001 | shallow v0 | `CoreExpr::Handle` + one-shot resume（body 継続なし） |
+| EFF-001 | deep one-shot v0 | resume 後に body 継続；handler 再インストール |
 | MOD-001 | v0 | `elaborate_units` インメモリ import |
-| DAT-001 | 部分 | Core Variant/Match のみ |
-| BND letrec/var/set | 未 | |
-| KER-001 | 未 | typed host ABI |
-| RSC-001 | 未 | resource/I/O catalog |
+| DAT-001 | v0 | surface `data`/`match` → Variant/Match（単一 binder） |
+| BND letrec/var/set | v0 | `LetRec` + `LocalVar`/`Set` cells（alive escape） |
+| KER-001 | v0 | `+ - * < =` BuiltinOp |
+| RSC-001 | v0 | `MemoryFsHost` + `read-file`/`write-file` |
 | EDT-001 | 部分 | BindingId 未スレッド；prototype を DOCUMENT SURFACE に隔離 |
 | PKG-001 | 延期 | graphics/math/日本語 |
 

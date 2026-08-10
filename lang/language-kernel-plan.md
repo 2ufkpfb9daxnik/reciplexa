@@ -9,11 +9,11 @@ Goal: complete LEX→SYN→MAC→RES→TYP/ROW/EFF→Core→EVAL/BND (+ MOD/KER/
 4. MAC-001 hygienic macros (language); quarantine graphics macros — **done** (`expand_language`)
 5. TYP-001 on Core (+ dynamic stub) — **done v0** (`typecheck_language_source`, `CoreType::Dynamic`)
 6. ROW-001 fragment — **done v0** (closed-record unify + `CoreType::Lacks` stub; no open row vars)
-7. DAT interim: data/match — **partial** (Core Variant/Match + eval; no surface `data`/`match` elaborate)
-8. EFF-001 deep handlers — **shallow/one-shot v0** (`CoreExpr::Handle`; resume aborts handler, no deep continue)
-9. BND letrec/var/set — **not started**
+7. DAT interim: data/match — **done v0** (surface `data`/`match` → Core Variant/Match; tag + optional single binder)
+8. EFF-001 deep handlers — **done v0** (deep one-shot resume; body continues after `resume`)
+9. BND letrec/var/set — **done v0** (`LetRec`, `LocalVar`/`Set` + cell alive escape check)
 10. MOD-001 outer module + import — **done v0** (`elaborate_units` in-memory import skeleton)
-11. KER/RSC typed host ops — **not started** (host `EffectHost` / document effects only)
+11. KER/RSC typed host ops — **done v0** (`+ - * < =` builtins; `MemoryFsHost` for `read-file`/`write-file`)
 12. EDT thread BindingId/SyntaxNodeId; retire prototype "language" tests — **partial** (document surface docs + `lang_kernel_suite`; BindingId not threaded)
 13. GUI text-move sync tests (expanded vs authoring) — **prior work**; not revisited here
 
@@ -25,16 +25,17 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 cargo check -p reciplexa-gui
 ```
-**Last gate: green** (fmt / clippy -D warnings / test --workspace / check gui).
+**Last gate: pending this batch** (fmt / clippy -D warnings / test --workspace / check gui).
 
-## Remaining gaps (KER / RSC / EDT / DAT)
+## Remaining gaps
 | ID | Gap |
 |---|---|
-| **DAT-001** | Surface `data` / `match` elaborate; richer ADTs; pattern exhaustiveness |
-| **KER-001** | Typed Rust/foreign primitive ABI boundary (not just stringy `EffectHost`) |
-| **RSC-001** | Resource / I/O / host op catalog wired through Core types + effects |
+| **DAT-001** | Richer ADTs (multi-payload, params); pattern exhaustiveness |
+| **KER-001** | Full typed Rust/foreign ABI (beyond BuiltinOp + EffectHost) |
+| **RSC-001** | Effect rows in Fun types; richer resource catalog / path safety |
 | **EDT-001** | Thread `BindingId` / `SyntaxNodeId` provenance through resolve→elaborate→eval |
-| **EFF-001** | Deep handlers (continue body after resume); effect rows in infer |
+| **EFF-001** | Multi-shot / shallow choice; effect rows in infer beyond stubs |
 | **ROW-001** | Open records / row variables; enforce `Lacks` |
-| **BND-001** | `letrec` / `var` / `set!` on Core |
+| **BND-001** | Full escape analysis; typed `var` store |
 | **MOD-001** | Signatures, functors, filesystem sibling load, resolve across units |
+| **PKG-001** | Deferred (graphics/math/Japanese packages) |

@@ -83,3 +83,66 @@ fn lang_handle_shallow_v0() {
         assert_eq!(v, RuntimeValue::String("ok".into()));
     });
 }
+
+#[test]
+fn lang_data_match() {
+    let case = ConformanceCase::new("TEST-LANG-DAT-001", "DAT-001", "data/match elaborates to 1");
+    run_conformance(&case, || {
+        let src = include_str!("../../../examples/lang_match.rpx");
+        let v = eval_source(src).unwrap();
+        assert_eq!(v, RuntimeValue::Number(1.0));
+    });
+}
+
+#[test]
+fn lang_letrec() {
+    let case = ConformanceCase::new("TEST-LANG-BND-001", "BND-001", "letrec self-call");
+    run_conformance(&case, || {
+        let src = include_str!("../../../examples/lang_letrec.rpx");
+        let v = eval_source(src).unwrap();
+        assert_eq!(v, RuntimeValue::Number(7.0));
+    });
+}
+
+#[test]
+fn lang_primitives() {
+    let case = ConformanceCase::new("TEST-LANG-KER-001", "KER-001", "numeric primitives");
+    run_conformance(&case, || {
+        let src = include_str!("../../../examples/lang_prim.rpx");
+        let v = eval_source(src).unwrap();
+        assert_eq!(v, RuntimeValue::Number(10.0));
+    });
+}
+
+#[test]
+fn lang_deep_resume() {
+    let case = ConformanceCase::new(
+        "TEST-LANG-EFF-001-deep",
+        "EFF-001",
+        "deep one-shot resume continues body",
+    );
+    run_conformance(&case, || {
+        let v = eval_source(
+            r#"(val main (handle ask (fn (_ k) (k 41)) (seq (perform ask 0) 99)))"#,
+        )
+        .unwrap();
+        assert_eq!(v, RuntimeValue::Number(99.0));
+    });
+}
+
+#[test]
+fn lang_var_set() {
+    let case = ConformanceCase::new("TEST-LANG-BND-var", "BND-001", "var/set cell");
+    run_conformance(&case, || {
+        let v = eval_source(
+            r#"
+(val main
+  (var count 0
+    (set count 3)
+    count))
+"#,
+        )
+        .unwrap();
+        assert_eq!(v, RuntimeValue::Number(3.0));
+    });
+}
