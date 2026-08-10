@@ -270,6 +270,12 @@ impl<'a> Lexer<'a> {
             if next.is_some_and(|c| c.is_ascii_digit()) {
                 return self.bump_number(start);
             }
+            // DAT-001 / MAC-001: bare `->` is a reserved Arrow token, not Ident.
+            if sign == Some('-') && next == Some('>') {
+                self.advance_char(); // `-`
+                self.advance_char(); // `>`
+                return self.finish(SyntaxKind::Arrow, start);
+            }
         }
         self.advance_char();
         while let Some(c) = self.peek_char() {

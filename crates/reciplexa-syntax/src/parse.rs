@@ -202,6 +202,7 @@ impl<'a> Parser<'a> {
             | SyntaxKind::Number
             | SyntaxKind::String
             | SyntaxKind::TextChunk
+            | SyntaxKind::Arrow
             | SyntaxKind::Error => {
                 self.bump();
             }

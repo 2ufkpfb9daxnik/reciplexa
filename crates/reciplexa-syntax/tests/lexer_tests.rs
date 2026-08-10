@@ -111,7 +111,28 @@ fn lexes_signed_and_symbolic_idents() {
     assert_eq!(kinds("+"), vec![SyntaxKind::Ident]);
     assert_eq!(kinds("+10"), vec![SyntaxKind::Number]);
     assert_eq!(kinds("-3.14"), vec![SyntaxKind::Number]);
-    assert_eq!(kinds("->"), vec![SyntaxKind::Ident]);
+    assert_eq!(kinds("-"), vec![SyntaxKind::Ident]);
+}
+
+#[test]
+fn arrow_is_reserved_token_not_ident() {
+    // DAT-001 / MAC-001: `->` is SyntaxKind::Arrow, never Ident.
+    assert_eq!(kinds("->"), vec![SyntaxKind::Arrow]);
+    assert_eq!(texts("->"), vec!["->"]);
+    assert_eq!(
+        kinds("(some item -> item)"),
+        vec![
+            SyntaxKind::LParen,
+            SyntaxKind::Ident,
+            SyntaxKind::Whitespace,
+            SyntaxKind::Ident,
+            SyntaxKind::Whitespace,
+            SyntaxKind::Arrow,
+            SyntaxKind::Whitespace,
+            SyntaxKind::Ident,
+            SyntaxKind::RParen,
+        ]
+    );
 }
 
 #[test]

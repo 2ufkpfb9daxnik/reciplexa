@@ -56,6 +56,9 @@ pub enum SyntaxKind {
     /// SYN-001 structured comment: `(// …)` (nested paren / string aware).
     StructuredComment,
 
+    /// DAT-001 / MAC-001 reserved `->` token (match arms, macro templates).
+    Arrow,
+
     // --- sentinel: must stay last for raw-tag bounds checks in tests ---
     #[doc(hidden)]
     __Last,
@@ -91,6 +94,7 @@ impl SyntaxKind {
             x if x == Self::AtExpr as u16 => Self::AtExpr,
             x if x == Self::ErrorNode as u16 => Self::ErrorNode,
             x if x == Self::StructuredComment as u16 => Self::StructuredComment,
+            x if x == Self::Arrow as u16 => Self::Arrow,
             _ => Self::Error,
         }
     }
