@@ -446,3 +446,92 @@ fn lacks_stub_label_mismatch_errors() {
         Err(UnifyError::Mismatch { .. })
     ));
 }
+
+#[test]
+fn lacks_rejects_present_field() {
+    let mut s = Subst::new();
+    let lacks = CoreType::Lacks {
+        label: "x".into(),
+        row: Box::new(CoreType::Record {
+            fields: vec![("x".into(), CoreType::Number)],
+        }),
+    };
+    assert!(matches!(
+        unify(&lacks, &CoreType::Record {
+            fields: vec![("x".into(), CoreType::Number)],
+        }, &mut s),
+        Err(UnifyError::LacksViolation { .. })
+    ));
+}
+
+#[test]
+fn lacks_allows_absent_field() {
+    let mut s = Subst::new();
+    let rec = CoreType::Record {
+        fields: vec![("y".into(), CoreType::Number)],
+    };
+    let lacks = CoreType::Lacks {
+        label: "x".into(),
+        row: Box::new(rec.clone()),
+    };
+    assert!(unify(&lacks, &rec, &mut s).is_ok());
+}
+
+#[test]
+fn open_record_unifies_with_closed_tail() {
+    let mut s = Subst::new();
+    let rho = s.fresh_var();
+    let open = CoreType::OpenRecord {
+        fields: vec![("x".into(), CoreType::Number)],
+        row: Box::new(CoreType::Var(rho)),
+    };
+    let closed = CoreType::Record {
+        fields: vec![
+            ("x".into(), CoreType::Number),
+            ("y".into(), CoreType::String),
+        ],
+    };
+    assert!(unify(&open, &closed, &mut s).is_ok());
+    assert_eq!(
+        s.apply(&CoreType::Var(rho)),
+        CoreType::Record {
+            fields: vec![("y".into(), CoreType::String)],
+        }
+    );
+}
+
+#[test]
+fn open_record_missing_required_field_errors() {
+    let mut s = Subst::new();
+    let rho = s.fresh_var();
+    let open = CoreType::OpenRecord {
+        fields: vec![("x".into(), CoreType::Number)],
+        row: Box::new(CoreType::Var(rho)),
+    };
+    let closed = CoreType::Record {
+        fields: vec![("y".into(), CoreType::Number)],
+    };
+    assert!(matches!(
+        unify(&open, &closed, &mut s),
+        Err(UnifyError::Mismatch { .. })
+    ));
+}
+
+#[test]
+fn lacks_on_open_record_checks_fields() {
+    let mut s = Subst::new();
+    let rho = s.fresh_var();
+    let open = CoreType::OpenRecord {
+        fields: vec![("x".into(), CoreType::Number)],
+        row: Box::new(CoreType::Var(rho)),
+    };
+    let lacks = CoreType::Lacks {
+        label: "x".into(),
+        row: Box::new(open.clone()),
+    };
+    assert!(matches!(
+        unify(&lacks, &open, &mut s),
+        Err(UnifyError::LacksViolation { label, .. }) if label == "x"
+    ));
+}
+

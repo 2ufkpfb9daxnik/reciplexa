@@ -14,9 +14,8 @@ impl TypeVarId {
 
 /// Surface-aligned core types.
 ///
-/// **ROW-001:** records are closed (exact field lists) under unify. Open row
-/// variables are not implemented yet; [`CoreType::Lacks`] is a stub for future
-/// absence constraints.
+/// **ROW-001:** closed records (exact field lists) and open records with a row
+/// tail (`OpenRecord`). [`CoreType::Lacks`] is enforced under unify.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CoreType {
     Number,
@@ -27,7 +26,7 @@ pub enum CoreType {
     Bool,
     /// Gradual typing entry point (TYP-001). Unifies with any type in v0.
     Dynamic,
-    /// ROW-001 stub: asserts that `row` lacks field `label` (not enforced by unify yet).
+    /// Absence constraint: `row` must not contain field `label`.
     Lacks {
         label: String,
         row: Box<CoreType>,
@@ -41,6 +40,11 @@ pub enum CoreType {
     /// Closed record — fields must match exactly (same names, same order, same types).
     Record {
         fields: Vec<(String, CoreType)>,
+    },
+    /// Open record `{ fields | ρ }` — `row` is typically a [`CoreType::Var`] row tail.
+    OpenRecord {
+        fields: Vec<(String, CoreType)>,
+        row: Box<CoreType>,
     },
     Variant {
         variants: Vec<(String, Option<CoreType>)>,

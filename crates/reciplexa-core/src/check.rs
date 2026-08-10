@@ -212,12 +212,29 @@ pub fn infer_expr(
         }
         CoreExpr::RecordGet { record, field } => {
             let rec_ty = infer_expr(record, env, subst, range)?;
+            let rec_ty = subst.apply(&rec_ty);
             match rec_ty {
                 CoreType::Record { fields } => fields
                     .into_iter()
                     .find(|(k, _)| k == field)
                     .map(|(_, t)| t)
                     .ok_or_else(|| CheckError::at(format!("unknown field `{field}`"), range)),
+                CoreType::OpenRecord { fields, row } => {
+                    if let Some((_, t)) = fields.into_iter().find(|(k, _)| k == field) {
+                        Ok(t)
+                    } else {
+                        // Field may live in the open row tail — introduce a fresh field type
+                        // and constrain the tail to contain it.
+                        let field_ty = CoreType::Var(subst.fresh_var());
+                        let rest = CoreType::Var(subst.fresh_var());
+                        let expected = CoreType::OpenRecord {
+                            fields: vec![(field.clone(), field_ty.clone())],
+                            row: Box::new(rest),
+                        };
+                        unify(&row, &expected, subst).map_err(|e| unify_to_check(e, range))?;
+                        Ok(subst.apply(&field_ty))
+                    }
+                }
                 other => Err(CheckError::at(
                     format!("expected record, got {other:?}"),
                     range,

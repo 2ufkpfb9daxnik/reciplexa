@@ -8,6 +8,8 @@ use crate::ty::{CoreType, TypeVarId};
 pub enum UnifyError {
     OccursCheck(TypeVarId, CoreType),
     Mismatch { expected: CoreType, found: CoreType },
+    /// `Lacks` violated: `label` is present in `found`.
+    LacksViolation { label: String, found: CoreType },
 }
 
 /// Substitution map for type variables.
@@ -46,6 +48,13 @@ impl Subst {
                     .map(|(k, v)| (k.clone(), self.apply(v)))
                     .collect(),
             },
+            CoreType::OpenRecord { fields, row } => CoreType::OpenRecord {
+                fields: fields
+                    .iter()
+                    .map(|(k, v)| (k.clone(), self.apply(v)))
+                    .collect(),
+                row: Box::new(self.apply(row)),
+            },
             CoreType::Variant { variants } => CoreType::Variant {
                 variants: variants
                     .iter()
@@ -80,12 +89,91 @@ fn occurs(var: TypeVarId, ty: &CoreType) -> bool {
         CoreType::Var(v) => *v == var,
         CoreType::Fun { args, ret, .. } => args.iter().any(|a| occurs(var, a)) || occurs(var, ret),
         CoreType::Record { fields } => fields.iter().any(|(_, t)| occurs(var, t)),
+        CoreType::OpenRecord { fields, row } => {
+            fields.iter().any(|(_, t)| occurs(var, t)) || occurs(var, row)
+        }
         CoreType::Variant { variants } => variants
             .iter()
             .any(|(_, t)| t.as_ref().is_some_and(|x| occurs(var, x))),
         CoreType::Lacks { row, .. } => occurs(var, row),
         _ => false,
     }
+}
+
+fn record_has_label(fields: &[(String, CoreType)], label: &str) -> bool {
+    fields.iter().any(|(k, _)| k == label)
+}
+
+/// Enforce that `ty` lacks `label`, then unify the inner row constraint target.
+fn enforce_lacks(label: &str, row: &CoreType, subst: &mut Subst) -> Result<(), UnifyError> {
+    let row = subst.apply(row);
+    match row {
+        CoreType::Record { fields } => {
+            if record_has_label(&fields, label) {
+                return Err(UnifyError::LacksViolation {
+                    label: label.to_string(),
+                    found: CoreType::Record { fields },
+                });
+            }
+            Ok(())
+        }
+        CoreType::OpenRecord { fields, row: rest } => {
+            if record_has_label(&fields, label) {
+                return Err(UnifyError::LacksViolation {
+                    label: label.to_string(),
+                    found: CoreType::OpenRecord {
+                        fields,
+                        row: rest,
+                    },
+                });
+            }
+            enforce_lacks(label, &rest, subst)
+        }
+        CoreType::Lacks {
+            label: _inner_lab,
+            row: inner_row,
+        } => {
+            // Peel nested lacks; underlying concrete row is checked below.
+            enforce_lacks(label, &inner_row, subst)
+        }
+        CoreType::Var(_) | CoreType::Unit | CoreType::Dynamic => Ok(()),
+        other => Err(UnifyError::Mismatch {
+            expected: CoreType::Lacks {
+                label: label.to_string(),
+                row: Box::new(CoreType::Unit),
+            },
+            found: other,
+        }),
+    }
+}
+
+/// Unify open `{a_fields | a_row}` with closed `b_fields` (exact remaining → a_row).
+fn unify_open_with_closed(
+    a_fields: &[(String, CoreType)],
+    a_row: &CoreType,
+    b_fields: &[(String, CoreType)],
+    subst: &mut Subst,
+    expected: &CoreType,
+    found: &CoreType,
+) -> Result<(), UnifyError> {
+    let mut remaining: Vec<(String, CoreType)> = b_fields.to_vec();
+    for (ak, av) in a_fields {
+        let idx = remaining.iter().position(|(bk, _)| bk == ak);
+        let Some(idx) = idx else {
+            return Err(UnifyError::Mismatch {
+                expected: expected.clone(),
+                found: found.clone(),
+            });
+        };
+        let (_, bv) = remaining.remove(idx);
+        unify(av, &bv, subst)?;
+    }
+    let rest_ty = if remaining.is_empty() {
+        CoreType::Record { fields: vec![] }
+    } else {
+        CoreType::Record { fields: remaining }
+    };
+    unify(a_row, &rest_ty, subst)
 }
 
 pub fn unify(a: &CoreType, b: &CoreType, subst: &mut Subst) -> Result<(), UnifyError> {
@@ -111,7 +199,23 @@ pub fn unify(a: &CoreType, b: &CoreType, subst: &mut Subst) -> Result<(), UnifyE
                 label: b_lab,
                 row: b_row,
             },
-        ) if a_lab == b_lab => unify(a_row, b_row, subst),
+        ) if a_lab == b_lab => {
+            enforce_lacks(a_lab, a_row, subst)?;
+            enforce_lacks(b_lab, b_row, subst)?;
+            unify(a_row, b_row, subst)
+        }
+        (CoreType::Lacks { .. }, CoreType::Lacks { .. }) => Err(UnifyError::Mismatch {
+            expected: a,
+            found: b,
+        }),
+        (CoreType::Lacks { label, row }, other) => {
+            enforce_lacks(label, other, subst)?;
+            unify(row, other, subst)
+        }
+        (other, CoreType::Lacks { label, row }) => {
+            enforce_lacks(label, other, subst)?;
+            unify(other, row, subst)
+        }
         (
             CoreType::Fun {
                 args: a_args,
@@ -160,6 +264,59 @@ pub fn unify(a: &CoreType, b: &CoreType, subst: &mut Subst) -> Result<(), UnifyE
             }
             Ok(())
         }
+        (
+            CoreType::OpenRecord {
+                fields: a_f,
+                row: a_row,
+            },
+            CoreType::Record { fields: b_f },
+        ) => unify_open_with_closed(a_f, a_row, b_f, subst, &a, &b),
+        (
+            CoreType::Record { fields: a_f },
+            CoreType::OpenRecord {
+                fields: b_f,
+                row: b_row,
+            },
+        ) => unify_open_with_closed(b_f, b_row, a_f, subst, &b, &a),
+        (
+            CoreType::OpenRecord {
+                fields: a_f,
+                row: a_row,
+            },
+            CoreType::OpenRecord {
+                fields: b_f,
+                row: b_row,
+            },
+        ) => {
+            // Shared labels must unify; exclusive labels are pushed into the opposite tail.
+            let mut a_only = Vec::new();
+            let mut b_rest = b_f.to_vec();
+            for (ak, av) in a_f {
+                if let Some(idx) = b_rest.iter().position(|(bk, _)| bk == ak) {
+                    let (_, bv) = b_rest.remove(idx);
+                    unify(av, &bv, subst)?;
+                } else {
+                    a_only.push((ak.clone(), av.clone()));
+                }
+            }
+            let a_tail = if a_only.is_empty() {
+                (**a_row).clone()
+            } else {
+                CoreType::OpenRecord {
+                    fields: a_only,
+                    row: a_row.clone(),
+                }
+            };
+            let b_tail = if b_rest.is_empty() {
+                (**b_row).clone()
+            } else {
+                CoreType::OpenRecord {
+                    fields: b_rest,
+                    row: b_row.clone(),
+                }
+            };
+            unify(&a_tail, &b_tail, subst)
+        }
         (CoreType::Variant { variants: a_v }, CoreType::Variant { variants: b_v }) => {
             if a_v.len() != b_v.len() {
                 return Err(UnifyError::Mismatch {
@@ -185,6 +342,12 @@ pub fn unify(a: &CoreType, b: &CoreType, subst: &mut Subst) -> Result<(), UnifyE
                     }
                 }
             }
+            Ok(())
+        }
+        // Empty closed record ≈ unit row tail for open-row fragments.
+        (CoreType::Record { fields }, CoreType::Unit) | (CoreType::Unit, CoreType::Record { fields })
+            if fields.is_empty() =>
+        {
             Ok(())
         }
         _ => Err(UnifyError::Mismatch {
