@@ -2847,6 +2847,7 @@ dependencies = [
  "reciplexa-diagnostic",
  "reciplexa-document",
  "reciplexa-effect",
+ "reciplexa-eval",
  "reciplexa-identity",
  "reciplexa-lower",
  "reciplexa-macro",

@@ -77,6 +77,14 @@ pub fn cmd_inspect_syntax(path: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// Elaborate + evaluate a language-kernel `.rpx` source (no page/graphics).
+pub fn cmd_eval(path: &str) -> Result<(), String> {
+    let src = fs::read_to_string(path).map_err(|e| format!("read {path}: {e}"))?;
+    let value = reciplexa_eval::eval_source(&src).map_err(|e| e.message)?;
+    println!("{value}");
+    Ok(())
+}
+
 fn emit_parse_diagnostics(
     src: &str,
     errors: &[reciplexa_syntax::ParseError],
@@ -270,6 +278,19 @@ mod tests {
     #[test]
     fn inspect_document_missing_file_errors() {
         let err = cmd_inspect_document("/nonexistent/missing.rpx").unwrap_err();
+        assert!(err.contains("read"));
+    }
+
+    #[test]
+    fn eval_pure_fn_example() {
+        let manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let path = manifest.join("examples/pure_fn.rpx");
+        cmd_eval(path.to_str().unwrap()).expect("eval");
+    }
+
+    #[test]
+    fn eval_missing_file_errors() {
+        let err = cmd_eval("/nonexistent/missing.rpx").unwrap_err();
         assert!(err.contains("read"));
     }
 }

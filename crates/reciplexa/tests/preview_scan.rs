@@ -14,6 +14,11 @@ fn scan_repo_examples_preview() {
         }
         let src = std::fs::read_to_string(&path).unwrap();
         let name = path.file_name().unwrap().to_string_lossy().into_owned();
+        // Language-kernel examples (no page/graphics) are exercised by `reciplexa eval`.
+        if src.contains("language-only") {
+            println!("SKIP {name} (language-only)");
+            continue;
+        }
         match reciplexa::pipeline::document_from_source(&src) {
             Ok(_) => println!("OK  {name}"),
             Err(err) => {
