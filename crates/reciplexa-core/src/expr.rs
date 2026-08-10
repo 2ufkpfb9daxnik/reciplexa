@@ -19,12 +19,12 @@ pub enum CoreExpr {
         op: String,
         arg: Box<CoreExpr>,
     },
-    /// Shallow effect handler (EFF-001 v0).
+    /// Shallow effect handler (EFF-001 v0) upgraded to deep one-shot resume.
     ///
     /// Catches matching [`CoreExpr::Perform`] in `body`. Handler params are:
-    /// - `[arg]` — shallow abort; handler result is the handle result
-    /// - `[arg, resume]` — one-shot resume: applying `resume` to `v` makes `v`
-    ///   the handle result (does not continue the aborted body — shallow)
+    /// - `[arg]` — abort; handler result is the handle result
+    /// - `[arg, resume]` — one-shot deep resume: applying `resume` to `v`
+    ///   continues `body` as if `perform` returned `v` (handler is reinstalled)
     Handle {
         op: String,
         handler_params: Vec<String>,

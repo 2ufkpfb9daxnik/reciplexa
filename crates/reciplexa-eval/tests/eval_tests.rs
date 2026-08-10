@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use reciplexa_core::expr::{CoreExpr, CoreLiteral, MatchArm};
 use reciplexa_eval::eval::*;
 use reciplexa_eval::value::*;
+use reciplexa_eval::UnitHost;
 
 #[test]
 fn seq_evaluates_left_to_right() {

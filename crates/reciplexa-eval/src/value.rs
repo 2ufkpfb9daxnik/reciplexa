@@ -9,7 +9,9 @@ use reciplexa_core::expr::CoreExpr;
 use reciplexa_core::ty::CoreType;
 use reciplexa_core::ty::TypeVarId;
 
-#[derive(Debug, Clone)]
+use crate::control::ResumeCont;
+
+#[derive(Clone)]
 pub enum RuntimeValue {
     Unit,
     Number(f64),
@@ -31,12 +33,45 @@ pub enum RuntimeValue {
     /// One-shot resume continuation for [`CoreExpr::Handle`].
     OneShotResume {
         used: Rc<Cell<bool>>,
+        cont: ResumeCont,
     },
     Record(Vec<(String, RuntimeValue)>),
     Variant {
         tag: String,
         payload: Option<Box<RuntimeValue>>,
     },
+}
+
+impl fmt::Debug for RuntimeValue {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Unit => write!(f, "Unit"),
+            Self::Number(n) => f.debug_tuple("Number").field(n).finish(),
+            Self::String(s) => f.debug_tuple("String").field(s).finish(),
+            Self::Bool(b) => f.debug_tuple("Bool").field(b).finish(),
+            Self::ShapeTag(s) => f.debug_tuple("ShapeTag").field(s).finish(),
+            Self::Closure { params, body, .. } => f
+                .debug_struct("Closure")
+                .field("params", params)
+                .field("body", body)
+                .finish(),
+            Self::Cell { value, alive } => f
+                .debug_struct("Cell")
+                .field("value", &*value.borrow())
+                .field("alive", &alive.get())
+                .finish(),
+            Self::OneShotResume { used, .. } => f
+                .debug_struct("OneShotResume")
+                .field("used", &used.get())
+                .finish(),
+            Self::Record(fields) => f.debug_tuple("Record").field(fields).finish(),
+            Self::Variant { tag, payload } => f
+                .debug_struct("Variant")
+                .field("tag", tag)
+                .field("payload", payload)
+                .finish(),
+        }
+    }
 }
 
 impl PartialEq for RuntimeValue {
@@ -69,7 +104,7 @@ impl PartialEq for RuntimeValue {
                     alive: ba,
                 },
             ) => aa.get() == ba.get() && *a.borrow() == *b.borrow(),
-            (Self::OneShotResume { used: a }, Self::OneShotResume { used: b }) => {
+            (Self::OneShotResume { used: a, .. }, Self::OneShotResume { used: b, .. }) => {
                 a.get() == b.get()
             }
             (Self::Record(a), Self::Record(b)) => a == b,

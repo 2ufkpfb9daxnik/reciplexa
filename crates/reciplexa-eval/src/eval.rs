@@ -8,32 +8,8 @@ use std::rc::Rc;
 use reciplexa_core::elaborate::{elaborate_source, ElaborateError};
 use reciplexa_core::expr::{CoreExpr, CoreLiteral, MatchArm};
 
+use crate::control::{identity_resume, EffectHost, EvalError, EvalResult, Outcome, ResumeCont, UnitHost};
 use crate::value::RuntimeValue;
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct EvalError {
-    pub message: String,
-}
-
-pub type EvalResult = Result<RuntimeValue, EvalError>;
-
-pub trait EffectHost {
-    fn perform(&mut self, op: &str, arg: RuntimeValue) -> EvalResult;
-}
-
-pub struct UnitHost;
-
-impl EffectHost for UnitHost {
-    fn perform(&mut self, op: &str, _arg: RuntimeValue) -> EvalResult {
-        match op {
-            "log" => Ok(RuntimeValue::Unit),
-            "random" => Ok(RuntimeValue::Number(0.5)),
-            other => Err(EvalError {
-                message: format!("unknown op `{other}`"),
-            }),
-        }
-    }
-}
 
 /// Expand language macros, elaborate surface source to Core, then evaluate with [`UnitHost`].
 pub fn eval_source(src: &str) -> EvalResult {
@@ -44,18 +20,6 @@ pub fn eval_source(src: &str) -> EvalResult {
     eval_expr(&expr, &HashMap::new(), &mut UnitHost)
 }
 
-/// Internal control for shallow handlers / one-shot resume (EFF-001 v0).
-enum Outcome {
-    Value(RuntimeValue),
-    /// Uncaught perform — bubbles to the nearest matching [`CoreExpr::Handle`].
-    Performed {
-        op: String,
-        arg: RuntimeValue,
-    },
-    /// One-shot resume fired inside a handler; becomes the handle result.
-    Resumed(RuntimeValue),
-}
-
 pub fn eval_expr<H: EffectHost>(
     expr: &CoreExpr,
     env: &HashMap<String, RuntimeValue>,
@@ -63,17 +27,26 @@ pub fn eval_expr<H: EffectHost>(
 ) -> EvalResult {
     match eval_outcome(expr, env, host)? {
         Outcome::Value(v) => Ok(v),
-        Outcome::Performed { op, arg } => host.perform(&op, arg),
         Outcome::Resumed(_) => Err(EvalError {
             message: "resume outside handle".into(),
         }),
+        Outcome::Performed { op, arg, resume } => {
+            let host_v = host.perform(&op, arg)?;
+            match resume(host_v, host)? {
+                Outcome::Value(v) => Ok(v),
+                Outcome::Resumed(v) => Ok(v),
+                Outcome::Performed { op, .. } => Err(EvalError {
+                    message: format!("unhandled residual effect `{op}`"),
+                }),
+            }
+        }
     }
 }
 
-fn eval_outcome<H: EffectHost>(
+fn eval_outcome(
     expr: &CoreExpr,
     env: &HashMap<String, RuntimeValue>,
-    host: &mut H,
+    host: &mut dyn EffectHost,
 ) -> Result<Outcome, EvalError> {
     match expr {
         CoreExpr::Lit(lit) => Ok(Outcome::Value(eval_lit(lit)?)),
@@ -99,6 +72,7 @@ fn eval_outcome<H: EffectHost>(
             Ok(Outcome::Performed {
                 op: op.clone(),
                 arg: v,
+                resume: identity_resume(),
             })
         }
         CoreExpr::Handle {
@@ -106,34 +80,38 @@ fn eval_outcome<H: EffectHost>(
             handler_params,
             handler_body,
             body,
-        } => match eval_outcome(body, env, host)? {
-            Outcome::Value(v) => Ok(Outcome::Value(v)),
-            Outcome::Resumed(v) => Ok(Outcome::Resumed(v)),
-            Outcome::Performed {
-                op: performed_op,
-                arg,
-            } if performed_op == *op => run_handler(handler_params, handler_body, arg, env, host),
-            Outcome::Performed { op, arg } => Ok(Outcome::Performed { op, arg }),
-        },
-        CoreExpr::Seq(items) => {
-            let mut last = RuntimeValue::Unit;
-            for item in items {
-                match eval_outcome(item, env, host)? {
-                    Outcome::Value(v) => last = v,
-                    other => return Ok(other),
-                }
+        } => eval_handle(op, handler_params, handler_body, body, env, host),
+        CoreExpr::Seq(items) => eval_seq(items, env, host),
+        CoreExpr::Let { name, value, body } => match eval_outcome(value, env, host)? {
+            Outcome::Value(v) => {
+                let mut child = env.clone();
+                child.insert(name.clone(), v);
+                eval_outcome(body, &child, host)
             }
-            Ok(Outcome::Value(last))
-        }
-        CoreExpr::Let { name, value, body } => {
-            let v = match eval_outcome(value, env, host)? {
-                Outcome::Value(v) => v,
-                other => return Ok(other),
-            };
-            let mut child = env.clone();
-            child.insert(name.clone(), v);
-            eval_outcome(body, &child, host)
-        }
+            Outcome::Performed {
+                op,
+                arg,
+                resume: inner,
+            } => {
+                let name = name.clone();
+                let body = body.clone();
+                let env = env.clone();
+                Ok(Outcome::Performed {
+                    op,
+                    arg,
+                    resume: Rc::new(move |v, host| {
+                        let v = match inner(v, host)? {
+                            Outcome::Value(v) => v,
+                            other => return Ok(other),
+                        };
+                        let mut child = env.clone();
+                        child.insert(name.clone(), v);
+                        eval_outcome(&body, &child, host)
+                    }),
+                })
+            }
+            Outcome::Resumed(v) => Ok(Outcome::Resumed(v)),
+        },
         CoreExpr::LetRec { bindings, body } => {
             let shared = Rc::new(RefCell::new(env.clone()));
             for (name, _) in bindings {
@@ -161,151 +139,281 @@ fn eval_outcome<H: EffectHost>(
             let child = shared.borrow().clone();
             eval_outcome(body, &child, host)
         }
-        CoreExpr::LocalVar { name, init, body } => {
-            let init_v = match eval_outcome(init, env, host)? {
-                Outcome::Value(v) => v,
-                other => return Ok(other),
-            };
-            let alive = Rc::new(Cell::new(true));
-            let cell = RuntimeValue::Cell {
-                value: Rc::new(RefCell::new(init_v)),
-                alive: Rc::clone(&alive),
-            };
-            let mut child = env.clone();
-            child.insert(name.clone(), cell);
-            let result = eval_outcome(body, &child, host);
-            alive.set(false);
-            result
-        }
-        CoreExpr::Set { name, value } => {
-            let v = match eval_outcome(value, env, host)? {
-                Outcome::Value(v) => v,
-                other => return Ok(other),
-            };
-            match env.get(name) {
-                Some(RuntimeValue::Cell { value: cell, alive }) => {
-                    if !alive.get() {
-                        return Err(EvalError {
-                            message: format!("set on var `{name}` after scope exit (escaped)"),
-                        });
-                    }
-                    *cell.borrow_mut() = v;
-                    Ok(Outcome::Value(RuntimeValue::Unit))
-                }
-                Some(_) => Err(EvalError {
-                    message: format!("`set` target `{name}` is not a var cell"),
-                }),
-                None => Err(EvalError {
-                    message: format!("unbound variable `{name}` in set"),
-                }),
+        CoreExpr::LocalVar { name, init, body } => match eval_outcome(init, env, host)? {
+            Outcome::Value(init_v) => run_local_var(name, init_v, body, env, host),
+            Outcome::Performed {
+                op,
+                arg,
+                resume: inner,
+            } => {
+                let name = name.clone();
+                let body = body.clone();
+                let env = env.clone();
+                Ok(Outcome::Performed {
+                    op,
+                    arg,
+                    resume: Rc::new(move |v, host| {
+                        let init_v = match inner(v, host)? {
+                            Outcome::Value(v) => v,
+                            other => return Ok(other),
+                        };
+                        run_local_var(&name, init_v, &body, &env, host)
+                    }),
+                })
             }
-        }
+            Outcome::Resumed(v) => Ok(Outcome::Resumed(v)),
+        },
+        CoreExpr::Set { name, value } => match eval_outcome(value, env, host)? {
+            Outcome::Value(v) => apply_set(name, v, env),
+            Outcome::Performed {
+                op,
+                arg,
+                resume: inner,
+            } => {
+                let name = name.clone();
+                let env = env.clone();
+                Ok(Outcome::Performed {
+                    op,
+                    arg,
+                    resume: Rc::new(move |v, host| {
+                        let v = match inner(v, host)? {
+                            Outcome::Value(v) => v,
+                            other => return Ok(other),
+                        };
+                        apply_set(&name, v, &env)
+                    }),
+                })
+            }
+            Outcome::Resumed(v) => Ok(Outcome::Resumed(v)),
+        },
         CoreExpr::Lambda { params, body } => Ok(Outcome::Value(RuntimeValue::Closure {
             params: params.clone(),
             body: *body.clone(),
             env: Rc::new(RefCell::new(env.clone())),
         })),
-        CoreExpr::App { fun, args } => {
-            let fun_v = match eval_outcome(fun, env, host)? {
-                Outcome::Value(v) => v,
-                other => return Ok(other),
-            };
-            let mut arg_vs = Vec::with_capacity(args.len());
-            for arg in args {
-                match eval_outcome(arg, env, host)? {
-                    Outcome::Value(v) => arg_vs.push(v),
-                    other => return Ok(other),
-                }
-            }
-            apply_value(fun_v, arg_vs, host)
-        }
+        CoreExpr::App { fun, args } => eval_app(fun, args, env, host),
         CoreExpr::If {
             cond,
             then_branch,
             else_branch,
-        } => {
-            let cond_v = match eval_outcome(cond, env, host)? {
-                Outcome::Value(v) => v,
-                other => return Ok(other),
-            };
-            match cond_v {
+        } => match eval_outcome(cond, env, host)? {
+            Outcome::Value(cond_v) => match cond_v {
                 RuntimeValue::Bool(true) => eval_outcome(then_branch, env, host),
                 RuntimeValue::Bool(false) => eval_outcome(else_branch, env, host),
                 other => Err(EvalError {
                     message: format!("if condition must be Bool, got {other:?}"),
                 }),
-            }
-        }
-        CoreExpr::Record { fields } => {
-            let mut out = Vec::new();
-            for (k, v) in fields {
-                match eval_outcome(v, env, host)? {
-                    Outcome::Value(val) => out.push((k.clone(), val)),
-                    other => return Ok(other),
-                }
-            }
-            Ok(Outcome::Value(RuntimeValue::Record(out)))
-        }
-        CoreExpr::RecordGet { record, field } => {
-            let v = match eval_outcome(record, env, host)? {
-                Outcome::Value(v) => v,
-                other => return Ok(other),
-            };
-            match v {
-                RuntimeValue::Record(fields) => fields
-                    .into_iter()
-                    .find(|(k, _)| k == field)
-                    .map(|(_, v)| Outcome::Value(v))
-                    .ok_or_else(|| EvalError {
-                        message: format!("unknown field `{field}`"),
+            },
+            Outcome::Performed {
+                op,
+                arg,
+                resume: inner,
+            } => {
+                let then_branch = then_branch.clone();
+                let else_branch = else_branch.clone();
+                let env = env.clone();
+                Ok(Outcome::Performed {
+                    op,
+                    arg,
+                    resume: Rc::new(move |v, host| {
+                        let cond_v = match inner(v, host)? {
+                            Outcome::Value(v) => v,
+                            other => return Ok(other),
+                        };
+                        match cond_v {
+                            RuntimeValue::Bool(true) => eval_outcome(&then_branch, &env, host),
+                            RuntimeValue::Bool(false) => eval_outcome(&else_branch, &env, host),
+                            other => Err(EvalError {
+                                message: format!("if condition must be Bool, got {other:?}"),
+                            }),
+                        }
                     }),
-                other => Err(EvalError {
-                    message: format!("expected record, got {other:?}"),
-                }),
+                })
             }
-        }
+            Outcome::Resumed(v) => Ok(Outcome::Resumed(v)),
+        },
+        CoreExpr::Record { fields } => eval_record(fields, env, host),
+        CoreExpr::RecordGet { record, field } => match eval_outcome(record, env, host)? {
+            Outcome::Value(v) => record_get(v, field),
+            Outcome::Performed {
+                op,
+                arg,
+                resume: inner,
+            } => {
+                let field = field.clone();
+                Ok(Outcome::Performed {
+                    op,
+                    arg,
+                    resume: Rc::new(move |v, host| {
+                        let v = match inner(v, host)? {
+                            Outcome::Value(v) => v,
+                            other => return Ok(other),
+                        };
+                        record_get(v, &field)
+                    }),
+                })
+            }
+            Outcome::Resumed(v) => Ok(Outcome::Resumed(v)),
+        },
         CoreExpr::Variant { tag, payload } => {
-            let p = if let Some(e) = payload {
+            if let Some(e) = payload {
                 match eval_outcome(e, env, host)? {
-                    Outcome::Value(v) => Some(Box::new(v)),
-                    other => return Ok(other),
+                    Outcome::Value(v) => Ok(Outcome::Value(RuntimeValue::Variant {
+                        tag: tag.clone(),
+                        payload: Some(Box::new(v)),
+                    })),
+                    Outcome::Performed {
+                        op,
+                        arg,
+                        resume: inner,
+                    } => {
+                        let tag = tag.clone();
+                        Ok(Outcome::Performed {
+                            op,
+                            arg,
+                            resume: Rc::new(move |v, host| {
+                                let v = match inner(v, host)? {
+                                    Outcome::Value(v) => v,
+                                    other => return Ok(other),
+                                };
+                                Ok(Outcome::Value(RuntimeValue::Variant {
+                                    tag: tag.clone(),
+                                    payload: Some(Box::new(v)),
+                                }))
+                            }),
+                        })
+                    }
+                    Outcome::Resumed(v) => Ok(Outcome::Resumed(v)),
                 }
             } else {
-                None
-            };
-            Ok(Outcome::Value(RuntimeValue::Variant {
-                tag: tag.clone(),
-                payload: p,
-            }))
+                Ok(Outcome::Value(RuntimeValue::Variant {
+                    tag: tag.clone(),
+                    payload: None,
+                }))
+            }
         }
-        CoreExpr::Match { scrutinee, arms } => {
-            let v = match eval_outcome(scrutinee, env, host)? {
-                Outcome::Value(v) => v,
-                other => return Ok(other),
-            };
-            eval_match(&v, arms, env, host)
-        }
+        CoreExpr::Match { scrutinee, arms } => match eval_outcome(scrutinee, env, host)? {
+            Outcome::Value(v) => eval_match(&v, arms, env, host),
+            Outcome::Performed {
+                op,
+                arg,
+                resume: inner,
+            } => {
+                let arms = arms.clone();
+                let env = env.clone();
+                Ok(Outcome::Performed {
+                    op,
+                    arg,
+                    resume: Rc::new(move |v, host| {
+                        let v = match inner(v, host)? {
+                            Outcome::Value(v) => v,
+                            other => return Ok(other),
+                        };
+                        eval_match(&v, &arms, &env, host)
+                    }),
+                })
+            }
+            Outcome::Resumed(v) => Ok(Outcome::Resumed(v)),
+        },
     }
 }
 
-fn run_handler<H: EffectHost>(
+fn run_local_var(
+    name: &str,
+    init_v: RuntimeValue,
+    body: &CoreExpr,
+    env: &HashMap<String, RuntimeValue>,
+    host: &mut dyn EffectHost,
+) -> Result<Outcome, EvalError> {
+    let alive = Rc::new(Cell::new(true));
+    let cell = RuntimeValue::Cell {
+        value: Rc::new(RefCell::new(init_v)),
+        alive: Rc::clone(&alive),
+    };
+    let mut child = env.clone();
+    child.insert(name.to_string(), cell);
+    let result = eval_outcome(body, &child, host);
+    if matches!(result, Ok(Outcome::Value(_)) | Err(_)) {
+        alive.set(false);
+    }
+    result
+}
+
+fn eval_handle(
+    op: &str,
+    handler_params: &[String],
+    handler_body: &CoreExpr,
+    body: &CoreExpr,
+    env: &HashMap<String, RuntimeValue>,
+    host: &mut dyn EffectHost,
+) -> Result<Outcome, EvalError> {
+    match eval_outcome(body, env, host)? {
+        Outcome::Value(v) => Ok(Outcome::Value(v)),
+        Outcome::Resumed(v) => Ok(Outcome::Resumed(v)),
+        Outcome::Performed {
+            op: performed_op,
+            arg,
+            resume,
+        } if performed_op == op => {
+            let op = op.to_string();
+            let handler_params = handler_params.to_vec();
+            let handler_body = Rc::new(handler_body.clone());
+            let env = env.clone();
+            let deep_resume: ResumeCont = Rc::new({
+                let handler_params = handler_params.clone();
+                let handler_body = Rc::clone(&handler_body);
+                let env = env.clone();
+                let op = op.clone();
+                move |v, host| match resume(v, host)? {
+                    Outcome::Value(v) => Ok(Outcome::Value(v)),
+                    Outcome::Performed {
+                        op: p,
+                        arg,
+                        resume: r,
+                    } if p == op => run_handler_with_resume(
+                        &handler_params,
+                        &handler_body,
+                        arg,
+                        r,
+                        &env,
+                        host,
+                    ),
+                    other => Ok(other),
+                }
+            });
+            run_handler_with_resume(
+                &handler_params,
+                &handler_body,
+                arg,
+                deep_resume,
+                &env,
+                host,
+            )
+        }
+        Outcome::Performed { op, arg, resume } => Ok(Outcome::Performed { op, arg, resume }),
+    }
+}
+
+fn run_handler_with_resume(
     handler_params: &[String],
     handler_body: &CoreExpr,
     arg: RuntimeValue,
+    resume: ResumeCont,
     env: &HashMap<String, RuntimeValue>,
-    host: &mut H,
+    host: &mut dyn EffectHost,
 ) -> Result<Outcome, EvalError> {
     let mut child = env.clone();
     match handler_params {
         [p] => {
             child.insert(p.clone(), arg);
         }
-        [p, resume] => {
+        [p, resume_name] => {
             child.insert(p.clone(), arg);
             child.insert(
-                resume.clone(),
+                resume_name.clone(),
                 RuntimeValue::OneShotResume {
                     used: Rc::new(Cell::new(false)),
+                    cont: resume,
                 },
             );
         }
@@ -315,20 +423,220 @@ fn run_handler<H: EffectHost>(
             });
         }
     }
-    match eval_outcome(handler_body, &child, host)? {
-        Outcome::Value(v) => Ok(Outcome::Value(v)),
+    eval_outcome(handler_body, &child, host).and_then(|out| match out {
+        // Resume aborts the handler; its value is the handle result.
         Outcome::Resumed(v) => Ok(Outcome::Value(v)),
-        Outcome::Performed { op, arg } => Ok(Outcome::Performed { op, arg }),
+        other => Ok(other),
+    })
+}
+
+fn eval_seq(
+    items: &[CoreExpr],
+    env: &HashMap<String, RuntimeValue>,
+    host: &mut dyn EffectHost,
+) -> Result<Outcome, EvalError> {
+    let mut last = RuntimeValue::Unit;
+    for (i, item) in items.iter().enumerate() {
+        match eval_outcome(item, env, host)? {
+            Outcome::Value(v) => last = v,
+            Outcome::Resumed(v) => return Ok(Outcome::Resumed(v)),
+            Outcome::Performed {
+                op,
+                arg,
+                resume: inner,
+            } => {
+                let rest: Vec<CoreExpr> = items[i + 1..].to_vec();
+                let env = env.clone();
+                return Ok(Outcome::Performed {
+                    op,
+                    arg,
+                    resume: Rc::new(move |v, host| {
+                        let mut last = match inner(v, host)? {
+                            Outcome::Value(v) => v,
+                            other => return Ok(other),
+                        };
+                        for item in &rest {
+                            match eval_outcome(item, &env, host)? {
+                                Outcome::Value(v) => last = v,
+                                other => return Ok(other),
+                            }
+                        }
+                        Ok(Outcome::Value(last))
+                    }),
+                });
+            }
+        }
+    }
+    Ok(Outcome::Value(last))
+}
+
+fn eval_app(
+    fun: &CoreExpr,
+    args: &[CoreExpr],
+    env: &HashMap<String, RuntimeValue>,
+    host: &mut dyn EffectHost,
+) -> Result<Outcome, EvalError> {
+    let fun_v = match eval_outcome(fun, env, host)? {
+        Outcome::Value(v) => v,
+        Outcome::Performed {
+            op,
+            arg,
+            resume: inner,
+        } => {
+            let args = args.to_vec();
+            let env = env.clone();
+            return Ok(Outcome::Performed {
+                op,
+                arg,
+                resume: Rc::new(move |v, host| {
+                    let fun_v = match inner(v, host)? {
+                        Outcome::Value(v) => v,
+                        other => return Ok(other),
+                    };
+                    eval_app_args(fun_v, &args, &env, host)
+                }),
+            });
+        }
+        Outcome::Resumed(v) => return Ok(Outcome::Resumed(v)),
+    };
+    eval_app_args(fun_v, args, env, host)
+}
+
+fn eval_app_args(
+    fun_v: RuntimeValue,
+    args: &[CoreExpr],
+    env: &HashMap<String, RuntimeValue>,
+    host: &mut dyn EffectHost,
+) -> Result<Outcome, EvalError> {
+    let mut arg_vs = Vec::with_capacity(args.len());
+    for (i, arg) in args.iter().enumerate() {
+        match eval_outcome(arg, env, host)? {
+            Outcome::Value(v) => arg_vs.push(v),
+            Outcome::Performed {
+                op,
+                arg: performed_arg,
+                resume: inner,
+            } => {
+                let fun_v = fun_v.clone();
+                let done = arg_vs.clone();
+                let rest: Vec<CoreExpr> = args[i + 1..].to_vec();
+                let env = env.clone();
+                return Ok(Outcome::Performed {
+                    op,
+                    arg: performed_arg,
+                    resume: Rc::new(move |v, host| {
+                        let v = match inner(v, host)? {
+                            Outcome::Value(v) => v,
+                            other => return Ok(other),
+                        };
+                        let mut collected = done.clone();
+                        collected.push(v);
+                        for a in &rest {
+                            match eval_outcome(a, &env, host)? {
+                                Outcome::Value(v) => collected.push(v),
+                                other => return Ok(other),
+                            }
+                        }
+                        apply_value(fun_v.clone(), collected, host)
+                    }),
+                });
+            }
+            Outcome::Resumed(v) => return Ok(Outcome::Resumed(v)),
+        }
+    }
+    apply_value(fun_v, arg_vs, host)
+}
+
+fn eval_record(
+    fields: &[(String, CoreExpr)],
+    env: &HashMap<String, RuntimeValue>,
+    host: &mut dyn EffectHost,
+) -> Result<Outcome, EvalError> {
+    let mut out = Vec::new();
+    for (i, (k, v)) in fields.iter().enumerate() {
+        match eval_outcome(v, env, host)? {
+            Outcome::Value(val) => out.push((k.clone(), val)),
+            Outcome::Performed {
+                op,
+                arg,
+                resume: inner,
+            } => {
+                let key = k.clone();
+                let done = out.clone();
+                let rest: Vec<(String, CoreExpr)> = fields[i + 1..].to_vec();
+                let env = env.clone();
+                return Ok(Outcome::Performed {
+                    op,
+                    arg,
+                    resume: Rc::new(move |v, host| {
+                        let v = match inner(v, host)? {
+                            Outcome::Value(v) => v,
+                            other => return Ok(other),
+                        };
+                        let mut collected = done.clone();
+                        collected.push((key.clone(), v));
+                        for (k, e) in &rest {
+                            match eval_outcome(e, &env, host)? {
+                                Outcome::Value(val) => collected.push((k.clone(), val)),
+                                other => return Ok(other),
+                            }
+                        }
+                        Ok(Outcome::Value(RuntimeValue::Record(collected)))
+                    }),
+                });
+            }
+            Outcome::Resumed(v) => return Ok(Outcome::Resumed(v)),
+        }
+    }
+    Ok(Outcome::Value(RuntimeValue::Record(out)))
+}
+
+fn apply_set(
+    name: &str,
+    v: RuntimeValue,
+    env: &HashMap<String, RuntimeValue>,
+) -> Result<Outcome, EvalError> {
+    match env.get(name) {
+        Some(RuntimeValue::Cell { value: cell, alive }) => {
+            if !alive.get() {
+                return Err(EvalError {
+                    message: format!("set on var `{name}` after scope exit (escaped)"),
+                });
+            }
+            *cell.borrow_mut() = v;
+            Ok(Outcome::Value(RuntimeValue::Unit))
+        }
+        Some(_) => Err(EvalError {
+            message: format!("`set` target `{name}` is not a var cell"),
+        }),
+        None => Err(EvalError {
+            message: format!("unbound variable `{name}` in set"),
+        }),
     }
 }
 
-fn apply_value<H: EffectHost>(
+fn record_get(v: RuntimeValue, field: &str) -> Result<Outcome, EvalError> {
+    match v {
+        RuntimeValue::Record(fields) => fields
+            .into_iter()
+            .find(|(k, _)| k == field)
+            .map(|(_, v)| Outcome::Value(v))
+            .ok_or_else(|| EvalError {
+                message: format!("unknown field `{field}`"),
+            }),
+        other => Err(EvalError {
+            message: format!("expected record, got {other:?}"),
+        }),
+    }
+}
+
+fn apply_value(
     fun_v: RuntimeValue,
     arg_vs: Vec<RuntimeValue>,
-    host: &mut H,
+    host: &mut dyn EffectHost,
 ) -> Result<Outcome, EvalError> {
     match fun_v {
-        RuntimeValue::OneShotResume { used } => {
+        RuntimeValue::OneShotResume { used, cont } => {
             if arg_vs.len() != 1 {
                 return Err(EvalError {
                     message: format!("resume expects 1 arg, got {}", arg_vs.len()),
@@ -339,7 +647,14 @@ fn apply_value<H: EffectHost>(
                     message: "one-shot resume already used".into(),
                 });
             }
-            Ok(Outcome::Resumed(arg_vs.into_iter().next().expect("len 1")))
+            // Transfer to deep continuation; abandon rest of handler.
+            match cont(arg_vs.into_iter().next().expect("len 1"), host)? {
+                Outcome::Value(v) => Ok(Outcome::Resumed(v)),
+                Outcome::Resumed(v) => Ok(Outcome::Resumed(v)),
+                Outcome::Performed { op, arg, resume } => {
+                    Ok(Outcome::Performed { op, arg, resume })
+                }
+            }
         }
         RuntimeValue::Closure {
             params,
@@ -367,11 +682,11 @@ fn apply_value<H: EffectHost>(
     }
 }
 
-fn eval_match<H: EffectHost>(
+fn eval_match(
     value: &RuntimeValue,
     arms: &[MatchArm],
     env: &HashMap<String, RuntimeValue>,
-    host: &mut H,
+    host: &mut dyn EffectHost,
 ) -> Result<Outcome, EvalError> {
     let RuntimeValue::Variant { tag, payload } = value else {
         return Err(EvalError {
