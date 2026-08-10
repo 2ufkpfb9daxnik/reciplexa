@@ -100,7 +100,7 @@ pub fn elaborate_with_data(src: &str) -> Result<(CoreExpr, DataEnv), ElaborateEr
 
 fn elaborate_file(root: &SyntaxNode) -> Result<(CoreExpr, ElabCtx), ElaborateError> {
     let mut ctx = ElabCtx::default();
-    let mut bindings: Vec<(String, CoreExpr)> = Vec::new();
+    let mut bindings: Vec<TopBinding> = Vec::new();
     let mut trailing: Vec<CoreExpr> = Vec::new();
 
     for el in root.children_with_tokens() {
@@ -159,15 +159,42 @@ fn elaborate_file(root: &SyntaxNode) -> Result<(CoreExpr, ElabCtx), ElaborateErr
         let result_name = bindings
             .iter()
             .rev()
-            .find(|(name, _)| name == "main")
-            .map(|(name, _)| name.clone())
-            .unwrap_or_else(|| bindings.last().expect("bindings non-empty").0.clone());
+            .find_map(|b| match b {
+                TopBinding::Single(name, _) if name == "main" => Some(name.clone()),
+                TopBinding::Rec(bs) => bs.iter().rev().find(|(n, _)| n == "main").map(|(n, _)| n.clone()),
+                _ => None,
+            })
+            .or_else(|| match bindings.last() {
+                Some(TopBinding::Single(name, _)) => Some(name.clone()),
+                Some(TopBinding::Rec(bs)) => bs.last().map(|(n, _)| n.clone()),
+                None => None,
+            })
+            .expect("bindings non-empty when trailing empty");
         CoreExpr::Var(result_name)
     } else {
         seq_or_one(trailing)
     };
 
-    Ok((nest_lets(bindings, body), ctx))
+    Ok((nest_top_bindings(bindings, body), ctx))
+}
+
+enum TopBinding {
+    Single(String, CoreExpr),
+    Rec(Vec<(String, CoreExpr)>),
+}
+
+fn nest_top_bindings(bindings: Vec<TopBinding>, body: CoreExpr) -> CoreExpr {
+    bindings.into_iter().rev().fold(body, |body, b| match b {
+        TopBinding::Single(name, value) => CoreExpr::Let {
+            name,
+            value: Box::new(value),
+            body: Box::new(body),
+        },
+        TopBinding::Rec(recs) => CoreExpr::LetRec {
+            bindings: recs,
+            body: Box::new(body),
+        },
+    })
 }
 
 fn nest_lets(bindings: Vec<(String, CoreExpr)>, body: CoreExpr) -> CoreExpr {
@@ -276,7 +303,7 @@ fn register_data(node: &SyntaxNode, ctx: &mut ElabCtx) -> Result<(), ElaborateEr
 fn try_top_decl(
     node: &SyntaxNode,
     ctx: &ElabCtx,
-) -> Result<Option<(String, CoreExpr)>, ElaborateError> {
+) -> Result<Option<TopBinding>, ElaborateError> {
     let atoms = list_atoms(node);
     let Some(Atom::Token(head)) = atoms.first() else {
         return Ok(None);
@@ -285,7 +312,21 @@ fn try_top_decl(
         return Ok(None);
     }
     match head.text() {
-        "val" => Ok(Some(elaborate_val(&atoms[1..], node, ctx)?)),
+        "val" => {
+            let (name, value) = elaborate_val(&atoms[1..], node, ctx)?;
+            Ok(Some(TopBinding::Single(name, value)))
+        }
+        "rec" => {
+            // SYN §13.4: top-level `rec` is a declaration group (no result expr).
+            let bindings = parse_rec_val_bindings(&atoms[1..], node, ctx)?;
+            if bindings.is_empty() {
+                return Err(ElaborateError::at_node(
+                    "`rec` requires at least one `(val …)` binding",
+                    node,
+                ));
+            }
+            Ok(Some(TopBinding::Rec(bindings)))
+        }
         "fn" => {
             // Top-level named function: (fn name (params...) body...)
             if atoms.len() >= 3 {
@@ -302,7 +343,7 @@ fn try_top_decl(
                         }
                         let params = elaborate_params(params)?;
                         let body = elaborate_body(&atoms[3..], node, ctx)?;
-                        return Ok(Some((
+                        return Ok(Some(TopBinding::Single(
                             name_tok.text().to_string(),
                             CoreExpr::Lambda {
                                 params,
@@ -1336,7 +1377,7 @@ fn elaborate_letrec(
     })
 }
 
-/// SYN §13.5: `(local (val name expr)* result)` → nested lets.
+/// SYN §13.5: `(local declaration* result)` — `val`, `var`, nested `rec`.
 fn elaborate_local(
     rest: &[Atom],
     parent: &SyntaxNode,
@@ -1350,69 +1391,131 @@ fn elaborate_local(
     }
     let result_atom = rest.last().expect("non-empty");
     let decl_atoms = &rest[..rest.len() - 1];
-    let mut bindings = Vec::new();
-    let mut seen = std::collections::HashSet::new();
-    for atom in decl_atoms {
-        let Atom::Node(decl) = atom else {
-            return Err(ElaborateError::at_node(
-                "`local` declarations must be `(val name expr)` forms",
-                parent,
-            ));
-        };
-        if decl.kind() != SyntaxKind::List {
-            return Err(ElaborateError::at_node(
-                "`local` declarations must be `(val name expr)` forms",
-                decl,
-            ));
-        }
-        let da = list_atoms(decl);
-        let Some(Atom::Token(head)) = da.first() else {
-            return Err(ElaborateError::at_node(
-                "`local` declaration must start with `val`",
-                decl,
-            ));
-        };
-        if head.kind() != SyntaxKind::Ident || head.text() != "val" {
-            return Err(ElaborateError::at_node(
-                "`local` currently supports `(val name expr)` declarations only",
-                decl,
-            ));
-        }
-        if da.len() != 3 {
-            return Err(ElaborateError::at_node(
-                "`val` in `local` must be `(val name expr)`",
-                decl,
-            ));
-        }
-        let Atom::Token(name_tok) = &da[1] else {
-            return Err(ElaborateError::at_node(
-                "`val` binder must be an identifier",
-                decl,
-            ));
-        };
-        if name_tok.kind() != SyntaxKind::Ident {
-            return Err(ElaborateError::at_token(
-                "`val` binder must be an identifier",
-                name_tok,
-            ));
-        }
-        let name = name_tok.text().to_string();
-        if is_reserved_special_form(&name) {
-            return Err(ElaborateError::at_token(
-                format!("cannot bind reserved special-form `{name}`"),
-                name_tok,
-            ));
-        }
-        if !seen.insert(name.clone()) {
-            return Err(ElaborateError::at_token(
-                format!("duplicate binder `{name}` in the same `local`"),
-                name_tok,
-            ));
-        }
-        bindings.push((name, elaborate_atom(&da[2], ctx)?));
+    elaborate_local_decls(decl_atoms, result_atom, parent, ctx)
+}
+
+fn elaborate_local_decls(
+    decls: &[Atom],
+    result: &Atom,
+    parent: &SyntaxNode,
+    ctx: &ElabCtx,
+) -> Result<CoreExpr, ElaborateError> {
+    if decls.is_empty() {
+        return elaborate_atom(result, ctx);
     }
-    let body = elaborate_atom(result_atom, ctx)?;
-    Ok(nest_lets(bindings, body))
+    let Atom::Node(decl) = &decls[0] else {
+        return Err(ElaborateError::at_node(
+            "`local` declarations must be `(val …)`, `(var …)`, or `(rec …)` forms",
+            parent,
+        ));
+    };
+    if decl.kind() != SyntaxKind::List {
+        return Err(ElaborateError::at_node(
+            "`local` declarations must be `(val …)`, `(var …)`, or `(rec …)` forms",
+            decl,
+        ));
+    }
+    let da = list_atoms(decl);
+    let Some(Atom::Token(head)) = da.first() else {
+        return Err(ElaborateError::at_node(
+            "`local` declaration must start with `val`, `var`, `rec`, or `type`",
+            decl,
+        ));
+    };
+    if head.kind() != SyntaxKind::Ident {
+        return Err(ElaborateError::at_token(
+            "`local` declaration head must be an identifier",
+            head,
+        ));
+    }
+    let rest_decls = &decls[1..];
+    match head.text() {
+        "type" => elaborate_local_decls(rest_decls, result, parent, ctx),
+        "val" => {
+            if da.len() != 3 {
+                return Err(ElaborateError::at_node(
+                    "`val` in `local` must be `(val name expr)`",
+                    decl,
+                ));
+            }
+            let Atom::Token(name_tok) = &da[1] else {
+                return Err(ElaborateError::at_node(
+                    "`val` binder must be an identifier",
+                    decl,
+                ));
+            };
+            if name_tok.kind() != SyntaxKind::Ident {
+                return Err(ElaborateError::at_token(
+                    "`val` binder must be an identifier",
+                    name_tok,
+                ));
+            }
+            let name = name_tok.text().to_string();
+            if is_reserved_special_form(&name) {
+                return Err(ElaborateError::at_token(
+                    format!("cannot bind reserved special-form `{name}`"),
+                    name_tok,
+                ));
+            }
+            let value = elaborate_atom(&da[2], ctx)?;
+            Ok(CoreExpr::Let {
+                name,
+                value: Box::new(value),
+                body: Box::new(elaborate_local_decls(rest_decls, result, parent, ctx)?),
+            })
+        }
+        "var" => {
+            // Declaration form `(var name init)` scopes over the rest of `local`.
+            if da.len() != 3 {
+                return Err(ElaborateError::at_node(
+                    "`var` in `local` must be `(var name init)`",
+                    decl,
+                ));
+            }
+            let Atom::Token(name_tok) = &da[1] else {
+                return Err(ElaborateError::at_node(
+                    "`var` binder must be an identifier",
+                    decl,
+                ));
+            };
+            if name_tok.kind() != SyntaxKind::Ident {
+                return Err(ElaborateError::at_token(
+                    "`var` binder must be an identifier",
+                    name_tok,
+                ));
+            }
+            let name = name_tok.text().to_string();
+            if is_reserved_special_form(&name) {
+                return Err(ElaborateError::at_token(
+                    format!("cannot bind reserved special-form `{name}`"),
+                    name_tok,
+                ));
+            }
+            let init = elaborate_atom(&da[2], ctx)?;
+            Ok(CoreExpr::LocalVar {
+                name,
+                init: Box::new(init),
+                body: Box::new(elaborate_local_decls(rest_decls, result, parent, ctx)?),
+            })
+        }
+        "rec" => {
+            let bindings = parse_rec_val_bindings(&da[1..], decl, ctx)?;
+            if bindings.is_empty() {
+                return Err(ElaborateError::at_node(
+                    "`rec` requires at least one `(val …)` binding",
+                    decl,
+                ));
+            }
+            Ok(CoreExpr::LetRec {
+                bindings,
+                body: Box::new(elaborate_local_decls(rest_decls, result, parent, ctx)?),
+            })
+        }
+        other => Err(ElaborateError::at_node(
+            format!("`local` does not support `{other}` declarations"),
+            decl,
+        )),
+    }
 }
 
 /// SYN §13.4: `(rec (val name (fn …))* result)` → [`CoreExpr::LetRec`].
@@ -1428,7 +1531,39 @@ fn elaborate_rec(
         ));
     }
     let result_atom = rest.last().expect("len >= 2");
+    // Expression `rec` requires a non-declaration result.
+    if is_rec_decl_atom(result_atom) {
+        return Err(ElaborateError::at_node(
+            "`rec` expression requires a result expression after the bindings",
+            parent,
+        ));
+    }
     let decl_atoms = &rest[..rest.len() - 1];
+    let bindings = parse_rec_val_bindings(decl_atoms, parent, ctx)?;
+    if bindings.is_empty() {
+        return Err(ElaborateError::at_node(
+            "`rec` requires at least one `(val …)` binding",
+            parent,
+        ));
+    }
+    Ok(CoreExpr::LetRec {
+        bindings,
+        body: Box::new(elaborate_atom(result_atom, ctx)?),
+    })
+}
+
+fn is_rec_decl_atom(atom: &Atom) -> bool {
+    let Atom::Node(n) = atom else {
+        return false;
+    };
+    matches!(list_head_ident(n).as_deref(), Some("val" | "type"))
+}
+
+fn parse_rec_val_bindings(
+    decl_atoms: &[Atom],
+    parent: &SyntaxNode,
+    ctx: &ElabCtx,
+) -> Result<Vec<(String, CoreExpr)>, ElaborateError> {
     let mut bindings = Vec::new();
     let mut seen = std::collections::HashSet::new();
     for atom in decl_atoms {
@@ -1447,11 +1582,20 @@ fn elaborate_rec(
         let da = list_atoms(decl);
         let Some(Atom::Token(head)) = da.first() else {
             return Err(ElaborateError::at_node(
-                "`rec` entry must start with `val`",
+                "`rec` entry must start with `val` or `type`",
                 decl,
             ));
         };
-        if head.kind() != SyntaxKind::Ident || head.text() != "val" {
+        if head.kind() != SyntaxKind::Ident {
+            return Err(ElaborateError::at_token(
+                "`rec` entry head must be an identifier",
+                head,
+            ));
+        }
+        if head.text() == "type" {
+            continue;
+        }
+        if head.text() != "val" {
             return Err(ElaborateError::at_node(
                 "`rec` currently supports `(val name (fn …))` entries only",
                 decl,
@@ -1497,16 +1641,7 @@ fn elaborate_rec(
         }
         bindings.push((name, value));
     }
-    if bindings.is_empty() {
-        return Err(ElaborateError::at_node(
-            "`rec` requires at least one `(val …)` binding",
-            parent,
-        ));
-    }
-    Ok(CoreExpr::LetRec {
-        bindings,
-        body: Box::new(elaborate_atom(result_atom, ctx)?),
-    })
+    Ok(bindings)
 }
 
 fn elaborate_var(

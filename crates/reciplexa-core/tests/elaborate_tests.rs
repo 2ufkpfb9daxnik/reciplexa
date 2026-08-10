@@ -350,6 +350,47 @@ fn elaborates_local_and_rec_groups() {
 }
 
 #[test]
+fn elaborates_toplevel_rec_and_local_var() {
+    let expr = elaborate_source(
+        r#"
+(rec
+  (val even?
+    (fn (n)
+      (if (= n 0) true (odd? (- n 1)))))
+  (val odd?
+    (fn (n)
+      (if (= n 0) false (even? (- n 1))))))
+(val main (even? 4))
+"#,
+    )
+    .unwrap();
+    let CoreExpr::LetRec { bindings, body } = expr else {
+        panic!("expected top-level LetRec");
+    };
+    assert_eq!(bindings.len(), 2);
+    let CoreExpr::Let { name, .. } = *body else {
+        panic!("expected main after rec");
+    };
+    assert_eq!(name, "main");
+
+    let local_var = elaborate_source(
+        r#"
+(val main
+  (local
+    (var count 0)
+    (seq
+      (set count 5)
+      count)))
+"#,
+    )
+    .unwrap();
+    let CoreExpr::Let { value, .. } = local_var else {
+        panic!("expected Let");
+    };
+    assert!(matches!(*value, CoreExpr::LocalVar { ref name, .. } if name == "count"));
+}
+
+#[test]
 fn elaborates_unit_literal() {
     let expr = elaborate_source("(val main unit)").unwrap();
     let CoreExpr::Let { value, .. } = expr else {

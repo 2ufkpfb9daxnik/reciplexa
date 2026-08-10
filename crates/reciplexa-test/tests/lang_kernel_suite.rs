@@ -163,6 +163,44 @@ fn lang_letrec() {
 }
 
 #[test]
+fn lang_toplevel_rec_and_local_var() {
+    let case = ConformanceCase::new(
+        "TEST-LANG-BND-rec-local",
+        "BND-001",
+        "top-level rec and local var decls",
+    );
+    run_conformance(&case, || {
+        let v = eval_source(
+            r#"
+(rec
+  (val even?
+    (fn (n)
+      (if (= n 0) true (odd? (- n 1)))))
+  (val odd?
+    (fn (n)
+      (if (= n 0) false (even? (- n 1))))))
+(val main (even? 3))
+"#,
+        )
+        .unwrap();
+        assert_eq!(v, RuntimeValue::Bool(false));
+
+        let v = eval_source(
+            r#"
+(val main
+  (local
+    (var n 1)
+    (rec
+      (val bump (fn () (set n (+ n 1)))))
+    (seq (bump) n)))
+"#,
+        )
+        .unwrap();
+        assert_eq!(v, RuntimeValue::Number(2.0));
+    });
+}
+
+#[test]
 fn lang_primitives() {
     let case = ConformanceCase::new("TEST-LANG-KER-001", "KER-001", "numeric primitives");
     run_conformance(&case, || {

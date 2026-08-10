@@ -397,22 +397,46 @@ fn list_idents_and_nodes(node: &SyntaxNode) -> Vec<AtomRef> {
 
 fn collect_bindings(expr: &CoreExpr) -> HashMap<String, CoreExpr> {
     let mut map = HashMap::new();
-    let mut cur = expr;
-    while let CoreExpr::Let { name, value, body } = cur {
-        map.insert(name.clone(), *value.clone());
-        cur = body;
-    }
+    collect_bindings_into(expr, &mut map);
     map
+}
+
+fn collect_bindings_into(expr: &CoreExpr, map: &mut HashMap<String, CoreExpr>) {
+    match expr {
+        CoreExpr::Let { name, value, body } => {
+            map.insert(name.clone(), *value.clone());
+            collect_bindings_into(body, map);
+        }
+        CoreExpr::LetRec { bindings, body } => {
+            for (name, value) in bindings {
+                map.insert(name.clone(), value.clone());
+            }
+            collect_bindings_into(body, map);
+        }
+        _ => {}
+    }
 }
 
 fn collect_export_names(expr: &CoreExpr) -> Vec<String> {
     let mut names = Vec::new();
-    let mut cur = expr;
-    while let CoreExpr::Let { name, body, .. } = cur {
-        names.push(name.clone());
-        cur = body;
-    }
+    collect_export_names_into(expr, &mut names);
     names
+}
+
+fn collect_export_names_into(expr: &CoreExpr, names: &mut Vec<String>) {
+    match expr {
+        CoreExpr::Let { name, body, .. } => {
+            names.push(name.clone());
+            collect_export_names_into(body, names);
+        }
+        CoreExpr::LetRec { bindings, body } => {
+            for (name, _) in bindings {
+                names.push(name.clone());
+            }
+            collect_export_names_into(body, names);
+        }
+        _ => {}
+    }
 }
 
 /// Load a module tree from the filesystem (sibling `.rpx` imports).
