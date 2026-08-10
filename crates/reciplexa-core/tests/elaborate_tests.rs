@@ -199,10 +199,7 @@ fn elaborates_parameterized_data_option() {
 "#,
     )
     .unwrap();
-    assert_eq!(
-        data.type_params.get("option").map(Vec::as_slice),
-        Some(["a"].as_slice())
-    );
+    assert_eq!(data.type_params.get("option"), Some(&vec!["a".to_string()]));
     assert_eq!(data.ctors.get("none"), Some(&0));
     assert_eq!(data.ctors.get("some"), Some(&1));
     assert_eq!(
