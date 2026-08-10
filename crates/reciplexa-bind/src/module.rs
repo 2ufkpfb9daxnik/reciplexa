@@ -203,6 +203,12 @@ pub fn elaborate_units(units: &[(&str, &str)]) -> Result<Vec<ElaboratedUnit>, Mo
     Ok(out)
 }
 
+/// Parse leading `(import …)` forms from a source unit (body discarded).
+pub fn parse_imports(src: &str) -> Result<Vec<ImportDecl>, ModuleError> {
+    let (imports, _) = split_imports(src)?;
+    Ok(imports)
+}
+
 fn split_imports(src: &str) -> Result<(Vec<ImportDecl>, String), ModuleError> {
     let parse = parse_source(src);
     if let Some(err) = parse.errors.first() {

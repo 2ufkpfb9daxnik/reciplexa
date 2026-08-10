@@ -11,3 +11,7 @@ reciplexa-identity = { workspace = true }
 reciplexa-bind = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+
+[dev-dependencies]
+reciplexa-eval = { workspace = true }
+

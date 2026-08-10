@@ -3,6 +3,7 @@
 #![forbid(unsafe_code)]
 
 pub mod build;
+pub mod load;
 pub mod lockfile;
 pub mod manifest;
 pub mod resolver;
@@ -12,6 +13,9 @@ pub mod target;
 pub use build::{
     diagnose_manifest, BuildGraph, BuildNode, BuildNodeId, IncrementalCache, InvalidationKind,
     PackageDiagnostic,
+};
+pub use load::{
+    elaborate_with_packages, load_module_tree_with_packages, LocalPackageIndex, PackageLoadError,
 };
 pub use lockfile::{LockedPackage, Lockfile};
 pub use manifest::{DependencySpec, PackageManifest};

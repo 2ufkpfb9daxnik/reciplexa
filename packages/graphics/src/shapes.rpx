@@ -1,7 +1,8 @@
-(// graphics/shapes — package constructors for basic vector shapes (SYN: not language builtins).
-(data shape
-  (circle x y r)
-  (rect x y w h)
-  (ellipse x y rx ry))
-
-(val unit-circle (circle 0 0 1))
+(// graphics/shapes — package shape constructors; not language builtins.)
+(// Exported as fns so MOD import linking can bind them.)
+(val circle (fn (x y r)
+  (record (tag "circle") (x x) (y y) (r r))))
+(val rect (fn (x y w h)
+  (record (tag "rect") (x x) (y y) (w w) (h h))))
+(val ellipse (fn (x y rx ry)
+  (record (tag "ellipse") (x x) (y y) (rx rx) (ry ry))))

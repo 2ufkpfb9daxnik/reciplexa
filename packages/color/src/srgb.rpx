@@ -1,7 +1,5 @@
-(// color/srgb — standalone color package (also re-exported notions live under graphics/color).
-(data srgb-color
-  (srgb r g b)
-  (srgb8 r g b))
-
+(// color/srgb — standalone color package.)
+(val srgb (fn (r g b)
+  (record (tag "srgb") (r r) (g g) (b b))))
 (val black (srgb 0 0 0))
 (val white (srgb 1 1 1))

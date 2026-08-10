@@ -3046,6 +3046,7 @@ name = "reciplexa-package"
 version = "0.1.0"
 dependencies = [
  "reciplexa-bind",
+ "reciplexa-eval",
  "reciplexa-identity",
  "serde",
  "serde_json",
