@@ -58,7 +58,7 @@ cargo clippy --workspace --all-targets --offline -- -D warnings
 cargo test --workspace --offline
 cargo check --offline -p reciplexa-gui
 ```
-**Last gate: pending this round.**
+**Last gate: green** (fmt / clippy -D warnings / test --workspace / check gui).
 
 ## Intentional deferrals (post pre-PKG / PKG+)
 | ID | Deferred |
