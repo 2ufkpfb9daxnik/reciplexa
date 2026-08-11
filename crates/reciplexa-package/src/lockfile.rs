@@ -113,7 +113,8 @@ impl Lockfile {
     }
 
     pub fn write_rpx_lock(&self, path: impl AsRef<Path>) -> Result<(), String> {
-        let json = self.to_json().map_err(|e| e.to_string())?;
+        // `LockedPackage` is a closed Serialize schema; serialization cannot fail.
+        let json = self.to_json().unwrap_or_else(|_| unreachable!("Lockfile serde"));
         fs::write(path.as_ref(), json).map_err(|e| format!("write lockfile: {e}"))
     }
 

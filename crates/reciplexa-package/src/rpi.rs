@@ -57,9 +57,6 @@ pub fn parse_rpi_exports(src: &str) -> Result<Vec<String>, PackageLoadError> {
 }
 
 fn skip_list(tokens: &[String], start: usize) -> Result<usize, PackageLoadError> {
-    if tokens.get(start).map(String::as_str) != Some("(") {
-        return Err(PackageLoadError::Interface("expected `(`".into()));
-    }
     let mut depth = 0i32;
     let mut i = start;
     while i < tokens.len() {
@@ -94,11 +91,16 @@ fn tokenize(src: &str) -> Result<Vec<String>, String> {
         if c == '"' {
             chars.next();
             let mut s = String::from("\"");
+            let mut closed = false;
             for ch in chars.by_ref() {
                 s.push(ch);
                 if ch == '"' {
+                    closed = true;
                     break;
                 }
+            }
+            if !closed {
+                return Err("unclosed string in .rpi".into());
             }
             tokens.push(s);
             continue;
@@ -111,9 +113,8 @@ fn tokenize(src: &str) -> Result<Vec<String>, String> {
             atom.push(ch);
             chars.next();
         }
-        if !atom.is_empty() {
-            tokens.push(atom);
-        }
+        // First peeked char was a non-delimiter (otherwise handled above), so atom is non-empty.
+        tokens.push(atom);
     }
     Ok(tokens)
 }

@@ -309,12 +309,8 @@ pub fn load_module_tree_with_packages(
             root.display()
         )));
     }
-    let dir = root.parent().unwrap_or_else(|| Path::new("."));
-    let entry_name = root
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .ok_or_else(|| PackageLoadError::Io("entry file must have a UTF-8 stem".into()))?
-        .to_string();
+    let dir = entry_parent_dir(root);
+    let entry_name = utf8_file_stem(root)?;
 
     let mut loaded: HashMap<String, String> = HashMap::new();
     let mut pending = vec![entry_name.clone()];
@@ -330,7 +326,7 @@ pub fn load_module_tree_with_packages(
             })?;
             (entry_name.clone(), src)
         } else {
-            load_unit_source(&name, dir, index)?
+            load_unit_source(&name, &dir, index)?
         };
         let imports = parse_imports(&src)?;
         for imp in &imports {
@@ -345,13 +341,28 @@ pub fn load_module_tree_with_packages(
     }
 
     let mut out = Vec::with_capacity(loaded.len());
-    if let Some(src) = loaded.remove(&entry_name) {
-        out.push((entry_name, src));
-    }
+    // Entry is always inserted before this point (pending starts with it).
+    let entry_src = loaded
+        .remove(&entry_name)
+        .expect("entry unit loaded before result assembly");
+    out.push((entry_name, entry_src));
     let mut rest: Vec<_> = loaded.into_iter().collect();
     rest.sort_by(|a, b| a.0.cmp(&b.0));
     out.extend(rest);
     Ok(out)
+}
+
+fn entry_parent_dir(root: &Path) -> PathBuf {
+    root.parent()
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| PathBuf::from("."))
+}
+
+fn utf8_file_stem(root: &Path) -> Result<String, PackageLoadError> {
+    root.file_stem()
+        .and_then(|s| s.to_str())
+        .map(str::to_string)
+        .ok_or_else(|| PackageLoadError::Io("entry file must have a UTF-8 stem".into()))
 }
 
 fn load_unit_source(
@@ -392,4 +403,54 @@ pub fn elaborate_with_packages(
         .map(|(n, s)| (n.as_str(), s.as_str()))
         .collect();
     elaborate_units_with_interfaces(&refs, &interface_exports).map_err(Into::into)
+}
+
+#[cfg(test)]
+mod stem_tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    #[test]
+    fn entry_parent_dir_falls_back_when_no_parent() {
+        assert_eq!(entry_parent_dir(Path::new("")), PathBuf::from("."));
+        assert_eq!(
+            entry_parent_dir(Path::new("main.rpx")),
+            PathBuf::from("")
+        );
+    }
+
+    #[test]
+    fn utf8_file_stem_ok_and_missing() {
+        assert_eq!(utf8_file_stem(Path::new("main.rpx")).unwrap(), "main");
+        assert!(utf8_file_stem(Path::new(".")).is_err());
+        assert!(utf8_file_stem(Path::new("..")).is_err());
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn utf8_file_stem_rejects_lone_surrogate() {
+        use std::ffi::OsString;
+        use std::os::windows::ffi::OsStringExt;
+        let p = PathBuf::from(OsString::from_wide(&[0x0061, 0xD800]));
+        assert!(utf8_file_stem(&p).is_err());
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn load_rejects_non_utf8_entry_stem() {
+        use std::ffi::OsString;
+        use std::fs;
+        use std::os::windows::ffi::OsStringExt;
+        let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../.tmp/pkg-stem");
+        let _ = fs::create_dir_all(&dir);
+        // Filename body is a lone surrogate so `file_stem().to_str()` fails.
+        let mut name = OsString::from_wide(&[0xD800]);
+        name.push(".rpx");
+        let path = dir.join(name);
+        fs::write(&path, "(val main 1)\n").unwrap();
+        let idx = LocalPackageIndex::default();
+        let err = load_module_tree_with_packages(&path, &idx).unwrap_err();
+        assert!(matches!(err, PackageLoadError::Io(_)));
+        let _ = fs::remove_file(&path);
+    }
 }

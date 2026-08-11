@@ -237,9 +237,6 @@ pub fn parse_rpxm(src: &str) -> Result<PackageManifest, RpxmError> {
 
 /// Parse `(keyword a b c)` starting at `(`; returns items and index after closing `)`.
 fn parse_ident_list(tokens: &[String], start: usize) -> Result<(Vec<String>, usize), RpxmError> {
-    if tokens.get(start).map(String::as_str) != Some("(") {
-        return Err(RpxmError::Syntax("expected `(` for list field".into()));
-    }
     let mut i = start + 2; // skip ( keyword
     let mut items = Vec::new();
     while i < tokens.len() && tokens[i] != ")" {
@@ -262,11 +259,6 @@ fn parse_dependencies_block(
     tokens: &[String],
     start: usize,
 ) -> Result<(Vec<DependencySpec>, usize), RpxmError> {
-    if tokens.get(start).map(String::as_str) != Some("(")
-        || tokens.get(start + 1).map(String::as_str) != Some("dependencies")
-    {
-        return Err(RpxmError::Syntax("expected `(dependencies …)`".into()));
-    }
     let mut i = start + 2;
     let mut deps = Vec::new();
     while i < tokens.len() && tokens[i] != ")" {
@@ -290,9 +282,6 @@ fn parse_one_dependency(
     start: usize,
 ) -> Result<(DependencySpec, usize), RpxmError> {
     // (alias package formal-name version "…" [path "…"])
-    if tokens.get(start).map(String::as_str) != Some("(") {
-        return Err(RpxmError::Syntax("expected `(` for dependency".into()));
-    }
     let alias = tokens
         .get(start + 1)
         .ok_or_else(|| RpxmError::Syntax("dependency missing alias".into()))?
@@ -327,6 +316,7 @@ fn parse_one_dependency(
                     }
                     i += 1;
                 }
+                // If EOF left depth > 0, continue; outer unclosed check reports it.
             }
             _ => {
                 i += 1;
