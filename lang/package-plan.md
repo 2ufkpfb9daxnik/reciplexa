@@ -46,16 +46,18 @@ Goal: land local-path packages and std domain libraries after Part II conformanc
 
 ### Slice C — std domain depth
 
+- [x] `packages/graphics` depth (static): `circle`/`rect`/`ellipse`/`line`/`path`/`ring`/`frame`/`group`, `fill`/`stroke`/`paint`, page sizes (`a4`/`letter`/`a5`/`a3`/`legal`/`square`/`page-size`), color `rgb`/`rgba` + named — aligned to `reciplexa-std` visual tags; example `examples/pkg_graphics_static.rpx`
 - `packages/length` — deepen beyond stub (`mm` / unit constructors; retire Number+Ident interim where safe)
-- `packages/color` — deepen beyond stub (`rgb` / named colors)
+- `packages/color` — deepen beyond stub (`rgb` / named colors) *(graphics/color already hosts rgb/rgba; shared `packages/color` still thin)*
 - `packages/math` — deepen atoms / helpers aligned with `reciplexa-std::math` (stub landed in Slice B)
 - `packages/japanese` + markup — deepen vs `examples/markup_ja.rpx` (stub landed in Slice B)
 
 ### Slice D — document migration (strangler)
 
 - Package-defined shape/page constructors consumed by lower/eval
-- Keep interim surface until GUI + examples migrate atomically
+- Keep interim surface until GUI + examples migrate atomically *(GUI interim retained; package import path live for examples)*
 - Retire hard-coded `"circle"` / `"page"` keyword tables gradually
+- Do **not** start jlreq/math package depth until graphics static surface is solid
 
 ### Slice E — workspace / resources / OPEN stubs
 

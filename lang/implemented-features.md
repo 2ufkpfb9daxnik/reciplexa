@@ -99,7 +99,7 @@ pre-PKG カーネルは計画上 **COMPLETE（意図的 defer 付き）**。各�
 
 | パッケージ | 状況 | 内容の目安 |
 |------------|------|------------|
-| **`packages/graphics`** | Slice A 実装 | `shapes`（circle/rect/…）、`page`、`color` モジュール＋`.rpi` |
+| **`packages/graphics`** | Slice A + C static depth | `shapes`（circle/rect/ellipse/line/path/ring/frame/group + fill/stroke/paint）、`page`（a4/letter/a5/a3/legal/square/page-size）、`color`（rgb/rgba + named）＋`.rpi`；例 `examples/pkg_graphics_static.rpx` |
 | **`packages/length`** | Slice A | `mm`/`cm`/`pt`/`inch`（Number+Ident 単位サフィックスは暫定のまま） |
 | **`packages/color`** | Slice A | `srgb` + 名前色 |
 | **`packages/math`** | Slice B/C スタブ | `symbol`/`row`/`fraction`/上下添字の record タグ |

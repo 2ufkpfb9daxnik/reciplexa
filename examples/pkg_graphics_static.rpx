@@ -1,0 +1,8 @@
+(// Package import of graphics shapes/page/color for static graphics demo.)
+(// Interim GUI `(page …)(circle …)` remains; this is the package surface.)
+(import graphics/shapes only circle line path fill stroke)
+(import graphics/page only a4 page)
+(import graphics/color only black red)
+(val main
+  (page a4
+    (fill (circle 105 148.5 40) black)))

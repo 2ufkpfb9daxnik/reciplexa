@@ -168,6 +168,56 @@ fn interface_path_resolves_under_interface_root() {
     assert!(path.is_file());
 }
 
+#[test]
+fn elaborate_and_eval_static_graphics_surface() {
+    let idx = index();
+    let (shapes_name, shapes_src) = idx.resolve_import("graphics/shapes").unwrap();
+    assert_eq!(shapes_name, "graphics/shapes");
+    assert!(shapes_src.contains("(val line"));
+    assert!(shapes_src.contains("(val path"));
+    assert!(shapes_src.contains("(val fill"));
+    assert!(shapes_src.contains("(val stroke"));
+
+    let (_, page_src) = idx.resolve_import("graphics/page").unwrap();
+    assert!(page_src.contains("(val a3"));
+    assert!(page_src.contains("(val page-size"));
+
+    let (_, color_src) = idx.resolve_import("graphics/color").unwrap();
+    assert!(color_src.contains("(val rgba"));
+    assert!(color_src.contains("(val transparent"));
+
+    let detailed = idx
+        .resolve_import_detailed("graphics/shapes")
+        .expect("shapes");
+    let exports = detailed.interface_exports.expect("shapes.rpi");
+    assert!(exports.contains(&"line".into()));
+    assert!(exports.contains(&"path".into()));
+    assert!(exports.contains(&"paint".into()));
+    assert!(!exports.iter().any(|e| e == "shapes-internal-tag"));
+
+    let dir = tempfile_dir();
+    let entry = dir.join("demo.rpx");
+    std::fs::write(
+        &entry,
+        r#"(import graphics/shapes only circle fill)
+(import graphics/page only a4 page)
+(import graphics/color only black)
+(val main
+  (page a4
+    (fill (circle 105 148.5 40) black)))
+"#,
+    )
+    .unwrap();
+    let units = elaborate_with_packages(&entry, &idx).unwrap();
+    let demo = units.iter().find(|u| u.name == "demo").unwrap();
+    let v = eval_expr(&demo.expr, &HashMap::new(), &mut UnitHost).unwrap();
+    let s = format!("{v}");
+    assert!(
+        s.contains("page") || s.contains("circle") || s.contains("fill") || s.contains("210"),
+        "expected static graphics page tree, got {s}"
+    );
+}
+
 fn tempfile_dir() -> PathBuf {
     let base = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../.tmp/pkg-load-tests");
     let _ = std::fs::create_dir_all(&base);
