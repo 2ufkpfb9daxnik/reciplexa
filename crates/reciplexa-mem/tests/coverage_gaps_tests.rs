@@ -707,3 +707,176 @@ fn exec_error_variants_still_exist() {
     let _ = format!("{:?}", ExecError::RefCountOverflow(Reg(0)));
     let _ = format!("{:?}", ExecError::RefCountUnderflow(Reg(0)));
 }
+
+#[test]
+fn observably_equal_cross_numeric_and_closures() {
+    use reciplexa_eval::{BuiltinOp, RuntimeValue};
+    use reciplexa_mem::observably_equal;
+    assert!(observably_equal(
+        &RuntimeValue::Int(3),
+        &RuntimeValue::Number(3.0)
+    ));
+    assert!(observably_equal(
+        &RuntimeValue::Number(3.0),
+        &RuntimeValue::Int(3)
+    ));
+    assert!(observably_equal(
+        &RuntimeValue::Int(3),
+        &RuntimeValue::F64(3.0)
+    ));
+    assert!(observably_equal(
+        &RuntimeValue::F64(3.0),
+        &RuntimeValue::Int(3)
+    ));
+    assert!(observably_equal(
+        &RuntimeValue::Number(1.5),
+        &RuntimeValue::F64(1.5)
+    ));
+    assert!(observably_equal(
+        &RuntimeValue::F64(1.5),
+        &RuntimeValue::Number(1.5)
+    ));
+    assert!(observably_equal(
+        &RuntimeValue::Bool(true),
+        &RuntimeValue::Bool(true)
+    ));
+    assert!(observably_equal(
+        &RuntimeValue::ShapeTag("circle".into()),
+        &RuntimeValue::ShapeTag("circle".into())
+    ));
+    assert!(!observably_equal(
+        &RuntimeValue::Variant {
+            tag: "A".into(),
+            payload: None,
+        },
+        &RuntimeValue::Variant {
+            tag: "A".into(),
+            payload: Some(Box::new(RuntimeValue::Unit)),
+        },
+    ));
+    assert!(observably_equal(
+        &RuntimeValue::Closure {
+            params: vec!["x".into()],
+            body: reciplexa_core::expr::CoreExpr::Lit(reciplexa_core::expr::CoreLiteral::Int(0)),
+            env: std::rc::Rc::new(std::cell::RefCell::new(Default::default())),
+        },
+        &RuntimeValue::Closure {
+            params: vec!["y".into()],
+            body: reciplexa_core::expr::CoreExpr::Lit(reciplexa_core::expr::CoreLiteral::Int(1)),
+            env: std::rc::Rc::new(std::cell::RefCell::new(Default::default())),
+        },
+    ));
+    assert!(observably_equal(
+        &RuntimeValue::Builtin(BuiltinOp::Add),
+        &RuntimeValue::Builtin(BuiltinOp::Add)
+    ));
+}
+
+#[test]
+fn lower_seq_letrec_local_set_lambda_app_if() {
+    use reciplexa_core::expr::{CoreExpr, CoreLiteral};
+    use reciplexa_mem::lower_core_linear;
+
+    let expr = CoreExpr::Seq(vec![
+        CoreExpr::Lit(CoreLiteral::Unit),
+        CoreExpr::Let {
+            name: "a".into(),
+            value: Box::new(CoreExpr::Lit(CoreLiteral::Int(1))),
+            body: Box::new(CoreExpr::Var("a".into())),
+        },
+    ]);
+    assert!(!lower_core_linear(&expr).instrs.is_empty());
+
+    let letrec = CoreExpr::LetRec {
+        bindings: vec![(
+            "n".into(),
+            CoreExpr::Lambda {
+                params: vec!["x".into()],
+                body: Box::new(CoreExpr::Var("x".into())),
+            },
+        )],
+        body: Box::new(CoreExpr::Var("n".into())),
+    };
+    assert!(!lower_core_linear(&letrec).instrs.is_empty());
+
+    let local = CoreExpr::LocalVar {
+        name: "x".into(),
+        init: Box::new(CoreExpr::Lit(CoreLiteral::F64(1.5))),
+        body: Box::new(CoreExpr::Var("x".into())),
+    };
+    assert!(!lower_core_linear(&local).instrs.is_empty());
+
+    let set = CoreExpr::Set {
+        name: "x".into(),
+        value: Box::new(CoreExpr::Lit(CoreLiteral::Bool(true))),
+    };
+    assert!(!lower_core_linear(&set).instrs.is_empty());
+
+    let lam = CoreExpr::Lambda {
+        params: vec!["x".into()],
+        body: Box::new(CoreExpr::Var("x".into())),
+    };
+    assert!(!lower_core_linear(&lam).instrs.is_empty());
+
+    let app0 = CoreExpr::App {
+        fun: Box::new(lam.clone()),
+        args: vec![],
+    };
+    assert!(!lower_core_linear(&app0).instrs.is_empty());
+
+    let app1 = CoreExpr::App {
+        fun: Box::new(lam),
+        args: vec![CoreExpr::Lit(CoreLiteral::Int(9))],
+    };
+    assert!(!lower_core_linear(&app1).instrs.is_empty());
+
+    let iff = CoreExpr::If {
+        cond: Box::new(CoreExpr::Lit(CoreLiteral::Bool(true))),
+        then_branch: Box::new(CoreExpr::Lit(CoreLiteral::Int(1))),
+        else_branch: Box::new(CoreExpr::Lit(CoreLiteral::Int(0))),
+    };
+    assert!(!lower_core_linear(&iff).instrs.is_empty());
+
+    let bytes = CoreExpr::Lit(CoreLiteral::Bytes(vec![1, 2, 3]));
+    assert!(!lower_core_linear(&bytes).instrs.is_empty());
+    let color = CoreExpr::Lit(CoreLiteral::Color("red".into()));
+    assert!(!lower_core_linear(&color).instrs.is_empty());
+}
+
+#[test]
+fn exec_select_rejects_non_bool_cond() {
+    use reciplexa_mem::ir::{MemInstr, MemLiteral};
+    use reciplexa_mem::linear::LinearProgram;
+    use reciplexa_mem::reg::Reg;
+    use reciplexa_mem::trace::RcTrace;
+    use reciplexa_mem::{exec_linear, ExecError};
+
+    let mut trace = RcTrace::default();
+    let bad = LinearProgram {
+        instrs: vec![
+            MemInstr::Lit {
+                dst: Reg(0),
+                lit: MemLiteral::Number(1.0),
+            },
+            MemInstr::Lit {
+                dst: Reg(1),
+                lit: MemLiteral::Number(2.0),
+            },
+            MemInstr::Lit {
+                dst: Reg(2),
+                lit: MemLiteral::Number(3.0),
+            },
+            MemInstr::Select {
+                dst: Reg(3),
+                cond: Reg(0),
+                then_reg: Reg(1),
+                else_reg: Reg(2),
+            },
+        ],
+        return_reg: Reg(3),
+    };
+    assert!(matches!(
+        exec_linear(&bad, &mut trace),
+        Err(ExecError::UnhandledRaise(_))
+    ));
+}
