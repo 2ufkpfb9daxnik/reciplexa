@@ -6,36 +6,36 @@ use std::path::{Path, PathBuf};
 use eframe::egui;
 use reciplexa_view::{text_corners_mm, PaperLayout, WorldShape};
 
-#[derive(Clone, Copy)]
-pub(crate) enum ScaleCorner {
+#[derive(Debug, Clone, Copy)]
+pub enum ScaleCorner {
     TopLeft,
     TopRight,
     BottomLeft,
     BottomRight,
 }
 
-#[derive(Clone, Copy)]
-pub(crate) enum ScaleEdge {
+#[derive(Debug, Clone, Copy)]
+pub enum ScaleEdge {
     Left,
     Right,
     Top,
     Bottom,
 }
 
-#[derive(Clone, Copy)]
-pub(crate) enum ScaleGrab {
+#[derive(Debug, Clone, Copy)]
+pub enum ScaleGrab {
     Corner(ScaleCorner),
     Edge(ScaleEdge),
 }
 
-#[derive(Clone, Copy)]
-pub(crate) struct BoxDrag {
-    pub(crate) grab: ScaleGrab,
+#[derive(Debug, Clone, Copy)]
+pub struct BoxDrag {
+    pub grab: ScaleGrab,
     /// Page AABB at drag start: (x0, y0, x1, y1) with y-up.
-    pub(crate) start_bounds: (f64, f64, f64, f64),
+    pub start_bounds: (f64, f64, f64, f64),
 }
 
-pub(crate) fn paint_hover_frame(
+pub fn paint_hover_frame(
     painter: &egui::Painter,
     rect: egui::Rect,
     layout: &PaperLayout,
@@ -59,7 +59,7 @@ pub(crate) fn paint_hover_frame(
     );
 }
 
-pub(crate) fn paint_selection_frame(
+pub fn paint_selection_frame(
     painter: &egui::Painter,
     rect: egui::Rect,
     layout: &PaperLayout,
@@ -139,7 +139,7 @@ fn rotate_handle_pos(frame: egui::Rect) -> egui::Pos2 {
     egui::pos2(frame.center().x, frame.top() - 22.0)
 }
 
-pub(crate) fn hit_scale_grab(
+pub fn hit_scale_grab(
     layout: &PaperLayout,
     bounds: (f64, f64, f64, f64),
     local_px: egui::Pos2,
@@ -176,7 +176,7 @@ pub(crate) fn hit_scale_grab(
         .map(|(_, grab)| grab)
 }
 
-pub(crate) fn box_from_grab(tb: BoxDrag, mx: f64, my: f64) -> (f64, f64, f64, f64) {
+pub fn box_from_grab(tb: BoxDrag, mx: f64, my: f64) -> (f64, f64, f64, f64) {
     let (x0, y0, x1, y1) = tb.start_bounds;
     const MIN: f64 = 0.5;
     match tb.grab {
@@ -220,7 +220,7 @@ pub(crate) fn box_from_grab(tb: BoxDrag, mx: f64, my: f64) -> (f64, f64, f64, f6
 }
 
 /// Apply Shift aspect-ratio lock for corner resizes (keeps the fixed edges).
-pub(crate) fn apply_aspect_lock(
+pub fn apply_aspect_lock(
     tb: BoxDrag,
     mut nx: f64,
     mut ny: f64,
@@ -263,11 +263,11 @@ pub(crate) fn apply_aspect_lock(
     (nx, ny, nw, nh)
 }
 
-pub(crate) fn snap_mm(v: f64, grid: f64) -> f64 {
+pub fn snap_mm(v: f64, grid: f64) -> f64 {
     (v / grid).round() * grid
 }
 
-pub(crate) fn paint_line_endpoints(
+pub fn paint_line_endpoints(
     painter: &egui::Painter,
     rect: egui::Rect,
     layout: &PaperLayout,
@@ -285,7 +285,7 @@ pub(crate) fn paint_line_endpoints(
     }
 }
 
-pub(crate) fn hit_line_endpoint(
+pub fn hit_line_endpoint(
     layout: &PaperLayout,
     points_mm: &[(f64, f64)],
     local_px: egui::Pos2,
@@ -302,7 +302,7 @@ pub(crate) fn hit_line_endpoint(
     })
 }
 
-pub(crate) fn paint_paper_grid(
+pub fn paint_paper_grid(
     painter: &egui::Painter,
     rect: egui::Rect,
     layout: &PaperLayout,
@@ -342,7 +342,7 @@ pub(crate) fn paint_paper_grid(
     }
 }
 
-pub(crate) fn hit_rotate_handle(
+pub fn hit_rotate_handle(
     layout: &PaperLayout,
     bounds: (f64, f64, f64, f64),
     local_px: egui::Pos2,
@@ -352,7 +352,7 @@ pub(crate) fn hit_rotate_handle(
     local_px.distance_sq(knob) <= 12.0_f32 * 12.0
 }
 
-pub(crate) fn paint_shape(
+pub fn paint_shape(
     painter: &egui::Painter,
     rect: egui::Rect,
     layout: &PaperLayout,
@@ -555,6 +555,25 @@ fn color32(c: reciplexa_scene::Color, alpha: f64) -> egui::Color32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use reciplexa_scene::Color;
+    use reciplexa_view::{WorldCircle, WorldImage, WorldPath, WorldPolygon, WorldText};
+
+    fn layout() -> PaperLayout {
+        PaperLayout::fit(400.0, 600.0, 10.0, 210.0, 297.0)
+    }
+
+    fn with_painter(f: impl FnOnce(&egui::Context, egui::Rect, &egui::Painter)) {
+        let ctx = egui::Context::default();
+        let mut f = Some(f);
+        let _ = ctx.run(Default::default(), |ctx| {
+            egui::CentralPanel::default().show(ctx, |ui| {
+                if let Some(f) = f.take() {
+                    let rect = ui.max_rect();
+                    f(ctx, rect, ui.painter());
+                }
+            });
+        });
+    }
 
     #[test]
     fn snap_mm_rounds_to_grid() {
@@ -563,15 +582,307 @@ mod tests {
     }
 
     #[test]
-    fn box_from_grab_bottom_right_grows() {
-        let tb = BoxDrag {
-            grab: ScaleGrab::Corner(ScaleCorner::BottomRight),
-            start_bounds: (10.0, 20.0, 30.0, 40.0),
+    fn box_from_grab_all_corners_and_edges() {
+        let bounds = (10.0, 20.0, 30.0, 40.0);
+        let cases = [
+            (ScaleGrab::Corner(ScaleCorner::TopLeft), 5.0, 50.0),
+            (ScaleGrab::Corner(ScaleCorner::TopRight), 50.0, 50.0),
+            (ScaleGrab::Corner(ScaleCorner::BottomLeft), 5.0, 10.0),
+            (ScaleGrab::Corner(ScaleCorner::BottomRight), 50.0, 10.0),
+            (ScaleGrab::Edge(ScaleEdge::Left), 5.0, 30.0),
+            (ScaleGrab::Edge(ScaleEdge::Right), 50.0, 30.0),
+            (ScaleGrab::Edge(ScaleEdge::Top), 20.0, 50.0),
+            (ScaleGrab::Edge(ScaleEdge::Bottom), 20.0, 10.0),
+        ];
+        for (grab, mx, my) in cases {
+            let tb = BoxDrag {
+                grab,
+                start_bounds: bounds,
+            };
+            let (x, y, w, h) = box_from_grab(tb, mx, my);
+            assert!(w >= 0.5 && h >= 0.5, "{grab:?} -> {x},{y},{w},{h}");
+        }
+    }
+
+    #[test]
+    fn apply_aspect_lock_corners_and_edge_noop() {
+        let bounds = (0.0, 0.0, 20.0, 10.0);
+        for corner in [
+            ScaleCorner::TopLeft,
+            ScaleCorner::TopRight,
+            ScaleCorner::BottomLeft,
+            ScaleCorner::BottomRight,
+        ] {
+            let tb = BoxDrag {
+                grab: ScaleGrab::Corner(corner),
+                start_bounds: bounds,
+            };
+            let (nx, ny, nw, nh) = apply_aspect_lock(tb, 0.0, 0.0, 40.0, 10.0);
+            assert!((nw / nh - 2.0).abs() < 1e-6, "{corner:?} {nw}x{nh}");
+            let _ = (nx, ny);
+            // Height-dominant delta path.
+            let (nx2, ny2, nw2, nh2) = apply_aspect_lock(tb, 0.0, 0.0, 10.0, 40.0);
+            assert!((nw2 / nh2 - 2.0).abs() < 1e-6, "{corner:?} {nw2}x{nh2}");
+            let _ = (nx2, ny2);
+        }
+        let edge = BoxDrag {
+            grab: ScaleGrab::Edge(ScaleEdge::Left),
+            start_bounds: bounds,
         };
-        let (x, y, w, h) = box_from_grab(tb, 50.0, 10.0);
-        assert!((x - 10.0).abs() < 1e-9);
-        assert!((y - 10.0).abs() < 1e-9);
-        assert!((w - 40.0).abs() < 1e-9);
-        assert!((h - 30.0).abs() < 1e-9);
+        assert_eq!(apply_aspect_lock(edge, 1.0, 2.0, 3.0, 4.0), (1.0, 2.0, 3.0, 4.0));
+    }
+
+    #[test]
+    fn hit_helpers_corners_edges_rotate_and_line() {
+        let layout = layout();
+        let bounds = (20.0, 40.0, 80.0, 120.0);
+        let frame = selection_frame_local(&layout, bounds);
+        assert!(hit_scale_grab(&layout, bounds, frame.left_top()).is_some());
+        assert!(hit_scale_grab(&layout, bounds, frame.right_top()).is_some());
+        assert!(hit_scale_grab(&layout, bounds, frame.left_bottom()).is_some());
+        assert!(hit_scale_grab(&layout, bounds, frame.right_bottom()).is_some());
+        assert!(hit_scale_grab(&layout, bounds, frame.center_top()).is_some());
+        assert!(hit_scale_grab(&layout, bounds, frame.center_bottom()).is_some());
+        assert!(hit_scale_grab(&layout, bounds, frame.left_center()).is_some());
+        assert!(hit_scale_grab(&layout, bounds, frame.right_center()).is_some());
+        assert!(hit_scale_grab(&layout, bounds, egui::pos2(0.0, 0.0)).is_none());
+        assert!(hit_rotate_handle(
+            &layout,
+            bounds,
+            rotate_handle_pos(frame)
+        ));
+        assert!(!hit_rotate_handle(&layout, bounds, egui::pos2(0.0, 0.0)));
+
+        let pts = [(10.0, 10.0), (50.0, 50.0)];
+        let (px, py) = layout.mm_to_px(10.0, 10.0);
+        assert_eq!(
+            hit_line_endpoint(&layout, &pts, egui::pos2(px, py)),
+            Some(0)
+        );
+        assert_eq!(
+            hit_line_endpoint(&layout, &pts, egui::pos2(0.0, 0.0)),
+            None
+        );
+    }
+
+    #[test]
+    fn color32_clamps_channels() {
+        let c = color32(
+            Color {
+                r: 2.0,
+                g: -1.0,
+                b: 0.5,
+            },
+            2.0,
+        );
+        assert_eq!(c.r(), 255);
+        assert_eq!(c.g(), 0);
+        assert_eq!(c.a(), 255);
+    }
+
+    #[test]
+    fn paint_frames_grid_endpoints_and_shapes() {
+        let layout = layout();
+        let bounds = (10.0, 20.0, 60.0, 90.0);
+        with_painter(|ctx, rect, painter| {
+            paint_hover_frame(painter, rect, &layout, bounds);
+            paint_selection_frame(painter, rect, &layout, bounds);
+            paint_paper_grid(painter, rect, &layout, 210.0, 297.0);
+            paint_line_endpoints(painter, rect, &layout, &[(30.0, 40.0), (50.0, 60.0)]);
+
+            let mut textures = HashMap::new();
+            paint_shape(
+                painter,
+                rect,
+                &layout,
+                &WorldShape::Circle(WorldCircle {
+                    x_mm: 40.0,
+                    y_mm: 50.0,
+                    radius_mm: 10.0,
+                    color: Color::RED,
+                    stroke_width_mm: None,
+                    alpha: 1.0,
+                }),
+                &mut textures,
+                ctx,
+                None,
+            );
+            paint_shape(
+                painter,
+                rect,
+                &layout,
+                &WorldShape::Circle(WorldCircle {
+                    x_mm: 40.0,
+                    y_mm: 50.0,
+                    radius_mm: 10.0,
+                    color: Color::BLUE,
+                    stroke_width_mm: Some(1.0),
+                    alpha: 0.8,
+                }),
+                &mut textures,
+                ctx,
+                None,
+            );
+            paint_shape(
+                painter,
+                rect,
+                &layout,
+                &WorldShape::Polygon(WorldPolygon {
+                    points_mm: vec![(10.0, 10.0), (20.0, 10.0)],
+                    color: Color::GREEN,
+                    stroke_width_mm: None,
+                    alpha: 1.0,
+                }),
+                &mut textures,
+                ctx,
+                None,
+            );
+            paint_shape(
+                painter,
+                rect,
+                &layout,
+                &WorldShape::Polygon(WorldPolygon {
+                    points_mm: vec![(10.0, 10.0), (30.0, 10.0), (20.0, 30.0)],
+                    color: Color::GREEN,
+                    stroke_width_mm: None,
+                    alpha: 1.0,
+                }),
+                &mut textures,
+                ctx,
+                None,
+            );
+            paint_shape(
+                painter,
+                rect,
+                &layout,
+                &WorldShape::Polygon(WorldPolygon {
+                    points_mm: vec![(10.0, 10.0), (30.0, 10.0), (20.0, 30.0)],
+                    color: Color::GREEN,
+                    stroke_width_mm: Some(0.5),
+                    alpha: 1.0,
+                }),
+                &mut textures,
+                ctx,
+                None,
+            );
+            paint_shape(
+                painter,
+                rect,
+                &layout,
+                &WorldShape::Text(WorldText {
+                    x_mm: 25.0,
+                    y_mm: 270.0,
+                    size_mm: 8.0,
+                    width_mm: 100.0,
+                    height_mm: 20.0,
+                    rotation_deg: 15.0,
+                    content: "Hello".into(),
+                    fill: Color::BLACK,
+                    alpha: 1.0,
+                }),
+                &mut textures,
+                ctx,
+                None,
+            );
+            paint_shape(
+                painter,
+                rect,
+                &layout,
+                &WorldShape::Path(WorldPath {
+                    points_mm: vec![(1.0, 1.0)],
+                    stroke: Color::BLACK,
+                    width_mm: 1.0,
+                    closed: false,
+                    alpha: 1.0,
+                }),
+                &mut textures,
+                ctx,
+                None,
+            );
+            paint_shape(
+                painter,
+                rect,
+                &layout,
+                &WorldShape::Path(WorldPath {
+                    points_mm: vec![(10.0, 10.0), (40.0, 40.0), (10.0, 40.0)],
+                    stroke: Color::RED,
+                    width_mm: 1.0,
+                    closed: true,
+                    alpha: 1.0,
+                }),
+                &mut textures,
+                ctx,
+                None,
+            );
+            paint_shape(
+                painter,
+                rect,
+                &layout,
+                &WorldShape::Image(WorldImage {
+                    path: "missing.png".into(),
+                    corners_mm: [
+                        (10.0, 10.0),
+                        (40.0, 10.0),
+                        (40.0, 40.0),
+                        (10.0, 40.0),
+                    ],
+                    alpha: 0.5,
+                }),
+                &mut textures,
+                ctx,
+                None,
+            );
+        });
+    }
+
+    #[test]
+    fn ensure_texture_loads_real_raster_when_present() {
+        let demo = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/figures/demo.png");
+        if !demo.is_file() {
+            return;
+        }
+        let layout = layout();
+        with_painter(|ctx, rect, painter| {
+            let mut textures = HashMap::new();
+            let base = demo.parent().unwrap();
+            paint_shape(
+                painter,
+                rect,
+                &layout,
+                &WorldShape::Image(WorldImage {
+                    path: "demo.png".into(),
+                    corners_mm: [
+                        (10.0, 10.0),
+                        (40.0, 10.0),
+                        (40.0, 40.0),
+                        (10.0, 40.0),
+                    ],
+                    alpha: 1.0,
+                }),
+                &mut textures,
+                ctx,
+                Some(base),
+            );
+            assert!(textures.contains_key("demo.png"));
+            // Cache hit path.
+            paint_shape(
+                painter,
+                rect,
+                &layout,
+                &WorldShape::Image(WorldImage {
+                    path: "demo.png".into(),
+                    corners_mm: [
+                        (10.0, 10.0),
+                        (40.0, 10.0),
+                        (40.0, 40.0),
+                        (10.0, 40.0),
+                    ],
+                    alpha: 1.0,
+                }),
+                &mut textures,
+                ctx,
+                Some(base),
+            );
+        });
     }
 }

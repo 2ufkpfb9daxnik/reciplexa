@@ -1,10 +1,13 @@
 //! Paper preview with drag → CST sync, plus a live `.rpx` source pane.
 
-mod fonts;
-mod preview_paint;
-
 use reciplexa_gui::canvas_sync::{nudge_authoring_layers, SyncRefuse};
 use reciplexa_gui::document_state::DocumentPathState;
+use reciplexa_gui::fonts::install_cjk_fonts;
+use reciplexa_gui::preview_paint::{
+    apply_aspect_lock, box_from_grab, hit_line_endpoint, hit_rotate_handle, hit_scale_grab,
+    paint_hover_frame, paint_line_endpoints, paint_paper_grid, paint_selection_frame, paint_shape,
+    snap_mm, BoxDrag, ScaleGrab,
+};
 
 use std::env;
 use std::fs;
@@ -34,12 +37,6 @@ use reciplexa_view::{
     flatten_page, hit_test_shapes, shapes_intersecting_aabb, PaperLayout, WorldShape,
 };
 
-use fonts::install_cjk_fonts;
-use preview_paint::{
-    apply_aspect_lock, box_from_grab, hit_line_endpoint, hit_rotate_handle, hit_scale_grab,
-    paint_hover_frame, paint_line_endpoints, paint_paper_grid, paint_selection_frame, paint_shape,
-    snap_mm, BoxDrag, ScaleGrab,
-};
 use reciplexa_gui::prefs::{apply_ui_theme, GuiPrefs, UiTheme};
 
 /// Live preview: expand + typecheck + lower **without** running `(src)` effects.

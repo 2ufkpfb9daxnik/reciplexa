@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use eframe::egui;
 
-pub(crate) fn install_cjk_fonts(ctx: &egui::Context) {
+pub fn install_cjk_fonts(ctx: &egui::Context) {
     let windir = PathBuf::from(env::var_os("WINDIR").unwrap_or_else(|| r"C:\Windows".into()));
     let fonts_dir = windir.join("Fonts");
     // Prefer static TTF/TTC. Variable fonts often break egui glyph metrics, which
@@ -49,4 +49,33 @@ pub(crate) fn install_cjk_fonts(ctx: &egui::Context) {
         .push("reciplexa_cjk".into());
     ctx.set_fonts(fonts);
     eprintln!("gui font: {}", path.display());
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn install_cjk_fonts_runs_on_default_context() {
+        let ctx = egui::Context::default();
+        // On Windows CI/dev boxes a system CJK face usually exists; elsewhere this
+        // takes the early-return "no font found" path — both are coverage wins.
+        install_cjk_fonts(&ctx);
+    }
+
+    #[test]
+    fn install_cjk_fonts_handles_missing_windir_fallback() {
+        let prev = env::var_os("WINDIR");
+        unsafe {
+            env::set_var("WINDIR", r"D:\definitely-missing-windows-root");
+        }
+        let ctx = egui::Context::default();
+        install_cjk_fonts(&ctx);
+        unsafe {
+            match prev {
+                Some(v) => env::set_var("WINDIR", v),
+                None => env::remove_var("WINDIR"),
+            }
+        }
+    }
 }

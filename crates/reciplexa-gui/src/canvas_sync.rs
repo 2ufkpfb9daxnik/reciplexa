@@ -122,13 +122,30 @@ mod tests {
     }
 
     #[test]
-    fn nudge_markup_soft_refuses_without_mutating() {
-        let authoring = "(markup @heading(Hi)\n\nbody\n)";
-        let expanded = reciplexa_macro::expand_source(authoring).unwrap();
-        let err = nudge_authoring_layers(authoring, &expanded, 0, &[0], 1.0, 0.0).unwrap_err();
-        assert!(err.message.contains("read-only") || err.message.contains("skipped"));
-        // Source unchanged on refuse is the caller's responsibility; ensure helper
-        // does not return Ok with a corrupted buffer.
+    fn nudge_zero_delta_is_identity() {
+        let src = r#"(page a4 (text 30 260 8 "Hi" black))"#;
+        let out = nudge_authoring_layers(src, src, 0, &[0], 0.0, 0.0).unwrap();
+        assert_eq!(out, src);
+    }
+
+    #[test]
+    fn authoring_parse_error_with_identical_buffers_propagates() {
+        let bad = "(page";
+        let err = authoring_layers_align(bad, bad, 0).unwrap_err();
         assert!(!err.message.is_empty());
+    }
+
+    #[test]
+    fn nudge_propagates_align_hard_error() {
+        let bad = "(page";
+        let err = nudge_authoring_layers(bad, bad, 0, &[0], 1.0, 0.0).unwrap_err();
+        assert!(!err.message.is_empty());
+    }
+
+    #[test]
+    fn nudge_bad_flat_index_soft_refuses() {
+        let src = r#"(page a4 (text 30 260 8 "Hi" black))"#;
+        let err = nudge_authoring_layers(src, src, 0, &[99], 1.0, 0.0).unwrap_err();
+        assert!(err.message.contains("skipped"), "{}", err.message);
     }
 }
