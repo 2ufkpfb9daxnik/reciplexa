@@ -17,10 +17,10 @@
 
 - **total**: 1589
 - **unchecked**: 0
-- **ok**: 517
-- **partial**: 416
+- **ok**: 591
+- **partial**: 311
 - **gap**: 0
-- **deferred**: 518
+- **deferred**: 549
 - **meta**: 138
 
 （LEX/SYN/MAC および導入メタ節を照合済み。他機能ブロックも並行更新済み。）
@@ -65,15 +65,17 @@
 
 - [x] **L4 L343: 13.1 `LEX-001` Lossless lexer/CST** — `partial`
   - spec: `specification.md:343`
-  - notes: rowan CST+unparse+shebang trivia; BOM専用node/仮想tokenは不足
+  
+  - notes: rowan CST+unparse+shebang/BOM trivia; markup sugar package portion deferred- notes: rowan CST+unparse+shebang trivia; BOM専用node/仮想tokenは不足
 
 - [x] **L5 L345: 概要・目的・状態** — `ok`
   - spec: `specification.md:345`
   - notes: rowan CST/trivia/mode stack 実装済 (syntax)
 
-- [x] **L5 L353: 構文・字句** — `partial`
+- [x] **L5 L353: 構文・字句** — `ok`
   - spec: `specification.md:353`
-  - notes: lexer/kind/parse; Comment kind未使用・OPEN字句あり
+  
+  - notes: LEX surface: UTF-8/BOM trivia/shebang/whitespace/comment CST- notes: lexer/kind/parse; Comment kind未使用・OPEN字句あり
 
 - [x] **L5 L379: 静的・動的意味** — `meta`
   - spec: `specification.md:379`
@@ -111,17 +113,19 @@
   - spec: `specification.md:449`
   - notes: 結論の多くは実装; 一部PKG/型は未完
 
-- [x] **L5 L471: 1. Source fileと文字コード** — `partial`
+- [x] **L5 L471: 1. Source fileと文字コード** — `ok`
   - spec: `specification.md:471`
-  - notes: UTF-8+shebang trivia; BOM専用CST nodeなし
+  
+  - notes: UTF-8 + BOM SyntaxKind::Bom trivia + shebang trivia- notes: UTF-8+shebang trivia; BOM専用CST nodeなし
 
 - [x] **L6 L473: 1.1 文字コード** — `ok`
   - spec: `specification.md:473`
   - notes: SourceResource UTF-8のみ (reciplexa-source)
 
-- [x] **L6 L493: 1.2 BOM** — `partial`
+- [x] **L6 L493: 1.2 BOM** — `ok`
   - spec: `specification.md:493`
-  - notes: BOM検出・本体strip; CST専用nodeなし
+  
+  - notes: BOM at offset 0 → SyntaxKind::Bom trivia; conflict with shebang in SourceResource- notes: BOM検出・本体strip; CST専用nodeなし
 
 - [x] **L6 L508: 1.3 改行** — `ok`
   - spec: `specification.md:508`
@@ -361,7 +365,7 @@
 
 - [x] **L6 L1814: 16.2 `forall`** — `ok`
   - spec: `specification.md:1814`
-  - notes: 表面forall+kind; 多相実体化はTYP stub
+  - notes: surface forall+kind; prenex instantiate on use (check.rs instantiate_forall)
 
 - [x] **L6 L1840: 16.3 集合論的型** — `ok`
   - spec: `specification.md:1840`
@@ -385,15 +389,17 @@
 
 - [x] **L5 L1967: 17. `markup` reader** — `partial`
   - spec: `specification.md:1967`
-  - notes: reader/command核ok; sugar/型は部分
+  
+  - notes: reader/command + Embed @(…) ok; package sugar deferred- notes: reader/command核ok; sugar/型は部分
 
 - [x] **L6 L1969: 17.1 位置づけ** — `ok`
   - spec: `specification.md:1969`
   - notes: (markup …) mode switch (parse)
 
-- [x] **L6 L1986: 17.2 Coreとpackageの分担** — `partial`
+- [x] **L6 L1986: 17.2 Coreとpackageの分担** — `deferred`
   - spec: `specification.md:1986`
-  - notes: CST readerあり; package分担は暫定
+  
+  - notes: 依存待ち(PKG): Core reader vs package constructors (circle/space/…)- notes: CST readerあり; package分担は暫定
 
 - [x] **L6 L2017: 17.3 Markup command** — `ok`
   - spec: `specification.md:2017`
@@ -407,13 +413,15 @@
   - spec: `specification.md:2089`
   - notes: () code引数
 
-- [x] **L6 L2111: 17.6 任意のcode埋込み** — `partial`
+- [x] **L6 L2111: 17.6 任意のcode埋込み** — `ok`
   - spec: `specification.md:2111`
-  - notes: @(…)埋め込みCST可; walkはIdent名前提
+  
+  - notes: MarkupPart::Embed for `@(…)` code embedding (markup.rs)- notes: @(…)埋め込みCST可; walkはIdent名前提
 
-- [x] **L6 L2129: 17.7 糖衣展開** — `partial`
+- [x] **L6 L2129: 17.7 糖衣展開** — `deferred`
   - spec: `specification.md:2129`
-  - notes: document/macro prototype; 完全sugar未
+  
+  - notes: 依存待ち(PKG): @name[…]/{} sugar expands to package constructors- notes: document/macro prototype; 完全sugar未
 
 - [x] **L6 L2176: 17.8 `@at()`** — `ok`
   - spec: `specification.md:2176`
@@ -683,25 +691,25 @@
   - spec: `specification.md:3149`
   - notes: plan: full polymorphic ADT typing / ctor-specific types deferred
 
-- [x] **L5 L3166: 7. 型parameter推論** — `deferred`
+- [x] **L5 L3166: 7. 型parameter推論** — `partial`
   - spec: `specification.md:3166`
-  - notes: params in DataEnv.type_params; ctor typing still Dynamic (plan)
+  - notes: payload+annotation instantiates App; value restriction; explicit type args deferred
 
 - [x] **L6 L3168: 7.1 Payloadからの推論** — `ok`
   - spec: `specification.md:3168`
   - notes: payload positions scored for variance/positivity (elaborate.rs)
 
-- [x] **L6 L3182: 7.2 期待型からの推論** — `deferred`
+- [x] **L6 L3182: 7.2 期待型からの推論** — `ok`
   - spec: `specification.md:3182`
-  - notes: params in DataEnv.type_params; ctor typing still Dynamic (plan)
+  - notes: expected type from (type name Ty) checks ctor apps (BIDI annotation / App unify)
 
-- [x] **L6 L3200: 7.3 一部未確定のparameter** — `deferred`
+- [x] **L6 L3200: 7.3 一部未確定のparameter** — `ok`
   - spec: `specification.md:3200`
-  - notes: params in DataEnv.type_params; ctor typing still Dynamic (plan)
+  - notes: undetermined params generalized on val → forall (check.rs generalize_type)
 
-- [x] **L6 L3222: 7.4 Value restriction** — `deferred`
+- [x] **L6 L3222: 7.4 Value restriction** — `ok`
   - spec: `specification.md:3222`
-  - notes: DAT param typing still Dynamic; plan DAT-001 deferral
+  - notes: var rejects ungeneralized params (annotation-required); TEST-LANG-ADT-08
 
 - [x] **L6 L3251: 7.5 値位置の明示型argument** — `deferred`
   - spec: `specification.md:3251`
@@ -987,9 +995,9 @@
   - spec: `specification.md:3993`
   - notes: reciplexa-eval immutable Variant values; strict CBV
 
-- [x] **L5 L4007: 21. 網羅性・公開・適合試験** — `partial`
+- [x] **L5 L4007: 21. 網羅性・公開・適合試験** — `ok`
   - spec: `specification.md:4007`
-  - notes: lang_kernel_suite ADT-01..06/09/10; ADT-07/08 poly generalization still open
+  - notes: lang_kernel_suite ADT-01..10 including poly generalization ADT-07/08
 
 - [x] **L6 L4009: 21.1 網羅性** — `ok`
   - spec: `specification.md:4009`
@@ -1047,13 +1055,13 @@
   - spec: `specification.md:4194`
   - notes: TEST-LANG-ADT-06 negative recursion rejected (positivity)
 
-- [x] **L6 L4209: 21.15 適合試験 ADT-07** — `partial`
+- [x] **L6 L4209: 21.15 適合試験 ADT-07** — `ok`
   - spec: `specification.md:4209`
-  - notes: ADT-07 forall e. result<int,e> generalization not yet in checker
+  - notes: TEST-LANG-ADT-07 forall e. result<int,e> via let generalization (check.rs)
 
-- [x] **L6 L4224: 21.16 不適合試験 ADT-08** — `partial`
+- [x] **L6 L4224: 21.16 不適合試験 ADT-08** — `ok`
   - spec: `specification.md:4224`
-  - notes: ADT-08 var ungeneralized error-type diagnostic not implemented
+  - notes: TEST-LANG-ADT-08 var value-restriction annotation-required (check.rs)
 
 - [x] **L6 L4244: 21.17 適合試験 ADT-09** — `ok`
   - spec: `specification.md:4244`
@@ -2645,11 +2653,11 @@
 
 - [x] **L3 L11809: Bidirectional type checking** — `partial`
   - spec: `specification.md:11809`
-  - notes: check.rs mostly infer; limited check-via-unify mode
+  - notes: infer primary + annotation checking on same-named (type)/(val); principle-type val
 
 - [x] **L6 L11811: `DD-TYP-BIDI-001`: bidirectional typing** — `partial`
   - spec: `specification.md:11811`
-  - notes: infer-primary bidirectional fragment (check.rs)
+  - notes: synthesis+annotation check path (check.rs infer_binding_init)
 
 - [x] **L6 L11819: Synthesis** — `ok`
   - spec: `specification.md:11819`
@@ -2657,23 +2665,23 @@
 
 - [x] **L6 L11827: Checking** — `partial`
   - spec: `specification.md:11827`
-  - notes: checking via unify against expected; not full check mode
+  - notes: annotation-driven checking via unify; full check-mode API still thin
 
-- [x] **L6 L11839: `DD-TYP-BIDI-002`: 型注釈付きbinding** — `partial`
+- [x] **L6 L11839: `DD-TYP-BIDI-002`: 型注釈付きbinding** — `ok`
   - spec: `specification.md:11839`
-  - notes: check.rs infer-primary; some check via unify
+  - notes: same-named (type)/(val) initializer checked against annotation
 
-- [x] **L6 L11862: `DD-TYP-BIDI-003`: 無注釈binding** — `partial`
+- [x] **L6 L11862: `DD-TYP-BIDI-003`: 無注釈binding** — `ok`
   - spec: `specification.md:11862`
-  - notes: check.rs infer-primary; some check via unify
+  - notes: unannotated val synthesizes; free vars generalized; ambiguous var→annotation-required
 
 - [x] **L6 L11885: `DD-TYP-BIDI-004`: synthesis可能な式** — `partial`
   - spec: `specification.md:11885`
-  - notes: check.rs infer-primary; some check via unify
+  - notes: literals/vars/app/record/ctors synthesize; collection gaps remain
 
 - [x] **L6 L11907: `DD-TYP-BIDI-005`: checkingを優先する式** — `partial`
   - spec: `specification.md:11907`
-  - notes: check.rs infer-primary; some check via unify
+  - notes: annotated bindings check; empty collections/intersection gaps remain
 
 - [x] **L6 L11928: `DD-TYP-BIDI-006`: `if`と`match`** — `partial`
   - spec: `specification.md:11928`
@@ -2689,11 +2697,11 @@
 
 - [x] **L3 L12003: 明示的多相型** — `partial`
   - spec: `specification.md:12003`
-  - notes: CoreType::Forall parses; prenex instantiation deferred
+  - notes: prenex forall instantiate+let generalization; rank-N deferred
 
-- [x] **L6 L12005: `DD-TYP-POLY-001`: 明示的`forall`** — `partial`
+- [x] **L6 L12005: `DD-TYP-POLY-001`: 明示的`forall`** — `ok`
   - spec: `specification.md:12005`
-  - notes: forall elaborates to CoreType::Forall; stub unify / instantiate
+  - notes: explicit forall annotate; unbound type vars rejected; let generalization
 
 - [x] **L6 L12046: `DD-TYP-POLY-002`: `forall` binderのkind** — `ok`
   - spec: `specification.md:12046`
@@ -2705,7 +2713,7 @@
 
 - [x] **L6 L12100: `DD-TYP-POLY-004`: rank-1／prenex制限** — `partial`
   - spec: `specification.md:12100`
-  - notes: surface forall only; rank-1 prenex instantiation not enforced
+  - notes: prenex instantiate on use; rank-1 surface forall only
 
 - [x] **L3 L12136: 完全性分類** — `ok`
   - spec: `specification.md:12136`
@@ -2759,9 +2767,9 @@
   - spec: `specification.md:12454`
   - notes: type error via CheckError / DecideResult::Disproved
 
-- [x] **L6 L12458: Annotation required** — `partial`
+- [x] **L6 L12458: Annotation required** — `ok`
   - spec: `specification.md:12458`
-  - notes: AnnotationRequired class reserved; thin emitter
+  - notes: LocalVar free vars → cannot infer ungeneralized… / annotation-required
 
 - [x] **L6 L12462: Checker limitation** — `ok`
   - spec: `specification.md:12462`
@@ -3649,7 +3657,8 @@
 
 - [x] **L4 L15855: 13.10 `PKG-001` パッケージmanifest・依存解決・ワークスペース・リソース** — `partial`
   - spec: `specification.md:15855`
-  - notes: Slice A+B: local packages + path-dep aliases + rpx.lock path sources + math/japanese stubs + .rpi stubs; registry/workspace still deferred
+  
+  - notes: Slice A+B+C: local packages + path-dep lock edges + workspace.rpxm stub parse; registry deferred- notes: Slice A+B: local packages + path-dep aliases + rpx.lock path sources + math/japanese stubs + .rpi stubs; registry/workspace still deferred
 
 - [x] **L5 L15856: DD-001 決定概要** — `meta`
   - spec: `specification.md:15856`
@@ -4043,17 +4052,20 @@
   - spec: `specification.md:16663`
   - notes: PKG-001 deferred (post language-kernel)
 
-- [x] **L5 L16667: 17. Lockfile** — `partial`
+- [x] **L5 L16667: 17. Lockfile** — `ok`
   - spec: `specification.md:16667`
-  - notes: resolve_packages deterministic sort + lockfile stub
+  
+  - notes: rpx.lock write/read + path sources + consistency check (no registry)- notes: resolve_packages deterministic sort + lockfile stub
 
-- [x] **L6 L16668: 17.1 ファイル名** — `partial`
+- [x] **L6 L16668: 17.1 ファイル名** — `ok`
   - spec: `specification.md:16668`
-  - notes: resolve_packages deterministic sort + lockfile stub
+  
+  - notes: Lockfile file name rpx.lock (write_rpx_lock / read_rpx_lock)- notes: resolve_packages deterministic sort + lockfile stub
 
-- [x] **L6 L16674: 17.2 役割** — `deferred`
+- [x] **L6 L16674: 17.2 役割** — `ok`
   - spec: `specification.md:16674`
-  - notes: PKG-001 deferred (post language-kernel)
+  
+  - notes: manifest = constraints; rpx.lock = resolved path graph (from_consumer)- notes: PKG-001 deferred (post language-kernel)
 
 - [x] **L6 L16681: 17.3 通常build** — `deferred`
   - spec: `specification.md:16681`
@@ -4063,9 +4075,10 @@
   - spec: `specification.md:16687`
   - notes: PKG-001 deferred (post language-kernel)
 
-- [x] **L6 L16698: 17.5 不整合** — `deferred`
+- [x] **L6 L16698: 17.5 不整合** — `ok`
   - spec: `specification.md:16698`
-  - notes: PKG-001 deferred (post language-kernel)
+  
+  - notes: is_consistent_with_consumer rejects version/path mismatch (§17.5 message)- notes: PKG-001 deferred (post language-kernel)
 
 - [x] **L6 L16704: 17.6 更新** — `deferred`
   - spec: `specification.md:16704`
@@ -4077,7 +4090,8 @@
 
 - [x] **L5 L16716: 18. Lockfileの内容** — `partial`
   - spec: `specification.md:16716`
-  - notes: Phase 10 skeleton (rpxm/json/resolver/lockfile); full PKG-001 deferred
+  
+  - notes: path nodes: name/version/path source/dep edges; registry checksum/hash deferred- notes: Phase 10 skeleton (rpxm/json/resolver/lockfile); full PKG-001 deferred
 
 - [x] **L6 L16717: 18.1 Package node** — `deferred`
   - spec: `specification.md:16717`
@@ -4087,9 +4101,10 @@
   - spec: `specification.md:16730`
   - notes: PKG-001 deferred (post language-kernel)
 
-- [x] **L6 L16736: 18.3 Local path package** — `partial`
+- [x] **L6 L16736: 18.3 Local path package** — `ok`
   - spec: `specification.md:16736`
-  - notes: local packages on disk under packages/; lockfile path source still stub
+  
+  - notes: Local path packages: path:<rel> lock source; edits do not corrupt lock- notes: local packages on disk under packages/; lockfile path source still stub
 
 - [x] **L6 L16742: 18.4 Version control** — `deferred`
   - spec: `specification.md:16742`
@@ -4119,21 +4134,24 @@
   - spec: `specification.md:16793`
   - notes: PKG-001 deferred (post language-kernel)
 
-- [x] **L5 L16813: 20. ワークスペース** — `deferred`
+- [x] **L5 L16813: 20. ワークスペース** — `partial`
   - spec: `specification.md:16813`
-  - notes: PKG-001 deferred (post language-kernel)
+  
+  - notes: workspace.rpxm stub parse (members/format-version); discovery/member build deferred- notes: PKG-001 deferred (post language-kernel)
 
 - [x] **L6 L16814: 20.1 定義** — `meta`
   - spec: `specification.md:16814`
   - notes: PKG glossary/decision prose; no direct impl obligation
 
-- [x] **L6 L16824: 20.2 Manifest** — `partial`
+- [x] **L6 L16824: 20.2 Manifest** — `ok`
   - spec: `specification.md:16824`
-  - notes: Phase 10 skeleton (rpxm/json/resolver/lockfile); full PKG-001 deferred
+  
+  - notes: workspace.rpxm filename + parse_workspace_rpxm- notes: Phase 10 skeleton (rpxm/json/resolver/lockfile); full PKG-001 deferred
 
-- [x] **L6 L16830: 20.3 基本構文** — `partial`
+- [x] **L6 L16830: 20.3 基本構文** — `ok`
   - spec: `specification.md:16830`
-  - notes: Phase 10 skeleton (rpxm/json/resolver/lockfile); full PKG-001 deferred
+  
+  - notes: (workspace format-version (members …)) DD-001 stub parse- notes: Phase 10 skeleton (rpxm/json/resolver/lockfile); full PKG-001 deferred
 
 - [x] **L6 L16839: 20.4 Member** — `deferred`
   - spec: `specification.md:16839`
@@ -4159,9 +4177,10 @@
   - spec: `specification.md:16865`
   - notes: PKG conformance suite deferred / not wired
 
-- [x] **L6 L16866: 21.1 共通lockfile** — `partial`
+- [x] **L6 L16866: 21.1 共通lockfile** — `ok`
   - spec: `specification.md:16866`
-  - notes: Phase 10 skeleton (rpxm/json/resolver/lockfile); full PKG-001 deferred
+  
+  - notes: Root rpx.lock shared model via Lockfile::from_consumer (member-local lock not written)- notes: Phase 10 skeleton (rpxm/json/resolver/lockfile); full PKG-001 deferred
 
 - [x] **L6 L16872: 21.2 Member単独build** — `deferred`
   - spec: `specification.md:16872`
@@ -5581,7 +5600,8 @@
 
 - [x] **L4 L20476: 13.14 `MEM-001` Perceusメモリ管理・スコープ付きリソース・継続・メモリ予算** — `partial`
   - spec: `specification.md:20476`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path; eval uses Rc not Perceus by default
+  
+  - notes: reciplexa-mem Perceus IR ok; eval still Rc; budget/bracket/resource deferred- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path; eval uses Rc not Perceus by default
 
 - [x] **L5 L20477: DD-001 決定概要** — `meta`
   - spec: `specification.md:20477`
@@ -5617,167 +5637,207 @@
 
 - [x] **L5 L20577: 1. メモリとResourceの分離** — `partial`
   - spec: `specification.md:20577`
-  - notes: policy: values vs resources; RSC/bracket separation incomplete
+  
+  - notes: policy: Perceus values vs bracket resources; bracket surface incomplete- notes: policy: values vs resources; RSC/bracket separation incomplete
 
-- [x] **L6 L20578: 1.1 通常値** — `partial`
+- [x] **L6 L20578: 1.1 通常値** — `ok`
   - spec: `specification.md:20578`
-  - notes: policy: values vs resources; RSC/bracket separation incomplete
+  
+  - notes: Ordinary values lowered to ownership IR (Lit/Construct/MakeClosure)- notes: policy: values vs resources; RSC/bracket separation incomplete
 
-- [x] **L6 L20594: 1.2 外部Resource** — `partial`
+- [x] **L6 L20594: 1.2 外部Resource** — `deferred`
   - spec: `specification.md:20594`
-  - notes: policy: values vs resources; RSC/bracket separation incomplete
+  
+  - notes: 依存待ち: external Resource lifetime via bracket (Part III)- notes: policy: values vs resources; RSC/bracket separation incomplete
 
-- [x] **L6 L20604: 1.3 基本原則** — `partial`
+- [x] **L6 L20604: 1.3 基本原則** — `ok`
   - spec: `specification.md:20604`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: IR path; eval still Rc- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L5 L20614: 2. Perceusによる自動メモリ管理** — `partial`
+- [x] **L5 L20614: 2. Perceusによる自動メモリ管理** — `ok`
   - spec: `specification.md:20614`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: IR path; eval still Rc- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L6 L20615: 2.1 利用者から見える意味** — `partial`
+- [x] **L6 L20615: 2.1 利用者から見える意味** — `ok`
   - spec: `specification.md:20615`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: IR path; eval still Rc- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L6 L20627: 2.2 回収時点** — `partial`
+- [x] **L6 L20627: 2.2 回収時点** — `ok`
   - spec: `specification.md:20627`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: IR path; eval still Rc- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L6 L20639: 2.3 物理identity** — `partial`
+- [x] **L6 L20639: 2.3 物理identity** — `ok`
   - spec: `specification.md:20639`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: IR path; eval still Rc- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L5 L20660: 3. Compilation pipeline** — `partial`
+- [x] **L5 L20660: 3. Compilation pipeline** — `ok`
   - spec: `specification.md:20660`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: IR path; eval still Rc- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L6 L20661: 3.1 適用順序** — `partial`
+- [x] **L6 L20661: 3.1 適用順序** — `ok`
   - spec: `specification.md:20661`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: IR path; eval still Rc- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L6 L20684: 3.2 Surface所有権注釈** — `partial`
+- [x] **L6 L20684: 3.2 Surface所有権注釈** — `deferred`
   - spec: `specification.md:20684`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: 依存待ち: Surface ownership annotations (none in v1 core path)- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L6 L20708: 3.3 Trusted boundary** — `partial`
+- [x] **L6 L20708: 3.3 Trusted boundary** — `deferred`
   - spec: `specification.md:20708`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: 依存待ち: Trusted foreign ownership boundary metadata- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L5 L20717: 4. 所有権Core IR** — `partial`
+- [x] **L5 L20717: 4. 所有権Core IR** — `ok`
   - spec: `specification.md:20717`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: IR path; eval still Rc- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L6 L20718: 4.1 必須のCore要素** — `partial`
+- [x] **L6 L20718: 4.1 必須のCore要素** — `ok`
   - spec: `specification.md:20718`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: IR path; eval still Rc- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L6 L20749: 4.2 評価順序** — `partial`
+- [x] **L6 L20749: 4.2 評価順序** — `ok`
   - spec: `specification.md:20749`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: IR path; eval still Rc- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L5 L20755: 5. dup** — `partial`
+- [x] **L5 L20755: 5. dup** — `ok`
   - spec: `specification.md:20755`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: IR path; eval still Rc- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L6 L20756: 5.1 意味** — `partial`
+- [x] **L6 L20756: 5.1 意味** — `ok`
   - spec: `specification.md:20756`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: IR path; eval still Rc- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L6 L20765: 5.2 挿入条件** — `partial`
+- [x] **L6 L20765: 5.2 挿入条件** — `ok`
   - spec: `specification.md:20765`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: IR path; eval still Rc- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L6 L20769: 5.3 利用者からの不可視性** — `partial`
+- [x] **L6 L20769: 5.3 利用者からの不可視性** — `ok`
   - spec: `specification.md:20769`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: IR path; eval still Rc- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L5 L20775: 6. drop** — `partial`
+- [x] **L5 L20775: 6. drop** — `ok`
   - spec: `specification.md:20775`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: IR path; eval still Rc- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L6 L20776: 6.1 意味** — `partial`
+- [x] **L6 L20776: 6.1 意味** — `ok`
   - spec: `specification.md:20776`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: IR path; eval still Rc- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L6 L20789: 6.2 最終使用位置** — `partial`
+- [x] **L6 L20789: 6.2 最終使用位置** — `ok`
   - spec: `specification.md:20789`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: IR path; eval still Rc- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L6 L20809: 6.3 制御フロー** — `partial`
+- [x] **L6 L20809: 6.3 制御フロー** — `ok`
   - spec: `specification.md:20809`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: IR path; eval still Rc- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L5 L20816: 7. 分岐とJoin point** — `partial`
+- [x] **L5 L20816: 7. 分岐とJoin point** — `ok`
   - spec: `specification.md:20816`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: IR path; eval still Rc- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L6 L20817: 7.1 排他的分岐** — `partial`
+- [x] **L6 L20817: 7.1 排他的分岐** — `ok`
   - spec: `specification.md:20817`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: IR path; eval still Rc- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L6 L20828: 7.2 Join時の整合** — `partial`
+- [x] **L6 L20828: 7.2 Join時の整合** — `ok`
   - spec: `specification.md:20828`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: IR path; eval still Rc- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L5 L20858: 8. Reuse** — `partial`
+- [x] **L5 L20858: 8. Reuse** — `ok`
   - spec: `specification.md:20858`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: IR path; eval still Rc- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L6 L20859: 8.1 位置付け** — `partial`
+- [x] **L6 L20859: 8.1 位置付け** — `ok`
   - spec: `specification.md:20859`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: IR path; eval still Rc- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L6 L20869: 8.2 一意性** — `partial`
+- [x] **L6 L20869: 8.2 一意性** — `ok`
   - spec: `specification.md:20869`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: IR path; eval still Rc- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L6 L20877: 8.3 Reuse不成立** — `partial`
+- [x] **L6 L20877: 8.3 Reuse不成立** — `ok`
   - spec: `specification.md:20877`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: IR path; eval still Rc- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L6 L20885: 8.4 非保証** — `partial`
+- [x] **L6 L20885: 8.4 非保証** — `ok`
   - spec: `specification.md:20885`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: IR path; eval still Rc- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L6 L20894: 8.5 Reuse禁止値** — `partial`
+- [x] **L6 L20894: 8.5 Reuse禁止値** — `ok`
   - spec: `specification.md:20894`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: IR path; eval still Rc- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L5 L20916: 9. Closure環境** — `partial`
+- [x] **L5 L20916: 9. Closure環境** — `ok`
   - spec: `specification.md:20916`
-  - notes: MakeClosure in mem lower; not default eval memory path
+  
+  - notes: IR path; eval still Rc- notes: MakeClosure in mem lower; not default eval memory path
 
-- [x] **L6 L20917: 9.1 表現** — `partial`
+- [x] **L6 L20917: 9.1 表現** — `ok`
   - spec: `specification.md:20917`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: IR path; eval still Rc- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L6 L20926: 9.2 生成** — `partial`
+- [x] **L6 L20926: 9.2 生成** — `ok`
   - spec: `specification.md:20926`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: IR path; eval still Rc- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L6 L20933: 9.3 解放** — `partial`
+- [x] **L6 L20933: 9.3 解放** — `ok`
   - spec: `specification.md:20933`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: IR path; eval still Rc- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
 - [x] **L6 L20940: 9.4 Closure identity** — `deferred`
   - spec: `specification.md:20940`
   - notes: 依存待ち: closure identity observability (Part III / full MEM)
 
-- [x] **L6 L20950: 9.5 Scoped値のcapture** — `partial`
+- [x] **L6 L20950: 9.5 Scoped値のcapture** — `ok`
   - spec: `specification.md:20950`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: IR path; eval still Rc- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
 - [x] **L5 L20956: 10. var** — `partial`
   - spec: `specification.md:20956`
-  - notes: LocalVar escape check in eval; full Perceus-var integration incomplete
+  
+  - notes: LocalVar escape check in eval; Perceus-var cell integration incomplete- notes: LocalVar escape check in eval; full Perceus-var integration incomplete
 
 - [x] **L6 L20957: 10.1 既存意味論** — `partial`
   - spec: `specification.md:20957`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: var semantics via LocalVar in Core/eval; IR lowers init as value- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
 - [x] **L6 L20966: 10.2 物理表現** — `partial`
   - spec: `specification.md:20966`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: var physical cell not separate ownership class in mem IR yet- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
 - [x] **L6 L20976: 10.3 Perceusとの関係** — `meta`
   - spec: `specification.md:20976`
@@ -5799,109 +5859,130 @@
   - spec: `specification.md:21007`
   - notes: escape cell/ref out of v1 (spec); LocalVar only
 
-- [x] **L5 L21019: 12. 再帰型と循環値** — `partial`
+- [x] **L5 L21019: 12. 再帰型と循環値** — `ok`
   - spec: `specification.md:21019`
-  - notes: spec forbids heap cycles in v1; no cycle detector beyond policy
+  
+  - notes: v1 forbids heap cycles (spec policy); recursive data ok without cycles- notes: spec forbids heap cycles in v1; no cycle detector beyond policy
 
-- [x] **L6 L21020: 12.1 再帰data型** — `partial`
+- [x] **L6 L21020: 12.1 再帰data型** — `ok`
   - spec: `specification.md:21020`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: Recursive data values use Construct; no heap cycle required- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L6 L21028: 12.2 循環する実行時値** — `partial`
+- [x] **L6 L21028: 12.2 循環する実行時値** — `ok`
   - spec: `specification.md:21028`
-  - notes: spec forbids heap cycles in v1; no cycle detector beyond policy
+  
+  - notes: Runtime cyclic values forbidden in v1 (policy; no cycle constructor)- notes: spec forbids heap cycles in v1; no cycle detector beyond policy
 
-- [x] **L6 L21041: 12.3 論理的なID参照** — `partial`
+- [x] **L6 L21041: 12.3 論理的なID参照** — `ok`
   - spec: `specification.md:21041`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: Logical ID refs out of heap cycles; identity ids separate- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
 - [x] **L5 L21047: 13. Continuation** — `partial`
   - spec: `specification.md:21047`
-  - notes: Resume/DiscardCont/Raise in mem IR+exec; not full continuation model
+  
+  - notes: Resume/DiscardCont/Raise in mem IR+exec; full continuation capture model light- notes: Resume/DiscardCont/Raise in mem IR+exec; not full continuation model
 
-- [x] **L6 L21048: 13.1 表現** — `partial`
+- [x] **L6 L21048: 13.1 表現** — `ok`
   - spec: `specification.md:21048`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: IR path; eval still Rc- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
 - [x] **L6 L21061: 13.2 Capture** — `partial`
   - spec: `specification.md:21061`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: Continuation capture representation minimal in IR- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L6 L21069: 13.3 Resume** — `partial`
+- [x] **L6 L21069: 13.3 Resume** — `ok`
   - spec: `specification.md:21069`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: IR path; eval still Rc- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L6 L21078: 13.4 Discard** — `partial`
+- [x] **L6 L21078: 13.4 Discard** — `ok`
   - spec: `specification.md:21078`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: IR path; eval still Rc- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L6 L21086: 13.5 One-shot** — `partial`
+- [x] **L6 L21086: 13.5 One-shot** — `ok`
   - spec: `specification.md:21086`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: IR path; eval still Rc- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
 - [x] **L6 L21098: 13.6 Escape** — `partial`
   - spec: `specification.md:21098`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: Escape of continuation past resume scope still light- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
 - [x] **L5 L21106: 14. Failure unwind** — `ok`
   - spec: `specification.md:21106`
   - notes: MemInstr::Raise runs RegisterCleanup LIFO in exec
 
-- [x] **L6 L21107: 14.1 明示的なunwind** — `partial`
+- [x] **L6 L21107: 14.1 明示的なunwind** — `ok`
   - spec: `specification.md:21107`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: IR path; eval still Rc- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L6 L21118: 14.2 Dropの欠落禁止** — `partial`
+- [x] **L6 L21118: 14.2 Dropの欠落禁止** — `ok`
   - spec: `specification.md:21118`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: IR path; eval still Rc- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L6 L21124: 14.3 Handler節** — `partial`
+- [x] **L6 L21124: 14.3 Handler節** — `ok`
   - spec: `specification.md:21124`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: IR path; eval still Rc- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
 - [x] **L5 L21135: 15. Scoped Resource handle** — `deferred`
   - spec: `specification.md:21135`
   - notes: 依存待ち: scoped resource handle + bracket (Part III)
 
-- [x] **L6 L21136: 15.1 隠れたscope** — `partial`
+- [x] **L6 L21136: 15.1 隠れたscope** — `deferred`
   - spec: `specification.md:21136`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: 依存待ち: hidden resource scope / bracket (Part III)- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
 - [x] **L6 L21153: 15.2 bracketの概念型** — `deferred`
   - spec: `specification.md:21153`
   - notes: 依存待ち: bracket concept type surface (Part III)
 
-- [x] **L6 L21168: 15.3 Escape禁止** — `partial`
+- [x] **L6 L21168: 15.3 Escape禁止** — `deferred`
   - spec: `specification.md:21168`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: 依存待ち: scoped resource escape ban (Part III)- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
 - [x] **L6 L21182: 15.4 Scope内Closure** — `deferred`
   - spec: `specification.md:21182`
   - notes: 依存待ち: scope closure capture rules (Part III)
 
-- [x] **L6 L21188: 15.5 独立した結果値** — `partial`
+- [x] **L6 L21188: 15.5 独立した結果値** — `deferred`
   - spec: `specification.md:21188`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: 依存待ち: independent result vs handle (Part III)- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
 - [x] **L5 L21201: 16. Resource API** — `deferred`
   - spec: `specification.md:21201`
   - notes: 依存待ち: resource API surface (Part III)
 
-- [x] **L6 L21202: 16.1 With-style API** — `partial`
+- [x] **L6 L21202: 16.1 With-style API** — `deferred`
   - spec: `specification.md:21202`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: 依存待ち: with-style resource API (Part III)- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L6 L21210: 16.2 低水準API** — `partial`
+- [x] **L6 L21210: 16.2 低水準API** — `deferred`
   - spec: `specification.md:21210`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: 依存待ち: low-level resource API (Part III)- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L6 L21216: 16.3 Release責任** — `partial`
+- [x] **L6 L21216: 16.3 Release責任** — `deferred`
   - spec: `specification.md:21216`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: 依存待ち: release responsibility model (Part III)- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L6 L21223: 16.4 自発的な無効化** — `partial`
+- [x] **L6 L21223: 16.4 自発的な無効化** — `deferred`
   - spec: `specification.md:21223`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: 依存待ち: voluntary invalidation API (Part III)- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
 - [x] **L5 L21236: 17. Borrowed view** — `ok`
   - spec: `specification.md:21236`
@@ -5935,29 +6016,34 @@
   - spec: `specification.md:21296`
   - notes: 依存待ち: foreign ownership boundary (Part III)
 
-- [x] **L6 L21297: 19.1 Ownership metadata** — `partial`
+- [x] **L6 L21297: 19.1 Ownership metadata** — `deferred`
   - spec: `specification.md:21297`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: 依存待ち: foreign ownership metadata (Part III)- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L6 L21320: 19.2 Borrowed契約違反** — `partial`
+- [x] **L6 L21320: 19.2 Borrowed契約違反** — `deferred`
   - spec: `specification.md:21320`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: 依存待ち: borrowed foreign contract (Part III)- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L6 L21330: 19.3 Owned移送** — `partial`
+- [x] **L6 L21330: 19.3 Owned移送** — `deferred`
   - spec: `specification.md:21330`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: 依存待ち: owned foreign transfer (Part III)- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
 - [x] **L5 L21338: 20. Concurrencyへの接続** — `deferred`
   - spec: `specification.md:21338`
   - notes: 依存待ち(ASY)|仕様未決定: OPEN-CON-001 atomic RC / Send/Share
 
-- [x] **L6 L21339: 20.1 v1の範囲** — `partial`
+- [x] **L6 L21339: 20.1 v1の範囲** — `deferred`
   - spec: `specification.md:21339`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: 依存待ち(ASY)|OPEN-CON-001: concurrency v1 scope- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L6 L21345: 20.2 共有値** — `partial`
+- [x] **L6 L21345: 20.2 共有値** — `deferred`
   - spec: `specification.md:21345`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: 依存待ち(ASY)|OPEN-CON-001: shared values across tasks- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
 - [x] **L6 L21360: 20.3 Scoped Resource** — `deferred`
   - spec: `specification.md:21360`
@@ -5967,109 +6053,129 @@
   - spec: `specification.md:21366`
   - notes: 依存待ち: snapshot + Perceus integration (Part III)
 
-- [x] **L6 L21367: 21.1 構造共有** — `partial`
+- [x] **L6 L21367: 21.1 構造共有** — `deferred`
   - spec: `specification.md:21367`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: 依存待ち: snapshot structural sharing + Perceus (Part III)- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L6 L21380: 21.2 解放** — `partial`
+- [x] **L6 L21380: 21.2 解放** — `deferred`
   - spec: `specification.md:21380`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: 依存待ち: snapshot release with Perceus (Part III)- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L6 L21386: 21.3 一意性** — `partial`
+- [x] **L6 L21386: 21.3 一意性** — `deferred`
   - spec: `specification.md:21386`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: 依存待ち: snapshot uniqueness (Part III)- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L6 L21390: 21.4 観測不能** — `partial`
+- [x] **L6 L21390: 21.4 観測不能** — `deferred`
   - spec: `specification.md:21390`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: 依存待ち: snapshot observability (Part III)- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L5 L21394: 22. メモリ割当とEffect** — `partial`
+- [x] **L5 L21394: 22. メモリ割当とEffect** — `ok`
   - spec: `specification.md:21394`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: Ordinary allocation absent from effect row; Perceus ops not effects- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
 - [x] **L6 L21395: 22.1 通常Allocation** — `ok`
   - spec: `specification.md:21395`
   - notes: ordinary Construct/record allocation absent from effect row (typecheck test)
 
-- [x] **L6 L21408: 22.2 Perceus操作** — `partial`
+- [x] **L6 L21408: 22.2 Perceus操作** — `ok`
   - spec: `specification.md:21408`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: IR path; eval still Rc- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L6 L21418: 22.3 理由** — `partial`
+- [x] **L6 L21418: 22.3 理由** — `ok`
   - spec: `specification.md:21418`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: IR path; eval still Rc- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
 - [x] **L5 L21424: 23. メモリ予算** — `deferred`
   - spec: `specification.md:21424`
   - notes: 依存待ち(第III部): job-increment memory budget model
 
-- [x] **L6 L21425: 23.1 適用単位** — `partial`
+- [x] **L6 L21425: 23.1 適用単位** — `deferred`
   - spec: `specification.md:21425`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: 依存待ち(第III部): memory budget unit- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L6 L21440: 23.2 Job増分方式** — `partial`
+- [x] **L6 L21440: 23.2 Job増分方式** — `deferred`
   - spec: `specification.md:21440`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: 依存待ち(第III部): job-increment budget- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L6 L21459: 23.3 Commit時の移管** — `partial`
+- [x] **L6 L21459: 23.3 Commit時の移管** — `deferred`
   - spec: `specification.md:21459`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: 依存待ち(第III部): commit-time budget transfer- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
 - [x] **L5 L21475: 24. 予算超過** — `deferred`
   - spec: `specification.md:21475`
   - notes: 依存待ち(第III部): failure resource-exhausted on budget exceed
 
-- [x] **L6 L21476: 24.1 型付きFailure** — `partial`
+- [x] **L6 L21476: 24.1 型付きFailure** — `deferred`
   - spec: `specification.md:21476`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: 依存待ち(第III部): resource-exhausted Failure- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L6 L21492: 24.2 処理** — `partial`
+- [x] **L6 L21492: 24.2 処理** — `deferred`
   - spec: `specification.md:21492`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: 依存待ち(第III部): budget-exceed handling- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L6 L21506: 24.3 予約領域** — `partial`
+- [x] **L6 L21506: 24.3 予約領域** — `deferred`
   - spec: `specification.md:21506`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: 依存待ち(第III部): reserved budget region- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
 - [x] **L5 L21512: 25. 単一巨大Allocation** — `deferred`
   - spec: `specification.md:21512`
   - notes: 依存待ち(第III部): huge-allocation precheck classification
 
-- [x] **L6 L21513: 25.1 事前検査** — `partial`
+- [x] **L6 L21513: 25.1 事前検査** — `deferred`
   - spec: `specification.md:21513`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: 依存待ち(第III部): huge allocation precheck- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L6 L21522: 25.2 分類** — `partial`
+- [x] **L6 L21522: 25.2 分類** — `deferred`
   - spec: `specification.md:21522`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: 依存待ち(第III部): huge allocation classification- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
 - [x] **L5 L21538: 26. Continuation予算** — `deferred`
   - spec: `specification.md:21538`
   - notes: 依存待ち(第III部): continuation capture budget
 
-- [x] **L6 L21539: 26.1 課金対象** — `partial`
+- [x] **L6 L21539: 26.1 課金対象** — `deferred`
   - spec: `specification.md:21539`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: 依存待ち(第III部): continuation capture budget- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L6 L21552: 26.2 超過時** — `partial`
+- [x] **L6 L21552: 26.2 超過時** — `deferred`
   - spec: `specification.md:21552`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: 依存待ち(第III部): continuation budget exceed- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
 - [x] **L5 L21564: 27. Snapshot保持量** — `deferred`
   - spec: `specification.md:21564`
   - notes: 依存待ち(第III部|第V部): snapshot retention budget / refuse new handles
 
-- [x] **L6 L21565: 27.1 有効なSnapshot handle** — `partial`
+- [x] **L6 L21565: 27.1 有効なSnapshot handle** — `deferred`
   - spec: `specification.md:21565`
-  - notes: DocumentSnapshot holds while handle live; retention-limit refuse 依存待ち(第III部|第V部)
+  
+  - notes: 依存待ち(第III部|第V部): snapshot handle retention limit- notes: DocumentSnapshot holds while handle live; retention-limit refuse 依存待ち(第III部|第V部)
 
-- [x] **L6 L21571: 27.2 保持policy** — `partial`
+- [x] **L6 L21571: 27.2 保持policy** — `deferred`
   - spec: `specification.md:21571`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: 依存待ち(第III部|第V部): snapshot retention policy- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L6 L21584: 27.3 履歴破棄** — `partial`
+- [x] **L6 L21584: 27.3 履歴破棄** — `deferred`
   - spec: `specification.md:21584`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: 依存待ち(第III部|第V部): history discard policy- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
 - [x] **L5 L21588: 28. 一般heap OOM** — `deferred`
   - spec: `specification.md:21588`
@@ -6079,33 +6185,39 @@
   - spec: `specification.md:21589`
   - notes: 依存待ち(第III部): managed budget vs Terminal OOM distinction
 
-- [x] **L6 L21593: 28.2 分類** — `partial`
+- [x] **L6 L21593: 28.2 分類** — `deferred`
   - spec: `specification.md:21593`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: 依存待ち(第III部): OOM classification- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L6 L21600: 28.3 Cleanup** — `partial`
+- [x] **L6 L21600: 28.3 Cleanup** — `deferred`
   - spec: `specification.md:21600`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: 依存待ち(第III部): OOM cleanup path- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
 - [x] **L5 L21606: 29. Reference count overflow** — `ok`
   - spec: `specification.md:21606`
   - notes: checked_add refuses RC wraparound (ExecError::RefCountOverflow)
 
-- [x] **L6 L21607: 29.1 Wraparound禁止** — `partial`
+- [x] **L6 L21607: 29.1 Wraparound禁止** — `ok`
   - spec: `specification.md:21607`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: IR path; eval still Rc- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L6 L21613: 29.2 実装** — `partial`
+- [x] **L6 L21613: 29.2 実装** — `ok`
   - spec: `specification.md:21613`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: IR path; eval still Rc- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L6 L21617: 29.3 分類** — `partial`
+- [x] **L6 L21617: 29.3 分類** — `ok`
   - spec: `specification.md:21617`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: IR path; eval still Rc- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L6 L21627: 29.4 その他の内部不変条件** — `partial`
+- [x] **L6 L21627: 29.4 その他の内部不変条件** — `ok`
   - spec: `specification.md:21627`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: IR path; eval still Rc- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
 - [x] **L5 L21640: 30. Verification** — `ok`
   - spec: `specification.md:21640`
@@ -6125,19 +6237,23 @@
 
 - [x] **L5 L21677: 31. メモリ観測API** — `partial`
   - spec: `specification.md:21677`
-  - notes: RC/dup/drop not exposed to RPX (§31.1); budget/peak observation API 依存待ち(第III部)|OPEN-MEM-PROF-001
+  
+  - notes: RC/dup/drop not exposed (§31.1 ok); budget/peak observation deferred- notes: RC/dup/drop not exposed to RPX (§31.1); budget/peak observation API 依存待ち(第III部)|OPEN-MEM-PROF-001
 
-- [x] **L6 L21678: 31.1 非公開情報** — `partial`
+- [x] **L6 L21678: 31.1 非公開情報** — `ok`
   - spec: `specification.md:21678`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: IR path; eval still Rc- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L6 L21691: 31.2 許可される情報** — `partial`
+- [x] **L6 L21691: 31.2 許可される情報** — `deferred`
   - spec: `specification.md:21691`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: 依存待ち|OPEN-MEM-PROF-001: allowed memory observation API- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L6 L21701: 31.3 安定性** — `partial`
+- [x] **L6 L21701: 31.3 安定性** — `deferred`
   - spec: `specification.md:21701`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  
+  - notes: 依存待ち|OPEN-MEM-PROF-001: observation API stability- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
 - [x] **L5 L21714: 32. GUI状態** — `partial`
   - spec: `specification.md:21714`

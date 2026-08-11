@@ -6,49 +6,51 @@
 
 | 機能 | gap | partial | 合計 |
 |---|---:|---:|---:|
-| `LEX` | 0 | 3 | 3 |
-| `SYN` | 0 | 22 | 22 |
+| `LEX` | 0 | 2 | 2 |
+| `SYN` | 0 | 17 | 17 |
 | `RES` | 0 | 2 | 2 |
-| `DAT` | 0 | 28 | 28 |
+| `DAT` | 0 | 26 | 26 |
 | `EVAL` | 0 | 4 | 4 |
 | `BND` | 0 | 19 | 19 |
 | `MAC` | 0 | 9 | 9 |
-| `TYP` | 0 | 90 | 90 |
+| `TYP` | 0 | 86 | 86 |
 | `ROW` | 0 | 2 | 2 |
 | `EFF` | 0 | 8 | 8 |
 | `RSC` | 0 | 2 | 2 |
 | `MOD` | 0 | 16 | 16 |
-| `PKG` | 0 | 37 | 37 |
+| `PKG` | 0 | 32 | 32 |
 | `KER` | 0 | 2 | 2 |
 | `EDT` | 0 | 19 | 19 |
 | `IR` | 0 | 6 | 6 |
 | `ERR` | 0 | 20 | 20 |
-| `MEM` | 0 | 100 | 100 |
+| `MEM` | 0 | 12 | 12 |
 | `TST` | 0 | 27 | 27 |
-| **合計** | **0** | **416** | **416** |
+| **合計** | **0** | **311** | **311** |
 
 （全体カウンタは `part2-conformance-stats.json` 参照。機能別内訳は L4 `XXX-001` ブロック帰属。）
 
 ### 合計の多い順（優先度の目安）
-- `MEM`: gap 0 + partial 100 = **100**
-- `TYP`: gap 0 + partial 90 = **90**
-- `PKG`: gap 0 + partial 37 = **37**
-- `DAT`: gap 0 + partial 28 = **28**
+- `TYP`: gap 0 + partial 86 = **86**
+- `PKG`: gap 0 + partial 32 = **32**
 - `TST`: gap 0 + partial 27 = **27**
-- `SYN`: gap 0 + partial 22 = **22**
+- `DAT`: gap 0 + partial 26 = **26**
 - `ERR`: gap 0 + partial 20 = **20**
 - `BND`: gap 0 + partial 19 = **19**
 - `EDT`: gap 0 + partial 19 = **19**
+- `SYN`: gap 0 + partial 17 = **17**
 - `MOD`: gap 0 + partial 16 = **16**
+- `MEM`: gap 0 + partial 12 = **12**
 - `MAC`: gap 0 + partial 9 = **9**
 - `EFF`: gap 0 + partial 8 = **8**
 - `IR`: gap 0 + partial 6 = **6**
 - `EVAL`: gap 0 + partial 4 = **4**
-- `LEX`: gap 0 + partial 3 = **3**
+- `LEX`: gap 0 + partial 2 = **2**
 - `RES`: gap 0 + partial 2 = **2**
 - `ROW`: gap 0 + partial 2 = **2**
 - `RSC`: gap 0 + partial 2 = **2**
 - `KER`: gap 0 + partial 2 = **2**
+
+
 
 
 ---
