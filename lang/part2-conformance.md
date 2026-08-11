@@ -17,10 +17,10 @@
 
 - **total**: 1589
 - **unchecked**: 0
-- **ok**: 591
-- **partial**: 311
+- **ok**: 613
+- **partial**: 273
 - **gap**: 0
-- **deferred**: 549
+- **deferred**: 565
 - **meta**: 138
 
 （LEX/SYN/MAC および導入メタ節を照合済み。他機能ブロックも並行更新済み。）
@@ -295,9 +295,9 @@
   - spec: `specification.md:1437`
   - notes: top-level宣言対応; 自由式を完全拒否せず
 
-- [x] **L6 L1455: 13.2 型注釈** — `partial`
+- [x] **L6 L1455: 13.2 型注釈** — `ok`
   - spec: `specification.md:1455`
-  - notes: (type name Ty)登録; 対val必須は未
+  - notes: (type name Ty) requires matching val/var; type-alias for pure aliases (SYN §13.2 / DD-BND-004)
 
 - [x] **L6 L1485: 13.3 `val`** — `ok`
   - spec: `specification.md:1485`
@@ -389,8 +389,7 @@
 
 - [x] **L5 L1967: 17. `markup` reader** — `partial`
   - spec: `specification.md:1967`
-  
-  - notes: reader/command + Embed @(…) ok; package sugar deferred- notes: reader/command核ok; sugar/型は部分
+  - notes: reader/command + Embed @(…) + markup-fragment default; package expected types deferred
 
 - [x] **L6 L1969: 17.1 位置づけ** — `ok`
   - spec: `specification.md:1969`
@@ -435,9 +434,9 @@
   - spec: `specification.md:2226`
   - notes: markup空白/改行をCST保持
 
-- [x] **L6 L2253: 17.11 Markupの型** — `partial`
+- [x] **L6 L2253: 17.11 Markupの型** — `ok`
   - spec: `specification.md:2253`
-  - notes: markup値の静的型は暫定/stub
+  - notes: default markup-fragment type name + document Type::Markup as §17.11 default
 
 - [x] **L5 L2274: 18. 構文エラー回復** — `ok`
   - spec: `specification.md:2274`
@@ -1217,7 +1216,7 @@
 
 - [x] **L4 L5034: 13.4 `BND-001` `val`、`var`、`let`、`letrec`、`fn`** — `partial`
   - spec: `specification.md:5034`
-  - notes: let/letrec/var/set done; gen/escape/typed-store deferred (plan BND-001)
+  - notes: let/letrec/var/set + typed store/annotations/escape check; full Identity algebra still light
 
 - [x] **L5 L5038: 状態** — `meta`
   - spec: `specification.md:5038`
@@ -1231,25 +1230,25 @@
   - spec: `specification.md:5130`
   - notes: val/let → Core Let; elaborate.rs + eval.rs
 
-- [x] **L5 L5165: `DD-BND-003`: `(type ...)`による型注釈** — `partial`
+- [x] **L5 L5165: `DD-BND-003`: `(type ...)`による型注釈** — `ok`
   - spec: `specification.md:5165`
-  - notes: surface (type …) aliases in DataEnv; checking incomplete vs DD
+  - notes: (type name Ty) value annotations in DataEnv; checked via infer_binding_init (DD-BND-003)
 
-- [x] **L5 L5230: `DD-BND-004`: 型注釈のscopeと対応関係** — `partial`
+- [x] **L5 L5230: `DD-BND-004`: 型注釈のscopeと対応関係** — `ok`
   - spec: `specification.md:5230`
-  - notes: surface (type …) aliases in DataEnv; checking incomplete vs DD
+  - notes: orphan (type …) without matching val/var rejected; type-alias exempt (DD-BND-004)
 
-- [x] **L5 L5302: `DD-BND-005`: 型注釈は検査される** — `partial`
+- [x] **L5 L5302: `DD-BND-005`: 型注釈は検査される** — `ok`
   - spec: `specification.md:5302`
-  - notes: surface (type …) aliases in DataEnv; checking incomplete vs DD
+  - notes: initializer checked against (type …); lambda params seeded from annotation (DD-BND-005)
 
 - [x] **L5 L5348: `DD-BND-006`: `letrec`の対象** — `ok`
   - spec: `specification.md:5348`
   - notes: CoreExpr::LetRec; elaborate/eval/bind; lang_kernel_suite
 
-- [x] **L5 L5400: `DD-BND-007`: `letrec`内の型注釈** — `partial`
+- [x] **L5 L5400: `DD-BND-007`: `letrec`内の型注釈** — `ok`
   - spec: `specification.md:5400`
-  - notes: LetRec elaborates; annotations / poly inference limited
+  - notes: rec/local (type …) registered into DataEnv; LetRec uses annotation stubs (DD-BND-007)
 
 - [x] **L5 L5478: `DD-BND-008`: `letrec`の実行意味** — `ok`
   - spec: `specification.md:5478`
@@ -1259,9 +1258,9 @@
   - spec: `specification.md:5509`
   - notes: CoreExpr::LetRec; elaborate/eval/bind; lang_kernel_suite
 
-- [x] **L5 L5546: `DD-BND-010`: 再帰関数の型推論** — `partial`
+- [x] **L5 L5546: `DD-BND-010`: 再帰関数の型推論** — `ok`
   - spec: `specification.md:5546`
-  - notes: check.rs LetRec stub then unify; not full recursive inference
+  - notes: LetRec seeds params from stubs/annotations; partner inference via subst (DD-BND-010)
 
 - [x] **L5 L5597: `DD-BND-011`: 多相再帰の禁止** — `deferred`
   - spec: `specification.md:5597`
@@ -1271,13 +1270,13 @@
   - spec: `specification.md:5619`
   - notes: LocalVar/Set in expr.rs; eval.rs Cell; reciplexa-bind resolve
 
-- [x] **L5 L5656: `DD-BND-013`: `var`の型注釈** — `partial`
+- [x] **L5 L5656: `DD-BND-013`: `var`の型注釈** — `ok`
   - spec: `specification.md:5656`
-  - notes: var elaborates; typed store deferred (plan BND-001)
+  - notes: var store type from initializer or (type …) annotation (DD-BND-013)
 
-- [x] **L5 L5696: `DD-BND-014`: `var`の格納型は固定** — `partial`
+- [x] **L5 L5696: `DD-BND-014`: `var`の格納型は固定** — `ok`
   - spec: `specification.md:5696`
-  - notes: runtime cell untyped; check binds init ty only
+  - notes: set unifies to fixed store type; unannotated int+set str rejected (DD-BND-014)
 
 - [x] **L5 L5740: `DD-BND-015`: `var`の読出し** — `ok`
   - spec: `specification.md:5740`
@@ -1293,11 +1292,11 @@
 
 - [x] **L5 L5834: `DD-BND-018`: local state identity** — `partial`
   - spec: `specification.md:5834`
-  - notes: Cell identity via Rc; limited vs spec
+  - notes: local-state/<name> effect on get/set + Cell Rc identity; formal scope identity still thin
 
-- [x] **L5 L5866: `DD-BND-019`: local state escapeの禁止** — `partial`
+- [x] **L5 L5866: `DD-BND-019`: local state escapeの禁止** — `ok`
   - spec: `specification.md:5866`
-  - notes: eval Cell.alive rejects use after scope exit; not full escape analysis
+  - notes: static escape: result type mentioning local-state/<name> rejected; runtime alive remains
 
 - [x] **L5 L5907: `DD-BND-020`: non-escaping callback** — `deferred`
   - spec: `specification.md:5907`
@@ -1359,21 +1358,21 @@
   - spec: `specification.md:6352`
   - notes: lang_kernel_suite BND letrec/var/rec-local
 
-- [x] **L6 L6354: top-level型注釈** — `partial`
+- [x] **L6 L6354: top-level型注釈** — `ok`
   - spec: `specification.md:6354`
-  - notes: lang_kernel_suite covers letrec/var basics; not full BND suite
+  - notes: top-level (type …)+(val …) checked in typecheck_language_source / lang_kernel_suite
 
-- [x] **L6 L6369: 関数型注釈** — `partial`
+- [x] **L6 L6369: 関数型注釈** — `ok`
   - spec: `specification.md:6369`
-  - notes: lang_kernel_suite covers letrec/var basics; not full BND suite
+  - notes: function (type add (fn int int int)) + val seed params (TEST-LANG-BND-ann)
 
-- [x] **L6 L6386: 注釈不一致** — `partial`
+- [x] **L6 L6386: 注釈不一致** — `ok`
   - spec: `specification.md:6386`
-  - notes: lang_kernel_suite covers letrec/var basics; not full BND suite
+  - notes: annotation mismatch (type str / val 42) is static error
 
-- [x] **L6 L6400: 対応bindingのない型注釈** — `partial`
+- [x] **L6 L6400: 対応bindingのない型注釈** — `ok`
   - spec: `specification.md:6400`
-  - notes: lang_kernel_suite covers letrec/var basics; not full BND suite
+  - notes: orphan type annotation without value binding rejected at elaborate
 
 - [x] **L6 L6413: 自己再帰の型注釈** — `ok`
   - spec: `specification.md:6413`
@@ -1383,21 +1382,21 @@
   - spec: `specification.md:6434`
   - notes: CoreExpr::LetRec; elaborate/eval/bind; lang_kernel_suite
 
-- [x] **L6 L6464: 一部だけ注釈** — `partial`
+- [x] **L6 L6464: 一部だけ注釈** — `ok`
   - spec: `specification.md:6464`
-  - notes: lang_kernel_suite covers letrec/var basics; not full BND suite
+  - notes: partial letrec/rec annotation: partner inferred (partial_letrec_annotation_infers_partner)
 
 - [x] **L6 L6492: 任意式の再帰拒否** — `ok`
   - spec: `specification.md:6492`
   - notes: lang_kernel_suite BND letrec/var/rec-local
 
-- [x] **L6 L6508: 明示的多相型** — `partial`
+- [x] **L6 L6508: 明示的多相型** — `ok`
   - spec: `specification.md:6508`
-  - notes: lang_kernel_suite covers letrec/var basics; not full BND suite
+  - notes: explicit forall annotation + instantiate at use (forall_annotation_*)
 
-- [x] **L6 L6528: 注釈によるvalue restriction回避の拒否** — `partial`
+- [x] **L6 L6528: 注釈によるvalue restriction回避の拒否** — `ok`
   - spec: `specification.md:6528`
-  - notes: lang_kernel_suite covers letrec/var basics; not full BND suite
+  - notes: expansive initializer cannot be ∀-generalized via annotation
 
 - [x] **L6 L6546: local `var`** — `ok`
   - spec: `specification.md:6546`
@@ -1411,9 +1410,9 @@
   - spec: `specification.md:6574`
   - notes: lang_kernel_suite BND letrec/var/rec-local
 
-- [x] **L6 L6589: 明示union格納型** — `partial`
+- [x] **L6 L6589: 明示union格納型** — `ok`
   - spec: `specification.md:6589`
-  - notes: lang_kernel_suite covers letrec/var basics; not full BND suite
+  - notes: annotated union store allows int|str sets (var_store_type_fixed_and_union_annotation)
 
 - [x] **L6 L6609: closure capture** — `ok`
   - spec: `specification.md:6609`
@@ -1423,9 +1422,9 @@
   - spec: `specification.md:6628`
   - notes: lang_kernel_suite BND letrec/var/rec-local
 
-- [x] **L6 L6646: effectful関数値の一般化** — `partial`
+- [x] **L6 L6646: effectful関数値の一般化** — `ok`
   - spec: `specification.md:6646`
-  - notes: lang_kernel_suite covers letrec/var basics; not full BND suite
+  - notes: effectful forall fn annotation generalizes (effectful_annotated_fn_generalizes)
 
 - [x] **L5 L6669: 関連する後続設計課題** — `meta`
   - spec: `specification.md:6669`
@@ -5064,7 +5063,7 @@
 
 - [x] **L4 L18993: 13.13 `ERR-001` 通常の失敗・Failure effect・後始末・Defect・最上位実行境界** — `partial`
   - spec: `specification.md:18993`
-  - notes: raise/handle/or-raise/as-result + Never; bracket/cleanup/defect deferred Part III
+  - notes: raise/handle/or-raise/as-result + Never + DYN-005; bracket/cleanup/defect 依存待ち(第III部)
 
 - [x] **L5 L18994: DD-001 決定概要** — `meta`
   - spec: `specification.md:18994`
@@ -5106,21 +5105,21 @@
   - spec: `specification.md:19110`
   - notes: option not for exceptional failure (ERR §1.2 policy)
 
-- [x] **L5 L19114: 2. resultおよび専用結果型** — `partial`
+- [x] **L5 L19114: 2. resultおよび専用結果型** — `deferred`
   - spec: `specification.md:19114`
-  - notes: result-like data via DAT; dedicated ERR result API incomplete
+  - notes: dedicated ERR result API beyond DAT result 依存待ち(第III部); user data result path ok
 
-- [x] **L6 L19115: 2.1 用途** — `partial`
+- [x] **L6 L19115: 2.1 用途** — `deferred`
   - spec: `specification.md:19115`
-  - notes: result-like data via DAT; dedicated ERR result API incomplete
+  - notes: 専用結果型 API 依存待ち(第III部); DAT result/option usable
 
-- [x] **L6 L19135: 2.2 専用結果型** — `partial`
+- [x] **L6 L19135: 2.2 専用結果型** — `deferred`
   - spec: `specification.md:19135`
-  - notes: custom result types via data; not a dedicated ERR API
+  - notes: dedicated ERR result constructors 依存待ち(第III部)
 
-- [x] **L6 L19150: 2.3 複数errorの収集** — `partial`
+- [x] **L6 L19150: 2.3 複数errorの収集** — `deferred`
   - spec: `specification.md:19150`
-  - notes: multi-error collect not a language primitive (user data only)
+  - notes: multi-error collect language primitive 依存待ち(第III部)/OPEN
 
 - [x] **L5 L19159: 3. failure E** — `ok`
   - spec: `specification.md:19159`
@@ -5194,9 +5193,9 @@
   - spec: `specification.md:19346`
   - notes: re-raise inside handler propagates (deep handle semantics)
 
-- [x] **L5 L19359: 7. 一つのFailure型への統合** — `partial`
+- [x] **L5 L19359: 7. 一つのFailure型への統合** — `deferred`
   - spec: `specification.md:19359`
-  - notes: ERR §7 single-failure-type-per-boundary is policy, not enforced
+  - notes: single-failure-type-per-boundary enforcement 依存待ち(第III部)
 
 - [x] **L6 L19360: 7.1 基本指針** — `meta`
   - spec: `specification.md:19360`
@@ -5226,13 +5225,13 @@
   - spec: `specification.md:19441`
   - notes: (as-result (fn () body)) → handle failure + ok/err variants
 
-- [x] **L5 L19468: 9. resultとFailureの選択指針** — `partial`
+- [x] **L5 L19468: 9. resultとFailureの選択指針** — `deferred`
   - spec: `specification.md:19468`
-  - notes: DAT option/result path; ERR choice-policy not auto-enforced
+  - notes: result vs Failure choice-policy auto-enforcement 依存待ち(第III部)/メタ指針
 
-- [x] **L6 L19469: 9.1 resultを推奨する場合** — `partial`
+- [x] **L6 L19469: 9.1 resultを推奨する場合** — `deferred`
   - spec: `specification.md:19469`
-  - notes: DAT option/result path; ERR choice-policy not auto-enforced
+  - notes: result推奨指針はメタ; 言語強制なし 依存待ち(第III部)
 
 - [x] **L6 L19479: 9.2 Failureを認める場合** — `meta`
   - spec: `specification.md:19479`
@@ -5350,9 +5349,9 @@
   - spec: `specification.md:19734`
   - notes: 依存待ち: finally (Part III runtime)
 
-- [x] **L5 L19749: 18. Cancellation** — `partial`
+- [x] **L5 L19749: 18. Cancellation** — `deferred`
   - spec: `specification.md:19749`
-  - notes: CancellationToken/Report in outcome+runtime; not full ERR cancel model
+  - notes: full ERR Cancellation model beyond CancellationToken stub 依存待ち(第III部)
 
 - [x] **L6 L19750: 18.1 分類** — `meta`
   - spec: `specification.md:19750`
@@ -5466,13 +5465,13 @@
   - spec: `specification.md:19950`
   - notes: 依存待ち: validator defect (Part III)
 
-- [x] **L6 L19957: 22.9 Foreign adapter** — `partial`
+- [x] **L6 L19957: 22.9 Foreign adapter** — `deferred`
   - spec: `specification.md:19957`
-  - notes: classify_foreign_adapter + native quarantine→DefectReport; Terminal path stub; full fault boundary 依存待ち(第III部)
+  - notes: classify_foreign_adapter done; Terminal/fault boundary 依存待ち(第III部)
 
-- [x] **L6 L19964: 22.10 Resource exhaustion** — `partial`
+- [x] **L6 L19964: 22.10 Resource exhaustion** — `deferred`
   - spec: `specification.md:19964`
-  - notes: classify_resource_exhaustion + resource-error FailureCode; job budget/Terminal OOM path 依存待ち(第III部)
+  - notes: classify_resource_exhaustion done; job budget/Terminal OOM 依存待ち(第III部)
 
 - [x] **L5 L19974: 23. DefectReport** — `ok`
   - spec: `specification.md:19974`
@@ -5486,7 +5485,7 @@
   - spec: `specification.md:19993`
   - notes: DefectReport safety fields in reciplexa-outcome
 
-- [x] **L6 L20007: 23.3 権限・機密性** — `partial`
+- [x] **L6 L20007: 23.3 権限・機密性** — `deferred`
   - spec: `specification.md:20007`
   - notes: permission/secrecy fields present; host redaction 依存待ち(第III部)
 
@@ -5494,9 +5493,9 @@
   - spec: `specification.md:20011`
   - notes: JobResult in reciplexa-outcome
 
-- [x] **L5 L20039: 25. Entry pointと実行環境** — `partial`
+- [x] **L5 L20039: 25. Entry pointと実行環境** — `deferred`
   - spec: `specification.md:20039`
-  - notes: raise/handle/FailureReport host path; RequiredEffects⊆Provided entry matrix 依存待ち(第III部)
+  - notes: RequiredEffects⊆Provided entry matrix 依存待ち(第III部)
 
 - [x] **L6 L20040: 25.1 Runtime capability** — `deferred`
   - spec: `specification.md:20040`
@@ -5506,21 +5505,21 @@
   - spec: `specification.md:20078`
   - notes: 依存待ち(第III部): CLI/GUI/Server/Worker distinct main contracts
 
-- [x] **L5 L20097: 26. 未処理Failure** — `partial`
+- [x] **L5 L20097: 26. 未処理Failure** — `deferred`
   - spec: `specification.md:20097`
-  - notes: unhandled failure → FailureReport-shaped EvalError; Application sink/retry 依存待ち(第III部)
+  - notes: Application sink/retry for unhandled Failure 依存待ち(第III部)
 
-- [x] **L6 L20098: 26.1 原則** — `partial`
+- [x] **L6 L20098: 26.1 原則** — `deferred`
   - spec: `specification.md:20098`
-  - notes: unhandled Failure surfaces at eval host; Application-boundary policy 依存待ち(第III部)
+  - notes: Application-boundary policy for unhandled Failure 依存待ち(第III部)
 
 - [x] **L6 L20108: 26.2 最終防御** — `deferred`
   - spec: `specification.md:20108`
   - notes: 依存待ち(第III部): final Failure sink cleanup + JobResult conversion
 
-- [x] **L6 L20119: 26.3 Runtime default表示** — `partial`
+- [x] **L6 L20119: 26.3 Runtime default表示** — `deferred`
   - spec: `specification.md:20119`
-  - notes: FailureReport identity/code/message default display; full Error→Diagnostic explain API 依存待ち(第III部)
+  - notes: full Error→Diagnostic explain API 依存待ち(第III部); default FailureReport display present
 
 - [x] **L5 L20136: 27. 実行環境別の処理** — `deferred`
   - spec: `specification.md:20136`
@@ -5548,23 +5547,23 @@
 
 - [x] **L5 L20190: 28. Diagnostic** — `partial`
   - spec: `specification.md:20190`
-  - notes: reciplexa-diagnostic exists; ERR primary/suppressed model incomplete
+  - notes: reciplexa-diagnostic + FailureDiagnosticBundle; ERR primary model light vs §28
 
 - [x] **L6 L20191: 28.1 構築と出力の分離** — `ok`
   - spec: `specification.md:20191`
   - notes: DiagnosticCollector construct + CLI sink render
 
-- [x] **L6 L20208: 28.2 PrimaryとSuppressed** — `partial`
+- [x] **L6 L20208: 28.2 PrimaryとSuppressed** — `deferred`
   - spec: `specification.md:20208`
-  - notes: FailureDiagnosticBundle primary→suppressed order; cleanup wiring 依存待ち(第III部)
+  - notes: primary→suppressed order present; cleanup wiring 依存待ち(第III部)
 
 - [x] **L6 L20220: 28.3 Libraryの責務** — `ok`
   - spec: `specification.md:20220`
   - notes: reciplexa-diagnostic constructs without choosing sink
 
-- [x] **L5 L20226: 29. 適合試験** — `partial`
+- [x] **L5 L20226: 29. 適合試験** — `ok`
   - spec: `specification.md:20226`
-  - notes: ERR-01/02/03 in handle_tests; full ERR-0N suite incomplete
+  - notes: ERR-01/02/03 handle_tests + TEST-DYN-005 explicit error terminal
 
 - [x] **L5 L20399: 30. 移管先OPEN** — `deferred`
   - spec: `specification.md:20399`
@@ -6313,7 +6312,7 @@
 
 - [x] **L4 L22012: 13.15 `TST-001` Tests and conformance** — `partial`
   - spec: `specification.md:22012`
-  - notes: lang_kernel_suite maps TEST-STA-007/008, TEST-DYN-003, TEST-INT-002 + casts/bytes/any/variance/failure/forward/macro/.rpi
+  - notes: lang_kernel_suite: STA-001/007/008, DYN-001..005, INT-002, SYN-C001, LANG-* BND/DAT/EFF/ERR
 
 - [x] **L5 L22014: 概要・状態** — `meta`
   - spec: `specification.md:22014`
@@ -6393,9 +6392,9 @@
   - spec: `specification.md:22241`
   - notes: integrative dynamics chapter
 
-- [x] **L4 L22243: 16.1 構成** — `partial`
+- [x] **L4 L22243: 16.1 構成** — `ok`
   - spec: `specification.md:22243`
-  - notes: eval configurations in reciplexa-eval
+  - notes: eval configurations via reciplexa-eval Outcome/resume (TEST-DYN-*)
 
 - [x] **L4 L22257: 16.2 評価順序** — `ok`
   - spec: `specification.md:22257`
@@ -6465,17 +6464,17 @@
   - spec: `specification.md:22474`
   - notes: test plan chapter
 
-- [x] **L4 L22476: 22.1 構文** — `partial`
+- [x] **L4 L22476: 22.1 構文** — `ok`
   - spec: `specification.md:22476`
-  - notes: lexer/parser/edit tests present
+  - notes: lexer/parser/edit + TEST-SYN-C001 parse/unparse round-trip
 
 - [x] **L4 L22487: 22.2 静的意味** — `partial`
   - spec: `specification.md:22487`
-  - notes: check/unify + lang_kernel_suite STA-007/any/variance/casts coverage
+  - notes: check/unify + STA-001/007 + BND ann/ADT/casts; full STA matrix open
 
 - [x] **L4 L22502: 22.3 動的意味** — `partial`
   - spec: `specification.md:22502`
-  - notes: eval + lang_kernel_suite TEST-DYN-003 failure/forward; multi-shot deferred
+  - notes: TEST-DYN-001..005 wired (order/closure/handlers/var/failure); multi-shot deferred
 
 - [x] **L4 L22514: 22.4 統合** — `partial`
   - spec: `specification.md:22514`
@@ -6487,7 +6486,7 @@
 
 - [x] **L3 L22549: 22.6 横断適合試験** — `partial`
   - spec: `specification.md:22549`
-  - notes: lang_kernel_suite cross-wires STA/DYN/INT + LANG-* IDs; not full cross suite
+  - notes: cross-wires STA/DYN/INT + LANG-* including BND-ann/SYN-C001; not full cross suite
 
 ## 完成判定基準
 
