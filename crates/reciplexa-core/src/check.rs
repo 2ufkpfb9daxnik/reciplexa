@@ -705,7 +705,11 @@ fn infer_letrec_rhs(
     range: TextRange,
 ) -> Result<(CoreType, EffectRow), CheckError> {
     let CoreExpr::Lambda { params, body } = rhs else {
-        return infer_with_effects(rhs, env, subst, range);
+        // Callers gate on Lambda; retain Err for misuse / cfg(test) matrices.
+        return Err(CheckError::at(
+            "internal: letrec/annotated rhs must be a lambda",
+            range,
+        ));
     };
     let expected = expected.map(|t| subst.apply(t));
     if let Some(CoreType::Fun {
@@ -1880,7 +1884,7 @@ fn insert_casts_rec(
 mod coverage_helpers {
     use super::*;
     use crate::expr::{CoreLiteral, CorePattern, MatchArm};
-    use crate::ty::SingletonValue;
+    use crate::ty::{SingletonValue, TypeVarId};
 
     #[test]
     fn is_expansive_all_forms() {
@@ -2182,6 +2186,53 @@ mod coverage_helpers {
             &CoreType::Singleton(SingletonValue::Int(1)),
             op
         ));
+        // Fun: effect miss short-circuits into args/ret recursion.
+        assert!(type_mentions_effect(
+            &CoreType::Fun {
+                args: vec![CoreType::Fun {
+                    args: vec![],
+                    ret: Box::new(CoreType::Unit),
+                    effects: EffectRow::default().with_op(op),
+                }],
+                ret: Box::new(CoreType::Unit),
+                effects: EffectRow::default(),
+            },
+            op
+        ));
+        assert!(type_mentions_effect(
+            &CoreType::Fun {
+                args: vec![CoreType::Int],
+                ret: Box::new(CoreType::Fun {
+                    args: vec![],
+                    ret: Box::new(CoreType::Unit),
+                    effects: EffectRow::default().with_op(op),
+                }),
+                effects: EffectRow::default().with_op("other"),
+            },
+            op
+        ));
+        assert!(!type_mentions_effect(
+            &CoreType::Fun {
+                args: vec![CoreType::Int],
+                ret: Box::new(CoreType::Unit),
+                effects: EffectRow::default().with_op("other"),
+            },
+            op
+        ));
+        // OpenRecord / Diff / Name / Error / Color / Shape leaves
+        assert!(!type_mentions_effect(&CoreType::Color, op));
+        assert!(!type_mentions_effect(&CoreType::Shape, op));
+        assert!(!type_mentions_effect(&CoreType::Error, op));
+        assert!(!type_mentions_effect(&CoreType::Name("t".into()), op));
+        assert!(!type_mentions_effect(&CoreType::Never, op));
+        assert!(!type_mentions_effect(&CoreType::Any, op));
+        assert!(!type_mentions_effect(&CoreType::Bytes, op));
+        assert!(!type_mentions_effect(&CoreType::Unit, op));
+        assert!(!type_mentions_effect(&CoreType::Bool, op));
+        assert!(!type_mentions_effect(&CoreType::F64, op));
+        assert!(!type_mentions_effect(&CoreType::Number, op));
+        assert!(!type_mentions_effect(&CoreType::String, op));
+        assert!(!type_mentions_effect(&CoreType::Var(TypeVarId(0)), op));
     }
 
     #[test]
@@ -2646,5 +2697,180 @@ mod coverage_helpers {
         )
         .is_err());
         assert!(unify_ctor_payload(Some(&CoreType::Unit), &[], &mut subst).is_err());
+    }
+
+    #[test]
+    fn infer_letrec_rhs_matrix() {
+        let r = TextRange::EMPTY;
+        let env = TypeEnv::new();
+        let mut subst = Subst::new();
+        // Non-lambda → Err (defensive)
+        assert!(infer_letrec_rhs(
+            &CoreExpr::Lit(CoreLiteral::Int(1)),
+            None,
+            &env,
+            &mut subst,
+            r
+        )
+        .is_err());
+        // Lambda, no expected
+        assert!(infer_letrec_rhs(
+            &CoreExpr::Lambda {
+                params: vec!["x".into()],
+                body: Box::new(CoreExpr::Var("x".into())),
+            },
+            None,
+            &env,
+            &mut subst,
+            r
+        )
+        .is_ok());
+        // Lambda with Fun expected matching arity
+        let expected = CoreType::Fun {
+            args: vec![CoreType::Int],
+            ret: Box::new(CoreType::Int),
+            effects: EffectRow::default(),
+        };
+        assert!(infer_letrec_rhs(
+            &CoreExpr::Lambda {
+                params: vec!["x".into()],
+                body: Box::new(CoreExpr::Var("x".into())),
+            },
+            Some(&expected),
+            &env,
+            &mut subst,
+            r
+        )
+        .is_ok());
+        // Arity mismatch falls through to plain infer
+        let expected2 = CoreType::Fun {
+            args: vec![CoreType::Int, CoreType::Int],
+            ret: Box::new(CoreType::Int),
+            effects: EffectRow::default(),
+        };
+        assert!(infer_letrec_rhs(
+            &CoreExpr::Lambda {
+                params: vec!["x".into()],
+                body: Box::new(CoreExpr::Var("x".into())),
+            },
+            Some(&expected2),
+            &env,
+            &mut subst,
+            r
+        )
+        .is_ok());
+        // Wildcard params skip insert
+        assert!(infer_letrec_rhs(
+            &CoreExpr::Lambda {
+                params: vec!["_".into()],
+                body: Box::new(CoreExpr::Lit(CoreLiteral::Int(1))),
+            },
+            Some(&CoreType::Fun {
+                args: vec![CoreType::Int],
+                ret: Box::new(CoreType::Int),
+                effects: EffectRow::default(),
+            }),
+            &env,
+            &mut subst,
+            r
+        )
+        .is_ok());
+        // Ret unify fail
+        assert!(infer_letrec_rhs(
+            &CoreExpr::Lambda {
+                params: vec!["x".into()],
+                body: Box::new(CoreExpr::Lit(CoreLiteral::String("x".into()))),
+            },
+            Some(&CoreType::Fun {
+                args: vec![CoreType::Int],
+                ret: Box::new(CoreType::Int),
+                effects: EffectRow::default(),
+            }),
+            &env,
+            &mut subst,
+            r
+        )
+        .is_err());
+        // Non-Fun expected
+        assert!(infer_letrec_rhs(
+            &CoreExpr::Lambda {
+                params: vec!["x".into()],
+                body: Box::new(CoreExpr::Var("x".into())),
+            },
+            Some(&CoreType::Int),
+            &env,
+            &mut subst,
+            r
+        )
+        .is_ok());
+    }
+
+    #[test]
+    fn numeric_binop_ambiguous_and_dynamic() {
+        let r = TextRange::EMPTY;
+        let env = TypeEnv::new();
+        let mut subst = Subst::new();
+        // Ambiguous Number operands
+        let args_num = [
+            CoreExpr::Lit(CoreLiteral::Number(1.0)),
+            CoreExpr::Lit(CoreLiteral::Int(2)),
+        ];
+        let _ = try_infer_numeric_builtin("+", &args_num, &env, &mut subst, r);
+        // Dynamic operand
+        let mut env2 = TypeEnv::new();
+        env2.insert("d", CoreType::dyn_any());
+        let app2 = [
+            CoreExpr::Var("d".into()),
+            CoreExpr::Lit(CoreLiteral::Int(1)),
+        ];
+        let _ = try_infer_numeric_builtin("+", &app2, &env2, &mut subst, r);
+        let app3 = [
+            CoreExpr::Lit(CoreLiteral::Int(1)),
+            CoreExpr::Var("d".into()),
+        ];
+        let _ = try_infer_numeric_builtin("+", &app3, &env2, &mut subst, r);
+        // Non-numeric
+        let app4 = [
+            CoreExpr::Lit(CoreLiteral::String("a".into())),
+            CoreExpr::Lit(CoreLiteral::Int(1)),
+        ];
+        let _ = try_infer_numeric_builtin("+", &app4, &env, &mut subst, r);
+        let app5 = [
+            CoreExpr::Lit(CoreLiteral::Int(1)),
+            CoreExpr::Lit(CoreLiteral::String("a".into())),
+        ];
+        let _ = try_infer_numeric_builtin("-", &app5, &env, &mut subst, r);
+        // Wrong arity / non-binop → None
+        assert!(try_infer_numeric_builtin(
+            "+",
+            &[CoreExpr::Lit(CoreLiteral::Int(1))],
+            &env,
+            &mut subst,
+            r
+        )
+        .is_none());
+        assert!(try_infer_numeric_builtin(
+            "foo",
+            &[
+                CoreExpr::Lit(CoreLiteral::Int(1)),
+                CoreExpr::Lit(CoreLiteral::Int(2))
+            ],
+            &env,
+            &mut subst,
+            r
+        )
+        .is_none());
+        for op in ["+", "-", "*", "/", "<", ">", "<=", ">="] {
+            let args = [
+                CoreExpr::Lit(CoreLiteral::Int(1)),
+                CoreExpr::Lit(CoreLiteral::Int(2)),
+            ];
+            let _ = try_infer_numeric_builtin(op, &args, &env, &mut subst, r);
+            let args_f = [
+                CoreExpr::Lit(CoreLiteral::F64(1.0)),
+                CoreExpr::Lit(CoreLiteral::F64(2.0)),
+            ];
+            let _ = try_infer_numeric_builtin(op, &args_f, &env, &mut subst, r);
+        }
     }
 }

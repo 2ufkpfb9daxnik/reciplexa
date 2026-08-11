@@ -478,9 +478,39 @@ mod coverage_helpers {
         ));
         assert!(occurs(
             v,
+            &CoreType::Diff(Box::new(CoreType::Int), Box::new(CoreType::Var(v)))
+        ));
+        assert!(!occurs(
+            v,
+            &CoreType::Diff(Box::new(CoreType::Int), Box::new(CoreType::Int))
+        ));
+        assert!(occurs(v, &CoreType::Not(Box::new(CoreType::Var(v)))));
+        assert!(!occurs(v, &CoreType::Not(Box::new(CoreType::Int))));
+        assert!(occurs(
+            v,
             &CoreType::OptionalField(Box::new(CoreType::Var(v)))
         ));
+        assert!(!occurs(v, &CoreType::OptionalField(Box::new(CoreType::Int))));
+        assert!(!occurs(v, &CoreType::Dynamic(Box::new(CoreType::Int))));
         assert!(occurs(v, &CoreType::Dynamic(Box::new(CoreType::Var(v)))));
+        assert!(!occurs(v, &CoreType::Intersect(vec![CoreType::Int])));
+        assert!(!occurs(v, &CoreType::Union(vec![CoreType::Int])));
+        assert!(!occurs(
+            v,
+            &CoreType::Lacks {
+                label: "a".into(),
+                row: Box::new(CoreType::Int),
+            }
+        ));
+        assert!(occurs(
+            v,
+            &CoreType::Lacks {
+                label: "a".into(),
+                row: Box::new(CoreType::Var(v)),
+            }
+        ));
+        assert!(!occurs(v, &CoreType::Int));
+        assert!(!occurs(v, &CoreType::Color));
         assert!(occurs(
             v,
             &CoreType::App {

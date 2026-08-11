@@ -1005,8 +1005,68 @@ mod tests {
         assert!(!is_fully_decidable_fragment(&CoreType::Var(
             crate::ty::TypeVarId(0)
         )));
+        // Record / Variant / Fun / Diff / Not recursion residual
+        assert!(is_fully_decidable_fragment(&CoreType::Record {
+            fields: vec![("a".into(), CoreType::Int)],
+        }));
+        assert!(is_fully_decidable_fragment(&CoreType::Record {
+            fields: vec![],
+        }));
+        assert!(!is_fully_decidable_fragment(&CoreType::Record {
+            fields: vec![("a".into(), CoreType::Var(crate::ty::TypeVarId(0)))],
+        }));
+        assert!(is_fully_decidable_fragment(&CoreType::Variant {
+            variants: vec![
+                ("none".into(), None),
+                ("some".into(), Some(CoreType::Int)),
+            ],
+        }));
+        assert!(!is_fully_decidable_fragment(&CoreType::Variant {
+            variants: vec![("x".into(), Some(CoreType::Var(crate::ty::TypeVarId(1))))],
+        }));
+        assert!(is_fully_decidable_fragment(&CoreType::Fun {
+            args: vec![CoreType::Int],
+            ret: Box::new(CoreType::Bool),
+            effects: EffectRow::default(),
+        }));
+        assert!(!is_fully_decidable_fragment(&CoreType::Fun {
+            args: vec![CoreType::Var(crate::ty::TypeVarId(0))],
+            ret: Box::new(CoreType::Int),
+            effects: EffectRow::default(),
+        }));
+        assert!(is_fully_decidable_fragment(&CoreType::Diff(
+            Box::new(CoreType::Number),
+            Box::new(CoreType::Int)
+        )));
+        assert!(!is_fully_decidable_fragment(&CoreType::Diff(
+            Box::new(CoreType::Number),
+            Box::new(CoreType::Var(crate::ty::TypeVarId(0)))
+        )));
+        assert!(is_fully_decidable_fragment(&CoreType::Not(Box::new(
+            CoreType::String
+        ))));
+        assert!(is_fully_decidable_fragment(&CoreType::OptionalField(
+            Box::new(CoreType::Bool)
+        )));
+        assert!(is_fully_decidable_fragment(&CoreType::Union(vec![
+            CoreType::Int,
+            CoreType::String
+        ])));
+        assert!(is_fully_decidable_fragment(&CoreType::Intersect(vec![
+            CoreType::Int,
+            CoreType::Number
+        ])));
+        assert!(!is_fully_decidable_fragment(&CoreType::Union(vec![
+            CoreType::Int,
+            CoreType::Var(crate::ty::TypeVarId(0))
+        ])));
         let _ = normalize_union(vec![CoreType::Int, CoreType::Int, CoreType::Never]);
         let _ = normalize_intersect(vec![CoreType::Int, CoreType::Any, CoreType::Number]);
+        let _ = normalize_intersect(vec![
+            CoreType::Intersect(vec![CoreType::Int, CoreType::Number]),
+            CoreType::Int,
+        ]);
+        let _ = normalize_intersect(vec![CoreType::Int, CoreType::Int]);
         let _ = types_disjoint_bases(&CoreType::Int, &CoreType::String);
         let _ = type_tag_name(&CoreType::Int);
         let _ = type_tag_name(&CoreType::App {

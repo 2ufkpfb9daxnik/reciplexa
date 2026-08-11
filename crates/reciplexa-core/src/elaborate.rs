@@ -2117,7 +2117,11 @@ fn elaborate_pattern_atoms(
                 head,
             ));
         }
-        let lit = pattern_literal_token(head)?.expect("true/false/unit");
+        let lit = match head_text {
+            "true" => CoreLiteral::Bool(true),
+            "false" => CoreLiteral::Bool(false),
+            _ => CoreLiteral::Unit,
+        };
         return Ok(CorePattern::Lit(lit));
     }
 
@@ -3748,6 +3752,24 @@ mod tests {
             "(type-alias t int)\n(val main 1)",
             "(type t int)\n(val t 1)\n(val main t)",
             "(val x 1)(val y 2)(val main (+ x y))",
+            // Path-shaped type / val / effect residuals
+            "(type t foo/bar)\n(val main 1)",
+            "(val foo/bar 1)",
+            "(val main (as foo/bar 1))",
+            "(type f (fn int int (effects (state int string))))\n(val main 1)",
+            // Invalid / edge numeric & string tokens that reach literal parsers
+            "(val main 1e)",
+            "(val main 0x)",
+            "(val main 0b)",
+            "(val main \"unterminated)",
+            // More pattern payload residuals
+            "(data t (c x))\n(val main (match (c 1) ((c \"hi\") -> 0) (_ -> 1)))",
+            "(data t (c x))\n(val main (match (c 1) ((c true) -> 0) (_ -> 1)))",
+            "(val main (match 1 (1 -> 0) (_ -> 1)))",
+            "(val main (letrec ((f (fn (x) x))(g (fn (y) y))) (f 1)))",
+            "(val main (letrec ((f (fn (x) x))(f (fn (y) y))) (f 1)))",
+            "(val main (letrec ((1 2)) 1))",
+            "(val main (letrec ((f 1)) f))",
         ] {
             let _ = elaborate_source(src);
             let _ = elaborate_with_data(src);
