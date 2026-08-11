@@ -3660,4 +3660,97 @@ mod tests {
         // First insert then duplicate inside Rec
         assert!(register_top_binding_names(&rec, &mut seen2, &list).is_err());
     }
+
+    #[test]
+    fn elaborate_residual_effect_pattern_fn_and_rec_main() {
+        for src in [
+            // Effect rows: apps, duplicates, bad atoms, paths
+            "(type f (fn int int (effects ask log)))\n(val f (fn (x) x))\n(val main (f 1))",
+            "(type f (fn int int (effects (state int) ask)))\n(val f (fn (x) x))\n(val main 1)",
+            "(type f (fn int int (effects ask ask)))\n(val main 1)",
+            "(type f (fn int int (effects (ask int) (ask string))))\n(val main 1)",
+            "(type f (fn int int (effects ())))\n(val main 1)",
+            "(type f (fn int int (effects 1)))\n(val main 1)",
+            "(type f (fn int int (effects \"x\")))\n(val main 1)",
+            "(type f (fn int int (effects (1 int))))\n(val main 1)",
+            "(type f (fn int int (effects foo/bar)))\n(val main 1)",
+            "(type f (fn int int (effects (state))))\n(val main 1)",
+            // Rec main selection when trailing empty
+            "(rec (val main (fn () 1)))",
+            "(rec (val f (fn (x) x)) (val g (fn (y) y)))",
+            "(rec (val main (fn () 1)) (val other (fn () 2)))",
+            "(rec (val other (fn () 2)) (val main (fn () 1)))",
+            "(val only 1)",
+            // Named fn expression form
+            "(val main (fn f (x) x))",
+            "(val main (fn f (x y) (+ x y)))",
+            "(val main (fn (_x) 1))",
+            // Pattern literal / binder residuals
+            "(val main (match true (true x -> 0) (_ -> 1)))",
+            "(val main (match false (false x -> 0) (_ -> 1)))",
+            "(val main (match unit (unit x -> 0) (_ -> 1)))",
+            "(val main (match \"hi\" (\"hi\" x -> 0) (_ -> 1)))",
+            "(val main (match 1.5 (1.5 x -> 0) (_ -> 1)))",
+            "(val main (match 1 ((bind 1) -> 0) (_ -> 1)))",
+            "(val main (match 1 ((_ x) -> 0) (_ -> 1)))",
+            "(val main (match 1 ((_) -> 0)))",
+            // Data / ctor more Err edges
+            "(data t ())\n(val main 1)",
+            "(data t (()))\n(val main 1)",
+            "(data t (1))\n(val main 1)",
+            "(data t ((1 x)))\n(val main 1)",
+            "(data ((a type)) c)\n(val main 1)",
+            "(rec)\n(val main 1)",
+            "(rec (data))\n(val main 1)",
+            "(rec (data t))\n(val main 1)",
+            "(rec foo (data t (c)))\n(val main 1)",
+            // unicode residual via expr atoms / Number path errors
+            "(val main (unicode (+ 60 5)))",
+            "(val main (unicode 0x41))",
+            "(val main (unicode -1))",
+            // Val reserved / binder list edges
+            "(val (fn x) 1)",
+            "(val (1 x) 1)",
+            "(val (() ) 1)",
+            "(val (f 1) 1)",
+            "(val (f x) )",
+            // Let binding residuals
+            "(val main (let (x 1) x))",
+            "(val main (let (1) 1))",
+            "(val main (let ((1 2)) 1))",
+            "(val main (let ((x)) 1))",
+            "(val main (let ((x 1)(x 2)) 1))",
+            "(val main (let ((foo/bar 1)) 1))",
+            // Handle / with denser Err
+            "(val main (handle ask 1 2))",
+            "(val main (handle ask (fn (m k)) 1))",
+            "(val main (handler))",
+            "(val main (handler 1 2))",
+            "(val main (with))",
+            "(val main (with (handler ask (fn (m) m))))",
+            // Match arrow / arm leftovers
+            "(val main (match 1 (1 -> 0) (2 ->)))",
+            "(val main (match 1))",
+            // Bytes / list / tuple arity tails
+            "(val main (bytes 1 2 3 4 5 256))",
+            "(val main (list))",
+            "(val main (tuple 1))",
+            // as / lacks residual
+            "(val main (as (lacks a (record (a int))) (record (a 1))))",
+            "(val main (as (row r) 1))",
+            "(val main (as (effects) 1))",
+            // Sequence/ambient leftovers
+            "(val main (seq 1 2 3))",
+            "(val main (perform random))",
+            "(val main (perform read-file \"a\"))",
+            "(val main (perform write-file \"a\" \"b\"))",
+            // Top-level type-alias / dup names
+            "(type-alias t int)\n(val main 1)",
+            "(type t int)\n(val t 1)\n(val main t)",
+            "(val x 1)(val y 2)(val main (+ x y))",
+        ] {
+            let _ = elaborate_source(src);
+            let _ = elaborate_with_data(src);
+        }
+    }
 }
