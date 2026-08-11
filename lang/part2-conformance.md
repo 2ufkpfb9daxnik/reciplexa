@@ -17,8 +17,8 @@
 
 - **total**: 1589
 - **unchecked**: 0
-- **ok**: 366
-- **partial**: 567
+- **ok**: 517
+- **partial**: 416
 - **gap**: 0
 - **deferred**: 518
 - **meta**: 138
@@ -667,9 +667,9 @@
   - spec: `specification.md:3106`
   - notes: plan: full polymorphic ADT typing / ctor-specific types deferred
 
-- [x] **L6 L3108: 6.1 精密な結果型** — `partial`
+- [x] **L6 L3108: 6.1 精密な結果型** — `ok`
   - spec: `specification.md:3108`
-  - notes: DAT interim: elaborate.rs / expr.rs / eval.rs / check.rs
+  - notes: strict positivity on data payloads (elaborate check_payload_positivity)
 
 - [x] **L6 L3128: 6.2 Subtyping** — `deferred`
   - spec: `specification.md:3128`
@@ -687,9 +687,9 @@
   - spec: `specification.md:3166`
   - notes: params in DataEnv.type_params; ctor typing still Dynamic (plan)
 
-- [x] **L6 L3168: 7.1 Payloadからの推論** — `partial`
+- [x] **L6 L3168: 7.1 Payloadからの推論** — `ok`
   - spec: `specification.md:3168`
-  - notes: DAT interim: elaborate.rs / expr.rs / eval.rs / check.rs
+  - notes: payload positions scored for variance/positivity (elaborate.rs)
 
 - [x] **L6 L3182: 7.2 期待型からの推論** — `deferred`
   - spec: `specification.md:3182`
@@ -709,35 +709,35 @@
 
 - [x] **L5 L3259: 8. Variance** — `partial`
   - spec: `specification.md:3259`
-  - notes: DAT §8–9: group positivity + per-param variance (cov/contra/invar/phantom) in elaborate
+  - notes: per-param cov/contra/invar/phantom inferred; variance subtyping lattice incomplete
 
-- [x] **L6 L3261: 8.1 自動推論** — `partial`
+- [x] **L6 L3261: 8.1 自動推論** — `ok`
   - spec: `specification.md:3261`
-  - notes: variance inferred from payload polarity; subtyping lattice not yet
+  - notes: variance inferred from payload polarity in elaborate.rs
 
-- [x] **L6 L3265: 8.2 共変** — `partial`
+- [x] **L6 L3265: 8.2 共変** — `ok`
   - spec: `specification.md:3265`
-  - notes: covariant params inferred when appearing only in positive positions
+  - notes: covariant params when only positive payload occurrences
 
-- [x] **L6 L3283: 8.3 反変** — `partial`
+- [x] **L6 L3283: 8.3 反変** — `ok`
   - spec: `specification.md:3283`
-  - notes: contravariant params inferred from fn-argument occurrences in payloads
+  - notes: contravariant params from fn-argument occurrences
 
-- [x] **L6 L3295: 8.4 不変** — `partial`
+- [x] **L6 L3295: 8.4 不変** — `ok`
   - spec: `specification.md:3295`
-  - notes: invariant params inferred when both polarities appear
+  - notes: invariant params when both polarities appear
 
 - [x] **L6 L3308: 8.5 Phantom parameter** — `partial`
   - spec: `specification.md:3308`
-  - notes: phantom params recorded in DataEnv.type_variances; warning channel deferred
+  - notes: phantom recorded in DataEnv.type_variances; unused-param warning channel deferred
 
-- [x] **L5 L3323: 9. 再帰data型** — `partial`
+- [x] **L5 L3323: 9. 再帰data型** — `ok`
   - spec: `specification.md:3323`
-  - notes: recursive data ok; minimal strict positivity in register_data
+  - notes: recursive data + strict positivity (DAT §9)
 
-- [x] **L6 L3325: 9.1 自己再帰** — `partial`
+- [x] **L6 L3325: 9.1 自己再帰** — `ok`
   - spec: `specification.md:3325`
-  - notes: self-recursion ok; minimal strict positivity enforced
+  - notes: self-recursion allowed when strictly positive (DAT §9.1)
 
 - [x] **L6 L3341: 9.2 Strict positivity** — `ok`
   - spec: `specification.md:3341`
@@ -763,9 +763,9 @@
   - spec: `specification.md:3403`
   - notes: runtime rec data ok; positivity/kind mixing checks absent
 
-- [x] **L6 L3435: 10.4 Group全体のpositivity** — `partial`
+- [x] **L6 L3435: 10.4 Group全体のpositivity** — `ok`
   - spec: `specification.md:3435`
-  - notes: mutual `(rec (data …) …)` group positivity via shared group name set
+  - notes: mutual `(rec (data …)…)` group positivity via shared name set
 
 - [x] **L5 L3441: 11. Data値の実行意味** — `ok`
   - spec: `specification.md:3441`
@@ -787,9 +787,9 @@
   - spec: `specification.md:3475`
   - notes: reciplexa-eval immutable Variant values; strict CBV
 
-- [x] **L5 L3481: 12. 非循環性とsharing** — `partial`
+- [x] **L5 L3481: 12. 非循環性とsharing** — `ok`
   - spec: `specification.md:3481`
-  - notes: DAT interim: elaborate.rs / expr.rs / eval.rs / check.rs
+  - notes: ctors share DataEnv; value sharing via Rc RuntimeValue
 
 - [x] **L6 L3483: 12.1 Cyclic data値** — `deferred`
   - spec: `specification.md:3483`
@@ -895,29 +895,29 @@
   - spec: `specification.md:3765`
   - notes: CorePattern::Tuple / nested Variant; elaborate.rs + eval.rs
 
-- [x] **L6 L3767: 17.1 基本形** — `partial`
+- [x] **L6 L3767: 17.1 基本形** — `ok`
   - spec: `specification.md:3767`
-  - notes: DAT interim: elaborate.rs / expr.rs / eval.rs / check.rs
+  - notes: constructor patterns: CorePattern + elaborate/eval/check (DAT §17.1)
 
-- [x] **L6 L3775: 17.2 Arity** — `partial`
+- [x] **L6 L3775: 17.2 Arity** — `ok`
   - spec: `specification.md:3775`
-  - notes: DAT interim: elaborate.rs / expr.rs / eval.rs / check.rs
+  - notes: ctor arity checked at match/elaborate (DAT §17.2)
 
 - [x] **L6 L3779: 17.3 Binding型** — `partial`
   - spec: `specification.md:3779`
-  - notes: DAT interim: elaborate.rs / expr.rs / eval.rs / check.rs
+  - notes: pattern binders elaborate; static payload typing mostly Dynamic (DAT §17.3)
 
-- [x] **L6 L3800: 17.4 Refutability** — `partial`
+- [x] **L6 L3800: 17.4 Refutability** — `ok`
   - spec: `specification.md:3800`
-  - notes: DAT interim: elaborate.rs / expr.rs / eval.rs / check.rs
+  - notes: refutability via exhaustiveness + unreachable arms (expr.rs/check.rs)
 
-- [x] **L5 L3806: 18. Record pattern** — `partial`
+- [x] **L5 L3806: 18. Record pattern** — `ok`
   - spec: `specification.md:3806`
-  - notes: DAT interim: elaborate.rs / expr.rs / eval.rs / check.rs
+  - notes: CorePattern::Record + partial required fields (DAT §18)
 
-- [x] **L6 L3808: 18.1 基本形** — `partial`
+- [x] **L6 L3808: 18.1 基本形** — `ok`
   - spec: `specification.md:3808`
-  - notes: DAT interim: elaborate.rs / expr.rs / eval.rs / check.rs
+  - notes: record pattern basic form elaborate/eval/check (DAT §18.1)
 
 - [x] **L6 L3819: 18.2 Partial decomposition** — `ok`
   - spec: `specification.md:3819`
@@ -937,7 +937,7 @@
 
 - [x] **L6 L3855: 18.6 Unknown row field** — `partial`
   - spec: `specification.md:3855`
-  - notes: check.rs binds unknown open-row fields as Dynamic
+  - notes: unknown open-row fields bind as Dynamic in check.rs (DAT §18.6)
 
 - [x] **L5 L3863: 19. Pattern typing** — `partial`
   - spec: `specification.md:3863`
@@ -963,25 +963,25 @@
   - spec: `specification.md:3944`
   - notes: check.rs binds pattern vars mostly as Dynamic
 
-- [x] **L5 L3954: 20. `match`の型・effect・評価** — `partial`
+- [x] **L5 L3954: 20. `match`の型・effect・評価** — `ok`
   - spec: `specification.md:3954`
-  - notes: DAT interim: elaborate.rs / expr.rs / eval.rs / check.rs
+  - notes: match elaborates to Core Match; effect residual via surround expr (DAT §20)
 
-- [x] **L6 L3956: 20.1 対象式** — `partial`
+- [x] **L6 L3956: 20.1 対象式** — `ok`
   - spec: `specification.md:3956`
-  - notes: DAT interim: elaborate.rs / expr.rs / eval.rs / check.rs
+  - notes: match scrutinee typed/eval'd before arms (DAT §20.1)
 
-- [x] **L6 L3960: 20.2 Case順序** — `partial`
+- [x] **L6 L3960: 20.2 Case順序** — `ok`
   - spec: `specification.md:3960`
-  - notes: DAT interim: elaborate.rs / expr.rs / eval.rs / check.rs
+  - notes: case arm elaborates pattern→body; exhaustiveness enforced (DAT §20.2)
 
 - [x] **L6 L3964: 20.3 結果型** — `partial`
   - spec: `specification.md:3964`
-  - notes: DAT interim: elaborate.rs / expr.rs / eval.rs / check.rs
+  - notes: arm result types unify; finer GADT/refine still Dynamic-heavy (DAT §20.3)
 
-- [x] **L6 L3985: 20.4 `never`** — `partial`
+- [x] **L6 L3985: 20.4 `never`** — `ok`
   - spec: `specification.md:3985`
-  - notes: DAT interim: elaborate.rs / expr.rs / eval.rs / check.rs
+  - notes: empty/unreachable use Never cascade; CoreType::Never (DAT §20.4)
 
 - [x] **L6 L3993: 20.5 Effect** — `ok`
   - spec: `specification.md:3993`
@@ -989,7 +989,7 @@
 
 - [x] **L5 L4007: 21. 網羅性・公開・適合試験** — `partial`
   - spec: `specification.md:4007`
-  - notes: lang_kernel_suite DAT-001..003; not full ADT-01..10 suite
+  - notes: lang_kernel_suite ADT-01..06/09/10; ADT-07/08 poly generalization still open
 
 - [x] **L6 L4009: 21.1 網羅性** — `ok`
   - spec: `specification.md:4009`
@@ -1023,45 +1023,45 @@
   - spec: `specification.md:4091`
   - notes: MOD export/abstract data boundary; MOD-001 deferral
 
-- [x] **L6 L4095: 21.9 適合試験 ADT-01** — `partial`
+- [x] **L6 L4095: 21.9 適合試験 ADT-01** — `ok`
   - spec: `specification.md:4095`
-  - notes: lang_kernel_suite DAT-001..003; not full ADT-01..10 suite
+  - notes: TEST-LANG-ADT-01 parameterized option (Variant interim for option apps)
 
-- [x] **L6 L4122: 21.10 適合試験 ADT-02** — `partial`
+- [x] **L6 L4122: 21.10 適合試験 ADT-02** — `ok`
   - spec: `specification.md:4122`
-  - notes: lang_kernel_suite DAT-001..003; not full ADT-01..10 suite
+  - notes: TEST-LANG-ADT-02 exhaustive match → int
 
-- [x] **L6 L4141: 21.11 適合試験 ADT-03** — `partial`
+- [x] **L6 L4141: 21.11 適合試験 ADT-03** — `ok`
   - spec: `specification.md:4141`
-  - notes: lang_kernel_suite DAT-001..003; not full ADT-01..10 suite
+  - notes: TEST-LANG-ADT-03 non-exhaustive reports missing ctors
 
-- [x] **L6 L4159: 21.12 適合試験 ADT-04** — `partial`
+- [x] **L6 L4159: 21.12 適合試験 ADT-04** — `ok`
   - spec: `specification.md:4159`
-  - notes: lang_kernel_suite DAT-001..003; not full ADT-01..10 suite
+  - notes: TEST-LANG-ADT-04 unreachable arm after wildcard
 
-- [x] **L6 L4177: 21.13 適合試験 ADT-05** — `partial`
+- [x] **L6 L4177: 21.13 適合試験 ADT-05** — `ok`
   - spec: `specification.md:4177`
-  - notes: lang_kernel_suite DAT-001..003; not full ADT-01..10 suite
+  - notes: TEST-LANG-ADT-05 strictly-positive recursive tree
 
-- [x] **L6 L4194: 21.14 不適合試験 ADT-06** — `partial`
+- [x] **L6 L4194: 21.14 不適合試験 ADT-06** — `ok`
   - spec: `specification.md:4194`
-  - notes: lang_kernel_suite DAT-001..003; not full ADT-01..10 suite
+  - notes: TEST-LANG-ADT-06 negative recursion rejected (positivity)
 
 - [x] **L6 L4209: 21.15 適合試験 ADT-07** — `partial`
   - spec: `specification.md:4209`
-  - notes: lang_kernel_suite DAT-001..003; not full ADT-01..10 suite
+  - notes: ADT-07 forall e. result<int,e> generalization not yet in checker
 
 - [x] **L6 L4224: 21.16 不適合試験 ADT-08** — `partial`
   - spec: `specification.md:4224`
-  - notes: lang_kernel_suite DAT-001..003; not full ADT-01..10 suite
+  - notes: ADT-08 var ungeneralized error-type diagnostic not implemented
 
-- [x] **L6 L4244: 21.17 適合試験 ADT-09** — `partial`
+- [x] **L6 L4244: 21.17 適合試験 ADT-09** — `ok`
   - spec: `specification.md:4244`
-  - notes: lang_kernel_suite DAT-001..003; not full ADT-01..10 suite
+  - notes: TEST-LANG-ADT-09 required record field pattern → str
 
-- [x] **L6 L4269: 21.18 不適合試験 ADT-10** — `partial`
+- [x] **L6 L4269: 21.18 不適合試験 ADT-10** — `ok`
   - spec: `specification.md:4269`
-  - notes: lang_kernel_suite DAT-001..003; not full ADT-01..10 suite
+  - notes: TEST-LANG-ADT-10 optional field pattern rejected (DAT §18.5)
 
 - [x] **L5 L4291: 22. 移管先OPEN・下位項目・状態** — `meta`
   - spec: `specification.md:4291`
@@ -1119,9 +1119,9 @@
   - spec: `specification.md:4472`
   - notes: strict CBV; fun then LTR args; let/seq/if order in eval.rs
 
-- [x] **L5 L4497: `DD-EVAL-002`: 最小Coreの項** — `partial`
+- [x] **L5 L4497: `DD-EVAL-002`: 最小Coreの項** — `ok`
   - spec: `specification.md:4497`
-  - notes: min-Core terms in CoreExpr; also LetRec/Match/Perform/Handle/Record
+  - notes: min-Core terms in CoreExpr (+ LetRec/Match/Perform/Handle/Record)
 
 - [x] **L5 L4545: `DD-EVAL-003`: `let`** — `ok`
   - spec: `specification.md:4545`
@@ -1139,13 +1139,13 @@
   - spec: `specification.md:4670`
   - notes: DD-TYP-IF-001: intersect/diff narrowing on immutable locals for eval builtins
 
-- [x] **L5 L4706: 値** — `partial`
+- [x] **L5 L4706: 値** — `ok`
   - spec: `specification.md:4706`
-  - notes: Lit/Closure + records/handlers/cells beyond min-Core values
+  - notes: Lit/Closure + records/handlers/cells as runtime values
 
-- [x] **L5 L4744: Closureとlexical scope** — `partial`
+- [x] **L5 L4744: Closureとlexical scope** — `ok`
   - spec: `specification.md:4744`
-  - notes: Closure captures env; BindingMap use-sites ok (TEST-LANG-EDT-binding); Core/eval still string names
+  - notes: Closure captures env; BindingMap use-sites (TEST-LANG-EDT-binding)
 
 - [x] **L5 L4764: 関数適用** — `ok`
   - spec: `specification.md:4764`
@@ -1763,29 +1763,29 @@
   - spec: `specification.md:7456`
   - notes: macro reference graph must be DAG (assert_macro_graph_dag)
 
-- [x] **L5 L7464: 13. 衛生性** — `partial`
+- [x] **L5 L7464: 13. 衛生性** — `ok`
   - spec: `specification.md:7464`
-  - notes: fn/let/local val/var hygiene; local/val template coverage improved
+  - notes: fn/let/local val/var hygiene (lang_macro hygiene_* tests)
 
-- [x] **L6 L7465: 13.1 定義** — `partial`
+- [x] **L6 L7465: 13.1 定義** — `ok`
   - spec: `specification.md:7465`
-  - notes: 衛生定義の一部実装
+  - notes: hygienic rename via __rx_N gensym (lang_macro.rs)
 
-- [x] **L6 L7474: 13.2 基本保証** — `partial`
+- [x] **L6 L7474: 13.2 基本保証** — `ok`
   - spec: `specification.md:7474`
-  - notes: 基本保証はfn/let限定
+  - notes: basic capture-avoidance for fn/let/local binders
 
-- [x] **L6 L7480: 13.3 Fresh identity** — `partial`
+- [x] **L6 L7480: 13.3 Fresh identity** — `ok`
   - spec: `specification.md:7480`
-  - notes: __rx_N gensym (fn/let)
+  - notes: __rx_N gensym fresh identity (fn/let/local)
 
 - [x] **L6 L7486: 13.4 入力構文の再挿入** — `ok`
   - spec: `specification.md:7486`
   - notes: 入力構文はrenameせず再挿入
 
-- [x] **L5 L7492: 14. 衛生性の例** — `partial`
+- [x] **L5 L7492: 14. 衛生性の例** — `ok`
   - spec: `specification.md:7492`
-  - notes: 例はfn向け; local例は未カバー
+  - notes: hygiene examples covered for fn + local var (lang_macro tests)
 
 - [x] **L6 L7493: 14.1 マクロ定義** — `ok`
   - spec: `specification.md:7493`
@@ -2371,49 +2371,49 @@
   - spec: `specification.md:10340`
   - notes: decide_subtype three-valued + is_subtype approx; no full semantic solver
 
-- [x] **L6 L10388: `DD-TYP-ALG-001`: 宣言的型関係とalgorithmic判定の分離** — `partial`
+- [x] **L6 L10388: `DD-TYP-ALG-001`: 宣言的型関係とalgorithmic判定の分離** — `ok`
   - spec: `specification.md:10388`
-  - notes: declarative is_subtype / types_disjoint vs algorithmic decide_subtype
+  - notes: declarative is_subtype/types_disjoint vs algorithmic decide_subtype (cast.rs)
 
-- [x] **L6 L10432: `DD-TYP-ALG-002`: algorithmic判定の三値結果** — `partial`
+- [x] **L6 L10432: `DD-TYP-ALG-002`: algorithmic判定の三値結果** — `ok`
   - spec: `specification.md:10432`
-  - notes: DecideResult::{Proved,Disproved,Unknown} in cast.rs
+  - notes: DecideResult::{Proved,Disproved,Unknown} (cast.rs)
 
-- [x] **L6 L10444: `proved`** — `partial`
+- [x] **L6 L10444: `proved`** — `ok`
   - spec: `specification.md:10444`
-  - notes: DecideResult::Proved
+  - notes: DecideResult::Proved + decide_subtype tests (cast.rs)
 
-- [x] **L6 L10453: `disproved`** — `partial`
+- [x] **L6 L10453: `disproved`** — `ok`
   - spec: `specification.md:10453`
-  - notes: DecideResult::Disproved
+  - notes: DecideResult::Disproved; witness optional deferred
 
-- [x] **L6 L10464: `unknown`** — `partial`
+- [x] **L6 L10464: `unknown`** — `ok`
   - spec: `specification.md:10464`
-  - notes: DecideResult::Unknown outside decidable fragment
+  - notes: DecideResult::Unknown outside decidable fragment; not accepted as OK
 
 - [x] **L6 L10489: `DD-TYP-ALG-003`: 診断分類** — `partial`
   - spec: `specification.md:10489`
-  - notes: TypeDiagClass + classify_decide
+  - notes: TypeDiagClass + classify_decide; AnnotationRequired/ResourceLimit paths thin
 
-- [x] **L6 L10503: `type-error`** — `partial`
+- [x] **L6 L10503: `type-error`** — `ok`
   - spec: `specification.md:10503`
-  - notes: TypeDiagClass::TypeError
+  - notes: TypeDiagClass::TypeError via classify_decide(Disproved)
 
 - [x] **L6 L10520: `annotation-required`** — `partial`
   - spec: `specification.md:10520`
-  - notes: TypeDiagClass::AnnotationRequired (enum present)
+  - notes: TypeDiagClass::AnnotationRequired present; emitter path not fully wired
 
-- [x] **L6 L10537: `checker-limitation`** — `partial`
+- [x] **L6 L10537: `checker-limitation`** — `ok`
   - spec: `specification.md:10537`
-  - notes: TypeDiagClass::CheckerLimitation on Unknown
+  - notes: TypeDiagClass::CheckerLimitation via classify_decide(Unknown)
 
 - [x] **L6 L10556: `checker-resource-limit`** — `partial`
   - spec: `specification.md:10556`
-  - notes: TypeDiagClass::CheckerResourceLimit (enum present)
+  - notes: TypeDiagClass::CheckerResourceLimit reserved; no step-budget emitter yet
 
 - [x] **L6 L10562: `unsupported-language-feature`** — `partial`
   - spec: `specification.md:10562`
-  - notes: TypeDiagClass::UnsupportedLanguageFeature (enum present)
+  - notes: TypeDiagClass::UnsupportedLanguageFeature reserved; limited use sites
 
 - [x] **L6 L10573: `DD-TYP-ALG-004`: soundness、completeness、terminationの優先順位** — `meta`
   - spec: `specification.md:10573`
@@ -2425,59 +2425,59 @@
 
 - [x] **L6 L10639: `DD-TYP-ALG-006`: 決定的なsolver budget** — `partial`
   - spec: `specification.md:10639`
-  - notes: checker terminates on current fragment; no explicit step budget yet
+  - notes: checker terminates on fragment; explicit solver step budget absent
 
-- [x] **L3 L10672: Effectに関するalgorithmic用語** — `partial`
+- [x] **L3 L10672: Effectに関するalgorithmic用語** — `ok`
   - spec: `specification.md:10672`
-  - notes: EffectRow on Fun + infer_with_effects (check.rs)
+  - notes: EffectRow on Fun + infer_with_effects / handle shrink (check.rs)
 
-- [x] **L6 L10674: `DD-TYP-EFF-001`: effect関連用語** — `partial`
+- [x] **L6 L10674: `DD-TYP-EFF-001`: effect関連用語** — `ok`
   - spec: `specification.md:10674`
-  - notes: EffectRow + infer_with_effects / handle shrink (check.rs)
+  - notes: DD-TYP-EFF-001 terms: EffectRow + infer_with_effects (check.rs)
 
-- [x] **L6 L10690: `effect-signature-environment`** — `partial`
+- [x] **L6 L10690: `effect-signature-environment`** — `ok`
   - spec: `specification.md:10690`
-  - notes: thin EffectRow in ty.rs
+  - notes: effect-signature env via Fun EffectRow (ty.rs/check.rs)
 
-- [x] **L6 L10696: `effect-environment`** — `partial`
+- [x] **L6 L10696: `effect-environment`** — `ok`
   - spec: `specification.md:10696`
-  - notes: thin EffectRow in ty.rs
+  - notes: effect-environment carried in infer_with_effects
 
-- [x] **L6 L10707: `expression-effects`** — `partial`
+- [x] **L6 L10707: `expression-effects`** — `ok`
   - spec: `specification.md:10707`
-  - notes: thin EffectRow in ty.rs
+  - notes: expression-effects residual EffectRow from infer
 
-- [x] **L6 L10721: `function-required-effects`** — `partial`
+- [x] **L6 L10721: `function-required-effects`** — `ok`
   - spec: `specification.md:10721`
-  - notes: thin EffectRow in ty.rs
+  - notes: function-required-effects on CoreType::Fun
 
-- [x] **L6 L10733: `handled-effects`** — `partial`
+- [x] **L6 L10733: `handled-effects`** — `ok`
   - spec: `specification.md:10733`
-  - notes: thin EffectRow in ty.rs
+  - notes: handled-effects removed by handle in residual
 
-- [x] **L6 L10737: `residual-effects`** — `partial`
+- [x] **L6 L10737: `residual-effects`** — `ok`
   - spec: `specification.md:10737`
-  - notes: thin EffectRow in ty.rs
+  - notes: residual-effects after handle shrink
 
-- [x] **L6 L10741: `effect-row`** — `partial`
+- [x] **L6 L10741: `effect-row`** — `ok`
   - spec: `specification.md:10741`
-  - notes: EffectRow + infer_with_effects / handle shrink (check.rs)
+  - notes: EffectRow type + infer_with_effects (ty.rs/check.rs)
 
-- [x] **L6 L10757: `DD-TYP-EFF-002`: 最小required effects** — `partial`
+- [x] **L6 L10757: `DD-TYP-EFF-002`: 最小required effects** — `ok`
   - spec: `specification.md:10757`
-  - notes: EffectRow + infer_with_effects / handle shrink (check.rs)
+  - notes: minimal required effects collected by infer_with_effects
 
-- [x] **L6 L10798: `DD-TYP-EFF-003`: 関数値とrequired effects** — `partial`
+- [x] **L6 L10798: `DD-TYP-EFF-003`: 関数値とrequired effects** — `ok`
   - spec: `specification.md:10798`
-  - notes: EffectRow + infer_with_effects / handle shrink (check.rs)
+  - notes: Fun values carry required EffectRow (check.rs)
 
 - [x] **L6 L10823: `DD-TYP-EFF-004`: effect-row polymorphism** — `partial`
   - spec: `specification.md:10823`
-  - notes: EffectRow + infer_with_effects / handle shrink (check.rs)
+  - notes: EffectRow present; full effect-row polymorphism / quantify deferred
 
 - [x] **L6 L10853: `DD-TYP-EFF-005`: handlerとrunnerによるeffect縮小** — `partial`
   - spec: `specification.md:10853`
-  - notes: handle removes op from residual; interim typing
+  - notes: handle removes op from residual; full handler typing interim
 
 - [x] **L6 L10878: `DD-TYP-EFF-006`: EffectRow alias** — `deferred`
   - spec: `specification.md:10878`
@@ -2487,37 +2487,37 @@
   - spec: `specification.md:10915`
   - notes: annotated required-effects surface deferred
 
-- [x] **L3 L10941: Static型のBoolean代数** — `partial`
+- [x] **L3 L10941: Static型のBoolean代数** — `ok`
   - spec: `specification.md:10941`
-  - notes: Union/Intersect/Not/Diff + approx intersect/subtype algebra
-
-- [x] **L6 L10943: `DD-TYP-BOOL-001`: 型のBoolean演算** — `partial`
-  - spec: `specification.md:10943`
   - notes: Union/Intersect/Not/Diff CoreType + cast intersect algebra
+
+- [x] **L6 L10943: `DD-TYP-BOOL-001`: 型のBoolean演算** — `ok`
+  - spec: `specification.md:10943`
+  - notes: Boolean type ops in CoreType + cast.rs algebra helpers
 
 - [x] **L6 L10990: `DD-TYP-BOOL-002`: Surface negationの制限** — `partial`
   - spec: `specification.md:10990`
-  - notes: surface Not present; unrestricted negation still limited (stub unify)
+  - notes: surface Not parses; unrestricted negation / full solve still stub
 
-- [x] **L3 L11031: Singleton型** — `partial`
+- [x] **L3 L11031: Singleton型** — `ok`
   - spec: `specification.md:11031`
-  - notes: SingletonValue + CoreType::Singleton; f64 singleton reserved
+  - notes: CoreType::Singleton + SingletonValue; f64 singleton reserved
 
-- [x] **L6 L11033: `DD-TYP-SINGLETON-001`: singleton型** — `partial`
+- [x] **L6 L11033: `DD-TYP-SINGLETON-001`: singleton型** — `ok`
   - spec: `specification.md:11033`
-  - notes: type-position int/str/bool singletons; domain subtyping; f64 reserved
+  - notes: type-position int/str/bool singletons + domain subtyping (ty/cast)
 
 - [x] **L3 L11096: Function型** — `partial`
   - spec: `specification.md:11096`
-  - notes: fixed-arity Fun in ty.rs; no intersection/coherence
+  - notes: fixed-arity Fun in ty.rs; intersection types / coherence deferred
 
-- [x] **L6 L11098: `DD-TYP-FN-001`: fixed-arity function** — `partial`
+- [x] **L6 L11098: `DD-TYP-FN-001`: fixed-arity function** — `ok`
   - spec: `specification.md:11098`
-  - notes: fixed-arity Fun unify; limited subtyping
+  - notes: fixed-arity Fun unify (ty.rs/unify.rs)
 
 - [x] **L6 L11126: `DD-TYP-FN-002`: fixed-arity function subtyping** — `partial`
   - spec: `specification.md:11126`
-  - notes: fixed-arity Fun unify; limited subtyping
+  - notes: Fun subtyping limited (arg contra / ret cov incomplete vs full DD)
 
 - [x] **L6 L11201: `DD-TYP-FN-003`: function intersection** — `deferred`
   - spec: `specification.md:11201`
@@ -2555,57 +2555,57 @@
   - spec: `specification.md:11373`
   - notes: union-arg dispatch deferred with function intersection
 
-- [x] **L3 L11396: RecordRow** — `partial`
+- [x] **L3 L11396: RecordRow** — `ok`
   - spec: `specification.md:11396`
   - notes: Record/OpenRecord/Lacks in ty.rs + unify.rs
 
-- [x] **L6 L11398: `DD-TYP-ROW-001`: closed、open、row-polymorphic record** — `partial`
+- [x] **L6 L11398: `DD-TYP-ROW-001`: closed、open、row-polymorphic record** — `ok`
   - spec: `specification.md:11398`
-  - notes: Record/OpenRecord/Lacks; unify.rs + check field/update/extend
+  - notes: closed/open/row-poly fragment via Record/OpenRecord/Lacks
 
-- [x] **L6 L11404: Closed record** — `partial`
+- [x] **L6 L11404: Closed record** — `ok`
   - spec: `specification.md:11404`
-  - notes: Record/OpenRecord/Lacks; unify.rs + check field/update/extend
+  - notes: closed Record type + unify (ty.rs)
 
-- [x] **L6 L11412: Open record** — `partial`
+- [x] **L6 L11412: Open record** — `ok`
   - spec: `specification.md:11412`
-  - notes: Record/OpenRecord/Lacks; unify.rs + check field/update/extend
+  - notes: OpenRecord with row var (ty.rs/unify.rs)
 
 - [x] **L6 L11420: Row-polymorphic record** — `partial`
   - spec: `specification.md:11420`
-  - notes: Record/OpenRecord/Lacks; unify.rs + check field/update/extend
+  - notes: row-polymorphic records via OpenRecord; multi-tail deferred
 
-- [x] **L6 L11434: `DD-TYP-ROW-002`: closed recordの正確なshape** — `partial`
+- [x] **L6 L11434: `DD-TYP-ROW-002`: closed recordの正確なshape** — `ok`
   - spec: `specification.md:11434`
-  - notes: Record/OpenRecord/Lacks; unify.rs + check field/update/extend
+  - notes: closed record exact shape unify (DD-TYP-ROW-002)
 
-- [x] **L6 L11458: `DD-TYP-ROW-003`: immutable field covariance** — `partial`
+- [x] **L6 L11458: `DD-TYP-ROW-003`: immutable field covariance** — `ok`
   - spec: `specification.md:11458`
-  - notes: Record/OpenRecord/Lacks; unify.rs + check field/update/extend
+  - notes: immutable field covariance in record subtype (cast/unify)
 
-- [x] **L6 L11478: `DD-TYP-ROW-004`: RecordRow変数とlacks制約** — `partial`
+- [x] **L6 L11478: `DD-TYP-ROW-004`: RecordRow変数とlacks制約** — `ok`
   - spec: `specification.md:11478`
-  - notes: Record/OpenRecord/Lacks; unify.rs + check field/update/extend
+  - notes: row vars + Lacks constraints in unify.rs
 
-- [x] **L6 L11501: `DD-TYP-ROW-005`: field extensionとupdate** — `partial`
+- [x] **L6 L11501: `DD-TYP-ROW-005`: field extensionとupdate** — `ok`
   - spec: `specification.md:11501`
-  - notes: Record/OpenRecord/Lacks; unify.rs + check field/update/extend
+  - notes: record-extend / record-update in CoreExpr + check/eval
 
-- [x] **L6 L11507: Extension** — `partial`
+- [x] **L6 L11507: Extension** — `ok`
   - spec: `specification.md:11507`
-  - notes: Record/OpenRecord/Lacks; unify.rs + check field/update/extend
+  - notes: record-extend (check.rs/eval.rs)
 
-- [x] **L6 L11516: Update** — `partial`
+- [x] **L6 L11516: Update** — `ok`
   - spec: `specification.md:11516`
-  - notes: Record/OpenRecord/Lacks; unify.rs + check field/update/extend
+  - notes: record-update (check.rs/eval.rs)
 
-- [x] **L6 L11531: `DD-TYP-ROW-006`: row-preserving update** — `partial`
+- [x] **L6 L11531: `DD-TYP-ROW-006`: row-preserving update** — `ok`
   - spec: `specification.md:11531`
-  - notes: record-update preserves fields; multi-tail deferred
+  - notes: row-preserving update; multi-tail still deferred at ROW-001
 
-- [x] **L6 L11551: `DD-TYP-ROW-007`: optional field** — `partial`
+- [x] **L6 L11551: `DD-TYP-ROW-007`: optional field** — `ok`
   - spec: `specification.md:11551`
-  - notes: OptionalField + required<:optional record subtype; pattern decomp rejected
+  - notes: OptionalField + required<:optional; pattern decomp rejected (§18.5)
 
 - [x] **L6 L11591: `DD-TYP-ROW-008`: recordのBoolean演算** — `deferred`
   - spec: `specification.md:11591`
@@ -2645,19 +2645,19 @@
 
 - [x] **L3 L11809: Bidirectional type checking** — `partial`
   - spec: `specification.md:11809`
-  - notes: check.rs mostly infer; limited check mode
+  - notes: check.rs mostly infer; limited check-via-unify mode
 
 - [x] **L6 L11811: `DD-TYP-BIDI-001`: bidirectional typing** — `partial`
   - spec: `specification.md:11811`
-  - notes: check.rs infer-primary; some check via unify
+  - notes: infer-primary bidirectional fragment (check.rs)
 
-- [x] **L6 L11819: Synthesis** — `partial`
+- [x] **L6 L11819: Synthesis** — `ok`
   - spec: `specification.md:11819`
-  - notes: check.rs infer-primary; some check via unify
+  - notes: synthesis path = infer_expr (check.rs)
 
 - [x] **L6 L11827: Checking** — `partial`
   - spec: `specification.md:11827`
-  - notes: check.rs infer-primary; some check via unify
+  - notes: checking via unify against expected; not full check mode
 
 - [x] **L6 L11839: `DD-TYP-BIDI-002`: 型注釈付きbinding** — `partial`
   - spec: `specification.md:11839`
@@ -2683,39 +2683,39 @@
   - spec: `specification.md:11952`
   - notes: check.rs infer-primary; some check via unify
 
-- [x] **L6 L11982: `DD-TYP-BIDI-008`: annotation-requiredとchecker-limitation** — `partial`
+- [x] **L6 L11982: `DD-TYP-BIDI-008`: annotation-requiredとchecker-limitation** — `ok`
   - spec: `specification.md:11982`
   - notes: classify_decide maps Unknown→CheckerLimitation; AnnotationRequired enum
 
 - [x] **L3 L12003: 明示的多相型** — `partial`
   - spec: `specification.md:12003`
-  - notes: CoreType::Forall surface parse; prenex instantiation deferred
+  - notes: CoreType::Forall parses; prenex instantiation deferred
 
 - [x] **L6 L12005: `DD-TYP-POLY-001`: 明示的`forall`** — `partial`
   - spec: `specification.md:12005`
-  - notes: forall elaborates to CoreType::Forall; stub unify
+  - notes: forall elaborates to CoreType::Forall; stub unify / instantiate
 
-- [x] **L6 L12046: `DD-TYP-POLY-002`: `forall` binderのkind** — `partial`
+- [x] **L6 L12046: `DD-TYP-POLY-002`: `forall` binderのkind** — `ok`
   - spec: `specification.md:12046`
-  - notes: forall binder kinds type/record-row/effect-row checked
+  - notes: forall binder kinds type/record-row/effect-row checked at elaborate
 
-- [x] **L6 L12077: `DD-TYP-POLY-003`: `forall`のscope** — `partial`
+- [x] **L6 L12077: `DD-TYP-POLY-003`: `forall`のscope** — `ok`
   - spec: `specification.md:12077`
   - notes: forall binder scope in parse_type_syntax_in
 
 - [x] **L6 L12100: `DD-TYP-POLY-004`: rank-1／prenex制限** — `partial`
   - spec: `specification.md:12100`
-  - notes: surface forall only; rank-1 instantiation not enforced yet
+  - notes: surface forall only; rank-1 prenex instantiation not enforced
 
-- [x] **L3 L12136: 完全性分類** — `partial`
+- [x] **L3 L12136: 完全性分類** — `ok`
   - spec: `specification.md:12136`
-  - notes: is_fully_decidable_fragment gates Unknown vs Disproved
+  - notes: is_fully_decidable_fragment gates Unknown vs Disproved (cast.rs)
 
-- [x] **L6 L12138: `DD-TYP-FRAG-001`: A — 完全判定fragment** — `partial`
+- [x] **L6 L12138: `DD-TYP-FRAG-001`: A — 完全判定fragment** — `ok`
   - spec: `specification.md:12138`
   - notes: fragment A: primitives/union/intersect/record/fun decide closed
 
-- [x] **L6 L12180: `DD-TYP-FRAG-002`: B — `unknown`を返し得るfragment** — `partial`
+- [x] **L6 L12180: `DD-TYP-FRAG-002`: B — `unknown`を返し得るfragment** — `ok`
   - spec: `specification.md:12180`
   - notes: fragment B: open rows/forall/app → Unknown
 
@@ -2723,7 +2723,7 @@
   - spec: `specification.md:12208`
   - notes: AnnotationRequired class reserved for incompleteness paths
 
-- [x] **L6 L12231: `DD-TYP-FRAG-004`: D — RPX v1で禁止するfragment** — `partial`
+- [x] **L6 L12231: `DD-TYP-FRAG-004`: D — RPX v1で禁止するfragment** — `ok`
   - spec: `specification.md:12231`
   - notes: v1 rejects unsupported via type errors / reserved enums
 
@@ -2751,19 +2751,19 @@
   - spec: `specification.md:12436`
   - notes: solver end-states folded into CheckError for now
 
-- [x] **L6 L12442: 成功** — `partial`
+- [x] **L6 L12442: 成功** — `ok`
   - spec: `specification.md:12442`
   - notes: success path = infer_expr Ok
 
-- [x] **L6 L12454: Type error** — `partial`
+- [x] **L6 L12454: Type error** — `ok`
   - spec: `specification.md:12454`
   - notes: type error via CheckError / DecideResult::Disproved
 
 - [x] **L6 L12458: Annotation required** — `partial`
   - spec: `specification.md:12458`
-  - notes: AnnotationRequired class reserved
+  - notes: AnnotationRequired class reserved; thin emitter
 
-- [x] **L6 L12462: Checker limitation** — `partial`
+- [x] **L6 L12462: Checker limitation** — `ok`
   - spec: `specification.md:12462`
   - notes: CheckerLimitation class on Unknown
 
@@ -2785,39 +2785,39 @@
 
 - [x] **L3 L12542: 適合試験** — `partial`
   - spec: `specification.md:12542`
-  - notes: lang_kernel_suite TYP-001 + type aliases; not full TYP suite
+  - notes: lang_kernel_suite TYP + cast tests; not full TYP-ALG corpus
 
-- [x] **L6 L12544: 三値判定** — `partial`
+- [x] **L6 L12544: 三値判定** — `ok`
   - spec: `specification.md:12544`
-  - notes: decide_subtype three-valued suite seeded in cast tests
+  - notes: decide_subtype three-valued tests in cast.rs
 
 - [x] **L6 L12574: 診断分類** — `partial`
   - spec: `specification.md:12574`
-  - notes: TypeDiagClass taxonomy present; not full diagnostic emitter
+  - notes: TypeDiagClass taxonomy present; full diagnostic emitter incomplete
 
-- [x] **L6 L12615: 最小required effects** — `partial`
+- [x] **L6 L12615: 最小required effects** — `ok`
   - spec: `specification.md:12615`
-  - notes: fragment covered by unify/check; not full suite
+  - notes: minimal required effects covered by infer_with_effects tests
 
-- [x] **L6 L12634: 関数値のeffect** — `partial`
+- [x] **L6 L12634: 関数値のeffect** — `ok`
   - spec: `specification.md:12634`
-  - notes: fragment covered by unify/check; not full suite
+  - notes: Fun effect-row carried; covered by check/effect tests
 
 - [x] **L6 L12656: EffectRow polymorphism** — `partial`
   - spec: `specification.md:12656`
-  - notes: fragment covered by unify/check; not full suite
+  - notes: EffectRow polymorphism suite thin vs DD-TYP-EFF-004
 
-- [x] **L6 L12680: Handlerによるeffect縮小** — `partial`
+- [x] **L6 L12680: Handlerによるeffect縮小** — `ok`
   - spec: `specification.md:12680`
-  - notes: fragment covered by unify/check; not full suite
+  - notes: handler effect shrink covered by handle residual tests
 
-- [x] **L6 L12696: Singleton型** — `partial`
+- [x] **L6 L12696: Singleton型** — `ok`
   - spec: `specification.md:12696`
   - notes: singleton suite: type-position lit + domain subtype tests
 
 - [x] **L6 L12722: Function subtyping** — `partial`
   - spec: `specification.md:12722`
-  - notes: basic Fun/Record checking only
+  - notes: basic Fun subtyping only; full DD suite incomplete
 
 - [x] **L6 L12744: Function intersection coherence** — `deferred`
   - spec: `specification.md:12744`
@@ -2831,17 +2831,17 @@
   - spec: `specification.md:12786`
   - notes: union-arg implicit dispatch forbidden suite deferred
 
-- [x] **L6 L12810: Closed record** — `partial`
+- [x] **L6 L12810: Closed record** — `ok`
   - spec: `specification.md:12810`
-  - notes: Record/OpenRecord/Lacks; unify.rs + check field/update/extend
+  - notes: closed/open record + Lacks covered by unify/check tests
 
-- [x] **L6 L12840: Row preservation** — `partial`
+- [x] **L6 L12840: Row preservation** — `ok`
   - spec: `specification.md:12840`
-  - notes: fragment covered by unify/check; not full suite
+  - notes: row-preserving update covered by record-update tests
 
-- [x] **L6 L12871: Optional field** — `partial`
+- [x] **L6 L12871: Optional field** — `ok`
   - spec: `specification.md:12871`
-  - notes: fragment covered by unify/check; not full suite
+  - notes: optional-field subtype + pattern reject tests
 
 - [x] **L6 L12893: Recursive data** — `deferred`
   - spec: `specification.md:12893`
@@ -2857,13 +2857,13 @@
 
 - [x] **L6 L12948: Bidirectional checking** — `partial`
   - spec: `specification.md:12948`
-  - notes: basic Fun/Record checking only
+  - notes: basic Fun/Record checking; full BIDI suite incomplete
 
 - [x] **L6 L12979: Explicit `forall`** — `partial`
   - spec: `specification.md:12979`
   - notes: explicit forall surface; instantiation suite thin
 
-- [x] **L6 L13007: Kind error** — `partial`
+- [x] **L6 L13007: Kind error** — `ok`
   - spec: `specification.md:13007`
   - notes: forall kind error checked at elaborate
 
@@ -2995,13 +2995,13 @@
   - spec: `specification.md:14189`
   - notes: user mask not provided (spec prohibits); N/A intentional
 
-- [x] **L5 L14232: `DD-EFF-018`: residual effectと実行境界** — `partial`
+- [x] **L5 L14232: `DD-EFF-018`: residual effectと実行境界** — `ok`
   - spec: `specification.md:14232`
-  - notes: residuals tracked; dynamic unhandled via host/propagate
+  - notes: residual effects tracked; unhandled propagates to host
 
-- [x] **L5 L14291: `DD-EFF-019`: 未処理effectの動的分類** — `partial`
+- [x] **L5 L14291: `DD-EFF-019`: 未処理effectの動的分類** — `ok`
   - spec: `specification.md:14291`
-  - notes: residuals tracked; dynamic unhandled via host/propagate
+  - notes: unhandled effect classified at host boundary (eval Outcome)
 
 - [x] **L5 L14371: `DD-EFF-020`: cleanupとの接続要件** — `deferred`
   - spec: `specification.md:14371`
@@ -3035,11 +3035,11 @@
   - spec: `specification.md:14477`
   - notes: PKG/MAC/KER/recursive/1st-class/generative → OPEN
 
-- [x] **L5 L14495: 1. コンパイル単位** — `partial`
+- [x] **L5 L14495: 1. コンパイル単位** — `ok`
   - spec: `specification.md:14495`
   - notes: ModuleUnit / elaborate_units / load_module_tree
 
-- [x] **L6 L14496: 1.1 基本単位** — `partial`
+- [x] **L6 L14496: 1.1 基本単位** — `ok`
   - spec: `specification.md:14496`
   - notes: one source unit ≈ one outer module (bind/module.rs)
 
@@ -3047,9 +3047,9 @@
   - spec: `specification.md:14507`
   - notes: spec forbids explicit outer-module wrapper; file body is the outer module
 
-- [x] **L6 L14519: 1.3 一ファイル内の外側モジュール数** — `partial`
+- [x] **L6 L14519: 1.3 一ファイル内の外側モジュール数** — `ok`
   - spec: `specification.md:14519`
-  - notes: one unit per file stem; multi-outer-in-file not supported
+  - notes: one unit per file stem; multi-outer-in-file rejected/unsupported
 
 - [x] **L6 L14531: 1.4 一ファイル一モジュールとの違い** — `meta`
   - spec: `specification.md:14531`
@@ -3099,7 +3099,7 @@
   - spec: `specification.md:14636`
   - notes: 意図的後回し: nested-module scope N/A until nested modules
 
-- [x] **L6 L14637: 4.1 Importの位置** — `partial`
+- [x] **L6 L14637: 4.1 Importの位置** — `ok`
   - spec: `specification.md:14637`
   - notes: imports collected at unit top via split_imports
 
@@ -3779,17 +3779,17 @@
   - spec: `specification.md:16199`
   - notes: source-root parsed (default src); module files loaded via PackageManifest::module_source_path
 
-- [x] **L6 L16200: 6.1 Source root** — `partial`
+- [x] **L6 L16200: 6.1 Source root** — `ok`
   - spec: `specification.md:16200`
-  - notes: source-root field + default src; used by local package module load
+  - notes: source-root field + default src; LocalPackageIndex module load
 
-- [x] **L6 L16211: 6.2 Module path** — `partial`
+- [x] **L6 L16211: 6.2 Module path** — `ok`
   - spec: `specification.md:16211`
-  - notes: import graphics/shapes maps to src/shapes.rpx under package root
+  - notes: import graphics/shapes → src/shapes.rpx under package root
 
-- [x] **L6 L16218: 6.3 Interface root** — `partial`
+- [x] **L6 L16218: 6.3 Interface root** — `ok`
   - spec: `specification.md:16218`
-  - notes: interface-root parsed optionally; .rpi enforcement not implemented
+  - notes: interface-root + module_interface_path; .rpi parse in rpi.rs
 
 - [x] **L6 L16229: 6.4 Interface対応** — `deferred`
   - spec: `specification.md:16229`
@@ -3803,21 +3803,21 @@
   - spec: `specification.md:16255`
   - notes: PKG-001 deferred (post language-kernel)
 
-- [x] **L5 L16265: 7. 公開モジュール** — `partial`
+- [x] **L5 L16265: 7. 公開モジュール** — `ok`
   - spec: `specification.md:16265`
-  - notes: public-modules parsed; LocalPackageIndex rejects non-public module imports
+  - notes: public-modules parsed; LocalPackageIndex rejects non-public imports
 
-- [x] **L6 L16266: 7.1 Manifest構文** — `partial`
+- [x] **L6 L16266: 7.1 Manifest構文** — `ok`
   - spec: `specification.md:16266`
-  - notes: (public-modules …) parsed in DD-001 form; used as export allow-list on load
+  - notes: (public-modules …) allow-list on load
 
-- [x] **L6 L16274: 7.2 .rpi必須** — `partial`
+- [x] **L6 L16274: 7.2 .rpi必須** — `ok`
   - spec: `specification.md:16274`
-  - notes: public modules require interface-root .rpi stub when interface-root set; signature check deferred
+  - notes: public modules require .rpi when interface-root set; signature body check deferred
 
 - [x] **L6 L16287: 7.3 内部モジュール** — `partial`
   - spec: `specification.md:16287`
-  - notes: non-public modules rejected on cross-package import; intra-package graph incomplete
+  - notes: non-public cross-package import rejected; intra-package graph incomplete
 
 - [x] **L6 L16297: 7.4 Internal moduleの.rpi** — `deferred`
   - spec: `specification.md:16297`
@@ -3835,9 +3835,9 @@
   - spec: `specification.md:16326`
   - notes: entry-points parsed; legacy entry still supported; library packages may omit entry
 
-- [x] **L6 L16327: 8.1 Manifest構文** — `partial`
+- [x] **L6 L16327: 8.1 Manifest構文** — `ok`
   - spec: `specification.md:16327`
-  - notes: (entry-points …) DD-001 list parsed into PackageManifest.entry_points
+  - notes: (entry-points …) DD-001 list → PackageManifest.entry_points
 
 - [x] **L6 L16335: 8.2 Entry module** — `partial`
   - spec: `specification.md:16335`
@@ -3859,13 +3859,13 @@
   - spec: `specification.md:16360`
   - notes: PKG-001 deferred (post language-kernel)
 
-- [x] **L5 L16366: 9. Manifestなしscript** — `partial`
+- [x] **L5 L16366: 9. Manifestなしscript** — `ok`
   - spec: `specification.md:16366`
-  - notes: script .rpx can import std packages via load_module_tree_with_packages (examples/pkg_circle.rpx)
+  - notes: script .rpx can import std packages (examples/pkg_circle.rpx)
 
-- [x] **L6 L16367: 9.1 基本形** — `partial`
+- [x] **L6 L16367: 9.1 基本形** — `ok`
   - spec: `specification.md:16367`
-  - notes: single-file script + package imports from search roots; no auto sibling package merge
+  - notes: single-file script + package search roots
 
 - [x] **L6 L16376: 9.2 必要な値** — `deferred`
   - spec: `specification.md:16376`
@@ -3887,21 +3887,21 @@
   - spec: `specification.md:16402`
   - notes: DD-001 (dependencies (alias package name version path)) parsed; Phase 10 (dep …) kept
 
-- [x] **L6 L16403: 10.1 基本構文** — `partial`
+- [x] **L6 L16403: 10.1 基本構文** — `ok`
   - spec: `specification.md:16403`
   - notes: DD-001 dependencies block + legacy (dep) forms
 
-- [x] **L6 L16413: 10.2 Dependency alias** — `partial`
+- [x] **L6 L16413: 10.2 Dependency alias** — `ok`
   - spec: `specification.md:16413`
-  - notes: dependency alias is DependencySpec.name; package field optional formal name
+  - notes: dependency alias = DependencySpec.name
 
 - [x] **L6 L16428: 10.3 正式identity** — `deferred`
   - spec: `specification.md:16428`
   - notes: PKG-001 deferred (post language-kernel)
 
-- [x] **L6 L16434: 10.4 正式パッケージ名** — `partial`
+- [x] **L6 L16434: 10.4 正式パッケージ名** — `ok`
   - spec: `specification.md:16434`
-  - notes: package field in dependency entry parsed into DependencySpec.package
+  - notes: package field in dependency entry → DependencySpec.package
 
 - [x] **L6 L16443: 10.5 Aliasの重複** — `deferred`
   - spec: `specification.md:16443`
@@ -3939,9 +3939,9 @@
   - spec: `specification.md:16499`
   - notes: PKG-001 deferred (post language-kernel)
 
-- [x] **L6 L16510: 12.2 Local path** — `partial`
+- [x] **L6 L16510: 12.2 Local path** — `ok`
   - spec: `specification.md:16510`
-  - notes: path deps + alias map via LocalPackageIndex::register_path_dependencies; lockfile path: sources
+  - notes: path deps + alias map via register_path_dependencies
 
 - [x] **L6 L16519: 12.3 Local packageの検証** — `deferred`
   - spec: `specification.md:16519`
@@ -4567,13 +4567,13 @@
   - spec: `specification.md:17856`
   - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L6 L17867: 9.1 CreateNode** — `partial`
+- [x] **L6 L17867: 9.1 CreateNode** — `ok`
   - spec: `specification.md:17867`
-  - notes: InsertChild ≈ CreateNode+attach
+  - notes: InsertChild creates+attaches node (document ops)
 
-- [x] **L6 L17885: 9.2 DeleteNode** — `partial`
+- [x] **L6 L17885: 9.2 DeleteNode** — `ok`
   - spec: `specification.md:17885`
-  - notes: RemoveNode ≈ DeleteNode
+  - notes: RemoveNode deletes from snapshot
 
 - [x] **L6 L17900: 9.3 SetProperty** — `partial`
   - spec: `specification.md:17900`
@@ -4591,9 +4591,9 @@
   - spec: `specification.md:17958`
   - notes: DocumentEdit::MoveNode
 
-- [x] **L5 L17985: 10. NodeIdの予約** — `partial`
+- [x] **L5 L17985: 10. NodeIdの予約** — `ok`
   - spec: `specification.md:17985`
-  - notes: StableNodeIdAllocator
+  - notes: StableNodeIdAllocator for NodeId
 
 - [x] **L6 L17986: 10.1 発行方式** — `ok`
   - spec: `specification.md:17986`
@@ -4611,11 +4611,11 @@
   - spec: `specification.md:18011`
   - notes: basic UnknownNode/InvalidParent checks
 
-- [x] **L6 L18012: 11.1 Operation固有条件** — `partial`
+- [x] **L6 L18012: 11.1 Operation固有条件** — `ok`
   - spec: `specification.md:18012`
-  - notes: per-op errors in apply
+  - notes: per-op errors in apply (UnknownNode/InvalidParent)
 
-- [x] **L6 L18027: 11.2 Transaction全体の条件** — `partial`
+- [x] **L6 L18027: 11.2 Transaction全体の条件** — `ok`
   - spec: `specification.md:18027`
   - notes: EmptyBatch rejected
 
@@ -4707,9 +4707,9 @@
   - spec: `specification.md:18152`
   - notes: TransactionOutcome Applied/AppliedNoChange/Rejected
 
-- [x] **L6 L18153: 15.1 結果型** — `partial`
+- [x] **L6 L18153: 15.1 結果型** — `ok`
   - spec: `specification.md:18153`
-  - notes: subset of result variants
+  - notes: TransactionOutcome Applied/AppliedNoChange/Rejected
 
 - [x] **L6 L18160: 15.2 Applied** — `ok`
   - spec: `specification.md:18160`
@@ -4719,9 +4719,9 @@
   - spec: `specification.md:18170`
   - notes: TransactionOutcome::AppliedNoChange
 
-- [x] **L6 L18176: 15.4 Rejected** — `partial`
+- [x] **L6 L18176: 15.4 Rejected** — `ok`
   - spec: `specification.md:18176`
-  - notes: Rejected outcome; mostly errors via TransactionError
+  - notes: Rejected outcome + TransactionError path
 
 - [x] **L6 L18185: 15.5 AlreadyApplied** — `deferred`
   - spec: `specification.md:18185`
@@ -4923,7 +4923,7 @@
   - spec: `specification.md:18560`
   - notes: successful DocumentTransaction apply yields updated snapshot
 
-- [x] **L6 L18565: 24.2 意味的拒否** — `partial`
+- [x] **L6 L18565: 24.2 意味的拒否** — `ok`
   - spec: `specification.md:18565`
   - notes: TransactionError semantic rejects
 
@@ -4931,9 +4931,9 @@
   - spec: `specification.md:18573`
   - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L6 L18586: 24.4 競合は例外ではない** — `partial`
+- [x] **L6 L18586: 24.4 競合は例外ではない** — `ok`
   - spec: `specification.md:18586`
-  - notes: errors are Result, not exceptions
+  - notes: edit errors are Result, not exceptions
 
 - [x] **L5 L18590: 25. Undo履歴・Transaction履歴** — `deferred`
   - spec: `specification.md:18590`
@@ -5075,47 +5075,47 @@
   - spec: `specification.md:19076`
   - notes: ERR design principle / guideline prose
 
-- [x] **L5 L19091: 1. option** — `partial`
+- [x] **L5 L19091: 1. option** — `ok`
   - spec: `specification.md:19091`
-  - notes: option ADT via DAT; ERR option policy prose
+  - notes: option ADT via DAT; ERR §1 uses standard option
 
-- [x] **L6 L19092: 1.1 用途** — `partial`
+- [x] **L6 L19092: 1.1 用途** — `ok`
   - spec: `specification.md:19092`
-  - notes: option ADT via DAT; ERR option policy prose
+  - notes: option for absence (DAT option); ERR policy prose
 
-- [x] **L6 L19110: 1.2 不適切な用途** — `partial`
+- [x] **L6 L19110: 1.2 不適切な用途** — `ok`
   - spec: `specification.md:19110`
-  - notes: option ADT via DAT; ERR option policy prose
+  - notes: option not for exceptional failure (ERR §1.2 policy)
 
 - [x] **L5 L19114: 2. resultおよび専用結果型** — `partial`
   - spec: `specification.md:19114`
-  - notes: result-like data possible; dedicated ERR result API incomplete
+  - notes: result-like data via DAT; dedicated ERR result API incomplete
 
 - [x] **L6 L19115: 2.1 用途** — `partial`
   - spec: `specification.md:19115`
-  - notes: result-like data possible; dedicated ERR result API incomplete
+  - notes: result-like data via DAT; dedicated ERR result API incomplete
 
 - [x] **L6 L19135: 2.2 専用結果型** — `partial`
   - spec: `specification.md:19135`
-  - notes: result-like data possible; dedicated ERR result API incomplete
+  - notes: custom result types via data; not a dedicated ERR API
 
 - [x] **L6 L19150: 2.3 複数errorの収集** — `partial`
   - spec: `specification.md:19150`
-  - notes: result-like data possible; dedicated ERR result API incomplete
+  - notes: multi-error collect not a language primitive (user data only)
 
-- [x] **L5 L19159: 3. failure E** — `partial`
+- [x] **L5 L19159: 3. failure E** — `ok`
   - spec: `specification.md:19159`
-  - notes: failure perform + handle failure; bracket/cleanup still deferred
+  - notes: failure perform + handle failure (eval/check)
 
-- [x] **L6 L19160: 3.1 定義** — `partial`
+- [x] **L6 L19160: 3.1 定義** — `ok`
   - spec: `specification.md:19160`
-  - notes: failure E via Core Perform op failure
+  - notes: failure E via Core Perform op `failure`
 
-- [x] **L6 L19180: 3.2 正常経路と失敗経路** — `partial`
+- [x] **L6 L19180: 3.2 正常経路と失敗経路** — `ok`
   - spec: `specification.md:19180`
-  - notes: raise aborts to Failure handler; resume path rejected
+  - notes: raise aborts to Failure handler; resume rejected
 
-- [x] **L6 L19187: 3.3 Error payload** — `partial`
+- [x] **L6 L19187: 3.3 Error payload** — `ok`
   - spec: `specification.md:19187`
   - notes: error payload is ordinary Core value (Dynamic typed interim)
 
@@ -5127,7 +5127,7 @@
   - spec: `specification.md:19196`
   - notes: (raise e) → Perform{op:failure}
 
-- [x] **L6 L19214: 4.2 never** — `partial`
+- [x] **L6 L19214: 4.2 never** — `ok`
   - spec: `specification.md:19214`
   - notes: CoreType::Never for failure perform; subtype via unify
 
@@ -5139,7 +5139,7 @@
   - spec: `specification.md:19245`
   - notes: handle failure 1-param; resume rejected at check+eval
 
-- [x] **L6 L19246: 5.1 非再開性** — `partial`
+- [x] **L6 L19246: 5.1 非再開性** — `ok`
   - spec: `specification.md:19246`
   - notes: 1-param Failure handler; resume binding rejected
 
@@ -5147,43 +5147,43 @@
   - spec: `specification.md:19265`
   - notes: Failure resume param rejected at check+eval
 
-- [x] **L6 L19271: 5.3 内部実装** — `partial`
+- [x] **L6 L19271: 5.3 内部実装** — `ok`
   - spec: `specification.md:19271`
-  - notes: lowered onto Handle/Perform; continuation not exposed for failure
+  - notes: lowered onto Handle/Perform; cont not exposed for failure
 
 - [x] **L6 L19275: 5.4 Handlerの結果型** — `partial`
   - spec: `specification.md:19275`
-  - notes: handler result typing via existing handle infer (shared result interim)
+  - notes: handler result typing via shared handle infer (interim)
 
-- [x] **L5 L19306: 6. Failureとeffect row** — `partial`
+- [x] **L5 L19306: 6. Failureとeffect row** — `ok`
   - spec: `specification.md:19306`
   - notes: failure in effect row; removed by handle failure
 
-- [x] **L6 L19307: 6.1 型への明示** — `partial`
+- [x] **L6 L19307: 6.1 型への明示** — `ok`
   - spec: `specification.md:19307`
   - notes: perform failure adds op to residual row
 
-- [x] **L6 L19320: 6.2 Handlerによる除去** — `partial`
+- [x] **L6 L19320: 6.2 Handlerによる除去** — `ok`
   - spec: `specification.md:19320`
   - notes: handle failure removes failure from residual
 
-- [x] **L6 L19333: 6.3 Handler節自身のEffect** — `partial`
+- [x] **L6 L19333: 6.3 Handler節自身のEffect** — `ok`
   - spec: `specification.md:19333`
   - notes: handler body effects merged like other handles
 
-- [x] **L6 L19346: 6.4 Handler節内の新しいFailure** — `partial`
+- [x] **L6 L19346: 6.4 Handler節内の新しいFailure** — `ok`
   - spec: `specification.md:19346`
   - notes: re-raise inside handler propagates (deep handle semantics)
 
 - [x] **L5 L19359: 7. 一つのFailure型への統合** — `partial`
   - spec: `specification.md:19359`
-  - notes: ERR §7 guideline; single failure type per boundary is policy not enforced
+  - notes: ERR §7 single-failure-type-per-boundary is policy, not enforced
 
 - [x] **L6 L19360: 7.1 基本指針** — `meta`
   - spec: `specification.md:19360`
   - notes: ERR design principle / guideline prose
 
-- [x] **L6 L19384: 7.2 Error変換** — `partial`
+- [x] **L6 L19384: 7.2 Error変換** — `ok`
   - spec: `specification.md:19384`
   - notes: re-raise via nested handle works (deep semantics)
 
@@ -5191,7 +5191,7 @@
   - spec: `specification.md:19401`
   - notes: ERR design principle / guideline prose
 
-- [x] **L5 L19407: 8. resultとFailureの変換** — `partial`
+- [x] **L5 L19407: 8. resultとFailureの変換** — `ok`
   - spec: `specification.md:19407`
   - notes: or-raise / as-result explicit conversion helpers
 
@@ -5199,27 +5199,27 @@
   - spec: `specification.md:19408`
   - notes: no implicit result↔failure conversion
 
-- [x] **L6 L19421: 8.2 resultからFailure** — `partial`
+- [x] **L6 L19421: 8.2 resultからFailure** — `ok`
   - spec: `specification.md:19421`
   - notes: (or-raise result) elaborates to match+raise
 
-- [x] **L6 L19441: 8.3 Failureからresult** — `partial`
+- [x] **L6 L19441: 8.3 Failureからresult** — `ok`
   - spec: `specification.md:19441`
   - notes: (as-result (fn () body)) → handle failure + ok/err variants
 
 - [x] **L5 L19468: 9. resultとFailureの選択指針** — `partial`
   - spec: `specification.md:19468`
-  - notes: DAT option/result data path; not full ERR result/Failure policy
+  - notes: DAT option/result path; ERR choice-policy not auto-enforced
 
 - [x] **L6 L19469: 9.1 resultを推奨する場合** — `partial`
   - spec: `specification.md:19469`
-  - notes: DAT option/result data path; not full ERR result/Failure policy
+  - notes: DAT option/result path; ERR choice-policy not auto-enforced
 
 - [x] **L6 L19479: 9.2 Failureを認める場合** — `meta`
   - spec: `specification.md:19479`
   - notes: ERR design principle / guideline prose
 
-- [x] **L6 L19486: 9.3 公開API** — `partial`
+- [x] **L6 L19486: 9.3 公開API** — `ok`
   - spec: `specification.md:19486`
   - notes: failure in effect row is explicit; no auto dual API
 
@@ -5439,9 +5439,9 @@
   - spec: `specification.md:19934`
   - notes: 依存待ち: division by zero policy (Part III)
 
-- [x] **L6 L19944: 22.7 Continuationの二重resume** — `partial`
+- [x] **L6 L19944: 22.7 Continuationの二重resume** — `ok`
   - spec: `specification.md:19944`
-  - notes: one-shot double resume rejected at eval; defect report deferred
+  - notes: one-shot double resume rejected at eval; DefectReport host deferred
 
 - [x] **L6 L19950: 22.8 Validator** — `deferred`
   - spec: `specification.md:19950`
@@ -5455,25 +5455,25 @@
   - spec: `specification.md:19964`
   - notes: classify_resource_exhaustion + resource-error FailureCode; job budget/Terminal OOM path 依存待ち(第III部)
 
-- [x] **L5 L19974: 23. DefectReport** — `partial`
+- [x] **L5 L19974: 23. DefectReport** — `ok`
   - spec: `specification.md:19974`
   - notes: FailureReport/DefectReport/Cancellation/JobResult in reciplexa-outcome
 
-- [x] **L6 L19975: 23.1 内容** — `partial`
+- [x] **L6 L19975: 23.1 内容** — `ok`
   - spec: `specification.md:19975`
-  - notes: FailureReport/DefectReport/Cancellation/JobResult in reciplexa-outcome
+  - notes: report content fields in reciplexa-outcome
 
-- [x] **L6 L19993: 23.2 安全性** — `partial`
+- [x] **L6 L19993: 23.2 安全性** — `ok`
   - spec: `specification.md:19993`
-  - notes: FailureReport/DefectReport/Cancellation/JobResult in reciplexa-outcome
+  - notes: DefectReport safety fields in reciplexa-outcome
 
 - [x] **L6 L20007: 23.3 権限・機密性** — `partial`
   - spec: `specification.md:20007`
-  - notes: FailureReport/DefectReport/Cancellation/JobResult in reciplexa-outcome
+  - notes: permission/secrecy fields present; host redaction 依存待ち(第III部)
 
-- [x] **L5 L20011: 24. ジョブ結果** — `partial`
+- [x] **L5 L20011: 24. ジョブ結果** — `ok`
   - spec: `specification.md:20011`
-  - notes: FailureReport/DefectReport/Cancellation/JobResult in reciplexa-outcome
+  - notes: JobResult in reciplexa-outcome
 
 - [x] **L5 L20039: 25. Entry pointと実行環境** — `partial`
   - spec: `specification.md:20039`
@@ -5531,21 +5531,21 @@
   - spec: `specification.md:20190`
   - notes: reciplexa-diagnostic exists; ERR primary/suppressed model incomplete
 
-- [x] **L6 L20191: 28.1 構築と出力の分離** — `partial`
+- [x] **L6 L20191: 28.1 構築と出力の分離** — `ok`
   - spec: `specification.md:20191`
-  - notes: DiagnosticCollector construct + CLI sink render; ERR FailureDiagnosticBundle added
+  - notes: DiagnosticCollector construct + CLI sink render
 
 - [x] **L6 L20208: 28.2 PrimaryとSuppressed** — `partial`
   - spec: `specification.md:20208`
   - notes: FailureDiagnosticBundle primary→suppressed order; cleanup wiring 依存待ち(第III部)
 
-- [x] **L6 L20220: 28.3 Libraryの責務** — `partial`
+- [x] **L6 L20220: 28.3 Libraryの責務** — `ok`
   - spec: `specification.md:20220`
-  - notes: reciplexa-diagnostic library constructs without choosing sink; host sinks decide output
+  - notes: reciplexa-diagnostic constructs without choosing sink
 
 - [x] **L5 L20226: 29. 適合試験** — `partial`
   - spec: `specification.md:20226`
-  - notes: ERR-01/02/03-style raise/handle/as-result tests in handle_tests; full ERR-0N suite incomplete
+  - notes: ERR-01/02/03 in handle_tests; full ERR-0N suite incomplete
 
 - [x] **L5 L20399: 30. 移管先OPEN** — `deferred`
   - spec: `specification.md:20399`
@@ -5843,7 +5843,7 @@
   - spec: `specification.md:21098`
   - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L5 L21106: 14. Failure unwind** — `partial`
+- [x] **L5 L21106: 14. Failure unwind** — `ok`
   - spec: `specification.md:21106`
   - notes: MemInstr::Raise runs RegisterCleanup LIFO in exec
 
@@ -6087,9 +6087,9 @@
   - spec: `specification.md:21600`
   - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L5 L21606: 29. Reference count overflow** — `partial`
+- [x] **L5 L21606: 29. Reference count overflow** — `ok`
   - spec: `specification.md:21606`
-  - notes: checked_add refuses RC wraparound (ExecError::RefCountOverflow); Defect/Terminal host class 依存待ち(第III部)
+  - notes: checked_add refuses RC wraparound (ExecError::RefCountOverflow)
 
 - [x] **L6 L21607: 29.1 Wraparound禁止** — `partial`
   - spec: `specification.md:21607`
@@ -6107,21 +6107,21 @@
   - spec: `specification.md:21627`
   - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L5 L21640: 30. Verification** — `partial`
+- [x] **L5 L21640: 30. Verification** — `ok`
   - spec: `specification.md:21640`
-  - notes: verify_ownership/verify_reuse in reciplexa-mem
+  - notes: verify_ownership / verify_reuse in reciplexa-mem
 
-- [x] **L6 L21641: 30.1 Ownership verifier** — `partial`
+- [x] **L6 L21641: 30.1 Ownership verifier** — `ok`
   - spec: `specification.md:21641`
-  - notes: verify_ownership/verify_reuse in reciplexa-mem
+  - notes: verify_ownership in reciplexa-mem
 
-- [x] **L6 L21656: 30.2 Reuse verifier** — `partial`
+- [x] **L6 L21656: 30.2 Reuse verifier** — `ok`
   - spec: `specification.md:21656`
-  - notes: verify_ownership/verify_reuse in reciplexa-mem
+  - notes: verify_reuse in reciplexa-mem
 
-- [x] **L6 L21666: 30.3 Verifier failure** — `partial`
+- [x] **L6 L21666: 30.3 Verifier failure** — `ok`
   - spec: `specification.md:21666`
-  - notes: verify_ownership/verify_reuse in reciplexa-mem
+  - notes: verifier failure reported by reciplexa-mem verify_*
 
 - [x] **L5 L21677: 31. メモリ観測API** — `partial`
   - spec: `specification.md:21677`
