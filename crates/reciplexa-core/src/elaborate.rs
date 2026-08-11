@@ -2874,12 +2874,13 @@ fn elaborate_local_decls(
             register_type_form(decl, ctx, /*require_value_binding*/ false)?;
             // Value annotations inside `local` must bind in the remaining decls.
             if head.text() == "type" {
-                let name = {
-                    let Atom::Token(name_tok) = &da[1] else {
-                        unreachable!("validated in register_type_form")
-                    };
-                    binder_name(name_tok)?
+                let Atom::Token(name_tok) = &da[1] else {
+                    return Err(ElaborateError::at_node(
+                        "`type` name must be an identifier",
+                        decl,
+                    ));
                 };
+                let name = binder_name(name_tok)?;
                 let rest_has = rest_decls.iter().any(|a| {
                     let Atom::Node(n) = a else {
                         return false;
@@ -3070,7 +3071,10 @@ fn parse_rec_val_bindings(
             register_type_form(decl, ctx, /*require_value_binding*/ false)?;
             if head.text() == "type" {
                 let Atom::Token(name_tok) = &da[1] else {
-                    unreachable!("validated in register_type_form")
+                    return Err(ElaborateError::at_node(
+                        "`type` name must be an identifier",
+                        decl,
+                    ));
                 };
                 pending_annotations.push(binder_name(name_tok)?);
             }
