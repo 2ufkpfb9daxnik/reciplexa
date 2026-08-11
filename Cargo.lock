@@ -3003,6 +3003,7 @@ dependencies = [
 name = "reciplexa-macro"
 version = "0.1.0"
 dependencies = [
+ "reciplexa-identity",
  "reciplexa-syntax",
 ]
 

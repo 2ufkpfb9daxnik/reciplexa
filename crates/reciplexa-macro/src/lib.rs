@@ -18,7 +18,9 @@ use reciplexa_syntax::{
 
 use doc_layout::layout_markup_parts;
 
-pub use lang_macro::{expand_language, EXPANSION_BUDGET};
+pub use lang_macro::{
+    expand_language, expand_language_with_map, ExpansionOrigin, MacroSourceMap, EXPANSION_BUDGET,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ExpandError {

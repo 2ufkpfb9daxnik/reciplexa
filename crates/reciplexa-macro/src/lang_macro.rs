@@ -7,11 +7,18 @@
 //! Legacy `(macro name (params) template)` without `->` is rejected.
 //! Calls `(name args...)` expand before elaborate/typecheck.
 //! Pattern rest `$body ...+` requires ≥1 argument; template `$body ...` splices.
+//!
+//! Nested `(module name …)` forms follow MAC §8.3–8.4: child scopes inherit
+//! parent macros defined earlier; sibling / later macros are not visible.
+//! Macro templates form a DAG (§12.4); cycles are rejected at definition time.
+//! [`expand_language_with_map`] records call/def SyntaxNodeId + spans (§19).
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
+use reciplexa_identity::syntax::SyntaxNodeId;
 use reciplexa_syntax::{
-    is_reserved_special_form, parse_source, SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken,
+    build_identity_map, is_reserved_special_form, parse_source, SyntaxElement, SyntaxKind,
+    SyntaxNode, SyntaxToken,
 };
 
 use crate::ExpandError;
@@ -28,6 +35,13 @@ enum Sexpr {
     List(Vec<Sexpr>),
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct Loc {
+    start: u32,
+    end: u32,
+    id: SyntaxNodeId,
+}
+
 #[derive(Debug, Clone)]
 struct MacroDef {
     /// Fixed pattern variables (each starts with `$`).
@@ -35,6 +49,25 @@ struct MacroDef {
     /// Optional trailing rest variable bound by `$rest ...+` (one-or-more).
     rest: Option<String>,
     template: Sexpr,
+    def_loc: Option<Loc>,
+}
+
+/// One successful macro rewrite (MAC §19 provenance / source map).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExpansionOrigin {
+    pub macro_name: String,
+    pub call_span: (u32, u32),
+    pub def_span: (u32, u32),
+    pub call_id: SyntaxNodeId,
+    pub def_id: SyntaxNodeId,
+    /// Expansion chain from outer call to this rewrite (inclusive).
+    pub chain: Vec<String>,
+}
+
+/// Source map produced alongside expansion (MAC §19.3).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct MacroSourceMap {
+    pub origins: Vec<ExpansionOrigin>,
 }
 
 /// Expand user `(macro …)` definitions and calls; leave graphics sugar alone.
@@ -42,6 +75,11 @@ struct MacroDef {
 /// Macro definitions are stripped from the output. Remaining forms are rewritten
 /// with a fixed expansion budget ([`EXPANSION_BUDGET`]).
 pub fn expand_language(input: &str) -> Result<String, ExpandError> {
+    Ok(expand_language_with_map(input)?.0)
+}
+
+/// Expand language macros and return the MAC §19 provenance / source map.
+pub fn expand_language_with_map(input: &str) -> Result<(String, MacroSourceMap), ExpandError> {
     let parse = parse_source(input);
     if !parse.errors.is_empty() {
         return Err(ExpandError::new(format!(
@@ -50,11 +88,36 @@ pub fn expand_language(input: &str) -> Result<String, ExpandError> {
         )));
     }
 
-    let forms = top_level_forms(&parse.root)?;
-    // Pass 1: record where each macro and value binding is defined (MAC-10 / §9.3).
+    let ids = build_identity_map(&parse.root);
+    let forms = top_level_forms(&parse.root, &ids)?;
+    let mut budget = EXPANSION_BUDGET;
+    let mut gensym = 0u64;
+    let mut source_map = MacroSourceMap::default();
+    let mut chain = Vec::new();
+    let out_forms = expand_scope(
+        forms,
+        &HashMap::new(),
+        &mut budget,
+        &mut gensym,
+        &mut source_map,
+        &mut chain,
+    )?;
+    Ok((render_forms(&out_forms), source_map))
+}
+
+/// Expand a declaration scope with inherited parent macros (MAC §8.3–8.4).
+fn expand_scope(
+    forms: Vec<(Sexpr, Option<Loc>)>,
+    inherited: &HashMap<String, MacroDef>,
+    budget: &mut u32,
+    gensym: &mut u64,
+    source_map: &mut MacroSourceMap,
+    chain: &mut Vec<String>,
+) -> Result<Vec<Sexpr>, ExpandError> {
+    // Pass 1: record local macro / value binding positions (MAC-10 / §9.3 / §8.4).
     let mut macro_at: HashMap<String, usize> = HashMap::new();
     let mut value_at: HashMap<String, usize> = HashMap::new();
-    for (i, form) in forms.iter().enumerate() {
+    for (i, (form, _)) in forms.iter().enumerate() {
         if let Some(name) = peek_macro_def_name(form)? {
             if macro_at.contains_key(&name) {
                 return Err(ExpandError::new(format!(
@@ -88,22 +151,32 @@ pub fn expand_language(input: &str) -> Result<String, ExpandError> {
         }
     }
 
-    // Pass 2: expand left-to-right; only macros defined earlier are visible.
-    let mut macros: HashMap<String, MacroDef> = HashMap::new();
+    // Pass 2: expand left-to-right; child modules inherit macros visible so far.
+    let mut macros = inherited.clone();
     let mut out_forms = Vec::new();
-    let mut budget = EXPANSION_BUDGET;
-    let mut gensym = 0u64;
 
-    for (i, form) in forms.into_iter().enumerate() {
-        if let Some((name, def)) = try_macro_def(&form)? {
+    for (i, (form, loc)) in forms.into_iter().enumerate() {
+        if let Some((name, mut def)) = try_macro_def(&form)? {
             if value_at.contains_key(&name) {
                 return Err(ExpandError::new(format!(
                     "macro `{name}` conflicts with an existing value binding in the same scope"
                 )));
             }
+            def.def_loc = loc;
             macros.insert(name, def);
+            assert_macro_graph_dag(&macros)?;
             continue;
         }
+
+        if let Some((mod_name, body)) = try_module_form(&form)? {
+            // §8.3: submodule sees parent macros defined earlier (current `macros`).
+            let body_out = expand_scope(body, &macros, budget, gensym, source_map, chain)?;
+            let mut items = vec![Sexpr::Atom("module".into()), Sexpr::Atom(mod_name)];
+            items.extend(body_out);
+            out_forms.push(Sexpr::List(items));
+            continue;
+        }
+
         // MAC §3.3 / MAC-12: expression macros cannot head a top-level form.
         if let Sexpr::List(items) = &form {
             if let Some(Sexpr::Atom(head)) = items.first() {
@@ -114,12 +187,20 @@ pub fn expand_language(input: &str) -> Result<String, ExpandError> {
                 }
             }
         }
-        // MAC-10: reject uses of macros defined later in the file.
+
+        // MAC-10 / §8.4: reject uses of macros defined later *in this scope*.
         check_macro_defined_at(&form, i, &macro_at)?;
-        out_forms.push(expand_sexpr(form, &macros, &mut budget, &mut gensym)?);
+        let mut cx = ExpandCx {
+            macros: &macros,
+            budget,
+            gensym,
+            source_map,
+            chain,
+        };
+        out_forms.push(expand_sexpr(form, loc, &mut cx)?);
     }
 
-    Ok(render_forms(&out_forms))
+    Ok(out_forms)
 }
 
 fn peek_value_def_name(form: &Sexpr) -> Result<Option<String>, ExpandError> {
@@ -164,6 +245,30 @@ fn peek_macro_def_name(form: &Sexpr) -> Result<Option<String>, ExpandError> {
     }
 }
 
+type ModuleBody = Vec<(Sexpr, Option<Loc>)>;
+
+/// `(module name form…)` — body forms keep optional locations when present.
+fn try_module_form(form: &Sexpr) -> Result<Option<(String, ModuleBody)>, ExpandError> {
+    let Sexpr::List(items) = form else {
+        return Ok(None);
+    };
+    let Some(Sexpr::Atom(head)) = items.first() else {
+        return Ok(None);
+    };
+    if head != "module" {
+        return Ok(None);
+    }
+    let Some(Sexpr::Atom(name)) = items.get(1) else {
+        return Err(ExpandError::new("`module` requires `(module name …)`"));
+    };
+    let body = items[2..]
+        .iter()
+        .cloned()
+        .map(|f| (f, None))
+        .collect::<Vec<_>>();
+    Ok(Some((name.clone(), body)))
+}
+
 /// Walk `expr` and reject calls to macros whose definition appears after `pos`.
 fn check_macro_defined_at(
     expr: &Sexpr,
@@ -188,6 +293,77 @@ fn check_macro_defined_at(
             Ok(())
         }
     }
+}
+
+/// MAC §12.4: templates of defined macros must form a DAG.
+fn assert_macro_graph_dag(macros: &HashMap<String, MacroDef>) -> Result<(), ExpandError> {
+    let mut edges: HashMap<String, Vec<String>> = HashMap::new();
+    for (name, def) in macros {
+        let mut refs = Vec::new();
+        collect_macro_refs(&def.template, macros, &mut refs);
+        edges.insert(name.clone(), refs);
+    }
+
+    let mut visiting = HashSet::new();
+    let mut visited = HashSet::new();
+    let mut stack = Vec::new();
+    for name in edges.keys() {
+        if !visited.contains(name) {
+            if let Some(cycle) = dfs_cycle(name, &edges, &mut visiting, &mut visited, &mut stack) {
+                return Err(ExpandError::new(format!(
+                    "macro reference graph contains a cycle: {}",
+                    cycle.join(" → ")
+                )));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn collect_macro_refs(expr: &Sexpr, macros: &HashMap<String, MacroDef>, out: &mut Vec<String>) {
+    match expr {
+        Sexpr::Atom(_) => {}
+        Sexpr::List(items) => {
+            if let Some(Sexpr::Atom(head)) = items.first() {
+                if !head.starts_with('$') && macros.contains_key(head) && !out.contains(head) {
+                    out.push(head.clone());
+                }
+            }
+            for item in items {
+                collect_macro_refs(item, macros, out);
+            }
+        }
+    }
+}
+
+fn dfs_cycle(
+    node: &str,
+    edges: &HashMap<String, Vec<String>>,
+    visiting: &mut HashSet<String>,
+    visited: &mut HashSet<String>,
+    stack: &mut Vec<String>,
+) -> Option<Vec<String>> {
+    if visited.contains(node) {
+        return None;
+    }
+    if !visiting.insert(node.to_string()) {
+        let start = stack.iter().position(|n| n == node).unwrap_or(0);
+        let mut cycle: Vec<String> = stack[start..].to_vec();
+        cycle.push(node.to_string());
+        return Some(cycle);
+    }
+    stack.push(node.to_string());
+    if let Some(nbrs) = edges.get(node) {
+        for n in nbrs {
+            if let Some(cycle) = dfs_cycle(n, edges, visiting, visited, stack) {
+                return Some(cycle);
+            }
+        }
+    }
+    stack.pop();
+    visiting.remove(node);
+    visited.insert(node.to_string());
+    None
 }
 
 fn is_reserved(name: &str) -> bool {
@@ -236,6 +412,7 @@ fn try_macro_def(form: &Sexpr) -> Result<Option<(String, MacroDef)>, ExpandError
             params,
             rest,
             template: template.clone(),
+            def_loc: None,
         },
     )))
 }
@@ -243,7 +420,7 @@ fn try_macro_def(form: &Sexpr) -> Result<Option<(String, MacroDef)>, ExpandError
 fn parse_macro_params(param_items: &[Sexpr]) -> Result<(Vec<String>, Option<String>), ExpandError> {
     let mut params = Vec::new();
     let mut rest = None;
-    let mut seen = std::collections::HashSet::new();
+    let mut seen = HashSet::new();
     let mut i = 0;
     while i < param_items.len() {
         let Sexpr::Atom(pname) = &param_items[i] else {
@@ -305,17 +482,14 @@ fn check_template_vars(
     params: &[String],
     rest: Option<&str>,
 ) -> Result<(), ExpandError> {
-    let mut bound: std::collections::HashSet<&str> = params.iter().map(|s| s.as_str()).collect();
+    let mut bound: HashSet<&str> = params.iter().map(|s| s.as_str()).collect();
     if let Some(r) = rest {
         bound.insert(r);
     }
     walk_template_vars(template, &bound)
 }
 
-fn walk_template_vars(
-    expr: &Sexpr,
-    bound: &std::collections::HashSet<&str>,
-) -> Result<(), ExpandError> {
+fn walk_template_vars(expr: &Sexpr, bound: &HashSet<&str>) -> Result<(), ExpandError> {
     match expr {
         Sexpr::Atom(name) if name.starts_with('$') && name != "..." && name != "...+" => {
             if !bound.contains(name.as_str()) {
@@ -335,23 +509,31 @@ fn walk_template_vars(
     }
 }
 
+struct ExpandCx<'a> {
+    macros: &'a HashMap<String, MacroDef>,
+    budget: &'a mut u32,
+    gensym: &'a mut u64,
+    source_map: &'a mut MacroSourceMap,
+    chain: &'a mut Vec<String>,
+}
+
 fn expand_sexpr(
     expr: Sexpr,
-    macros: &HashMap<String, MacroDef>,
-    budget: &mut u32,
-    gensym: &mut u64,
+    site: Option<Loc>,
+    cx: &mut ExpandCx<'_>,
 ) -> Result<Sexpr, ExpandError> {
     match expr {
         Sexpr::Atom(_) => Ok(expr),
         Sexpr::List(items) => {
             if let Some(Sexpr::Atom(head)) = items.first() {
-                if let Some(def) = macros.get(head) {
-                    return expand_call(head, def, &items[1..], macros, budget, gensym);
+                if let Some(def) = cx.macros.get(head).cloned() {
+                    return expand_call(head, &def, &items[1..], site, cx);
                 }
             }
             let mut out = Vec::with_capacity(items.len());
             for item in items {
-                out.push(expand_sexpr(item, macros, budget, gensym)?);
+                // Preserve enclosing form span as a fallback call site (minimum source map).
+                out.push(expand_sexpr(item, site, cx)?);
             }
             Ok(Sexpr::List(out))
         }
@@ -362,14 +544,13 @@ fn expand_call(
     name: &str,
     def: &MacroDef,
     args: &[Sexpr],
-    macros: &HashMap<String, MacroDef>,
-    budget: &mut u32,
-    gensym: &mut u64,
+    site: Option<Loc>,
+    cx: &mut ExpandCx<'_>,
 ) -> Result<Sexpr, ExpandError> {
-    if *budget == 0 {
+    if *cx.budget == 0 {
         return Err(ExpandError::new("macro expansion limit exceeded"));
     }
-    *budget -= 1;
+    *cx.budget -= 1;
 
     let fixed = def.params.len();
     match &def.rest {
@@ -391,8 +572,21 @@ fn expand_call(
         }
     }
 
+    if let (Some(call), Some(def_loc)) = (site, def.def_loc) {
+        let mut full_chain = cx.chain.clone();
+        full_chain.push(name.to_string());
+        cx.source_map.origins.push(ExpansionOrigin {
+            macro_name: name.to_string(),
+            call_span: (call.start, call.end),
+            def_span: (def_loc.start, def_loc.end),
+            call_id: call.id,
+            def_id: def_loc.id,
+            chain: full_chain,
+        });
+    }
+
     // Hygiene v0: rename binders introduced by the template, then substitute params.
-    let renamed = hygienic_rename(&def.template, gensym);
+    let renamed = hygienic_rename(&def.template, cx.gensym);
     let mut subst = HashMap::new();
     for (param, arg) in def.params.iter().zip(args.iter()) {
         subst.insert(param.clone(), arg.clone());
@@ -402,7 +596,10 @@ fn expand_call(
         subst.insert(rest_name.clone(), Sexpr::List(rest_args));
     }
     let filled = substitute(&renamed, &subst);
-    expand_sexpr(filled, macros, budget, gensym)
+    cx.chain.push(name.to_string());
+    let out = expand_sexpr(filled, site, cx)?;
+    cx.chain.pop();
+    Ok(out)
 }
 
 /// Rename `fn` / `let` binders in `template` to fresh gensym names.
@@ -632,7 +829,18 @@ fn substitute(expr: &Sexpr, subst: &HashMap<String, Sexpr>) -> Sexpr {
     }
 }
 
-fn top_level_forms(root: &SyntaxNode) -> Result<Vec<Sexpr>, ExpandError> {
+fn loc_of(node: &SyntaxNode, ids: &reciplexa_syntax::SyntaxIdentityMap) -> Loc {
+    let range = node.text_range();
+    let start = u32::from(range.start());
+    let end = u32::from(range.end());
+    let id = ids.get(range).unwrap_or(SyntaxNodeId::INVALID);
+    Loc { start, end, id }
+}
+
+fn top_level_forms(
+    root: &SyntaxNode,
+    ids: &reciplexa_syntax::SyntaxIdentityMap,
+) -> Result<Vec<(Sexpr, Option<Loc>)>, ExpandError> {
     let mut forms = Vec::new();
     for el in root.children_with_tokens() {
         match el {
@@ -640,7 +848,7 @@ fn top_level_forms(root: &SyntaxNode) -> Result<Vec<Sexpr>, ExpandError> {
                 if t.kind().is_trivia() {
                     continue;
                 }
-                forms.push(token_to_sexpr(&t)?);
+                forms.push((token_to_sexpr(&t)?, None));
             }
             SyntaxElement::Node(n) => match n.kind() {
                 SyntaxKind::StructuredComment => continue,
@@ -648,7 +856,7 @@ fn top_level_forms(root: &SyntaxNode) -> Result<Vec<Sexpr>, ExpandError> {
                 | SyntaxKind::BracketList
                 | SyntaxKind::BraceList
                 | SyntaxKind::AtExpr => {
-                    forms.push(node_to_sexpr(&n)?);
+                    forms.push((node_to_sexpr(&n)?, Some(loc_of(&n, ids))));
                 }
                 other => {
                     return Err(ExpandError::new(format!(
@@ -811,10 +1019,87 @@ mod tests {
     }
 
     #[test]
-    fn expansion_budget_trips() {
+    fn rejects_self_recursive_macro_graph() {
         let src = "(macro loop ($x) -> (loop $x))\n(val main (loop 1))";
         let err = expand_language(src).unwrap_err();
-        assert!(err.message.contains("limit exceeded"));
+        assert!(err.message.contains("cycle"), "unexpected: {}", err.message);
+    }
+
+    #[test]
+    fn rejects_mutual_recursive_macro_graph() {
+        let src = r#"
+(macro a ($x) -> (b $x))
+(macro b ($x) -> (a $x))
+(val main (a 1))
+"#;
+        let err = expand_language(src).unwrap_err();
+        assert!(err.message.contains("cycle"), "unexpected: {}", err.message);
+    }
+
+    #[test]
+    fn allows_forward_use_of_prior_macro() {
+        let src = r#"
+(macro unless ($condition $expression) -> (if $condition unit $expression))
+(macro unless-ready ($body ...+) -> (unless ready? $body ...))
+(val main (unless-ready 1))
+"#;
+        let out = expand_language(src).unwrap();
+        assert_eq!(out, "(val main (if ready? unit 1))");
+    }
+
+    #[test]
+    fn nested_module_sees_parent_macro() {
+        let src = r#"
+(macro when ($condition $body ...+) -> (if $condition (seq $body ...) unit))
+(module rendering
+  (val render-if-ready (when ready? 1)))
+"#;
+        let out = expand_language(src).unwrap();
+        assert!(out.contains("(module rendering"), "{out}");
+        assert!(out.contains("(if ready? (seq 1) unit)"), "{out}");
+        assert!(!out.contains("(when "), "{out}");
+    }
+
+    #[test]
+    fn sibling_module_macro_not_visible() {
+        let src = r#"
+(module a
+  (macro secret ($x) -> $x)
+  (val x (secret 1)))
+(module b
+  (val y (secret 2)))
+"#;
+        let out = expand_language(src).unwrap();
+        // `secret` stays as a normal call in sibling `b` (not expanded).
+        assert!(out.contains("(secret 2)"), "{out}");
+        assert!(out.contains("(val x 1)"), "{out}");
+    }
+
+    #[test]
+    fn child_macro_does_not_leak_to_parent() {
+        let src = r#"
+(module a
+  (macro secret ($x) -> $x)
+  (val x (secret 1)))
+(val y (secret 2))
+"#;
+        let out = expand_language(src).unwrap();
+        assert!(out.contains("(secret 2)"), "{out}");
+    }
+
+    #[test]
+    fn provenance_records_call_and_def_ids() {
+        let src = "(macro when ($c $b) -> (if $c $b unit))\n(val main (when true 1))";
+        let (out, map) = expand_language_with_map(src).unwrap();
+        assert_eq!(out, "(val main (if true 1 unit))");
+        assert!(!map.origins.is_empty(), "expected provenance origins");
+        let o = &map.origins[0];
+        assert_eq!(o.macro_name, "when");
+        assert!(o.call_id.is_valid(), "call SyntaxNodeId");
+        assert!(o.def_id.is_valid(), "def SyntaxNodeId");
+        assert!(o.call_span.0 < o.call_span.1);
+        assert!(o.def_span.0 < o.def_span.1);
+        assert!(o.chain.iter().any(|n| n == "when"));
     }
 
     #[test]

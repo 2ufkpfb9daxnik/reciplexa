@@ -7,4 +7,5 @@ description = "Surface macro expansion for reciplexa (.rpx)"
 publish = false
 
 [dependencies]
+reciplexa-identity = { workspace = true }
 reciplexa-syntax = { workspace = true }
