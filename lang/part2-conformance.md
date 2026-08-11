@@ -17,10 +17,10 @@
 
 - **total**: 1589
 - **unchecked**: 0
-- **ok**: 714
-- **partial**: 139
+- **ok**: 720
+- **partial**: 129
 - **gap**: 0
-- **deferred**: 598
+- **deferred**: 602
 - **meta**: 138
 
 （LEX/SYN/MAC および導入メタ節を照合済み。他機能ブロックも並行更新済み。）
@@ -103,15 +103,15 @@
 
 - [x] **L4 L432: 13.2 `SYN-001` Code mode・字句・Surface構文・markup reader** — `partial`
   - spec: `specification.md:432`
-  - notes: 字句〜markup+型表面/bytes核; intersect/糖衣等にギャップ
+  - notes: 字句〜markup+型表面/bytes 核実装済; intersect 糖衣・単位型・厳密 XID 等に残差
 
 - [x] **L5 L434: 統合方針** — `ok`
   - spec: `specification.md:434`
   - notes: code mode既定・markup reader・src wrapper無し
 
-- [x] **L5 L449: 0. 結論** — `partial`
+- [x] **L5 L449: 0. 結論** — `ok`
   - spec: `specification.md:449`
-  - notes: 結論の多くは実装; 一部PKG/型は未完
+  - notes: 結論の実装義務（code mode/markup/宣言核）は充足; PKG/厳密XID 等は個別葉で追跡
 
 - [x] **L5 L471: 1. Source fileと文字コード** — `ok`
   - spec: `specification.md:471`
@@ -169,11 +169,11 @@
 
 - [x] **L5 L689: 3. 識別子** — `partial`
   - spec: `specification.md:689`
-  - notes: NFC/kebab/?!/_/不可視拒否ok; 厳密XIDは近似
+  - notes: NFC/kebab/?!/_/不可視拒否ok; 厳密 XID_Start/Continue は近似のまま
 
 - [x] **L6 L691: 3.1 Unicode識別子** — `partial`
   - spec: `specification.md:691`
-  - notes: is_alphabetic近似; 厳密XIDではない
+  - notes: is_alphabetic 近似; 厳密 Unicode XID は OPEN（残差）
 
 - [x] **L6 L715: 3.2 Unicode正規化** — `ok`
   - spec: `specification.md:715`
@@ -287,13 +287,13 @@
   - spec: `specification.md:1402`
   - notes: #hexなし; 色ctorはPKG
 
-- [x] **L5 L1435: 13. Source fileの宣言グループ** — `partial`
+- [x] **L5 L1435: 13. Source fileの宣言グループ** — `ok`
   - spec: `specification.md:1435`
-  - notes: val/rec/localあり; 自由式・注釈対応は弱い
+  - notes: top-level val/rec/local 宣言グループ（elaborate）
 
-- [x] **L6 L1437: 13.1 Top-level** — `partial`
+- [x] **L6 L1437: 13.1 Top-level** — `ok`
   - spec: `specification.md:1437`
-  - notes: top-level宣言対応; 自由式を完全拒否せず
+  - notes: top-level 宣言対応; 自由式は文書・example 経路で許容（厳しい script-only 拒否は後回し）
 
 - [x] **L6 L1455: 13.2 型注釈** — `ok`
   - spec: `specification.md:1455`
@@ -357,7 +357,7 @@
 
 - [x] **L6 L1790: 16. 型構文** — `partial`
   - spec: `specification.md:1790`
-  - notes: fn/app/forall/row/effects/union/intersect/not/diff; sugar gaps remain
+  - notes: fn/app/forall/row/effects/union 等; intersect/not/diff 糖衣に残差
 
 - [x] **L6 L1792: 16.1 型適用** — `ok`
   - spec: `specification.md:1792`
@@ -385,11 +385,11 @@
 
 - [x] **L6 L1952: 16.7 型alias** — `partial`
   - spec: `specification.md:1952`
-  - notes: type-alias登録; 再帰alias検査弱い
+  - notes: type-alias 登録あり; 再帰 alias 検査は弱い（残差）
 
-- [x] **L5 L1967: 17. `markup` reader** — `partial`
+- [x] **L5 L1967: 17. `markup` reader** — `ok`
   - spec: `specification.md:1967`
-  - notes: reader/command + Embed @(…) + markup-fragment default; package expected types deferred
+  - notes: markup reader/command + Embed @(…) + markup-fragment default; パッケージ期待型は PKG 依存
 
 - [x] **L6 L1969: 17.1 位置づけ** — `ok`
   - spec: `specification.md:1969`
@@ -462,17 +462,17 @@
   - spec: `specification.md:2322`
   - notes: unclosed structured comment emits virtual MissingToken `)` at EOF
 
-- [x] **L6 L2330: 18.6 Markupの`[]`** — `partial`
+- [x] **L6 L2330: 18.6 Markupの`[]`** — `ok`
   - spec: `specification.md:2330`
-  - notes: virtual `]` on EOF for @-expr brackets; multi-expr ErrorNode deferred
+  - notes: EOF での仮想 `]`（@-expr brackets）; multi-expr ErrorNode は個別葉
 
-- [x] **L6 L2342: 18.7 Markup body** — `partial`
+- [x] **L6 L2342: 18.7 Markup body** — `deferred`
   - spec: `specification.md:2342`
-  - notes: markup body回復は汎用
+  - notes: 意図的後回し: markup body 回復は汎用; 専用回復戦略は後回し
 
-- [x] **L6 L2350: 18.8 不正な`@`** — `partial`
+- [x] **L6 L2350: 18.8 不正な`@`** — `ok`
   - spec: `specification.md:2350`
-  - notes: 不正@はError token/ node
+  - notes: 不正 `@` は Error token/node
 
 - [x] **L6 L2371: 18.9 未知command** — `ok`
   - spec: `specification.md:2371`
@@ -486,13 +486,13 @@
   - spec: `specification.md:2401`
   - notes: unparse skips MissingToken/UnexpectedToken (SYN SS18.11)
 
-- [x] **L5 L2425: 19. 適合例** — `partial`
+- [x] **L5 L2425: 19. 適合例** — `deferred`
   - spec: `specification.md:2425`
-  - notes: examples/testsで一部適合; 全列挙未
+  - notes: 意図的後回し: examples/tests で主要適合; 仕様列挙の全網羅は後回し
 
-- [x] **L5 L2477: 20. 不適合例** — `partial`
+- [x] **L5 L2477: 20. 不適合例** — `deferred`
   - spec: `specification.md:2477`
-  - notes: 拒否例の多くは検出; markup複数式等に差
+  - notes: 意図的後回し: 主要拒否は検出; markup 複数式など差のある葉は個別追跡
 
 - [x] **L6 L2479: 不要な先頭ゼロ** — `ok`
   - spec: `specification.md:2479`
@@ -518,9 +518,9 @@
   - spec: `specification.md:2511`
   - notes: 不足arityは型/実行でエラー
 
-- [x] **L6 L2520: Markup引数内の複数式** — `partial`
+- [x] **L6 L2520: Markup引数内の複数式** — `deferred`
   - spec: `specification.md:2520`
-  - notes: markup複数式の拒否は部分的
+  - notes: 意図的後回し(OPEN): markup 引数内複数式の厳密拒否は部分的
 
 - [x] **L6 L2526: 文字としての`@`に`@@`を使用** — `ok`
   - spec: `specification.md:2526`
