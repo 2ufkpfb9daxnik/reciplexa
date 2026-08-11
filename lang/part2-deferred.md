@@ -6,10 +6,10 @@
 
 ### 分類ごとの件数
 
-- **合計**: 431
-- **仕様未決定**: 49
-- **意図的後回し**: 267
-- **依存待ち**: 115
+- **合計**: 518
+- **仕様未決定**: 51
+- **意図的後回し**: 277
+- **依存待ち**: 190
 - **要確認**: 0
 
 分類の見方:
@@ -21,7 +21,7 @@
 
 ---
 
-## 仕様未決定（49）
+## 仕様未決定（51）
 
 ### L427: 未決定
 - **機能ブロック**: `LEX`
@@ -233,6 +233,11 @@
 - **notes**: OPEN transfer; deferred
 - **分類**: 仕様未決定
 
+### L21338: 20. Concurrencyへの接続
+- **機能ブロック**: `MEM`
+- **notes**: 依存待ち(ASY)|仕様未決定: OPEN-CON-001 atomic RC / Send/Share
+- **分類**: 仕様未決定
+
 ### L21908: `OPEN-MEM-CELL-001`
 - **機能ブロック**: `MEM`
 - **notes**: OPEN transfer; deferred
@@ -268,9 +273,14 @@
 - **notes**: ASY-001 未決定; runtime scheduler exists but language async unspecified
 - **分類**: 仕様未決定
 
+### L22039: Black/white box
+- **機能ブロック**: `TST`
+- **notes**: 仕様未決定: test-module/test-of white-box companion surface
+- **分類**: 仕様未決定
+
 ---
 
-## 意図的後回し（267）
+## 意図的後回し（277）
 
 ### L1360: 12. 単位と色
 - **機能ブロック**: `SYN`
@@ -447,6 +457,11 @@
 - **notes**: OPEN移管カタログ
 - **分類**: 意図的後回し
 
+### L10176: namespace collision warning
+- **機能ブロック**: `TYP`
+- **notes**: namespace collision warnings deferred (NAME-002)
+- **分類**: 意図的後回し
+
 ### L10878: `DD-TYP-EFF-006`: EffectRow alias
 - **機能ブロック**: `TYP`
 - **notes**: effect-row polymorphism / aliases not full
@@ -590,6 +605,41 @@
 ### L12496: `DD-TYP-SOLVER-007`: checkerの全体処理順序
 - **機能ブロック**: `TYP`
 - **notes**: overall checker processing order deferred
+- **分類**: 意図的後回し
+
+### L12744: Function intersection coherence
+- **機能ブロック**: `TYP`
+- **notes**: function intersection coherence suite deferred
+- **分類**: 意図的後回し
+
+### L12770: 非比較なbranch overlap
+- **機能ブロック**: `TYP`
+- **notes**: incomparable branch overlap suite deferred
+- **分類**: 意図的後回し
+
+### L12786: Union引数の暗黙dispatch禁止
+- **機能ブロック**: `TYP`
+- **notes**: union-arg implicit dispatch forbidden suite deferred
+- **分類**: 意図的後回し
+
+### L12893: Recursive data
+- **機能ブロック**: `TYP`
+- **notes**: recursive data conformance suite deferred
+- **分類**: 意図的後回し
+
+### L12916: 非contractive再帰
+- **機能ブロック**: `TYP`
+- **notes**: non-contractive recursion suite deferred
+- **分類**: 意図的後回し
+
+### L12930: Non-regular recursion
+- **機能ブロック**: `TYP`
+- **notes**: non-regular recursion suite deferred
+- **分類**: 意図的後回し
+
+### L13022: Solver determinism
+- **機能ブロック**: `TYP`
+- **notes**: solver determinism suite deferred with worklist
 - **分類**: 意図的後回し
 
 ### L13579: `DD-EFF-008`: return clause
@@ -1602,14 +1652,24 @@
 - **notes**: module signature checking deferred with MOD signatures
 - **分類**: 意図的後回し
 
+### L22529: 22.5 Property/differential/fuzz
+- **機能ブロック**: `TST`
+- **notes**: 意図的後回し: property/differential/fuzz harness (harden fuzz hook only)
+- **分類**: 意図的後回し
+
 ### L22593: 段階5: 統合試験を通過
 - **機能ブロック**: `TST`
 - **notes**: multi-package/GUI/resource integration post-PKG
 - **分類**: 意図的後回し
 
+### L22601: 段階6: 差分・生成・fuzzを通過
+- **機能ブロック**: `TST`
+- **notes**: 意図的後回し: stage-6 generators/differential/fuzz gate
+- **分類**: 意図的後回し
+
 ---
 
-## 依存待ち（115）
+## 依存待ち（190）
 
 ### L8609: `DD-TYP-DYN-010`: foreign値のdynamic導入
 - **機能ブロック**: `TYP`
@@ -2184,6 +2244,381 @@
 ### L18835: 29. 最終状態
 - **機能ブロック**: `EDT`
 - **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L19496: 10. Resource cleanup
+- **機能ブロック**: `ERR`
+- **notes**: 依存待ち: bracket primitive + release guarantees (Part III runtime)
+- **分類**: 依存待ち
+
+### L19497: 10.1 基本primitive
+- **機能ブロック**: `ERR`
+- **notes**: 依存待ち: bracket acquire/use/release (Part III runtime)
+- **分類**: 依存待ち
+
+### L19515: 10.2 役割
+- **機能ブロック**: `ERR`
+- **notes**: 依存待ち: bracket roles (Part III runtime)
+- **分類**: 依存待ち
+
+### L19525: 10.3 特別な保証
+- **機能ブロック**: `ERR`
+- **notes**: 依存待ち: bracket release guarantees (Part III runtime)
+- **分類**: 依存待ち
+
+### L19535: 11. Acquire規則
+- **機能ブロック**: `ERR`
+- **notes**: 依存待ち: acquire/release registration (Part III runtime)
+- **分類**: 依存待ち
+
+### L19536: 11.1 Release登録
+- **機能ブロック**: `ERR`
+- **notes**: 依存待ち: acquire failure skip release (Part III runtime)
+- **分類**: 依存待ち
+
+### L19540: 11.2 Acquire failure
+- **機能ブロック**: `ERR`
+- **notes**: 依存待ち: partial acquire (Part III runtime)
+- **分類**: 依存待ち
+
+### L19552: 11.3 部分取得
+- **機能ブロック**: `ERR`
+- **notes**: 依存待ち: nested bracket on partial acquire (Part III runtime)
+- **分類**: 依存待ち
+
+### L19558: 12. Useの正常終了
+- **機能ブロック**: `ERR`
+- **notes**: 依存待ち: use normal completion + release (Part III runtime)
+- **分類**: 依存待ち
+
+### L19570: 13. Use中のFailure
+- **機能ブロック**: `ERR`
+- **notes**: 依存待ち: failure during use + release (Part III runtime)
+- **分類**: 依存待ち
+
+### L19581: 14. 一般Effectと継続
+- **機能ブロック**: `ERR`
+- **notes**: 依存待ち: effect suspend + continuation cleanup (Part III runtime)
+- **分類**: 依存待ち
+
+### L19582: 14.1 一時中断
+- **機能ブロック**: `ERR`
+- **notes**: 依存待ち: temporary effect suspend (Part III runtime)
+- **分類**: 依存待ち
+
+### L19594: 14.2 Resume
+- **機能ブロック**: `ERR`
+- **notes**: 依存待ち: resume without release (Part III runtime)
+- **分類**: 依存待ち
+
+### L19598: 14.3 Discard
+- **機能ブロック**: `ERR`
+- **notes**: 依存待ち: discard continuation cleanup (Part III runtime)
+- **分類**: 依存待ち
+
+### L19620: 14.5 継続escape
+- **機能ブロック**: `ERR`
+- **notes**: 依存待ち: continuation escape cleanup (Part III runtime)
+- **分類**: 依存待ち
+
+### L19638: 15. Cleanup順序と回数
+- **機能ブロック**: `ERR`
+- **notes**: 依存待ち: cleanup LIFO order (Part III runtime)
+- **分類**: 依存待ち
+
+### L19639: 15.1 LIFO
+- **機能ブロック**: `ERR`
+- **notes**: 依存待ち: cleanup LIFO (Part III runtime)
+- **分類**: 依存待ち
+
+### L19653: 15.2 高々一回
+- **機能ブロック**: `ERR`
+- **notes**: 依存待ち: cleanup at-most-once (Part III runtime)
+- **分類**: 依存待ち
+
+### L19668: 15.3 一つのRelease失敗
+- **機能ブロック**: `ERR`
+- **notes**: 依存待ち: single release failure (Part III runtime)
+- **分類**: 依存待ち
+
+### L19676: 16. Cleanup中のFailure
+- **機能ブロック**: `ERR`
+- **notes**: 依存待ち: failure during cleanup (Part III runtime)
+- **分類**: 依存待ち
+
+### L19677: 16.1 Primary failure
+- **機能ブロック**: `ERR`
+- **notes**: 依存待ち: primary failure during cleanup (Part III runtime)
+- **分類**: 依存待ち
+
+### L19681: 16.2 Suppressed failure
+- **機能ブロック**: `ERR`
+- **notes**: 依存待ち: suppressed failure (Part III runtime)
+- **分類**: 依存待ち
+
+### L19702: 16.3 正常終了後のRelease failure
+- **機能ブロック**: `ERR`
+- **notes**: 依存待ち: release failure after success (Part III runtime)
+- **分類**: 依存待ち
+
+### L19709: 16.4 複数のSuppressed failure
+- **機能ブロック**: `ERR`
+- **notes**: 依存待ち: multiple suppressed failures (Part III runtime)
+- **分類**: 依存待ち
+
+### L19720: 16.5 通常Handlerへの公開
+- **機能ブロック**: `ERR`
+- **notes**: 依存待ち: suppressed failure not in handler (Part III runtime)
+- **分類**: 依存待ち
+
+### L19734: 17. finally
+- **機能ブロック**: `ERR`
+- **notes**: 依存待ち: finally (Part III runtime)
+- **分類**: 依存待ち
+
+### L19757: 18.2 Cleanup
+- **機能ブロック**: `ERR`
+- **notes**: 依存待ち: cancellation cleanup (Part III runtime)
+- **分類**: 依存待ち
+
+### L19761: 18.3 詳細
+- **機能ブロック**: `ERR`
+- **notes**: 依存待ち: cancellation details (Part III runtime)
+- **分類**: 依存待ち
+
+### L19772: 19. Defect
+- **機能ブロック**: `ERR`
+- **notes**: 依存待ち: defect model (Part III outcome/runtime)
+- **分類**: 依存待ち
+
+### L19773: 19.1 定義
+- **機能ブロック**: `ERR`
+- **notes**: 依存待ち: defect definition (Part III outcome/runtime)
+- **分類**: 依存待ち
+
+### L19788: 19.2 Effect row
+- **機能ブロック**: `ERR`
+- **notes**: 依存待ち: defect not in effect row (Part III)
+- **分類**: 依存待ち
+
+### L19794: 19.3 再開
+- **機能ブロック**: `ERR`
+- **notes**: 依存待ち: no defect resume (Part III)
+- **分類**: 依存待ち
+
+### L19798: 19.4 通常Handler
+- **機能ブロック**: `ERR`
+- **notes**: 依存待ち: defect not caught by handler (Part III)
+- **分類**: 依存待ち
+
+### L19802: 19.5 Cleanup
+- **機能ブロック**: `ERR`
+- **notes**: 依存待ち: defect cleanup (Part III)
+- **分類**: 依存待ち
+
+### L19808: 20. Fault boundary
+- **機能ブロック**: `ERR`
+- **notes**: 依存待ち: fault boundary (Part III runtime)
+- **分類**: 依存待ち
+
+### L19809: 20.1 定義
+- **機能ブロック**: `ERR`
+- **notes**: 依存待ち: fault boundary definition (Part III)
+- **分類**: 依存待ち
+
+### L19823: 20.2 一般公開
+- **機能ブロック**: `ERR`
+- **notes**: 依存待ち: fault boundary not user API (Part III)
+- **分類**: 依存待ち
+
+### L19827: 20.3 処理
+- **機能ブロック**: `ERR`
+- **notes**: 依存待ち: fault boundary processing (Part III)
+- **分類**: 依存待ち
+
+### L19838: 20.4 継続条件
+- **機能ブロック**: `ERR`
+- **notes**: 依存待ち: fault boundary continuation (Part III)
+- **分類**: 依存待ち
+
+### L19851: 21. Terminal failure
+- **機能ブロック**: `ERR`
+- **notes**: 依存待ち: terminal failure (Part III)
+- **分類**: 依存待ち
+
+### L19852: 21.1 定義
+- **機能ブロック**: `ERR`
+- **notes**: 依存待ち: terminal failure definition (Part III)
+- **分類**: 依存待ち
+
+### L19866: 21.2 通常Handler
+- **機能ブロック**: `ERR`
+- **notes**: 依存待ち: terminal failure vs handler (Part III)
+- **分類**: 依存待ち
+
+### L19870: 21.3 Cleanup
+- **機能ブロック**: `ERR`
+- **notes**: 依存待ち: terminal failure cleanup (Part III)
+- **分類**: 依存待ち
+
+### L19874: 21.4 可能な最小処理
+- **機能ブロック**: `ERR`
+- **notes**: 依存待ち: terminal failure minimal handling (Part III)
+- **分類**: 依存待ち
+
+### L19887: 22.1 Assertion
+- **機能ブロック**: `ERR`
+- **notes**: 依存待ち: assertion→defect wiring (Part III)
+- **分類**: 依存待ち
+
+### L19897: 22.2 Match
+- **機能ブロック**: `ERR`
+- **notes**: 依存待ち: match exhaustiveness defect (Part III)
+- **分類**: 依存待ち
+
+### L19904: 22.3 Dynamic cast
+- **機能ブロック**: `ERR`
+- **notes**: 依存待ち: cast failure classification (Part III gradual)
+- **分類**: 依存待ち
+
+### L19911: 22.4 Index access
+- **機能ブロック**: `ERR`
+- **notes**: 依存待ち: index access failure (Part III)
+- **分類**: 依存待ち
+
+### L19918: 22.5 Arithmetic overflow
+- **機能ブロック**: `ERR`
+- **notes**: 依存待ち: arithmetic overflow policy (Part III)
+- **分類**: 依存待ち
+
+### L19934: 22.6 Division by zero
+- **機能ブロック**: `ERR`
+- **notes**: 依存待ち: division by zero policy (Part III)
+- **分類**: 依存待ち
+
+### L19950: 22.8 Validator
+- **機能ブロック**: `ERR`
+- **notes**: 依存待ち: validator defect (Part III)
+- **分類**: 依存待ち
+
+### L20040: 25.1 Runtime capability
+- **機能ブロック**: `ERR`
+- **notes**: 依存待ち(第III部): entry RequiredEffects ⊆ ProvidedEffects capability check
+- **分類**: 依存待ち
+
+### L20078: 25.2 実行環境ごとのmain
+- **機能ブロック**: `ERR`
+- **notes**: 依存待ち(第III部): CLI/GUI/Server/Worker distinct main contracts
+- **分類**: 依存待ち
+
+### L20108: 26.2 最終防御
+- **機能ブロック**: `ERR`
+- **notes**: 依存待ち(第III部): final Failure sink cleanup + JobResult conversion
+- **分類**: 依存待ち
+
+### L20136: 27. 実行環境別の処理
+- **機能ブロック**: `ERR`
+- **notes**: 依存待ち(第III部): env-specific Failure/Defect/Cancel/Terminal taxonomy
+- **分類**: 依存待ち
+
+### L20137: 27.1 CLI
+- **機能ブロック**: `ERR`
+- **notes**: 依存待ち(第III部): CLI exit-status taxonomy
+- **分類**: 依存待ち
+
+### L20159: 27.2 GUI
+- **機能ブロック**: `ERR`
+- **notes**: 依存待ち(第III部|第V部): GUI command/render fault boundaries
+- **分類**: 依存待ち
+
+### L20168: 27.3 Server
+- **機能ブロック**: `ERR`
+- **notes**: 依存待ち(第III部): Server request isolation
+- **分類**: 依存待ち
+
+### L20174: 27.4 Plugin
+- **機能ブロック**: `ERR`
+- **notes**: 依存待ち(第III部|第V部): Plugin invocation fault boundary
+- **分類**: 依存待ち
+
+### L20181: 27.5 Render job
+- **機能ブロック**: `ERR`
+- **notes**: 依存待ち(第III部|第V部): Render job fault boundary
+- **分類**: 依存待ち
+
+### L20940: 9.4 Closure identity
+- **機能ブロック**: `MEM`
+- **notes**: 依存待ち: closure identity observability (Part III / full MEM)
+- **分類**: 依存待ち
+
+### L21135: 15. Scoped Resource handle
+- **機能ブロック**: `MEM`
+- **notes**: 依存待ち: scoped resource handle + bracket (Part III)
+- **分類**: 依存待ち
+
+### L21153: 15.2 bracketの概念型
+- **機能ブロック**: `MEM`
+- **notes**: 依存待ち: bracket concept type surface (Part III)
+- **分類**: 依存待ち
+
+### L21182: 15.4 Scope内Closure
+- **機能ブロック**: `MEM`
+- **notes**: 依存待ち: scope closure capture rules (Part III)
+- **分類**: 依存待ち
+
+### L21201: 16. Resource API
+- **機能ブロック**: `MEM`
+- **notes**: 依存待ち: resource API surface (Part III)
+- **分類**: 依存待ち
+
+### L21296: 19. Foreign boundary
+- **機能ブロック**: `MEM`
+- **notes**: 依存待ち: foreign ownership boundary (Part III)
+- **分類**: 依存待ち
+
+### L21360: 20.3 Scoped Resource
+- **機能ブロック**: `MEM`
+- **notes**: 依存待ち(第III部|ASY): scoped resource must-not-send across tasks
+- **分類**: 依存待ち
+
+### L21366: 21. SnapshotとPerceus
+- **機能ブロック**: `MEM`
+- **notes**: 依存待ち: snapshot + Perceus integration (Part III)
+- **分類**: 依存待ち
+
+### L21424: 23. メモリ予算
+- **機能ブロック**: `MEM`
+- **notes**: 依存待ち(第III部): job-increment memory budget model
+- **分類**: 依存待ち
+
+### L21475: 24. 予算超過
+- **機能ブロック**: `MEM`
+- **notes**: 依存待ち(第III部): failure resource-exhausted on budget exceed
+- **分類**: 依存待ち
+
+### L21512: 25. 単一巨大Allocation
+- **機能ブロック**: `MEM`
+- **notes**: 依存待ち(第III部): huge-allocation precheck classification
+- **分類**: 依存待ち
+
+### L21538: 26. Continuation予算
+- **機能ブロック**: `MEM`
+- **notes**: 依存待ち(第III部): continuation capture budget
+- **分類**: 依存待ち
+
+### L21564: 27. Snapshot保持量
+- **機能ブロック**: `MEM`
+- **notes**: 依存待ち(第III部|第V部): snapshot retention budget / refuse new handles
+- **分類**: 依存待ち
+
+### L21588: 28. 一般heap OOM
+- **機能ブロック**: `MEM`
+- **notes**: 依存待ち(第III部): process heap OOM vs managed Failure Terminal path
+- **分類**: 依存待ち
+
+### L21589: 28.1 管理予算との区別
+- **機能ブロック**: `MEM`
+- **notes**: 依存待ち(第III部): managed budget vs Terminal OOM distinction
 - **分類**: 依存待ち
 
 ---

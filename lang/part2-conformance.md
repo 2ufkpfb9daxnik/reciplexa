@@ -17,11 +17,11 @@
 
 - **total**: 1589
 - **unchecked**: 0
-- **ok**: 365
-- **partial**: 552
-- **gap**: 38
-- **deferred**: 497
-- **meta**: 137
+- **ok**: 366
+- **partial**: 567
+- **gap**: 0
+- **deferred**: 518
+- **meta**: 138
 
 （LEX/SYN/MAC および導入メタ節を照合済み。他機能ブロックも並行更新済み。）
 
@@ -5039,11 +5039,11 @@
   - spec: `specification.md:18972`
   - notes: IR metatheory / CE notes
 
-- [x] **L5 L18981: テスト** — `gap`
+- [x] **L5 L18981: テスト** — `partial`
   - spec: `specification.md:18981`
-  - notes: named IR-001 conformance tests not present
+  - notes: phase12_motion TEST-IR-007 style; full IR-001..009 validator suite 意図的後回し
 
-- [x] **L4 L18993: 13.13 `ERR-001` 通常の失敗・Failure effect・後始末・Defect・最上位実行境界** `partial`
+- [x] **L4 L18993: 13.13 `ERR-001` 通常の失敗・Failure effect・後始末・Defect・最上位実行境界** — `partial`
   - spec: `specification.md:18993`
   - notes: raise/handle/or-raise/as-result + Never; bracket/cleanup/defect deferred Part III
 
@@ -5103,7 +5103,7 @@
   - spec: `specification.md:19150`
   - notes: result-like data possible; dedicated ERR result API incomplete
 
-- [x] **L5 L19159: 3. failure E** `partial`
+- [x] **L5 L19159: 3. failure E** — `partial`
   - spec: `specification.md:19159`
   - notes: failure perform + handle failure; bracket/cleanup still deferred
 
@@ -5119,23 +5119,23 @@
   - spec: `specification.md:19187`
   - notes: error payload is ordinary Core value (Dynamic typed interim)
 
-- [x] **L5 L19195: 4. Failureの発生** `ok`
+- [x] **L5 L19195: 4. Failureの発生** — `ok`
   - spec: `specification.md:19195`
   - notes: raise → Perform failure; or-raise/as-result elaboration
 
-- [x] **L6 L19196: 4.1 raise** `ok`
+- [x] **L6 L19196: 4.1 raise** — `ok`
   - spec: `specification.md:19196`
   - notes: (raise e) → Perform{op:failure}
 
-- [x] **L6 L19214: 4.2 never** `partial`
+- [x] **L6 L19214: 4.2 never** — `partial`
   - spec: `specification.md:19214`
   - notes: CoreType::Never for failure perform; subtype via unify
 
-- [x] **L6 L19239: 4.3 基礎機構** `ok`
+- [x] **L6 L19239: 4.3 基礎機構** — `ok`
   - spec: `specification.md:19239`
   - notes: existing effect perform; no separate exception runtime
 
-- [x] **L5 L19245: 5. Failure handler** `ok`
+- [x] **L5 L19245: 5. Failure handler** — `ok`
   - spec: `specification.md:19245`
   - notes: handle failure 1-param; resume rejected at check+eval
 
@@ -5155,7 +5155,7 @@
   - spec: `specification.md:19275`
   - notes: handler result typing via existing handle infer (shared result interim)
 
-- [x] **L5 L19306: 6. Failureとeffect row** `partial`
+- [x] **L5 L19306: 6. Failureとeffect row** — `partial`
   - spec: `specification.md:19306`
   - notes: failure in effect row; removed by handle failure
 
@@ -5175,7 +5175,7 @@
   - spec: `specification.md:19346`
   - notes: re-raise inside handler propagates (deep handle semantics)
 
-- [x] **L5 L19359: 7. 一つのFailure型への統合** `partial`
+- [x] **L5 L19359: 7. 一つのFailure型への統合** — `partial`
   - spec: `specification.md:19359`
   - notes: ERR §7 guideline; single failure type per boundary is policy not enforced
 
@@ -5183,7 +5183,7 @@
   - spec: `specification.md:19360`
   - notes: ERR design principle / guideline prose
 
-- [x] **L6 L19384: 7.2 Error変換** `partial`
+- [x] **L6 L19384: 7.2 Error変換** — `partial`
   - spec: `specification.md:19384`
   - notes: re-raise via nested handle works (deep semantics)
 
@@ -5191,19 +5191,19 @@
   - spec: `specification.md:19401`
   - notes: ERR design principle / guideline prose
 
-- [x] **L5 L19407: 8. resultとFailureの変換** `partial`
+- [x] **L5 L19407: 8. resultとFailureの変換** — `partial`
   - spec: `specification.md:19407`
   - notes: or-raise / as-result explicit conversion helpers
 
-- [x] **L6 L19408: 8.1 暗黙変換の禁止** `ok`
+- [x] **L6 L19408: 8.1 暗黙変換の禁止** — `ok`
   - spec: `specification.md:19408`
   - notes: no implicit result↔failure conversion
 
-- [x] **L6 L19421: 8.2 resultからFailure** `partial`
+- [x] **L6 L19421: 8.2 resultからFailure** — `partial`
   - spec: `specification.md:19421`
   - notes: (or-raise result) elaborates to match+raise
 
-- [x] **L6 L19441: 8.3 Failureからresult** `partial`
+- [x] **L6 L19441: 8.3 Failureからresult** — `partial`
   - spec: `specification.md:19441`
   - notes: (as-result (fn () body)) → handle failure + ok/err variants
 
@@ -5219,63 +5219,63 @@
   - spec: `specification.md:19479`
   - notes: ERR design principle / guideline prose
 
-- [x] **L6 L19486: 9.3 公開API** `partial`
+- [x] **L6 L19486: 9.3 公開API** — `partial`
   - spec: `specification.md:19486`
   - notes: failure in effect row is explicit; no auto dual API
 
-- [x] **L5 L19496: 10. Resource cleanup** `deferred`
+- [x] **L5 L19496: 10. Resource cleanup** — `deferred`
   - spec: `specification.md:19496`
   - notes: 依存待ち: bracket primitive + release guarantees (Part III runtime)
 
-- [x] **L6 L19497: 10.1 基本primitive** `deferred`
+- [x] **L6 L19497: 10.1 基本primitive** — `deferred`
   - spec: `specification.md:19497`
   - notes: 依存待ち: bracket acquire/use/release (Part III runtime)
 
-- [x] **L6 L19515: 10.2 役割** `deferred`
+- [x] **L6 L19515: 10.2 役割** — `deferred`
   - spec: `specification.md:19515`
   - notes: 依存待ち: bracket roles (Part III runtime)
 
-- [x] **L6 L19525: 10.3 特別な保証** `deferred`
+- [x] **L6 L19525: 10.3 特別な保証** — `deferred`
   - spec: `specification.md:19525`
   - notes: 依存待ち: bracket release guarantees (Part III runtime)
 
-- [x] **L5 L19535: 11. Acquire規則** `deferred`
+- [x] **L5 L19535: 11. Acquire規則** — `deferred`
   - spec: `specification.md:19535`
   - notes: 依存待ち: acquire/release registration (Part III runtime)
 
-- [x] **L6 L19536: 11.1 Release登録** `deferred`
+- [x] **L6 L19536: 11.1 Release登録** — `deferred`
   - spec: `specification.md:19536`
   - notes: 依存待ち: acquire failure skip release (Part III runtime)
 
-- [x] **L6 L19540: 11.2 Acquire failure** `deferred`
+- [x] **L6 L19540: 11.2 Acquire failure** — `deferred`
   - spec: `specification.md:19540`
   - notes: 依存待ち: partial acquire (Part III runtime)
 
-- [x] **L6 L19552: 11.3 部分取得** `deferred`
+- [x] **L6 L19552: 11.3 部分取得** — `deferred`
   - spec: `specification.md:19552`
   - notes: 依存待ち: nested bracket on partial acquire (Part III runtime)
 
-- [x] **L5 L19558: 12. Useの正常終了** `deferred`
+- [x] **L5 L19558: 12. Useの正常終了** — `deferred`
   - spec: `specification.md:19558`
   - notes: 依存待ち: use normal completion + release (Part III runtime)
 
-- [x] **L5 L19570: 13. Use中のFailure** `deferred`
+- [x] **L5 L19570: 13. Use中のFailure** — `deferred`
   - spec: `specification.md:19570`
   - notes: 依存待ち: failure during use + release (Part III runtime)
 
-- [x] **L5 L19581: 14. 一般Effectと継続** `deferred`
+- [x] **L5 L19581: 14. 一般Effectと継続** — `deferred`
   - spec: `specification.md:19581`
   - notes: 依存待ち: effect suspend + continuation cleanup (Part III runtime)
 
-- [x] **L6 L19582: 14.1 一時中断** `deferred`
+- [x] **L6 L19582: 14.1 一時中断** — `deferred`
   - spec: `specification.md:19582`
   - notes: 依存待ち: temporary effect suspend (Part III runtime)
 
-- [x] **L6 L19594: 14.2 Resume** `deferred`
+- [x] **L6 L19594: 14.2 Resume** — `deferred`
   - spec: `specification.md:19594`
   - notes: 依存待ち: resume without release (Part III runtime)
 
-- [x] **L6 L19598: 14.3 Discard** `deferred`
+- [x] **L6 L19598: 14.3 Discard** — `deferred`
   - spec: `specification.md:19598`
   - notes: 依存待ち: discard continuation cleanup (Part III runtime)
 
@@ -5283,51 +5283,51 @@
   - spec: `specification.md:19602`
   - notes: ERR design principle / guideline prose
 
-- [x] **L6 L19620: 14.5 継続escape** `deferred`
+- [x] **L6 L19620: 14.5 継続escape** — `deferred`
   - spec: `specification.md:19620`
   - notes: 依存待ち: continuation escape cleanup (Part III runtime)
 
-- [x] **L5 L19638: 15. Cleanup順序と回数** `deferred`
+- [x] **L5 L19638: 15. Cleanup順序と回数** — `deferred`
   - spec: `specification.md:19638`
   - notes: 依存待ち: cleanup LIFO order (Part III runtime)
 
-- [x] **L6 L19639: 15.1 LIFO** `deferred`
+- [x] **L6 L19639: 15.1 LIFO** — `deferred`
   - spec: `specification.md:19639`
   - notes: 依存待ち: cleanup LIFO (Part III runtime)
 
-- [x] **L6 L19653: 15.2 高々一回** `deferred`
+- [x] **L6 L19653: 15.2 高々一回** — `deferred`
   - spec: `specification.md:19653`
   - notes: 依存待ち: cleanup at-most-once (Part III runtime)
 
-- [x] **L6 L19668: 15.3 一つのRelease失敗** `deferred`
+- [x] **L6 L19668: 15.3 一つのRelease失敗** — `deferred`
   - spec: `specification.md:19668`
   - notes: 依存待ち: single release failure (Part III runtime)
 
-- [x] **L5 L19676: 16. Cleanup中のFailure** `deferred`
+- [x] **L5 L19676: 16. Cleanup中のFailure** — `deferred`
   - spec: `specification.md:19676`
   - notes: 依存待ち: failure during cleanup (Part III runtime)
 
-- [x] **L6 L19677: 16.1 Primary failure** `deferred`
+- [x] **L6 L19677: 16.1 Primary failure** — `deferred`
   - spec: `specification.md:19677`
   - notes: 依存待ち: primary failure during cleanup (Part III runtime)
 
-- [x] **L6 L19681: 16.2 Suppressed failure** `deferred`
+- [x] **L6 L19681: 16.2 Suppressed failure** — `deferred`
   - spec: `specification.md:19681`
   - notes: 依存待ち: suppressed failure (Part III runtime)
 
-- [x] **L6 L19702: 16.3 正常終了後のRelease failure** `deferred`
+- [x] **L6 L19702: 16.3 正常終了後のRelease failure** — `deferred`
   - spec: `specification.md:19702`
   - notes: 依存待ち: release failure after success (Part III runtime)
 
-- [x] **L6 L19709: 16.4 複数のSuppressed failure** `deferred`
+- [x] **L6 L19709: 16.4 複数のSuppressed failure** — `deferred`
   - spec: `specification.md:19709`
   - notes: 依存待ち: multiple suppressed failures (Part III runtime)
 
-- [x] **L6 L19720: 16.5 通常Handlerへの公開** `deferred`
+- [x] **L6 L19720: 16.5 通常Handlerへの公開** — `deferred`
   - spec: `specification.md:19720`
   - notes: 依存待ち: suppressed failure not in handler (Part III runtime)
 
-- [x] **L5 L19734: 17. finally** `deferred`
+- [x] **L5 L19734: 17. finally** — `deferred`
   - spec: `specification.md:19734`
   - notes: 依存待ち: finally (Part III runtime)
 
@@ -5339,75 +5339,75 @@
   - spec: `specification.md:19750`
   - notes: ERR design principle / guideline prose
 
-- [x] **L6 L19757: 18.2 Cleanup** `deferred`
+- [x] **L6 L19757: 18.2 Cleanup** — `deferred`
   - spec: `specification.md:19757`
   - notes: 依存待ち: cancellation cleanup (Part III runtime)
 
-- [x] **L6 L19761: 18.3 詳細** `deferred`
+- [x] **L6 L19761: 18.3 詳細** — `deferred`
   - spec: `specification.md:19761`
   - notes: 依存待ち: cancellation details (Part III runtime)
 
-- [x] **L5 L19772: 19. Defect** `deferred`
+- [x] **L5 L19772: 19. Defect** — `deferred`
   - spec: `specification.md:19772`
   - notes: 依存待ち: defect model (Part III outcome/runtime)
 
-- [x] **L6 L19773: 19.1 定義** `deferred`
+- [x] **L6 L19773: 19.1 定義** — `deferred`
   - spec: `specification.md:19773`
   - notes: 依存待ち: defect definition (Part III outcome/runtime)
 
-- [x] **L6 L19788: 19.2 Effect row** `deferred`
+- [x] **L6 L19788: 19.2 Effect row** — `deferred`
   - spec: `specification.md:19788`
   - notes: 依存待ち: defect not in effect row (Part III)
 
-- [x] **L6 L19794: 19.3 再開** `deferred`
+- [x] **L6 L19794: 19.3 再開** — `deferred`
   - spec: `specification.md:19794`
   - notes: 依存待ち: no defect resume (Part III)
 
-- [x] **L6 L19798: 19.4 通常Handler** `deferred`
+- [x] **L6 L19798: 19.4 通常Handler** — `deferred`
   - spec: `specification.md:19798`
   - notes: 依存待ち: defect not caught by handler (Part III)
 
-- [x] **L6 L19802: 19.5 Cleanup** `deferred`
+- [x] **L6 L19802: 19.5 Cleanup** — `deferred`
   - spec: `specification.md:19802`
   - notes: 依存待ち: defect cleanup (Part III)
 
-- [x] **L5 L19808: 20. Fault boundary** `deferred`
+- [x] **L5 L19808: 20. Fault boundary** — `deferred`
   - spec: `specification.md:19808`
   - notes: 依存待ち: fault boundary (Part III runtime)
 
-- [x] **L6 L19809: 20.1 定義** `deferred`
+- [x] **L6 L19809: 20.1 定義** — `deferred`
   - spec: `specification.md:19809`
   - notes: 依存待ち: fault boundary definition (Part III)
 
-- [x] **L6 L19823: 20.2 一般公開** `deferred`
+- [x] **L6 L19823: 20.2 一般公開** — `deferred`
   - spec: `specification.md:19823`
   - notes: 依存待ち: fault boundary not user API (Part III)
 
-- [x] **L6 L19827: 20.3 処理** `deferred`
+- [x] **L6 L19827: 20.3 処理** — `deferred`
   - spec: `specification.md:19827`
   - notes: 依存待ち: fault boundary processing (Part III)
 
-- [x] **L6 L19838: 20.4 継続条件** `deferred`
+- [x] **L6 L19838: 20.4 継続条件** — `deferred`
   - spec: `specification.md:19838`
   - notes: 依存待ち: fault boundary continuation (Part III)
 
-- [x] **L5 L19851: 21. Terminal failure** `deferred`
+- [x] **L5 L19851: 21. Terminal failure** — `deferred`
   - spec: `specification.md:19851`
   - notes: 依存待ち: terminal failure (Part III)
 
-- [x] **L6 L19852: 21.1 定義** `deferred`
+- [x] **L6 L19852: 21.1 定義** — `deferred`
   - spec: `specification.md:19852`
   - notes: 依存待ち: terminal failure definition (Part III)
 
-- [x] **L6 L19866: 21.2 通常Handler** `deferred`
+- [x] **L6 L19866: 21.2 通常Handler** — `deferred`
   - spec: `specification.md:19866`
   - notes: 依存待ち: terminal failure vs handler (Part III)
 
-- [x] **L6 L19870: 21.3 Cleanup** `deferred`
+- [x] **L6 L19870: 21.3 Cleanup** — `deferred`
   - spec: `specification.md:19870`
   - notes: 依存待ち: terminal failure cleanup (Part III)
 
-- [x] **L6 L19874: 21.4 可能な最小処理** `deferred`
+- [x] **L6 L19874: 21.4 可能な最小処理** — `deferred`
   - spec: `specification.md:19874`
   - notes: 依存待ち: terminal failure minimal handling (Part III)
 
@@ -5415,45 +5415,45 @@
   - spec: `specification.md:19886`
   - notes: ERR design principle / guideline prose
 
-- [x] **L6 L19887: 22.1 Assertion** `deferred`
+- [x] **L6 L19887: 22.1 Assertion** — `deferred`
   - spec: `specification.md:19887`
   - notes: 依存待ち: assertion→defect wiring (Part III)
 
-- [x] **L6 L19897: 22.2 Match** `deferred`
+- [x] **L6 L19897: 22.2 Match** — `deferred`
   - spec: `specification.md:19897`
   - notes: 依存待ち: match exhaustiveness defect (Part III)
 
-- [x] **L6 L19904: 22.3 Dynamic cast** `deferred`
+- [x] **L6 L19904: 22.3 Dynamic cast** — `deferred`
   - spec: `specification.md:19904`
   - notes: 依存待ち: cast failure classification (Part III gradual)
 
-- [x] **L6 L19911: 22.4 Index access** `deferred`
+- [x] **L6 L19911: 22.4 Index access** — `deferred`
   - spec: `specification.md:19911`
   - notes: 依存待ち: index access failure (Part III)
 
-- [x] **L6 L19918: 22.5 Arithmetic overflow** `deferred`
+- [x] **L6 L19918: 22.5 Arithmetic overflow** — `deferred`
   - spec: `specification.md:19918`
   - notes: 依存待ち: arithmetic overflow policy (Part III)
 
-- [x] **L6 L19934: 22.6 Division by zero** `deferred`
+- [x] **L6 L19934: 22.6 Division by zero** — `deferred`
   - spec: `specification.md:19934`
   - notes: 依存待ち: division by zero policy (Part III)
 
-- [x] **L6 L19944: 22.7 Continuationの二重resume** `partial`
+- [x] **L6 L19944: 22.7 Continuationの二重resume** — `partial`
   - spec: `specification.md:19944`
   - notes: one-shot double resume rejected at eval; defect report deferred
 
-- [x] **L6 L19950: 22.8 Validator** `deferred`
+- [x] **L6 L19950: 22.8 Validator** — `deferred`
   - spec: `specification.md:19950`
   - notes: 依存待ち: validator defect (Part III)
 
-- [x] **L6 L19957: 22.9 Foreign adapter** — `gap`
+- [x] **L6 L19957: 22.9 Foreign adapter** — `partial`
   - spec: `specification.md:19957`
-  - notes: case classification not wired to typed Failure/Defect runtime
+  - notes: classify_foreign_adapter + native quarantine→DefectReport; Terminal path stub; full fault boundary 依存待ち(第III部)
 
-- [x] **L6 L19964: 22.10 Resource exhaustion** — `gap`
+- [x] **L6 L19964: 22.10 Resource exhaustion** — `partial`
   - spec: `specification.md:19964`
-  - notes: case classification not wired to typed Failure/Defect runtime
+  - notes: classify_resource_exhaustion + resource-error FailureCode; job budget/Terminal OOM path 依存待ち(第III部)
 
 - [x] **L5 L19974: 23. DefectReport** — `partial`
   - spec: `specification.md:19974`
@@ -5475,77 +5475,77 @@
   - spec: `specification.md:20011`
   - notes: FailureReport/DefectReport/Cancellation/JobResult in reciplexa-outcome
 
-- [x] **L5 L20039: 25. Entry pointと実行環境** — `gap`
+- [x] **L5 L20039: 25. Entry pointと実行環境** — `partial`
   - spec: `specification.md:20039`
-  - notes: Failure effect/raise/bracket/cleanup not in language eval
+  - notes: raise/handle/FailureReport host path; RequiredEffects⊆Provided entry matrix 依存待ち(第III部)
 
-- [x] **L6 L20040: 25.1 Runtime capability** — `gap`
+- [x] **L6 L20040: 25.1 Runtime capability** — `deferred`
   - spec: `specification.md:20040`
-  - notes: Failure effect/raise/bracket/cleanup not in language eval
+  - notes: 依存待ち(第III部): entry RequiredEffects ⊆ ProvidedEffects capability check
 
-- [x] **L6 L20078: 25.2 実行環境ごとのmain** — `gap`
+- [x] **L6 L20078: 25.2 実行環境ごとのmain** — `deferred`
   - spec: `specification.md:20078`
-  - notes: Failure effect/raise/bracket/cleanup not in language eval
+  - notes: 依存待ち(第III部): CLI/GUI/Server/Worker distinct main contracts
 
-- [x] **L5 L20097: 26. 未処理Failure** — `gap`
+- [x] **L5 L20097: 26. 未処理Failure** — `partial`
   - spec: `specification.md:20097`
-  - notes: Failure effect/raise/bracket/cleanup not in language eval
+  - notes: unhandled failure → FailureReport-shaped EvalError; Application sink/retry 依存待ち(第III部)
 
-- [x] **L6 L20098: 26.1 原則** — `gap`
+- [x] **L6 L20098: 26.1 原則** — `partial`
   - spec: `specification.md:20098`
-  - notes: Failure effect/raise/bracket/cleanup not in language eval
+  - notes: unhandled Failure surfaces at eval host; Application-boundary policy 依存待ち(第III部)
 
-- [x] **L6 L20108: 26.2 最終防御** — `gap`
+- [x] **L6 L20108: 26.2 最終防御** — `deferred`
   - spec: `specification.md:20108`
-  - notes: Failure effect/raise/bracket/cleanup not in language eval
+  - notes: 依存待ち(第III部): final Failure sink cleanup + JobResult conversion
 
-- [x] **L6 L20119: 26.3 Runtime default表示** — `gap`
+- [x] **L6 L20119: 26.3 Runtime default表示** — `partial`
   - spec: `specification.md:20119`
-  - notes: Failure effect/raise/bracket/cleanup not in language eval
+  - notes: FailureReport identity/code/message default display; full Error→Diagnostic explain API 依存待ち(第III部)
 
-- [x] **L5 L20136: 27. 実行環境別の処理** — `gap`
+- [x] **L5 L20136: 27. 実行環境別の処理** — `deferred`
   - spec: `specification.md:20136`
-  - notes: Failure effect/raise/bracket/cleanup not in language eval
+  - notes: 依存待ち(第III部): env-specific Failure/Defect/Cancel/Terminal taxonomy
 
-- [x] **L6 L20137: 27.1 CLI** — `gap`
+- [x] **L6 L20137: 27.1 CLI** — `deferred`
   - spec: `specification.md:20137`
-  - notes: Failure effect/raise/bracket/cleanup not in language eval
+  - notes: 依存待ち(第III部): CLI exit-status taxonomy
 
-- [x] **L6 L20159: 27.2 GUI** — `gap`
+- [x] **L6 L20159: 27.2 GUI** — `deferred`
   - spec: `specification.md:20159`
-  - notes: Failure effect/raise/bracket/cleanup not in language eval
+  - notes: 依存待ち(第III部|第V部): GUI command/render fault boundaries
 
-- [x] **L6 L20168: 27.3 Server** — `gap`
+- [x] **L6 L20168: 27.3 Server** — `deferred`
   - spec: `specification.md:20168`
-  - notes: Failure effect/raise/bracket/cleanup not in language eval
+  - notes: 依存待ち(第III部): Server request isolation
 
-- [x] **L6 L20174: 27.4 Plugin** — `gap`
+- [x] **L6 L20174: 27.4 Plugin** — `deferred`
   - spec: `specification.md:20174`
-  - notes: Failure effect/raise/bracket/cleanup not in language eval
+  - notes: 依存待ち(第III部|第V部): Plugin invocation fault boundary
 
-- [x] **L6 L20181: 27.5 Render job** — `gap`
+- [x] **L6 L20181: 27.5 Render job** — `deferred`
   - spec: `specification.md:20181`
-  - notes: Failure effect/raise/bracket/cleanup not in language eval
+  - notes: 依存待ち(第III部|第V部): Render job fault boundary
 
 - [x] **L5 L20190: 28. Diagnostic** — `partial`
   - spec: `specification.md:20190`
   - notes: reciplexa-diagnostic exists; ERR primary/suppressed model incomplete
 
-- [x] **L6 L20191: 28.1 構築と出力の分離** — `gap`
+- [x] **L6 L20191: 28.1 構築と出力の分離** — `partial`
   - spec: `specification.md:20191`
-  - notes: Failure effect/raise/bracket/cleanup not in language eval
+  - notes: DiagnosticCollector construct + CLI sink render; ERR FailureDiagnosticBundle added
 
-- [x] **L6 L20208: 28.2 PrimaryとSuppressed** — `gap`
+- [x] **L6 L20208: 28.2 PrimaryとSuppressed** — `partial`
   - spec: `specification.md:20208`
-  - notes: Failure effect/raise/bracket/cleanup not in language eval
+  - notes: FailureDiagnosticBundle primary→suppressed order; cleanup wiring 依存待ち(第III部)
 
-- [x] **L6 L20220: 28.3 Libraryの責務** — `gap`
+- [x] **L6 L20220: 28.3 Libraryの責務** — `partial`
   - spec: `specification.md:20220`
-  - notes: Failure effect/raise/bracket/cleanup not in language eval
+  - notes: reciplexa-diagnostic library constructs without choosing sink; host sinks decide output
 
-- [x] **L5 L20226: 29. 適合試験** — `gap`
+- [x] **L5 L20226: 29. 適合試験** — `partial`
   - spec: `specification.md:20226`
-  - notes: ERR-001 named conformance suite not present
+  - notes: ERR-01/02/03-style raise/handle/as-result tests in handle_tests; full ERR-0N suite incomplete
 
 - [x] **L5 L20399: 30. 移管先OPEN** — `deferred`
   - spec: `specification.md:20399`
@@ -5743,7 +5743,7 @@
   - spec: `specification.md:20894`
   - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L5 L20916: 9. Closure環境** `partial`
+- [x] **L5 L20916: 9. Closure環境** — `partial`
   - spec: `specification.md:20916`
   - notes: MakeClosure in mem lower; not default eval memory path
 
@@ -5759,7 +5759,7 @@
   - spec: `specification.md:20933`
   - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L6 L20940: 9.4 Closure identity** `deferred`
+- [x] **L6 L20940: 9.4 Closure identity** — `deferred`
   - spec: `specification.md:20940`
   - notes: 依存待ち: closure identity observability (Part III / full MEM)
 
@@ -5815,7 +5815,7 @@
   - spec: `specification.md:21041`
   - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L5 L21047: 13. Continuation** `partial`
+- [x] **L5 L21047: 13. Continuation** — `partial`
   - spec: `specification.md:21047`
   - notes: Resume/DiscardCont/Raise in mem IR+exec; not full continuation model
 
@@ -5843,7 +5843,7 @@
   - spec: `specification.md:21098`
   - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L5 L21106: 14. Failure unwind** `partial`
+- [x] **L5 L21106: 14. Failure unwind** — `partial`
   - spec: `specification.md:21106`
   - notes: MemInstr::Raise runs RegisterCleanup LIFO in exec
 
@@ -5859,7 +5859,7 @@
   - spec: `specification.md:21124`
   - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L5 L21135: 15. Scoped Resource handle** `deferred`
+- [x] **L5 L21135: 15. Scoped Resource handle** — `deferred`
   - spec: `specification.md:21135`
   - notes: 依存待ち: scoped resource handle + bracket (Part III)
 
@@ -5867,7 +5867,7 @@
   - spec: `specification.md:21136`
   - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L6 L21153: 15.2 bracketの概念型** `deferred`
+- [x] **L6 L21153: 15.2 bracketの概念型** — `deferred`
   - spec: `specification.md:21153`
   - notes: 依存待ち: bracket concept type surface (Part III)
 
@@ -5875,7 +5875,7 @@
   - spec: `specification.md:21168`
   - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L6 L21182: 15.4 Scope内Closure** `deferred`
+- [x] **L6 L21182: 15.4 Scope内Closure** — `deferred`
   - spec: `specification.md:21182`
   - notes: 依存待ち: scope closure capture rules (Part III)
 
@@ -5883,7 +5883,7 @@
   - spec: `specification.md:21188`
   - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L5 L21201: 16. Resource API** `deferred`
+- [x] **L5 L21201: 16. Resource API** — `deferred`
   - spec: `specification.md:21201`
   - notes: 依存待ち: resource API surface (Part III)
 
@@ -5931,7 +5931,7 @@
   - spec: `specification.md:21288`
   - notes: weak/finalizer out of v1 per spec
 
-- [x] **L5 L21296: 19. Foreign boundary** `deferred`
+- [x] **L5 L21296: 19. Foreign boundary** — `deferred`
   - spec: `specification.md:21296`
   - notes: 依存待ち: foreign ownership boundary (Part III)
 
@@ -5947,9 +5947,9 @@
   - spec: `specification.md:21330`
   - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L5 L21338: 20. Concurrencyへの接続** — `gap`
+- [x] **L5 L21338: 20. Concurrencyへの接続** — `deferred`
   - spec: `specification.md:21338`
-  - notes: not wired as language default memory / resource model
+  - notes: 依存待ち(ASY)|仕様未決定: OPEN-CON-001 atomic RC / Send/Share
 
 - [x] **L6 L21339: 20.1 v1の範囲** — `partial`
   - spec: `specification.md:21339`
@@ -5959,11 +5959,11 @@
   - spec: `specification.md:21345`
   - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L6 L21360: 20.3 Scoped Resource** — `gap`
+- [x] **L6 L21360: 20.3 Scoped Resource** — `deferred`
   - spec: `specification.md:21360`
-  - notes: not wired as language default memory / resource model
+  - notes: 依存待ち(第III部|ASY): scoped resource must-not-send across tasks
 
-- [x] **L5 L21366: 21. SnapshotとPerceus** `deferred`
+- [x] **L5 L21366: 21. SnapshotとPerceus** — `deferred`
   - spec: `specification.md:21366`
   - notes: 依存待ち: snapshot + Perceus integration (Part III)
 
@@ -5987,9 +5987,9 @@
   - spec: `specification.md:21394`
   - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L6 L21395: 22.1 通常Allocation** — `gap`
+- [x] **L6 L21395: 22.1 通常Allocation** — `ok`
   - spec: `specification.md:21395`
-  - notes: not wired as language default memory / resource model
+  - notes: ordinary Construct/record allocation absent from effect row (typecheck test)
 
 - [x] **L6 L21408: 22.2 Perceus操作** — `partial`
   - spec: `specification.md:21408`
@@ -5999,9 +5999,9 @@
   - spec: `specification.md:21418`
   - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L5 L21424: 23. メモリ予算** — `gap`
+- [x] **L5 L21424: 23. メモリ予算** — `deferred`
   - spec: `specification.md:21424`
-  - notes: not wired as language default memory / resource model
+  - notes: 依存待ち(第III部): job-increment memory budget model
 
 - [x] **L6 L21425: 23.1 適用単位** — `partial`
   - spec: `specification.md:21425`
@@ -6015,9 +6015,9 @@
   - spec: `specification.md:21459`
   - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L5 L21475: 24. 予算超過** — `gap`
+- [x] **L5 L21475: 24. 予算超過** — `deferred`
   - spec: `specification.md:21475`
-  - notes: not wired as language default memory / resource model
+  - notes: 依存待ち(第III部): failure resource-exhausted on budget exceed
 
 - [x] **L6 L21476: 24.1 型付きFailure** — `partial`
   - spec: `specification.md:21476`
@@ -6031,9 +6031,9 @@
   - spec: `specification.md:21506`
   - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L5 L21512: 25. 単一巨大Allocation** — `gap`
+- [x] **L5 L21512: 25. 単一巨大Allocation** — `deferred`
   - spec: `specification.md:21512`
-  - notes: not wired as language default memory / resource model
+  - notes: 依存待ち(第III部): huge-allocation precheck classification
 
 - [x] **L6 L21513: 25.1 事前検査** — `partial`
   - spec: `specification.md:21513`
@@ -6043,9 +6043,9 @@
   - spec: `specification.md:21522`
   - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L5 L21538: 26. Continuation予算** — `gap`
+- [x] **L5 L21538: 26. Continuation予算** — `deferred`
   - spec: `specification.md:21538`
-  - notes: not wired as language default memory / resource model
+  - notes: 依存待ち(第III部): continuation capture budget
 
 - [x] **L6 L21539: 26.1 課金対象** — `partial`
   - spec: `specification.md:21539`
@@ -6055,13 +6055,13 @@
   - spec: `specification.md:21552`
   - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L5 L21564: 27. Snapshot保持量** — `gap`
+- [x] **L5 L21564: 27. Snapshot保持量** — `deferred`
   - spec: `specification.md:21564`
-  - notes: not wired as language default memory / resource model
+  - notes: 依存待ち(第III部|第V部): snapshot retention budget / refuse new handles
 
-- [x] **L6 L21565: 27.1 有効なSnapshot handle** — `gap`
+- [x] **L6 L21565: 27.1 有効なSnapshot handle** — `partial`
   - spec: `specification.md:21565`
-  - notes: not wired as language default memory / resource model
+  - notes: DocumentSnapshot holds while handle live; retention-limit refuse 依存待ち(第III部|第V部)
 
 - [x] **L6 L21571: 27.2 保持policy** — `partial`
   - spec: `specification.md:21571`
@@ -6071,13 +6071,13 @@
   - spec: `specification.md:21584`
   - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L5 L21588: 28. 一般heap OOM** — `gap`
+- [x] **L5 L21588: 28. 一般heap OOM** — `deferred`
   - spec: `specification.md:21588`
-  - notes: not wired as language default memory / resource model
+  - notes: 依存待ち(第III部): process heap OOM vs managed Failure Terminal path
 
-- [x] **L6 L21589: 28.1 管理予算との区別** — `gap`
+- [x] **L6 L21589: 28.1 管理予算との区別** — `deferred`
   - spec: `specification.md:21589`
-  - notes: not wired as language default memory / resource model
+  - notes: 依存待ち(第III部): managed budget vs Terminal OOM distinction
 
 - [x] **L6 L21593: 28.2 分類** — `partial`
   - spec: `specification.md:21593`
@@ -6087,9 +6087,9 @@
   - spec: `specification.md:21600`
   - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L5 L21606: 29. Reference count overflow** — `gap`
+- [x] **L5 L21606: 29. Reference count overflow** — `partial`
   - spec: `specification.md:21606`
-  - notes: not wired as language default memory / resource model
+  - notes: checked_add refuses RC wraparound (ExecError::RefCountOverflow); Defect/Terminal host class 依存待ち(第III部)
 
 - [x] **L6 L21607: 29.1 Wraparound禁止** — `partial`
   - spec: `specification.md:21607`
@@ -6123,9 +6123,9 @@
   - spec: `specification.md:21666`
   - notes: verify_ownership/verify_reuse in reciplexa-mem
 
-- [x] **L5 L21677: 31. メモリ観測API** — `gap`
+- [x] **L5 L21677: 31. メモリ観測API** — `partial`
   - spec: `specification.md:21677`
-  - notes: not wired as language default memory / resource model
+  - notes: RC/dup/drop not exposed to RPX (§31.1); budget/peak observation API 依存待ち(第III部)|OPEN-MEM-PROF-001
 
 - [x] **L6 L21678: 31.1 非公開情報** — `partial`
   - spec: `specification.md:21678`
@@ -6139,9 +6139,9 @@
   - spec: `specification.md:21701`
   - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L5 L21714: 32. GUI状態** — `gap`
+- [x] **L5 L21714: 32. GUI状態** — `partial`
   - spec: `specification.md:21714`
-  - notes: not wired as language default memory / resource model
+  - notes: GUI uses explicit DocumentSnapshot (no implicit cell); full model OPEN-GUI-STATE-001
 
 - [x] **L6 L21715: 32.1 暗黙cellへの非依存** — `ok`
   - spec: `specification.md:21715`
@@ -6203,9 +6203,9 @@
   - spec: `specification.md:22014`
   - notes: TST overview: product testing確定; surface syntax 未決定
 
-- [x] **L5 L22039: Black/white box** — `gap`
+- [x] **L5 L22039: Black/white box** — `deferred`
   - spec: `specification.md:22039`
-  - notes: test-module/test-of white-box companion not implemented
+  - notes: 仕様未決定: test-module/test-of white-box companion surface
 
 - [x] **L5 L22045: 既存実装** — `meta`
   - spec: `specification.md:22045`
@@ -6365,9 +6365,9 @@
   - spec: `specification.md:22514`
   - notes: GUI/source_sync + TEST-INT-002 .rpi boundary; not full matrix
 
-- [x] **L4 L22529: 22.5 Property/differential/fuzz** — `gap`
+- [x] **L4 L22529: 22.5 Property/differential/fuzz** — `deferred`
   - spec: `specification.md:22529`
-  - notes: property/differential/fuzz harness not established
+  - notes: 意図的後回し: property/differential/fuzz harness (harden fuzz hook only)
 
 - [x] **L3 L22549: 22.6 横断適合試験** — `partial`
   - spec: `specification.md:22549`
@@ -6399,13 +6399,13 @@
   - spec: `specification.md:22593`
   - notes: multi-package/GUI/resource integration post-PKG
 
-- [x] **L4 L22601: 段階6: 差分・生成・fuzzを通過** — `gap`
+- [x] **L4 L22601: 段階6: 差分・生成・fuzzを通過** — `deferred`
   - spec: `specification.md:22601`
-  - notes: generators/differential/fuzz not in place
+  - notes: 意図的後回し: stage-6 generators/differential/fuzz gate
 
-- [x] **L4 L22609: 段階7: メタ理論が確認された** — `gap`
+- [x] **L4 L22609: 段階7: メタ理論が確認された** — `meta`
   - spec: `specification.md:22609`
-  - notes: no Progress/Preservation proofs
+  - notes: 形式証明: Progress/Preservation not mechanically proven (proof crate stubs only)
 
 - [x] **L4 L22618: 段階8: 実装と形式仕様の対応を確認** — `partial`
   - spec: `specification.md:22618`
