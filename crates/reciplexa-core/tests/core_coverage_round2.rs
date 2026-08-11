@@ -171,7 +171,10 @@ fn elaborate_data_rec_and_trailing() {
 #[test]
 fn cast_more_intersection_and_unknown_decide() {
     assert!(matches!(
-        intersect_types(&CoreType::Dynamic(Box::new(CoreType::Int)), &CoreType::Number),
+        intersect_types(
+            &CoreType::Dynamic(Box::new(CoreType::Int)),
+            &CoreType::Number
+        ),
         CoreType::Dynamic(_) | CoreType::Int | CoreType::Number
     ));
     assert_eq!(
@@ -219,7 +222,9 @@ fn cast_more_intersection_and_unknown_decide() {
         plan_cast_evidence(&CoreType::F64, &CoreType::F64),
         Some(CastEvidence::Identity)
     );
-    assert!(!is_runtime_checkable(&CoreType::Not(Box::new(CoreType::Int))));
+    assert!(!is_runtime_checkable(&CoreType::Not(Box::new(
+        CoreType::Int
+    ))));
     assert!(is_runtime_checkable(&CoreType::Intersect(vec![
         CoreType::Int,
         CoreType::Number
@@ -247,7 +252,7 @@ fn unify_lacks_open_and_set_theoretic() {
             row: Box::new(CoreType::Unit),
         }),
     };
-    assert!(unify(&bad, &CoreType::Unit, &mut s).is_err() || true);
+    let _ = unify(&bad, &CoreType::Unit, &mut s);
 
     let mut s = Subst::new();
     assert!(unify(
@@ -268,10 +273,7 @@ fn unify_lacks_open_and_set_theoretic() {
     let mut s = Subst::new();
     let v = s.fresh_var();
     assert!(s
-        .bind(
-            v,
-            CoreType::Union(vec![CoreType::Var(v), CoreType::Int])
-        )
+        .bind(v, CoreType::Union(vec![CoreType::Var(v), CoreType::Int]))
         .is_err());
 
     let mut s = Subst::new();
@@ -301,10 +303,7 @@ fn unify_lacks_open_and_set_theoretic() {
     let mut s = Subst::new();
     let v = s.fresh_var();
     assert!(s
-        .bind(
-            v,
-            CoreType::Intersect(vec![CoreType::Var(v)])
-        )
+        .bind(v, CoreType::Intersect(vec![CoreType::Var(v)]))
         .is_err());
 
     let mut s = Subst::new();
@@ -363,7 +362,10 @@ fn insert_casts_let_if_record_match_lambda() {
 #[test]
 fn typecheck_more_kernel_forms() {
     let ty = typecheck_language_source("(val main (perform random unit))").unwrap();
-    assert!(matches!(ty, CoreType::Number | CoreType::F64 | CoreType::Int));
+    assert!(matches!(
+        ty,
+        CoreType::Number | CoreType::F64 | CoreType::Int
+    ));
 
     let err = typecheck_language_source("(val main (perform random 1))").unwrap_err();
     assert!(err.message.contains("random") || err.message.contains("unit"));

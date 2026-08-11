@@ -7,13 +7,10 @@ use reciplexa_core::cast::{
     TypeDiagClass,
 };
 use reciplexa_core::check::{
-    coerce_to_static, infer_with_effects, insert_implicit_casts, typecheck_language_source,
-    TypeEnv,
+    coerce_to_static, infer_with_effects, insert_implicit_casts, typecheck_language_source, TypeEnv,
 };
 use reciplexa_core::elaborate::{elaborate_source, elaborate_with_data};
-use reciplexa_core::expr::{
-    first_unreachable_arm, CoreExpr, CoreLiteral, CorePattern, MatchArm,
-};
+use reciplexa_core::expr::{first_unreachable_arm, CoreExpr, CoreLiteral, CorePattern, MatchArm};
 use reciplexa_core::ty::{CoreType, EffectRow, NumericClass, SingletonValue, TypeVarId};
 use reciplexa_core::unify::{unify, Subst};
 use reciplexa_source::offset::ByteOffset;
@@ -25,10 +22,7 @@ fn range() -> TextRange {
 
 #[test]
 fn ty_helpers_dynamic_numeric_singleton() {
-    assert_eq!(
-        CoreType::dynamic_bound(CoreType::Never),
-        CoreType::Never
-    );
+    assert_eq!(CoreType::dynamic_bound(CoreType::Never), CoreType::Never);
     assert_eq!(
         CoreType::dynamic_bound(CoreType::dyn_any()),
         CoreType::dyn_any()
@@ -37,14 +31,8 @@ fn ty_helpers_dynamic_numeric_singleton() {
         CoreType::dynamic_bound(CoreType::Int),
         CoreType::Dynamic(b) if matches!(b.as_ref(), CoreType::Int)
     ));
-    assert_eq!(
-        CoreType::Int.as_dyn_bound(),
-        None
-    );
-    assert_eq!(
-        CoreType::dyn_any().as_dyn_bound(),
-        Some(&CoreType::Any)
-    );
+    assert_eq!(CoreType::Int.as_dyn_bound(), None);
+    assert_eq!(CoreType::dyn_any().as_dyn_bound(), Some(&CoreType::Any));
 
     assert_eq!(CoreType::Int.numeric_class(), Some(NumericClass::Int));
     assert_eq!(
@@ -184,10 +172,7 @@ fn plan_cast_and_judge_matrix() {
         plan_cast_evidence(&CoreType::Int, &CoreType::Int),
         Some(CastEvidence::Identity)
     );
-    assert_eq!(
-        plan_cast_evidence(&CoreType::Int, &CoreType::Never),
-        None
-    );
+    assert_eq!(plan_cast_evidence(&CoreType::Int, &CoreType::Never), None);
     assert_eq!(
         plan_cast_evidence(&CoreType::Int, &CoreType::F64),
         Some(CastEvidence::NumericPromote)
@@ -213,7 +198,12 @@ fn plan_cast_and_judge_matrix() {
             &CoreType::dynamic_bound(CoreType::Union(vec![CoreType::Int, CoreType::String])),
             &CoreType::Number
         ),
-        Some(CastEvidence::TagCheck { .. } | CastEvidence::UnionCheck { .. } | CastEvidence::NumericPromote | CastEvidence::Compose(_))
+        Some(
+            CastEvidence::TagCheck { .. }
+                | CastEvidence::UnionCheck { .. }
+                | CastEvidence::NumericPromote
+                | CastEvidence::Compose(_)
+        )
     ));
 
     assert_eq!(
@@ -255,17 +245,11 @@ fn plan_cast_and_judge_matrix() {
         Some(CastEvidence::NumericPromote)
     );
     assert_eq!(
-        plan_cast_evidence(
-            &CoreType::Union(vec![CoreType::String]),
-            &CoreType::F64
-        ),
+        plan_cast_evidence(&CoreType::Union(vec![CoreType::String]), &CoreType::F64),
         None
     );
     assert_eq!(
-        plan_cast_evidence(
-            &CoreType::Singleton(SingletonValue::Int(3)),
-            &CoreType::F64
-        ),
+        plan_cast_evidence(&CoreType::Singleton(SingletonValue::Int(3)), &CoreType::F64),
         Some(CastEvidence::NumericPromote)
     );
 }
@@ -352,10 +336,7 @@ fn decide_subtype_and_is_subtype_shapes() {
             variants: vec![("ok".into(), Some(CoreType::Int))]
         },
         &CoreType::Variant {
-            variants: vec![
-                ("ok".into(), Some(CoreType::Number)),
-                ("err".into(), None)
-            ]
+            variants: vec![("ok".into(), Some(CoreType::Number)), ("err".into(), None)]
         }
     ));
 }
@@ -403,10 +384,7 @@ fn intersect_normalize_runtime_checkable() {
         CoreType::Int
     );
     assert!(matches!(
-        intersect_types(
-            &CoreType::Intersect(vec![CoreType::Number]),
-            &CoreType::Int
-        ),
+        intersect_types(&CoreType::Intersect(vec![CoreType::Number]), &CoreType::Int),
         CoreType::Int | CoreType::Intersect(_)
     ));
     assert_eq!(
@@ -436,10 +414,7 @@ fn intersect_normalize_runtime_checkable() {
     assert!(matches!(
         intersect_types(
             &CoreType::Variant {
-                variants: vec![
-                    ("ok".into(), Some(CoreType::Int)),
-                    ("err".into(), None)
-                ]
+                variants: vec![("ok".into(), Some(CoreType::Int)), ("err".into(), None)]
             },
             &CoreType::Variant {
                 variants: vec![("ok".into(), Some(CoreType::Number))]
@@ -507,7 +482,9 @@ fn intersect_normalize_runtime_checkable() {
     ));
 
     assert!(is_runtime_checkable(&CoreType::Bytes));
-    assert!(is_runtime_checkable(&CoreType::dynamic_bound(CoreType::Int)));
+    assert!(is_runtime_checkable(&CoreType::dynamic_bound(
+        CoreType::Int
+    )));
     assert!(is_runtime_checkable(&CoreType::Union(vec![CoreType::Int])));
     assert!(is_runtime_checkable(&CoreType::Variant {
         variants: vec![("ok".into(), Some(CoreType::Int))]
@@ -548,10 +525,7 @@ fn unify_open_record_lacks_union_and_occurs() {
         row: Box::new(CoreType::Var(s.fresh_var())),
     };
     let closed = CoreType::Record {
-        fields: vec![
-            ("a".into(), CoreType::Int),
-            ("b".into(), CoreType::String),
-        ],
+        fields: vec![("a".into(), CoreType::Int), ("b".into(), CoreType::String)],
     };
     // May succeed or fail depending on row algorithm; exercise the path.
     let _ = unify(&open, &closed, &mut s);
@@ -564,7 +538,8 @@ fn unify_open_record_lacks_union_and_occurs() {
             fields: vec![("y".into(), CoreType::Int)],
         }),
     };
-    assert!(unify(&CoreType::Var(v), &lacks, &mut s).is_ok() || unify(&lacks, &CoreType::Var(v), &mut s).is_ok() || true);
+    let _ = unify(&CoreType::Var(v), &lacks, &mut s);
+    let _ = unify(&lacks, &CoreType::Var(v), &mut s);
 
     let mut s = Subst::new();
     let bad = CoreType::Lacks {
@@ -594,10 +569,7 @@ fn unify_open_record_lacks_union_and_occurs() {
     let mut s = Subst::new();
     let v = s.fresh_var();
     assert!(s
-        .bind(
-            v,
-            CoreType::OptionalField(Box::new(CoreType::Var(v)))
-        )
+        .bind(v, CoreType::OptionalField(Box::new(CoreType::Var(v))))
         .is_err());
 
     let mut s = Subst::new();
@@ -654,7 +626,10 @@ fn coerce_and_insert_implicit_casts() {
             effects: EffectRow::default(),
         },
     );
-    env.insert("x", CoreType::dynamic_bound(CoreType::Union(vec![CoreType::Int, CoreType::String])));
+    env.insert(
+        "x",
+        CoreType::dynamic_bound(CoreType::Union(vec![CoreType::Int, CoreType::String])),
+    );
     let app = CoreExpr::App {
         fun: Box::new(CoreExpr::Var("f".into())),
         args: vec![CoreExpr::Var("x".into())],
@@ -678,10 +653,9 @@ fn infer_with_effects_and_handle_forms() {
     assert_eq!(ty, CoreType::Unit);
     assert!(effects.ops.iter().any(|o| o == "log"));
 
-    let ty = typecheck_language_source(
-        r#"(val main (handle log (fn (msg) msg) (perform log "hi")))"#,
-    )
-    .unwrap();
+    let ty =
+        typecheck_language_source(r#"(val main (handle log (fn (msg) msg) (perform log "hi")))"#)
+            .unwrap();
     assert_eq!(ty, CoreType::String);
 
     let ty = typecheck_language_source(
@@ -786,10 +760,8 @@ fn typecheck_record_update_extend_and_optional() {
 
 #[test]
 fn typecheck_raise_as_result_or_raise() {
-    let ty = typecheck_language_source(
-        r#"(val main (handle failure (fn (e) e) (raise "x")))"#,
-    )
-    .unwrap();
+    let ty =
+        typecheck_language_source(r#"(val main (handle failure (fn (e) e) (raise "x")))"#).unwrap();
     assert!(matches!(ty, CoreType::String | CoreType::Dynamic(_)));
 
     let ty = typecheck_language_source(r#"(val main (as-result (fn () 1)))"#).unwrap();
@@ -837,17 +809,19 @@ fn typecheck_list_and_if_never_branch() {
 
 #[test]
 fn plan_structural_checks_for_complex_targets() {
-    assert!(plan_cast_evidence(
-        &CoreType::dyn_any(),
-        &CoreType::Union(vec![CoreType::Int])
-    )
-    .is_some());
+    assert!(
+        plan_cast_evidence(&CoreType::dyn_any(), &CoreType::Union(vec![CoreType::Int])).is_some()
+    );
     assert!(matches!(
         plan_cast_evidence(
             &CoreType::dyn_any(),
             &CoreType::Intersect(vec![CoreType::Int, CoreType::Number])
         ),
-        Some(CastEvidence::IntersectionCheck { .. } | CastEvidence::Identity | CastEvidence::TagCheck { .. })
+        Some(
+            CastEvidence::IntersectionCheck { .. }
+                | CastEvidence::Identity
+                | CastEvidence::TagCheck { .. }
+        )
     ));
     assert!(matches!(
         plan_cast_evidence(

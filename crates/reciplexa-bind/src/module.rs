@@ -137,7 +137,8 @@ pub fn elaborate_units_with_interfaces(
         .map(|(i, (name, _))| ((*name).to_string(), i))
         .collect();
 
-    let mut parsed: Vec<(String, Vec<(usize, ImportDecl)>, CoreExpr, Vec<String>)> = Vec::new();
+    type IndexedUnit = (String, Vec<(usize, ImportDecl)>, CoreExpr, Vec<String>);
+    let mut parsed: Vec<IndexedUnit> = Vec::new();
     for (name, src) in units {
         let (imports, body_src) = split_imports(src)?;
         let mut indexed_imports = Vec::with_capacity(imports.len());
