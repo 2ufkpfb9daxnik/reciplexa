@@ -59,8 +59,9 @@ Goal: land local-path packages and std domain libraries after Part II conformanc
 
 ### Slice E — workspace / resources / OPEN stubs
 
-- `workspace.rpxm` + shared lockfile
-- Resource root + declared distributable resources
+- [x] `workspace.rpxm` stub parse (`parse_workspace_rpxm` / format-version + members)
+- [ ] Shared lockfile wired to workspace member discovery (root `rpx.lock` helpers exist for path deps)
+- [ ] Resource root + declared distributable resources
 - Registry client: stub errors only (`OPEN-PKG-001`)
 
 ## Conventions (v1 local)

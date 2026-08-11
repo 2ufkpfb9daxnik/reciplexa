@@ -97,6 +97,11 @@ fn path_dep_lockfile_roundtrip() {
         LocalPackageIndex::discover_with_consumer(&[workspace_packages()], &consumer).unwrap();
     let lock = idx.lock_consumer(&manifest).unwrap();
     assert!(lock.packages.iter().any(|p| p.source.starts_with("path:")));
+    assert!(lock
+        .packages
+        .iter()
+        .any(|p| p.name == "pkg-consumer" && !p.dependencies.is_empty()));
+    lock.is_consistent_with_consumer(&manifest).unwrap();
     let dir = tempfile_dir();
     let lock_path = dir.join("rpx.lock");
     lock.write_rpx_lock(&lock_path).unwrap();

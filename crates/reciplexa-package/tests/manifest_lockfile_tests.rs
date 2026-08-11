@@ -39,6 +39,7 @@ fn lockfile_json_roundtrip() {
             name: "demo".into(),
             version: "1.0".into(),
             source: "workspace".into(),
+            dependencies: vec![],
         }],
     };
     let json = lf.to_json().unwrap();

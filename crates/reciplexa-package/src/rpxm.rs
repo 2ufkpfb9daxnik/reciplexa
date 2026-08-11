@@ -347,7 +347,7 @@ fn parse_one_dependency(
     ))
 }
 
-fn tokenize(src: &str) -> Result<Vec<String>, String> {
+pub(crate) fn tokenize(src: &str) -> Result<Vec<String>, String> {
     let mut out = Vec::new();
     let mut chars = src.chars().peekable();
     while let Some(&c) = chars.peek() {
