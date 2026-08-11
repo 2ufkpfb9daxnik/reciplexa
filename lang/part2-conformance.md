@@ -17,10 +17,10 @@
 
 - **total**: 1589
 - **unchecked**: 0
-- **ok**: 700
-- **partial**: 172
+- **ok**: 706
+- **partial**: 153
 - **gap**: 0
-- **deferred**: 579
+- **deferred**: 592
 - **meta**: 138
 
 （LEX/SYN/MAC および導入メタ節を照合済み。他機能ブロックも並行更新済み。）
@@ -4358,9 +4358,9 @@
   - spec: `specification.md:17328`
   - notes: in-memory host for tests; resolve-font/load-image etc. not in language kernel
 
-- [x] **L4 L17355: 13.11 `EDT-001` 編集スナップショット・トランザクション・競合・由来情報** — `partial`
+- [x] **L4 L17355: 13.11 `EDT-001` 編集スナップショット・トランザクション・競合・由来情報** — `deferred`
   - spec: `specification.md:17355`
-  - notes: DocumentSnapshot/Transaction/BindingMap use-sites + MacroSourceMap; full GUI reconciliation 依存待ち(第V部)
+  - notes: 依存待ち(第V部): DocumentSnapshot/Transaction は言語側骨格あり; full GUI reconciliation/conflict/undo/codec は後回し
 
 - [x] **L5 L17356: DD-001 決定概要** — `meta`
   - spec: `specification.md:17356`
@@ -4386,13 +4386,13 @@
   - spec: `specification.md:17412`
   - notes: collab/codec overrides → OPEN-EDT-*
 
-- [x] **L5 L17435: 1. 編集モデルの基本原則** — `partial`
+- [x] **L5 L17435: 1. 編集モデルの基本原則** — `ok`
   - spec: `specification.md:17435`
-  - notes: snapshot + StableNodeId + BindingId use-sites; full EDT value model 依存待ち(第V部)
+  - notes: snapshot + StableNodeId + BindingMap use-sites（TEST-LANG-EDT-binding）; full GUI value model は第V部
 
-- [x] **L6 L17436: 1.1 不変値と継続的identity** — `partial`
+- [x] **L6 L17436: 1.1 不変値と継続的identity** — `ok`
   - spec: `specification.md:17436`
-  - notes: DocumentIdentity + StableNodeId; full EDT value model 依存待ち(第V部)
+  - notes: DocumentIdentity + StableNodeId 継続 identity（reciplexa-identity/document）
 
 - [x] **L6 L17460: 1.2 スナップショット** — `ok`
   - spec: `specification.md:17460`
@@ -4402,9 +4402,9 @@
   - spec: `specification.md:17477`
   - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L5 L17487: 2. 文書の所有構造** — `partial`
+- [x] **L5 L17487: 2. 文書の所有構造** — `ok`
   - spec: `specification.md:17487`
-  - notes: NodeStore ownership tree
+  - notes: NodeStore ownership tree（parent/children）実装済
 
 - [x] **L6 L17488: 2.1 単一rootの所有tree** — `ok`
   - spec: `specification.md:17488`
@@ -4590,9 +4590,9 @@
   - spec: `specification.md:17885`
   - notes: RemoveNode deletes from snapshot
 
-- [x] **L6 L17900: 9.3 SetProperty** — `partial`
+- [x] **L6 L17900: 9.3 SetProperty** — `deferred`
   - spec: `specification.md:17900`
-  - notes: SetLayout/SetText; no generic SetProperty
+  - notes: 依存待ち(第V部): SetLayout/SetText のみ; 汎用 SetProperty は GUI EDT
 
 - [x] **L6 L17925: 9.4 InsertChild** — `ok`
   - spec: `specification.md:17925`
@@ -4622,9 +4622,9 @@
   - spec: `specification.md:18005`
   - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L5 L18011: 11. 適用前条件** — `partial`
+- [x] **L5 L18011: 11. 適用前条件** — `deferred`
   - spec: `specification.md:18011`
-  - notes: basic UnknownNode/InvalidParent checks
+  - notes: 依存待ち(第V部): UnknownNode/InvalidParent 等の基本検査あり; 完全な適用前条件プロトコルは GUI
 
 - [x] **L6 L18012: 11.1 Operation固有条件** — `ok`
   - spec: `specification.md:18012`
@@ -4678,9 +4678,9 @@
   - spec: `specification.md:18115`
   - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L5 L18135: 14. 適用手順** — `partial`
+- [x] **L5 L18135: 14. 適用手順** — `deferred`
   - spec: `specification.md:18135`
-  - notes: simplified apply path without full 9-step protocol
+  - notes: 依存待ち(第V部): 簡略 apply; 仕様9段プロトコルは GUI reconciliation
 
 - [x] **L5 L18139: 1. TransactionIdを確認** — `deferred`
   - spec: `specification.md:18139`
@@ -4698,9 +4698,9 @@
   - spec: `specification.md:18142`
   - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L5 L18143: 5. 現在snapshotから作業状態を作成** — `partial`
+- [x] **L5 L18143: 5. 現在snapshotから作業状態を作成** — `deferred`
   - spec: `specification.md:18143`
-  - notes: mutates snapshot in place with rollback
+  - notes: 依存待ち(第V部): in-place mutate+rollback; 作業 snapshot 複製モデルは GUI
 
 - [x] **L5 L18144: 6. Operationを順番に仮適用** — `ok`
   - spec: `specification.md:18144`
@@ -4718,9 +4718,9 @@
   - spec: `specification.md:18147`
   - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L5 L18152: 15. 適用結果** — `partial`
+- [x] **L5 L18152: 15. 適用結果** — `ok`
   - spec: `specification.md:18152`
-  - notes: TransactionOutcome Applied/AppliedNoChange/Rejected
+  - notes: TransactionOutcome Applied/AppliedNoChange/Rejected（document::transaction）
 
 - [x] **L6 L18153: 15.1 結果型** — `ok`
   - spec: `specification.md:18153`
@@ -4774,9 +4774,9 @@
   - spec: `specification.md:18251`
   - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L5 L18264: 17. Provenance** — `partial`
+- [x] **L5 L18264: 17. Provenance** — `ok`
   - spec: `specification.md:18264`
-  - notes: SourceProvenance + NodeProvenance; not full EDT provenance taxonomy
+  - notes: SourceProvenance + NodeProvenance + ProvenanceKind（language provenance）; full GUI taxonomy は第V部
 
 - [x] **L6 L18265: 17.1 定義** — `deferred`
   - spec: `specification.md:18265`
@@ -4786,9 +4786,9 @@
   - spec: `specification.md:18278`
   - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L6 L18284: 17.3 構造** — `partial`
+- [x] **L6 L18284: 17.3 構造** — `ok`
   - spec: `specification.md:18284`
-  - notes: flat SourceProvenance struct
+  - notes: flat SourceProvenance struct（resource/module/range/SyntaxNodeId/kind）
 
 - [x] **L6 L18296: 17.4 種類** — `deferred`
   - spec: `specification.md:18296`
@@ -4878,17 +4878,17 @@
   - spec: `specification.md:18454`
   - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L5 L18460: 21. 公開API階層** — `partial`
+- [x] **L5 L18460: 21. 公開API階層** — `deferred`
   - spec: `specification.md:18460`
-  - notes: Rust document API only; not RPX-exported EDT API
+  - notes: 依存待ち(第V部): Rust document API; RPX 第一級 EDT API は後回し
 
-- [x] **L6 L18461: 21.1 純粋な第一級値** — `partial`
+- [x] **L6 L18461: 21.1 純粋な第一級値** — `deferred`
   - spec: `specification.md:18461`
-  - notes: DocumentEdit values; not RPX first-class
+  - notes: 依存待ち(第V部): DocumentEdit 値はあるが RPX 第一級化は GUI/EDT
 
-- [x] **L6 L18474: 21.2 状態付きhandle** — `partial`
+- [x] **L6 L18474: 21.2 状態付きhandle** — `deferred`
   - spec: `specification.md:18474`
-  - notes: working DocumentSnapshot handle in GUI path
+  - notes: 依存待ち(第V部): DocumentSnapshot handle は GUI 経路
 
 - [x] **L6 L18478: 21.3 抽象型** — `deferred`
   - spec: `specification.md:18478`
@@ -4902,37 +4902,37 @@
   - spec: `specification.md:18500`
   - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L6 L18501: 22.1 高水準API** — `partial`
+- [x] **L6 L18501: 22.1 高水準API** — `deferred`
   - spec: `specification.md:18501`
-  - notes: source_sync GUI edits
+  - notes: 依存待ち(第V部): source_sync GUI edits
 
-- [x] **L6 L18515: 22.2 低水準API** — `partial`
+- [x] **L6 L18515: 22.2 低水準API** — `deferred`
   - spec: `specification.md:18515`
-  - notes: DocumentTransaction ops
+  - notes: 依存待ち(第V部): DocumentTransaction 低水準 API は GUI 層
 
 - [x] **L6 L18525: 22.3 信頼境界** — `meta`
   - spec: `specification.md:18525`
   - notes: trust boundary prose
 
-- [x] **L5 L18529: 23. Pure処理とEffectful処理** — `partial`
+- [x] **L5 L18529: 23. Pure処理とEffectful処理** — `deferred`
   - spec: `specification.md:18529`
-  - notes: doc txs pure-ish; host I/O separate (RSC)
+  - notes: 依存待ち(第V部): doc tx 純関数性 vs host I/O の完全分離は GUI/RSC 境界
 
 - [x] **L6 L18530: 23.1 Pure処理** — `deferred`
   - spec: `specification.md:18530`
   - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L6 L18538: 23.2 Effectful処理** — `partial`
+- [x] **L6 L18538: 23.2 Effectful処理** — `deferred`
   - spec: `specification.md:18538`
-  - notes: source rewrite side effects via GUI sync
+  - notes: 依存待ち(第V部): source rewrite side effects via GUI sync
 
 - [x] **L6 L18546: 23.3 Effectの暫定分類** — `meta`
   - spec: `specification.md:18546`
   - notes: provisional effect taxonomy
 
-- [x] **L5 L18559: 24. 競合・不正・実行障害の分離** — `partial`
+- [x] **L5 L18559: 24. 競合・不正・実行障害の分離** — `deferred`
   - spec: `specification.md:18559`
-  - notes: TransactionError vs Outcome; no conflict type
+  - notes: 依存待ち(第V部): Outcome vs Error 骨格あり; 競合型の完全分離は GUI
 
 - [x] **L6 L18560: 24.1 正常な結果** — `ok`
   - spec: `specification.md:18560`
