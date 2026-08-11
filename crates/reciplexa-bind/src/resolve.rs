@@ -947,6 +947,8 @@ fn is_param_list(node: &SyntaxNode) -> bool {
 }
 
 fn is_quarantined_head(node: &SyntaxNode) -> bool {
+    // Graphics / document hosts only. Language-kernel effects (`perform`,
+    // `handle`, `raise`, …) must be walked so binders inside handlers resolve.
     matches!(
         list_head_ident(node).as_deref(),
         Some(
@@ -963,11 +965,6 @@ fn is_quarantined_head(node: &SyntaxNode) -> bool {
                 | "rotate"
                 | "scale"
                 | "opacity"
-                | "perform"
-                | "raise"
-                | "or-raise"
-                | "as-result"
-                | "handle"
         )
     )
 }
