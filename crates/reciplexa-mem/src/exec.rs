@@ -123,6 +123,32 @@ pub fn exec_linear(prog: &LinearProgram, trace: &mut RcTrace) -> Result<RuntimeV
             MemInstr::DiscardCont { cont: _ } => {
                 run_cleanups(&mut cleanups, trace);
             }
+            MemInstr::Select {
+                dst,
+                cond,
+                then_reg,
+                else_reg,
+            } => {
+                let cond = resolve(*cond, &reg_map);
+                let cell = heap.get(&cond).ok_or(ExecError::UnboundReg(cond))?;
+                let pick = match &cell.value {
+                    RuntimeValue::Bool(true) => *then_reg,
+                    RuntimeValue::Bool(false) => *else_reg,
+                    other => {
+                        return Err(ExecError::UnhandledRaise(format!(
+                            "select expects Bool, got {other:?}"
+                        )));
+                    }
+                };
+                let pick = resolve(pick, &reg_map);
+                let v = heap
+                    .get(&pick)
+                    .ok_or(ExecError::UnboundReg(pick))?
+                    .value
+                    .clone();
+                heap_insert(&mut heap, *dst, v, trace);
+                reg_map.insert(*dst, *dst);
+            }
             MemInstr::MakeClosure {
                 dst,
                 param,
@@ -144,7 +170,7 @@ pub fn exec_linear(prog: &LinearProgram, trace: &mut RcTrace) -> Result<RuntimeV
                 }
                 let closure = RuntimeValue::Closure {
                     params: vec![param.clone()],
-                    body: CoreExpr::Lit(reciplexa_core::expr::CoreLiteral::Number(0.0)),
+                    body: CoreExpr::Lit(reciplexa_core::expr::CoreLiteral::Int(0)),
                     env: std::rc::Rc::new(std::cell::RefCell::new(env)),
                 };
                 heap_insert(&mut heap, *dst, closure, trace);

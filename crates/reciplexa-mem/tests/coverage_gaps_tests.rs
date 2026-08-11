@@ -26,18 +26,18 @@ fn observably_equal_none_payload_and_cross_type() {
     ));
     assert!(!observably_equal(
         &RuntimeValue::Unit,
-        &RuntimeValue::Number(1.0)
+        &RuntimeValue::Int(1)
     ));
 }
 
 #[test]
 fn reference_eval_error_maps_to_equiv() {
     let e = CoreExpr::Match {
-        scrutinee: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
+        scrutinee: Box::new(CoreExpr::Lit(CoreLiteral::Int(1))),
         arms: vec![MatchArm::variant(
             "X".into(),
             None,
-            CoreExpr::Lit(CoreLiteral::Number(0.0)),
+            CoreExpr::Lit(CoreLiteral::Int(0)),
         )],
     };
     let err = assert_observational_equiv(&e).unwrap_err();
@@ -60,8 +60,7 @@ fn equiv_error_variants_debug() {
 #[test]
 fn check_observational_equiv_mismatch_and_ok() {
     check_observational_equiv(&RuntimeValue::Unit, &RuntimeValue::Unit).unwrap();
-    let err = check_observational_equiv(&RuntimeValue::Number(1.0), &RuntimeValue::Number(2.0))
-        .unwrap_err();
+    let err = check_observational_equiv(&RuntimeValue::Int(1), &RuntimeValue::Int(2)).unwrap_err();
     assert!(matches!(err, EquivError::Mismatch { .. }));
 }
 
@@ -507,17 +506,17 @@ fn lower_variant_unit_and_match_bind_without_payload() {
         arms: vec![MatchArm::variant(
             "None".into(),
             Some("x".into()),
-            CoreExpr::Lit(CoreLiteral::Number(1.0)),
+            CoreExpr::Lit(CoreLiteral::Int(1)),
         )],
     };
     let prog = reciplexa_mem::lower_core_linear(&matched);
     assert!(!prog.instrs.is_empty());
 
     let no_bind = CoreExpr::Match {
-        scrutinee: Box::new(CoreExpr::Lit(CoreLiteral::Number(0.0))),
+        scrutinee: Box::new(CoreExpr::Lit(CoreLiteral::Int(0))),
         arms: vec![
-            MatchArm::variant("A".into(), None, CoreExpr::Lit(CoreLiteral::Number(1.0))),
-            MatchArm::variant("B".into(), None, CoreExpr::Lit(CoreLiteral::Number(2.0))),
+            MatchArm::variant("A".into(), None, CoreExpr::Lit(CoreLiteral::Int(1))),
+            MatchArm::variant("B".into(), None, CoreExpr::Lit(CoreLiteral::Int(2))),
         ],
     };
     let prog = reciplexa_mem::lower_core_linear(&no_bind);
@@ -621,12 +620,12 @@ fn lower_match_bind_none_and_tag_miss() {
     let bind_none = CoreExpr::Match {
         scrutinee: Box::new(CoreExpr::Variant {
             tag: "Ok".into(),
-            payload: Some(Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0)))),
+            payload: Some(Box::new(CoreExpr::Lit(CoreLiteral::Int(1)))),
         }),
         arms: vec![MatchArm::variant(
             "Ok".into(),
             None,
-            CoreExpr::Lit(CoreLiteral::Number(2.0)),
+            CoreExpr::Lit(CoreLiteral::Int(2)),
         )],
     };
     let prog = reciplexa_mem::lower_core_linear(&bind_none);
@@ -640,7 +639,7 @@ fn lower_match_bind_none_and_tag_miss() {
         arms: vec![MatchArm::variant(
             "Err".into(),
             None,
-            CoreExpr::Lit(CoreLiteral::Number(0.0)),
+            CoreExpr::Lit(CoreLiteral::Int(0)),
         )],
     };
     let prog = reciplexa_mem::lower_core_linear(&tag_miss);

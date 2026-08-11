@@ -35,7 +35,8 @@ fn apply_track(alive: &mut HashSet<Reg>, instr: &MemInstr) {
         | MemInstr::Dup { dst, .. }
         | MemInstr::Project { dst, .. }
         | MemInstr::MakeClosure { dst, .. }
-        | MemInstr::Call { dst, .. } => {
+        | MemInstr::Call { dst, .. }
+        | MemInstr::Select { dst, .. } => {
             alive.insert(*dst);
         }
         MemInstr::Move { src, dst } => {

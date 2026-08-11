@@ -68,7 +68,8 @@ pub fn verify_ownership(prog: &LinearProgram) -> Result<(), VerifyError> {
             | MemInstr::Construct { dst, .. }
             | MemInstr::Project { dst, .. }
             | MemInstr::MakeClosure { dst, .. }
-            | MemInstr::Call { dst, .. } => {
+            | MemInstr::Call { dst, .. }
+            | MemInstr::Select { dst, .. } => {
                 state.define(*dst);
             }
             MemInstr::Resume { cont } => {

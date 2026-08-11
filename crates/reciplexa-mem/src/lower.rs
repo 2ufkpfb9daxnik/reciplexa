@@ -42,6 +42,8 @@ impl Lowerer {
                 let dst = self.alloc.fresh();
                 let mem_lit = match lit {
                     CoreLiteral::Number(n) => MemLiteral::Number(*n),
+                    CoreLiteral::Int(n) => MemLiteral::Number(*n as f64),
+                    CoreLiteral::F64(n) => MemLiteral::Number(*n),
                     CoreLiteral::String(s) | CoreLiteral::Color(s) => MemLiteral::String(s.clone()),
                     CoreLiteral::Bool(b) => MemLiteral::String(b.to_string()),
                     CoreLiteral::Unit => MemLiteral::Unit,
@@ -121,10 +123,17 @@ impl Lowerer {
                 then_branch,
                 else_branch,
             } => {
-                let _ = self.lower_expr(cond, env);
-                let t = self.lower_expr(then_branch, env);
-                let _ = self.lower_expr(else_branch, env);
-                t
+                let cond_reg = self.lower_expr(cond, env);
+                let then_reg = self.lower_expr(then_branch, env);
+                let else_reg = self.lower_expr(else_branch, env);
+                let dst = self.alloc.fresh();
+                self.emit(MemInstr::Select {
+                    dst,
+                    cond: cond_reg,
+                    then_reg,
+                    else_reg,
+                });
+                dst
             }
             CoreExpr::Record { fields } => {
                 let dst = self.alloc.fresh();
@@ -192,6 +201,13 @@ impl Lowerer {
             }
             CoreExpr::Perform { op, arg } => {
                 let a = self.lower_expr(arg, env);
+                if op == "failure" {
+                    self.emit(MemInstr::Drop { reg: a });
+                    self.emit(MemInstr::Raise {
+                        tag: "failure".into(),
+                    });
+                    return self.unit();
+                }
                 let dst = self.alloc.fresh();
                 self.emit(MemInstr::Construct {
                     dst,
@@ -203,16 +219,28 @@ impl Lowerer {
             CoreExpr::Handle {
                 handler_body, body, ..
             } => {
-                // Mem lowering does not model handlers yet; evaluate body then handler stub.
-                let _ = self.lower_expr(body, env);
-                self.lower_expr(handler_body, env)
+                let _ = self.lower_expr(handler_body, env);
+                self.lower_expr(body, env)
             }
             CoreExpr::HandlerValue { handler_body, .. } => self.lower_expr(handler_body, env),
             CoreExpr::With { handler, body } => {
                 let _ = self.lower_expr(handler, env);
                 self.lower_expr(body, env)
             }
-            CoreExpr::Forward { .. } => self.unit(),
+            CoreExpr::Forward { resume_name } => {
+                let resume = self.alloc.fresh();
+                self.emit(MemInstr::Lit {
+                    dst: resume,
+                    lit: MemLiteral::String(resume_name.clone()),
+                });
+                let dst = self.alloc.fresh();
+                self.emit(MemInstr::Construct {
+                    dst,
+                    tag: "perform:forward".into(),
+                    fields: vec![("resume".into(), resume)],
+                });
+                dst
+            }
             CoreExpr::Error => self.unit(),
         }
     }

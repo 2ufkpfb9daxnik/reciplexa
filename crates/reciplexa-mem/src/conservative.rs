@@ -79,6 +79,14 @@ fn read_sources(instr: &MemInstr) -> Vec<Reg> {
         MemInstr::MakeClosure { captures, .. } => captures.clone(),
         MemInstr::Branch { cond, .. } => vec![*cond],
         MemInstr::Return { reg } => vec![*reg],
+        MemInstr::Select {
+            cond,
+            then_reg,
+            else_reg,
+            ..
+        } => {
+            vec![*cond, *then_reg, *else_reg]
+        }
         MemInstr::Phi { incoming, .. } => incoming.iter().map(|(_, r)| *r).collect(),
         MemInstr::Lit { .. }
         | MemInstr::Jump { .. }
@@ -100,7 +108,8 @@ fn write_targets(instr: &MemInstr) -> Vec<Reg> {
         | MemInstr::Project { dst, .. }
         | MemInstr::MakeClosure { dst, .. }
         | MemInstr::Call { dst, .. }
-        | MemInstr::Phi { dst, .. } => vec![*dst],
+        | MemInstr::Phi { dst, .. }
+        | MemInstr::Select { dst, .. } => vec![*dst],
         _ => Vec::new(),
     }
 }
@@ -144,6 +153,17 @@ fn remap_instr(instr: &MemInstr, map: &HashMap<Reg, Reg>) -> MemInstr {
             arg: r(*arg),
         },
         MemInstr::Return { reg } => MemInstr::Return { reg: r(*reg) },
+        MemInstr::Select {
+            dst,
+            cond,
+            then_reg,
+            else_reg,
+        } => MemInstr::Select {
+            dst: r(*dst),
+            cond: r(*cond),
+            then_reg: r(*then_reg),
+            else_reg: r(*else_reg),
+        },
         other => other.clone(),
     }
 }

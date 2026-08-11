@@ -10,10 +10,10 @@ fn perceus_drops_before_scope_end() {
     let expr = CoreExpr::Seq(vec![
         CoreExpr::Let {
             name: "v".into(),
-            value: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
-            body: Box::new(CoreExpr::Lit(CoreLiteral::Number(2.0))),
+            value: Box::new(CoreExpr::Lit(CoreLiteral::Int(1))),
+            body: Box::new(CoreExpr::Lit(CoreLiteral::Int(2))),
         },
-        CoreExpr::Lit(CoreLiteral::Number(3.0)),
+        CoreExpr::Lit(CoreLiteral::Int(3)),
     ]);
     let raw = lower_core_linear(&expr);
     let opt = perceus_pass(&raw);
@@ -37,7 +37,7 @@ fn perceus_falls_back_on_empty() {
 
 #[test]
 fn perceus_on_literal() {
-    let raw = lower_core_linear(&CoreExpr::Lit(CoreLiteral::Number(5.0)));
+    let raw = lower_core_linear(&CoreExpr::Lit(CoreLiteral::Int(5)));
     let opt = perceus_pass(&raw);
     assert!(opt
         .instrs

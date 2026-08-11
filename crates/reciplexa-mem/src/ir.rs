@@ -79,6 +79,13 @@ pub enum MemInstr {
         dst: Reg,
         incoming: Vec<(BlockId, Reg)>,
     },
+    /// `dst = if cond then then_reg else else_reg` (bool condition).
+    Select {
+        dst: Reg,
+        cond: Reg,
+        then_reg: Reg,
+        else_reg: Reg,
+    },
 }
 
 /// One basic block.
@@ -169,6 +176,17 @@ pub fn collect_regs_instr(instr: &MemInstr, out: &mut Vec<Reg>) {
             for (_, r) in incoming {
                 push_reg(out, *r);
             }
+        }
+        MemInstr::Select {
+            dst,
+            cond,
+            then_reg,
+            else_reg,
+        } => {
+            push_reg(out, *dst);
+            push_reg(out, *cond);
+            push_reg(out, *then_reg);
+            push_reg(out, *else_reg);
         }
         MemInstr::Jump { .. }
         | MemInstr::Raise { .. }

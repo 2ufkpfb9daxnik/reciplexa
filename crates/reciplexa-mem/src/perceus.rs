@@ -111,7 +111,8 @@ fn defined_regs(instr: &MemInstr) -> Vec<Reg> {
         | MemInstr::Project { dst, .. }
         | MemInstr::MakeClosure { dst, .. }
         | MemInstr::Call { dst, .. }
-        | MemInstr::Phi { dst, .. } => vec![*dst],
+        | MemInstr::Phi { dst, .. }
+        | MemInstr::Select { dst, .. } => vec![*dst],
         _ => Vec::new(),
     }
 }
@@ -158,6 +159,17 @@ fn rename_reads(instr: &MemInstr, map: &HashMap<Reg, Reg>) -> MemInstr {
         },
         MemInstr::Return { reg } => MemInstr::Return {
             reg: *map.get(reg).unwrap_or(reg),
+        },
+        MemInstr::Select {
+            dst,
+            cond,
+            then_reg,
+            else_reg,
+        } => MemInstr::Select {
+            dst: *dst,
+            cond: *map.get(cond).unwrap_or(cond),
+            then_reg: *map.get(then_reg).unwrap_or(then_reg),
+            else_reg: *map.get(else_reg).unwrap_or(else_reg),
         },
         other => other.clone(),
     }

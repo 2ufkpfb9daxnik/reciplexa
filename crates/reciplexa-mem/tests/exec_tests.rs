@@ -454,7 +454,7 @@ fn exec_record_update_and_extend() {
                     "title".into(),
                     CoreExpr::Lit(CoreLiteral::String("Old".into())),
                 ),
-                ("n".into(), CoreExpr::Lit(CoreLiteral::Number(1.0))),
+                ("n".into(), CoreExpr::Lit(CoreLiteral::Int(1))),
             ],
         }),
         fields: vec![(

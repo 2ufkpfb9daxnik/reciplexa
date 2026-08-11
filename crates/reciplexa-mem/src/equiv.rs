@@ -87,6 +87,14 @@ pub fn observably_equal(a: &RuntimeValue, b: &RuntimeValue) -> bool {
     match (a, b) {
         (RuntimeValue::Unit, RuntimeValue::Unit) => true,
         (RuntimeValue::Number(x), RuntimeValue::Number(y)) => x == y,
+        (RuntimeValue::Int(x), RuntimeValue::Int(y)) => x == y,
+        (RuntimeValue::F64(x), RuntimeValue::F64(y)) => x == y,
+        (RuntimeValue::Int(x), RuntimeValue::Number(y)) => (*x as f64) == *y,
+        (RuntimeValue::Number(x), RuntimeValue::Int(y)) => *x == *y as f64,
+        (RuntimeValue::Int(x), RuntimeValue::F64(y)) => (*x as f64) == *y,
+        (RuntimeValue::F64(x), RuntimeValue::Int(y)) => *x == *y as f64,
+        (RuntimeValue::Number(x), RuntimeValue::F64(y)) => x == y,
+        (RuntimeValue::F64(x), RuntimeValue::Number(y)) => x == y,
         (RuntimeValue::String(x), RuntimeValue::String(y)) => x == y,
         (RuntimeValue::Bool(x), RuntimeValue::Bool(y)) => x == y,
         (RuntimeValue::ShapeTag(x), RuntimeValue::ShapeTag(y)) => x == y,
@@ -126,6 +134,8 @@ pub fn observably_equal(a: &RuntimeValue, b: &RuntimeValue) -> bool {
         (
             RuntimeValue::Unit
             | RuntimeValue::Number(_)
+            | RuntimeValue::Int(_)
+            | RuntimeValue::F64(_)
             | RuntimeValue::String(_)
             | RuntimeValue::Bool(_)
             | RuntimeValue::ShapeTag(_)

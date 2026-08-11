@@ -56,8 +56,8 @@ fn inserts_dup_for_shared_use() {
 #[test]
 fn inserts_drop_after_last_use() {
     let raw = lower_core_linear(&CoreExpr::Seq(vec![
-        CoreExpr::Lit(CoreLiteral::Number(1.0)),
-        CoreExpr::Lit(CoreLiteral::Number(2.0)),
+        CoreExpr::Lit(CoreLiteral::Int(1)),
+        CoreExpr::Lit(CoreLiteral::Int(2)),
     ]));
     let rc = conservative_rc(&raw);
     assert!(rc.instrs.iter().any(|i| matches!(i, MemInstr::Drop { .. })));
@@ -66,8 +66,8 @@ fn inserts_drop_after_last_use() {
 #[test]
 fn conservative_on_shared_literal_seq() {
     let raw = lower_core_linear(&CoreExpr::Seq(vec![
-        CoreExpr::Lit(CoreLiteral::Number(1.0)),
-        CoreExpr::Lit(CoreLiteral::Number(1.0)),
+        CoreExpr::Lit(CoreLiteral::Int(1)),
+        CoreExpr::Lit(CoreLiteral::Int(1)),
     ]));
     let rc = conservative_rc(&raw);
     assert!(!rc.instrs.is_empty());
