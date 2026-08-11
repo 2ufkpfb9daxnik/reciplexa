@@ -51,13 +51,19 @@ pub fn expand_language(input: &str) -> Result<String, ExpandError> {
     }
 
     let forms = top_level_forms(&parse.root)?;
-    // Pass 1: record where each macro is defined (MAC-10 pre-def use).
+    // Pass 1: record where each macro and value binding is defined (MAC-10 / §9.3).
     let mut macro_at: HashMap<String, usize> = HashMap::new();
+    let mut value_at: HashMap<String, usize> = HashMap::new();
     for (i, form) in forms.iter().enumerate() {
         if let Some(name) = peek_macro_def_name(form)? {
             if macro_at.contains_key(&name) {
                 return Err(ExpandError::new(format!(
                     "duplicate macro definition `{name}`"
+                )));
+            }
+            if value_at.contains_key(&name) {
+                return Err(ExpandError::new(format!(
+                    "macro `{name}` conflicts with an existing value binding in the same scope"
                 )));
             }
             if is_reserved(&name) {
@@ -66,6 +72,19 @@ pub fn expand_language(input: &str) -> Result<String, ExpandError> {
                 )));
             }
             macro_at.insert(name, i);
+        }
+        if let Some(name) = peek_value_def_name(form)? {
+            if value_at.contains_key(&name) {
+                return Err(ExpandError::new(format!(
+                    "duplicate value binding `{name}`"
+                )));
+            }
+            if macro_at.contains_key(&name) {
+                return Err(ExpandError::new(format!(
+                    "value binding `{name}` conflicts with an existing macro in the same scope"
+                )));
+            }
+            value_at.insert(name, i);
         }
     }
 
@@ -77,6 +96,11 @@ pub fn expand_language(input: &str) -> Result<String, ExpandError> {
 
     for (i, form) in forms.into_iter().enumerate() {
         if let Some((name, def)) = try_macro_def(&form)? {
+            if value_at.contains_key(&name) {
+                return Err(ExpandError::new(format!(
+                    "macro `{name}` conflicts with an existing value binding in the same scope"
+                )));
+            }
             macros.insert(name, def);
             continue;
         }
@@ -96,6 +120,28 @@ pub fn expand_language(input: &str) -> Result<String, ExpandError> {
     }
 
     Ok(render_forms(&out_forms))
+}
+
+fn peek_value_def_name(form: &Sexpr) -> Result<Option<String>, ExpandError> {
+    let Sexpr::List(items) = form else {
+        return Ok(None);
+    };
+    let Some(Sexpr::Atom(head)) = items.first() else {
+        return Ok(None);
+    };
+    match head.as_str() {
+        "val" => match items.get(1) {
+            Some(Sexpr::Atom(name)) => Ok(Some(name.clone())),
+            _ => Err(ExpandError::new("`val` requires a name")),
+        },
+        "fn" => match items.get(1) {
+            Some(Sexpr::Atom(name)) if matches!(items.get(2), Some(Sexpr::List(_))) => {
+                Ok(Some(name.clone()))
+            }
+            _ => Ok(None),
+        },
+        _ => Ok(None),
+    }
 }
 
 /// Name of a well-formed `(macro name …)` definition, without fully validating
@@ -385,6 +431,7 @@ fn rename_binders(expr: &Sexpr, env: &HashMap<String, String>, gensym: &mut u64)
                 match head.as_str() {
                     "fn" => return rename_fn(items, env, gensym),
                     "let" => return rename_let(items, env, gensym),
+                    "local" => return rename_local(items, env, gensym),
                     _ => {}
                 }
             }
@@ -494,6 +541,58 @@ fn rename_let(items: &[Sexpr], env: &HashMap<String, String>, gensym: &mut u64) 
     }
 
     let mut out = vec![Sexpr::Atom("let".into()), Sexpr::List(new_bindings)];
+    for body in &items[2..] {
+        out.push(rename_binders(body, &child_env, gensym));
+    }
+    Sexpr::List(out)
+}
+
+fn rename_local(items: &[Sexpr], env: &HashMap<String, String>, gensym: &mut u64) -> Sexpr {
+    // (local (decl…) body…)
+    if items.len() < 3 {
+        return Sexpr::List(
+            items
+                .iter()
+                .map(|i| rename_binders(i, env, gensym))
+                .collect(),
+        );
+    }
+    let Sexpr::List(decls) = &items[1] else {
+        return Sexpr::List(
+            items
+                .iter()
+                .map(|i| rename_binders(i, env, gensym))
+                .collect(),
+        );
+    };
+
+    let mut child_env = env.clone();
+    let mut new_decls = Vec::with_capacity(decls.len());
+    for decl in decls {
+        if let Sexpr::List(da) = decl {
+            if let Some(Sexpr::Atom(kind)) = da.first() {
+                match kind.as_str() {
+                    "val" | "var" if da.len() >= 2 => {
+                        if let Sexpr::Atom(name) = &da[1] {
+                            let fresh_name = fresh(gensym);
+                            child_env.insert(name.clone(), fresh_name.clone());
+                            let mut new_da =
+                                vec![Sexpr::Atom(kind.clone()), Sexpr::Atom(fresh_name)];
+                            for e in &da[2..] {
+                                new_da.push(rename_binders(e, env, gensym));
+                            }
+                            new_decls.push(Sexpr::List(new_da));
+                            continue;
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+        new_decls.push(rename_binders(decl, env, gensym));
+    }
+
+    let mut out = vec![Sexpr::Atom("local".into()), Sexpr::List(new_decls)];
     for body in &items[2..] {
         out.push(rename_binders(body, &child_env, gensym));
     }
@@ -763,6 +862,35 @@ mod tests {
             err.message.contains("declaration position"),
             "unexpected: {}",
             err.message
+        );
+    }
+
+    #[test]
+    fn rejects_macro_value_name_collision() {
+        let src = r#"
+(val when 1)
+(macro when ($x) -> $x)
+(val main 0)
+"#;
+        let err = expand_language(src).unwrap_err();
+        assert!(
+            err.message.contains("conflicts"),
+            "unexpected: {}",
+            err.message
+        );
+    }
+
+    #[test]
+    fn hygiene_renames_local_var_binder() {
+        let src = r#"
+(macro m ($body) -> (local ((var x 0)) $body))
+(val main (m x))
+"#;
+        let out = expand_language(src).unwrap();
+        assert!(out.contains("__rx_"), "expected gensym: {out}");
+        assert!(
+            !out.contains("(local ((var x 0)) x)"),
+            "must not capture: {out}"
         );
     }
 }
