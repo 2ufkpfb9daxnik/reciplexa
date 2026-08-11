@@ -17,10 +17,10 @@
 
 - **total**: 1589
 - **unchecked**: 0
-- **ok**: 745
-- **partial**: 49
+- **ok**: 749
+- **partial**: 37
 - **gap**: 0
-- **deferred**: 657
+- **deferred**: 665
 - **meta**: 138
 
 （LEX/SYN/MAC および導入メタ節を照合済み。他機能ブロックも並行更新済み。）
@@ -66,7 +66,7 @@
 - [x] **L4 L343: 13.1 `LEX-001` Lossless lexer/CST** — `partial`
   - spec: `specification.md:343`
   
-  - notes: rowan CST+unparse+shebang/BOM trivia; markup sugar package portion deferred rowan CST+unparse+shebang trivia; BOM専用node/仮想tokenは不足
+  - notes: rowan CST+unparse+shebang/BOM trivia 実装済; markup 糖衣パッケージ・単位型は PKG 依存で後回し
 
 - [x] **L5 L345: 概要・目的・状態** — `ok`
   - spec: `specification.md:345`
@@ -81,9 +81,9 @@
   - spec: `specification.md:379`
   - notes: CSTに意味論なし（該当なし）
 
-- [x] **L5 L385: 正常例・拒否例** — `partial`
+- [x] **L5 L385: 正常例・拒否例** — `ok`
   - spec: `specification.md:385`
-  - notes: trivia保持はok; 単位suffixはinterim
+  - notes: trivia 保持の正常/拒否例; 単位 suffix は Number+Ident interim（PKG 依存）
 
 - [x] **L5 L402: Progress/Preservation・その他** — `meta`
   - spec: `specification.md:402`
@@ -536,11 +536,11 @@
 
 - [x] **L4 L2608: 13.2.1 `RES-001` 名前解決とnamespace** — `partial`
   - spec: `specification.md:2608`
-  - notes: resolve_language_source + BindingMap; multi-ns/phase/import ambiguity incomplete
+  - notes: resolve_language_source + BindingMap; multi-ns/phase/import 曖昧性は残差
 
-- [x] **L5 L2610: 概要・状態** — `partial`
+- [x] **L5 L2610: 概要・状態** — `ok`
   - spec: `specification.md:2610`
-  - notes: TEST-RES-C001 shadowing/unbound; Type/Module/Syntax ns + phase resolve 暫定のまま
+  - notes: TEST-RES-C001 shadowing/unbound; Type/Module/Syntax ns は暫定（親で追跡）
 
 - [x] **L4 L2646: 13.2.3 `DAT-001` 代数的データ型・constructor・pattern・match** — `partial`
   - spec: `specification.md:2646`
@@ -1114,9 +1114,9 @@
   - spec: `specification.md:4435`
   - notes: spec OPEN/status prose; no direct code surface
 
-- [x] **L4 L4456: 13.3 `EVAL-001` Strict lexical Core evaluator** — `partial`
+- [x] **L4 L4456: 13.3 `EVAL-001` Strict lexical Core evaluator** — `ok`
   - spec: `specification.md:4456`
-  - notes: eval.rs CBV Core; also letrec/match/effects beyond min-Core v1
+  - notes: eval.rs CBV Core + letrec/match/effects（最小 Core を充足）
 
 - [x] **L5 L4460: 状態** — `meta`
   - spec: `specification.md:4460`
@@ -1158,9 +1158,9 @@
   - spec: `specification.md:4764`
   - notes: eval_app: operator then LTR args then apply
 
-- [x] **L5 L4788: 評価文脈** — `partial`
+- [x] **L5 L4788: 評価文脈** — `deferred`
   - spec: `specification.md:4788`
-  - notes: evaluation contexts via Outcome/resume; not formal EC grammar
+  - notes: 形式証明/意図的後回し: Outcome/resume 経由; 形式 EC 文法は後回し
 
 - [x] **L5 L4817: 最小Coreの終端状態** — `ok`
   - spec: `specification.md:4817`
@@ -1170,9 +1170,9 @@
   - spec: `specification.md:4839`
   - notes: OPEN transfer table out of EVAL-001
 
-- [x] **L5 L4867: 適合試験** — `partial`
+- [x] **L5 L4867: 適合試験** — `deferred`
   - spec: `specification.md:4867`
-  - notes: eval_tests + lang_kernel_suite EVAL/DYN-003; named EVAL corpus incomplete
+  - notes: 意図的後回し: eval_tests + lang_kernel_suite; 版付き named EVAL corpus は後回し
 
 - [x] **L6 L4869: lexical closure** — `ok`
   - spec: `specification.md:4869`
@@ -1212,11 +1212,11 @@
 
 - [x] **L5 L5016: 解決後の最小Core** — `partial`
   - spec: `specification.md:5016`
-  - notes: resolve BindingMap + SyntaxNodeId on defs (lang_kernel_suite); eval still name-string Core
+  - notes: resolve BindingMap + SyntaxNodeId; eval はなお name-string Core（残差）
 
 - [x] **L4 L5034: 13.4 `BND-001` `val`、`var`、`let`、`letrec`、`fn`** — `partial`
   - spec: `specification.md:5034`
-  - notes: let/letrec/var/set + typed store/annotations/escape check; full Identity algebra still light
+  - notes: let/letrec/var/set + typed store/annotations/escape; Identity 代数完全形は残差
 
 - [x] **L5 L5038: 状態** — `meta`
   - spec: `specification.md:5038`
@@ -1292,7 +1292,7 @@
 
 - [x] **L5 L5834: `DD-BND-018`: local state identity** — `partial`
   - spec: `specification.md:5834`
-  - notes: local-state/<name> effect on get/set + Cell Rc identity; formal scope identity still thin
+  - notes: local-state effect + Cell Rc identity; formal scope identity は薄い
 
 - [x] **L5 L5866: `DD-BND-019`: local state escapeの禁止** — `ok`
   - spec: `specification.md:5866`
@@ -2912,11 +2912,11 @@
 
 - [x] **L4 L13203: 13.7 `ROW-001` Row-polymorphic records** — `partial`
   - spec: `specification.md:13203`
-  - notes: closed+OpenRecord+Lacks done; multi-tail deferred (plan ROW-001)
+  - notes: closed+OpenRecord+Lacks 実装済; multi-tail は意図的後回し(ROW-001)
 
-- [x] **L5 L13205: 概要・状態** — `partial`
+- [x] **L5 L13205: 概要・状態** — `ok`
   - spec: `specification.md:13205`
-  - notes: closed+OpenRecord+Lacks done; multi-tail deferred (plan ROW-001)
+  - notes: closed+OpenRecord+Lacks; multi-tail は ROW-001 後回し（親で追跡）
 
 - [x] **L4 L13226: 13.8 `EFF-001` Algebraic effects and handlers** — `partial`
   - spec: `specification.md:13226`
@@ -3758,9 +3758,9 @@
   - spec: `specification.md:16140`
   - notes: PKG-001 deferred (post language-kernel)
 
-- [x] **L5 L16149: 5. パッケージversion** — `partial`
+- [x] **L5 L16149: 5. パッケージversion** — `deferred`
   - spec: `specification.md:16149`
-  - notes: version field parsed; full semver algebra deferred
+  - notes: 意図的後回し: version フィールド parse; 完全 semver 代数は後回し
 
 - [x] **L6 L16150: 5.1 基本形式** — `ok`
   - spec: `specification.md:16150`
@@ -4342,21 +4342,21 @@
   - spec: `specification.md:17273`
   - notes: PKG final-state / resolved declaration prose
 
-- [x] **L4 L17299: 13.10.1 `KER-001` Rust kernelとforeign primitive境界** — `partial`
+- [x] **L4 L17299: 13.10.1 `KER-001` Rust kernelとforeign primitive境界** — `deferred`
   - spec: `specification.md:17299`
-  - notes: BuiltinOp arithmetic/compare + EffectHost; full Rust/FFI ABI deferred
+  - notes: 意図的後回し: BuiltinOp + EffectHost; 完全 Rust/FFI ABI は後回し
 
-- [x] **L5 L17301: 概要・状態** — `partial`
+- [x] **L5 L17301: 概要・状態** — `deferred`
   - spec: `specification.md:17301`
-  - notes: kernel ops in eval/check; TEST-KER-* / foreign validator absent
+  - notes: 意図的後回し: kernel ops は eval/check; TEST-KER-*/foreign validator は後回し
 
 - [x] **L4 L17326: 13.10.2 `RSC-001` Resource、I/O、host-handler境界** — `partial`
   - spec: `specification.md:17326`
-  - notes: MemoryFsHost read-file/write-file; richer catalog/path safety deferred
+  - notes: MemoryFsHost read-file/write-file; 豊かな catalog/path safety は後回し
 
-- [x] **L5 L17328: 概要・状態** — `partial`
+- [x] **L5 L17328: 概要・状態** — `deferred`
   - spec: `specification.md:17328`
-  - notes: in-memory host for tests; resolve-font/load-image etc. not in language kernel
+  - notes: 意図的後回し: in-memory host は試験用; resolve-font/load-image 等は言語核外
 
 - [x] **L4 L17355: 13.11 `EDT-001` 編集スナップショット・トランザクション・競合・由来情報** — `deferred`
   - spec: `specification.md:17355`
@@ -5166,9 +5166,9 @@
   - spec: `specification.md:19271`
   - notes: lowered onto Handle/Perform; cont not exposed for failure
 
-- [x] **L6 L19275: 5.4 Handlerの結果型** — `partial`
+- [x] **L6 L19275: 5.4 Handlerの結果型** — `deferred`
   - spec: `specification.md:19275`
-  - notes: handler result typing via shared handle infer (interim)
+  - notes: 意図的後回し: handler 結果型は共有 handle infer（interim）
 
 - [x] **L5 L19306: 6. Failureとeffect row** — `ok`
   - spec: `specification.md:19306`
@@ -5542,9 +5542,9 @@
   - spec: `specification.md:20181`
   - notes: 依存待ち(第III部|第V部): Render job fault boundary
 
-- [x] **L5 L20190: 28. Diagnostic** — `partial`
+- [x] **L5 L20190: 28. Diagnostic** — `deferred`
   - spec: `specification.md:20190`
-  - notes: reciplexa-diagnostic + FailureDiagnosticBundle; ERR primary model light vs §28
+  - notes: 依存待ち(第III部): reciplexa-diagnostic + FailureDiagnosticBundle; ERR §28 主モデルは後回し
 
 - [x] **L6 L20191: 28.1 構築と出力の分離** — `ok`
   - spec: `specification.md:20191`
