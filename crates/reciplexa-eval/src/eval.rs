@@ -31,6 +31,11 @@ pub fn primitive_env() -> HashMap<String, RuntimeValue> {
     env.insert("bool?".into(), RuntimeValue::Builtin(BuiltinOp::IsBool));
     env.insert("is-none".into(), RuntimeValue::Builtin(BuiltinOp::IsNone));
     env.insert("is-some".into(), RuntimeValue::Builtin(BuiltinOp::IsSome));
+    env.insert("newline".into(), RuntimeValue::String("\n".into()));
+    env.insert("tab".into(), RuntimeValue::String("\t".into()));
+    env.insert("carriage-return".into(), RuntimeValue::String("\r".into()));
+    env.insert("nul".into(), RuntimeValue::String("\0".into()));
+    env.insert("unicode".into(), RuntimeValue::Builtin(BuiltinOp::Unicode));
     env
 }
 
@@ -46,6 +51,12 @@ pub fn eval_source(src: &str) -> EvalResult {
 pub fn eval_source_with_host(src: &str, host: &mut dyn EffectHost) -> EvalResult {
     let expanded =
         reciplexa_macro::expand_language(src).map_err(|e| EvalError { message: e.message })?;
+    let parse = reciplexa_syntax::parse_source(&expanded);
+    if let Some(err) = parse.errors.first() {
+        return Err(EvalError {
+            message: format!("parse error: {}", err.message),
+        });
+    }
     let expr = elaborate_source(&expanded)
         .map_err(|e: ElaborateError| EvalError { message: e.message })?;
     eval_expr(&expr, &primitive_env(), host)
@@ -61,6 +72,11 @@ pub fn eval_expr(
         match outcome {
             Outcome::Value(v) => return Ok(v),
             Outcome::Resumed(v) => return Ok(v),
+            Outcome::Forward => {
+                return Err(EvalError {
+                    message: "`forward` escaped to top-level evaluation".into(),
+                });
+            }
             Outcome::Performed { op, arg, resume } => {
                 let host_v = host.perform(&op, arg)?;
                 outcome = resume(host_v, host)?;
@@ -75,6 +91,9 @@ fn eval_outcome(
     host: &mut dyn EffectHost,
 ) -> Result<Outcome, EvalError> {
     match expr {
+        CoreExpr::Error => Err(EvalError {
+            message: "cannot evaluate syntax-error placeholder".into(),
+        }),
         CoreExpr::Lit(lit) => Ok(Outcome::Value(eval_lit(lit)?)),
         CoreExpr::Var(name) => match env.get(name) {
             Some(RuntimeValue::Cell { value, alive }) => {
@@ -101,6 +120,20 @@ fn eval_outcome(
                 resume: identity_resume(),
             })
         }
+        CoreExpr::Forward { resume_name } => match env.get(resume_name) {
+            Some(RuntimeValue::OneShotResume { used, .. }) => {
+                if used.get() {
+                    return Err(EvalError {
+                        message: "one-shot resume already used".into(),
+                    });
+                }
+                used.set(true);
+                Ok(Outcome::Forward)
+            }
+            _ => Err(EvalError {
+                message: format!("`forward` expects resume binder `{resume_name}`"),
+            }),
+        },
         CoreExpr::Handle {
             op,
             handler_params,
@@ -140,6 +173,7 @@ fn eval_outcome(
                     Ok(Outcome::Performed { op, arg, resume })
                 }
                 Outcome::Resumed(v) => Ok(Outcome::Resumed(v)),
+                Outcome::Forward => Ok(Outcome::Forward),
             }
         }
         CoreExpr::Seq(items) => eval_seq(items, env, host),
@@ -172,6 +206,7 @@ fn eval_outcome(
                 })
             }
             Outcome::Resumed(v) => Ok(Outcome::Resumed(v)),
+            Outcome::Forward => Ok(Outcome::Forward),
         },
         CoreExpr::LetRec { bindings, body } => {
             let shared = Rc::new(RefCell::new(env.clone()));
@@ -221,6 +256,7 @@ fn eval_outcome(
                 })
             }
             Outcome::Resumed(v) => Ok(Outcome::Resumed(v)),
+            Outcome::Forward => Ok(Outcome::Forward),
         },
         CoreExpr::Set { name, value } => match eval_outcome(value, env, host)? {
             Outcome::Value(v) => apply_set(name, v, env),
@@ -244,6 +280,7 @@ fn eval_outcome(
                 })
             }
             Outcome::Resumed(v) => Ok(Outcome::Resumed(v)),
+            Outcome::Forward => Ok(Outcome::Forward),
         },
         CoreExpr::Lambda { params, body } => Ok(Outcome::Value(RuntimeValue::Closure {
             params: params.clone(),
@@ -290,6 +327,7 @@ fn eval_outcome(
                 })
             }
             Outcome::Resumed(v) => Ok(Outcome::Resumed(v)),
+            Outcome::Forward => Ok(Outcome::Forward),
         },
         CoreExpr::Record { fields } => eval_record(fields, env, host),
         CoreExpr::RecordGet { record, field } => match eval_outcome(record, env, host)? {
@@ -313,6 +351,7 @@ fn eval_outcome(
                 })
             }
             Outcome::Resumed(v) => Ok(Outcome::Resumed(v)),
+            Outcome::Forward => Ok(Outcome::Forward),
         },
         CoreExpr::RecordUpdate { record, fields } => match eval_outcome(record, env, host)? {
             Outcome::Value(v) => record_update(v, fields, env, host),
@@ -336,6 +375,7 @@ fn eval_outcome(
                 })
             }
             Outcome::Resumed(v) => Ok(Outcome::Resumed(v)),
+            Outcome::Forward => Ok(Outcome::Forward),
         },
         CoreExpr::RecordExtend { record, fields } => match eval_outcome(record, env, host)? {
             Outcome::Value(v) => record_extend(v, fields, env, host),
@@ -359,6 +399,7 @@ fn eval_outcome(
                 })
             }
             Outcome::Resumed(v) => Ok(Outcome::Resumed(v)),
+            Outcome::Forward => Ok(Outcome::Forward),
         },
         CoreExpr::Variant { tag, payload } => {
             if let Some(e) = payload {
@@ -389,6 +430,7 @@ fn eval_outcome(
                         })
                     }
                     Outcome::Resumed(v) => Ok(Outcome::Resumed(v)),
+                    Outcome::Forward => Ok(Outcome::Forward),
                 }
             } else {
                 Ok(Outcome::Value(RuntimeValue::Variant {
@@ -419,6 +461,7 @@ fn eval_outcome(
                 })
             }
             Outcome::Resumed(v) => Ok(Outcome::Resumed(v)),
+            Outcome::Forward => Ok(Outcome::Forward),
         },
     }
 }
@@ -481,19 +524,37 @@ fn eval_handle(
                         op: p,
                         arg,
                         resume: r,
-                    } if p == op => {
-                        run_handler_with_resume(&handler_params, &handler_body, arg, r, &env, host)
-                    }
+                    } if p == op => run_handler_with_resume(
+                        &op,
+                        &handler_params,
+                        &handler_body,
+                        arg,
+                        r,
+                        &env,
+                        host,
+                    ),
                     other => Ok(other),
                 }
             });
-            run_handler_with_resume(&handler_params, &handler_body, arg, deep_resume, &env, host)
+            run_handler_with_resume(
+                &op,
+                &handler_params,
+                &handler_body,
+                arg,
+                deep_resume,
+                &env,
+                host,
+            )
         }
         Outcome::Performed { op, arg, resume } => Ok(Outcome::Performed { op, arg, resume }),
+        Outcome::Forward => Err(EvalError {
+            message: "`forward` is only valid inside a handler clause".into(),
+        }),
     }
 }
 
 fn run_handler_with_resume(
+    op: &str,
     handler_params: &[String],
     handler_body: &CoreExpr,
     arg: RuntimeValue,
@@ -502,6 +563,7 @@ fn run_handler_with_resume(
     host: &mut dyn EffectHost,
 ) -> Result<Outcome, EvalError> {
     let mut child = env.clone();
+    let forward_arg = arg.clone();
     match handler_params {
         [p] => {
             // Discard continuation for 1-param handlers (Failure / non-resumable).
@@ -509,12 +571,12 @@ fn run_handler_with_resume(
             child.insert(p.clone(), arg);
         }
         [p, resume_name] => {
-            child.insert(p.clone(), arg);
+            child.insert(p.clone(), arg.clone());
             child.insert(
                 resume_name.clone(),
                 RuntimeValue::OneShotResume {
                     used: Rc::new(Cell::new(false)),
-                    cont: resume,
+                    cont: resume.clone(),
                 },
             );
         }
@@ -527,6 +589,11 @@ fn run_handler_with_resume(
     Ok(match eval_outcome(handler_body, &child, host)? {
         // Resume aborts the handler; its value is the handle result.
         Outcome::Resumed(v) => Outcome::Value(v),
+        Outcome::Forward => Outcome::Performed {
+            op: op.to_string(),
+            arg: forward_arg,
+            resume,
+        },
         other => other,
     })
 }
@@ -541,6 +608,7 @@ fn eval_seq(
         match eval_outcome(item, env, host)? {
             Outcome::Value(v) => last = v,
             Outcome::Resumed(v) => return Ok(Outcome::Resumed(v)),
+            Outcome::Forward => return Ok(Outcome::Forward),
             Outcome::Performed {
                 op,
                 arg,
@@ -599,6 +667,7 @@ fn eval_app(
             });
         }
         Outcome::Resumed(v) => return Ok(Outcome::Resumed(v)),
+        Outcome::Forward => return Ok(Outcome::Forward),
     };
     eval_app_args(fun_v, args, env, host)
 }
@@ -643,6 +712,7 @@ fn eval_app_args(
                 });
             }
             Outcome::Resumed(v) => return Ok(Outcome::Resumed(v)),
+            Outcome::Forward => return Ok(Outcome::Forward),
         }
     }
     apply_value(fun_v, arg_vs, host)
@@ -687,6 +757,7 @@ fn eval_record(
                 });
             }
             Outcome::Resumed(v) => return Ok(Outcome::Resumed(v)),
+            Outcome::Forward => return Ok(Outcome::Forward),
         }
     }
     Ok(Outcome::Value(RuntimeValue::Record(out)))
@@ -806,6 +877,7 @@ fn apply_value(
                 Outcome::Performed { op, arg, resume } => {
                     Ok(Outcome::Performed { op, arg, resume })
                 }
+                Outcome::Forward => Ok(Outcome::Forward),
             }
         }
         RuntimeValue::Builtin(op) => apply_builtin(op, arg_vs),
@@ -942,13 +1014,24 @@ fn apply_builtin(op: BuiltinOp, args: Vec<RuntimeValue>) -> Result<Outcome, Eval
         | BuiltinOp::IsString
         | BuiltinOp::IsBool
         | BuiltinOp::IsNone
-        | BuiltinOp::IsSome => {
+        | BuiltinOp::IsSome
+        | BuiltinOp::Unicode => {
             if args.len() != 1 {
                 return Err(EvalError {
                     message: format!("builtin `{op:?}` expects 1 arg, got {}", args.len()),
                 });
             }
             let v = &args[0];
+            if matches!(op, BuiltinOp::Unicode) {
+                let RuntimeValue::Number(n) = v else {
+                    return Err(EvalError {
+                        message: "builtin `unicode` expects Number argument".into(),
+                    });
+                };
+                let s = reciplexa_syntax::unicode_scalar_value(*n)
+                    .map_err(|msg| EvalError { message: msg })?;
+                return Ok(Outcome::Value(RuntimeValue::String(s)));
+            }
             let flag = match op {
                 BuiltinOp::IsNumber => matches!(v, RuntimeValue::Number(_)),
                 BuiltinOp::IsString => matches!(v, RuntimeValue::String(_)),

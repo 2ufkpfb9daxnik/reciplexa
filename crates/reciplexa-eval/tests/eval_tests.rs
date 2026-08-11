@@ -723,6 +723,16 @@ fn eval_source_ker_primitives() {
 }
 
 #[test]
+fn eval_source_special_char_helpers() {
+    let v = eval_source("(val main newline)").unwrap();
+    assert_eq!(v, RuntimeValue::String("\n".into()));
+    let v = eval_source("(val main tab)").unwrap();
+    assert_eq!(v, RuntimeValue::String("\t".into()));
+    let v = eval_source("(val main (unicode 0x3002))").unwrap();
+    assert_eq!(v, RuntimeValue::String("。".into()));
+}
+
+#[test]
 fn eval_rsc_memory_fs_host() {
     use reciplexa_core::elaborate_source;
     use reciplexa_eval::MemoryFsHost;
@@ -758,4 +768,3 @@ fn eval_bytes_literal() {
     let v = eval_source("(val main (bytes 0xff 42))").unwrap();
     assert_eq!(v, RuntimeValue::Bytes(vec![255, 42]));
 }
-

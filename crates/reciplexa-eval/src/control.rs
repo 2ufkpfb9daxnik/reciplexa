@@ -92,6 +92,8 @@ pub enum Outcome {
     },
     /// Resume was applied — aborts the handler; value is the handle result.
     Resumed(RuntimeValue),
+    /// DD-EFF-006: handler delegated the current operation to an outer handler.
+    Forward,
 }
 
 pub fn identity_resume() -> ResumeCont {

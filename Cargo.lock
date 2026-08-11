@@ -2935,6 +2935,7 @@ dependencies = [
  "reciplexa-core",
  "reciplexa-macro",
  "reciplexa-outcome",
+ "reciplexa-syntax",
 ]
 
 [[package]]

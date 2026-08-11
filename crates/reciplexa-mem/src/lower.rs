@@ -212,6 +212,8 @@ impl Lowerer {
                 let _ = self.lower_expr(handler, env);
                 self.lower_expr(body, env)
             }
+            CoreExpr::Forward { .. } => self.unit(),
+            CoreExpr::Error => self.unit(),
         }
     }
 

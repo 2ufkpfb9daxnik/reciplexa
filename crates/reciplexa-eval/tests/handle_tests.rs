@@ -118,3 +118,15 @@ fn handle_failure_rejects_resume_param() {
         err.message
     );
 }
+
+#[test]
+fn forward_delegates_to_outer_handler() {
+    let v = eval_source(
+        r#"(val main
+  (handle log (fn (msg) (seq (perform log "inner") msg))
+    (handle log (fn (msg k) (forward k))
+      (perform log "outer"))))"#,
+    )
+    .unwrap();
+    assert_eq!(v, RuntimeValue::String("outer".into()));
+}

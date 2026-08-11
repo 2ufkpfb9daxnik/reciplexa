@@ -17,7 +17,9 @@ fn test_syn_c007_multiple_parse_diagnostics() {
         assert!(parse.has_errors());
         assert!(parse
             .root
-            .descendants()
-            .any(|n| n.kind() == reciplexa_syntax::SyntaxKind::ErrorNode));
+            .descendants_with_tokens()
+            .any(|el| el
+                .into_token()
+                .is_some_and(|t| t.kind() == reciplexa_syntax::SyntaxKind::UnexpectedToken)));
     });
 }

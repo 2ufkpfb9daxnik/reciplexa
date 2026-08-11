@@ -70,6 +70,8 @@ pub enum BuiltinOp {
     IsBool,
     IsNone,
     IsSome,
+    /// SYN §8.4 `(unicode codepoint)` — one Number arg → one-char String.
+    Unicode,
 }
 
 impl fmt::Debug for RuntimeValue {
