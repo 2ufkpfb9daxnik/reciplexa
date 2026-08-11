@@ -108,6 +108,16 @@ impl From<ElaborateError> for ModuleError {
 /// in the same slice (no path IO). Prefer [`load_module_tree`] to read `.rpx`
 /// files from disk first.
 pub fn elaborate_units(units: &[(&str, &str)]) -> Result<Vec<ElaboratedUnit>, ModuleError> {
+    elaborate_units_with_interfaces(units, &HashMap::new())
+}
+
+/// Like [`elaborate_units`], but `interface_exports` restricts each module's
+/// public export set (MOD §8 `.rpi` boundary). Missing keys keep inferred
+/// exports from the implementation.
+pub fn elaborate_units_with_interfaces(
+    units: &[(&str, &str)],
+    interface_exports: &HashMap<String, Vec<String>>,
+) -> Result<Vec<ElaboratedUnit>, ModuleError> {
     if units.is_empty() {
         return Err(ModuleError::new(
             "elaborate_units requires at least one unit",
@@ -145,7 +155,12 @@ pub fn elaborate_units(units: &[(&str, &str)]) -> Result<Vec<ElaboratedUnit>, Mo
         } else {
             elaborate_source(&body_src)?
         };
-        let exports = collect_export_names(&expr);
+        let impl_exports = collect_export_names(&expr);
+        let exports = if let Some(iface) = interface_exports.get(*name) {
+            apply_interface_exports(name, &impl_exports, iface)?
+        } else {
+            impl_exports
+        };
         parsed.push(((*name).to_string(), imports, expr, exports));
     }
 
@@ -223,6 +238,23 @@ pub fn elaborate_units(units: &[(&str, &str)]) -> Result<Vec<ElaboratedUnit>, Mo
         });
     }
     Ok(out)
+}
+
+/// Intersect implementation exports with a `.rpi` name list (MOD §8 / §9.2).
+fn apply_interface_exports(
+    module: &str,
+    impl_exports: &[String],
+    iface: &[String],
+) -> Result<Vec<String>, ModuleError> {
+    let impl_set: HashSet<&str> = impl_exports.iter().map(String::as_str).collect();
+    for name in iface {
+        if !impl_set.contains(name.as_str()) {
+            return Err(ModuleError::new(format!(
+                "module `{module}` .rpi exports `{name}`, but it is not defined in the implementation"
+            )));
+        }
+    }
+    Ok(iface.to_vec())
 }
 
 /// MOD-001 §7.4: same formal identity may be imported multiple times; distinct

@@ -90,4 +90,20 @@ impl PackageManifest {
         path.set_extension("rpx");
         path
     }
+
+    /// Resolve the `.rpi` interface path for a public module (MOD §2.3), if
+    /// `interface-root` is configured.
+    pub fn module_interface_path(
+        &self,
+        package_root: &std::path::Path,
+        module_path: &str,
+    ) -> Option<std::path::PathBuf> {
+        let iface = self.interface_root.as_ref()?;
+        let mut path = package_root.join(iface);
+        for seg in module_path.split('/') {
+            path.push(seg);
+        }
+        path.set_extension("rpi");
+        Some(path)
+    }
 }

@@ -4,9 +4,10 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use reciplexa_bind::{elaborate_units, parse_imports, ElaboratedUnit, ModuleError};
+use reciplexa_bind::{elaborate_units_with_interfaces, parse_imports, ElaboratedUnit, ModuleError};
 
 use crate::manifest::{DependencySpec, PackageManifest};
+use crate::rpi::parse_rpi_exports;
 use crate::rpxm::{parse_rpxm, RpxmError};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -14,6 +15,7 @@ pub enum PackageLoadError {
     Io(String),
     Manifest(RpxmError),
     Module(ModuleError),
+    Interface(String),
     NotFound(String),
     Ambiguous(String),
 }
@@ -33,11 +35,22 @@ impl From<RpxmError> for PackageLoadError {
 impl std::fmt::Display for PackageLoadError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Io(s) | Self::NotFound(s) | Self::Ambiguous(s) => write!(f, "{s}"),
+            Self::Io(s) | Self::NotFound(s) | Self::Ambiguous(s) | Self::Interface(s) => {
+                write!(f, "{s}")
+            }
             Self::Manifest(e) => write!(f, "manifest error: {e:?}"),
             Self::Module(e) => write!(f, "{}", e.message),
         }
     }
+}
+
+/// A package module source plus optional `.rpi` export boundary (MOD §8).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ResolvedImport {
+    pub unit_name: String,
+    pub source: String,
+    /// When `interface-root` is set, the public export names from the `.rpi` stub.
+    pub interface_exports: Option<Vec<String>>,
 }
 
 /// Index of packages discovered under local search roots (`packages/` dirs).
@@ -170,6 +183,15 @@ impl LocalPackageIndex {
 
     /// Resolve `package` or `package/module/…` to `(unit_name, source)`.
     pub fn resolve_import(&self, import_path: &str) -> Result<(String, String), PackageLoadError> {
+        let resolved = self.resolve_import_detailed(import_path)?;
+        Ok((resolved.unit_name, resolved.source))
+    }
+
+    /// Resolve an import and load the optional `.rpi` export list (MOD §8 / §2.3).
+    pub fn resolve_import_detailed(
+        &self,
+        import_path: &str,
+    ) -> Result<ResolvedImport, PackageLoadError> {
         let (pkg_alias, module_path) = split_package_import(import_path);
         let pkg_name = self.resolve_alias(pkg_alias);
         let (root, manifest) = self.packages.get(pkg_name).ok_or_else(|| {
@@ -199,16 +221,22 @@ impl LocalPackageIndex {
             )));
         }
 
-        // Slice B stub: when interface-root is set, require a sibling `.rpi` for public modules.
-        if let Some(iface) = &manifest.interface_root {
-            let rpi = root.join(iface).join(format!("{module_path}.rpi"));
-            if !rpi.is_file() {
-                return Err(PackageLoadError::NotFound(format!(
-                    "public module `{module_path}` in `{pkg_name}` missing interface stub `{}`",
-                    rpi.display()
-                )));
-            }
-        }
+        // When interface-root is set, require `.rpi` and parse its public export names.
+        let interface_exports =
+            if let Some(rpi) = manifest.module_interface_path(root, &module_path) {
+                if !rpi.is_file() {
+                    return Err(PackageLoadError::NotFound(format!(
+                        "public module `{module_path}` in `{pkg_name}` missing interface stub `{}`",
+                        rpi.display()
+                    )));
+                }
+                let rpi_src = fs::read_to_string(&rpi).map_err(|e| {
+                    PackageLoadError::Io(format!("failed to read `{}`: {e}", rpi.display()))
+                })?;
+                Some(parse_rpi_exports(&rpi_src)?)
+            } else {
+                None
+            };
 
         let file = manifest.module_source_path(root, &module_path);
         let src = fs::read_to_string(&file).map_err(|e| {
@@ -218,7 +246,11 @@ impl LocalPackageIndex {
             ))
         })?;
         // Unit name matches the import path the dependent wrote (`graphics` or `graphics/shapes`).
-        Ok((import_path.to_string(), src))
+        Ok(ResolvedImport {
+            unit_name: import_path.to_string(),
+            source: src,
+            interface_exports,
+        })
     }
 
     /// Build a path-dep lockfile for a consumer package root.
@@ -338,14 +370,26 @@ fn load_unit_source(
 }
 
 /// Convenience: load + elaborate with local package resolution.
+///
+/// Package modules that declare `interface-root` export only names listed in
+/// their `.rpi` stub (MOD §8.4 / §9.2 light boundary).
 pub fn elaborate_with_packages(
     entry_path: impl AsRef<Path>,
     index: &LocalPackageIndex,
 ) -> Result<Vec<ElaboratedUnit>, PackageLoadError> {
     let loaded = load_module_tree_with_packages(entry_path, index)?;
+    let mut interface_exports: HashMap<String, Vec<String>> = HashMap::new();
+    for (name, _) in &loaded {
+        // Sibling units have no package interface; package imports do.
+        if let Ok(resolved) = index.resolve_import_detailed(name) {
+            if let Some(exports) = resolved.interface_exports {
+                interface_exports.insert(name.clone(), exports);
+            }
+        }
+    }
     let refs: Vec<(&str, &str)> = loaded
         .iter()
         .map(|(n, s)| (n.as_str(), s.as_str()))
         .collect();
-    elaborate_units(&refs).map_err(Into::into)
+    elaborate_units_with_interfaces(&refs, &interface_exports).map_err(Into::into)
 }

@@ -12,3 +12,6 @@
   (record (tag "frame") (x x) (y y) (w w) (h h) (width width) (color color))))
 (val group (fn (children)
   (record (tag "group") (children children))))
+(// Internal helper — present in .rpx but omitted from shapes.rpi (MOD §9.2).)
+(val shapes-internal-tag (fn (name)
+  (record (tag name))))

@@ -1,4 +1,6 @@
 (// stub .rpi for length/units)
 (val mm)
+(val cm)
 (val pt)
+(val inch)
 (val zero)

@@ -10,6 +10,7 @@ pub enum RpxmError {
     MissingEntry,
     UnsupportedFormatVersion(u32),
     Syntax(String),
+    UnknownField(String),
 }
 
 /// Parse a `package.rpxm` document.
@@ -54,6 +55,23 @@ pub fn parse_rpxm(src: &str) -> Result<PackageManifest, RpxmError> {
     let mut resource_root = "resources".to_string();
     let mut public_modules = Vec::new();
     let mut entry_points = Vec::new();
+
+    fn is_known_flat_field(head: &str) -> bool {
+        matches!(
+            head,
+            "format-version" | "version" | "source-root" | "interface-root" | "resource-root"
+        )
+    }
+
+    fn unknown_field_error(field: &str) -> RpxmError {
+        if field == "soruce-root" {
+            RpxmError::UnknownField(format!(
+                "unknown package field `{field}`; did you mean `source-root`?"
+            ))
+        } else {
+            RpxmError::UnknownField(format!("unknown package field `{field}`"))
+        }
+    }
 
     // DD-001: `(package <name> …)` — name immediately after `package`.
     let mut dd001_positional_name = false;
@@ -125,7 +143,27 @@ pub fn parse_rpxm(src: &str) -> Result<PackageManifest, RpxmError> {
                     i = next;
                     continue;
                 }
-                _ => {}
+                "package" => {
+                    // Outer `(package …)` wrapper (Phase 10 / DD-001). Skip
+                    // `(package`; remaining body tokens / closing `)` stay in-loop.
+                    i += 2;
+                    continue;
+                }
+                head => {
+                    return Err(unknown_field_error(head));
+                }
+            }
+        }
+
+        // Bare tokens and unknown flat fields outside parenthesized forms.
+        if tokens[i] != "(" && tokens[i] != ")" && tokens[i] != "package" {
+            let tok = &tokens[i];
+            if name.as_deref() == Some(tok.as_str()) {
+                i += 1;
+                continue;
+            }
+            if !is_known_flat_field(tok) {
+                return Err(unknown_field_error(tok));
             }
         }
 

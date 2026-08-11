@@ -126,6 +126,43 @@ fn elaborate_consumer_via_alias_import() {
     assert!(s.contains("circle") || s.contains("10"), "got {s}");
 }
 
+#[test]
+fn rpi_export_boundary_hides_internal() {
+    let resolved = index()
+        .resolve_import_detailed("graphics/shapes")
+        .expect("shapes");
+    let exports = resolved.interface_exports.expect("shapes.rpi");
+    assert!(exports.contains(&"circle".into()));
+    assert!(!exports.iter().any(|e| e == "shapes-internal-tag"));
+
+    let dir = tempfile_dir();
+    let entry = dir.join("demo.rpx");
+    std::fs::write(
+        &entry,
+        r#"(import graphics/shapes only shapes-internal-tag)
+(val main (shapes-internal-tag "x"))
+"#,
+    )
+    .unwrap();
+    let err = elaborate_with_packages(&entry, &index()).unwrap_err();
+    let msg = err.to_string();
+    assert!(
+        msg.contains("not exported") && msg.contains("shapes-internal-tag"),
+        "unexpected: {msg}"
+    );
+}
+
+#[test]
+fn interface_path_resolves_under_interface_root() {
+    let idx = index();
+    let (root, manifest) = idx.get("graphics").expect("graphics");
+    let path = manifest
+        .module_interface_path(root, "shapes")
+        .expect("interface-root");
+    assert!(path.ends_with("interface\\shapes.rpi") || path.ends_with("interface/shapes.rpi"));
+    assert!(path.is_file());
+}
+
 fn tempfile_dir() -> PathBuf {
     let base = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../.tmp/pkg-load-tests");
     let _ = std::fs::create_dir_all(&base);

@@ -116,8 +116,8 @@ fn rejects_unclosed_string_syntax() {
 }
 
 #[test]
-fn skips_unknown_forms_and_bare_tokens() {
-    let m = parse_rpxm(
+fn rejects_unknown_fields() {
+    let err = parse_rpxm(
         r#"(package
   (name demo)
   (version 1)
@@ -126,9 +126,27 @@ fn skips_unknown_forms_and_bare_tokens() {
   bare-token
   (target document))"#,
     )
-    .unwrap();
-    assert_eq!(m.name, "demo");
-    assert_eq!(m.targets, vec!["document".to_string()]);
+    .unwrap_err();
+    match err {
+        RpxmError::UnknownField(msg) => assert!(msg.contains("unknown")),
+        other => panic!("expected UnknownField, got {other:?}"),
+    }
+
+    let err = parse_rpxm(
+        r#"(package demo
+  format-version 1
+  version "1.0.0"
+  soruce-root "src"
+  (public-modules main))"#,
+    )
+    .unwrap_err();
+    match err {
+        RpxmError::UnknownField(msg) => {
+            assert!(msg.contains("soruce-root"));
+            assert!(msg.contains("source-root"));
+        }
+        other => panic!("expected UnknownField, got {other:?}"),
+    }
 }
 
 #[test]

@@ -2,3 +2,6 @@
 (val srgb)
 (val black)
 (val white)
+(val red)
+(val green)
+(val blue)
