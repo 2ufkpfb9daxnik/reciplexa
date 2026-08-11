@@ -462,3 +462,154 @@ pub fn unify(a: &CoreType, b: &CoreType, subst: &mut Subst) -> Result<(), UnifyE
         }),
     }
 }
+
+#[cfg(test)]
+mod coverage_helpers {
+    use super::*;
+    use crate::ty::CoreType;
+
+    #[test]
+    fn occurs_and_enforce_lacks_matrix() {
+        let mut subst = Subst::new();
+        let v = subst.fresh_var();
+        assert!(occurs(
+            v,
+            &CoreType::Diff(Box::new(CoreType::Var(v)), Box::new(CoreType::Int))
+        ));
+        assert!(occurs(v, &CoreType::OptionalField(Box::new(CoreType::Var(v)))));
+        assert!(occurs(v, &CoreType::Dynamic(Box::new(CoreType::Var(v)))));
+        assert!(occurs(
+            v,
+            &CoreType::App {
+                ctor: "t".into(),
+                args: vec![CoreType::Var(v)],
+            }
+        ));
+        assert!(occurs(
+            v,
+            &CoreType::Forall {
+                params: vec![("a".into(), "type".into())],
+                body: Box::new(CoreType::Var(v)),
+            }
+        ));
+
+        assert!(enforce_lacks(
+            "a",
+            &CoreType::Record {
+                fields: vec![("a".into(), CoreType::Int)],
+            },
+            &mut subst
+        )
+        .is_err());
+        assert!(enforce_lacks(
+            "a",
+            &CoreType::Record {
+                fields: vec![("b".into(), CoreType::Int)],
+            },
+            &mut subst
+        )
+        .is_ok());
+        assert!(enforce_lacks(
+            "a",
+            &CoreType::OpenRecord {
+                fields: vec![("a".into(), CoreType::Int)],
+                row: Box::new(CoreType::Unit),
+            },
+            &mut subst
+        )
+        .is_err());
+        assert!(enforce_lacks(
+            "a",
+            &CoreType::OpenRecord {
+                fields: vec![],
+                row: Box::new(CoreType::Lacks {
+                    label: "b".into(),
+                    row: Box::new(CoreType::Record { fields: vec![] }),
+                }),
+            },
+            &mut subst
+        )
+        .is_ok());
+        assert!(enforce_lacks(
+            "a",
+            &CoreType::Lacks {
+                label: "b".into(),
+                row: Box::new(CoreType::Record { fields: vec![] }),
+            },
+            &mut subst
+        )
+        .is_ok());
+        for soft in [
+            CoreType::Var(subst.fresh_var()),
+            CoreType::Unit,
+            CoreType::dyn_any(),
+            CoreType::Union(vec![CoreType::Int]),
+            CoreType::Intersect(vec![CoreType::Int]),
+            CoreType::Not(Box::new(CoreType::Int)),
+            CoreType::Diff(Box::new(CoreType::Int), Box::new(CoreType::Int)),
+            CoreType::Name("r".into()),
+            CoreType::App {
+                ctor: "t".into(),
+                args: vec![],
+            },
+            CoreType::Forall {
+                params: vec![],
+                body: Box::new(CoreType::Unit),
+            },
+        ] {
+            assert!(enforce_lacks("a", &soft, &mut subst).is_ok());
+        }
+        assert!(enforce_lacks("a", &CoreType::Int, &mut subst).is_err());
+    }
+
+    #[test]
+    fn unify_open_closed_and_edge_pairs() {
+        let mut subst = Subst::new();
+        let row = CoreType::Var(subst.fresh_var());
+        let open = CoreType::OpenRecord {
+            fields: vec![("a".into(), CoreType::Int)],
+            row: Box::new(row.clone()),
+        };
+        let closed = CoreType::Record {
+            fields: vec![
+                ("a".into(), CoreType::Int),
+                ("b".into(), CoreType::String),
+            ],
+        };
+        assert!(unify(&open, &closed, &mut subst).is_ok());
+
+        let mut subst = Subst::new();
+        let open = CoreType::OpenRecord {
+            fields: vec![("z".into(), CoreType::Int)],
+            row: Box::new(CoreType::Var(subst.fresh_var())),
+        };
+        let closed = CoreType::Record {
+            fields: vec![("a".into(), CoreType::Int)],
+        };
+        assert!(unify(&open, &closed, &mut subst).is_err());
+
+        assert!(unify(&CoreType::Error, &CoreType::Int, &mut Subst::new()).is_ok());
+        assert!(unify(&CoreType::Never, &CoreType::Int, &mut Subst::new()).is_ok());
+        assert!(unify(
+            &CoreType::Record { fields: vec![] },
+            &CoreType::Unit,
+            &mut Subst::new()
+        )
+        .is_ok());
+        assert!(unify(
+            &CoreType::Forall {
+                params: vec![("a".into(), "type".into())],
+                body: Box::new(CoreType::Name("a".into())),
+            },
+            &CoreType::Int,
+            &mut Subst::new()
+        )
+        .is_ok());
+        assert!(unify(
+            &CoreType::OptionalField(Box::new(CoreType::Int)),
+            &CoreType::OptionalField(Box::new(CoreType::Int)),
+            &mut Subst::new()
+        )
+        .is_ok());
+    }
+}

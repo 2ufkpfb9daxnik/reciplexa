@@ -1875,3 +1875,438 @@ fn insert_casts_rec(
         other => Ok(other.clone()),
     }
 }
+
+#[cfg(test)]
+mod coverage_helpers {
+    use super::*;
+    use crate::expr::{CoreLiteral, CorePattern, MatchArm};
+    use crate::ty::SingletonValue;
+
+    #[test]
+    fn is_expansive_all_forms() {
+        assert!(!is_expansive(&CoreExpr::Lit(CoreLiteral::Int(1))));
+        assert!(!is_expansive(&CoreExpr::Var("x".into())));
+        assert!(!is_expansive(&CoreExpr::Error));
+        assert!(!is_expansive(&CoreExpr::Lambda {
+            params: vec![],
+            body: Box::new(CoreExpr::Lit(CoreLiteral::Unit)),
+        }));
+        assert!(!is_expansive(&CoreExpr::HandlerValue {
+            op: "ask".into(),
+            handler_params: vec!["x".into()],
+            handler_body: Box::new(CoreExpr::Var("x".into())),
+        }));
+        assert!(is_expansive(&CoreExpr::App {
+            fun: Box::new(CoreExpr::Var("f".into())),
+            args: vec![],
+        }));
+        assert!(is_expansive(&CoreExpr::Perform {
+            op: "log".into(),
+            arg: Box::new(CoreExpr::Lit(CoreLiteral::Unit)),
+        }));
+        assert!(is_expansive(&CoreExpr::Forward {
+            resume_name: "k".into(),
+        }));
+        assert!(is_expansive(&CoreExpr::Set {
+            name: "x".into(),
+            value: Box::new(CoreExpr::Lit(CoreLiteral::Int(1))),
+        }));
+        assert!(is_expansive(&CoreExpr::Handle {
+            op: "ask".into(),
+            handler_params: vec!["m".into()],
+            handler_body: Box::new(CoreExpr::App {
+                fun: Box::new(CoreExpr::Var("f".into())),
+                args: vec![],
+            }),
+            body: Box::new(CoreExpr::Lit(CoreLiteral::Unit)),
+        }));
+        assert!(is_expansive(&CoreExpr::With {
+            handler: Box::new(CoreExpr::App {
+                fun: Box::new(CoreExpr::Var("f".into())),
+                args: vec![],
+            }),
+            body: Box::new(CoreExpr::Lit(CoreLiteral::Unit)),
+        }));
+        assert!(is_expansive(&CoreExpr::Seq(vec![CoreExpr::App {
+            fun: Box::new(CoreExpr::Var("f".into())),
+            args: vec![],
+        }])));
+        assert!(is_expansive(&CoreExpr::Let {
+            name: "x".into(),
+            value: Box::new(CoreExpr::App {
+                fun: Box::new(CoreExpr::Var("f".into())),
+                args: vec![],
+            }),
+            body: Box::new(CoreExpr::Var("x".into())),
+        }));
+        assert!(is_expansive(&CoreExpr::LocalVar {
+            name: "c".into(),
+            init: Box::new(CoreExpr::App {
+                fun: Box::new(CoreExpr::Var("f".into())),
+                args: vec![],
+            }),
+            body: Box::new(CoreExpr::Var("c".into())),
+        }));
+        assert!(is_expansive(&CoreExpr::LetRec {
+            bindings: vec![(
+                "f".into(),
+                CoreExpr::App {
+                    fun: Box::new(CoreExpr::Var("g".into())),
+                    args: vec![],
+                },
+            )],
+            body: Box::new(CoreExpr::Var("f".into())),
+        }));
+        assert!(is_expansive(&CoreExpr::If {
+            cond: Box::new(CoreExpr::App {
+                fun: Box::new(CoreExpr::Var("f".into())),
+                args: vec![],
+            }),
+            then_branch: Box::new(CoreExpr::Lit(CoreLiteral::Unit)),
+            else_branch: Box::new(CoreExpr::Lit(CoreLiteral::Unit)),
+        }));
+        assert!(is_expansive(&CoreExpr::Record {
+            fields: vec![(
+                "a".into(),
+                CoreExpr::App {
+                    fun: Box::new(CoreExpr::Var("f".into())),
+                    args: vec![],
+                },
+            )],
+        }));
+        assert!(is_expansive(&CoreExpr::RecordUpdate {
+            record: Box::new(CoreExpr::App {
+                fun: Box::new(CoreExpr::Var("f".into())),
+                args: vec![],
+            }),
+            fields: vec![],
+        }));
+        assert!(is_expansive(&CoreExpr::RecordExtend {
+            record: Box::new(CoreExpr::Lit(CoreLiteral::Unit)),
+            fields: vec![(
+                "a".into(),
+                CoreExpr::App {
+                    fun: Box::new(CoreExpr::Var("f".into())),
+                    args: vec![],
+                },
+            )],
+        }));
+        assert!(is_expansive(&CoreExpr::RecordGet {
+            record: Box::new(CoreExpr::App {
+                fun: Box::new(CoreExpr::Var("f".into())),
+                args: vec![],
+            }),
+            field: "a".into(),
+        }));
+        assert!(is_expansive(&CoreExpr::Variant {
+            tag: "some".into(),
+            payload: Some(Box::new(CoreExpr::App {
+                fun: Box::new(CoreExpr::Var("f".into())),
+                args: vec![],
+            })),
+        }));
+        assert!(is_expansive(&CoreExpr::Match {
+            scrutinee: Box::new(CoreExpr::App {
+                fun: Box::new(CoreExpr::Var("f".into())),
+                args: vec![],
+            }),
+            arms: vec![MatchArm {
+                pattern: CorePattern::Wildcard,
+                body: CoreExpr::Lit(CoreLiteral::Unit),
+            }],
+        }));
+        assert!(is_expansive(&CoreExpr::Cast {
+            expr: Box::new(CoreExpr::App {
+                fun: Box::new(CoreExpr::Var("f".into())),
+                args: vec![],
+            }),
+            evidence: crate::cast::CastEvidence::Identity,
+            target: CoreType::Int,
+            cast_id: 0,
+        }));
+        assert!(is_expansive(&CoreExpr::TryCast {
+            expr: Box::new(CoreExpr::App {
+                fun: Box::new(CoreExpr::Var("f".into())),
+                args: vec![],
+            }),
+            target: CoreType::Int,
+            cast_id: 1,
+        }));
+        assert!(is_expansive(&CoreExpr::CheckCast {
+            expr: Box::new(CoreExpr::App {
+                fun: Box::new(CoreExpr::Var("f".into())),
+                args: vec![],
+            }),
+            target: CoreType::Int,
+            cast_id: 2,
+        }));
+    }
+
+    #[test]
+    fn type_mentions_effect_nested_shapes() {
+        let op = "local-state/x";
+        assert!(type_mentions_effect(
+            &CoreType::Fun {
+                args: vec![CoreType::Int],
+                ret: Box::new(CoreType::Unit),
+                effects: EffectRow::default().with_op(op),
+            },
+            op
+        ));
+        assert!(type_mentions_effect(
+            &CoreType::Record {
+                fields: vec![(
+                    "f".into(),
+                    CoreType::Fun {
+                        args: vec![],
+                        ret: Box::new(CoreType::Unit),
+                        effects: EffectRow::default().with_op(op),
+                    },
+                )],
+            },
+            op
+        ));
+        assert!(type_mentions_effect(
+            &CoreType::OpenRecord {
+                fields: vec![(
+                    "f".into(),
+                    CoreType::Fun {
+                        args: vec![],
+                        ret: Box::new(CoreType::Unit),
+                        effects: EffectRow::default().with_op(op),
+                    },
+                )],
+                row: Box::new(CoreType::Unit),
+            },
+            op
+        ));
+        assert!(type_mentions_effect(
+            &CoreType::Variant {
+                variants: vec![(
+                    "v".into(),
+                    Some(CoreType::Fun {
+                        args: vec![],
+                        ret: Box::new(CoreType::Unit),
+                        effects: EffectRow::default().with_op(op),
+                    }),
+                )],
+            },
+            op
+        ));
+        assert!(type_mentions_effect(
+            &CoreType::Lacks {
+                label: "a".into(),
+                row: Box::new(CoreType::Fun {
+                    args: vec![],
+                    ret: Box::new(CoreType::Unit),
+                    effects: EffectRow::default().with_op(op),
+                }),
+            },
+            op
+        ));
+        assert!(type_mentions_effect(
+            &CoreType::Union(vec![CoreType::Fun {
+                args: vec![],
+                ret: Box::new(CoreType::Unit),
+                effects: EffectRow::default().with_op(op),
+            }]),
+            op
+        ));
+        assert!(type_mentions_effect(
+            &CoreType::Intersect(vec![CoreType::Fun {
+                args: vec![],
+                ret: Box::new(CoreType::Unit),
+                effects: EffectRow::default().with_op(op),
+            }]),
+            op
+        ));
+        assert!(type_mentions_effect(
+            &CoreType::Not(Box::new(CoreType::Fun {
+                args: vec![],
+                ret: Box::new(CoreType::Unit),
+                effects: EffectRow::default().with_op(op),
+            })),
+            op
+        ));
+        assert!(type_mentions_effect(
+            &CoreType::OptionalField(Box::new(CoreType::Fun {
+                args: vec![],
+                ret: Box::new(CoreType::Unit),
+                effects: EffectRow::default().with_op(op),
+            })),
+            op
+        ));
+        assert!(type_mentions_effect(
+            &CoreType::Dynamic(Box::new(CoreType::Fun {
+                args: vec![],
+                ret: Box::new(CoreType::Unit),
+                effects: EffectRow::default().with_op(op),
+            })),
+            op
+        ));
+        assert!(type_mentions_effect(
+            &CoreType::Forall {
+                params: vec![("a".into(), "type".into())],
+                body: Box::new(CoreType::Fun {
+                    args: vec![],
+                    ret: Box::new(CoreType::Unit),
+                    effects: EffectRow::default().with_op(op),
+                }),
+            },
+            op
+        ));
+        assert!(type_mentions_effect(
+            &CoreType::Diff(
+                Box::new(CoreType::Fun {
+                    args: vec![],
+                    ret: Box::new(CoreType::Unit),
+                    effects: EffectRow::default().with_op(op),
+                }),
+                Box::new(CoreType::Int),
+            ),
+            op
+        ));
+        assert!(type_mentions_effect(
+            &CoreType::App {
+                ctor: "box".into(),
+                args: vec![CoreType::Fun {
+                    args: vec![],
+                    ret: Box::new(CoreType::Unit),
+                    effects: EffectRow::default().with_op(op),
+                }],
+            },
+            op
+        ));
+        assert!(!type_mentions_effect(&CoreType::Int, op));
+        assert!(!type_mentions_effect(
+            &CoreType::Singleton(SingletonValue::Int(1)),
+            op
+        ));
+    }
+
+    #[test]
+    fn subst_type_vars_and_names_complex() {
+        let mut subst = Subst::new();
+        let v = subst.fresh_var();
+        let mut map = HashMap::new();
+        map.insert(v, CoreType::Int);
+        for ty in [
+            CoreType::Var(v),
+            CoreType::Fun {
+                args: vec![CoreType::Var(v)],
+                ret: Box::new(CoreType::Var(v)),
+                effects: EffectRow::default(),
+            },
+            CoreType::Record {
+                fields: vec![("a".into(), CoreType::Var(v))],
+            },
+            CoreType::OpenRecord {
+                fields: vec![("a".into(), CoreType::Var(v))],
+                row: Box::new(CoreType::Var(v)),
+            },
+            CoreType::Variant {
+                variants: vec![("a".into(), Some(CoreType::Var(v)))],
+            },
+            CoreType::App {
+                ctor: "t".into(),
+                args: vec![CoreType::Var(v)],
+            },
+            CoreType::Forall {
+                params: vec![("a".into(), "type".into())],
+                body: Box::new(CoreType::Var(v)),
+            },
+            CoreType::Union(vec![CoreType::Var(v)]),
+            CoreType::Intersect(vec![CoreType::Var(v)]),
+            CoreType::Not(Box::new(CoreType::Var(v))),
+            CoreType::Diff(Box::new(CoreType::Var(v)), Box::new(CoreType::Int)),
+            CoreType::OptionalField(Box::new(CoreType::Var(v))),
+            CoreType::Dynamic(Box::new(CoreType::Var(v))),
+            CoreType::Lacks {
+                label: "a".into(),
+                row: Box::new(CoreType::Var(v)),
+            },
+            CoreType::String,
+        ] {
+            let _ = subst_type_vars(&ty, &map);
+            let mut free = HashSet::new();
+            collect_free_vars(&ty, &mut free);
+        }
+
+        let mut names = HashMap::new();
+        names.insert("a".into(), CoreType::Int);
+        for ty in [
+            CoreType::Name("a".into()),
+            CoreType::Name("b".into()),
+            CoreType::Fun {
+                args: vec![CoreType::Name("a".into())],
+                ret: Box::new(CoreType::Name("a".into())),
+                effects: EffectRow::default(),
+            },
+            CoreType::Record {
+                fields: vec![("x".into(), CoreType::Name("a".into()))],
+            },
+            CoreType::OpenRecord {
+                fields: vec![],
+                row: Box::new(CoreType::Name("a".into())),
+            },
+            CoreType::Variant {
+                variants: vec![("v".into(), Some(CoreType::Name("a".into())))],
+            },
+            CoreType::App {
+                ctor: "t".into(),
+                args: vec![CoreType::Name("a".into())],
+            },
+            CoreType::Forall {
+                params: vec![("a".into(), "type".into())],
+                body: Box::new(CoreType::Name("a".into())),
+            },
+            CoreType::Union(vec![CoreType::Name("a".into())]),
+            CoreType::Intersect(vec![CoreType::Name("a".into())]),
+            CoreType::Not(Box::new(CoreType::Name("a".into()))),
+            CoreType::Diff(
+                Box::new(CoreType::Name("a".into())),
+                Box::new(CoreType::Int),
+            ),
+            CoreType::OptionalField(Box::new(CoreType::Name("a".into()))),
+            CoreType::Dynamic(Box::new(CoreType::Name("a".into()))),
+            CoreType::Lacks {
+                label: "x".into(),
+                row: Box::new(CoreType::Name("a".into())),
+            },
+            CoreType::Int,
+        ] {
+            let _ = subst_type_names(&ty, &names);
+        }
+    }
+
+    #[test]
+    fn refine_predicate_and_numeric_helpers() {
+        assert!(refine_predicate("number?", &CoreType::dyn_any()).is_some());
+        assert!(refine_predicate("string?", &CoreType::Dynamic(Box::new(CoreType::Any))).is_some());
+        assert!(refine_predicate("bool?", &CoreType::Dynamic(Box::new(CoreType::Any))).is_some());
+        assert!(refine_predicate("number?", &CoreType::Int).is_some());
+        assert!(refine_predicate("nope", &CoreType::Int).is_none());
+
+        assert_eq!(operand_numeric_class(&CoreType::Int), Some(NumericClass::Int));
+        assert_eq!(
+            operand_numeric_class(&CoreType::Dynamic(Box::new(CoreType::Int))),
+            Some(NumericClass::Int)
+        );
+        assert_eq!(
+            operand_numeric_class(&CoreType::Intersect(vec![
+                CoreType::Union(vec![CoreType::Int]),
+                CoreType::Number,
+            ])),
+            Some(NumericClass::Int)
+        );
+        assert_eq!(
+            numeric_union_class(&CoreType::Union(vec![CoreType::Int, CoreType::F64])),
+            None
+        );
+        assert_eq!(numeric_union_class(&CoreType::F64), Some(NumericClass::F64));
+        assert_eq!(
+            numeric_union_class(&CoreType::Union(vec![CoreType::Number])),
+            None
+        );
+    }
+}
