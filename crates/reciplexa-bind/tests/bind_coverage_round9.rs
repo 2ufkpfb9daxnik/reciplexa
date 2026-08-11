@@ -1,7 +1,7 @@
 //! Round-9 bind: load_module_tree IO edges + interface link residuals.
 
-use std::fs;
 use std::collections::HashMap;
+use std::fs;
 
 use reciplexa_bind::module::*;
 use reciplexa_bind::resolve_language_source;
@@ -19,10 +19,7 @@ fn load_module_tree_path_not_found_and_empty_dir() {
     let err = load_module_tree(&missing).unwrap_err();
     assert!(err.message.contains("not found") || err.message.contains("failed"));
 
-    let dir = std::env::temp_dir().join(format!(
-        "reciplexa-b9-empty-{}",
-        std::process::id()
-    ));
+    let dir = std::env::temp_dir().join(format!("reciplexa-b9-empty-{}", std::process::id()));
     let _ = fs::remove_dir_all(&dir);
     fs::create_dir_all(&dir).unwrap();
     let err = load_module_tree(&dir).unwrap_err();
@@ -32,10 +29,7 @@ fn load_module_tree_path_not_found_and_empty_dir() {
 
 #[test]
 fn load_module_tree_skips_non_rpx_and_self_import() {
-    let dir = std::env::temp_dir().join(format!(
-        "reciplexa-b9-mix-{}",
-        std::process::id()
-    ));
+    let dir = std::env::temp_dir().join(format!("reciplexa-b9-mix-{}", std::process::id()));
     let _ = fs::remove_dir_all(&dir);
     fs::create_dir_all(&dir).unwrap();
     fs::write(dir.join("ok.rpx"), "(val x 1)\n").unwrap();
@@ -70,14 +64,11 @@ fn elaborate_units_with_interfaces_and_alias_only() {
     );
     assert!(err.is_err());
 
-    let err = elaborate_units_with_interfaces(
-        &[("lib", "(val x 1)")],
-        &{
-            let mut m = HashMap::new();
-            m.insert("lib".into(), vec!["ghost".into()]);
-            m
-        },
-    );
+    let err = elaborate_units_with_interfaces(&[("lib", "(val x 1)")], &{
+        let mut m = HashMap::new();
+        m.insert("lib".into(), vec!["ghost".into()]);
+        m
+    });
     assert!(err.is_err());
 
     let ok = elaborate_units(&[

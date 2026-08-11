@@ -43,10 +43,7 @@ fn deep_compound_forward_and_resumed_in_args() {
     assert_eq!(v, RuntimeValue::String("q".into()));
 
     let mut env = HashMap::new();
-    env.insert(
-        "k".into(),
-        oneshot(Rc::new(|v, _| Ok(Outcome::Resumed(v)))),
-    );
+    env.insert("k".into(), oneshot(Rc::new(|v, _| Ok(Outcome::Resumed(v)))));
     env.insert(
         "f".into(),
         RuntimeValue::Closure {
@@ -76,10 +73,7 @@ fn deep_compound_forward_and_resumed_in_args() {
 #[test]
 fn record_seq_match_cast_cont_other_arms() {
     let mut env = HashMap::new();
-    env.insert(
-        "k".into(),
-        oneshot(Rc::new(|v, _| Ok(Outcome::Resumed(v)))),
-    );
+    env.insert("k".into(), oneshot(Rc::new(|v, _| Ok(Outcome::Resumed(v)))));
     let v = eval_expr(
         &CoreExpr::Record {
             fields: vec![(
@@ -125,10 +119,7 @@ fn record_seq_match_cast_cont_other_arms() {
     assert_eq!(host.last_op.as_deref(), Some("ask"));
 
     let mut env = HashMap::new();
-    env.insert(
-        "k".into(),
-        oneshot(Rc::new(|v, _| Ok(Outcome::Resumed(v)))),
-    );
+    env.insert("k".into(), oneshot(Rc::new(|v, _| Ok(Outcome::Resumed(v)))));
     let v = eval_expr(
         &CoreExpr::Cast {
             expr: Box::new(CoreExpr::App {
@@ -146,10 +137,7 @@ fn record_seq_match_cast_cont_other_arms() {
     assert_eq!(v, RuntimeValue::Int(3));
 
     let mut env = HashMap::new();
-    env.insert(
-        "k".into(),
-        oneshot(Rc::new(|v, _| Ok(Outcome::Resumed(v)))),
-    );
+    env.insert("k".into(), oneshot(Rc::new(|v, _| Ok(Outcome::Resumed(v)))));
     let _ = eval_expr(
         &CoreExpr::TryCast {
             expr: Box::new(CoreExpr::App {

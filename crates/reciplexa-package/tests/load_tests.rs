@@ -238,9 +238,26 @@ fn load_full_graphics_package_tree_and_eval_transforms() {
         .interface_exports
         .unwrap();
     for export in [
-        "circle", "rect", "ellipse", "line", "path", "polyline", "polygon", "ring", "frame",
-        "group", "text", "text-box", "image", "translate", "rotate", "scale", "opacity", "fill",
-        "stroke", "paint",
+        "circle",
+        "rect",
+        "ellipse",
+        "line",
+        "path",
+        "polyline",
+        "polygon",
+        "ring",
+        "frame",
+        "group",
+        "text",
+        "text-box",
+        "image",
+        "translate",
+        "rotate",
+        "scale",
+        "opacity",
+        "fill",
+        "stroke",
+        "paint",
     ] {
         assert!(rpi.iter().any(|e| e == export), "missing export {export}");
     }
@@ -276,7 +293,10 @@ fn load_full_graphics_package_tree_and_eval_transforms() {
     let v = eval_expr(&demo.expr, &HashMap::new(), &mut UnitHost).unwrap();
     let s = format!("{v}");
     assert!(
-        s.contains("opacity") || s.contains("translate") || s.contains("text") || s.contains("page"),
+        s.contains("opacity")
+            || s.contains("translate")
+            || s.contains("text")
+            || s.contains("page"),
         "expected transform/text/image package tree, got {s}"
     );
 }

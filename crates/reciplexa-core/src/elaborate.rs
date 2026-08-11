@@ -3636,10 +3636,7 @@ mod tests {
 
     #[test]
     fn helper_normalize_intersect_and_top_binding_dup() {
-        assert!(matches!(
-            normalize_intersect(vec![]),
-            CoreType::Dynamic(_)
-        ));
+        assert!(matches!(normalize_intersect(vec![]), CoreType::Dynamic(_)));
         assert_eq!(normalize_intersect(vec![CoreType::Int]), CoreType::Int);
         let nested = normalize_intersect(vec![
             CoreType::Intersect(vec![CoreType::Int, CoreType::Number]),

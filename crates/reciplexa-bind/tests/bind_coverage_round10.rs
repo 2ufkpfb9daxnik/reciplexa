@@ -73,10 +73,7 @@ fn elaborate_units_collision_and_multi_import() {
 
 #[test]
 fn load_module_tree_utf8_and_nested_imports() {
-    let dir = std::env::temp_dir().join(format!(
-        "reciplexa-b10-{}",
-        std::process::id()
-    ));
+    let dir = std::env::temp_dir().join(format!("reciplexa-b10-{}", std::process::id()));
     let _ = fs::remove_dir_all(&dir);
     fs::create_dir_all(&dir).unwrap();
     fs::write(dir.join("a.rpx"), "(import b)\n(val main b/x)\n").unwrap();

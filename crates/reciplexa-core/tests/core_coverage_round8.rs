@@ -274,12 +274,7 @@ fn check_round8_core_expr_matrix() {
         let _ = infer_expr(expr, &env, &mut subst, r);
         let _ = infer_with_effects(expr, &env, &mut subst, r);
         let _ = insert_implicit_casts(expr, &env);
-        let _ = coerce_to_static(
-            expr.clone(),
-            &CoreType::dyn_any(),
-            &CoreType::Int,
-            9,
-        );
+        let _ = coerce_to_static(expr.clone(), &CoreType::dyn_any(), &CoreType::Int, 9);
     }
 
     let arms = [

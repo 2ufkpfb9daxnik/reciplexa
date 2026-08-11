@@ -120,10 +120,7 @@ fn resumed_bubbles_through_compound_forms() {
                 alive: Rc::new(Cell::new(true)),
             },
         );
-        env.insert(
-            "k".into(),
-            oneshot(Rc::new(|v, _| Ok(Outcome::Resumed(v)))),
-        );
+        env.insert("k".into(), oneshot(Rc::new(|v, _| Ok(Outcome::Resumed(v)))));
         let v = eval_expr(&form, &env, &mut UnitHost).unwrap();
         assert!(matches!(v, RuntimeValue::Int(_)), "got {v:?}");
     }
@@ -156,10 +153,7 @@ fn deep_resume_inner_returns_resumed_performed() {
     }
 
     let mut env = primitive_env();
-    env.insert(
-        "k".into(),
-        oneshot(Rc::new(|v, _| Ok(Outcome::Resumed(v)))),
-    );
+    env.insert("k".into(), oneshot(Rc::new(|v, _| Ok(Outcome::Resumed(v)))));
     let form = CoreExpr::Let {
         name: "x".into(),
         value: Box::new(CoreExpr::Seq(vec![
