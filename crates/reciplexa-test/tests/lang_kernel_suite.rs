@@ -295,8 +295,8 @@ fn lang_surface_type_decls_and_dynamic() {
         let (expr, data) = reciplexa_core::elaborate_with_data(
             r#"
 (type title str)
-(type blob (dynamic))
-(type either (union int str))
+(type-alias blob (dynamic))
+(type-alias either (union int str))
 (val title "ok")
 (val main title)
 "#,
@@ -314,6 +314,8 @@ fn lang_surface_type_decls_and_dynamic() {
             data.type_aliases.get("either"),
             Some(CoreType::Union(_))
         ));
+        assert!(data.value_annotations.contains("title"));
+        assert!(!data.value_annotations.contains("blob"));
         let _ = expr;
         let v = eval_source(
             r#"
@@ -706,8 +708,8 @@ fn lang_typ_any_and_dynamic_any() {
     run_conformance(&case, || {
         let (_, data) = elaborate_with_data(
             r#"
-(type blob (dynamic))
-(type anything any)
+(type-alias blob (dynamic))
+(type-alias anything any)
 (val main unit)
 "#,
         )
@@ -1208,5 +1210,164 @@ fn lang_dat_adt_10_optional_pattern_rejected() {
             "{}",
             err.message
         );
+    });
+}
+
+#[test]
+fn test_sta_001_lexical_scope_and_unbound() {
+    let case = ConformanceCase::new(
+        "TEST-STA-001",
+        "EVAL/BND",
+        "lexical scope, shadowing, unbound",
+    );
+    run_conformance(&case, || {
+        let v = eval_source(
+            r#"
+(val x 1)
+(val main (let ((x 2)) x))
+"#,
+        )
+        .unwrap();
+        assert_eq!(v, RuntimeValue::Int(2));
+        let err = typecheck_language_source("(val main missing)").unwrap_err();
+        assert!(err.message.contains("unbound"), "{}", err.message);
+    });
+}
+
+#[test]
+fn test_dyn_001_eval_order_left_to_right() {
+    let case = ConformanceCase::new(
+        "TEST-DYN-001",
+        "EVAL",
+        "application/record left-to-right order",
+    );
+    run_conformance(&case, || {
+        let v = eval_source(
+            r#"
+(val main
+  (var order 0
+    (let ((f (fn (a b) (seq a b))))
+      (f
+        (seq (set order 1) order)
+        (seq (set order 2) order)))))
+"#,
+        )
+        .unwrap();
+        assert_eq!(v, RuntimeValue::Int(2));
+    });
+}
+
+#[test]
+fn test_dyn_002_closure_and_recursion() {
+    let case = ConformanceCase::new("TEST-DYN-002", "EVAL", "closure and recursion");
+    run_conformance(&case, || {
+        let v = eval_source(
+            r#"
+(val main
+  (letrec ((fact (fn (n) (if (= n 0) 1 (* n (fact (- n 1)))))))
+    (fact 5)))
+"#,
+        )
+        .unwrap();
+        assert_eq!(v, RuntimeValue::Int(120));
+    });
+}
+
+#[test]
+fn test_dyn_004_var_under_continuation() {
+    let case = ConformanceCase::new("TEST-DYN-004", "BND/EFF", "var under continuation");
+    run_conformance(&case, || {
+        let v = eval_source(
+            r#"
+(val main
+  (var n 0
+    (handle ask
+      (fn (_ k)
+        (seq (set n (+ n 1)) (k n)))
+      (perform ask unit))))
+"#,
+        )
+        .unwrap();
+        assert_eq!(v, RuntimeValue::Int(1));
+    });
+}
+
+#[test]
+fn test_dyn_005_explicit_error_terminal() {
+    let case = ConformanceCase::new(
+        "TEST-DYN-005",
+        "ERR",
+        "explicit error terminal classification",
+    );
+    run_conformance(&case, || {
+        let err = eval_source(r#"(val main (raise "boom"))"#).unwrap_err();
+        assert!(
+            err.message.contains("boom")
+                || err.message.contains("failure")
+                || err.message.contains("unhandled"),
+            "{}",
+            err.message
+        );
+        let ok = eval_source(
+            r#"
+(data result ((a type) (e type)) (ok a) (err e))
+(val main (as-result (fn () (raise "nope"))))
+"#,
+        )
+        .unwrap();
+        assert!(matches!(ok, RuntimeValue::Variant { tag, .. } if tag == "err"));
+    });
+}
+
+#[test]
+fn test_syn_c001_parse_unparse_round_trip() {
+    let case = ConformanceCase::new(
+        "TEST-SYN-C001",
+        "LEX/SYN",
+        "valid parse/unparse byte round-trip",
+    );
+    run_conformance(&case, || {
+        let src = "(val main (+ 1 2))\n";
+        let parsed = reciplexa_syntax::parse_source(src);
+        assert!(parsed.errors.is_empty(), "{:?}", parsed.errors);
+        let again = reciplexa_syntax::unparse(&parsed.root);
+        let reparsed = reciplexa_syntax::parse_source(&again);
+        assert!(reparsed.errors.is_empty(), "{:?}", reparsed.errors);
+    });
+}
+
+#[test]
+fn test_bnd_annotation_suite() {
+    let case = ConformanceCase::new(
+        "TEST-LANG-BND-ann",
+        "BND-001",
+        "type annotations, store fixity, escape",
+    );
+    run_conformance(&case, || {
+        assert!(typecheck_language_source(
+            r#"
+(type add (fn int int int))
+(val add (fn (x y) (+ x y)))
+(val main (add 1 2))
+"#
+        )
+        .is_ok());
+        assert!(typecheck_language_source(
+            r#"
+(type value str)
+(val value 42)
+(val main value)
+"#
+        )
+        .is_err());
+        assert!(reciplexa_core::elaborate_source("(type missing int)\n(val main 1)").is_err());
+        assert!(typecheck_language_source(
+            r#"
+(val main
+  (var count 0
+    (fn () count)))
+"#
+        )
+        .is_err());
     });
 }
