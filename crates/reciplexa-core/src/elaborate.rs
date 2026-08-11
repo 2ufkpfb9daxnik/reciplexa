@@ -3505,6 +3505,23 @@ mod tests {
             "(data ghost ((a type)) nullary)\n(val main nullary)",
             "(rec (data a (x)) (data b (y x)))\n(val main x)",
             "(data t ((a type)) (c (t a)))\n(val main (c (c 1)))",
+            // data param section errors (parse_data_type_params)
+            "(data t ((a)) c)\n(val main 1)",
+            "(data t ((a type extra)) c)\n(val main 1)",
+            "(data t ((1 type)) c)\n(val main 1)",
+            "(data t ((a 1)) c)\n(val main 1)",
+            "(data t ((a row)) c)\n(val main 1)",
+            "(data t ((a type)(a type)) c)\n(val main 1)",
+            "(data t (a) c)\n(val main 1)",
+            "(data t ((a type) b) c)\n(val main 1)",
+            // positivity / fn payload
+            "(data bad (mk (fn bad int)))\n(val main 1)",
+            "(data box ((a type)) (mk (fn a a)))\n(val main 1)",
+            "(data box ((a type)) (mk (fn int a)))\n(val main 1)",
+            "(data t (c (fn int)))\n(val main 1)",
+            "(data t (c ()))\n(val main 1)",
+            "(data t (c 1))\n(val main 1)",
+            "(data t (c graphics/x))\n(val main 1)",
             // types
             "(type id (forall ((a type)) (fn a a)))\n(val id (fn (x) x))\n(val main (id 1))",
             "(type r (record (a int) (row rest)))\n(val main 1)",
@@ -3560,6 +3577,12 @@ mod tests {
             "#\\newline",
             "0xFF",
             "1.0e2",
+            // Rec main as result name
+            "(rec (val f (fn (x) x)) (val main (f 1)))",
+            // Trailing exprs after bindings
+            "(val x 1)\n(+ x 1)",
+            "42",
+            "true",
             // errors
             "(data)",
             "(data t ((a type)(a type)) c)",
@@ -3600,9 +3623,40 @@ mod tests {
             "",
             "(type orphan int)",
             "(val x 1)(val x 2)",
+            "(val x 1)(rec (val x (fn () 1)))",
         ] {
             let _ = elaborate_source(src);
             let _ = elaborate_with_data(src);
         }
+    }
+
+    #[test]
+    fn helper_normalize_intersect_and_top_binding_dup() {
+        assert!(matches!(
+            normalize_intersect(vec![]),
+            CoreType::Dynamic(_)
+        ));
+        assert_eq!(normalize_intersect(vec![CoreType::Int]), CoreType::Int);
+        let nested = normalize_intersect(vec![
+            CoreType::Intersect(vec![CoreType::Int, CoreType::Number]),
+            CoreType::Any,
+        ]);
+        assert!(matches!(nested, CoreType::Intersect(_)));
+        let mut seen = std::collections::HashSet::new();
+        let n = parse_source("(val x 1)").root;
+        let list = n
+            .children()
+            .find(|c| c.kind() == SyntaxKind::List)
+            .expect("list");
+        let bind = TopBinding::Single("x".into(), CoreExpr::Lit(CoreLiteral::Int(1)));
+        register_top_binding_names(&bind, &mut seen, &list).unwrap();
+        assert!(register_top_binding_names(&bind, &mut seen, &list).is_err());
+        let rec = TopBinding::Rec(vec![
+            ("f".into(), CoreExpr::Lit(CoreLiteral::Unit)),
+            ("f".into(), CoreExpr::Lit(CoreLiteral::Unit)),
+        ]);
+        let mut seen2 = std::collections::HashSet::new();
+        // First insert then duplicate inside Rec
+        assert!(register_top_binding_names(&rec, &mut seen2, &list).is_err());
     }
 }
