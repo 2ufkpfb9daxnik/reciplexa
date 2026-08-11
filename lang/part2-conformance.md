@@ -17,11 +17,11 @@
 
 - **total**: 1589
 - **unchecked**: 0
-- **ok**: 340
-- **partial**: 523
-- **gap**: 242
-- **deferred**: 352
-- **meta**: 132
+- **ok**: 356
+- **partial**: 538
+- **gap**: 205
+- **deferred**: 355
+- **meta**: 135
 
 （LEX/SYN/MAC および導入メタ節を照合済み。他機能ブロックも並行更新済み。）
 
@@ -1631,9 +1631,9 @@
   - spec: `specification.md:7264`
   - notes: 展開は代入のみ（再評価なし）
 
-- [x] **L5 L7276: 8. Scope** — `partial`
+- [x] **L5 L7276: 8. Scope** — `ok`
   - spec: `specification.md:7276`
-  - notes: 同一単位ok; module階層未
+  - notes: same-unit + nested (module …) child inherits earlier parent macros (lang_macro)
 
 - [x] **L6 L7277: 8.1 コンパイル単位内限定** — `ok`
   - spec: `specification.md:7277`
@@ -1643,13 +1643,13 @@
   - spec: `specification.md:7285`
   - notes: MAC-10: pre-definition macro use rejected in expand_language
 
-- [x] **L6 L7312: 8.3 下位モジュール** — `gap`
+- [x] **L6 L7312: 8.3 下位モジュール** — `ok`
   - spec: `specification.md:7312`
-  - notes: 下位module可視性未実装
+  - notes: nested (module …) sees parent macros defined earlier (MAC §8.3)
 
-- [x] **L6 L7327: 8.4 子scopeから親scope** — `gap`
+- [x] **L6 L7327: 8.4 子scopeから親scope** — `ok`
   - spec: `specification.md:7327`
-  - notes: 子→親scope規則未
+  - notes: child/sibling scopes: later/sibling macros not visible (MAC §8.4)
 
 - [x] **L5 L7333: 9. マクロ名と呼出し** — `partial`
   - spec: `specification.md:7333`
@@ -1743,25 +1743,25 @@
   - spec: `specification.md:7413`
   - notes: 展開結果を再walk
 
-- [x] **L5 L7419: 12. 再帰マクロ** — `partial`
+- [x] **L5 L7419: 12. 再帰マクロ** — `ok`
   - spec: `specification.md:7419`
-  - notes: 再帰禁止は予算で代用; 専用診断なし
+  - notes: static macro ref-graph DAG check; self/mutual recursion rejected
 
-- [x] **L6 L7420: 12.1 自己再帰** — `partial`
+- [x] **L6 L7420: 12.1 自己再帰** — `ok`
   - spec: `specification.md:7420`
-  - notes: 自己再帰→budget超過
+  - notes: self-recursive template → cycle error at definition
 
-- [x] **L6 L7431: 12.2 相互再帰** — `partial`
+- [x] **L6 L7431: 12.2 相互再帰** — `ok`
   - spec: `specification.md:7431`
-  - notes: 相互再帰もbudget依存
+  - notes: mutual recursion → cycle error at definition
 
 - [x] **L6 L7441: 12.3 先行マクロの利用** — `ok`
   - spec: `specification.md:7441`
   - notes: 先行マクロ利用可（env蓄積）
 
-- [x] **L6 L7456: 12.4 参照graph** — `gap`
+- [x] **L6 L7456: 12.4 参照graph** — `ok`
   - spec: `specification.md:7456`
-  - notes: 参照graph/再帰検出なし
+  - notes: macro reference graph must be DAG (assert_macro_graph_dag)
 
 - [x] **L5 L7464: 13. 衛生性** — `partial`
   - spec: `specification.md:7464`
@@ -1887,21 +1887,21 @@
   - spec: `specification.md:7668`
   - notes: 型エラーのマクロ帰属なし
 
-- [x] **L5 L7672: 19. Provenance** — `gap`
+- [x] **L5 L7672: 19. Provenance** — `ok`
   - spec: `specification.md:7672`
-  - notes: 展開provenance/source map未
+  - notes: MacroSourceMap: call/def SyntaxNodeId + spans + expansion chain
 
-- [x] **L6 L7673: 19.1 保持する情報** — `gap`
+- [x] **L6 L7673: 19.1 保持する情報** — `ok`
   - spec: `specification.md:7673`
-  - notes: 呼出し/定義サイト連鎖未保持
+  - notes: ExpansionOrigin keeps call/def site ids/spans and chain
 
-- [x] **L6 L7683: 19.2 診断例** — `gap`
+- [x] **L6 L7683: 19.2 診断例** — `partial`
   - spec: `specification.md:7683`
-  - notes: 診断例のprovenance未
+  - notes: expand provenance recorded; typed diagnostic attachment still light
 
-- [x] **L6 L7692: 19.3 Source map** — `gap`
+- [x] **L6 L7692: 19.3 Source map** — `ok`
   - spec: `specification.md:7692`
-  - notes: source map未
+  - notes: expand_language_with_map source map for IDE/formatter origin
 
 - [x] **L6 L7696: 19.4 正式identity** — `deferred`
   - spec: `specification.md:7696`
@@ -1967,9 +1967,9 @@
   - spec: `specification.md:7862`
   - notes: MAC-10: pre-def macro use diagnostic in expand_language
 
-- [x] **L6 L7879: 21.11 不適合試験 MAC-11：自己再帰** — `partial`
+- [x] **L6 L7879: 21.11 不適合試験 MAC-11：自己再帰** — `ok`
   - spec: `specification.md:7879`
-  - notes: MAC-11 budgetメッセージで代用
+  - notes: MAC-11 mutual recursion rejected via ref-graph cycle diagnostic
 
 - [x] **L6 L7891: 21.12 不適合試験 MAC-12：宣言位置** — `ok`
   - spec: `specification.md:7891`
@@ -2029,91 +2029,91 @@
 
 - [x] **L5 L8045: 13.6.1 `TYP-DYN-001` Bounded dynamic、cast evidence、dynamic failure** — `partial`
   - spec: `specification.md:8045`
-  - notes: CoreType::Dynamic stub; cast evidence / gradual ops absent
+  - notes: Bounded Dynamic(S); three-way use; CastEvidence; try/check-cast; foreign/guarantee deferred/meta
 
 - [x] **L6 L8049: 状態** — `meta`
   - spec: `specification.md:8049`
-  - notes: TYP-DYN resolved-in-spec; impl is Dynamic unify stub
+  - notes: TYP-DYN resolved-in-spec; runtime gradually filling
 
 - [x] **L6 L8086: `DD-TYP-DYN-001`: static型とgradual型の分離** — `partial`
   - spec: `specification.md:8086`
-  - notes: CoreType::Dynamic unifies loosely (unify.rs / ty.rs)
+  - notes: static vs gradual: CoreType::Dynamic(bound) + Any top; no free static↔gradual mix
 
 - [x] **L6 L8154: `DD-TYP-DYN-002`: `dynamic S`の意味** — `partial`
   - spec: `specification.md:8154`
-  - notes: CoreType::Dynamic unifies loosely (unify.rs / ty.rs)
+  - notes: `dynamic S` elaborates to Dynamic(bound); dynamic never≃never; nested dynamic collapses
 
 - [x] **L6 L8199: `DD-TYP-DYN-003`: static top型`any`** — `partial`
   - spec: `specification.md:8199`
-  - notes: CoreType::Any + unify S<:any; surface `any` type name
+  - notes: CoreType::Any + S<:any unify; any does not accept implicit cast
 
 - [x] **L6 L8275: `DD-TYP-DYN-004`: `never`およびdynamicの正規形** — `partial`
   - spec: `specification.md:8275`
-  - notes: CoreType::Never + unify never subtype
+  - notes: Never + dynamic never normalize; CoreType::dynamic_bound
 
-- [x] **L6 L8323: `DD-TYP-DYN-005`: dynamic値をstatic型として使用する三段階判定** — `gap`
+- [x] **L6 L8323: `DD-TYP-DYN-005`: dynamic値をstatic型として使用する三段階判定** — `partial`
   - spec: `specification.md:8323`
-  - notes: no cast evidence / gradual runtime; Dynamic stub only
+  - notes: judge_dynamic_use three-way; coerce_to_static / insert_implicit_casts
 
-- [x] **L6 L8333: 1. 上限全体が要求型へ含まれる場合** — `gap`
+- [x] **L6 L8333: 1. 上限全体が要求型へ含まれる場合** — `partial`
   - spec: `specification.md:8333`
-  - notes: no three-stage dynamic cast judgment; Dynamic stub only
+  - notes: FullyIncluded when S<:T → Identity (no runtime check)
 
-- [x] **L6 L8354: 2. 上限と要求型が互いに素である場合** — `gap`
+- [x] **L6 L8354: 2. 上限と要求型が互いに素である場合** — `partial`
   - spec: `specification.md:8354`
-  - notes: no disjointness cast path; Dynamic stub only
+  - notes: Disjoint when intersect(S,T)≃never → static reject in coerce/plan
 
-- [x] **L6 L8376: 3. 一部だけ重なる場合** — `gap`
+- [x] **L6 L8376: 3. 一部だけ重なる場合** — `partial`
   - spec: `specification.md:8376`
-  - notes: no partial-overlap cast path; Dynamic stub only
+  - notes: PartialOverlap → Cast evidence + success intersect(S,T)
 
-- [x] **L6 L8409: `DD-TYP-DYN-006`: cast成功後の型** — `gap`
+- [x] **L6 L8409: `DD-TYP-DYN-006`: cast成功後の型** — `partial`
   - spec: `specification.md:8409`
-  - notes: no cast evidence / gradual runtime; Dynamic stub only
+  - notes: cast_success_type = intersect(S,T); Cast/TryCast/CheckCast return intersect
 
-- [x] **L6 L8455: `DD-TYP-DYN-007`: occurrence typingとの関係** — `gap`
+- [x] **L6 L8455: `DD-TYP-DYN-007`: occurrence typingとの関係** — `partial`
   - spec: `specification.md:8455`
-  - notes: no cast evidence / gradual runtime; Dynamic stub only
+  - notes: occurrence refine on Dynamic: then intersect / else dynamic(diff)
 
 - [x] **L6 L8513: `DD-TYP-DYN-008`: static値からdynamic値への導入** — `partial`
   - spec: `specification.md:8513`
-  - notes: CoreType::Dynamic unifies loosely (unify.rs / ty.rs)
+  - notes: Widen when T<:S; plan_cast rejects T</:S for to-dynamic
 
-- [x] **L6 L8564: `DD-TYP-DYN-009`: dynamic上限のwidening** — `gap`
+- [x] **L6 L8564: `DD-TYP-DYN-009`: dynamic上限のwidening** — `partial`
   - spec: `specification.md:8564`
-  - notes: no cast evidence / gradual runtime; Dynamic stub only
+  - notes: Widen evidence for dynamic S→dynamic U when S<:U; deep provenance TBD
 
-- [x] **L6 L8609: `DD-TYP-DYN-010`: foreign値のdynamic導入** — `gap`
+- [x] **L6 L8609: `DD-TYP-DYN-010`: foreign値のdynamic導入** — `deferred`
   - spec: `specification.md:8609`
-  - notes: no cast evidence / gradual runtime; Dynamic stub only
+  - notes: 依存待ち(KER/foreign): import-dynamic / ForeignValue boundary
 
-- [x] **L6 L8660: `DD-TYP-DYN-011`: decoderとgradual foreign boundaryの分離** — `gap`
+- [x] **L6 L8660: `DD-TYP-DYN-011`: decoderとgradual foreign boundaryの分離** — `deferred`
   - spec: `specification.md:8660`
-  - notes: no cast evidence / gradual runtime; Dynamic stub only
+  - notes: 依存待ち(KER/foreign): decoder vs gradual foreign boundary separation
 
-- [x] **L6 L8667: Static decoder** — `gap`
+- [x] **L6 L8667: Static decoder** — `deferred`
   - spec: `specification.md:8667`
-  - notes: no cast evidence / gradual runtime; Dynamic stub only
+  - notes: 依存待ち(KER/foreign): static decoder Result<S, decode-error>
 
-- [x] **L6 L8676: Gradual foreign boundary** — `gap`
+- [x] **L6 L8676: Gradual foreign boundary** — `deferred`
   - spec: `specification.md:8676`
-  - notes: no cast evidence / gradual runtime; Dynamic stub only
+  - notes: 依存待ち(KER/foreign): import-dynamic foreign boundary
 
-- [x] **L6 L8690: `DD-TYP-DYN-012`: runtime-checkableな型** — `gap`
+- [x] **L6 L8690: `DD-TYP-DYN-012`: runtime-checkableな型** — `partial`
   - spec: `specification.md:8690`
-  - notes: no cast evidence / gradual runtime; Dynamic stub only
+  - notes: is_runtime_checkable for primitives/record/variant/fun; opaque/capability reject
 
-- [x] **L6 L8742: `DD-TYP-DYN-013`: implicit cast failure** — `gap`
+- [x] **L6 L8742: `DD-TYP-DYN-013`: implicit cast failure** — `partial`
   - spec: `specification.md:8742`
-  - notes: no cast evidence / gradual runtime; Dynamic stub only
+  - notes: implicit Cast failure → EvalError dynamic cast failed; structured dynamic-type-error TBD
 
 - [x] **L6 L8785: `DD-TYP-DYN-014`: 明示的safe cast** — `partial`
   - spec: `specification.md:8785`
-  - notes: try-cast/check-cast surface + eval
+  - notes: try-cast/check-cast → Option/Result of intersect(S,T)
 
 - [x] **L6 L8824: `DD-TYP-DYN-015`: cast evidence** — `partial`
   - spec: `specification.md:8824`
-  - notes: CastEvidence enum + plan_cast_evidence
+  - notes: CastEvidence algebra + plan_cast_evidence + CastProvenance stub
 
 - [x] **L6 L8854: `Identity`** — `partial`
   - spec: `specification.md:8854`
@@ -2137,15 +2137,15 @@
 
 - [x] **L6 L8874: `RecordCheck`** — `partial`
   - spec: `specification.md:8874`
-  - notes: CastEvidence::RecordCheck
+  - notes: CastEvidence::RecordCheck + field-type runtime checks
 
 - [x] **L6 L8878: `VariantCheck`** — `partial`
   - spec: `specification.md:8878`
-  - notes: CastEvidence::VariantCheck
+  - notes: CastEvidence::VariantCheck + payload runtime checks
 
 - [x] **L6 L8882: `FunctionGuard`** — `partial`
   - spec: `specification.md:8882`
-  - notes: CastEvidence::FunctionGuard
+  - notes: CastEvidence::FunctionGuard {arity,arg_casts,ret_cast}
 
 - [x] **L6 L8886: `NominalCheck`** — `partial`
   - spec: `specification.md:8886`
@@ -2153,67 +2153,67 @@
 
 - [x] **L6 L8890: `Compose`** — `partial`
   - spec: `specification.md:8890`
-  - notes: CastEvidence::Compose
+  - notes: CastEvidence::Compose + simplify_evidence
 
-- [x] **L6 L8907: `DD-TYP-DYN-016`: cast evidenceの純粋性** — `gap`
+- [x] **L6 L8907: `DD-TYP-DYN-016`: cast evidenceの純粋性** — `partial`
   - spec: `specification.md:8907`
-  - notes: no cast evidence / gradual runtime; Dynamic stub only
+  - notes: evidence eval pure (inspect/wrap only); DD-TYP-DYN-016
 
-- [x] **L6 L8936: `DD-TYP-DYN-017`: evidence compositionと最適化** — `gap`
+- [x] **L6 L8936: `DD-TYP-DYN-017`: evidence compositionと最適化** — `partial`
   - spec: `specification.md:8936`
-  - notes: TYP-DYN beyond Dynamic stub unimplemented
+  - notes: compose_evidence / simplify_evidence Identity absorption; widen chain TBD
 
-- [x] **L6 L8992: `DD-TYP-DYN-018`: cast provenance** — `gap`
+- [x] **L6 L8992: `DD-TYP-DYN-018`: cast provenance** — `partial`
   - spec: `specification.md:8992`
-  - notes: no cast evidence / gradual runtime; Dynamic stub only
+  - notes: CastProvenance struct separate from evidence; full boundary IDs TBD
 
-- [x] **L6 L9027: `DD-TYP-DYN-019`: recordおよびvariant cast** — `gap`
+- [x] **L6 L9027: `DD-TYP-DYN-019`: recordおよびvariant cast** — `partial`
   - spec: `specification.md:9027`
-  - notes: TYP-DYN beyond Dynamic stub unimplemented
+  - notes: RecordCheck/VariantCheck plan + deepened runtime field/payload checks
 
-- [x] **L6 L9054: `DD-TYP-DYN-020`: opaque abstract typeのcast** — `gap`
+- [x] **L6 L9054: `DD-TYP-DYN-020`: opaque abstract typeのcast** — `deferred`
   - spec: `specification.md:9054`
-  - notes: no cast evidence / gradual runtime; Dynamic stub only
+  - notes: 依存待ち(MOD/opaque): NominalCheck abstract-type sealing
 
-- [x] **L6 L9089: `DD-TYP-DYN-021`: fixed-arity function cast** — `gap`
+- [x] **L6 L9089: `DD-TYP-DYN-021`: fixed-arity function cast** — `partial`
   - spec: `specification.md:9089`
-  - notes: no cast evidence / gradual runtime; Dynamic stub only
+  - notes: FunctionGuard fixed-arity plan; call-time arg/ret guards stub
 
-- [x] **L6 L9128: `DD-TYP-DYN-022`: function引数の反変cast** — `gap`
+- [x] **L6 L9128: `DD-TYP-DYN-022`: function引数の反変cast** — `partial`
   - spec: `specification.md:9128`
-  - notes: TYP-DYN beyond Dynamic stub unimplemented
+  - notes: FunctionGuard.arg_casts contravariant planning; runtime call wrap TBD
 
-- [x] **L6 L9169: `DD-TYP-DYN-023`: function結果の共変cast** — `gap`
+- [x] **L6 L9169: `DD-TYP-DYN-023`: function結果の共変cast** — `partial`
   - spec: `specification.md:9169`
-  - notes: TYP-DYN beyond Dynamic stub unimplemented
+  - notes: FunctionGuard.ret_cast covariant planning; runtime call wrap TBD
 
-- [x] **L6 L9205: `DD-TYP-DYN-024`: function arityの制限** — `gap`
+- [x] **L6 L9205: `DD-TYP-DYN-024`: function arityの制限** — `partial`
   - spec: `specification.md:9205`
-  - notes: TYP-DYN beyond Dynamic stub unimplemented
+  - notes: arity equality required in FunctionGuard; varargs deferred
 
-- [x] **L6 L9235: `DD-TYP-DYN-025`: effectful function cast** — `gap`
+- [x] **L6 L9235: `DD-TYP-DYN-025`: effectful function cast** — `partial`
   - spec: `specification.md:9235`
-  - notes: no cast evidence / gradual runtime; Dynamic stub only
+  - notes: effect_subrow Es⊑Et in is_subtype/fun intersect; gradual effect cast out of v1
 
-- [x] **L6 L9301: `DD-TYP-DYN-026`: dynamic境界を通れない制御値** — `gap`
+- [x] **L6 L9301: `DD-TYP-DYN-026`: dynamic境界を通れない制御値** — `deferred`
   - spec: `specification.md:9301`
-  - notes: no cast evidence / gradual runtime; Dynamic stub only
+  - notes: 依存待ち(EFF/KER): control values (resume/handler/capability) barred from dynamic
 
-- [x] **L6 L9339: `DD-TYP-DYN-027`: polymorphismとdynamic境界** — `gap`
+- [x] **L6 L9339: `DD-TYP-DYN-027`: polymorphismとdynamic境界** — `deferred`
   - spec: `specification.md:9339`
-  - notes: no cast evidence / gradual runtime; Dynamic stub only
+  - notes: 依存待ち(DAT/poly): polymorphism × dynamic boundary
 
-- [x] **L6 L9394: `DD-TYP-DYN-028`: gradual guarantee** — `gap`
+- [x] **L6 L9394: `DD-TYP-DYN-028`: gradual guarantee** — `meta`
   - spec: `specification.md:9394`
-  - notes: no cast evidence / gradual runtime; Dynamic stub only
+  - notes: 形式証明: gradual guarantee (static/dynamic) not mechanically proven
 
-- [x] **L6 L9412: Static gradual guarantee** — `gap`
+- [x] **L6 L9412: Static gradual guarantee** — `meta`
   - spec: `specification.md:9412`
-  - notes: no cast evidence / gradual runtime; Dynamic stub only
+  - notes: 形式証明: Static gradual guarantee
 
-- [x] **L6 L9426: Dynamic gradual guarantee** — `gap`
+- [x] **L6 L9426: Dynamic gradual guarantee** — `meta`
   - spec: `specification.md:9426`
-  - notes: no cast evidence / gradual runtime; Dynamic stub only
+  - notes: 形式証明: Dynamic gradual guarantee
 
 - [x] **L6 L9474: `DD-TYP-NUM-001`: RPX v1の基本数値型** — `partial`
   - spec: `specification.md:9474`
@@ -3009,7 +3009,7 @@
 
 - [x] **L4 L14412: 13.9 `MOD-001` モジュール・シグネチャ・Functor・分割コンパイル** — `partial`
   - spec: `specification.md:14412`
-  - notes: outer unit + import/link done; .rpi/signatures/functors deferred (language-kernel-plan)
+  - notes: outer unit + import/link + .rpi export filter/path; signatures/functors deferred
 
 - [x] **L5 L14413: DD-001 決定概要** — `meta`
   - spec: `specification.md:14413`
@@ -3021,7 +3021,7 @@
 
 - [x] **L6 L14434: DD-001.2 中心的な決定** — `partial`
   - spec: `specification.md:14434`
-  - notes: import as/only/rename+qualified ok; functors/signatures/.rpi not implemented
+  - notes: import as/only/rename+qualified + .rpi export boundary; functors/signatures deferred
 
 - [x] **L5 L14452: 0. 適用範囲** — `meta`
   - spec: `specification.md:14452`
@@ -3055,21 +3055,21 @@
   - spec: `specification.md:14531`
   - notes: design note vs one-file-one-module
 
-- [x] **L5 L14542: 2. モジュールpathとファイルpath** — `partial`
+- [x] **L5 L14542: 2. モジュールpathとファイルpath** — `ok`
   - spec: `specification.md:14542`
-  - notes: slash module paths + sibling .rpx load
+  - notes: source-root module path + interface-root .rpi path (PackageManifest)
 
-- [x] **L6 L14543: 2.1 Source root** — `partial`
+- [x] **L6 L14543: 2.1 Source root** — `ok`
   - spec: `specification.md:14543`
-  - notes: package source-root via PKG LocalPackageIndex / PackageManifest
+  - notes: source-root resolves module .rpx under package root
 
 - [x] **L6 L14549: 2.2 Module path** — `ok`
   - spec: `specification.md:14549`
   - notes: coalesce_slash_paths + import module path
 
-- [x] **L6 L14560: 2.3 Interface path** — `deferred`
+- [x] **L6 L14560: 2.3 Interface path** — `ok`
   - spec: `specification.md:14560`
-  - notes: .rpi interface path not implemented
+  - notes: module_interface_path under interface-root; required for public modules
 
 - [x] **L6 L14573: 2.4 Path変更** — `deferred`
   - spec: `specification.md:14573`
@@ -3195,13 +3195,13 @@
   - spec: `specification.md:14853`
   - notes: same-identity duplicate import ok; distinct-module local collision error (module.rs §7.4)
 
-- [x] **L5 L14859: 8. .rpiインターフェース** — `deferred`
+- [x] **L5 L14859: 8. .rpiインターフェース** — `partial`
   - spec: `specification.md:14859`
-  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+  - notes: .rpi stub parse + export name boundary; full signature checking deferred
 
-- [x] **L6 L14860: 8.1 役割** — `deferred`
+- [x] **L6 L14860: 8.1 役割** — `partial`
   - spec: `specification.md:14860`
-  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+  - notes: .rpi lists public vals/types; enforced at package link
 
 - [x] **L6 L14870: 8.2 Wrapper** — `deferred`
   - spec: `specification.md:14870`
@@ -3211,9 +3211,9 @@
   - spec: `specification.md:14879`
   - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
 
-- [x] **L6 L14891: 8.4 Public module** — `deferred`
+- [x] **L6 L14891: 8.4 Public module** — `ok`
   - spec: `specification.md:14891`
-  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+  - notes: public modules with interface-root require sibling .rpi stub
 
 - [x] **L6 L14897: 8.5 Internal module** — `deferred`
   - spec: `specification.md:14897`
@@ -3227,13 +3227,13 @@
   - spec: `specification.md:14907`
   - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
 
-- [x] **L6 L14908: 9.1 .rpiなしの内部モジュール** — `deferred`
+- [x] **L6 L14908: 9.1 .rpiなしの内部モジュール** — `ok`
   - spec: `specification.md:14908`
-  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+  - notes: no .rpi → implementation exports inferred (elaborate default)
 
-- [x] **L6 L14912: 9.2 .rpiありのモジュール** — `deferred`
+- [x] **L6 L14912: 9.2 .rpiありのモジュール** — `partial`
   - spec: `specification.md:14912`
-  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+  - notes: .rpi filters public exports at link; types/abstract not checked yet
 
 - [x] **L6 L14918: 9.3 Interface追加** — `deferred`
   - spec: `specification.md:14918`
@@ -4811,9 +4811,9 @@
   - spec: `specification.md:18363`
   - notes: derived-node / reverse-edit / DerivationKey absent
 
-- [x] **L6 L18379: 18.2 Provenanceと逆編集** — `gap`
+- [x] **L6 L18379: 18.2 Provenanceと逆編集** — `deferred`
   - spec: `specification.md:18379`
-  - notes: derived-node / reverse-edit / DerivationKey absent
+  - notes: 依存待ち(EDT): reverse-edit from Provenance is GUI/EDT, not Part II language
 
 - [x] **L6 L18385: 18.3 逆編集結果** — `gap`
   - spec: `specification.md:18385`
@@ -4847,9 +4847,9 @@
   - spec: `specification.md:18432`
   - notes: derived-node / reverse-edit / DerivationKey absent
 
-- [x] **L5 L18436: 20. Provenanceの安全性** — `gap`
+- [x] **L5 L18436: 20. Provenanceの安全性** — `deferred`
   - spec: `specification.md:18436`
-  - notes: provenance authenticity/privacy controls absent
+  - notes: 依存待ち(EDT): Provenance safety/export policy is EDT/security layer
 
 - [x] **L6 L18437: 20.1 真正性** — `gap`
   - spec: `specification.md:18437`

@@ -84,5 +84,5 @@ cargo check --offline -p reciplexa-gui
 | **DAT-001** | Full polymorphic ADT typing / type apps (params parse+env done; record patterns done) |
 | **BND-001** | Full escape analysis; typed `var` store |
 | **RSC-001** | Richer resource catalog / path safety |
-| **EDT-001** | SyntaxNodeId provenance through elaborate→eval (BindingId use-site map done) |
+| **EDT-001** | Full GUI Provenance taxonomy / reverse-edit / export policy（MAC §19 language source map via `expand_language_with_map` done; BindingId use-site map done） |
 | **ROW-001** | Full unrestricted row tallying / multi-tail polymorphism |
