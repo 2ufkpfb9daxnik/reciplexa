@@ -774,8 +774,8 @@ fn intersect_not_diff_type_syntax_parses() {
     use reciplexa_core::unify::{unify, Subst};
     let (_, data) = elaborate_with_data(
         r#"
-(type narrow (intersect number string))
-(type removed (diff (union number string) number))
+(type-alias narrow (intersect number string))
+(type-alias removed (diff (union number string) number))
 (val main unit)
 "#,
     )
@@ -801,9 +801,9 @@ fn intersect_not_diff_type_syntax_parses() {
 fn registers_surface_type_aliases_and_dynamic() {
     let (expr, data) = elaborate_with_data(
         r#"
-(type title str)
+(type-alias title str)
 (type-alias maybe (union int str))
-(type any-val (dynamic any))
+(type-alias any-val (dynamic any))
 (val main "Hello")
 "#,
     )
@@ -820,6 +820,7 @@ fn registers_surface_type_aliases_and_dynamic() {
         data.type_aliases.get("any-val"),
         Some(CoreType::Dynamic(b)) if matches!(b.as_ref(), CoreType::Any)
     ));
+    assert!(data.value_annotations.is_empty());
     let CoreExpr::Let { value, .. } = expr else {
         panic!("expected Let");
     };
@@ -831,12 +832,12 @@ fn parses_surface_fn_app_forall_row_and_effects_types() {
     let (_, data) = elaborate_with_data(
         r#"
 (data option ((a type)) none (some a))
-(type id-fn (fn int int))
-(type opt-str (option str))
-(type poly (forall ((a type)) (fn a a)))
-(type open-rec (record (title str) (row r)))
-(type eff-fn (fn str unit (effects console resource)))
-(type tup (tuple int str))
+(type-alias id-fn (fn int int))
+(type-alias opt-str (option str))
+(type-alias poly (forall ((a type)) (fn a a)))
+(type-alias open-rec (record (title str) (row r)))
+(type-alias eff-fn (fn str unit (effects console resource)))
+(type-alias tup (tuple int str))
 (val main unit)
 "#,
     )
@@ -886,7 +887,7 @@ fn parses_surface_fn_app_forall_row_and_effects_types() {
             && fields[1].0 == "1"
     ));
 
-    let one = elaborate_with_data("(type bad (tuple int))\n(val main unit)").unwrap_err();
+    let one = elaborate_with_data("(type-alias bad (tuple int))\n(val main unit)").unwrap_err();
     assert!(one.message.contains("1-element"), "got: {}", one.message);
 }
 

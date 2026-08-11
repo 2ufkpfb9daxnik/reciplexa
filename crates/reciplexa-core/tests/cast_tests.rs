@@ -144,7 +144,7 @@ fn bounded_dynamic_elaborates() {
     use reciplexa_core::elaborate_with_data;
     let (_, data) = elaborate_with_data(
         r#"
-(type dnum (dynamic number))
+(type-alias dnum (dynamic number))
 (val main 1)
 "#,
     )

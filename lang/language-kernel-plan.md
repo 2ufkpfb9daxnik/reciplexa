@@ -82,7 +82,7 @@ cargo check --offline -p reciplexa-gui
 | **MOD-001** | Full ML functors / signatures |
 | **KER-001** | Full typed Rust/foreign ABI (beyond BuiltinOp + EffectHost) |
 | **DAT-001** | Full ctor-refined types (`some<int>` vs parent); record optional field patterns (§18.5); residual ADT display sugar |
-| **BND-001** | Full escape analysis; typed `var` store |
+| **BND-001** | Full escape-analysis matrix / Identity algebra beyond local-state effect + static escape reject |
 | **RSC-001** | Richer resource catalog / path safety |
 | **EDT-001** | Full GUI Provenance taxonomy / reverse-edit / export policy（MAC §19 language source map via `expand_language_with_map` done; BindingId use-site map done） |
 | **ROW-001** | Full unrestricted row tallying / multi-tail polymorphism |

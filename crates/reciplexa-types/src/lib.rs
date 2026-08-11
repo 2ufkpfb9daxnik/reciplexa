@@ -21,7 +21,8 @@ pub enum Type {
     Shape,
     Paper,
     Page,
-    /// `(markup …)` block (body not deeply checked yet).
+    /// `(markup …)` block — default static type is `markup-fragment` (SYN §17.11)
+    /// until a package expected type (document-inline / caption-content / …) is supplied.
     Markup,
     /// Deprecated Lisp `(src …)` block for logic / effects (not drawn).
     Src,
@@ -136,7 +137,9 @@ fn check_form(node: &SyntaxNode) -> Result<Type, TypeError> {
             Ok(Type::Page)
         }
         "markup" => {
-            // M8 / SYN-001: accept markup without typing TextChunk/@ bodies yet.
+            // SYN §17.11: absent expected package type ⇒ markup-fragment (Type::Markup).
+            // Body TextChunk / @-command structure is owned by the markup reader; package
+            // commands supply expected types for nested markup arguments.
             Ok(Type::Markup)
         }
         "src" => {

@@ -417,7 +417,7 @@ fn int_div_and_mod_typecheck() {
 fn singleton_type_alias_elaborates() {
     use reciplexa_core::elaborate::elaborate_with_data;
     use reciplexa_core::ty::SingletonValue;
-    let src = r#"(type page-kind (union "page" "slide")) (val main 1)"#;
+    let src = r#"(type-alias page-kind (union "page" "slide")) (val main 1)"#;
     let (_, data) = elaborate_with_data(src).unwrap();
     assert_eq!(
         data.type_aliases.get("page-kind"),
@@ -511,5 +511,167 @@ fn var_result_ok_requires_annotation() {
         err.message.contains("ungeneralized") || err.message.contains("annotation"),
         "{}",
         err.message
+    );
+}
+
+#[test]
+fn annotation_mismatch_is_static_error() {
+    let err = typecheck_language_source(
+        r#"
+(type value str)
+(val value 42)
+(val main value)
+"#,
+    )
+    .unwrap_err();
+    assert!(
+        err.message.contains("Mismatch") || err.message.contains("expected"),
+        "{}",
+        err.message
+    );
+}
+
+#[test]
+fn orphan_type_annotation_rejected() {
+    let err = reciplexa_core::elaborate_source("(type missing int)\n(val main 1)").unwrap_err();
+    assert!(
+        err.message.contains("対応する値binding") || err.message.contains("missing"),
+        "{}",
+        err.message
+    );
+}
+
+#[test]
+fn forall_annotation_ok_and_expansive_rejected() {
+    let ty = typecheck_language_source(
+        r#"
+(type identity
+  (forall ((a type))
+    (fn (a) a)))
+(val identity (fn (x) x))
+(val main (identity 3))
+"#,
+    )
+    .unwrap();
+    assert_eq!(ty, CoreType::Int);
+
+    let err = typecheck_language_source(
+        r#"
+(type identity
+  (forall ((a type))
+    (fn (a) a)))
+(val make-identity (fn () (fn (x) x)))
+(val identity (make-identity))
+(val main (identity 1))
+"#,
+    )
+    .unwrap_err();
+    assert!(
+        err.message.contains("expansive") || err.message.contains("一般化"),
+        "{}",
+        err.message
+    );
+}
+
+#[test]
+fn var_store_type_fixed_and_union_annotation() {
+    let err = typecheck_language_source(
+        r#"
+(val main
+  (var value 0
+    (seq (set value "text") value)))
+"#,
+    )
+    .unwrap_err();
+    assert!(
+        err.message.contains("Mismatch") || err.message.contains("expected"),
+        "{}",
+        err.message
+    );
+
+    let ty = typecheck_language_source(
+        r#"
+(val main
+  (local
+    (type value (union int str))
+    (var value 0)
+    (seq (set value "text") value)))
+"#,
+    )
+    .unwrap();
+    assert!(
+        matches!(ty, CoreType::Union(_)) || matches!(ty, CoreType::String),
+        "{ty:?}"
+    );
+}
+
+#[test]
+fn local_state_escape_rejected_statically() {
+    let err = typecheck_language_source(
+        r#"
+(val main
+  (var count 0
+    (fn ()
+      (set count (+ count 1))
+      count)))
+"#,
+    )
+    .unwrap_err();
+    assert!(
+        err.message.contains("escapes") || err.message.contains("local state"),
+        "{}",
+        err.message
+    );
+}
+
+#[test]
+fn partial_letrec_annotation_infers_partner() {
+    let ty = typecheck_language_source(
+        r#"
+(val main
+  (rec
+    (type even? (fn (int) bool))
+    (val even?
+      (fn (n)
+        (if (= n 0) true (odd? (- n 1)))))
+    (val odd?
+      (fn (n)
+        (if (= n 0) false (even? (- n 1)))))
+    (odd? 9)))
+"#,
+    )
+    .unwrap();
+    assert_eq!(ty, CoreType::Bool);
+}
+
+#[test]
+fn effectful_annotated_fn_generalizes() {
+    let ty = typecheck_language_source(
+        r#"
+(type log-value
+  (forall ((a type))
+    (fn a a (effects log))))
+(val log-value
+  (fn (x)
+    (seq (perform log "trace") x)))
+(val main (log-value 1))
+"#,
+    )
+    .unwrap();
+    assert_eq!(ty, CoreType::Int);
+}
+
+#[test]
+fn markup_fragment_type_name_parses() {
+    let (_, data) = reciplexa_core::elaborate_with_data(
+        r#"
+(type-alias body markup-fragment)
+(val main 1)
+"#,
+    )
+    .unwrap();
+    assert_eq!(
+        data.type_aliases.get("body"),
+        Some(&CoreType::Name("markup-fragment".into()))
     );
 }

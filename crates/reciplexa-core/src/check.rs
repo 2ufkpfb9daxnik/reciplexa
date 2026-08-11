@@ -91,7 +91,14 @@ pub fn infer_with_effects(
                 .cloned()
                 .ok_or_else(|| CheckError::at(format!("unbound variable `{name}`"), range))?;
             // TYP forall instantiate: prenex ∀ is opened at each use site.
-            Ok((instantiate_forall(&ty, subst), EffectRow::default()))
+            let ty = instantiate_forall(&ty, subst);
+            // DD-BND-018/021: reading a local `var` uses get<s>.
+            let effs = if env.local_state.contains(name) {
+                EffectRow::default().with_op(TypeEnv::local_state_op(name))
+            } else {
+                EffectRow::default()
+            };
+            Ok((ty, effs))
         }
         CoreExpr::Perform { op, arg } => {
             let (arg_ty, arg_effs) = infer_with_effects(arg, env, subst, range)?;
@@ -260,22 +267,40 @@ pub fn infer_with_effects(
         CoreExpr::LetRec { bindings, body } => {
             let mut child = env.clone();
             for (name, _) in bindings {
-                let f_ty = CoreType::Fun {
-                    args: vec![CoreType::Var(subst.fresh_var())],
-                    ret: Box::new(CoreType::Var(subst.fresh_var())),
-                    effects: EffectRow::default(),
+                // Prefer an explicit `(type name …)` stub when present (DD-BND-007).
+                let f_ty = if let Some(ann) = env.data.type_aliases.get(name).cloned() {
+                    instantiate_forall(&ann, subst)
+                } else {
+                    CoreType::Fun {
+                        args: vec![CoreType::Var(subst.fresh_var())],
+                        ret: Box::new(CoreType::Var(subst.fresh_var())),
+                        effects: EffectRow::default(),
+                    }
                 };
                 child.insert(name.clone(), f_ty);
             }
             let mut bind_effs = EffectRow::default();
             for (name, rhs) in bindings {
-                let (rhs_ty, rhs_effs) = infer_with_effects(rhs, &child, subst, range)?;
+                if !matches!(rhs, CoreExpr::Lambda { .. }) {
+                    return Err(CheckError::at(
+                        "letrecの値binding initializerはfnでなければならない",
+                        range,
+                    ));
+                }
+                let expected = child.vars.get(name).cloned();
+                let (rhs_ty, rhs_effs) =
+                    infer_letrec_rhs(rhs, expected.as_ref(), &child, subst, range)?;
                 bind_effs = bind_effs.merge(&rhs_effs);
-                if let Some(expected) = child.vars.get(name).cloned() {
+                if let Some(expected) = expected {
                     // Allow effect rows from the concrete lambda to refine the stub.
                     unify_fun_flexible(&rhs_ty, &expected, subst)
                         .map_err(|e| unify_to_check(e, range))?;
-                    child.insert(name.clone(), subst.apply(&rhs_ty));
+                    // Keep annotated (possibly ∀) principle type when present.
+                    if let Some(ann) = env.data.type_aliases.get(name).cloned() {
+                        child.insert(name.clone(), ann);
+                    } else {
+                        child.insert(name.clone(), subst.apply(&rhs_ty));
+                    }
                 }
             }
             let (b_ty, b_effs) = infer_with_effects(body, &child, subst, range)?;
@@ -290,6 +315,14 @@ pub fn infer_with_effects(
             child.insert(name.clone(), init_ty);
             child.local_state.insert(name.clone());
             let (b_ty, b_effs) = infer_with_effects(body, &child, subst, range)?;
+            let b_ty = subst.apply(&b_ty);
+            // DD-BND-019: local-state identity must not escape in the result type.
+            if type_mentions_effect(&b_ty, &state_op) {
+                return Err(CheckError::at(
+                    format!("local state `{name}` escapes its declaring scope"),
+                    range,
+                ));
+            }
             // DD-BND-021: strip scoped local-state from the var expression residual.
             Ok((b_ty, init_effs.merge(&b_effs.without_op(&state_op))))
         }
@@ -663,6 +696,51 @@ fn unify_to_check(e: UnifyError, range: TextRange) -> CheckError {
     CheckError::at(format!("{e:?}"), range)
 }
 
+/// Infer a letrec RHS, seeding lambda params from the recursion stub when known.
+fn infer_letrec_rhs(
+    rhs: &CoreExpr,
+    expected: Option<&CoreType>,
+    env: &TypeEnv,
+    subst: &mut Subst,
+    range: TextRange,
+) -> Result<(CoreType, EffectRow), CheckError> {
+    let CoreExpr::Lambda { params, body } = rhs else {
+        return infer_with_effects(rhs, env, subst, range);
+    };
+    let expected = expected.map(|t| subst.apply(t));
+    if let Some(CoreType::Fun {
+        args: exp_args,
+        ret: exp_ret,
+        effects: exp_effects,
+    }) = expected
+    {
+        if exp_args.len() == params.len() {
+            let mut child = env.clone();
+            let mut arg_tys = Vec::with_capacity(params.len());
+            for (param, exp) in params.iter().zip(exp_args.iter()) {
+                let p_ty = exp.clone();
+                if !is_wildcard_ident(param) {
+                    child.insert(param.clone(), p_ty.clone());
+                }
+                arg_tys.push(p_ty);
+            }
+            let (ret, body_effs) = infer_with_effects(body, &child, subst, range)?;
+            unify(&ret, &exp_ret, subst).map_err(|e| unify_to_check(e, range))?;
+            // Residual effects of the lambda body should be consistent with the stub.
+            let _ = exp_effects;
+            return Ok((
+                CoreType::Fun {
+                    args: arg_tys,
+                    ret: Box::new(subst.apply(&ret)),
+                    effects: body_effs,
+                },
+                EffectRow::default(),
+            ));
+        }
+    }
+    infer_with_effects(rhs, env, subst, range)
+}
+
 /// BIDI-002/003: infer a binding initializer, optionally checking against a same-named type annotation.
 fn infer_binding_init(
     name: &str,
@@ -672,17 +750,29 @@ fn infer_binding_init(
     range: TextRange,
     generalize: bool,
 ) -> Result<(CoreType, EffectRow), CheckError> {
-    let (inferred, effs) = infer_with_effects(init, env, subst, range)?;
-    let inferred = subst.apply(&inferred);
     if let Some(ann) = env.data.type_aliases.get(name).cloned() {
-        // Check initializer against the declared type (annotation is not an unchecked assumption).
+        // DD-BND / value restriction: explicit ∀ cannot rescue an expansive initializer.
+        if matches!(ann, CoreType::Forall { .. }) && is_expansive(init) {
+            return Err(CheckError::at(
+                "expansive initializerを明示注釈で多相一般化できない",
+                range,
+            ));
+        }
         let expected = instantiate_forall(&ann, subst);
         let expected = expand_type_app(&expected, &env.data);
-        let found = expand_type_app(&inferred, &env.data);
+        // Prefer checking lambdas against the annotation so param types seed numerics.
+        let (inferred, effs) = if matches!(init, CoreExpr::Lambda { .. }) {
+            infer_letrec_rhs(init, Some(&expected), env, subst, range)?
+        } else {
+            infer_with_effects(init, env, subst, range)?
+        };
+        let found = expand_type_app(&subst.apply(&inferred), &env.data);
         unify(&found, &expected, subst).map_err(|e| unify_to_check(e, range))?;
         // Bind the annotated (possibly ∀) type so uses re-instantiate.
         return Ok((ann, effs));
     }
+    let (inferred, effs) = infer_with_effects(init, env, subst, range)?;
+    let inferred = subst.apply(&inferred);
     if generalize {
         Ok((generalize_type(inferred, env, subst), effs))
     } else {
@@ -694,6 +784,89 @@ fn infer_binding_init(
             ));
         }
         Ok((inferred, effs))
+    }
+}
+
+/// Syntactic expansiveness for the value restriction (app / effect / allocation).
+fn is_expansive(expr: &CoreExpr) -> bool {
+    match expr {
+        CoreExpr::Lit(_) | CoreExpr::Var(_) | CoreExpr::Lambda { .. } | CoreExpr::Error => false,
+        CoreExpr::HandlerValue { .. } => false,
+        CoreExpr::App { .. }
+        | CoreExpr::Perform { .. }
+        | CoreExpr::Forward { .. }
+        | CoreExpr::Set { .. } => true,
+        CoreExpr::Handle {
+            handler_body, body, ..
+        } => is_expansive(handler_body) || is_expansive(body),
+        CoreExpr::With { handler, body } => is_expansive(handler) || is_expansive(body),
+        CoreExpr::Seq(items) => items.iter().any(is_expansive),
+        CoreExpr::Let { value, body, .. }
+        | CoreExpr::LocalVar {
+            init: value, body, ..
+        } => is_expansive(value) || is_expansive(body),
+        CoreExpr::LetRec { bindings, body } => {
+            bindings.iter().any(|(_, v)| is_expansive(v)) || is_expansive(body)
+        }
+        CoreExpr::If {
+            cond,
+            then_branch,
+            else_branch,
+        } => is_expansive(cond) || is_expansive(then_branch) || is_expansive(else_branch),
+        CoreExpr::Record { fields } => fields.iter().any(|(_, v)| is_expansive(v)),
+        CoreExpr::RecordUpdate { record, fields } | CoreExpr::RecordExtend { record, fields } => {
+            is_expansive(record) || fields.iter().any(|(_, v)| is_expansive(v))
+        }
+        CoreExpr::RecordGet { record, .. } => is_expansive(record),
+        CoreExpr::Variant { payload, .. } => payload.as_ref().is_some_and(|p| is_expansive(p)),
+        CoreExpr::Match { scrutinee, arms } => {
+            is_expansive(scrutinee) || arms.iter().any(|a| is_expansive(&a.body))
+        }
+        CoreExpr::Cast { expr, .. }
+        | CoreExpr::TryCast { expr, .. }
+        | CoreExpr::CheckCast { expr, .. } => is_expansive(expr),
+    }
+}
+
+/// True when `op` appears in any effect row nested inside `ty` (escape analysis).
+fn type_mentions_effect(ty: &CoreType, op: &str) -> bool {
+    match ty {
+        CoreType::Fun { args, ret, effects } => {
+            effects.ops.iter().any(|o| o == op)
+                || args.iter().any(|a| type_mentions_effect(a, op))
+                || type_mentions_effect(ret, op)
+        }
+        CoreType::Record { fields } | CoreType::OpenRecord { fields, .. } => {
+            fields.iter().any(|(_, t)| type_mentions_effect(t, op))
+        }
+        CoreType::Variant { variants } => variants
+            .iter()
+            .any(|(_, p)| p.as_ref().is_some_and(|t| type_mentions_effect(t, op))),
+        CoreType::Lacks { row, .. } => type_mentions_effect(row, op),
+        CoreType::Union(members) | CoreType::Intersect(members) => {
+            members.iter().any(|m| type_mentions_effect(m, op))
+        }
+        CoreType::Not(inner)
+        | CoreType::OptionalField(inner)
+        | CoreType::Dynamic(inner)
+        | CoreType::Forall { body: inner, .. } => type_mentions_effect(inner, op),
+        CoreType::Diff(a, b) => type_mentions_effect(a, op) || type_mentions_effect(b, op),
+        CoreType::App { args, .. } => args.iter().any(|a| type_mentions_effect(a, op)),
+        CoreType::Var(_)
+        | CoreType::Int
+        | CoreType::F64
+        | CoreType::Number
+        | CoreType::Singleton(_)
+        | CoreType::String
+        | CoreType::Color
+        | CoreType::Shape
+        | CoreType::Unit
+        | CoreType::Bool
+        | CoreType::Bytes
+        | CoreType::Any
+        | CoreType::Name(_)
+        | CoreType::Error
+        | CoreType::Never => false,
     }
 }
 

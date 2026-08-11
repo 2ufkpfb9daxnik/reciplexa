@@ -68,6 +68,9 @@ pub struct DataEnv {
     /// Transparent type aliases from `(type name Ty)` / `(type-alias name Ty)`.
     /// Also used as BIDI value annotations when a same-named `val`/`var` exists.
     pub type_aliases: HashMap<String, CoreType>,
+    /// Names introduced by `(type name Ty)` that require a matching value binding
+    /// in the same declaration group (DD-BND-004). `(type-alias …)` is excluded.
+    pub value_annotations: HashSet<String>,
 }
 
 impl DataEnv {
@@ -116,7 +119,7 @@ fn elaborate_file(root: &SyntaxNode) -> Result<(CoreExpr, ElabCtx), ElaborateErr
                 if t.kind().is_trivia() {
                     continue;
                 }
-                trailing.push(elaborate_token(&t, &ctx)?);
+                trailing.push(elaborate_token(&t, &mut ctx)?);
             }
             SyntaxElement::Node(n) => match n.kind() {
                 SyntaxKind::StructuredComment => continue,
@@ -129,7 +132,7 @@ fn elaborate_file(root: &SyntaxNode) -> Result<(CoreExpr, ElabCtx), ElaborateErr
                         register_data_rec_group(&n, &mut ctx)?;
                         continue;
                     }
-                    match try_top_decl(&n, &ctx)? {
+                    match try_top_decl(&n, &mut ctx)? {
                         Some(binding) => {
                             register_top_binding_names(&binding, &mut top_names, &n)?;
                             bindings.push(binding);
@@ -150,7 +153,7 @@ fn elaborate_file(root: &SyntaxNode) -> Result<(CoreExpr, ElabCtx), ElaborateErr
                                 register_type_alias(&n, &mut ctx)?;
                                 continue;
                             }
-                            trailing.push(elaborate_expr_node(&n, &ctx)?);
+                            trailing.push(elaborate_expr_node(&n, &mut ctx)?);
                         }
                     }
                 }
@@ -169,6 +172,16 @@ fn elaborate_file(root: &SyntaxNode) -> Result<(CoreExpr, ElabCtx), ElaborateErr
             "empty source: expected at least one form",
             TextRange::EMPTY,
         ));
+    }
+
+    // DD-BND-004: `(type name …)` requires a matching value binding in the group.
+    for name in &ctx.data.value_annotations {
+        if !top_names.contains(name) {
+            return Err(ElaborateError::new(
+                format!("型注釈に対応する値bindingがありません: `{name}`"),
+                TextRange::EMPTY,
+            ));
+        }
     }
 
     let body = if trailing.is_empty() {
@@ -454,7 +467,7 @@ fn commit_data_decl(
 /// unknown bare identifiers stay [`CoreType::Dynamic`] so legacy `(some x)` forms work.
 fn parse_data_payload_type(
     atom: &Atom,
-    ctx: &ElabCtx,
+    ctx: &mut ElabCtx,
     binders: &HashSet<String>,
 ) -> Result<CoreType, ElaborateError> {
     match atom {
@@ -698,8 +711,20 @@ fn parse_data_type_params(node: &SyntaxNode) -> Result<Vec<String>, ElaborateErr
     Ok(params)
 }
 
-/// SYN §16 / §13: `(type name Ty)` or `(type-alias name Ty)` — transparent alias.
+/// SYN §16 / §13: `(type name Ty)` value annotation or `(type-alias name Ty)` transparent alias.
 fn register_type_alias(node: &SyntaxNode, ctx: &mut ElabCtx) -> Result<(), ElaborateError> {
+    register_type_form(node, ctx, /*require_value_binding*/ true)
+}
+
+/// Register `(type …)` / `(type-alias …)`. When `require_value_binding` is true,
+/// `(type name …)` is recorded in [`DataEnv::value_annotations`] for a later
+/// top-level orphan check (DD-BND-004). Nested `local`/`rec` set it false and
+/// validate matching binders themselves.
+fn register_type_form(
+    node: &SyntaxNode,
+    ctx: &mut ElabCtx,
+    require_value_binding: bool,
+) -> Result<(), ElaborateError> {
     let atoms = list_atoms(node);
     if atoms.len() != 3 {
         return Err(ElaborateError::at_node(
@@ -707,6 +732,13 @@ fn register_type_alias(node: &SyntaxNode, ctx: &mut ElabCtx) -> Result<(), Elabo
             node,
         ));
     }
+    let Atom::Token(head) = &atoms[0] else {
+        return Err(ElaborateError::at_node(
+            "`type` / `type-alias` head must be an identifier",
+            node,
+        ));
+    };
+    let is_value_annotation = head.text() == "type";
     let Atom::Token(name_tok) = &atoms[1] else {
         return Err(ElaborateError::at_node(
             "`type` name must be an identifier",
@@ -727,18 +759,21 @@ fn register_type_alias(node: &SyntaxNode, ctx: &mut ElabCtx) -> Result<(), Elabo
         ));
     }
     let ty = parse_type_syntax(&atoms[2], ctx)?;
+    if is_value_annotation && require_value_binding {
+        ctx.data.value_annotations.insert(name.clone());
+    }
     ctx.data.type_aliases.insert(name, ty);
     Ok(())
 }
 
 /// Parse a surface type expression into [`CoreType`] (SYN §14.2 / §16).
-fn parse_type_syntax(atom: &Atom, ctx: &ElabCtx) -> Result<CoreType, ElaborateError> {
+fn parse_type_syntax(atom: &Atom, ctx: &mut ElabCtx) -> Result<CoreType, ElaborateError> {
     parse_type_syntax_in(atom, ctx, &HashSet::new())
 }
 
 fn parse_type_syntax_in(
     atom: &Atom,
-    ctx: &ElabCtx,
+    ctx: &mut ElabCtx,
     binders: &HashSet<String>,
 ) -> Result<CoreType, ElaborateError> {
     match atom {
@@ -761,6 +796,8 @@ fn parse_type_syntax_in(
                 "any" => CoreType::Any,
                 "dynamic" => CoreType::dyn_any(),
                 "color" => CoreType::Color,
+                // SYN §17.11: default markup type when no package expected type is given.
+                "markup-fragment" => CoreType::Name("markup-fragment".into()),
                 "true" => CoreType::Singleton(crate::ty::SingletonValue::Bool(true)),
                 "false" => CoreType::Singleton(crate::ty::SingletonValue::Bool(false)),
                 other
@@ -899,7 +936,7 @@ fn parse_type_syntax_in(
 fn parse_fn_type_syntax(
     rest: &[Atom],
     parent: &SyntaxNode,
-    ctx: &ElabCtx,
+    ctx: &mut ElabCtx,
     binders: &HashSet<String>,
 ) -> Result<CoreType, ElaborateError> {
     if rest.is_empty() {
@@ -945,7 +982,7 @@ fn parse_fn_type_syntax(
 fn parse_effects_row(
     rest: &[Atom],
     _parent: &SyntaxNode,
-    ctx: &ElabCtx,
+    ctx: &mut ElabCtx,
     binders: &HashSet<String>,
 ) -> Result<EffectRow, ElaborateError> {
     let mut row = EffectRow::default();
@@ -1017,7 +1054,7 @@ fn parse_effects_row(
 fn parse_forall_type_syntax(
     rest: &[Atom],
     parent: &SyntaxNode,
-    ctx: &ElabCtx,
+    ctx: &mut ElabCtx,
     binders: &HashSet<String>,
 ) -> Result<CoreType, ElaborateError> {
     if rest.len() != 2 {
@@ -1107,7 +1144,7 @@ fn parse_forall_type_syntax(
 fn parse_tuple_type_syntax(
     rest: &[Atom],
     parent: &SyntaxNode,
-    ctx: &ElabCtx,
+    ctx: &mut ElabCtx,
     binders: &HashSet<String>,
 ) -> Result<CoreType, ElaborateError> {
     match rest.len() {
@@ -1130,7 +1167,7 @@ fn parse_tuple_type_syntax(
 fn parse_record_type_syntax(
     rest: &[Atom],
     parent: &SyntaxNode,
-    ctx: &ElabCtx,
+    ctx: &mut ElabCtx,
     binders: &HashSet<String>,
 ) -> Result<CoreType, ElaborateError> {
     let mut fields = Vec::new();
@@ -1221,7 +1258,10 @@ fn parse_record_type_syntax(
     })
 }
 
-fn try_top_decl(node: &SyntaxNode, ctx: &ElabCtx) -> Result<Option<TopBinding>, ElaborateError> {
+fn try_top_decl(
+    node: &SyntaxNode,
+    ctx: &mut ElabCtx,
+) -> Result<Option<TopBinding>, ElaborateError> {
     let atoms = list_atoms(node);
     let Some(Atom::Token(head)) = atoms.first() else {
         return Ok(None);
@@ -1297,7 +1337,7 @@ fn try_top_decl(node: &SyntaxNode, ctx: &ElabCtx) -> Result<Option<TopBinding>, 
 fn elaborate_unicode(
     rest: &[Atom],
     parent: &SyntaxNode,
-    ctx: &ElabCtx,
+    ctx: &mut ElabCtx,
 ) -> Result<CoreExpr, ElaborateError> {
     if rest.len() != 1 {
         return Err(ElaborateError::at_node(
@@ -1328,7 +1368,7 @@ fn elaborate_unicode(
 fn elaborate_val(
     rest: &[Atom],
     parent: &SyntaxNode,
-    ctx: &ElabCtx,
+    ctx: &mut ElabCtx,
 ) -> Result<(String, CoreExpr), ElaborateError> {
     if rest.is_empty() {
         return Err(ElaborateError::at_node(
@@ -1430,7 +1470,7 @@ fn elaborate_val(
     }
 }
 
-fn elaborate_expr_node(node: &SyntaxNode, ctx: &ElabCtx) -> Result<CoreExpr, ElaborateError> {
+fn elaborate_expr_node(node: &SyntaxNode, ctx: &mut ElabCtx) -> Result<CoreExpr, ElaborateError> {
     match node.kind() {
         SyntaxKind::List => elaborate_list(node, ctx),
         SyntaxKind::ErrorNode => Ok(CoreExpr::Error),
@@ -1441,7 +1481,7 @@ fn elaborate_expr_node(node: &SyntaxNode, ctx: &ElabCtx) -> Result<CoreExpr, Ela
     }
 }
 
-fn elaborate_list(node: &SyntaxNode, ctx: &ElabCtx) -> Result<CoreExpr, ElaborateError> {
+fn elaborate_list(node: &SyntaxNode, ctx: &mut ElabCtx) -> Result<CoreExpr, ElaborateError> {
     let atoms = list_atoms(node);
     if atoms.is_empty() {
         return Err(ElaborateError::at_node(
@@ -1555,7 +1595,7 @@ fn elaborate_ambient_perform(
     op: &str,
     args: &[Atom],
     parent: &SyntaxNode,
-    ctx: &ElabCtx,
+    ctx: &mut ElabCtx,
 ) -> Result<CoreExpr, ElaborateError> {
     let arg = match (op, args.len()) {
         ("random", 0) => CoreExpr::Lit(CoreLiteral::Unit),
@@ -1583,7 +1623,7 @@ fn elaborate_ambient_perform(
 fn elaborate_record(
     rest: &[Atom],
     parent: &SyntaxNode,
-    ctx: &ElabCtx,
+    ctx: &mut ElabCtx,
 ) -> Result<CoreExpr, ElaborateError> {
     let mut fields = Vec::new();
     let mut seen = std::collections::HashSet::new();
@@ -1636,7 +1676,7 @@ fn elaborate_record(
 fn elaborate_field(
     rest: &[Atom],
     parent: &SyntaxNode,
-    ctx: &ElabCtx,
+    ctx: &mut ElabCtx,
 ) -> Result<CoreExpr, ElaborateError> {
     if rest.len() != 2 {
         return Err(ElaborateError::at_node(
@@ -1666,7 +1706,7 @@ fn elaborate_field(
 fn parse_record_field_pairs(
     rest: &[Atom],
     parent: &SyntaxNode,
-    ctx: &ElabCtx,
+    ctx: &mut ElabCtx,
     form: &str,
 ) -> Result<Vec<(String, CoreExpr)>, ElaborateError> {
     let mut fields = Vec::new();
@@ -1720,7 +1760,7 @@ fn parse_record_field_pairs(
 fn elaborate_record_update(
     rest: &[Atom],
     parent: &SyntaxNode,
-    ctx: &ElabCtx,
+    ctx: &mut ElabCtx,
 ) -> Result<CoreExpr, ElaborateError> {
     if rest.is_empty() {
         return Err(ElaborateError::at_node(
@@ -1746,7 +1786,7 @@ fn elaborate_record_update(
 fn elaborate_record_extend(
     rest: &[Atom],
     parent: &SyntaxNode,
-    ctx: &ElabCtx,
+    ctx: &mut ElabCtx,
 ) -> Result<CoreExpr, ElaborateError> {
     if rest.is_empty() {
         return Err(ElaborateError::at_node(
@@ -1770,7 +1810,7 @@ fn elaborate_record_extend(
 
 /// SYN §15.1 list encoding: nested variants `cons` / `nil`.
 /// `cons` payload is a 2-field record `("head", x) ("tail", rest)`.
-fn elaborate_list_lit(rest: &[Atom], ctx: &ElabCtx) -> Result<CoreExpr, ElaborateError> {
+fn elaborate_list_lit(rest: &[Atom], ctx: &mut ElabCtx) -> Result<CoreExpr, ElaborateError> {
     let mut acc = CoreExpr::Variant {
         tag: "nil".into(),
         payload: None,
@@ -1791,7 +1831,7 @@ fn elaborate_list_lit(rest: &[Atom], ctx: &ElabCtx) -> Result<CoreExpr, Elaborat
 fn elaborate_bytes_lit(
     rest: &[Atom],
     parent: &SyntaxNode,
-    ctx: &ElabCtx,
+    ctx: &mut ElabCtx,
 ) -> Result<CoreExpr, ElaborateError> {
     if rest.is_empty() {
         return Err(ElaborateError::at_node(
@@ -1837,7 +1877,7 @@ fn parse_byte_atom(atom: &Atom) -> Result<u8, ElaborateError> {
 fn elaborate_tuple(
     rest: &[Atom],
     parent: &SyntaxNode,
-    ctx: &ElabCtx,
+    ctx: &mut ElabCtx,
 ) -> Result<CoreExpr, ElaborateError> {
     match rest.len() {
         0 => Ok(CoreExpr::Lit(CoreLiteral::Unit)),
@@ -1858,7 +1898,7 @@ fn elaborate_tuple(
 fn elaborate_match(
     rest: &[Atom],
     parent: &SyntaxNode,
-    ctx: &ElabCtx,
+    ctx: &mut ElabCtx,
 ) -> Result<CoreExpr, ElaborateError> {
     // DAT-001 §14: (match scrutinee (pat… -> expr)…)
     // Patterns before `->`: Tag | Tag binder
@@ -2256,7 +2296,7 @@ fn elaborate_payload_pattern(
 fn elaborate_perform(
     rest: &[Atom],
     parent: &SyntaxNode,
-    ctx: &ElabCtx,
+    ctx: &mut ElabCtx,
 ) -> Result<CoreExpr, ElaborateError> {
     // (perform op arg)
     if rest.len() != 2 {
@@ -2286,7 +2326,7 @@ fn elaborate_perform(
 fn elaborate_forward(
     rest: &[Atom],
     parent: &SyntaxNode,
-    _ctx: &ElabCtx,
+    _ctx: &mut ElabCtx,
 ) -> Result<CoreExpr, ElaborateError> {
     if rest.len() != 1 {
         return Err(ElaborateError::at_node(
@@ -2315,7 +2355,7 @@ fn elaborate_forward(
 fn elaborate_raise(
     rest: &[Atom],
     parent: &SyntaxNode,
-    ctx: &ElabCtx,
+    ctx: &mut ElabCtx,
 ) -> Result<CoreExpr, ElaborateError> {
     if rest.len() != 1 {
         return Err(ElaborateError::at_node(
@@ -2333,7 +2373,7 @@ fn elaborate_raise(
 fn elaborate_or_raise(
     rest: &[Atom],
     parent: &SyntaxNode,
-    ctx: &ElabCtx,
+    ctx: &mut ElabCtx,
 ) -> Result<CoreExpr, ElaborateError> {
     if rest.len() != 1 {
         return Err(ElaborateError::at_node(
@@ -2361,7 +2401,7 @@ fn elaborate_or_raise(
 fn elaborate_as_result(
     rest: &[Atom],
     parent: &SyntaxNode,
-    ctx: &ElabCtx,
+    ctx: &mut ElabCtx,
 ) -> Result<CoreExpr, ElaborateError> {
     if rest.len() != 1 {
         return Err(ElaborateError::at_node(
@@ -2406,7 +2446,7 @@ fn next_cast_id() -> u32 {
 fn elaborate_try_cast(
     rest: &[Atom],
     parent: &SyntaxNode,
-    ctx: &ElabCtx,
+    ctx: &mut ElabCtx,
 ) -> Result<CoreExpr, ElaborateError> {
     if rest.len() != 2 {
         return Err(ElaborateError::at_node(
@@ -2433,7 +2473,7 @@ fn elaborate_try_cast(
 fn elaborate_check_cast(
     rest: &[Atom],
     parent: &SyntaxNode,
-    ctx: &ElabCtx,
+    ctx: &mut ElabCtx,
 ) -> Result<CoreExpr, ElaborateError> {
     if rest.len() != 2 {
         return Err(ElaborateError::at_node(
@@ -2456,14 +2496,14 @@ fn elaborate_check_cast(
     })
 }
 
-fn parse_type_atom(atom: &Atom, ctx: &ElabCtx) -> Result<CoreType, ElaborateError> {
+fn parse_type_atom(atom: &Atom, ctx: &mut ElabCtx) -> Result<CoreType, ElaborateError> {
     parse_type_syntax(atom, ctx)
 }
 
 fn elaborate_handle(
     rest: &[Atom],
     parent: &SyntaxNode,
-    ctx: &ElabCtx,
+    ctx: &mut ElabCtx,
 ) -> Result<CoreExpr, ElaborateError> {
     // (handle op (fn (params...) handler-body...) body)
     if rest.len() != 3 {
@@ -2509,7 +2549,7 @@ fn elaborate_handle(
 fn elaborate_handler(
     rest: &[Atom],
     parent: &SyntaxNode,
-    ctx: &ElabCtx,
+    ctx: &mut ElabCtx,
 ) -> Result<CoreExpr, ElaborateError> {
     if rest.len() != 2 {
         return Err(ElaborateError::at_node(
@@ -2553,7 +2593,7 @@ fn elaborate_handler(
 fn elaborate_with(
     rest: &[Atom],
     parent: &SyntaxNode,
-    ctx: &ElabCtx,
+    ctx: &mut ElabCtx,
 ) -> Result<CoreExpr, ElaborateError> {
     if rest.len() < 2 {
         return Err(ElaborateError::at_node(
@@ -2572,7 +2612,7 @@ fn elaborate_with(
 fn elaborate_fn_expr(
     rest: &[Atom],
     parent: &SyntaxNode,
-    ctx: &ElabCtx,
+    ctx: &mut ElabCtx,
 ) -> Result<CoreExpr, ElaborateError> {
     // (fn (params...) body...)
     // (fn name (params...) body...) — name ignored in expression position (produces lambda)
@@ -2602,7 +2642,7 @@ fn elaborate_fn_expr(
 fn elaborate_let(
     rest: &[Atom],
     parent: &SyntaxNode,
-    ctx: &ElabCtx,
+    ctx: &mut ElabCtx,
 ) -> Result<CoreExpr, ElaborateError> {
     // (let ((name expr)...) body...)
     let Some(Atom::Node(bindings_node)) = rest.first() else {
@@ -2686,7 +2726,7 @@ fn elaborate_let(
 fn elaborate_letrec(
     rest: &[Atom],
     parent: &SyntaxNode,
-    ctx: &ElabCtx,
+    ctx: &mut ElabCtx,
 ) -> Result<CoreExpr, ElaborateError> {
     // (letrec ((name (fn ...))...) body...) — RHS must elaborate to Lambda.
     let Some(Atom::Node(bindings_node)) = rest.first() else {
@@ -2780,7 +2820,7 @@ fn elaborate_letrec(
 fn elaborate_local(
     rest: &[Atom],
     parent: &SyntaxNode,
-    ctx: &ElabCtx,
+    ctx: &mut ElabCtx,
 ) -> Result<CoreExpr, ElaborateError> {
     if rest.is_empty() {
         return Err(ElaborateError::at_node(
@@ -2797,7 +2837,7 @@ fn elaborate_local_decls(
     decls: &[Atom],
     result: &Atom,
     parent: &SyntaxNode,
-    ctx: &ElabCtx,
+    ctx: &mut ElabCtx,
 ) -> Result<CoreExpr, ElaborateError> {
     if decls.is_empty() {
         return elaborate_atom(result, ctx);
@@ -2830,28 +2870,38 @@ fn elaborate_local_decls(
     let rest_decls = &decls[1..];
     match head.text() {
         "type" | "type-alias" => {
-            // Validate `(type name Ty)` then continue (aliases are unit-scoped via
-            // top-level registration; local aliases are parse-checked only for now).
-            if da.len() != 3 {
-                return Err(ElaborateError::at_node(
-                    "`type` in `local` must be `(type name Ty)`",
-                    decl,
-                ));
+            // Register into DataEnv so BIDI checking can see the annotation (DD-BND-003).
+            register_type_form(decl, ctx, /*require_value_binding*/ false)?;
+            // Value annotations inside `local` must bind in the remaining decls.
+            if head.text() == "type" {
+                let name = {
+                    let Atom::Token(name_tok) = &da[1] else {
+                        unreachable!("validated in register_type_form")
+                    };
+                    binder_name(name_tok)?
+                };
+                let rest_has = rest_decls.iter().any(|a| {
+                    let Atom::Node(n) = a else {
+                        return false;
+                    };
+                    let atoms = list_atoms(n);
+                    matches!(
+                        (atoms.first(), atoms.get(1)),
+                        (
+                            Some(Atom::Token(h)),
+                            Some(Atom::Token(n))
+                        ) if matches!(h.text(), "val" | "var")
+                            && n.kind() == SyntaxKind::Ident
+                            && binder_name(n).ok().as_deref() == Some(name.as_str())
+                    )
+                });
+                if !rest_has {
+                    return Err(ElaborateError::at_node(
+                        format!("型注釈に対応する値bindingがありません: `{name}`"),
+                        decl,
+                    ));
+                }
             }
-            let Atom::Token(name_tok) = &da[1] else {
-                return Err(ElaborateError::at_node(
-                    "`type` name must be an identifier",
-                    decl,
-                ));
-            };
-            if name_tok.kind() != SyntaxKind::Ident {
-                return Err(ElaborateError::at_token(
-                    "`type` name must be an identifier",
-                    name_tok,
-                ));
-            }
-            let _name = binder_name(name_tok)?;
-            let _ty = parse_type_syntax(&da[2], ctx)?;
             elaborate_local_decls(rest_decls, result, parent, ctx)
         }
         "val" => {
@@ -2945,7 +2995,7 @@ fn elaborate_local_decls(
 fn elaborate_rec(
     rest: &[Atom],
     parent: &SyntaxNode,
-    ctx: &ElabCtx,
+    ctx: &mut ElabCtx,
 ) -> Result<CoreExpr, ElaborateError> {
     if rest.len() < 2 {
         return Err(ElaborateError::at_node(
@@ -2985,10 +3035,11 @@ fn is_rec_decl_atom(atom: &Atom) -> bool {
 fn parse_rec_val_bindings(
     decl_atoms: &[Atom],
     parent: &SyntaxNode,
-    ctx: &ElabCtx,
+    ctx: &mut ElabCtx,
 ) -> Result<Vec<(String, CoreExpr)>, ElaborateError> {
     let mut bindings = Vec::new();
     let mut seen = std::collections::HashSet::new();
+    let mut pending_annotations: Vec<String> = Vec::new();
     for atom in decl_atoms {
         let Atom::Node(decl) = atom else {
             return Err(ElaborateError::at_node(
@@ -3015,7 +3066,14 @@ fn parse_rec_val_bindings(
                 head,
             ));
         }
-        if head.text() == "type" {
+        if head.text() == "type" || head.text() == "type-alias" {
+            register_type_form(decl, ctx, /*require_value_binding*/ false)?;
+            if head.text() == "type" {
+                let Atom::Token(name_tok) = &da[1] else {
+                    unreachable!("validated in register_type_form")
+                };
+                pending_annotations.push(binder_name(name_tok)?);
+            }
             continue;
         }
         if head.text() != "val" {
@@ -3064,13 +3122,21 @@ fn parse_rec_val_bindings(
         }
         bindings.push((name, value));
     }
+    for name in &pending_annotations {
+        if !seen.contains(name) {
+            return Err(ElaborateError::at_node(
+                format!("型注釈に対応する値bindingがありません: `{name}`"),
+                parent,
+            ));
+        }
+    }
     Ok(bindings)
 }
 
 fn elaborate_var(
     rest: &[Atom],
     parent: &SyntaxNode,
-    ctx: &ElabCtx,
+    ctx: &mut ElabCtx,
 ) -> Result<CoreExpr, ElaborateError> {
     // (var name init body...)
     if rest.len() < 3 {
@@ -3101,7 +3167,7 @@ fn elaborate_var(
 fn elaborate_set(
     rest: &[Atom],
     parent: &SyntaxNode,
-    ctx: &ElabCtx,
+    ctx: &mut ElabCtx,
 ) -> Result<CoreExpr, ElaborateError> {
     // (set name expr)
     if rest.len() != 2 {
@@ -3131,7 +3197,7 @@ fn elaborate_set(
 fn elaborate_if(
     rest: &[Atom],
     parent: &SyntaxNode,
-    ctx: &ElabCtx,
+    ctx: &mut ElabCtx,
 ) -> Result<CoreExpr, ElaborateError> {
     if rest.len() != 3 {
         return Err(ElaborateError::at_node(
@@ -3149,7 +3215,7 @@ fn elaborate_if(
 fn elaborate_body(
     atoms: &[Atom],
     parent: &SyntaxNode,
-    ctx: &ElabCtx,
+    ctx: &mut ElabCtx,
 ) -> Result<CoreExpr, ElaborateError> {
     if atoms.is_empty() {
         return Err(ElaborateError::at_node(
@@ -3160,11 +3226,11 @@ fn elaborate_body(
     Ok(seq_or_one(elaborate_atoms(atoms, ctx)?))
 }
 
-fn elaborate_atoms(atoms: &[Atom], ctx: &ElabCtx) -> Result<Vec<CoreExpr>, ElaborateError> {
+fn elaborate_atoms(atoms: &[Atom], ctx: &mut ElabCtx) -> Result<Vec<CoreExpr>, ElaborateError> {
     atoms.iter().map(|a| elaborate_atom(a, ctx)).collect()
 }
 
-fn elaborate_atom(atom: &Atom, ctx: &ElabCtx) -> Result<CoreExpr, ElaborateError> {
+fn elaborate_atom(atom: &Atom, ctx: &mut ElabCtx) -> Result<CoreExpr, ElaborateError> {
     match atom {
         Atom::Token(t) => elaborate_token(t, ctx),
         Atom::Path(path) => {
@@ -3187,7 +3253,7 @@ fn numeric_literal_from_token(tok: &SyntaxToken) -> Result<CoreLiteral, Elaborat
     }
 }
 
-fn elaborate_token(tok: &SyntaxToken, ctx: &ElabCtx) -> Result<CoreExpr, ElaborateError> {
+fn elaborate_token(tok: &SyntaxToken, ctx: &mut ElabCtx) -> Result<CoreExpr, ElaborateError> {
     match tok.kind() {
         SyntaxKind::Error => Ok(CoreExpr::Error),
         SyntaxKind::Number => Ok(CoreExpr::Lit(numeric_literal_from_token(tok)?)),
