@@ -35,7 +35,38 @@ pub enum CastEvidence {
     NominalCheck {
         name: String,
     },
+    /// DD-TYP-NUM-002/003: `int` → `f64` promotion (not subtyping).
+    ///
+    /// Accepts `int` / legacy `number` / already-`f64` values and normalizes to `f64`.
+    NumericPromote,
     Compose(Vec<CastEvidence>),
+}
+
+/// Three-valued algorithmic subtype result (DD-TYP-ALG-002).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DecideResult {
+    Proved,
+    Disproved,
+    Unknown,
+}
+
+/// Diagnostic taxonomy for algorithmic judgments (DD-TYP-ALG-003).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TypeDiagClass {
+    TypeError,
+    AnnotationRequired,
+    CheckerLimitation,
+    CheckerResourceLimit,
+    UnsupportedLanguageFeature,
+}
+
+/// Map an internal three-valued decide result to a user-facing diagnostic class.
+pub fn classify_decide(result: DecideResult) -> Option<TypeDiagClass> {
+    match result {
+        DecideResult::Proved => None,
+        DecideResult::Disproved => Some(TypeDiagClass::TypeError),
+        DecideResult::Unknown => Some(TypeDiagClass::CheckerLimitation),
+    }
 }
 
 /// Diagnostic provenance for a cast site (DD-TYP-DYN-018). Kept separate from
@@ -75,6 +106,10 @@ pub fn plan_cast_evidence(src: &CoreType, dst: &CoreType) -> Option<CastEvidence
     if matches!(dst, CoreType::Never) || matches!(src, CoreType::Never) {
         return None;
     }
+    // DD-TYP-NUM-002: int→f64 is promotion, not semantic subtyping.
+    if let Some(ev) = plan_numeric_promote_evidence(&src, &dst) {
+        return Some(ev);
+    }
     // static → dynamic S when src <: S (DD-TYP-DYN-008); otherwise reject.
     if let CoreType::Dynamic(bound) = &dst {
         return if is_subtype(&src, bound) {
@@ -108,6 +143,14 @@ pub fn judge_dynamic_use(bound: &CoreType, needed: &CoreType) -> DynamicUseJudgm
     if is_subtype(&bound, &needed) {
         return DynamicUseJudgment::FullyIncluded;
     }
+    // DD-TYP-NUM-003: narrow then promote — promotion is checked before disjointness,
+    // because `int` and `f64` are disjoint under subtyping.
+    if let Some(evidence) = plan_numeric_promote_evidence(&bound, &needed) {
+        return DynamicUseJudgment::PartialOverlap {
+            evidence,
+            success: needed.clone(),
+        };
+    }
     if types_disjoint(&bound, &needed) {
         return DynamicUseJudgment::Disjoint;
     }
@@ -116,6 +159,96 @@ pub fn judge_dynamic_use(bound: &CoreType, needed: &CoreType) -> DynamicUseJudgm
         tag: type_tag_name(&needed),
     });
     DynamicUseJudgment::PartialOverlap { evidence, success }
+}
+
+/// DD-TYP-NUM-002/003: evidence when `needed` is `f64` and `src` can supply an int/f64.
+fn plan_numeric_promote_evidence(src: &CoreType, needed: &CoreType) -> Option<CastEvidence> {
+    if !matches!(needed, CoreType::F64) {
+        return None;
+    }
+    match src {
+        CoreType::F64 => Some(CastEvidence::Identity),
+        CoreType::Int | CoreType::Number | CoreType::Any => Some(CastEvidence::NumericPromote),
+        CoreType::Singleton(crate::ty::SingletonValue::Int(_)) => {
+            Some(CastEvidence::NumericPromote)
+        }
+        CoreType::Union(members) => {
+            let numeric: Vec<CoreType> = members
+                .iter()
+                .filter(|m| {
+                    matches!(
+                        m,
+                        CoreType::Int
+                            | CoreType::F64
+                            | CoreType::Number
+                            | CoreType::Singleton(crate::ty::SingletonValue::Int(_))
+                    )
+                })
+                .cloned()
+                .collect();
+            if numeric.is_empty() {
+                None
+            } else if numeric.len() == members.len() {
+                Some(CastEvidence::NumericPromote)
+            } else {
+                Some(CastEvidence::Compose(vec![
+                    CastEvidence::UnionCheck { members: numeric },
+                    CastEvidence::NumericPromote,
+                ]))
+            }
+        }
+        _ => None,
+    }
+}
+
+/// DD-TYP-ALG-002: algorithmic `decide-subtype(s, t)`.
+///
+/// Uses the approximate static subtype / disjointness algebra. Types outside the
+/// fully-decidable fragment yield [`DecideResult::Unknown`].
+pub fn decide_subtype(s: &CoreType, t: &CoreType) -> DecideResult {
+    if is_subtype(s, t) {
+        return DecideResult::Proved;
+    }
+    if types_disjoint(s, t) {
+        return DecideResult::Disproved;
+    }
+    if is_fully_decidable_fragment(s) && is_fully_decidable_fragment(t) {
+        // Complete fragment: not subtype and not empty-diff means false.
+        DecideResult::Disproved
+    } else {
+        DecideResult::Unknown
+    }
+}
+
+fn is_fully_decidable_fragment(ty: &CoreType) -> bool {
+    match normalize_type(ty) {
+        CoreType::Never
+        | CoreType::Any
+        | CoreType::Int
+        | CoreType::F64
+        | CoreType::Number
+        | CoreType::String
+        | CoreType::Bool
+        | CoreType::Unit
+        | CoreType::Bytes
+        | CoreType::Color
+        | CoreType::Shape
+        | CoreType::Singleton(_) => true,
+        CoreType::Union(ms) | CoreType::Intersect(ms) => ms.iter().all(is_fully_decidable_fragment),
+        CoreType::Not(inner) | CoreType::OptionalField(inner) => {
+            is_fully_decidable_fragment(&inner)
+        }
+        CoreType::Diff(a, b) => is_fully_decidable_fragment(&a) && is_fully_decidable_fragment(&b),
+        CoreType::Record { fields } => fields.iter().all(|(_, t)| is_fully_decidable_fragment(t)),
+        CoreType::Variant { variants } => variants
+            .iter()
+            .all(|(_, p)| p.as_ref().is_none_or(is_fully_decidable_fragment)),
+        CoreType::Fun { args, ret, .. } => {
+            args.iter().all(is_fully_decidable_fragment) && is_fully_decidable_fragment(&ret)
+        }
+        // Open rows, vars, forall, apps: outside complete fragment A.
+        _ => false,
+    }
 }
 
 /// DD-TYP-DYN-006: cast success type is `intersect(S, T)` (normalized).
@@ -178,6 +311,7 @@ pub fn is_runtime_checkable(ty: &CoreType) -> bool {
                 && is_runtime_checkable(&ret)
         }
         CoreType::App { .. } => true,
+        CoreType::Singleton(_) => true,
         CoreType::Not(_) | CoreType::Diff(_, _) => false,
         _ => false,
     }
@@ -197,6 +331,17 @@ pub fn is_subtype(a: &CoreType, b: &CoreType) -> bool {
         (CoreType::Dynamic(sa), CoreType::Dynamic(sb)) => is_subtype(sa, sb),
         (CoreType::Int | CoreType::F64, CoreType::Number) => true,
         (CoreType::Number, CoreType::Int | CoreType::F64) => false,
+        (CoreType::Singleton(v), other) => {
+            is_subtype(&CoreType::singleton_domain(v), other)
+                || matches!(
+                    (v, other),
+                    (crate::ty::SingletonValue::Int(_), CoreType::Number)
+                )
+        }
+        (CoreType::OptionalField(inner), CoreType::OptionalField(other)) => {
+            is_subtype(inner, other)
+        }
+        (inner, CoreType::OptionalField(other)) => is_subtype(inner, other),
         (CoreType::Union(ms), other) => ms.iter().all(|m| is_subtype(m, other)),
         (other, CoreType::Union(ms)) => ms.iter().any(|m| is_subtype(other, m)),
         (CoreType::Intersect(ms), other) => ms.iter().any(|m| is_subtype(m, other)),
@@ -222,12 +367,7 @@ pub fn is_subtype(a: &CoreType, b: &CoreType) -> bool {
                 && effect_subrow(a_eff, b_eff)
         }
         (CoreType::Record { fields: a_f }, CoreType::Record { fields: b_f }) => {
-            // Closed width+depth: every b field present in a with subtype.
-            b_f.iter().all(|(bk, bv)| {
-                a_f.iter()
-                    .find(|(ak, _)| ak == bk)
-                    .is_some_and(|(_, av)| is_subtype(av, bv))
-            }) && a_f.len() == b_f.len()
+            record_fields_subtype(a_f, b_f)
         }
         (CoreType::Variant { variants: a_v }, CoreType::Variant { variants: b_v }) => {
             a_v.iter().all(|(at, ap)| {
@@ -243,6 +383,18 @@ pub fn is_subtype(a: &CoreType, b: &CoreType) -> bool {
         }
         _ => false,
     }
+}
+
+/// DD-TYP-ROW-007: required fields subtype optional; absence of an optional is ok.
+fn record_fields_subtype(a_f: &[(String, CoreType)], b_f: &[(String, CoreType)]) -> bool {
+    // Every required field in `b` must appear in `a`; optional fields may be absent.
+    b_f.iter().all(|(bk, bv)| {
+        if let Some((_, av)) = a_f.iter().find(|(ak, _)| ak == bk) {
+            is_subtype(av, bv)
+        } else {
+            matches!(bv, CoreType::OptionalField(_))
+        }
+    }) && a_f.iter().all(|(ak, _)| b_f.iter().any(|(bk, _)| ak == bk))
 }
 
 /// `intersect(S, T) ≃ never` under the same approximate algebra.
@@ -265,6 +417,33 @@ pub fn intersect_types(a: &CoreType, b: &CoreType) -> CoreType {
         (CoreType::Int, CoreType::Number) | (CoreType::Number, CoreType::Int) => CoreType::Int,
         (CoreType::F64, CoreType::Number) | (CoreType::Number, CoreType::F64) => CoreType::F64,
         (CoreType::Int, CoreType::F64) | (CoreType::F64, CoreType::Int) => CoreType::Never,
+        (CoreType::Singleton(sa), CoreType::Singleton(sb)) => {
+            if sa == sb {
+                CoreType::Singleton(sa.clone())
+            } else {
+                CoreType::Never
+            }
+        }
+        (CoreType::Singleton(s), other) | (other, CoreType::Singleton(s)) => {
+            let domain = CoreType::singleton_domain(s);
+            let it = intersect_types(&domain, other);
+            if matches!(it, CoreType::Never) {
+                CoreType::Never
+            } else if type_eq(&it, &domain) {
+                CoreType::Singleton(s.clone())
+            } else {
+                // e.g. singleton int ∩ number → singleton
+                CoreType::Singleton(s.clone())
+            }
+        }
+        (CoreType::OptionalField(a_i), CoreType::OptionalField(b_i)) => {
+            let it = intersect_types(a_i, b_i);
+            if matches!(it, CoreType::Never) {
+                CoreType::Never
+            } else {
+                CoreType::OptionalField(Box::new(it))
+            }
+        }
         (CoreType::Union(ms), other) => {
             let parts: Vec<_> = ms
                 .iter()
@@ -557,7 +736,8 @@ fn plan_structural_check(dst: &CoreType) -> Option<CastEvidence> {
         | CoreType::Bool
         | CoreType::Unit
         | CoreType::Bytes
-        | CoreType::Any => Some(CastEvidence::TagCheck {
+        | CoreType::Any
+        | CoreType::Singleton(_) => Some(CastEvidence::TagCheck {
             tag: type_tag_name(dst),
         }),
         CoreType::Dynamic(_) => Some(CastEvidence::Identity),
@@ -572,6 +752,10 @@ fn type_tag_name(ty: &CoreType) -> String {
         CoreType::Int => "int".into(),
         CoreType::F64 => "f64".into(),
         CoreType::Number => "number".into(),
+        CoreType::Singleton(crate::ty::SingletonValue::Int(_)) => "int".into(),
+        CoreType::Singleton(crate::ty::SingletonValue::Bool(_)) => "bool".into(),
+        CoreType::Singleton(crate::ty::SingletonValue::String(_)) => "string".into(),
+        CoreType::Singleton(crate::ty::SingletonValue::Unit) => "unit".into(),
         CoreType::String => "string".into(),
         CoreType::Bool => "bool".into(),
         CoreType::Unit => "unit".into(),
@@ -658,5 +842,72 @@ mod tests {
             normalize_type(&CoreType::Dynamic(Box::new(CoreType::Never))),
             CoreType::Never
         );
+    }
+
+    #[test]
+    fn int_to_f64_is_numeric_promote() {
+        assert_eq!(
+            plan_cast_evidence(&CoreType::Int, &CoreType::F64),
+            Some(CastEvidence::NumericPromote)
+        );
+    }
+
+    #[test]
+    fn dynamic_int_to_f64_promotes_not_disjoint() {
+        match judge_dynamic_use(&CoreType::Int, &CoreType::F64) {
+            DynamicUseJudgment::PartialOverlap { evidence, success } => {
+                assert_eq!(evidence, CastEvidence::NumericPromote);
+                assert_eq!(success, CoreType::F64);
+            }
+            other => panic!("expected promote partial, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn decide_subtype_int_number_proved() {
+        assert_eq!(
+            decide_subtype(&CoreType::Int, &CoreType::Number),
+            DecideResult::Proved
+        );
+        assert_eq!(classify_decide(DecideResult::Proved), None);
+        assert_eq!(
+            decide_subtype(&CoreType::String, &CoreType::Number),
+            DecideResult::Disproved
+        );
+        assert_eq!(
+            classify_decide(DecideResult::Disproved),
+            Some(TypeDiagClass::TypeError)
+        );
+    }
+
+    #[test]
+    fn singleton_subtypes_domain() {
+        let s = CoreType::Singleton(crate::ty::SingletonValue::Int(42));
+        assert!(is_subtype(&s, &CoreType::Int));
+        assert!(is_subtype(&s, &CoreType::Number));
+        assert!(!is_subtype(&CoreType::Int, &s));
+    }
+
+    #[test]
+    fn optional_field_required_subtypes_optional() {
+        let req = CoreType::Record {
+            fields: vec![("author".into(), CoreType::String)],
+        };
+        let opt = CoreType::Record {
+            fields: vec![(
+                "author".into(),
+                CoreType::OptionalField(Box::new(CoreType::String)),
+            )],
+        };
+        assert!(is_subtype(&req, &opt));
+        assert!(!is_subtype(&opt, &req));
+        let empty = CoreType::Record { fields: vec![] };
+        let only_opt = CoreType::Record {
+            fields: vec![(
+                "author".into(),
+                CoreType::OptionalField(Box::new(CoreType::String)),
+            )],
+        };
+        assert!(is_subtype(&empty, &only_opt));
     }
 }

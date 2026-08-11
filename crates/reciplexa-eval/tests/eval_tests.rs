@@ -839,3 +839,53 @@ fn eval_try_cast_on_dynamic_value_some_and_none() {
         }
     );
 }
+
+#[test]
+fn numeric_promote_cast_converts_int_to_f64() {
+    use reciplexa_core::cast::CastEvidence;
+    use reciplexa_core::expr::{CoreExpr, CoreLiteral};
+    use reciplexa_core::ty::CoreType;
+    use reciplexa_eval::control::UnitHost;
+    use reciplexa_eval::eval::eval_expr;
+    use std::collections::HashMap;
+
+    let expr = CoreExpr::Cast {
+        expr: Box::new(CoreExpr::Lit(CoreLiteral::Int(3))),
+        evidence: CastEvidence::NumericPromote,
+        target: CoreType::F64,
+        cast_id: 0,
+    };
+    let v = eval_expr(&expr, &HashMap::new(), &mut UnitHost).unwrap();
+    assert_eq!(v, RuntimeValue::F64(3.0));
+}
+
+#[test]
+fn int_div_and_mod_builtins() {
+    let v = eval_source("(val main (int-div 7 2))").unwrap();
+    assert_eq!(v, RuntimeValue::Int(3));
+    let v = eval_source("(val main (mod 7 2))").unwrap();
+    assert_eq!(v, RuntimeValue::Int(1));
+}
+
+#[test]
+fn try_cast_dynamic_int_to_f64_promotes() {
+    use reciplexa_core::expr::{CoreExpr, CoreLiteral};
+    use reciplexa_core::ty::CoreType;
+    use reciplexa_eval::control::UnitHost;
+    use reciplexa_eval::eval::eval_expr;
+    use std::collections::HashMap;
+
+    let expr = CoreExpr::TryCast {
+        expr: Box::new(CoreExpr::Lit(CoreLiteral::Int(9))),
+        target: CoreType::F64,
+        cast_id: 1,
+    };
+    let v = eval_expr(&expr, &HashMap::new(), &mut UnitHost).unwrap();
+    assert_eq!(
+        v,
+        RuntimeValue::Variant {
+            tag: "some".into(),
+            payload: Some(Box::new(RuntimeValue::F64(9.0))),
+        }
+    );
+}

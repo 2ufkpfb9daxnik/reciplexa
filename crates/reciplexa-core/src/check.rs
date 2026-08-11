@@ -1,5 +1,7 @@
 //! Bidirectional type checking for Core expressions (Phase 2 §4.2 step 9).
 
+#![allow(clippy::result_large_err)]
+
 use reciplexa_source::range::TextRange;
 use reciplexa_syntax::is_wildcard_ident;
 
@@ -1063,6 +1065,13 @@ pub fn typecheck_language_source(src: &str) -> Result<CoreType, CheckError> {
             effects: EffectRow::default(),
         },
     );
+    let int2 = CoreType::Fun {
+        args: vec![CoreType::Int, CoreType::Int],
+        ret: Box::new(CoreType::Int),
+        effects: EffectRow::default(),
+    };
+    env.insert("int-div", int2.clone());
+    env.insert("mod", int2);
     let ty = infer_expr(&expr, &env, &mut subst, TextRange::EMPTY)?;
     Ok(subst.apply(&ty))
 }

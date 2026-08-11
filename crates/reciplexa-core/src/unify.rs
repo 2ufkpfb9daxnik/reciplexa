@@ -1,5 +1,7 @@
 //! Type unification and substitution (Phase 2 §4.2 steps 2–4).
 
+#![allow(clippy::result_large_err)]
+
 use std::collections::HashMap;
 
 use crate::ty::{CoreType, TypeVarId};
@@ -265,6 +267,12 @@ pub fn unify(a: &CoreType, b: &CoreType, subst: &mut Subst) -> Result<(), UnifyE
         | (CoreType::Unit, CoreType::Unit)
         | (CoreType::Bool, CoreType::Bool)
         | (CoreType::Bytes, CoreType::Bytes) => Ok(()),
+        (CoreType::Singleton(a_s), CoreType::Singleton(b_s)) if a_s == b_s => Ok(()),
+        (CoreType::Singleton(a_s), other) | (other, CoreType::Singleton(a_s))
+            if other == &CoreType::singleton_domain(a_s) =>
+        {
+            Ok(())
+        }
         (CoreType::Int, CoreType::F64) | (CoreType::F64, CoreType::Int) => {
             Err(UnifyError::Mismatch {
                 expected: a,

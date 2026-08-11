@@ -723,6 +723,8 @@ fn parse_type_syntax_in(
                 "any" => CoreType::Any,
                 "dynamic" => CoreType::dyn_any(),
                 "color" => CoreType::Color,
+                "true" => CoreType::Singleton(crate::ty::SingletonValue::Bool(true)),
+                "false" => CoreType::Singleton(crate::ty::SingletonValue::Bool(false)),
                 other
                     if ctx.data.type_params.contains_key(other)
                         || ctx.data.data_ctors.contains_key(other) =>
@@ -739,6 +741,24 @@ fn parse_type_syntax_in(
                     ));
                 }
             })
+        }
+        Atom::Token(t) if t.kind() == SyntaxKind::Number => {
+            // DD-TYP-SINGLETON-001: type-position int literals (f64 singleton reserved).
+            match numeric_literal_from_token(t)? {
+                CoreLiteral::Int(i) => Ok(CoreType::Singleton(crate::ty::SingletonValue::Int(i))),
+                CoreLiteral::F64(_) | CoreLiteral::Number(_) => Err(ElaborateError::at_token(
+                    "f64 singleton types are not provided in RPX v1 (DD-TYP-SINGLETON-001)",
+                    t,
+                )),
+                _ => Err(ElaborateError::at_token("unsupported numeric singleton", t)),
+            }
+        }
+        Atom::Token(t) if t.kind() == SyntaxKind::String => {
+            let value =
+                decode_string_literal(t.text()).map_err(|msg| ElaborateError::at_token(msg, t))?;
+            Ok(CoreType::Singleton(crate::ty::SingletonValue::String(
+                value,
+            )))
         }
         Atom::Node(n) if n.kind() == SyntaxKind::List => {
             let items = list_atoms(n);

@@ -81,6 +81,10 @@ pub enum BuiltinOp {
     EncodeUtf8,
     /// SYN §11 `(decode-utf8 data)` — bytes → result variant.
     DecodeUtf8,
+    /// DD-TYP-NUM-002: integer division `int-div : int × int -> int`.
+    IntDiv,
+    /// DD-TYP-NUM-002: remainder `mod : int × int -> int`.
+    Mod,
 }
 
 impl fmt::Debug for RuntimeValue {

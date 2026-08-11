@@ -21,6 +21,17 @@ impl TypeVarId {
     }
 }
 
+/// DD-TYP-SINGLETON-001: runtime values that may appear as singleton static types.
+///
+/// f64 / record / closure singletons are intentionally excluded in RPX v1.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SingletonValue {
+    Int(i128),
+    Bool(bool),
+    String(String),
+    Unit,
+}
+
 /// Surface-aligned core types.
 ///
 /// **ROW-001:** closed records (exact field lists) and open records with a row
@@ -33,6 +44,8 @@ pub enum CoreType {
     F64,
     /// `number ≃ int | f64` — supertype of both numeric primitives.
     Number,
+    /// DD-TYP-SINGLETON-001: exactly one runtime value.
+    Singleton(SingletonValue),
     String,
     Color,
     Shape,
@@ -141,9 +154,19 @@ impl CoreType {
     /// Classify a concrete numeric type (not [`CoreType::Number`] union).
     pub fn numeric_class(&self) -> Option<NumericClass> {
         match self {
-            CoreType::Int => Some(NumericClass::Int),
+            CoreType::Int | CoreType::Singleton(SingletonValue::Int(_)) => Some(NumericClass::Int),
             CoreType::F64 => Some(NumericClass::F64),
             _ => None,
+        }
+    }
+
+    /// Domain type of a singleton (DD-TYP-SINGLETON-001).
+    pub fn singleton_domain(value: &SingletonValue) -> CoreType {
+        match value {
+            SingletonValue::Int(_) => CoreType::Int,
+            SingletonValue::Bool(_) => CoreType::Bool,
+            SingletonValue::String(_) => CoreType::String,
+            SingletonValue::Unit => CoreType::Unit,
         }
     }
 

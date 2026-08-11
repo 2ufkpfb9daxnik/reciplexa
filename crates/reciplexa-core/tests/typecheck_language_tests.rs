@@ -382,3 +382,26 @@ fn f64_literal_types_as_f64() {
     let ty = typecheck_language_source("(val main 1.5)").unwrap();
     assert_eq!(ty, CoreType::F64);
 }
+
+#[test]
+fn int_div_and_mod_typecheck() {
+    let ty = typecheck_language_source("(val main (int-div 7 2))").unwrap();
+    assert_eq!(ty, CoreType::Int);
+    let ty = typecheck_language_source("(val main (mod 7 2))").unwrap();
+    assert_eq!(ty, CoreType::Int);
+}
+
+#[test]
+fn singleton_type_alias_elaborates() {
+    use reciplexa_core::elaborate::elaborate_with_data;
+    use reciplexa_core::ty::SingletonValue;
+    let src = r#"(type page-kind (union "page" "slide")) (val main 1)"#;
+    let (_, data) = elaborate_with_data(src).unwrap();
+    assert_eq!(
+        data.type_aliases.get("page-kind"),
+        Some(&CoreType::Union(vec![
+            CoreType::Singleton(SingletonValue::String("page".into())),
+            CoreType::Singleton(SingletonValue::String("slide".into())),
+        ]))
+    );
+}

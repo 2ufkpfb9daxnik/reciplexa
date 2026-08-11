@@ -46,6 +46,8 @@ pub fn primitive_env() -> HashMap<String, RuntimeValue> {
         "decode-utf8".into(),
         RuntimeValue::Builtin(BuiltinOp::DecodeUtf8),
     );
+    env.insert("int-div".into(), RuntimeValue::Builtin(BuiltinOp::IntDiv));
+    env.insert("mod".into(), RuntimeValue::Builtin(BuiltinOp::Mod));
     env
 }
 
@@ -149,12 +151,11 @@ fn eval_outcome(
                 Outcome::Value(v) => v,
                 other => return Ok(other),
             };
-            if runtime_cast_ok(&v, evidence) {
-                Ok(Outcome::Value(v))
-            } else {
-                Err(EvalError {
+            match runtime_cast_apply(v, evidence) {
+                Some(out) => Ok(Outcome::Value(out)),
+                None => Err(EvalError {
                     message: "dynamic cast failed".into(),
-                })
+                }),
             }
         }
         CoreExpr::TryCast { expr, target, .. } => {
@@ -164,16 +165,15 @@ fn eval_outcome(
             };
             let evidence =
                 plan_cast_evidence(&CoreType::dyn_any(), target).unwrap_or(CastEvidence::Identity);
-            if runtime_cast_ok(&v, &evidence) {
-                Ok(Outcome::Value(RuntimeValue::Variant {
+            match runtime_cast_apply(v, &evidence) {
+                Some(out) => Ok(Outcome::Value(RuntimeValue::Variant {
                     tag: "some".into(),
-                    payload: Some(Box::new(v)),
-                }))
-            } else {
-                Ok(Outcome::Value(RuntimeValue::Variant {
+                    payload: Some(Box::new(out)),
+                })),
+                None => Ok(Outcome::Value(RuntimeValue::Variant {
                     tag: "none".into(),
                     payload: None,
-                }))
+                })),
             }
         }
         CoreExpr::CheckCast { expr, target, .. } => {
@@ -183,16 +183,15 @@ fn eval_outcome(
             };
             let evidence =
                 plan_cast_evidence(&CoreType::dyn_any(), target).unwrap_or(CastEvidence::Identity);
-            if runtime_cast_ok(&v, &evidence) {
-                Ok(Outcome::Value(RuntimeValue::Variant {
+            match runtime_cast_apply(v, &evidence) {
+                Some(out) => Ok(Outcome::Value(RuntimeValue::Variant {
                     tag: "ok".into(),
-                    payload: Some(Box::new(v)),
-                }))
-            } else {
-                Ok(Outcome::Value(RuntimeValue::Variant {
+                    payload: Some(Box::new(out)),
+                })),
+                None => Ok(Outcome::Value(RuntimeValue::Variant {
                     tag: "err".into(),
                     payload: Some(Box::new(RuntimeValue::String("cast-mismatch".into()))),
-                }))
+                })),
             }
         }
         CoreExpr::Handle {
@@ -1228,6 +1227,28 @@ fn apply_builtin(op: BuiltinOp, args: Vec<RuntimeValue>) -> Result<Outcome, Eval
                 _ => unreachable!(),
             }
         }
+        BuiltinOp::IntDiv | BuiltinOp::Mod => {
+            if args.len() != 2 {
+                return Err(EvalError {
+                    message: format!("builtin `{op:?}` expects 2 args, got {}", args.len()),
+                });
+            }
+            let (RuntimeValue::Int(x), RuntimeValue::Int(y)) = (&args[0], &args[1]) else {
+                return Err(EvalError {
+                    message: format!("builtin `{op:?}` expects int operands"),
+                });
+            };
+            if *y == 0 {
+                return Err(EvalError {
+                    message: format!("builtin `{op:?}` division by zero"),
+                });
+            }
+            Ok(Outcome::Value(RuntimeValue::Int(match op {
+                BuiltinOp::IntDiv => x / y,
+                BuiltinOp::Mod => x % y,
+                _ => unreachable!(),
+            })))
+        }
     }
 }
 
@@ -1254,6 +1275,10 @@ fn eval_lit(lit: &CoreLiteral) -> EvalResult {
 fn runtime_cast_ok(value: &RuntimeValue, evidence: &CastEvidence) -> bool {
     match evidence {
         CastEvidence::Identity | CastEvidence::Widen => true,
+        CastEvidence::NumericPromote => matches!(
+            value,
+            RuntimeValue::Int(_) | RuntimeValue::F64(_) | RuntimeValue::Number(_)
+        ),
         CastEvidence::TagCheck { tag } => value_matches_tag(value, tag),
         CastEvidence::UnionCheck { members } => members.iter().any(|m| {
             plan_cast_evidence(&CoreType::dyn_any(), m)
@@ -1302,10 +1327,32 @@ fn runtime_cast_ok(value: &RuntimeValue, evidence: &CastEvidence) -> bool {
     }
 }
 
+/// Check evidence then apply value transforms (DD-TYP-NUM NumericPromote → f64).
+fn runtime_cast_apply(value: RuntimeValue, evidence: &CastEvidence) -> Option<RuntimeValue> {
+    if !runtime_cast_ok(&value, evidence) {
+        return None;
+    }
+    Some(apply_cast_evidence(value, evidence))
+}
+
+/// Apply pure cast evidence transforms (DD-TYP-NUM NumericPromote → f64).
+fn apply_cast_evidence(value: RuntimeValue, evidence: &CastEvidence) -> RuntimeValue {
+    match evidence {
+        CastEvidence::NumericPromote => match value {
+            RuntimeValue::Int(n) => RuntimeValue::F64(n as f64),
+            RuntimeValue::Number(n) => RuntimeValue::F64(n),
+            other => other,
+        },
+        CastEvidence::Compose(parts) => parts.iter().fold(value, apply_cast_evidence),
+        _ => value,
+    }
+}
+
 fn value_matches_tag(value: &RuntimeValue, tag: &str) -> bool {
     match tag {
         "int" => matches!(value, RuntimeValue::Int(_)),
-        "f64" | "number" => {
+        "f64" => matches!(value, RuntimeValue::F64(_) | RuntimeValue::Number(_)),
+        "number" => {
             matches!(
                 value,
                 RuntimeValue::F64(_) | RuntimeValue::Number(_) | RuntimeValue::Int(_)
