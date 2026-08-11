@@ -938,6 +938,8 @@ fn match_pattern(pat: &CorePattern, value: &RuntimeValue) -> Option<HashMap<Stri
         CorePattern::Lit(lit) => {
             let ok = match (lit, value) {
                 (CoreLiteral::Number(n), RuntimeValue::Number(v)) => n == v,
+                (CoreLiteral::Int(n), RuntimeValue::Int(v)) => n == v,
+                (CoreLiteral::F64(n), RuntimeValue::F64(v)) => n == v,
                 (CoreLiteral::String(s), RuntimeValue::String(v)) => s == v,
                 (CoreLiteral::Bool(b), RuntimeValue::Bool(v)) => b == v,
                 (CoreLiteral::Unit, RuntimeValue::Unit) => true,
@@ -1008,6 +1010,52 @@ fn match_pattern(pat: &CorePattern, value: &RuntimeValue) -> Option<HashMap<Stri
     }
 }
 
+fn as_numeric(v: &RuntimeValue) -> Result<(bool, f64), EvalError> {
+    match v {
+        RuntimeValue::Number(f) => Ok((false, *f)),
+        RuntimeValue::Int(i) => Ok((true, *i as f64)),
+        RuntimeValue::F64(f) => Ok((false, *f)),
+        _ => Err(EvalError {
+            message: "expected numeric value".into(),
+        }),
+    }
+}
+
+fn apply_numeric_binop(
+    op: BuiltinOp,
+    a: &RuntimeValue,
+    b: &RuntimeValue,
+) -> Result<RuntimeValue, EvalError> {
+    match (a, b) {
+        (RuntimeValue::Int(x), RuntimeValue::Int(y)) => match op {
+            BuiltinOp::Add => Ok(RuntimeValue::Int(x + y)),
+            BuiltinOp::Sub => Ok(RuntimeValue::Int(x - y)),
+            BuiltinOp::Mul => Ok(RuntimeValue::Int(x * y)),
+            BuiltinOp::Div => Ok(RuntimeValue::F64(*x as f64 / *y as f64)),
+            BuiltinOp::Lt => Ok(RuntimeValue::Bool(x < y)),
+            BuiltinOp::Gt => Ok(RuntimeValue::Bool(x > y)),
+            BuiltinOp::Le => Ok(RuntimeValue::Bool(x <= y)),
+            BuiltinOp::Ge => Ok(RuntimeValue::Bool(x >= y)),
+            _ => unreachable!(),
+        },
+        _ => {
+            let (_, x) = as_numeric(a)?;
+            let (_, y) = as_numeric(b)?;
+            Ok(match op {
+                BuiltinOp::Add => RuntimeValue::F64(x + y),
+                BuiltinOp::Sub => RuntimeValue::F64(x - y),
+                BuiltinOp::Mul => RuntimeValue::F64(x * y),
+                BuiltinOp::Div => RuntimeValue::F64(x / y),
+                BuiltinOp::Lt => RuntimeValue::Bool(x < y),
+                BuiltinOp::Gt => RuntimeValue::Bool(x > y),
+                BuiltinOp::Le => RuntimeValue::Bool(x <= y),
+                BuiltinOp::Ge => RuntimeValue::Bool(x >= y),
+                _ => unreachable!(),
+            })
+        }
+    }
+}
+
 fn apply_builtin(op: BuiltinOp, args: Vec<RuntimeValue>) -> Result<Outcome, EvalError> {
     match op {
         BuiltinOp::IsNumber
@@ -1023,17 +1071,23 @@ fn apply_builtin(op: BuiltinOp, args: Vec<RuntimeValue>) -> Result<Outcome, Eval
             }
             let v = &args[0];
             if matches!(op, BuiltinOp::Unicode) {
-                let RuntimeValue::Number(n) = v else {
-                    return Err(EvalError {
-                        message: "builtin `unicode` expects Number argument".into(),
-                    });
+                let code = match v {
+                    RuntimeValue::Int(i) => *i as f64,
+                    RuntimeValue::F64(f) => *f,
+                    _ => {
+                        return Err(EvalError {
+                            message: "builtin `unicode` expects numeric argument".into(),
+                        });
+                    }
                 };
-                let s = reciplexa_syntax::unicode_scalar_value(*n)
+                let s = reciplexa_syntax::unicode_scalar_value(code)
                     .map_err(|msg| EvalError { message: msg })?;
                 return Ok(Outcome::Value(RuntimeValue::String(s)));
             }
             let flag = match op {
-                BuiltinOp::IsNumber => matches!(v, RuntimeValue::Number(_)),
+                BuiltinOp::IsNumber => {
+                    matches!(v, RuntimeValue::Number(_) | RuntimeValue::Int(_) | RuntimeValue::F64(_))
+                }
                 BuiltinOp::IsString => matches!(v, RuntimeValue::String(_)),
                 BuiltinOp::IsBool => matches!(v, RuntimeValue::Bool(_)),
                 BuiltinOp::IsNone => {
@@ -1071,25 +1125,7 @@ fn apply_builtin(op: BuiltinOp, args: Vec<RuntimeValue>) -> Result<Outcome, Eval
                 | BuiltinOp::Lt
                 | BuiltinOp::Gt
                 | BuiltinOp::Le
-                | BuiltinOp::Ge => {
-                    let (RuntimeValue::Number(x), RuntimeValue::Number(y)) = (a, b) else {
-                        return Err(EvalError {
-                            message: format!("builtin `{op:?}` expects Number arguments"),
-                        });
-                    };
-                    Ok(Outcome::Value(match op {
-                        BuiltinOp::Add => RuntimeValue::Number(x + y),
-                        BuiltinOp::Sub => RuntimeValue::Number(x - y),
-                        BuiltinOp::Mul => RuntimeValue::Number(x * y),
-                        BuiltinOp::Div => RuntimeValue::Number(x / y),
-                        BuiltinOp::Lt => RuntimeValue::Bool(x < y),
-                        BuiltinOp::Gt => RuntimeValue::Bool(x > y),
-                        BuiltinOp::Le => RuntimeValue::Bool(x <= y),
-                        BuiltinOp::Ge => RuntimeValue::Bool(x >= y),
-                        BuiltinOp::Eq | BuiltinOp::Ne => unreachable!(),
-                        _ => unreachable!(),
-                    }))
-                }
+                | BuiltinOp::Ge => Ok(Outcome::Value(apply_numeric_binop(op, a, b)?)),
                 BuiltinOp::Eq => Ok(Outcome::Value(RuntimeValue::Bool(a == b))),
                 BuiltinOp::Ne => Ok(Outcome::Value(RuntimeValue::Bool(a != b))),
                 _ => unreachable!(),
@@ -1101,6 +1137,8 @@ fn apply_builtin(op: BuiltinOp, args: Vec<RuntimeValue>) -> Result<Outcome, Eval
 fn eval_lit(lit: &CoreLiteral) -> EvalResult {
     Ok(match lit {
         CoreLiteral::Number(n) => RuntimeValue::Number(*n),
+        CoreLiteral::Int(n) => RuntimeValue::Int(*n),
+        CoreLiteral::F64(n) => RuntimeValue::F64(*n),
         CoreLiteral::String(s) => {
             if s == "circle" || s == "rect" || s == "text" {
                 RuntimeValue::ShapeTag(s.clone())

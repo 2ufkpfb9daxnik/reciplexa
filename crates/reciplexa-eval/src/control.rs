@@ -22,7 +22,10 @@ impl EffectHost for UnitHost {
     fn perform(&mut self, op: &str, _arg: RuntimeValue) -> EvalResult {
         match op {
             "log" => Ok(RuntimeValue::Unit),
-            "random" => Ok(RuntimeValue::Number(0.5)),
+            "random" => Ok(RuntimeValue::F64(0.5)),
+            "failure" => Err(EvalError {
+                message: format!("unhandled failure: {_arg}"),
+            }),
             "read-file" | "write-file" => Err(EvalError {
                 message: format!("unhandled residual effect `{op}`"),
             }),
@@ -43,7 +46,7 @@ impl EffectHost for MemoryFsHost {
     fn perform(&mut self, op: &str, arg: RuntimeValue) -> EvalResult {
         match op {
             "log" => Ok(RuntimeValue::Unit),
-            "random" => Ok(RuntimeValue::Number(0.5)),
+            "random" => Ok(RuntimeValue::F64(0.5)),
             "read-file" => {
                 let RuntimeValue::String(path) = arg else {
                     return Err(EvalError {

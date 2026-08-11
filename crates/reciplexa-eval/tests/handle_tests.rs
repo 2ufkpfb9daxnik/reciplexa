@@ -29,7 +29,7 @@ fn shallow_handle_abort_returns_handler_result() {
 fn oneshot_resume_becomes_perform_result() {
     let v =
         eval_source(r#"(val main (handle log (fn (msg k) (k 42)) (perform log "hi")))"#).unwrap();
-    assert_eq!(v, RuntimeValue::Number(42.0));
+    assert_eq!(v, RuntimeValue::Int(42));
 }
 
 #[test]
@@ -46,7 +46,7 @@ fn oneshot_resume_aborts_rest_of_handler() {
     let v =
         eval_source(r#"(val main (handle log (fn (msg k) (seq (k 1) 99)) (perform log "hi")))"#)
             .unwrap();
-    assert_eq!(v, RuntimeValue::Number(1.0));
+    assert_eq!(v, RuntimeValue::Int(1));
 }
 
 #[test]
@@ -66,7 +66,7 @@ fn with_inline_handler_and_resume() {
     let v =
         eval_source(r#"(val main (with (handler ask (fn (_ k) (k 3))) (seq (perform ask 0) 10)))"#)
             .unwrap();
-    assert_eq!(v, RuntimeValue::Number(10.0));
+    assert_eq!(v, RuntimeValue::Int(10));
 }
 
 #[test]
@@ -75,7 +75,7 @@ fn deep_resume_continues_body_after_perform() {
     let v =
         eval_source(r#"(val main (handle log (fn (msg k) (k 42)) (seq (perform log "hi") 99)))"#)
             .unwrap();
-    assert_eq!(v, RuntimeValue::Number(99.0));
+    assert_eq!(v, RuntimeValue::Int(99));
 }
 
 #[test]
@@ -87,7 +87,7 @@ fn deep_resume_with_modified_value_in_let() {
       x)))"#,
     )
     .unwrap();
-    assert_eq!(v, RuntimeValue::Number(7.0));
+    assert_eq!(v, RuntimeValue::Int(7));
 }
 
 #[test]
@@ -117,6 +117,59 @@ fn handle_failure_rejects_resume_param() {
         "unexpected: {}",
         err.message
     );
+}
+
+#[test]
+fn or_raise_ok_and_err_paths() {
+    let src = r#"
+(data result (ok int) (err str))
+(val main
+  (seq
+    (or-raise (ok 3))
+    (handle failure (fn (e) e)
+      (or-raise (err "boom")))))
+"#;
+    let v = eval_source(src).unwrap();
+    assert_eq!(v, RuntimeValue::String("boom".into()));
+}
+
+#[test]
+fn as_result_wraps_success_and_failure() {
+    let ok = eval_source(r#"(val main (as-result (fn () 42)))"#).unwrap();
+    assert!(matches!(
+        ok,
+        RuntimeValue::Variant {
+            tag,
+            payload: Some(_),
+        } if tag == "ok"
+    ));
+
+    let err = eval_source(r#"(val main (as-result (fn () (raise "nope"))))"#).unwrap();
+    assert!(matches!(
+        err,
+        RuntimeValue::Variant {
+            tag,
+            payload: Some(_),
+        } if tag == "err"
+    ));
+}
+
+#[test]
+fn raise_without_handler_surfaces_unhandled_failure() {
+    let err = eval_source(r#"(val main (raise "boom"))"#).unwrap_err();
+    assert!(err.message.contains("unhandled failure"));
+}
+
+#[test]
+fn never_type_allows_raise_in_if() {
+    let ty =
+        reciplexa_core::typecheck_language_source(r#"(val main (if true 1 (raise "x")))"#).unwrap();
+    assert!(matches!(
+        ty,
+        reciplexa_core::ty::CoreType::Int
+            | reciplexa_core::ty::CoreType::F64
+            | reciplexa_core::ty::CoreType::Number
+    ));
 }
 
 #[test]

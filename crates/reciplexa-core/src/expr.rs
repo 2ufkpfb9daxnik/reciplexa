@@ -4,7 +4,12 @@ use crate::ty::CoreType;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum CoreLiteral {
+    /// Legacy surface float literal; prefer [`CoreLiteral::F64`].
     Number(f64),
+    /// DD-TYP-NUM-001: exact integer (i128 kernel subset; wider ints rejected at parse).
+    Int(i128),
+    /// DD-TYP-NUM-001: IEEE binary64.
+    F64(f64),
     String(String),
     Color(String),
     Bool(bool),

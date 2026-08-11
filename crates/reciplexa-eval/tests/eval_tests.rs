@@ -10,19 +10,19 @@ use reciplexa_eval::UnitHost;
 #[test]
 fn seq_evaluates_left_to_right() {
     let expr = CoreExpr::Seq(vec![
-        CoreExpr::Lit(CoreLiteral::Number(1.0)),
-        CoreExpr::Lit(CoreLiteral::Number(2.0)),
+        CoreExpr::Lit(CoreLiteral::Int(1)),
+        CoreExpr::Lit(CoreLiteral::Int(2)),
     ]);
     let v = eval_expr(&expr, &HashMap::new(), &mut UnitHost).unwrap();
-    assert_eq!(v, RuntimeValue::Number(2.0));
+    assert_eq!(v, RuntimeValue::Int(2));
 }
 
 #[test]
 fn let_binds_in_body() {
     let expr = CoreExpr::Let {
         name: "x".into(),
-        value: Box::new(CoreExpr::Lit(CoreLiteral::Number(3.0))),
-        body: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
+        value: Box::new(CoreExpr::Lit(CoreLiteral::Int(3))),
+        body: Box::new(CoreExpr::Lit(CoreLiteral::Int(1))),
     };
     let _ = eval_expr(&expr, &HashMap::new(), &mut UnitHost).unwrap();
 }
@@ -35,10 +35,10 @@ fn lambda_application() {
             params: vec!["x".into()],
             body: Box::new(CoreExpr::Var("x".into())),
         }),
-        args: vec![CoreExpr::Lit(CoreLiteral::Number(2.0))],
+        args: vec![CoreExpr::Lit(CoreLiteral::Int(2))],
     };
     let v = eval_expr(&expr, &HashMap::new(), &mut UnitHost).unwrap();
-    assert_eq!(v, RuntimeValue::Number(2.0));
+    assert_eq!(v, RuntimeValue::Int(2));
 }
 
 #[test]
@@ -46,11 +46,11 @@ fn let_binds_var_in_body() {
     // let x = 1 in x
     let expr = CoreExpr::Let {
         name: "x".into(),
-        value: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
+        value: Box::new(CoreExpr::Lit(CoreLiteral::Int(1))),
         body: Box::new(CoreExpr::Var("x".into())),
     };
     let v = eval_expr(&expr, &HashMap::new(), &mut UnitHost).unwrap();
-    assert_eq!(v, RuntimeValue::Number(1.0));
+    assert_eq!(v, RuntimeValue::Int(1));
 }
 
 #[test]
@@ -63,31 +63,31 @@ fn unbound_var_errors() {
 fn if_then_else_left_to_right() {
     let then_expr = CoreExpr::If {
         cond: Box::new(CoreExpr::Lit(CoreLiteral::Bool(true))),
-        then_branch: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
-        else_branch: Box::new(CoreExpr::Lit(CoreLiteral::Number(2.0))),
+        then_branch: Box::new(CoreExpr::Lit(CoreLiteral::Int(1))),
+        else_branch: Box::new(CoreExpr::Lit(CoreLiteral::Int(2))),
     };
     assert_eq!(
         eval_expr(&then_expr, &HashMap::new(), &mut UnitHost).unwrap(),
-        RuntimeValue::Number(1.0)
+        RuntimeValue::Int(1)
     );
 
     let else_expr = CoreExpr::If {
         cond: Box::new(CoreExpr::Lit(CoreLiteral::Bool(false))),
-        then_branch: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
-        else_branch: Box::new(CoreExpr::Lit(CoreLiteral::Number(2.0))),
+        then_branch: Box::new(CoreExpr::Lit(CoreLiteral::Int(1))),
+        else_branch: Box::new(CoreExpr::Lit(CoreLiteral::Int(2))),
     };
     assert_eq!(
         eval_expr(&else_expr, &HashMap::new(), &mut UnitHost).unwrap(),
-        RuntimeValue::Number(2.0)
+        RuntimeValue::Int(2)
     );
 }
 
 #[test]
 fn if_non_bool_cond_errors() {
     let expr = CoreExpr::If {
-        cond: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
-        then_branch: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
-        else_branch: Box::new(CoreExpr::Lit(CoreLiteral::Number(2.0))),
+        cond: Box::new(CoreExpr::Lit(CoreLiteral::Int(1))),
+        then_branch: Box::new(CoreExpr::Lit(CoreLiteral::Int(1))),
+        else_branch: Box::new(CoreExpr::Lit(CoreLiteral::Int(2))),
     };
     let err = eval_expr(&expr, &HashMap::new(), &mut UnitHost).unwrap_err();
     assert!(err.message.contains("Bool"));
@@ -111,16 +111,16 @@ fn pattern_match_variant() {
     let expr = CoreExpr::Match {
         scrutinee: Box::new(CoreExpr::Variant {
             tag: "some".into(),
-            payload: Some(Box::new(CoreExpr::Lit(CoreLiteral::Number(42.0)))),
+            payload: Some(Box::new(CoreExpr::Lit(CoreLiteral::Int(42)))),
         }),
         arms: vec![MatchArm::variant(
             "some".into(),
             Some("n".into()),
-            CoreExpr::Lit(CoreLiteral::Number(0.0)),
+            CoreExpr::Lit(CoreLiteral::Int(0)),
         )],
     };
     let v = eval_expr(&expr, &HashMap::new(), &mut UnitHost).unwrap();
-    assert_eq!(v, RuntimeValue::Number(0.0));
+    assert_eq!(v, RuntimeValue::Int(0));
 }
 
 #[test]
@@ -140,7 +140,7 @@ fn eval_perform_random() {
         arg: Box::new(CoreExpr::Lit(CoreLiteral::String("".into()))),
     };
     let v = eval_expr(&expr, &HashMap::new(), &mut UnitHost).unwrap();
-    assert_eq!(v, RuntimeValue::Number(0.5));
+    assert_eq!(v, RuntimeValue::F64(0.5));
 }
 
 #[test]
@@ -167,8 +167,8 @@ fn eval_shape_literal_tags() {
 #[test]
 fn eval_app_non_closure_errors() {
     let expr = CoreExpr::App {
-        fun: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
-        args: vec![CoreExpr::Lit(CoreLiteral::Number(2.0))],
+        fun: Box::new(CoreExpr::Lit(CoreLiteral::Int(1))),
+        args: vec![CoreExpr::Lit(CoreLiteral::Int(2))],
     };
     assert!(eval_expr(&expr, &HashMap::new(), &mut UnitHost).is_err());
 }
@@ -177,18 +177,18 @@ fn eval_app_non_closure_errors() {
 fn eval_record_and_get() {
     let expr = CoreExpr::RecordGet {
         record: Box::new(CoreExpr::Record {
-            fields: vec![("k".into(), CoreExpr::Lit(CoreLiteral::Number(9.0)))],
+            fields: vec![("k".into(), CoreExpr::Lit(CoreLiteral::Int(9)))],
         }),
         field: "k".into(),
     };
     let v = eval_expr(&expr, &HashMap::new(), &mut UnitHost).unwrap();
-    assert_eq!(v, RuntimeValue::Number(9.0));
+    assert_eq!(v, RuntimeValue::Int(9));
 }
 
 #[test]
 fn eval_match_non_variant_errors() {
     let expr = CoreExpr::Match {
-        scrutinee: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
+        scrutinee: Box::new(CoreExpr::Lit(CoreLiteral::Int(1))),
         arms: vec![],
     };
     assert!(eval_expr(&expr, &HashMap::new(), &mut UnitHost).is_err());
@@ -204,14 +204,14 @@ fn eval_empty_seq_is_unit() {
 fn eval_record_get_errors() {
     let missing = CoreExpr::RecordGet {
         record: Box::new(CoreExpr::Record {
-            fields: vec![("a".into(), CoreExpr::Lit(CoreLiteral::Number(1.0)))],
+            fields: vec![("a".into(), CoreExpr::Lit(CoreLiteral::Int(1)))],
         }),
         field: "b".into(),
     };
     assert!(eval_expr(&missing, &HashMap::new(), &mut UnitHost).is_err());
 
     let not_rec = CoreExpr::RecordGet {
-        record: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
+        record: Box::new(CoreExpr::Lit(CoreLiteral::Int(1))),
         field: "a".into(),
     };
     assert!(eval_expr(&not_rec, &HashMap::new(), &mut UnitHost).is_err());
@@ -227,7 +227,7 @@ fn eval_match_no_arm_and_bind_payload() {
         arms: vec![MatchArm::variant(
             "some".into(),
             None,
-            CoreExpr::Lit(CoreLiteral::Number(0.0)),
+            CoreExpr::Lit(CoreLiteral::Int(0)),
         )],
     };
     assert!(eval_expr(&no_arm, &HashMap::new(), &mut UnitHost).is_err());
@@ -235,17 +235,17 @@ fn eval_match_no_arm_and_bind_payload() {
     let with_bind = CoreExpr::Match {
         scrutinee: Box::new(CoreExpr::Variant {
             tag: "some".into(),
-            payload: Some(Box::new(CoreExpr::Lit(CoreLiteral::Number(7.0)))),
+            payload: Some(Box::new(CoreExpr::Lit(CoreLiteral::Int(7)))),
         }),
         arms: vec![MatchArm::variant(
             "some".into(),
             Some("n".into()),
-            CoreExpr::Lit(CoreLiteral::Number(1.0)),
+            CoreExpr::Lit(CoreLiteral::Int(1)),
         )],
     };
     assert_eq!(
         eval_expr(&with_bind, &HashMap::new(), &mut UnitHost).unwrap(),
-        RuntimeValue::Number(1.0)
+        RuntimeValue::Int(1)
     );
 }
 
@@ -260,12 +260,12 @@ fn eval_color_literal_and_let_uses_binding() {
     // Let binds value even if body ignores it — exercise insert path.
     let expr = CoreExpr::Let {
         name: "x".into(),
-        value: Box::new(CoreExpr::Lit(CoreLiteral::Number(3.0))),
-        body: Box::new(CoreExpr::Lit(CoreLiteral::Number(9.0))),
+        value: Box::new(CoreExpr::Lit(CoreLiteral::Int(3))),
+        body: Box::new(CoreExpr::Lit(CoreLiteral::Int(9))),
     };
     assert_eq!(
         eval_expr(&expr, &HashMap::new(), &mut UnitHost).unwrap(),
-        RuntimeValue::Number(9.0)
+        RuntimeValue::Int(9)
     );
 }
 
@@ -288,7 +288,7 @@ fn eval_variant_without_payload() {
 #[test]
 fn eval_propagates_nested_errors() {
     let bad = CoreExpr::RecordGet {
-        record: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
+        record: Box::new(CoreExpr::Lit(CoreLiteral::Int(1))),
         field: "missing".into(),
     };
     let env = HashMap::new();
@@ -305,7 +305,7 @@ fn eval_propagates_nested_errors() {
     .is_err());
 
     assert!(eval_expr(
-        &CoreExpr::Seq(vec![CoreExpr::Lit(CoreLiteral::Number(1.0)), bad.clone(),]),
+        &CoreExpr::Seq(vec![CoreExpr::Lit(CoreLiteral::Int(1)), bad.clone(),]),
         &env,
         &mut host
     )
@@ -315,7 +315,7 @@ fn eval_propagates_nested_errors() {
         &CoreExpr::Let {
             name: "x".into(),
             value: Box::new(bad.clone()),
-            body: Box::new(CoreExpr::Lit(CoreLiteral::Number(0.0))),
+            body: Box::new(CoreExpr::Lit(CoreLiteral::Int(0))),
         },
         &env,
         &mut host
@@ -354,7 +354,7 @@ fn eval_propagates_nested_errors() {
     assert!(eval_expr(
         &CoreExpr::App {
             fun: Box::new(bad.clone()),
-            args: vec![CoreExpr::Lit(CoreLiteral::Number(1.0))],
+            args: vec![CoreExpr::Lit(CoreLiteral::Int(1))],
         },
         &env,
         &mut host
@@ -365,7 +365,7 @@ fn eval_propagates_nested_errors() {
         &CoreExpr::App {
             fun: Box::new(CoreExpr::Lambda {
                 params: vec!["x".into()],
-                body: Box::new(CoreExpr::Lit(CoreLiteral::Number(0.0))),
+                body: Box::new(CoreExpr::Lit(CoreLiteral::Int(0))),
             }),
             args: vec![bad.clone()],
         },
@@ -390,17 +390,17 @@ fn eval_match_without_bind() {
     let expr = CoreExpr::Match {
         scrutinee: Box::new(CoreExpr::Variant {
             tag: "ok".into(),
-            payload: Some(Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0)))),
+            payload: Some(Box::new(CoreExpr::Lit(CoreLiteral::Int(1)))),
         }),
         arms: vec![MatchArm::variant(
             "ok".into(),
             None,
-            CoreExpr::Lit(CoreLiteral::Number(5.0)),
+            CoreExpr::Lit(CoreLiteral::Int(5)),
         )],
     };
     assert_eq!(
         eval_expr(&expr, &HashMap::new(), &mut UnitHost).unwrap(),
-        RuntimeValue::Number(5.0)
+        RuntimeValue::Int(5)
     );
 }
 
@@ -409,7 +409,7 @@ fn eval_lambda_and_multi_field_record() {
     let closure = eval_expr(
         &CoreExpr::Lambda {
             params: vec!["x".into()],
-            body: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
+            body: Box::new(CoreExpr::Lit(CoreLiteral::Int(1))),
         },
         &HashMap::new(),
         &mut UnitHost,
@@ -420,7 +420,7 @@ fn eval_lambda_and_multi_field_record() {
     let rec = eval_expr(
         &CoreExpr::Record {
             fields: vec![
-                ("a".into(), CoreExpr::Lit(CoreLiteral::Number(1.0))),
+                ("a".into(), CoreExpr::Lit(CoreLiteral::Int(1))),
                 ("b".into(), CoreExpr::Lit(CoreLiteral::String("x".into()))),
             ],
         },
@@ -445,12 +445,12 @@ fn eval_match_bind_without_payload() {
         arms: vec![MatchArm::variant(
             "none".into(),
             Some("x".into()),
-            CoreExpr::Lit(CoreLiteral::Number(0.0)),
+            CoreExpr::Lit(CoreLiteral::Int(0)),
         )],
     };
     assert_eq!(
         eval_expr(&expr, &HashMap::new(), &mut UnitHost).unwrap(),
-        RuntimeValue::Number(0.0)
+        RuntimeValue::Int(0)
     );
 }
 
@@ -463,16 +463,16 @@ fn eval_app_closure_chain() {
                 params: vec!["x".into()],
                 body: Box::new(CoreExpr::Lambda {
                     params: vec!["y".into()],
-                    body: Box::new(CoreExpr::Lit(CoreLiteral::Number(9.0))),
+                    body: Box::new(CoreExpr::Lit(CoreLiteral::Int(9))),
                 }),
             }),
-            args: vec![CoreExpr::Lit(CoreLiteral::Number(1.0))],
+            args: vec![CoreExpr::Lit(CoreLiteral::Int(1))],
         }),
-        args: vec![CoreExpr::Lit(CoreLiteral::Number(2.0))],
+        args: vec![CoreExpr::Lit(CoreLiteral::Int(2))],
     };
     assert_eq!(
         eval_expr(&expr, &HashMap::new(), &mut UnitHost).unwrap(),
-        RuntimeValue::Number(9.0)
+        RuntimeValue::Int(9)
     );
 }
 
@@ -485,13 +485,13 @@ fn eval_nary_lambda_application() {
             body: Box::new(CoreExpr::Var("x".into())),
         }),
         args: vec![
-            CoreExpr::Lit(CoreLiteral::Number(1.0)),
-            CoreExpr::Lit(CoreLiteral::Number(2.0)),
+            CoreExpr::Lit(CoreLiteral::Int(1)),
+            CoreExpr::Lit(CoreLiteral::Int(2)),
         ],
     };
     assert_eq!(
         eval_expr(&expr, &HashMap::new(), &mut UnitHost).unwrap(),
-        RuntimeValue::Number(1.0)
+        RuntimeValue::Int(1)
     );
 }
 
@@ -502,7 +502,7 @@ fn eval_arity_mismatch_errors() {
             params: vec!["x".into(), "y".into()],
             body: Box::new(CoreExpr::Var("x".into())),
         }),
-        args: vec![CoreExpr::Lit(CoreLiteral::Number(1.0))],
+        args: vec![CoreExpr::Lit(CoreLiteral::Int(1))],
     };
     let err = eval_expr(&expr, &HashMap::new(), &mut UnitHost).unwrap_err();
     assert!(err.message.contains("arity"));
@@ -511,26 +511,26 @@ fn eval_arity_mismatch_errors() {
 #[test]
 fn eval_source_identity_application() {
     let v = eval_source("(val main ((fn (x) x) 42))").unwrap();
-    assert_eq!(v, RuntimeValue::Number(42.0));
+    assert_eq!(v, RuntimeValue::Int(42));
 }
 
 #[test]
 fn eval_source_if_true() {
     let v = eval_source("(val main (if true 1 2))").unwrap();
-    assert_eq!(v, RuntimeValue::Number(1.0));
+    assert_eq!(v, RuntimeValue::Int(1));
 }
 
 #[test]
 fn eval_source_sequential_vals() {
     let v = eval_source("(val f (fn (x) x))\n(val main (f 42))").unwrap();
-    assert_eq!(v, RuntimeValue::Number(42.0));
+    assert_eq!(v, RuntimeValue::Int(42));
 }
 
 #[test]
 fn eval_source_pure_fn_example() {
     let src = include_str!("../../../examples/pure_fn.rpx");
     let v = eval_source(src).unwrap();
-    assert_eq!(v, RuntimeValue::Number(42.0));
+    assert_eq!(v, RuntimeValue::Int(42));
 }
 
 #[test]
@@ -543,7 +543,7 @@ fn eval_source_parse_error() {
 fn eval_source_call1_macro_expands_before_eval() {
     let src = "(macro call1 ($f $x) -> ($f $x))\n(val main (call1 (fn (x) x) 42))";
     let v = eval_source(src).unwrap();
-    assert_eq!(v, RuntimeValue::Number(42.0));
+    assert_eq!(v, RuntimeValue::Int(42));
 }
 
 #[test]
@@ -553,7 +553,7 @@ fn eval_source_data_match_some() {
 (val main (match (some 1) (none -> 0) (some x -> x)))
 "#;
     let v = eval_source(src).unwrap();
-    assert_eq!(v, RuntimeValue::Number(1.0));
+    assert_eq!(v, RuntimeValue::Int(1));
 }
 
 #[test]
@@ -617,7 +617,7 @@ fn eval_source_record_pattern() {
                 fields[0],
                 ("0".into(), RuntimeValue::String("Report".into()))
             );
-            assert_eq!(fields[1], ("1".into(), RuntimeValue::Number(10.0)));
+            assert_eq!(fields[1], ("1".into(), RuntimeValue::Int(10)));
         }
         other => panic!("expected tuple record, got {other:?}"),
     }
@@ -632,7 +632,7 @@ fn eval_source_record_pattern() {
 "#,
     )
     .unwrap();
-    assert_eq!(miss, RuntimeValue::Number(0.0));
+    assert_eq!(miss, RuntimeValue::Int(0));
 }
 
 #[test]
@@ -650,7 +650,7 @@ fn eval_source_list_and_tuple() {
         RuntimeValue::Record(fields) => {
             assert_eq!(fields.len(), 2);
             assert_eq!(fields[0].0, "0");
-            assert_eq!(fields[0].1, RuntimeValue::Number(1.0));
+            assert_eq!(fields[0].1, RuntimeValue::Int(1));
             assert_eq!(fields[1].0, "1");
             assert_eq!(fields[1].1, RuntimeValue::String("a".into()));
         }
@@ -667,7 +667,7 @@ fn eval_source_letrec_simple() {
     (f true)))
 "#;
     let v = eval_source(src).unwrap();
-    assert_eq!(v, RuntimeValue::Number(7.0));
+    assert_eq!(v, RuntimeValue::Int(7));
 }
 
 #[test]
@@ -679,7 +679,7 @@ fn eval_source_var_set() {
     count))
 "#;
     let v = eval_source(src).unwrap();
-    assert_eq!(v, RuntimeValue::Number(1.0));
+    assert_eq!(v, RuntimeValue::Int(1));
 }
 
 #[test]
@@ -703,11 +703,11 @@ fn eval_source_var_escape_fails_after_scope() {
 #[test]
 fn eval_source_ker_primitives() {
     let v = eval_source("(val main (+ 1 2))").unwrap();
-    assert_eq!(v, RuntimeValue::Number(3.0));
+    assert_eq!(v, RuntimeValue::Int(3));
     let v = eval_source("(val main (* 3 4))").unwrap();
-    assert_eq!(v, RuntimeValue::Number(12.0));
+    assert_eq!(v, RuntimeValue::Int(12));
     let v = eval_source("(val main (/ 8 2))").unwrap();
-    assert_eq!(v, RuntimeValue::Number(4.0));
+    assert_eq!(v, RuntimeValue::F64(4.0));
     let v = eval_source("(val main (< 1 2))").unwrap();
     assert_eq!(v, RuntimeValue::Bool(true));
     let v = eval_source("(val main (> 3 1))").unwrap();

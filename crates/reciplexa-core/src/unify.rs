@@ -222,6 +222,8 @@ pub fn unify(a: &CoreType, b: &CoreType, subst: &mut Subst) -> Result<(), UnifyE
         (_, CoreType::Var(v)) => subst.bind(*v, a),
         // SYN §18.10: internal error type absorbs any expected type.
         (CoreType::Error, _) | (_, CoreType::Error) => Ok(()),
+        // ERR-001 §4.2: never is a subtype of every type.
+        (CoreType::Never, _) | (_, CoreType::Never) => Ok(()),
         // Gradual stub: Dynamic is consistent with every type.
         (CoreType::Dynamic, _) | (_, CoreType::Dynamic) => Ok(()),
         // SYN §16.3 union stub: treat like Dynamic for v0.
@@ -240,13 +242,25 @@ pub fn unify(a: &CoreType, b: &CoreType, subst: &mut Subst) -> Result<(), UnifyE
         (CoreType::OptionalField(a_inner), CoreType::OptionalField(b_inner)) => {
             unify(a_inner, b_inner, subst)
         }
-        (CoreType::Number, CoreType::Number)
+        (CoreType::Int, CoreType::Int)
+        | (CoreType::F64, CoreType::F64)
+        | (CoreType::Int, CoreType::Number)
+        | (CoreType::Number, CoreType::Int)
+        | (CoreType::F64, CoreType::Number)
+        | (CoreType::Number, CoreType::F64)
+        | (CoreType::Number, CoreType::Number)
         | (CoreType::String, CoreType::String)
         | (CoreType::Color, CoreType::Color)
         | (CoreType::Shape, CoreType::Shape)
         | (CoreType::Unit, CoreType::Unit)
         | (CoreType::Bool, CoreType::Bool)
         | (CoreType::Bytes, CoreType::Bytes) => Ok(()),
+        (CoreType::Int, CoreType::F64) | (CoreType::F64, CoreType::Int) => {
+            Err(UnifyError::Mismatch {
+                expected: a,
+                found: b,
+            })
+        }
         (
             CoreType::Lacks {
                 label: a_lab,

@@ -10,9 +10,10 @@ use std::collections::{HashMap, HashSet};
 use reciplexa_source::offset::ByteOffset;
 use reciplexa_source::range::TextRange;
 use reciplexa_syntax::{
-    coalesce_slash_paths, decode_string_literal, is_reserved_special_form, is_wildcard_ident,
-    normalize_ident, parse_number_literal, parse_source, special_char_value, unicode_scalar_value,
-    validate_ident, SlashAtom, SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken,
+    coalesce_slash_paths, decode_string_literal, is_f64_literal_form, is_reserved_special_form,
+    is_wildcard_ident, normalize_ident, parse_int_literal, parse_number_literal, parse_source,
+    special_char_value, unicode_scalar_value, validate_ident, SlashAtom, SyntaxElement, SyntaxKind,
+    SyntaxNode, SyntaxToken,
 };
 
 use crate::expr::{first_unreachable_arm, CoreExpr, CoreLiteral, CorePattern, MatchArm};
@@ -713,9 +714,12 @@ fn parse_type_syntax_in(
             }
             Ok(match name.as_str() {
                 "str" | "string" => CoreType::String,
-                "int" | "number" | "f64" | "num" => CoreType::Number,
+                "int" => CoreType::Int,
+                "f64" => CoreType::F64,
+                "number" | "num" => CoreType::Number,
                 "bool" => CoreType::Bool,
                 "unit" => CoreType::Unit,
+                "never" => CoreType::Never,
                 "dynamic" => CoreType::Dynamic,
                 "color" => CoreType::Color,
                 other
@@ -1232,17 +1236,17 @@ fn elaborate_unicode(
         Atom::Token(t) if t.kind() == SyntaxKind::Number => {
             parse_number_literal(t.text()).map_err(|msg| ElaborateError::at_token(msg, t))?
         }
-        other => {
-            let expr = elaborate_atom(other, ctx)?;
-            if let CoreExpr::Lit(CoreLiteral::Number(n)) = expr {
-                n
-            } else {
+        other => match elaborate_atom(other, ctx)? {
+            CoreExpr::Lit(CoreLiteral::Int(i)) => i as f64,
+            CoreExpr::Lit(CoreLiteral::F64(f)) => f,
+            CoreExpr::Lit(CoreLiteral::Number(n)) => n,
+            _ => {
                 return Err(ElaborateError::at_node(
                     "`unicode` code point must be a compile-time number",
                     parent,
                 ));
             }
-        }
+        },
     };
     let value = unicode_scalar_value(code).map_err(|msg| ElaborateError::at_node(msg, parent))?;
     Ok(CoreExpr::Lit(CoreLiteral::String(value)))
@@ -1403,6 +1407,8 @@ fn elaborate_list(node: &SyntaxNode, ctx: &ElabCtx) -> Result<CoreExpr, Elaborat
                 }
                 "perform" => return elaborate_perform(&atoms[1..], node, ctx),
                 "raise" => return elaborate_raise(&atoms[1..], node, ctx),
+                "or-raise" => return elaborate_or_raise(&atoms[1..], node, ctx),
+                "as-result" => return elaborate_as_result(&atoms[1..], node, ctx),
                 "handle" => return elaborate_handle(&atoms[1..], node, ctx),
                 "handler" => return elaborate_handler(&atoms[1..], node, ctx),
                 "with" => return elaborate_with(&atoms[1..], node, ctx),
@@ -2116,8 +2122,8 @@ fn pattern_literal_token(tok: &SyntaxToken) -> Result<Option<CoreLiteral>, Elabo
                     tok,
                 ));
             }
-            let n = parse_number_literal(text).map_err(|msg| ElaborateError::at_token(msg, tok))?;
-            Ok(Some(CoreLiteral::Number(n)))
+            let n = parse_int_literal(text).map_err(|msg| ElaborateError::at_token(msg, tok))?;
+            Ok(Some(CoreLiteral::Int(n)))
         }
         SyntaxKind::String => {
             let value = decode_string_literal(tok.text())
@@ -2245,6 +2251,73 @@ fn elaborate_raise(
     Ok(CoreExpr::Perform {
         op: "failure".to_string(),
         arg: Box::new(elaborate_atom(&rest[0], ctx)?),
+    })
+}
+
+/// ERR-001 §8.2: `(or-raise result)` — `ok` unwraps, `err` raises.
+fn elaborate_or_raise(
+    rest: &[Atom],
+    parent: &SyntaxNode,
+    ctx: &ElabCtx,
+) -> Result<CoreExpr, ElaborateError> {
+    if rest.len() != 1 {
+        return Err(ElaborateError::at_node(
+            "`or-raise` requires exactly one result argument",
+            parent,
+        ));
+    }
+    Ok(CoreExpr::Match {
+        scrutinee: Box::new(elaborate_atom(&rest[0], ctx)?),
+        arms: vec![
+            MatchArm::variant("ok".into(), Some("v".into()), CoreExpr::Var("v".into())),
+            MatchArm::variant(
+                "err".into(),
+                Some("e".into()),
+                CoreExpr::Perform {
+                    op: "failure".into(),
+                    arg: Box::new(CoreExpr::Var("e".into())),
+                },
+            ),
+        ],
+    })
+}
+
+/// ERR-001 §8.3: `(as-result (fn () body))` — Failure → `err`, success → `ok`.
+fn elaborate_as_result(
+    rest: &[Atom],
+    parent: &SyntaxNode,
+    ctx: &ElabCtx,
+) -> Result<CoreExpr, ElaborateError> {
+    if rest.len() != 1 {
+        return Err(ElaborateError::at_node(
+            "`as-result` requires exactly one thunk argument",
+            parent,
+        ));
+    }
+    let thunk = elaborate_atom(&rest[0], ctx)?;
+    let CoreExpr::Lambda { body, params } = thunk else {
+        return Err(ElaborateError::at_node(
+            "`as-result` argument must be `(fn () …)`",
+            parent,
+        ));
+    };
+    if !params.is_empty() {
+        return Err(ElaborateError::at_node(
+            "`as-result` thunk must be nullary `(fn () …)`",
+            parent,
+        ));
+    }
+    Ok(CoreExpr::Handle {
+        op: "failure".to_string(),
+        handler_params: vec!["e".into()],
+        handler_body: Box::new(CoreExpr::Variant {
+            tag: "err".into(),
+            payload: Some(Box::new(CoreExpr::Var("e".into()))),
+        }),
+        body: Box::new(CoreExpr::Variant {
+            tag: "ok".into(),
+            payload: Some(body),
+        }),
     })
 }
 
@@ -2964,14 +3037,21 @@ fn elaborate_atom(atom: &Atom, ctx: &ElabCtx) -> Result<CoreExpr, ElaborateError
     }
 }
 
+fn numeric_literal_from_token(tok: &SyntaxToken) -> Result<CoreLiteral, ElaborateError> {
+    let text = tok.text();
+    if is_f64_literal_form(text) {
+        let n = parse_number_literal(text).map_err(|msg| ElaborateError::at_token(msg, tok))?;
+        Ok(CoreLiteral::F64(n))
+    } else {
+        let n = parse_int_literal(text).map_err(|msg| ElaborateError::at_token(msg, tok))?;
+        Ok(CoreLiteral::Int(n))
+    }
+}
+
 fn elaborate_token(tok: &SyntaxToken, ctx: &ElabCtx) -> Result<CoreExpr, ElaborateError> {
     match tok.kind() {
         SyntaxKind::Error => Ok(CoreExpr::Error),
-        SyntaxKind::Number => {
-            let text = tok.text();
-            let n = parse_number_literal(text).map_err(|msg| ElaborateError::at_token(msg, tok))?;
-            Ok(CoreExpr::Lit(CoreLiteral::Number(n)))
-        }
+        SyntaxKind::Number => Ok(CoreExpr::Lit(numeric_literal_from_token(tok)?)),
         SyntaxKind::String => {
             let raw = tok.text();
             let value =

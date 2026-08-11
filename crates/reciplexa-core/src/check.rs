@@ -70,7 +70,8 @@ pub fn infer_with_effects(
         CoreExpr::Error => Ok((CoreType::Error, EffectRow::default())),
         CoreExpr::Lit(lit) => Ok((
             match lit {
-                CoreLiteral::Number(_) => CoreType::Number,
+                CoreLiteral::Number(_) | CoreLiteral::F64(_) => CoreType::F64,
+                CoreLiteral::Int(_) => CoreType::Int,
                 CoreLiteral::String(_) => CoreType::String,
                 CoreLiteral::Color(_) => CoreType::Color,
                 CoreLiteral::Bool(_) => CoreType::Bool,
@@ -120,8 +121,7 @@ pub fn infer_with_effects(
             let ty = match op.as_str() {
                 "read-file" => CoreType::String,
                 "random" => CoreType::Number,
-                // ERR-001 §4.2 never — stub as Dynamic until a Never type lands.
-                "failure" => CoreType::Dynamic,
+                "failure" => CoreType::Never,
                 _ => CoreType::Unit,
             };
             Ok((ty, arg_effs.with_op(op.clone())))
@@ -314,6 +314,11 @@ pub fn infer_with_effects(
             ))
         }
         CoreExpr::App { fun, args } => {
+            if let CoreExpr::Var(op) = fun.as_ref() {
+                if let Some(result) = try_infer_numeric_builtin(op, args, env, subst, range) {
+                    return result;
+                }
+            }
             let (fun_ty, fun_effs) = infer_with_effects(fun, env, subst, range)?;
             let mut arg_tys = Vec::with_capacity(args.len());
             let mut arg_effs = EffectRow::default();
@@ -359,12 +364,18 @@ pub fn infer_with_effects(
             let then_ty = subst.apply(&then_ty);
             let else_ty = subst.apply(&else_ty);
             // L4983: when branches disagree, result is a union (not a hard error).
-            let mut trial = subst.clone();
-            let result_ty = if unify(&then_ty, &else_ty, &mut trial).is_ok() {
-                *subst = trial;
-                subst.apply(&then_ty)
+            let result_ty = if matches!(then_ty, CoreType::Never) {
+                else_ty
+            } else if matches!(else_ty, CoreType::Never) {
+                then_ty
             } else {
-                CoreType::Union(vec![then_ty, else_ty])
+                let mut trial = subst.clone();
+                if unify(&then_ty, &else_ty, &mut trial).is_ok() {
+                    *subst = trial;
+                    subst.apply(&then_ty)
+                } else {
+                    CoreType::Union(vec![then_ty, else_ty])
+                }
             };
             Ok((result_ty, cond_effs.merge(&then_effs).merge(&else_effs)))
         }
@@ -785,6 +796,62 @@ fn bind_pattern(pat: &CorePattern, scr_ty: &CoreType, env: &mut TypeEnv) {
     }
 }
 
+const NUMERIC_BINOPS: &[&str] = &["+", "-", "*", "/", "<", ">", "<=", ">="];
+
+fn try_infer_numeric_builtin(
+    op: &str,
+    args: &[CoreExpr],
+    env: &TypeEnv,
+    subst: &mut Subst,
+    range: TextRange,
+) -> Option<Result<(CoreType, EffectRow), CheckError>> {
+    if !NUMERIC_BINOPS.contains(&op) || args.len() != 2 {
+        return None;
+    }
+    let mut effs = EffectRow::default();
+    let (a_ty, a_eff) = infer_with_effects(&args[0], env, subst, range).ok()?;
+    let (b_ty, b_eff) = infer_with_effects(&args[1], env, subst, range).ok()?;
+    effs = effs.merge(&a_eff).merge(&b_eff);
+    let a_ty = subst.apply(&a_ty);
+    let b_ty = subst.apply(&b_ty);
+    let a_class = match a_ty.numeric_class() {
+        Some(c) => c,
+        None if matches!(a_ty, CoreType::Number | CoreType::Dynamic) => {
+            return Some(Err(CheckError::at(
+                format!(
+                    "numeric operand for `{op}` must be `int` or `f64`, not ambiguous `number`"
+                ),
+                range,
+            )));
+        }
+        None => {
+            return Some(Err(CheckError::at(
+                format!("`{op}` expects numeric operands"),
+                range,
+            )));
+        }
+    };
+    let b_class = match b_ty.numeric_class() {
+        Some(c) => c,
+        None if matches!(b_ty, CoreType::Number | CoreType::Dynamic) => {
+            return Some(Err(CheckError::at(
+                format!(
+                    "numeric operand for `{op}` must be `int` or `f64`, not ambiguous `number`"
+                ),
+                range,
+            )));
+        }
+        None => {
+            return Some(Err(CheckError::at(
+                format!("`{op}` expects numeric operands"),
+                range,
+            )));
+        }
+    };
+    let ret = CoreType::numeric_binop_result(op, a_class, b_class);
+    Some(Ok((ret, effs)))
+}
+
 /// Type-check and return a typed core value.
 pub fn typecheck_value(
     expr: CoreExpr,
@@ -812,12 +879,7 @@ pub fn typecheck_language_source(src: &str) -> Result<CoreType, CheckError> {
     let mut subst = Subst::new();
     let mut env = TypeEnv::new();
     env.data = data;
-    // KER-001 primitive types
-    let num2 = CoreType::Fun {
-        args: vec![CoreType::Number, CoreType::Number],
-        ret: Box::new(CoreType::Number),
-        effects: EffectRow::default(),
-    };
+    // KER-001 / DD-TYP-NUM-002: numeric builtins use promotion at application sites.
     let cmp2 = CoreType::Fun {
         args: vec![CoreType::Number, CoreType::Number],
         ret: Box::new(CoreType::Bool),
@@ -828,16 +890,25 @@ pub fn typecheck_language_source(src: &str) -> Result<CoreType, CheckError> {
         ret: Box::new(CoreType::Bool),
         effects: EffectRow::default(),
     };
-    env.insert("+", num2.clone());
-    env.insert("-", num2.clone());
-    env.insert("*", num2.clone());
-    env.insert("/", num2);
+    for op in ["+", "-", "*", "/"] {
+        env.insert(
+            op,
+            CoreType::Fun {
+                args: vec![CoreType::Number, CoreType::Number],
+                ret: Box::new(CoreType::Number),
+                effects: EffectRow::default(),
+            },
+        );
+    }
     env.insert("<", cmp2.clone());
     env.insert(">", cmp2.clone());
     env.insert("<=", cmp2.clone());
     env.insert(">=", cmp2);
     env.insert("=", eq2.clone());
     env.insert("!=", eq2);
+    for c in ["black", "white", "red", "green", "blue"] {
+        env.insert(c, CoreType::Color);
+    }
     let pred1 = CoreType::Fun {
         args: vec![CoreType::Dynamic],
         ret: Box::new(CoreType::Bool),
@@ -855,7 +926,7 @@ pub fn typecheck_language_source(src: &str) -> Result<CoreType, CheckError> {
     env.insert(
         "unicode",
         CoreType::Fun {
-            args: vec![CoreType::Number],
+            args: vec![CoreType::Int],
             ret: Box::new(CoreType::String),
             effects: EffectRow::default(),
         },

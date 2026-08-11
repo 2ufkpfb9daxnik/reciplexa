@@ -14,7 +14,12 @@ use crate::control::ResumeCont;
 #[derive(Clone)]
 pub enum RuntimeValue {
     Unit,
+    /// Legacy float runtime value; prefer [`RuntimeValue::F64`].
     Number(f64),
+    /// DD-TYP-NUM-001 exact integer runtime value (i128 kernel subset).
+    Int(i128),
+    /// DD-TYP-NUM-001 IEEE binary64.
+    F64(f64),
     String(String),
     Bool(bool),
     ShapeTag(String),
@@ -79,6 +84,8 @@ impl fmt::Debug for RuntimeValue {
         match self {
             Self::Unit => write!(f, "Unit"),
             Self::Number(n) => f.debug_tuple("Number").field(n).finish(),
+            Self::Int(n) => f.debug_tuple("Int").field(n).finish(),
+            Self::F64(n) => f.debug_tuple("F64").field(n).finish(),
             Self::String(s) => f.debug_tuple("String").field(s).finish(),
             Self::Bool(b) => f.debug_tuple("Bool").field(b).finish(),
             Self::ShapeTag(s) => f.debug_tuple("ShapeTag").field(s).finish(),
@@ -121,6 +128,8 @@ impl PartialEq for RuntimeValue {
         match (self, other) {
             (Self::Unit, Self::Unit) => true,
             (Self::Number(a), Self::Number(b)) => a == b,
+            (Self::Int(a), Self::Int(b)) => a == b,
+            (Self::F64(a), Self::F64(b)) => a == b,
             (Self::String(a), Self::String(b)) => a == b,
             (Self::Bool(a), Self::Bool(b)) => a == b,
             (Self::ShapeTag(a), Self::ShapeTag(b)) => a == b,
@@ -185,7 +194,9 @@ impl RuntimeValue {
     pub fn ty(&self) -> CoreType {
         match self {
             Self::Unit => CoreType::Unit,
-            Self::Number(_) => CoreType::Number,
+            Self::Number(_) => CoreType::F64,
+            Self::Int(_) => CoreType::Int,
+            Self::F64(_) => CoreType::F64,
             Self::String(_) => CoreType::String,
             Self::Bool(_) => CoreType::Bool,
             Self::ShapeTag(_) => CoreType::Shape,
@@ -226,6 +237,8 @@ impl fmt::Display for RuntimeValue {
         let rendered = match self {
             Self::Unit => "unit".to_string(),
             Self::Number(n) => n.to_string(),
+            Self::Int(n) => n.to_string(),
+            Self::F64(n) => n.to_string(),
             Self::String(s) => format!("\"{s}\""),
             Self::Bool(b) => b.to_string(),
             Self::ShapeTag(s) => format!("shape:{s}"),

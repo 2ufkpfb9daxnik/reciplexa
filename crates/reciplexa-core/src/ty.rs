@@ -27,6 +27,11 @@ impl TypeVarId {
 /// tail (`OpenRecord`). [`CoreType::Lacks`] is enforced under unify.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CoreType {
+    /// DD-TYP-NUM-001: arbitrary-precision integer (static view; runtime uses i128 subset).
+    Int,
+    /// DD-TYP-NUM-001: IEEE binary64.
+    F64,
+    /// `number ≃ int | f64` — supertype of both numeric primitives.
     Number,
     String,
     Color,
@@ -90,12 +95,46 @@ pub enum CoreType {
     Name(String),
     /// SYN §18.10 internal error type for [`crate::expr::CoreExpr::Error`].
     Error,
+    /// ERR-001 §4.2 `never` — empty type; subtype of every type.
+    Never,
 }
 
 /// Thin effect row — grows in Phase 5 lowering.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct EffectRow {
     pub ops: Vec<String>,
+}
+
+/// Numeric promotion for binary ops (DD-TYP-NUM-002).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NumericClass {
+    Int,
+    F64,
+}
+
+impl CoreType {
+    /// Classify a concrete numeric type (not [`CoreType::Number`] union).
+    pub fn numeric_class(&self) -> Option<NumericClass> {
+        match self {
+            CoreType::Int => Some(NumericClass::Int),
+            CoreType::F64 => Some(NumericClass::F64),
+            _ => None,
+        }
+    }
+
+    /// Result type of a binary numeric operation.
+    pub fn numeric_binop_result(op: &str, left: NumericClass, right: NumericClass) -> CoreType {
+        match op {
+            "/" => CoreType::F64,
+            "+" | "-" | "*" => match (left, right) {
+                (NumericClass::Int, NumericClass::Int) => CoreType::Int,
+                (NumericClass::F64, NumericClass::F64) => CoreType::F64,
+                _ => CoreType::F64,
+            },
+            "<" | ">" | "<=" | ">=" => CoreType::Bool,
+            _ => CoreType::Number,
+        }
+    }
 }
 
 impl EffectRow {
