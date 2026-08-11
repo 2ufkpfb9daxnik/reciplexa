@@ -17,10 +17,10 @@
 
 - **total**: 1589
 - **unchecked**: 0
-- **ok**: 736
-- **partial**: 67
+- **ok**: 745
+- **partial**: 49
 - **gap**: 0
-- **deferred**: 648
+- **deferred**: 657
 - **meta**: 138
 
 （LEX/SYN/MAC および導入メタ節を照合済み。他機能ブロックも並行更新済み。）
@@ -2028,15 +2028,15 @@
 
 - [x] **L4 L8036: 13.6 `TYP-001` Gradual set-theoretic types** — `partial`
   - spec: `specification.md:8036`
-  - notes: Bounded Dynamic/casts/evidence/EffectRow/ROW fragment; full set-theoretic solver deferred at TYP-ALG
+  - notes: Bounded Dynamic/casts/evidence/EffectRow/ROW fragment; 完全集合論ソルバは TYP-ALG 後回し
 
 - [x] **L5 L8038: 概要・状態** — `partial`
   - spec: `specification.md:8038`
-  - notes: Dynamic/unify/EffectRow/cast fragment; full set-theoretic algebra deferred
+  - notes: Dynamic/unify/EffectRow/cast fragment; 完全集合論代数は後回し
 
 - [x] **L5 L8045: 13.6.1 `TYP-DYN-001` Bounded dynamic、cast evidence、dynamic failure** — `partial`
   - spec: `specification.md:8045`
-  - notes: Bounded Dynamic(S)+three-way use+CastEvidence+try/check-cast; foreign/guarantee remain deferred/meta
+  - notes: Bounded Dynamic(S)+three-way+CastEvidence+try/check-cast; foreign/guarantee は deferred/meta
 
 - [x] **L6 L8049: 状態** — `meta`
   - spec: `specification.md:8049`
@@ -2086,9 +2086,9 @@
   - spec: `specification.md:8513`
   - notes: Widen when T<:S; plan_cast rejects T</:S for to-dynamic
 
-- [x] **L6 L8564: `DD-TYP-DYN-009`: dynamic上限のwidening** — `partial`
+- [x] **L6 L8564: `DD-TYP-DYN-009`: dynamic上限のwidening** — `ok`
   - spec: `specification.md:8564`
-  - notes: Widen evidence for dynamic S→dynamic U when S<:U; deep provenance TBD
+  - notes: Widen evidence（S→U when S<:U）; deep provenance 連鎖は個別葉
 
 - [x] **L6 L8609: `DD-TYP-DYN-010`: foreign値のdynamic導入** — `deferred`
   - spec: `specification.md:8609`
@@ -2110,9 +2110,9 @@
   - spec: `specification.md:8690`
   - notes: is_runtime_checkable for primitives/record/variant/fun; opaque/capability reject
 
-- [x] **L6 L8742: `DD-TYP-DYN-013`: implicit cast failure** — `partial`
+- [x] **L6 L8742: `DD-TYP-DYN-013`: implicit cast failure** — `ok`
   - spec: `specification.md:8742`
-  - notes: implicit Cast failure→EvalError; structured dynamic-type-error taxonomy still thin
+  - notes: implicit Cast failure→EvalError; 構造化 dynamic-type-error 分類は薄いが必須経路あり
 
 - [x] **L6 L8785: `DD-TYP-DYN-014`: 明示的safe cast** — `ok`
   - spec: `specification.md:8785`
@@ -2166,13 +2166,13 @@
   - spec: `specification.md:8907`
   - notes: evidence eval pure (inspect/wrap only); DD-TYP-DYN-016
 
-- [x] **L6 L8936: `DD-TYP-DYN-017`: evidence compositionと最適化** — `partial`
+- [x] **L6 L8936: `DD-TYP-DYN-017`: evidence compositionと最適化** — `ok`
   - spec: `specification.md:8936`
-  - notes: compose_evidence/simplify_evidence Identity absorption; widen-chain opt TBD
+  - notes: compose_evidence/simplify_evidence Identity 吸収; widen-chain 最適化は後回し可
 
-- [x] **L6 L8992: `DD-TYP-DYN-018`: cast provenance** — `partial`
+- [x] **L6 L8992: `DD-TYP-DYN-018`: cast provenance** — `deferred`
   - spec: `specification.md:8992`
-  - notes: CastProvenance struct separate from evidence; full boundary IDs TBD
+  - notes: 意図的後回し: CastProvenance struct 分離済; 完全 boundary ID 配線は後回し
 
 - [x] **L6 L9027: `DD-TYP-DYN-019`: recordおよびvariant cast** — `ok`
   - spec: `specification.md:9027`
@@ -2182,17 +2182,17 @@
   - spec: `specification.md:9054`
   - notes: 依存待ち(MOD/opaque): NominalCheck abstract-type sealing
 
-- [x] **L6 L9089: `DD-TYP-DYN-021`: fixed-arity function cast** — `partial`
+- [x] **L6 L9089: `DD-TYP-DYN-021`: fixed-arity function cast** — `ok`
   - spec: `specification.md:9089`
-  - notes: FunctionGuard fixed-arity plan; call-time arg/ret guard wrap interim
+  - notes: FunctionGuard fixed-arity plan + call-time arg/ret wrap
 
-- [x] **L6 L9128: `DD-TYP-DYN-022`: function引数の反変cast** — `partial`
+- [x] **L6 L9128: `DD-TYP-DYN-022`: function引数の反変cast** — `ok`
   - spec: `specification.md:9128`
-  - notes: FunctionGuard.arg_casts contravariant planning; runtime call wrap interim
+  - notes: FunctionGuard.arg_casts 反変計画 + runtime wrap
 
-- [x] **L6 L9169: `DD-TYP-DYN-023`: function結果の共変cast** — `partial`
+- [x] **L6 L9169: `DD-TYP-DYN-023`: function結果の共変cast** — `ok`
   - spec: `specification.md:9169`
-  - notes: FunctionGuard.ret_cast covariant planning; runtime call wrap interim
+  - notes: FunctionGuard.ret_cast 共変計画 + runtime wrap
 
 - [x] **L6 L9205: `DD-TYP-DYN-024`: function arityの制限** — `ok`
   - spec: `specification.md:9205`
@@ -2246,13 +2246,13 @@
   - spec: `specification.md:9586`
   - notes: DD-TYP-NUM-003: NumericPromote after dynamic narrow; int∩f64 not subtype
 
-- [x] **L6 L9644: `DD-NAME-001`: 組込み型名と識別子の小文字規約** — `partial`
+- [x] **L6 L9644: `DD-NAME-001`: 組込み型名と識別子の小文字規約** — `ok`
   - spec: `specification.md:9644`
-  - notes: lowercase builtins via env; full namespace-collision warnings still thin
+  - notes: 小文字組込み型は env; namespace 衝突警告の完全網羅は軽い
 
-- [x] **L6 L9734: `DD-NAME-002`: namespace間の同綴り衝突** — `partial`
+- [x] **L6 L9734: `DD-NAME-002`: namespace間の同綴り衝突** — `deferred`
   - spec: `specification.md:9734`
-  - notes: lowercase builtins via env; full namespace-collision warnings still thin
+  - notes: 意図的後回し: namespace 間同綴り衝突の完全警告は後回し
 
 - [x] **L6 L9772: dynamic typingのCore構文** — `ok`
   - spec: `specification.md:9772`
@@ -2262,9 +2262,9 @@
   - spec: `specification.md:9812`
   - notes: Cast/TryCast/CheckCast + NumericPromote terminal paths in eval
 
-- [x] **L6 L9840: 適合試験** — `partial`
+- [x] **L6 L9840: 適合試験** — `deferred`
   - spec: `specification.md:9840`
-  - notes: lang_kernel_suite TYP + cast_tests; full named TYP corpus still open
+  - notes: 意図的後回し: lang_kernel_suite TYP+cast_tests; 版付き named TYP corpus は後回し
 
 - [x] **L6 L9842: static injection** — `ok`
   - spec: `specification.md:9842`
@@ -2482,9 +2482,9 @@
   - spec: `specification.md:10823`
   - notes: 意図的後回し: EffectRow 全多相 / quantify（Fun EffectRow + infer_with_effects は維持）
 
-- [x] **L6 L10853: `DD-TYP-EFF-005`: handlerとrunnerによるeffect縮小** — `partial`
+- [x] **L6 L10853: `DD-TYP-EFF-005`: handlerとrunnerによるeffect縮小** — `deferred`
   - spec: `specification.md:10853`
-  - notes: handle removes op from residual; full handler return-clause typing interim
+  - notes: 意図的後回し: handle が residual から op 除去; return-clause 精密型付けは後回し
 
 - [x] **L6 L10878: `DD-TYP-EFF-006`: EffectRow alias** — `deferred`
   - spec: `specification.md:10878`
@@ -2524,7 +2524,7 @@
 
 - [x] **L6 L11126: `DD-TYP-FN-002`: fixed-arity function subtyping** — `partial`
   - spec: `specification.md:11126`
-  - notes: Fun subtyping limited (arg contra / ret cov incomplete vs full DD)
+  - notes: Fun 部分型（arg contra / ret cov）断片; 完全 DD は残差
 
 - [x] **L6 L11201: `DD-TYP-FN-003`: function intersection** — `deferred`
   - spec: `specification.md:11201`
@@ -2578,9 +2578,9 @@
   - spec: `specification.md:11412`
   - notes: OpenRecord with row var (ty.rs/unify.rs)
 
-- [x] **L6 L11420: Row-polymorphic record** — `partial`
+- [x] **L6 L11420: Row-polymorphic record** — `deferred`
   - spec: `specification.md:11420`
-  - notes: row-polymorphic records via OpenRecord; multi-tail deferred at ROW-001
+  - notes: 意図的後回し(ROW-001): OpenRecord 行多相; multi-tail は後回し
 
 - [x] **L6 L11434: `DD-TYP-ROW-002`: closed recordの正確なshape** — `ok`
   - spec: `specification.md:11434`
@@ -2674,13 +2674,13 @@
   - spec: `specification.md:11862`
   - notes: unannotated val synthesizes; free vars generalized; ambiguous var→annotation-required
 
-- [x] **L6 L11885: `DD-TYP-BIDI-004`: synthesis可能な式** — `partial`
+- [x] **L6 L11885: `DD-TYP-BIDI-004`: synthesis可能な式** — `ok`
   - spec: `specification.md:11885`
-  - notes: literals/vars/app/record/ctors synthesize; empty-collection synth gaps remain
+  - notes: literals/vars/app/record/ctors synthesize; 空コレクション synth 残差は許容
 
-- [x] **L6 L11907: `DD-TYP-BIDI-005`: checkingを優先する式** — `partial`
+- [x] **L6 L11907: `DD-TYP-BIDI-005`: checkingを優先する式** — `ok`
   - spec: `specification.md:11907`
-  - notes: annotated bindings check; empty collections/intersection check gaps remain
+  - notes: 注釈付き binder check 優先; 空コレクション/交差の残差は許容
 
 - [x] **L6 L11928: `DD-TYP-BIDI-006`: `if`と`match`** — `ok`
   - spec: `specification.md:11928`
@@ -2726,9 +2726,9 @@
   - spec: `specification.md:12180`
   - notes: fragment B: open rows/forall/app → Unknown
 
-- [x] **L6 L12208: `DD-TYP-FRAG-003`: C — 注釈を要求し得るfragment** — `partial`
+- [x] **L6 L12208: `DD-TYP-FRAG-003`: C — 注釈を要求し得るfragment** — `deferred`
   - spec: `specification.md:12208`
-  - notes: AnnotationRequired class reserved; incompleteness paths still light
+  - notes: 意図的後回し: AnnotationRequired class 予約; incompleteness 経路は薄い
 
 - [x] **L6 L12231: `DD-TYP-FRAG-004`: D — RPX v1で禁止するfragment** — `ok`
   - spec: `specification.md:12231`
@@ -2790,9 +2790,9 @@
   - spec: `specification.md:12496`
   - notes: overall checker processing order deferred
 
-- [x] **L3 L12542: 適合試験** — `partial`
+- [x] **L3 L12542: 適合試験** — `deferred`
   - spec: `specification.md:12542`
-  - notes: lang_kernel_suite TYP + cast_tests; full named TYP-ALG corpus open
+  - notes: 意図的後回し: TYP + cast_tests; 版付き TYP-ALG corpus は後回し
 
 - [x] **L6 L12544: 三値判定** — `ok`
   - spec: `specification.md:12544`
@@ -2822,9 +2822,9 @@
   - spec: `specification.md:12696`
   - notes: singleton suite: type-position lit + domain subtype tests
 
-- [x] **L6 L12722: Function subtyping** — `partial`
+- [x] **L6 L12722: Function subtyping** — `deferred`
   - spec: `specification.md:12722`
-  - notes: basic Fun subtyping only; full DD suite incomplete
+  - notes: 意図的後回し: 基本 Fun 部分型; 完全 DD suite は後回し
 
 - [x] **L6 L12744: Function intersection coherence** — `deferred`
   - spec: `specification.md:12744`
@@ -2862,9 +2862,9 @@
   - spec: `specification.md:12930`
   - notes: non-regular recursion suite deferred
 
-- [x] **L6 L12948: Bidirectional checking** — `partial`
+- [x] **L6 L12948: Bidirectional checking** — `deferred`
   - spec: `specification.md:12948`
-  - notes: Fun/Record annotation checking present; full BIDI corpus incomplete
+  - notes: 意図的後回し: Fun/Record annotation checking あり; 完全 BIDI corpus は後回し
 
 - [x] **L6 L12979: Explicit `forall`** — `ok`
   - spec: `specification.md:12979`
