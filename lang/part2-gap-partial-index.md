@@ -21,11 +21,11 @@
 | `PKG` | 0 | 8 | 8 |
 | `KER` | 0 | 2 | 2 |
 | `EDT` | 0 | 0 | 0 |
-| `IR` | 0 | 6 | 6 |
+| `IR` | 0 | 1 | 1 |
 | `ERR` | 0 | 3 | 3 |
 | `MEM` | 0 | 1 | 1 |
 | `TST` | 0 | 23 | 23 |
-| **合計** | **0** | **93** | **93** |
+| **合計** | **0** | **88** | **88** |
 
 （全体カウンタは `part2-conformance-stats.json` 参照。機能別内訳は L4 `XXX-001` ブロック帰属。）
 
@@ -33,7 +33,6 @@
 - `TST`: gap 0 + partial 23 = **23**
 - `TYP`: gap 0 + partial 22 = **22**
 - `PKG`: gap 0 + partial 8 = **8**
-- `IR`: gap 0 + partial 6 = **6**
 - `SYN`: gap 0 + partial 5 = **5**
 - `EVAL`: gap 0 + partial 4 = **4**
 - `MAC`: gap 0 + partial 3 = **3**
@@ -47,7 +46,9 @@
 - `RSC`: gap 0 + partial 2 = **2**
 - `MOD`: gap 0 + partial 2 = **2**
 - `KER`: gap 0 + partial 2 = **2**
+- `IR`: gap 0 + partial 1 = **1**
 - `MEM`: gap 0 + partial 1 = **1**
+
 
 
 

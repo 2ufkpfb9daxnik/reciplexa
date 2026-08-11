@@ -17,10 +17,10 @@
 
 - **total**: 1589
 - **unchecked**: 0
-- **ok**: 730
-- **partial**: 93
+- **ok**: 731
+- **partial**: 88
 - **gap**: 0
-- **deferred**: 628
+- **deferred**: 632
 - **meta**: 138
 
 （LEX/SYN/MAC および導入メタ節を照合済み。他機能ブロックも並行更新済み。）
@@ -5024,27 +5024,27 @@
 
 - [x] **L4 L18860: 13.12 `IR-001` Layered visual/motion/render IR** — `partial`
   - spec: `specification.md:18860`
-  - notes: backends+motion+view exist; full layered IR schema still provisional
+  - notes: backends+motion+view 実装済; 完全 layered IR schema は暫定
 
 - [x] **L5 L18862: 概要・状態** — `meta`
   - spec: `specification.md:18862`
   - notes: IR-001 overview/status (単一万能IR拒否確定; schema暫定)
 
-- [x] **L5 L18875: SurfaceとArtifact** — `partial`
+- [x] **L5 L18875: SurfaceとArtifact** — `deferred`
   - spec: `specification.md:18875`
-  - notes: scene/document surfaces exist; Artifact algebra incomplete
+  - notes: 意図的後回し: scene/document surface あり; Artifact 代数は後回し
 
-- [x] **L5 L18889: RenderIR node algebra** — `partial`
+- [x] **L5 L18889: RenderIR node algebra** — `deferred`
   - spec: `specification.md:18889`
-  - notes: pdf/svg/pptx/view primitives; full RenderIR node algebra incomplete
+  - notes: 意図的後回し: pdf/svg/pptx/view 原始あり; 完全 RenderIR node 代数は後回し
 
-- [x] **L5 L18935: MotionIR** — `partial`
+- [x] **L5 L18935: MotionIR** — `ok`
   - spec: `specification.md:18935`
   - notes: reciplexa-motion MotionTrack Constant/Keyframes/Samples
 
-- [x] **L5 L18949: Backend lowering** — `partial`
+- [x] **L5 L18949: Backend lowering** — `deferred`
   - spec: `specification.md:18949`
-  - notes: pdf/svg/pptx lowering; AE/edit-preserving path incomplete
+  - notes: 意図的後回し: pdf/svg/pptx lowering あり; AE/edit-preserving path は後回し
 
 - [x] **L5 L18962: 不変条件** — `meta`
   - spec: `specification.md:18962`
@@ -5054,9 +5054,9 @@
   - spec: `specification.md:18972`
   - notes: IR metatheory / CE notes
 
-- [x] **L5 L18981: テスト** — `partial`
+- [x] **L5 L18981: テスト** — `deferred`
   - spec: `specification.md:18981`
-  - notes: phase12_motion TEST-IR-007 style; full IR-001..009 validator suite 意図的後回し
+  - notes: 意図的後回し: phase12_motion TEST-IR-007; 版付き IR-001..009 validator suite は後回し
 
 - [x] **L4 L18993: 13.13 `ERR-001` 通常の失敗・Failure effect・後始末・Defect・最上位実行境界** — `partial`
   - spec: `specification.md:18993`
