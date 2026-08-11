@@ -15,12 +15,12 @@
 
 ### 進捗カウンタ
 
-- **total**: 1589
+- **total**: 1512
 - **unchecked**: 0
-- **ok**: 340
-- **partial**: 508
-- **gap**: 257
-- **deferred**: 352
+- **ok**: 335
+- **partial**: 509
+- **gap**: 242
+- **deferred**: 294
 - **meta**: 132
 
 （LEX/SYN/MAC および導入メタ節を照合済み。他機能ブロックも並行更新済み。）
@@ -2043,13 +2043,13 @@
   - spec: `specification.md:8154`
   - notes: CoreType::Dynamic unifies loosely (unify.rs / ty.rs)
 
-- [x] **L6 L8199: `DD-TYP-DYN-003`: static top型`any`** — `gap`
+- [x] **L6 L8199: `DD-TYP-DYN-003`: static top型`any`** — `partial`
   - spec: `specification.md:8199`
-  - notes: no cast evidence / gradual runtime; Dynamic stub only
+  - notes: CoreType::Any + unify S<:any; surface `any` type name
 
-- [x] **L6 L8275: `DD-TYP-DYN-004`: `never`およびdynamicの正規形** — `gap`
+- [x] **L6 L8275: `DD-TYP-DYN-004`: `never`およびdynamicの正規形** — `partial`
   - spec: `specification.md:8275`
-  - notes: no cast evidence / gradual runtime; Dynamic stub only
+  - notes: CoreType::Never + unify never subtype
 
 - [x] **L6 L8323: `DD-TYP-DYN-005`: dynamic値をstatic型として使用する三段階判定** — `gap`
   - spec: `specification.md:8323`
@@ -2107,53 +2107,53 @@
   - spec: `specification.md:8742`
   - notes: no cast evidence / gradual runtime; Dynamic stub only
 
-- [x] **L6 L8785: `DD-TYP-DYN-014`: 明示的safe cast** — `gap`
+- [x] **L6 L8785: `DD-TYP-DYN-014`: 明示的safe cast** — `partial`
   - spec: `specification.md:8785`
-  - notes: TYP-DYN beyond Dynamic stub unimplemented
+  - notes: try-cast/check-cast surface + eval
 
-- [x] **L6 L8824: `DD-TYP-DYN-015`: cast evidence** — `gap`
+- [x] **L6 L8824: `DD-TYP-DYN-015`: cast evidence** — `partial`
   - spec: `specification.md:8824`
-  - notes: no cast evidence / gradual runtime; Dynamic stub only
+  - notes: CastEvidence enum + plan_cast_evidence
 
-- [x] **L6 L8854: `Identity`** — `gap`
+- [x] **L6 L8854: `Identity`** — `partial`
   - spec: `specification.md:8854`
-  - notes: no cast evidence / gradual runtime; Dynamic stub only
+  - notes: CastEvidence::Identity
 
-- [x] **L6 L8858: `Widen`** — `gap`
+- [x] **L6 L8858: `Widen`** — `partial`
   - spec: `specification.md:8858`
-  - notes: no cast evidence / gradual runtime; Dynamic stub only
+  - notes: CastEvidence::Widen
 
-- [x] **L6 L8862: `TagCheck`** — `gap`
+- [x] **L6 L8862: `TagCheck`** — `partial`
   - spec: `specification.md:8862`
-  - notes: no cast evidence / gradual runtime; Dynamic stub only
+  - notes: CastEvidence::TagCheck
 
-- [x] **L6 L8866: `UnionCheck`** — `gap`
+- [x] **L6 L8866: `UnionCheck`** — `partial`
   - spec: `specification.md:8866`
-  - notes: no cast evidence / gradual runtime; Dynamic stub only
+  - notes: CastEvidence::UnionCheck
 
-- [x] **L6 L8870: `IntersectionCheck`** — `gap`
+- [x] **L6 L8870: `IntersectionCheck`** — `partial`
   - spec: `specification.md:8870`
-  - notes: no cast evidence / gradual runtime; Dynamic stub only
+  - notes: CastEvidence::IntersectionCheck
 
-- [x] **L6 L8874: `RecordCheck`** — `gap`
+- [x] **L6 L8874: `RecordCheck`** — `partial`
   - spec: `specification.md:8874`
-  - notes: no cast evidence / gradual runtime; Dynamic stub only
+  - notes: CastEvidence::RecordCheck
 
-- [x] **L6 L8878: `VariantCheck`** — `gap`
+- [x] **L6 L8878: `VariantCheck`** — `partial`
   - spec: `specification.md:8878`
-  - notes: no cast evidence / gradual runtime; Dynamic stub only
+  - notes: CastEvidence::VariantCheck
 
-- [x] **L6 L8882: `FunctionGuard`** — `gap`
+- [x] **L6 L8882: `FunctionGuard`** — `partial`
   - spec: `specification.md:8882`
-  - notes: no cast evidence / gradual runtime; Dynamic stub only
+  - notes: CastEvidence::FunctionGuard
 
-- [x] **L6 L8886: `NominalCheck`** — `gap`
+- [x] **L6 L8886: `NominalCheck`** — `partial`
   - spec: `specification.md:8886`
-  - notes: no cast evidence / gradual runtime; Dynamic stub only
+  - notes: CastEvidence::NominalCheck
 
-- [x] **L6 L8890: `Compose`** — `gap`
+- [x] **L6 L8890: `Compose`** — `partial`
   - spec: `specification.md:8890`
-  - notes: no cast evidence / gradual runtime; Dynamic stub only
+  - notes: CastEvidence::Compose
 
 - [x] **L6 L8907: `DD-TYP-DYN-016`: cast evidenceの純粋性** — `gap`
   - spec: `specification.md:8907`
@@ -2247,9 +2247,9 @@
   - spec: `specification.md:9734`
   - notes: lowercase builtins via env; no full namespace-collision warnings
 
-- [x] **L6 L9772: dynamic typingのCore構文** — `gap`
+- [x] **L6 L9772: dynamic typingのCore構文** — `partial`
   - spec: `specification.md:9772`
-  - notes: no dedicated dynamic cast Core forms yet
+  - notes: CoreExpr::Cast/TryCast/CheckCast in core
 
 - [x] **L6 L9812: dynamic typingの終端状態** — `gap`
   - spec: `specification.md:9812`

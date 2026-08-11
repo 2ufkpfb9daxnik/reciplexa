@@ -1,9 +1,9 @@
 {
-  "total": 1589,
+  "ok": 335,
+  "partial": 509,
+  "gap": 242,
+  "deferred": 294,
+  "meta": 132,
   "unchecked": 0,
-  "ok": 340,
-  "partial": 508,
-  "gap": 257,
-  "deferred": 352,
-  "meta": 132
+  "total": 1512
 }
