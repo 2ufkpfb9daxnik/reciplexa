@@ -50,8 +50,7 @@ pub fn exec_linear(prog: &LinearProgram, trace: &mut RcTrace) -> Result<RuntimeV
                 let c = heap
                     .get_mut(&src)
                     .expect("src cell exists after successful get");
-                c.refcount += 1;
-                c.unique = false;
+                bump_refcount(c, src)?;
                 trace.record_dup(*dst, src);
                 reg_map.insert(*dst, *dst);
             }
@@ -202,8 +201,21 @@ fn heap_insert(heap: &mut HashMap<Reg, Cell>, reg: Reg, value: RuntimeValue, tra
     );
 }
 
+/// MEM-001 §29: refuse wraparound; overflow is reported (Defect/Terminal at Part III boundary).
+fn bump_refcount(cell: &mut Cell, src: Reg) -> Result<(), ExecError> {
+    cell.refcount = cell
+        .refcount
+        .checked_add(1)
+        .ok_or(ExecError::RefCountOverflow(src))?;
+    cell.unique = false;
+    Ok(())
+}
+
 fn drop_reg(heap: &mut HashMap<Reg, Cell>, reg: Reg, trace: &mut RcTrace) -> Result<(), ExecError> {
     let cell = heap.get_mut(&reg).ok_or(ExecError::UnboundReg(reg))?;
+    if cell.refcount == 0 {
+        return Err(ExecError::RefCountUnderflow(reg));
+    }
     cell.refcount -= 1;
     trace.record_drop(reg);
     if cell.refcount == 0 {
@@ -301,5 +313,36 @@ fn project_value(value: &RuntimeValue, field: &str) -> Result<RuntimeValue, Exec
             .map(|b| (**b).clone())
             .ok_or(ExecError::UnboundReg(Reg(0))),
         _ => Err(ExecError::UnboundReg(Reg(0))),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn bump_refcount_rejects_overflow() {
+        let mut cell = Cell {
+            value: RuntimeValue::Number(1.0),
+            refcount: u32::MAX,
+            unique: false,
+        };
+        assert_eq!(
+            bump_refcount(&mut cell, Reg(7)),
+            Err(ExecError::RefCountOverflow(Reg(7)))
+        );
+        assert_eq!(cell.refcount, u32::MAX);
+    }
+
+    #[test]
+    fn bump_refcount_increments_without_wrapping() {
+        let mut cell = Cell {
+            value: RuntimeValue::Number(1.0),
+            refcount: 3,
+            unique: true,
+        };
+        bump_refcount(&mut cell, Reg(0)).unwrap();
+        assert_eq!(cell.refcount, 4);
+        assert!(!cell.unique);
     }
 }
