@@ -200,11 +200,9 @@ pub fn elaborate_units_with_interfaces(
                             item.name, imp.module
                         )));
                     }
-                    // Exports and bindings share the Let/LetRec spine — skip if
-                    // they ever diverge rather than synthesize a dead Err arm.
-                    let Some(value) = table.get(&item.name) else {
-                        continue;
-                    };
+                    // Invariant: export sets and binding tables share the Let/LetRec
+                    // spine (`.rpi` intersect preserves that). Divergence is internal.
+                    let value = binding_for_export(table, &item.name, &imp.module)?;
                     let local = item.rename.clone().unwrap_or_else(|| item.name.clone());
                     linked = CoreExpr::Let {
                         name: local,
@@ -221,9 +219,7 @@ pub fn elaborate_units_with_interfaces(
                 let mut keys: Vec<_> = export_set.iter().cloned().collect();
                 keys.sort();
                 for export_name in keys.into_iter().rev() {
-                    let Some(value) = table.get(&export_name) else {
-                        continue;
-                    };
+                    let value = binding_for_export(table, &export_name, &imp.module)?;
                     linked = CoreExpr::Let {
                         name: format!("{prefix}/{export_name}"),
                         value: Box::new(value.clone()),
@@ -509,6 +505,19 @@ fn list_idents_and_nodes(node: &SyntaxNode) -> Vec<AtomRef> {
     .collect()
 }
 
+/// Look up a declared export in the provider binding table.
+fn binding_for_export<'a>(
+    table: &'a HashMap<String, CoreExpr>,
+    export_name: &str,
+    module: &str,
+) -> Result<&'a CoreExpr, ModuleError> {
+    table.get(export_name).ok_or_else(|| {
+        ModuleError::new(format!(
+            "internal: export `{export_name}` present in module `{module}` export set but missing from binding table"
+        ))
+    })
+}
+
 fn collect_bindings(expr: &CoreExpr) -> HashMap<String, CoreExpr> {
     let mut map = HashMap::new();
     collect_bindings_into(expr, &mut map);
@@ -657,4 +666,36 @@ pub fn elaborate_module_tree(
         .map(|(n, s)| (n.as_str(), s.as_str()))
         .collect();
     elaborate_units(&refs)
+}
+
+#[cfg(test)]
+mod coverage_helpers {
+    use super::*;
+    use reciplexa_core::expr::{CoreExpr, CoreLiteral};
+
+    #[test]
+    fn binding_for_export_miss_is_internal_error() {
+        let table = HashMap::new();
+        let err = binding_for_export(&table, "x", "lib").unwrap_err();
+        assert!(err.message.contains("internal"));
+        assert!(err.message.contains("binding table"));
+    }
+
+    #[test]
+    fn collect_bindings_and_exports_share_spine() {
+        let expr = CoreExpr::Let {
+            name: "a".into(),
+            value: Box::new(CoreExpr::Lit(CoreLiteral::Int(1))),
+            body: Box::new(CoreExpr::LetRec {
+                bindings: vec![("f".into(), CoreExpr::Lit(CoreLiteral::Unit))],
+                body: Box::new(CoreExpr::Var("a".into())),
+            }),
+        };
+        let names = collect_export_names(&expr);
+        let map = collect_bindings(&expr);
+        assert_eq!(names, vec!["a".to_string(), "f".to_string()]);
+        assert!(map.contains_key("a") && map.contains_key("f"));
+        let v = binding_for_export(&map, "a", "m").unwrap();
+        assert!(matches!(v, CoreExpr::Lit(CoreLiteral::Int(1))));
+    }
 }
