@@ -1,6 +1,7 @@
 //! `package.rpxm` text format parser (Phase 10 + DD-001 flat fields).
 
 use crate::manifest::{DependencySpec, PackageManifest};
+use reciplexa_syntax::ident::validate_package_path;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RpxmError {
@@ -208,6 +209,7 @@ pub fn parse_rpxm(src: &str) -> Result<PackageManifest, RpxmError> {
     }
 
     let name = name.ok_or(RpxmError::MissingName)?;
+    validate_package_path(&name).map_err(RpxmError::Syntax)?;
     let version = version.ok_or(RpxmError::MissingVersion)?;
 
     // Legacy Phase 10 documents required `(entry …)`. DD-001 library packages may omit it.

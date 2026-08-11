@@ -910,4 +910,22 @@ mod tests {
         };
         assert!(is_subtype(&empty, &only_opt));
     }
+
+    #[test]
+    fn fixed_arity_function_subtyping_contravariant_args() {
+        use crate::ty::EffectRow;
+        let number_to_int = CoreType::Fun {
+            args: vec![CoreType::Number],
+            ret: Box::new(CoreType::Int),
+            effects: EffectRow::default(),
+        };
+        let int_to_number = CoreType::Fun {
+            args: vec![CoreType::Int],
+            ret: Box::new(CoreType::Number),
+            effects: EffectRow::default(),
+        };
+        // (fn Number Int) <: (fn Int Number) — arg contra, ret cov.
+        assert!(is_subtype(&number_to_int, &int_to_number));
+        assert!(!is_subtype(&int_to_number, &number_to_int));
+    }
 }

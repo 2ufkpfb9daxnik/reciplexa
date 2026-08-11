@@ -3050,6 +3050,7 @@ dependencies = [
  "reciplexa-bind",
  "reciplexa-eval",
  "reciplexa-identity",
+ "reciplexa-syntax",
  "serde",
  "serde_json",
 ]
@@ -3130,6 +3131,7 @@ dependencies = [
  "reciplexa-identity",
  "rowan",
  "unicode-normalization",
+ "unicode-xid",
 ]
 
 [[package]]

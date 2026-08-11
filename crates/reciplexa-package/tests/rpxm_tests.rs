@@ -59,13 +59,31 @@ fn ignores_structured_comments() {
 fn parses_quoted_strings() {
     let m = parse_rpxm(
         r#"(package
-  (name "my package")
+  (name "my-package")
   (version "0.2.0")
   (entry "src/main.rpx"))"#,
     )
     .unwrap();
-    assert_eq!(m.name, "my package");
+    assert_eq!(m.name, "my-package");
     assert_eq!(m.entry, "src/main.rpx");
+}
+
+#[test]
+fn rejects_invalid_package_names() {
+    let space = parse_rpxm(
+        r#"(package
+  (name "my package")
+  (version "0.2.0")
+  (entry "src/main.rpx"))"#,
+    )
+    .unwrap_err();
+    assert!(matches!(space, RpxmError::Syntax(_)));
+
+    let upper = parse_rpxm("(package (name Demo) (version 0.1.0) (entry main.rpx))").unwrap_err();
+    assert!(matches!(upper, RpxmError::Syntax(_)));
+
+    let under = parse_rpxm("(package (name my_pkg) (version 0.1.0) (entry main.rpx))").unwrap_err();
+    assert!(matches!(under, RpxmError::Syntax(_)));
 }
 
 #[test]

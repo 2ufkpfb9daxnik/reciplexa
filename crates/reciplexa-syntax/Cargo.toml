@@ -10,5 +10,6 @@ publish = false
 reciplexa-identity = { workspace = true }
 rowan = { workspace = true }
 unicode-normalization = { workspace = true }
+unicode-xid = { workspace = true }
 
 [dev-dependencies]

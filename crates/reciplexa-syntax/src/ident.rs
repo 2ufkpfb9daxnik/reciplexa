@@ -269,12 +269,13 @@ fn validate_ident_segment(name: &str) -> Result<(), String> {
 }
 
 fn is_ident_start_char(c: char) -> bool {
-    // Unicode XID_Start-ish: alphabetic; `$` handled by caller strip.
-    c.is_alphabetic() || c == '$'
+    // SYN §3.1: Unicode XID_Start; `$` stripped before segment validation for macros.
+    unicode_xid::UnicodeXID::is_xid_start(c) || c == '$'
 }
 
 fn is_ident_continue_char(c: char) -> bool {
-    c.is_alphabetic() || c.is_ascii_digit()
+    // SYN §3.1: Unicode XID_Continue (`_` still rejected separately for kebab policy).
+    unicode_xid::UnicodeXID::is_xid_continue(c)
 }
 
 #[cfg(test)]
@@ -301,6 +302,13 @@ mod tests {
         assert!(validate_ident("page-").is_err());
         assert!(validate_ident("a--b").is_err());
         assert!(validate_ident("value??").is_err());
+    }
+
+    #[test]
+    fn rejects_non_xid_punctuation_and_emoji() {
+        assert!(validate_ident("a@b").is_err());
+        assert!(validate_ident("🙂").is_err());
+        assert!(validate_ident("a🙂").is_err());
     }
 
     #[test]

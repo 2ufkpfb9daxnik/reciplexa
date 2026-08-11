@@ -9,6 +9,7 @@ publish = false
 [dependencies]
 reciplexa-identity = { workspace = true }
 reciplexa-bind = { workspace = true }
+reciplexa-syntax = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 
