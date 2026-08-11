@@ -182,12 +182,10 @@ pub fn elaborate_units_with_interfaces(
     for (name, imports, expr, exports) in parsed {
         let mut linked = expr;
         for imp in imports.iter().rev() {
-            let table = binding_tables.get(&imp.module).ok_or_else(|| {
-                ModuleError::new(format!("missing unit `{}` during link", imp.module))
-            })?;
-            let export_set = export_tables.get(&imp.module).ok_or_else(|| {
-                ModuleError::new(format!("missing unit `{}` during link", imp.module))
-            })?;
+            // Imports were checked against `names`; both maps are built from the
+            // same `parsed` units — Index is infallible here (no recoverable Err).
+            let table = &binding_tables[&imp.module];
+            let export_set = &export_tables[&imp.module];
 
             // Bare names from `only` (§6.3–6.4), applied innermost so they
             // shadow any same-named qualified bindings from outer wraps.
@@ -199,12 +197,8 @@ pub fn elaborate_units_with_interfaces(
                             item.name, imp.module
                         )));
                     }
-                    let value = table.get(&item.name).ok_or_else(|| {
-                        ModuleError::new(format!(
-                            "module `{name}` imports `{}` from `{}`, but it is not defined",
-                            item.name, imp.module
-                        ))
-                    })?;
+                    // Export names come from the same Let/LetRec spine as bindings.
+                    let value = &table[&item.name];
                     let local = item.rename.clone().unwrap_or_else(|| item.name.clone());
                     linked = CoreExpr::Let {
                         name: local,
@@ -221,7 +215,7 @@ pub fn elaborate_units_with_interfaces(
                 let mut keys: Vec<_> = export_set.iter().cloned().collect();
                 keys.sort();
                 for export_name in keys.into_iter().rev() {
-                    let value = table.get(&export_name).expect("exported binding");
+                    let value = &table[&export_name];
                     linked = CoreExpr::Let {
                         name: format!("{prefix}/{export_name}"),
                         value: Box::new(value.clone()),
@@ -602,10 +596,10 @@ pub fn load_module_tree(root_path: impl AsRef<Path>) -> Result<Vec<(String, Stri
         loaded.insert(name, src);
     }
     // Stable order: entry first, then remaining sorted by name.
+    // Entry was inserted when loaded; remove cannot miss.
     let mut out = Vec::with_capacity(loaded.len());
-    if let Some(src) = loaded.remove(&entry_name) {
-        out.push((entry_name, src));
-    }
+    let src = loaded.remove(&entry_name).expect("entry unit was loaded");
+    out.push((entry_name, src));
     let mut rest: Vec<_> = loaded.into_iter().collect();
     rest.sort_by(|a, b| a.0.cmp(&b.0));
     out.extend(rest);
