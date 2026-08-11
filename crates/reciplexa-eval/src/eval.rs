@@ -225,11 +225,7 @@ fn eval_outcome(
                 Outcome::Value(other) => Err(EvalError {
                     message: format!("`with` expects a handler value, got {other}"),
                 }),
-                Outcome::Performed { op, arg, resume } => {
-                    Ok(Outcome::Performed { op, arg, resume })
-                }
-                Outcome::Resumed(v) => Ok(Outcome::Resumed(v)),
-                Outcome::Forward => Ok(Outcome::Forward),
+                other => Ok(other),
             }
         }
         CoreExpr::Seq(items) => eval_seq(items, env, host),
@@ -261,8 +257,7 @@ fn eval_outcome(
                     }),
                 })
             }
-            Outcome::Resumed(v) => Ok(Outcome::Resumed(v)),
-            Outcome::Forward => Ok(Outcome::Forward),
+            other => Ok(other),
         },
         CoreExpr::LetRec { bindings, body } => {
             let shared = Rc::new(RefCell::new(env.clone()));
@@ -311,8 +306,7 @@ fn eval_outcome(
                     }),
                 })
             }
-            Outcome::Resumed(v) => Ok(Outcome::Resumed(v)),
-            Outcome::Forward => Ok(Outcome::Forward),
+            other => Ok(other),
         },
         CoreExpr::Set { name, value } => match eval_outcome(value, env, host)? {
             Outcome::Value(v) => apply_set(name, v, env),
@@ -335,8 +329,7 @@ fn eval_outcome(
                     }),
                 })
             }
-            Outcome::Resumed(v) => Ok(Outcome::Resumed(v)),
-            Outcome::Forward => Ok(Outcome::Forward),
+            other => Ok(other),
         },
         CoreExpr::Lambda { params, body } => Ok(Outcome::Value(RuntimeValue::Closure {
             params: params.clone(),
@@ -382,8 +375,7 @@ fn eval_outcome(
                     }),
                 })
             }
-            Outcome::Resumed(v) => Ok(Outcome::Resumed(v)),
-            Outcome::Forward => Ok(Outcome::Forward),
+            other => Ok(other),
         },
         CoreExpr::Record { fields } => eval_record(fields, env, host),
         CoreExpr::RecordGet { record, field } => match eval_outcome(record, env, host)? {
@@ -406,8 +398,7 @@ fn eval_outcome(
                     }),
                 })
             }
-            Outcome::Resumed(v) => Ok(Outcome::Resumed(v)),
-            Outcome::Forward => Ok(Outcome::Forward),
+            other => Ok(other),
         },
         CoreExpr::RecordUpdate { record, fields } => match eval_outcome(record, env, host)? {
             Outcome::Value(v) => record_update(v, fields, env, host),
@@ -430,8 +421,7 @@ fn eval_outcome(
                     }),
                 })
             }
-            Outcome::Resumed(v) => Ok(Outcome::Resumed(v)),
-            Outcome::Forward => Ok(Outcome::Forward),
+            other => Ok(other),
         },
         CoreExpr::RecordExtend { record, fields } => match eval_outcome(record, env, host)? {
             Outcome::Value(v) => record_extend(v, fields, env, host),
@@ -454,8 +444,7 @@ fn eval_outcome(
                     }),
                 })
             }
-            Outcome::Resumed(v) => Ok(Outcome::Resumed(v)),
-            Outcome::Forward => Ok(Outcome::Forward),
+            other => Ok(other),
         },
         CoreExpr::Variant { tag, payload } => {
             if let Some(e) = payload {
@@ -485,8 +474,7 @@ fn eval_outcome(
                             }),
                         })
                     }
-                    Outcome::Resumed(v) => Ok(Outcome::Resumed(v)),
-                    Outcome::Forward => Ok(Outcome::Forward),
+                    other => Ok(other),
                 }
             } else {
                 Ok(Outcome::Value(RuntimeValue::Variant {
@@ -516,8 +504,7 @@ fn eval_outcome(
                     }),
                 })
             }
-            Outcome::Resumed(v) => Ok(Outcome::Resumed(v)),
-            Outcome::Forward => Ok(Outcome::Forward),
+            other => Ok(other),
         },
     }
 }
@@ -663,8 +650,6 @@ fn eval_seq(
     for (i, item) in items.iter().enumerate() {
         match eval_outcome(item, env, host)? {
             Outcome::Value(v) => last = v,
-            Outcome::Resumed(v) => return Ok(Outcome::Resumed(v)),
-            Outcome::Forward => return Ok(Outcome::Forward),
             Outcome::Performed {
                 op,
                 arg,
@@ -690,6 +675,7 @@ fn eval_seq(
                     }),
                 });
             }
+            other => return Ok(other),
         }
     }
     Ok(Outcome::Value(last))
@@ -722,8 +708,7 @@ fn eval_app(
                 }),
             });
         }
-        Outcome::Resumed(v) => return Ok(Outcome::Resumed(v)),
-        Outcome::Forward => return Ok(Outcome::Forward),
+        other => return Ok(other),
     };
     eval_app_args(fun_v, args, env, host)
 }
@@ -767,8 +752,7 @@ fn eval_app_args(
                     }),
                 });
             }
-            Outcome::Resumed(v) => return Ok(Outcome::Resumed(v)),
-            Outcome::Forward => return Ok(Outcome::Forward),
+            other => return Ok(other),
         }
     }
     apply_value(fun_v, arg_vs, host)
@@ -812,8 +796,7 @@ fn eval_record(
                     }),
                 });
             }
-            Outcome::Resumed(v) => return Ok(Outcome::Resumed(v)),
-            Outcome::Forward => return Ok(Outcome::Forward),
+            other => return Ok(other),
         }
     }
     Ok(Outcome::Value(RuntimeValue::Record(out)))
@@ -929,11 +912,7 @@ fn apply_value(
             // Transfer to deep continuation; abandon rest of handler.
             match cont(arg_vs.into_iter().next().expect("len 1"), host)? {
                 Outcome::Value(v) => Ok(Outcome::Resumed(v)),
-                Outcome::Resumed(v) => Ok(Outcome::Resumed(v)),
-                Outcome::Performed { op, arg, resume } => {
-                    Ok(Outcome::Performed { op, arg, resume })
-                }
-                Outcome::Forward => Ok(Outcome::Forward),
+                other => Ok(other),
             }
         }
         RuntimeValue::Builtin(op) => apply_builtin(op, arg_vs),
