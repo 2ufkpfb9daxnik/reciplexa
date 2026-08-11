@@ -6,10 +6,10 @@
 
 ### 分類ごとの件数
 
-- **合計**: 0
+- **合計**: 431
 - **仕様未決定**: 49
-- **意図的後回し**: 244
-- **依存待ち**: 58
+- **意図的後回し**: 267
+- **依存待ち**: 115
 - **要確認**: 0
 
 分類の見方:
@@ -270,7 +270,7 @@
 
 ---
 
-## 意図的後回し（244）
+## 意図的後回し（267）
 
 ### L1360: 12. 単位と色
 - **機能ブロック**: `SYN`
@@ -290,6 +290,11 @@
 ### L2897: 2.3 Constructor固有型
 - **機能ブロック**: `DAT`
 - **notes**: plan: full polymorphic ADT typing / ctor-specific types deferred
+- **分類**: 意図的後回し
+
+### L2930: 2.5 Runtime reflection
+- **機能ブロック**: `DAT`
+- **notes**: spec §2.5: data decls do not auto-emit runtime type descriptors; type-of-value / constructors-of are separate future items
 - **分類**: 意図的後回し
 
 ### L3106: 6. Constructor固有型
@@ -447,6 +452,146 @@
 - **notes**: effect-row polymorphism / aliases not full
 - **分類**: 意図的後回し
 
+### L10915: `DD-TYP-EFF-007`: 注釈されたrequired effects
+- **機能ブロック**: `TYP`
+- **notes**: annotated required-effects surface deferred
+- **分類**: 意図的後回し
+
+### L11201: `DD-TYP-FN-003`: function intersection
+- **機能ブロック**: `TYP`
+- **notes**: function intersection / coherence deferred past fixed-arity Fun
+- **分類**: 意図的後回し
+
+### L11227: `DD-TYP-FN-004`: function intersectionの適用可能性
+- **機能ブロック**: `TYP`
+- **notes**: function intersection applicability deferred
+- **分類**: 意図的後回し
+
+### L11277: `DD-TYP-FN-005`: branch specificity
+- **機能ブロック**: `TYP`
+- **notes**: branch specificity deferred with function intersection
+- **分類**: 意図的後回し
+
+### L11333: `DD-TYP-FN-006`: function intersectionのcoherence
+- **機能ブロック**: `TYP`
+- **notes**: function intersection coherence deferred
+- **分類**: 意図的後回し
+
+### L11339: 入力領域が互いに素
+- **機能ブロック**: `TYP`
+- **notes**: coherence case: disjoint domains
+- **分類**: 意図的後回し
+
+### L11347: 片方が他方を包含
+- **機能ブロック**: `TYP`
+- **notes**: coherence case: inclusion
+- **分類**: 意図的後回し
+
+### L11351: 入力領域が等価
+- **機能ブロック**: `TYP`
+- **notes**: coherence case: equivalent domains
+- **分類**: 意図的後回し
+
+### L11357: 入力領域が重なるが非比較
+- **機能ブロック**: `TYP`
+- **notes**: coherence case: overlapping incomparable
+- **分類**: 意図的後回し
+
+### L11373: `DD-TYP-FN-007`: union引数とdispatch
+- **機能ブロック**: `TYP`
+- **notes**: union-arg dispatch deferred with function intersection
+- **分類**: 意図的後回し
+
+### L11591: `DD-TYP-ROW-008`: recordのBoolean演算
+- **機能ブロック**: `TYP`
+- **notes**: record Boolean combination complete fragment deferred
+- **分類**: 意図的後回し
+
+### L11626: Recursive data type
+- **機能ブロック**: `TYP`
+- **notes**: equi-recursive / contractiveness checker deferred
+- **分類**: 意図的後回し
+
+### L11628: `DD-TYP-REC-001`: recursive data type
+- **機能ブロック**: `TYP`
+- **notes**: recursive data type equi-checker deferred (DAT surface exists)
+- **分類**: 意図的後回し
+
+### L11644: `DD-TYP-REC-002`: equi-recursiveな利用者意味論
+- **機能ブロック**: `TYP`
+- **notes**: equi-recursive user semantics deferred
+- **分類**: 意図的後回し
+
+### L11664: `DD-TYP-REC-003`: contractiveness
+- **機能ブロック**: `TYP`
+- **notes**: contractiveness checker deferred
+- **分類**: 意図的後回し
+
+### L11699: `DD-TYP-REC-004`: strict positivity
+- **機能ブロック**: `TYP`
+- **notes**: strict positivity: DAT group positivity only (partial elsewhere)
+- **分類**: 意図的後回し
+
+### L11727: `DD-TYP-REC-005`: regularity
+- **機能ブロック**: `TYP`
+- **notes**: regularity checker deferred
+- **分類**: 意図的後回し
+
+### L11758: `DD-TYP-REC-006`: base constructor
+- **機能ブロック**: `TYP`
+- **notes**: base constructor discipline deferred
+- **分類**: 意図的後回し
+
+### L11786: `DD-TYP-REC-007`: recursive dataの完全判定範囲
+- **機能ブロック**: `TYP`
+- **notes**: full recursive decide fragment deferred
+- **分類**: 意図的後回し
+
+### L12266: 共通constraint worklist
+- **機能ブロック**: `TYP`
+- **notes**: shared constraint worklist deferred; unify is direct
+- **分類**: 意図的後回し
+
+### L12268: `DD-TYP-SOLVER-001`: shared constraint worklist
+- **機能ブロック**: `TYP`
+- **notes**: shared constraint worklist deferred
+- **分類**: 意図的後回し
+
+### L12303: `DD-TYP-SOLVER-002`: solver間のconstraint生成
+- **機能ブロック**: `TYP`
+- **notes**: multi-solver constraint generation deferred
+- **分類**: 意図的後回し
+
+### L12382: `DD-TYP-SOLVER-003`: constraint処理の優先度
+- **機能ブロック**: `TYP`
+- **notes**: constraint priority schedule deferred
+- **分類**: 意図的後回し
+
+### L12409: `DD-TYP-SOLVER-004`: canonicalizationとmemoization
+- **機能ブロック**: `TYP`
+- **notes**: canonicalization/memoization deferred
+- **分類**: 意図的後回し
+
+### L12436: `DD-TYP-SOLVER-005`: solver終了状態
+- **機能ブロック**: `TYP`
+- **notes**: solver end-states folded into CheckError for now
+- **分類**: 意図的後回し
+
+### L12472: `DD-TYP-SOLVER-006`: cast insertionとgeneralizationの順序
+- **機能ブロック**: `TYP`
+- **notes**: cast insertion vs generalization ordering deferred
+- **分類**: 意図的後回し
+
+### L12494: 型検査器の概念pipeline
+- **機能ブロック**: `TYP`
+- **notes**: full checker pipeline schedule deferred
+- **分類**: 意図的後回し
+
+### L12496: `DD-TYP-SOLVER-007`: checkerの全体処理順序
+- **機能ブロック**: `TYP`
+- **notes**: overall checker processing order deferred
+- **分類**: 意図的後回し
+
 ### L13579: `DD-EFF-008`: return clause
 - **機能ブロック**: `EFF`
 - **notes**: return-clause / Handler<L,A,B,H> typing deferred (plan)
@@ -470,11 +615,6 @@
 ### L14477: 0.2 本項目が直接定めないもの
 - **機能ブロック**: `MOD`
 - **notes**: PKG/MAC/KER/recursive/1st-class/generative → OPEN
-- **分類**: 意図的後回し
-
-### L14560: 2.3 Interface path
-- **機能ブロック**: `MOD`
-- **notes**: .rpi interface path not implemented
 - **分類**: 意図的後回し
 
 ### L14573: 2.4 Path変更
@@ -532,27 +672,12 @@
 - **notes**: 意図的後回し: auto re-export of imports not in bind skeleton
 - **分類**: 意図的後回し
 
-### L14859: 8. .rpiインターフェース
-- **機能ブロック**: `MOD`
-- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
-- **分類**: 意図的後回し
-
-### L14860: 8.1 役割
-- **機能ブロック**: `MOD`
-- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
-- **分類**: 意図的後回し
-
 ### L14870: 8.2 Wrapper
 - **機能ブロック**: `MOD`
 - **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
 - **分類**: 意図的後回し
 
 ### L14879: 8.3 .rpi内のimport
-- **機能ブロック**: `MOD`
-- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
-- **分類**: 意図的後回し
-
-### L14891: 8.4 Public module
 - **機能ブロック**: `MOD`
 - **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
 - **分類**: 意図的後回し
@@ -568,16 +693,6 @@
 - **分類**: 意図的後回し
 
 ### L14907: 9. 推論シグネチャと抽象化境界
-- **機能ブロック**: `MOD`
-- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
-- **分類**: 意図的後回し
-
-### L14908: 9.1 .rpiなしの内部モジュール
-- **機能ブロック**: `MOD`
-- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
-- **分類**: 意図的後回し
-
-### L14912: 9.2 .rpiありのモジュール
 - **機能ブロック**: `MOD`
 - **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
 - **分類**: 意図的後回し
@@ -1494,7 +1609,582 @@
 
 ---
 
-## 依存待ち（0）
+## 依存待ち（115）
+
+### L8609: `DD-TYP-DYN-010`: foreign値のdynamic導入
+- **機能ブロック**: `TYP`
+- **notes**: 依存待ち(KER/foreign): import-dynamic / ForeignValue boundary
+- **分類**: 依存待ち
+
+### L8660: `DD-TYP-DYN-011`: decoderとgradual foreign boundaryの分離
+- **機能ブロック**: `TYP`
+- **notes**: 依存待ち(KER/foreign): decoder vs gradual foreign boundary separation
+- **分類**: 依存待ち
+
+### L8667: Static decoder
+- **機能ブロック**: `TYP`
+- **notes**: 依存待ち(KER/foreign): static decoder Result<S, decode-error>
+- **分類**: 依存待ち
+
+### L8676: Gradual foreign boundary
+- **機能ブロック**: `TYP`
+- **notes**: 依存待ち(KER/foreign): import-dynamic foreign boundary
+- **分類**: 依存待ち
+
+### L9054: `DD-TYP-DYN-020`: opaque abstract typeのcast
+- **機能ブロック**: `TYP`
+- **notes**: 依存待ち(MOD/opaque): NominalCheck abstract-type sealing
+- **分類**: 依存待ち
+
+### L9301: `DD-TYP-DYN-026`: dynamic境界を通れない制御値
+- **機能ブロック**: `TYP`
+- **notes**: 依存待ち(EFF/KER): control values (resume/handler/capability) barred from dynamic
+- **分類**: 依存待ち
+
+### L9339: `DD-TYP-DYN-027`: polymorphismとdynamic境界
+- **機能ブロック**: `TYP`
+- **notes**: 依存待ち(DAT/poly): polymorphism × dynamic boundary
+- **分類**: 依存待ち
+
+### L9988: foreign ingress
+- **機能ブロック**: `TYP`
+- **notes**: 依存待ち(KER/foreign): foreign ingress
+- **分類**: 依存待ち
+
+### L10115: polymorphic value boundary
+- **機能ブロック**: `TYP`
+- **notes**: 依存待ち: polymorphic value dynamic boundary
+- **分類**: 依存待ち
+
+### L10147: dynamicからforall
+- **機能ブロック**: `TYP`
+- **notes**: 依存待ち: dynamic→forall boundary
+- **分類**: 依存待ち
+
+### L17401: 0.1 本項目が扱う編集
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L17477: 1.3 現在文書
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L17505: 2.2 所有と参照の分離
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L17524: 2.3 共有
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L17548: 3. 文書treeの不変条件
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L17552: 1. RootNodeIdがnode storeに存在する
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L17553: 2. Rootは親を持たない
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L17554: 3. Root以外の全ノードはちょうど一つの親を持つ
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L17555: 4. 所有edgeにcycleがない
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L17556: 5. 同じ親のchildren列内に同一NodeIdが重複しない
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L17557: 6. 全ノードが同じDocumentIdに所属する
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L17558: 7. 全ノードがRootから到達可能である
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L17559: 8. 必須propertyが存在する
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L17560: 9. Property値がNode kindのschemaに適合する
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L17561: 10. 強いNodeId参照が有効な対象を指す
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L17563: 3.1 到達不能ノード
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L17578: 4. 識別子
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L17579: 4.1 識別子の種類
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L17653: 4.5 TransactionId
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L17671: 5. 保存・複製・Fork
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L17672: 5.1 通常保存
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L17683: 5.2 Save As
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L17693: 5.3 Duplicate／Fork
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L17708: 5.4 内部参照の複製
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L17718: 5.5 文書間参照
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L17724: 6. Revision
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L17725: 6.1 直線的な履歴
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L17738: 6.2 Commitの直列化
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L17772: 6.4 保存後のrevision
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L17780: 7. Snapshotの保持
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L17781: 7.1 不変性
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L17792: 7.2 過去版の永久取得
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L17798: 7.3 履歴の種類
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L17811: 8. 編集トランザクション
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L17812: 8.1 概念構造
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L17822: 8.2 不変の第一級値
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L17856: 9. 編集Operation
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L17950: 9.5 RemoveChild
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L17999: 10.2 予約済みID
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18005: 10.3 Copy
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18037: 11.3 Base revision
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18043: 12. Stale transaction
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18044: 12.1 定義
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18048: 12.2 分類
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18063: 12.3 保守的な再適用
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18069: 12.4 無関係な変更
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18073: 13. 競合
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18074: 13.1 基本分類
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18091: 13.2 競合と不正トランザクション
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18109: 13.3 競合の収集
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18115: 13.4 自動併合
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18139: 1. TransactionIdを確認
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18140: 2. DocumentIdを確認
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18141: 3. Base revisionを比較
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18142: 4. Transaction-level preconditionを検査
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18145: 7. 文書全体の不変条件を検査
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18147: 9. 新revisionとUndo情報を生成
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18185: 15.5 AlreadyApplied
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18191: 15.6 Transaction content hash
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18205: 16. UndoとRedo
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18206: 16.1 新revision
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18218: 16.2 Undo情報
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18234: 16.3 UndoToken
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18241: 16.4 Undo競合
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18247: 16.5 Redo
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18251: 16.6 履歴保持
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18265: 17.1 定義
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18278: 17.2 Optional metadata
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18296: 17.4 種類
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18305: 17.5 UserCreated
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18312: 17.6 SourceGenerated
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18327: 17.7 MacroGenerated
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18336: 17.8 Imported
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18342: 17.9 Copied
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18348: 17.10 Derived
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18362: 18. 派生ノードと逆編集
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18363: 18.1 編集可能性
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18379: 18.2 Provenanceと逆編集
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(EDT): reverse-edit from Provenance is GUI/EDT, not Part II language
+- **分類**: 依存待ち
+
+### L18385: 18.3 逆編集結果
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18392: 18.4 自動選択
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18396: 18.5 逆写像不能
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18409: 18.6 Stale provenance
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18415: 19. 派生ノードのID継承
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18416: 19.1 DerivationKey
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18426: 19.2 曖昧な対応
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18432: 19.3 NodeIdとの違い
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18436: 20. Provenanceの安全性
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(EDT): Provenance safety/export policy is EDT/security layer
+- **分類**: 依存待ち
+
+### L18437: 20.1 真正性
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18443: 20.2 Privacy
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18454: 20.3 書換え
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18478: 21.3 抽象型
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18491: 21.4 Constructor付き公開data
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18500: 22. 高水準APIと低水準API
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18530: 23.1 Pure処理
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18573: 24.3 実行障害
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18590: 25. Undo履歴・Transaction履歴
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18591: 25.1 有限保持
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18600: 25.2 AlreadyApplied保証
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18606: 25.3 Undo不可
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18612: 26. 永続化
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18613: 26.1 標準保存
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18624: 26.2 編集履歴
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18630: 26.3 Version付きcodec
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18638: 27. 適合試験
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18835: 29. 最終状態
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
 
 ---
 

@@ -17,11 +17,11 @@
 
 - **total**: 1589
 - **unchecked**: 0
-- **ok**: 356
-- **partial**: 538
-- **gap**: 205
-- **deferred**: 355
-- **meta**: 135
+- **ok**: 365
+- **partial**: 552
+- **gap**: 38
+- **deferred**: 497
+- **meta**: 137
 
 （LEX/SYN/MAC および導入メタ節を照合済み。他機能ブロックも並行更新済み。）
 
@@ -227,9 +227,9 @@
   - spec: `specification.md:1018`
   - notes: _ separator (number_lit)
 
-- [x] **L6 L1045: 7.5 `f64`** — `partial`
+- [x] **L6 L1045: 7.5 `f64`** — `ok`
   - spec: `specification.md:1045`
-  - notes: 実行値はf64; 任意精度intは未
+  - notes: f64 lit → CoreLiteral::F64; int/f64 split (DD-TYP-NUM-001)
 
 - [x] **L6 L1077: 7.6 非有限値** — `ok`
   - spec: `specification.md:1077`
@@ -267,9 +267,9 @@
   - spec: `specification.md:1275`
   - notes: 'sym/:kwなし; #はError
 
-- [x] **L5 L1310: 11. Bytes** — `partial`
+- [x] **L5 L1310: 11. Bytes** — `ok`
   - spec: `specification.md:1310`
-  - notes: (bytes …)→CoreLiteral::Bytes + eval; encode/decode-utf8 deferred
+  - notes: bytes lit + encode-utf8/decode-utf8 builtins (lang_kernel_suite)
 
 - [x] **L5 L1360: 12. 単位と色** — `deferred`
   - spec: `specification.md:1360`
@@ -1145,7 +1145,7 @@
 
 - [x] **L5 L4744: Closureとlexical scope** — `partial`
   - spec: `specification.md:4744`
-  - notes: Closure captures env; eval still string names not BindingId
+  - notes: Closure captures env; BindingMap use-sites ok (TEST-LANG-EDT-binding); Core/eval still string names
 
 - [x] **L5 L4764: 関数適用** — `ok`
   - spec: `specification.md:4764`
@@ -1165,7 +1165,7 @@
 
 - [x] **L5 L4867: 適合試験** — `partial`
   - spec: `specification.md:4867`
-  - notes: eval_tests cover core cases; named EVAL suite incomplete
+  - notes: eval_tests + lang_kernel_suite EVAL/DYN-003; named EVAL corpus incomplete
 
 - [x] **L6 L4869: lexical closure** — `ok`
   - spec: `specification.md:4869`
@@ -1205,7 +1205,7 @@
 
 - [x] **L5 L5016: 解決後の最小Core** — `partial`
   - spec: `specification.md:5016`
-  - notes: resolve BindingMap exists; eval still name-string Core
+  - notes: resolve BindingMap + SyntaxNodeId on defs (lang_kernel_suite); eval still name-string Core
 
 - [x] **L4 L5034: 13.4 `BND-001` `val`、`var`、`let`、`letrec`、`fn`** — `partial`
   - spec: `specification.md:5034`
@@ -1797,7 +1797,7 @@
 
 - [x] **L6 L7510: 14.3 概念的なidentity** — `partial`
   - spec: `specification.md:7510`
-  - notes: 概念identity; BindingId連携は弱い
+  - notes: MacroSourceMap SyntaxNodeId + BindingMap use-sites; Core BindingId string dual still open
 
 - [x] **L5 L7532: 15. 意図的capture** — `ok`
   - spec: `specification.md:7532`
@@ -2215,29 +2215,29 @@
   - spec: `specification.md:9426`
   - notes: 形式証明: Dynamic gradual guarantee
 
-- [x] **L6 L9474: `DD-TYP-NUM-001`: RPX v1の基本数値型** — `partial`
+- [x] **L6 L9474: `DD-TYP-NUM-001`: RPX v1の基本数値型** — `ok`
   - spec: `specification.md:9474`
-  - notes: CoreType::Number only; no int/f64 split or promotion
+  - notes: CoreType::Int/F64/Number; int<:number, f64<:number; int⊥f64
 
-- [x] **L6 L9485: `int`** — `partial`
+- [x] **L6 L9485: `int`** — `ok`
   - spec: `specification.md:9485`
-  - notes: CoreType::Number only; no int/f64 split or promotion
+  - notes: CoreType::Int + CoreLiteral::Int / RuntimeValue::Int (i128 kernel)
 
-- [x] **L6 L9494: `f64`** — `partial`
+- [x] **L6 L9494: `f64`** — `ok`
   - spec: `specification.md:9494`
-  - notes: CoreType::Number only; no int/f64 split or promotion
+  - notes: CoreType::F64 + CoreLiteral::F64 / RuntimeValue::F64
 
-- [x] **L6 L9503: `number`** — `partial`
+- [x] **L6 L9503: `number`** — `ok`
   - spec: `specification.md:9503`
-  - notes: CoreType::Number only; no int/f64 split or promotion
+  - notes: number ≃ int|f64; unify/subtype via Number
 
-- [x] **L6 L9537: `DD-TYP-NUM-002`: 数値promotion** — `partial`
+- [x] **L6 L9537: `DD-TYP-NUM-002`: 数値promotion** — `ok`
   - spec: `specification.md:9537`
-  - notes: CoreType::Number only; no int/f64 split or promotion
+  - notes: mixed +-∗	o f64; int+int	o int; /	o f64; int-div/mod builtins
 
-- [x] **L6 L9586: `DD-TYP-NUM-003`: dynamic castとnumeric promotionの順序** — `partial`
+- [x] **L6 L9586: `DD-TYP-NUM-003`: dynamic castとnumeric promotionの順序** — `ok`
   - spec: `specification.md:9586`
-  - notes: CoreType::Number only; no int/f64 split or promotion
+  - notes: DD-TYP-NUM-003: NumericPromote after dynamic narrow; int∩f64 not subtype
 
 - [x] **L6 L9644: `DD-NAME-001`: 組込み型名と識別子の小文字規約** — `partial`
   - spec: `specification.md:9644`
@@ -2251,9 +2251,9 @@
   - spec: `specification.md:9772`
   - notes: CoreExpr::Cast/TryCast/CheckCast in core
 
-- [x] **L6 L9812: dynamic typingの終端状態** — `gap`
+- [x] **L6 L9812: dynamic typingの終端状態** — `partial`
   - spec: `specification.md:9812`
-  - notes: no dedicated dynamic cast Core forms yet
+  - notes: Cast/TryCast/CheckCast + NumericPromote terminal paths in eval
 
 - [x] **L6 L9840: 適合試験** — `partial`
   - spec: `specification.md:9840`
@@ -2271,69 +2271,69 @@
   - spec: `specification.md:9874`
   - notes: Dynamic present; not full cast suite
 
-- [x] **L6 L9889: safe static use** — `gap`
+- [x] **L6 L9889: safe static use** — `partial`
   - spec: `specification.md:9889`
-  - notes: TYP-DYN conformance cases not implemented as suite
+  - notes: FullyIncluded / Identity when S<:T
 
-- [x] **L6 L9904: partial overlap** — `gap`
+- [x] **L6 L9904: partial overlap** — `partial`
   - spec: `specification.md:9904`
-  - notes: TYP-DYN conformance cases not implemented as suite
+  - notes: PartialOverlap + cast evidence
 
-- [x] **L6 L9930: disjoint use** — `gap`
+- [x] **L6 L9930: disjoint use** — `partial`
   - spec: `specification.md:9930`
-  - notes: TYP-DYN conformance cases not implemented as suite
+  - notes: Disjoint → static reject in coerce/plan
 
-- [x] **L6 L9944: cast precision** — `gap`
+- [x] **L6 L9944: cast precision** — `partial`
   - spec: `specification.md:9944`
-  - notes: TYP-DYN conformance cases not implemented as suite
+  - notes: cast_success_type = intersect(S,T)
 
 - [x] **L6 L9958: `any`と`dynamic any`** — `partial`
   - spec: `specification.md:9958`
   - notes: Dynamic present; not full cast suite
 
-- [x] **L6 L9988: foreign ingress** — `gap`
+- [x] **L6 L9988: foreign ingress** — `deferred`
   - spec: `specification.md:9988`
-  - notes: TYP-DYN conformance cases not implemented as suite
+  - notes: 依存待ち(KER/foreign): foreign ingress
 
-- [x] **L6 L10007: implicit cast failure** — `gap`
+- [x] **L6 L10007: implicit cast failure** — `partial`
   - spec: `specification.md:10007`
-  - notes: TYP-DYN conformance cases not implemented as suite
+  - notes: implicit cast failure → EvalError dynamic cast failed
 
-- [x] **L6 L10030: explicit safe cast** — `gap`
+- [x] **L6 L10030: explicit safe cast** — `partial`
   - spec: `specification.md:10030`
-  - notes: TYP-DYN conformance cases not implemented as suite
+  - notes: try-cast/check-cast Option/Result paths
 
-- [x] **L6 L10044: fixed-arity function cast** — `gap`
+- [x] **L6 L10044: fixed-arity function cast** — `partial`
   - spec: `specification.md:10044`
-  - notes: TYP-DYN conformance cases not implemented as suite
+  - notes: FunctionGuard evidence for fixed-arity fun casts
 
-- [x] **L6 L10067: function result cast** — `gap`
+- [x] **L6 L10067: function result cast** — `partial`
   - spec: `specification.md:10067`
-  - notes: TYP-DYN conformance cases not implemented as suite
+  - notes: covariant ret_cast in FunctionGuard
 
-- [x] **L6 L10083: effect-compatible function cast** — `gap`
+- [x] **L6 L10083: effect-compatible function cast** — `partial`
   - spec: `specification.md:10083`
-  - notes: TYP-DYN conformance cases not implemented as suite
+  - notes: effect_subrow compatible function cast planning
 
-- [x] **L6 L10099: effect-incompatible function cast** — `gap`
+- [x] **L6 L10099: effect-incompatible function cast** — `partial`
   - spec: `specification.md:10099`
-  - notes: TYP-DYN conformance cases not implemented as suite
+  - notes: effect-incompatible fun rejected via effect_subrow
 
-- [x] **L6 L10115: polymorphic value boundary** — `gap`
+- [x] **L6 L10115: polymorphic value boundary** — `deferred`
   - spec: `specification.md:10115`
-  - notes: TYP-DYN conformance cases not implemented as suite
+  - notes: 依存待ち: polymorphic value dynamic boundary
 
-- [x] **L6 L10147: dynamicからforall** — `gap`
+- [x] **L6 L10147: dynamicからforall** — `deferred`
   - spec: `specification.md:10147`
-  - notes: TYP-DYN conformance cases not implemented as suite
+  - notes: 依存待ち: dynamic→forall boundary
 
-- [x] **L6 L10160: numeric promotion** — `gap`
+- [x] **L6 L10160: numeric promotion** — `ok`
   - spec: `specification.md:10160`
-  - notes: TYP-DYN conformance cases not implemented as suite
+  - notes: numeric promotion via CastEvidence::NumericPromote + try-cast
 
-- [x] **L6 L10176: namespace collision warning** — `gap`
+- [x] **L6 L10176: namespace collision warning** — `deferred`
   - spec: `specification.md:10176`
-  - notes: TYP-DYN conformance cases not implemented as suite
+  - notes: namespace collision warnings deferred (NAME-002)
 
 - [x] **L6 L10197: 関連する後続設計課題** — `meta`
   - spec: `specification.md:10197`
@@ -2369,63 +2369,63 @@
 
 - [x] **L5 L10340: 13.6.2 `TYP-ALG-001` Algorithmic型検査、semantic subtypingの判定範囲、型推論** — `partial`
   - spec: `specification.md:10340`
-  - notes: unification checker; no three-valued semantic subtyping
+  - notes: decide_subtype three-valued + is_subtype approx; no full semantic solver
 
-- [x] **L6 L10388: `DD-TYP-ALG-001`: 宣言的型関係とalgorithmic判定の分離** — `gap`
+- [x] **L6 L10388: `DD-TYP-ALG-001`: 宣言的型関係とalgorithmic判定の分離** — `partial`
   - spec: `specification.md:10388`
-  - notes: no declarative vs algorithmic subtype separation in code
+  - notes: declarative is_subtype / types_disjoint vs algorithmic decide_subtype
 
-- [x] **L6 L10432: `DD-TYP-ALG-002`: algorithmic判定の三値結果** — `gap`
+- [x] **L6 L10432: `DD-TYP-ALG-002`: algorithmic判定の三値結果** — `partial`
   - spec: `specification.md:10432`
-  - notes: no three-valued decide-subtype / diagnostic taxonomy
+  - notes: DecideResult::{Proved,Disproved,Unknown} in cast.rs
 
-- [x] **L6 L10444: `proved`** — `gap`
+- [x] **L6 L10444: `proved`** — `partial`
   - spec: `specification.md:10444`
-  - notes: no three-valued decide-subtype / diagnostic taxonomy
+  - notes: DecideResult::Proved
 
-- [x] **L6 L10453: `disproved`** — `gap`
+- [x] **L6 L10453: `disproved`** — `partial`
   - spec: `specification.md:10453`
-  - notes: no three-valued decide-subtype / diagnostic taxonomy
+  - notes: DecideResult::Disproved
 
-- [x] **L6 L10464: `unknown`** — `gap`
+- [x] **L6 L10464: `unknown`** — `partial`
   - spec: `specification.md:10464`
-  - notes: no three-valued decide-subtype / diagnostic taxonomy
+  - notes: DecideResult::Unknown outside decidable fragment
 
-- [x] **L6 L10489: `DD-TYP-ALG-003`: 診断分類** — `gap`
+- [x] **L6 L10489: `DD-TYP-ALG-003`: 診断分類** — `partial`
   - spec: `specification.md:10489`
-  - notes: no three-valued decide-subtype / diagnostic taxonomy
+  - notes: TypeDiagClass + classify_decide
 
-- [x] **L6 L10503: `type-error`** — `gap`
+- [x] **L6 L10503: `type-error`** — `partial`
   - spec: `specification.md:10503`
-  - notes: no three-valued decide-subtype / diagnostic taxonomy
+  - notes: TypeDiagClass::TypeError
 
-- [x] **L6 L10520: `annotation-required`** — `gap`
+- [x] **L6 L10520: `annotation-required`** — `partial`
   - spec: `specification.md:10520`
-  - notes: no three-valued decide-subtype / diagnostic taxonomy
+  - notes: TypeDiagClass::AnnotationRequired (enum present)
 
-- [x] **L6 L10537: `checker-limitation`** — `gap`
+- [x] **L6 L10537: `checker-limitation`** — `partial`
   - spec: `specification.md:10537`
-  - notes: no three-valued decide-subtype / diagnostic taxonomy
+  - notes: TypeDiagClass::CheckerLimitation on Unknown
 
-- [x] **L6 L10556: `checker-resource-limit`** — `gap`
+- [x] **L6 L10556: `checker-resource-limit`** — `partial`
   - spec: `specification.md:10556`
-  - notes: no three-valued decide-subtype / diagnostic taxonomy
+  - notes: TypeDiagClass::CheckerResourceLimit (enum present)
 
-- [x] **L6 L10562: `unsupported-language-feature`** — `gap`
+- [x] **L6 L10562: `unsupported-language-feature`** — `partial`
   - spec: `specification.md:10562`
-  - notes: no three-valued decide-subtype / diagnostic taxonomy
+  - notes: TypeDiagClass::UnsupportedLanguageFeature (enum present)
 
-- [x] **L6 L10573: `DD-TYP-ALG-004`: soundness、completeness、terminationの優先順位** — `gap`
+- [x] **L6 L10573: `DD-TYP-ALG-004`: soundness、completeness、terminationの優先順位** — `meta`
   - spec: `specification.md:10573`
-  - notes: no three-valued decide-subtype / diagnostic taxonomy
+  - notes: formal priority: soundness > termination > completeness (spec policy)
 
-- [x] **L6 L10610: `DD-TYP-ALG-005`: principal type** — `gap`
+- [x] **L6 L10610: `DD-TYP-ALG-005`: principal type** — `meta`
   - spec: `specification.md:10610`
-  - notes: no three-valued decide-subtype / diagnostic taxonomy
+  - notes: principal-type property; not an executable obligation here
 
-- [x] **L6 L10639: `DD-TYP-ALG-006`: 決定的なsolver budget** — `gap`
+- [x] **L6 L10639: `DD-TYP-ALG-006`: 決定的なsolver budget** — `partial`
   - spec: `specification.md:10639`
-  - notes: no three-valued decide-subtype / diagnostic taxonomy
+  - notes: checker terminates on current fragment; no explicit step budget yet
 
 - [x] **L3 L10672: Effectに関するalgorithmic用語** — `partial`
   - spec: `specification.md:10672`
@@ -2483,29 +2483,29 @@
   - spec: `specification.md:10878`
   - notes: effect-row polymorphism / aliases not full
 
-- [x] **L6 L10915: `DD-TYP-EFF-007`: 注釈されたrequired effects** — `gap`
+- [x] **L6 L10915: `DD-TYP-EFF-007`: 注釈されたrequired effects** — `deferred`
   - spec: `specification.md:10915`
-  - notes: no required-effects annotation surface yet
+  - notes: annotated required-effects surface deferred
 
-- [x] **L3 L10941: Static型のBoolean代数** — `gap`
+- [x] **L3 L10941: Static型のBoolean代数** — `partial`
   - spec: `specification.md:10941`
-  - notes: no set-theoretic / solver / singleton implementation
+  - notes: Union/Intersect/Not/Diff + approx intersect/subtype algebra
 
-- [x] **L6 L10943: `DD-TYP-BOOL-001`: 型のBoolean演算** — `gap`
+- [x] **L6 L10943: `DD-TYP-BOOL-001`: 型のBoolean演算** — `partial`
   - spec: `specification.md:10943`
-  - notes: Union stub only; no Boolean algebra / singletons
+  - notes: Union/Intersect/Not/Diff CoreType + cast intersect algebra
 
-- [x] **L6 L10990: `DD-TYP-BOOL-002`: Surface negationの制限** — `gap`
+- [x] **L6 L10990: `DD-TYP-BOOL-002`: Surface negationの制限** — `partial`
   - spec: `specification.md:10990`
-  - notes: Union stub only; no Boolean algebra / singletons
+  - notes: surface Not present; unrestricted negation still limited (stub unify)
 
-- [x] **L3 L11031: Singleton型** — `gap`
+- [x] **L3 L11031: Singleton型** — `partial`
   - spec: `specification.md:11031`
-  - notes: no set-theoretic / solver / singleton implementation
+  - notes: SingletonValue + CoreType::Singleton; f64 singleton reserved
 
-- [x] **L6 L11033: `DD-TYP-SINGLETON-001`: singleton型** — `gap`
+- [x] **L6 L11033: `DD-TYP-SINGLETON-001`: singleton型** — `partial`
   - spec: `specification.md:11033`
-  - notes: Union stub only; no Boolean algebra / singletons
+  - notes: type-position int/str/bool singletons; domain subtyping; f64 reserved
 
 - [x] **L3 L11096: Function型** — `partial`
   - spec: `specification.md:11096`
@@ -2519,41 +2519,41 @@
   - spec: `specification.md:11126`
   - notes: fixed-arity Fun unify; limited subtyping
 
-- [x] **L6 L11201: `DD-TYP-FN-003`: function intersection** — `gap`
+- [x] **L6 L11201: `DD-TYP-FN-003`: function intersection** — `deferred`
   - spec: `specification.md:11201`
-  - notes: no function intersection / coherence / dispatch
+  - notes: function intersection / coherence deferred past fixed-arity Fun
 
-- [x] **L6 L11227: `DD-TYP-FN-004`: function intersectionの適用可能性** — `gap`
+- [x] **L6 L11227: `DD-TYP-FN-004`: function intersectionの適用可能性** — `deferred`
   - spec: `specification.md:11227`
-  - notes: no function intersection / coherence / dispatch
+  - notes: function intersection applicability deferred
 
-- [x] **L6 L11277: `DD-TYP-FN-005`: branch specificity** — `gap`
+- [x] **L6 L11277: `DD-TYP-FN-005`: branch specificity** — `deferred`
   - spec: `specification.md:11277`
-  - notes: no function intersection / coherence / dispatch
+  - notes: branch specificity deferred with function intersection
 
-- [x] **L6 L11333: `DD-TYP-FN-006`: function intersectionのcoherence** — `gap`
+- [x] **L6 L11333: `DD-TYP-FN-006`: function intersectionのcoherence** — `deferred`
   - spec: `specification.md:11333`
-  - notes: no function intersection / coherence / dispatch
+  - notes: function intersection coherence deferred
 
-- [x] **L6 L11339: 入力領域が互いに素** — `gap`
+- [x] **L6 L11339: 入力領域が互いに素** — `deferred`
   - spec: `specification.md:11339`
-  - notes: no function intersection / coherence / dispatch
+  - notes: coherence case: disjoint domains
 
-- [x] **L6 L11347: 片方が他方を包含** — `gap`
+- [x] **L6 L11347: 片方が他方を包含** — `deferred`
   - spec: `specification.md:11347`
-  - notes: no function intersection / coherence / dispatch
+  - notes: coherence case: inclusion
 
-- [x] **L6 L11351: 入力領域が等価** — `gap`
+- [x] **L6 L11351: 入力領域が等価** — `deferred`
   - spec: `specification.md:11351`
-  - notes: no function intersection / coherence / dispatch
+  - notes: coherence case: equivalent domains
 
-- [x] **L6 L11357: 入力領域が重なるが非比較** — `gap`
+- [x] **L6 L11357: 入力領域が重なるが非比較** — `deferred`
   - spec: `specification.md:11357`
-  - notes: no function intersection / coherence / dispatch
+  - notes: coherence case: overlapping incomparable
 
-- [x] **L6 L11373: `DD-TYP-FN-007`: union引数とdispatch** — `gap`
+- [x] **L6 L11373: `DD-TYP-FN-007`: union引数とdispatch** — `deferred`
   - spec: `specification.md:11373`
-  - notes: no function intersection / coherence / dispatch
+  - notes: union-arg dispatch deferred with function intersection
 
 - [x] **L3 L11396: RecordRow** — `partial`
   - spec: `specification.md:11396`
@@ -2603,45 +2603,45 @@
   - spec: `specification.md:11531`
   - notes: record-update preserves fields; multi-tail deferred
 
-- [x] **L6 L11551: `DD-TYP-ROW-007`: optional field** — `gap`
+- [x] **L6 L11551: `DD-TYP-ROW-007`: optional field** — `partial`
   - spec: `specification.md:11551`
-  - notes: optional/Boolean record ops unimplemented
+  - notes: OptionalField + required<:optional record subtype; pattern decomp rejected
 
-- [x] **L6 L11591: `DD-TYP-ROW-008`: recordのBoolean演算** — `gap`
+- [x] **L6 L11591: `DD-TYP-ROW-008`: recordのBoolean演算** — `deferred`
   - spec: `specification.md:11591`
-  - notes: optional/Boolean record ops unimplemented
+  - notes: record Boolean combination complete fragment deferred
 
-- [x] **L3 L11626: Recursive data type** — `gap`
+- [x] **L3 L11626: Recursive data type** — `deferred`
   - spec: `specification.md:11626`
-  - notes: no equi-recursive / contractiveness checker
+  - notes: equi-recursive / contractiveness checker deferred
 
-- [x] **L6 L11628: `DD-TYP-REC-001`: recursive data type** — `gap`
+- [x] **L6 L11628: `DD-TYP-REC-001`: recursive data type** — `deferred`
   - spec: `specification.md:11628`
-  - notes: no equi-recursive / contractiveness / regularity checker
+  - notes: recursive data type equi-checker deferred (DAT surface exists)
 
-- [x] **L6 L11644: `DD-TYP-REC-002`: equi-recursiveな利用者意味論** — `gap`
+- [x] **L6 L11644: `DD-TYP-REC-002`: equi-recursiveな利用者意味論** — `deferred`
   - spec: `specification.md:11644`
-  - notes: no equi-recursive / contractiveness / regularity checker
+  - notes: equi-recursive user semantics deferred
 
-- [x] **L6 L11664: `DD-TYP-REC-003`: contractiveness** — `gap`
+- [x] **L6 L11664: `DD-TYP-REC-003`: contractiveness** — `deferred`
   - spec: `specification.md:11664`
-  - notes: no equi-recursive / contractiveness / regularity checker
+  - notes: contractiveness checker deferred
 
-- [x] **L6 L11699: `DD-TYP-REC-004`: strict positivity** — `gap`
+- [x] **L6 L11699: `DD-TYP-REC-004`: strict positivity** — `deferred`
   - spec: `specification.md:11699`
-  - notes: no equi-recursive / contractiveness / regularity checker
+  - notes: strict positivity: DAT group positivity only (partial elsewhere)
 
-- [x] **L6 L11727: `DD-TYP-REC-005`: regularity** — `gap`
+- [x] **L6 L11727: `DD-TYP-REC-005`: regularity** — `deferred`
   - spec: `specification.md:11727`
-  - notes: no equi-recursive / contractiveness / regularity checker
+  - notes: regularity checker deferred
 
-- [x] **L6 L11758: `DD-TYP-REC-006`: base constructor** — `gap`
+- [x] **L6 L11758: `DD-TYP-REC-006`: base constructor** — `deferred`
   - spec: `specification.md:11758`
-  - notes: no equi-recursive / contractiveness / regularity checker
+  - notes: base constructor discipline deferred
 
-- [x] **L6 L11786: `DD-TYP-REC-007`: recursive dataの完全判定範囲** — `gap`
+- [x] **L6 L11786: `DD-TYP-REC-007`: recursive dataの完全判定範囲** — `deferred`
   - spec: `specification.md:11786`
-  - notes: no equi-recursive / contractiveness / regularity checker
+  - notes: full recursive decide fragment deferred
 
 - [x] **L3 L11809: Bidirectional type checking** — `partial`
   - spec: `specification.md:11809`
@@ -2683,117 +2683,117 @@
   - spec: `specification.md:11952`
   - notes: check.rs infer-primary; some check via unify
 
-- [x] **L6 L11982: `DD-TYP-BIDI-008`: annotation-requiredとchecker-limitation** — `gap`
+- [x] **L6 L11982: `DD-TYP-BIDI-008`: annotation-requiredとchecker-limitation** — `partial`
   - spec: `specification.md:11982`
-  - notes: no three-valued decide-subtype / diagnostic taxonomy
+  - notes: classify_decide maps Unknown→CheckerLimitation; AnnotationRequired enum
 
-- [x] **L3 L12003: 明示的多相型** — `gap`
+- [x] **L3 L12003: 明示的多相型** — `partial`
   - spec: `specification.md:12003`
-  - notes: no forall / prenex generalization
+  - notes: CoreType::Forall surface parse; prenex instantiation deferred
 
-- [x] **L6 L12005: `DD-TYP-POLY-001`: 明示的`forall`** — `gap`
+- [x] **L6 L12005: `DD-TYP-POLY-001`: 明示的`forall`** — `partial`
   - spec: `specification.md:12005`
-  - notes: no forall elaboration / prenex
+  - notes: forall elaborates to CoreType::Forall; stub unify
 
-- [x] **L6 L12046: `DD-TYP-POLY-002`: `forall` binderのkind** — `gap`
+- [x] **L6 L12046: `DD-TYP-POLY-002`: `forall` binderのkind** — `partial`
   - spec: `specification.md:12046`
-  - notes: no forall elaboration / prenex
+  - notes: forall binder kinds type/record-row/effect-row checked
 
-- [x] **L6 L12077: `DD-TYP-POLY-003`: `forall`のscope** — `gap`
+- [x] **L6 L12077: `DD-TYP-POLY-003`: `forall`のscope** — `partial`
   - spec: `specification.md:12077`
-  - notes: no forall elaboration / prenex
+  - notes: forall binder scope in parse_type_syntax_in
 
-- [x] **L6 L12100: `DD-TYP-POLY-004`: rank-1／prenex制限** — `gap`
+- [x] **L6 L12100: `DD-TYP-POLY-004`: rank-1／prenex制限** — `partial`
   - spec: `specification.md:12100`
-  - notes: no forall elaboration / prenex
+  - notes: surface forall only; rank-1 instantiation not enforced yet
 
-- [x] **L3 L12136: 完全性分類** — `gap`
+- [x] **L3 L12136: 完全性分類** — `partial`
   - spec: `specification.md:12136`
-  - notes: no set-theoretic / solver / singleton implementation
+  - notes: is_fully_decidable_fragment gates Unknown vs Disproved
 
-- [x] **L6 L12138: `DD-TYP-FRAG-001`: A — 完全判定fragment** — `gap`
+- [x] **L6 L12138: `DD-TYP-FRAG-001`: A — 完全判定fragment** — `partial`
   - spec: `specification.md:12138`
-  - notes: no shared constraint worklist / fragment classifier
+  - notes: fragment A: primitives/union/intersect/record/fun decide closed
 
-- [x] **L6 L12180: `DD-TYP-FRAG-002`: B — `unknown`を返し得るfragment** — `gap`
+- [x] **L6 L12180: `DD-TYP-FRAG-002`: B — `unknown`を返し得るfragment** — `partial`
   - spec: `specification.md:12180`
-  - notes: no three-valued decide-subtype / diagnostic taxonomy
+  - notes: fragment B: open rows/forall/app → Unknown
 
-- [x] **L6 L12208: `DD-TYP-FRAG-003`: C — 注釈を要求し得るfragment** — `gap`
+- [x] **L6 L12208: `DD-TYP-FRAG-003`: C — 注釈を要求し得るfragment** — `partial`
   - spec: `specification.md:12208`
-  - notes: no shared constraint worklist / fragment classifier
+  - notes: AnnotationRequired class reserved for incompleteness paths
 
-- [x] **L6 L12231: `DD-TYP-FRAG-004`: D — RPX v1で禁止するfragment** — `gap`
+- [x] **L6 L12231: `DD-TYP-FRAG-004`: D — RPX v1で禁止するfragment** — `partial`
   - spec: `specification.md:12231`
-  - notes: no shared constraint worklist / fragment classifier
+  - notes: v1 rejects unsupported via type errors / reserved enums
 
-- [x] **L3 L12266: 共通constraint worklist** — `gap`
+- [x] **L3 L12266: 共通constraint worklist** — `deferred`
   - spec: `specification.md:12266`
-  - notes: no set-theoretic / solver / singleton implementation
+  - notes: shared constraint worklist deferred; unify is direct
 
-- [x] **L6 L12268: `DD-TYP-SOLVER-001`: shared constraint worklist** — `gap`
+- [x] **L6 L12268: `DD-TYP-SOLVER-001`: shared constraint worklist** — `deferred`
   - spec: `specification.md:12268`
-  - notes: no shared constraint worklist / fragment classifier
+  - notes: shared constraint worklist deferred
 
-- [x] **L6 L12303: `DD-TYP-SOLVER-002`: solver間のconstraint生成** — `gap`
+- [x] **L6 L12303: `DD-TYP-SOLVER-002`: solver間のconstraint生成** — `deferred`
   - spec: `specification.md:12303`
-  - notes: no shared constraint worklist / fragment classifier
+  - notes: multi-solver constraint generation deferred
 
-- [x] **L6 L12382: `DD-TYP-SOLVER-003`: constraint処理の優先度** — `gap`
+- [x] **L6 L12382: `DD-TYP-SOLVER-003`: constraint処理の優先度** — `deferred`
   - spec: `specification.md:12382`
-  - notes: no shared constraint worklist / fragment classifier
+  - notes: constraint priority schedule deferred
 
-- [x] **L6 L12409: `DD-TYP-SOLVER-004`: canonicalizationとmemoization** — `gap`
+- [x] **L6 L12409: `DD-TYP-SOLVER-004`: canonicalizationとmemoization** — `deferred`
   - spec: `specification.md:12409`
-  - notes: no shared constraint worklist / fragment classifier
+  - notes: canonicalization/memoization deferred
 
-- [x] **L6 L12436: `DD-TYP-SOLVER-005`: solver終了状態** — `gap`
+- [x] **L6 L12436: `DD-TYP-SOLVER-005`: solver終了状態** — `deferred`
   - spec: `specification.md:12436`
-  - notes: no shared constraint worklist / fragment classifier
+  - notes: solver end-states folded into CheckError for now
 
-- [x] **L6 L12442: 成功** — `gap`
+- [x] **L6 L12442: 成功** — `partial`
   - spec: `specification.md:12442`
-  - notes: solver end-states not modeled; CheckError only
+  - notes: success path = infer_expr Ok
 
-- [x] **L6 L12454: Type error** — `gap`
+- [x] **L6 L12454: Type error** — `partial`
   - spec: `specification.md:12454`
-  - notes: solver end-states not modeled; CheckError only
+  - notes: type error via CheckError / DecideResult::Disproved
 
-- [x] **L6 L12458: Annotation required** — `gap`
+- [x] **L6 L12458: Annotation required** — `partial`
   - spec: `specification.md:12458`
-  - notes: no shared constraint worklist / fragment classifier
+  - notes: AnnotationRequired class reserved
 
-- [x] **L6 L12462: Checker limitation** — `gap`
+- [x] **L6 L12462: Checker limitation** — `partial`
   - spec: `specification.md:12462`
-  - notes: no shared constraint worklist / fragment classifier
+  - notes: CheckerLimitation class on Unknown
 
-- [x] **L6 L12466: Resource limit** — `gap`
+- [x] **L6 L12466: Resource limit** — `partial`
   - spec: `specification.md:12466`
-  - notes: no shared constraint worklist / fragment classifier
+  - notes: CheckerResourceLimit class reserved
 
-- [x] **L6 L12472: `DD-TYP-SOLVER-006`: cast insertionとgeneralizationの順序** — `gap`
+- [x] **L6 L12472: `DD-TYP-SOLVER-006`: cast insertionとgeneralizationの順序** — `deferred`
   - spec: `specification.md:12472`
-  - notes: no shared constraint worklist / fragment classifier
+  - notes: cast insertion vs generalization ordering deferred
 
-- [x] **L3 L12494: 型検査器の概念pipeline** — `gap`
+- [x] **L3 L12494: 型検査器の概念pipeline** — `deferred`
   - spec: `specification.md:12494`
-  - notes: no set-theoretic / solver / singleton implementation
+  - notes: full checker pipeline schedule deferred
 
-- [x] **L6 L12496: `DD-TYP-SOLVER-007`: checkerの全体処理順序** — `gap`
+- [x] **L6 L12496: `DD-TYP-SOLVER-007`: checkerの全体処理順序** — `deferred`
   - spec: `specification.md:12496`
-  - notes: no shared constraint worklist / fragment classifier
+  - notes: overall checker processing order deferred
 
 - [x] **L3 L12542: 適合試験** — `partial`
   - spec: `specification.md:12542`
   - notes: lang_kernel_suite TYP-001 + type aliases; not full TYP suite
 
-- [x] **L6 L12544: 三値判定** — `gap`
+- [x] **L6 L12544: 三値判定** — `partial`
   - spec: `specification.md:12544`
-  - notes: conformance target unimplemented
+  - notes: decide_subtype three-valued suite seeded in cast tests
 
-- [x] **L6 L12574: 診断分類** — `gap`
+- [x] **L6 L12574: 診断分類** — `partial`
   - spec: `specification.md:12574`
-  - notes: no three-valued decide-subtype / diagnostic taxonomy
+  - notes: TypeDiagClass taxonomy present; not full diagnostic emitter
 
 - [x] **L6 L12615: 最小required effects** — `partial`
   - spec: `specification.md:12615`
@@ -2811,25 +2811,25 @@
   - spec: `specification.md:12680`
   - notes: fragment covered by unify/check; not full suite
 
-- [x] **L6 L12696: Singleton型** — `gap`
+- [x] **L6 L12696: Singleton型** — `partial`
   - spec: `specification.md:12696`
-  - notes: no set-theoretic / solver / singleton implementation
+  - notes: singleton suite: type-position lit + domain subtype tests
 
 - [x] **L6 L12722: Function subtyping** — `partial`
   - spec: `specification.md:12722`
   - notes: basic Fun/Record checking only
 
-- [x] **L6 L12744: Function intersection coherence** — `gap`
+- [x] **L6 L12744: Function intersection coherence** — `deferred`
   - spec: `specification.md:12744`
-  - notes: conformance target unimplemented
+  - notes: function intersection coherence suite deferred
 
-- [x] **L6 L12770: 非比較なbranch overlap** — `gap`
+- [x] **L6 L12770: 非比較なbranch overlap** — `deferred`
   - spec: `specification.md:12770`
-  - notes: conformance target unimplemented
+  - notes: incomparable branch overlap suite deferred
 
-- [x] **L6 L12786: Union引数の暗黙dispatch禁止** — `gap`
+- [x] **L6 L12786: Union引数の暗黙dispatch禁止** — `deferred`
   - spec: `specification.md:12786`
-  - notes: conformance target unimplemented
+  - notes: union-arg implicit dispatch forbidden suite deferred
 
 - [x] **L6 L12810: Closed record** — `partial`
   - spec: `specification.md:12810`
@@ -2843,33 +2843,33 @@
   - spec: `specification.md:12871`
   - notes: fragment covered by unify/check; not full suite
 
-- [x] **L6 L12893: Recursive data** — `gap`
+- [x] **L6 L12893: Recursive data** — `deferred`
   - spec: `specification.md:12893`
-  - notes: conformance target unimplemented
+  - notes: recursive data conformance suite deferred
 
-- [x] **L6 L12916: 非contractive再帰** — `gap`
+- [x] **L6 L12916: 非contractive再帰** — `deferred`
   - spec: `specification.md:12916`
-  - notes: conformance target unimplemented
+  - notes: non-contractive recursion suite deferred
 
-- [x] **L6 L12930: Non-regular recursion** — `gap`
+- [x] **L6 L12930: Non-regular recursion** — `deferred`
   - spec: `specification.md:12930`
-  - notes: conformance target unimplemented
+  - notes: non-regular recursion suite deferred
 
 - [x] **L6 L12948: Bidirectional checking** — `partial`
   - spec: `specification.md:12948`
   - notes: basic Fun/Record checking only
 
-- [x] **L6 L12979: Explicit `forall`** — `gap`
+- [x] **L6 L12979: Explicit `forall`** — `partial`
   - spec: `specification.md:12979`
-  - notes: conformance target unimplemented
+  - notes: explicit forall surface; instantiation suite thin
 
-- [x] **L6 L13007: Kind error** — `gap`
+- [x] **L6 L13007: Kind error** — `partial`
   - spec: `specification.md:13007`
-  - notes: conformance target unimplemented
+  - notes: forall kind error checked at elaborate
 
-- [x] **L6 L13022: Solver determinism** — `gap`
+- [x] **L6 L13022: Solver determinism** — `deferred`
   - spec: `specification.md:13022`
-  - notes: conformance target unimplemented
+  - notes: solver determinism suite deferred with worklist
 
 - [x] **L3 L13037: 関連する後続設計課題** — `meta`
   - spec: `specification.md:13037`
@@ -4345,7 +4345,7 @@
 
 - [x] **L4 L17355: 13.11 `EDT-001` 編集スナップショット・トランザクション・競合・由来情報** — `partial`
   - spec: `specification.md:17355`
-  - notes: DocumentSnapshot/Transaction/provenance + BindingMap; full EDT ops/conflict deferred
+  - notes: DocumentSnapshot/Transaction/BindingMap use-sites + MacroSourceMap; full GUI reconciliation 依存待ち(第V部)
 
 - [x] **L5 L17356: DD-001 決定概要** — `meta`
   - spec: `specification.md:17356`
@@ -4363,9 +4363,9 @@
   - spec: `specification.md:17400`
   - notes: scope
 
-- [x] **L6 L17401: 0.1 本項目が扱う編集** — `partial`
+- [x] **L6 L17401: 0.1 本項目が扱う編集** — `deferred`
   - spec: `specification.md:17401`
-  - notes: GUI provenance edit + document txs covered
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
 - [x] **L6 L17412: 0.2 直接の対象としないもの** — `deferred`
   - spec: `specification.md:17412`
@@ -4373,19 +4373,19 @@
 
 - [x] **L5 L17435: 1. 編集モデルの基本原則** — `partial`
   - spec: `specification.md:17435`
-  - notes: snapshot + StableNodeId identity present
+  - notes: snapshot + StableNodeId + BindingId use-sites; full EDT value model 依存待ち(第V部)
 
 - [x] **L6 L17436: 1.1 不変値と継続的identity** — `partial`
   - spec: `specification.md:17436`
-  - notes: DocumentIdentity + StableNodeId; not full EDT value model
+  - notes: DocumentIdentity + StableNodeId; full EDT value model 依存待ち(第V部)
 
 - [x] **L6 L17460: 1.2 スナップショット** — `ok`
   - spec: `specification.md:17460`
   - notes: DocumentSnapshot + DocumentRevision
 
-- [x] **L6 L17477: 1.3 現在文書** — `partial`
+- [x] **L6 L17477: 1.3 現在文書** — `deferred`
   - spec: `specification.md:17477`
-  - notes: mutable working snapshot; no separate current-doc handle API
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
 - [x] **L5 L17487: 2. 文書の所有構造** — `partial`
   - spec: `specification.md:17487`
@@ -4395,73 +4395,73 @@
   - spec: `specification.md:17488`
   - notes: single Document root + children
 
-- [x] **L6 L17505: 2.2 所有と参照の分離** — `partial`
+- [x] **L6 L17505: 2.2 所有と参照の分離** — `deferred`
   - spec: `specification.md:17505`
-  - notes: ReferenceGraph separate; limited use
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L6 L17524: 2.3 共有** — `gap`
+- [x] **L6 L17524: 2.3 共有** — `deferred`
   - spec: `specification.md:17524`
-  - notes: no shared-ownership nodes
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
 - [x] **L6 L17535: 2.4 規範的な親子情報** — `ok`
   - spec: `specification.md:17535`
   - notes: parent/children on DocumentNode
 
-- [x] **L5 L17548: 3. 文書treeの不変条件** — `partial`
+- [x] **L5 L17548: 3. 文書treeの不変条件** — `deferred`
   - spec: `specification.md:17548`
-  - notes: tree invariants partially enforced in apply
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L5 L17552: 1. RootNodeIdがnode storeに存在する** — `partial`
+- [x] **L5 L17552: 1. RootNodeIdがnode storeに存在する** — `deferred`
   - spec: `specification.md:17552`
-  - notes: root allocated in DocumentSnapshot::new
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L5 L17553: 2. Rootは親を持たない** — `partial`
+- [x] **L5 L17553: 2. Rootは親を持たない** — `deferred`
   - spec: `specification.md:17553`
-  - notes: Document root has parent=None
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L5 L17554: 3. Root以外の全ノードはちょうど一つの親を持つ** — `partial`
+- [x] **L5 L17554: 3. Root以外の全ノードはちょうど一つの親を持つ** — `deferred`
   - spec: `specification.md:17554`
-  - notes: parent link maintained on insert/move
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L5 L17555: 4. 所有edgeにcycleがない** — `partial`
+- [x] **L5 L17555: 4. 所有edgeにcycleがない** — `deferred`
   - spec: `specification.md:17555`
-  - notes: no explicit cycle check beyond tree ops
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L5 L17556: 5. 同じ親のchildren列内に同一NodeIdが重複しない** — `partial`
+- [x] **L5 L17556: 5. 同じ親のchildren列内に同一NodeIdが重複しない** — `deferred`
   - spec: `specification.md:17556`
-  - notes: children vec; duplicates not specially guarded
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L5 L17557: 6. 全ノードが同じDocumentIdに所属する** — `partial`
+- [x] **L5 L17557: 6. 全ノードが同じDocumentIdに所属する** — `deferred`
   - spec: `specification.md:17557`
-  - notes: single DocumentIdentity per snapshot
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L5 L17558: 7. 全ノードがRootから到達可能である** — `gap`
+- [x] **L5 L17558: 7. 全ノードがRootから到達可能である** — `deferred`
   - spec: `specification.md:17558`
-  - notes: reachability not globally rechecked
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L5 L17559: 8. 必須propertyが存在する** — `gap`
+- [x] **L5 L17559: 8. 必須propertyが存在する** — `deferred`
   - spec: `specification.md:17559`
-  - notes: properties optional / kind-dependent
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L5 L17560: 9. Property値がNode kindのschemaに適合する** — `gap`
+- [x] **L5 L17560: 9. Property値がNode kindのschemaに適合する** — `deferred`
   - spec: `specification.md:17560`
-  - notes: no full kind schema validator
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L5 L17561: 10. 強いNodeId参照が有効な対象を指す** — `gap`
+- [x] **L5 L17561: 10. 強いNodeId参照が有効な対象を指す** — `deferred`
   - spec: `specification.md:17561`
-  - notes: strong refs not fully validated
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L6 L17563: 3.1 到達不能ノード** — `gap`
+- [x] **L6 L17563: 3.1 到達不能ノード** — `deferred`
   - spec: `specification.md:17563`
-  - notes: unreachable-node GC not implemented
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L5 L17578: 4. 識別子** — `partial`
+- [x] **L5 L17578: 4. 識別子** — `deferred`
   - spec: `specification.md:17578`
-  - notes: DocumentIdentity/StableNodeId/Revision; no TransactionId
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L6 L17579: 4.1 識別子の種類** — `partial`
+- [x] **L6 L17579: 4.1 識別子の種類** — `deferred`
   - spec: `specification.md:17579`
-  - notes: subset of ID kinds
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
 - [x] **L6 L17601: 4.2 Opaque型** — `ok`
   - spec: `specification.md:17601`
@@ -4475,85 +4475,85 @@
   - spec: `specification.md:17637`
   - notes: StableNodeId ≈ NodeId
 
-- [x] **L6 L17653: 4.5 TransactionId** — `gap`
+- [x] **L6 L17653: 4.5 TransactionId** — `deferred`
   - spec: `specification.md:17653`
-  - notes: no TransactionId type
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
 - [x] **L6 L17665: 4.6 ID表現** — `ok`
   - spec: `specification.md:17665`
   - notes: Display formats document:/node:/rev:
 
-- [x] **L5 L17671: 5. 保存・複製・Fork** — `gap`
+- [x] **L5 L17671: 5. 保存・複製・Fork** — `deferred`
   - spec: `specification.md:17671`
-  - notes: Save As / Fork / cross-doc clone not implemented
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L6 L17672: 5.1 通常保存** — `gap`
+- [x] **L6 L17672: 5.1 通常保存** — `deferred`
   - spec: `specification.md:17672`
-  - notes: Save As / Fork / cross-doc clone not implemented
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L6 L17683: 5.2 Save As** — `gap`
+- [x] **L6 L17683: 5.2 Save As** — `deferred`
   - spec: `specification.md:17683`
-  - notes: Save As / Fork / cross-doc clone not implemented
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L6 L17693: 5.3 Duplicate／Fork** — `gap`
+- [x] **L6 L17693: 5.3 Duplicate／Fork** — `deferred`
   - spec: `specification.md:17693`
-  - notes: Save As / Fork / cross-doc clone not implemented
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L6 L17708: 5.4 内部参照の複製** — `gap`
+- [x] **L6 L17708: 5.4 内部参照の複製** — `deferred`
   - spec: `specification.md:17708`
-  - notes: Save As / Fork / cross-doc clone not implemented
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L6 L17718: 5.5 文書間参照** — `gap`
+- [x] **L6 L17718: 5.5 文書間参照** — `deferred`
   - spec: `specification.md:17718`
-  - notes: Save As / Fork / cross-doc clone not implemented
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L5 L17724: 6. Revision** — `partial`
+- [x] **L5 L17724: 6. Revision** — `deferred`
   - spec: `specification.md:17724`
-  - notes: DocumentRevision monotonic bump
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L6 L17725: 6.1 直線的な履歴** — `partial`
+- [x] **L6 L17725: 6.1 直線的な履歴** — `deferred`
   - spec: `specification.md:17725`
-  - notes: linear rev counter; no history store
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L6 L17738: 6.2 Commitの直列化** — `partial`
+- [x] **L6 L17738: 6.2 Commitの直列化** — `deferred`
   - spec: `specification.md:17738`
-  - notes: apply commits in order within one batch
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
 - [x] **L6 L17753: 6.3 Revision増加** — `ok`
   - spec: `specification.md:17753`
   - notes: bump_revision on apply
 
-- [x] **L6 L17772: 6.4 保存後のrevision** — `gap`
+- [x] **L6 L17772: 6.4 保存後のrevision** — `deferred`
   - spec: `specification.md:17772`
-  - notes: save does not define post-save revision policy
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L5 L17780: 7. Snapshotの保持** — `partial`
+- [x] **L5 L17780: 7. Snapshotの保持** — `deferred`
   - spec: `specification.md:17780`
-  - notes: snapshot cloneable; no persistent history
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L6 L17781: 7.1 不変性** — `partial`
+- [x] **L6 L17781: 7.1 不変性** — `deferred`
   - spec: `specification.md:17781`
-  - notes: snapshot is a value; edits mutate working copy
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L6 L17792: 7.2 過去版の永久取得** — `gap`
+- [x] **L6 L17792: 7.2 過去版の永久取得** — `deferred`
   - spec: `specification.md:17792`
-  - notes: no past-revision retrieval API
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L6 L17798: 7.3 履歴の種類** — `gap`
+- [x] **L6 L17798: 7.3 履歴の種類** — `deferred`
   - spec: `specification.md:17798`
-  - notes: history kinds absent
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L5 L17811: 8. 編集トランザクション** — `partial`
+- [x] **L5 L17811: 8. 編集トランザクション** — `deferred`
   - spec: `specification.md:17811`
-  - notes: DocumentTransaction / TransactionBuilder
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L6 L17812: 8.1 概念構造** — `partial`
+- [x] **L6 L17812: 8.1 概念構造** — `deferred`
   - spec: `specification.md:17812`
-  - notes: batch of DocumentEdit
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L6 L17822: 8.2 不変の第一級値** — `partial`
+- [x] **L6 L17822: 8.2 不変の第一級値** — `deferred`
   - spec: `specification.md:17822`
-  - notes: edits are values; not first-class RPX Transaction
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
 - [x] **L6 L17835: 8.3 原子性** — `ok`
   - spec: `specification.md:17835`
@@ -4563,9 +4563,9 @@
   - spec: `specification.md:17848`
   - notes: ops applied in vector order
 
-- [x] **L5 L17856: 9. 編集Operation** — `partial`
+- [x] **L5 L17856: 9. 編集Operation** — `deferred`
   - spec: `specification.md:17856`
-  - notes: InsertChild/Remove/SetLayout/SetText/MoveNode only
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
 - [x] **L6 L17867: 9.1 CreateNode** — `partial`
   - spec: `specification.md:17867`
@@ -4583,9 +4583,9 @@
   - spec: `specification.md:17925`
   - notes: DocumentEdit::InsertChild
 
-- [x] **L6 L17950: 9.5 RemoveChild** — `partial`
+- [x] **L6 L17950: 9.5 RemoveChild** — `deferred`
   - spec: `specification.md:17950`
-  - notes: RemoveNode; not RemoveChild-by-index API
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
 - [x] **L6 L17958: 9.6 MoveNode** — `ok`
   - spec: `specification.md:17958`
@@ -4599,13 +4599,13 @@
   - spec: `specification.md:17986`
   - notes: monotonic allocate
 
-- [x] **L6 L17999: 10.2 予約済みID** — `gap`
+- [x] **L6 L17999: 10.2 予約済みID** — `deferred`
   - spec: `specification.md:17999`
-  - notes: no reserved-ID table
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L6 L18005: 10.3 Copy** — `gap`
+- [x] **L6 L18005: 10.3 Copy** — `deferred`
   - spec: `specification.md:18005`
-  - notes: Copy/reserve protocol absent
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
 - [x] **L5 L18011: 11. 適用前条件** — `partial`
   - spec: `specification.md:18011`
@@ -4619,69 +4619,69 @@
   - spec: `specification.md:18027`
   - notes: EmptyBatch rejected
 
-- [x] **L6 L18037: 11.3 Base revision** — `gap`
+- [x] **L6 L18037: 11.3 Base revision** — `deferred`
   - spec: `specification.md:18037`
-  - notes: no base-revision precondition
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L5 L18043: 12. Stale transaction** — `gap`
+- [x] **L5 L18043: 12. Stale transaction** — `deferred`
   - spec: `specification.md:18043`
-  - notes: stale transaction / rebase not implemented
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L6 L18044: 12.1 定義** — `gap`
+- [x] **L6 L18044: 12.1 定義** — `deferred`
   - spec: `specification.md:18044`
-  - notes: stale transaction / rebase not implemented
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L6 L18048: 12.2 分類** — `gap`
+- [x] **L6 L18048: 12.2 分類** — `deferred`
   - spec: `specification.md:18048`
-  - notes: stale transaction / rebase not implemented
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L6 L18063: 12.3 保守的な再適用** — `gap`
+- [x] **L6 L18063: 12.3 保守的な再適用** — `deferred`
   - spec: `specification.md:18063`
-  - notes: stale transaction / rebase not implemented
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L6 L18069: 12.4 無関係な変更** — `gap`
+- [x] **L6 L18069: 12.4 無関係な変更** — `deferred`
   - spec: `specification.md:18069`
-  - notes: stale transaction / rebase not implemented
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L5 L18073: 13. 競合** — `gap`
+- [x] **L5 L18073: 13. 競合** — `deferred`
   - spec: `specification.md:18073`
-  - notes: structured conflict results not implemented
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L6 L18074: 13.1 基本分類** — `gap`
+- [x] **L6 L18074: 13.1 基本分類** — `deferred`
   - spec: `specification.md:18074`
-  - notes: structured conflict results not implemented
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L6 L18091: 13.2 競合と不正トランザクション** — `gap`
+- [x] **L6 L18091: 13.2 競合と不正トランザクション** — `deferred`
   - spec: `specification.md:18091`
-  - notes: structured conflict results not implemented
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L6 L18109: 13.3 競合の収集** — `gap`
+- [x] **L6 L18109: 13.3 競合の収集** — `deferred`
   - spec: `specification.md:18109`
-  - notes: structured conflict results not implemented
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L6 L18115: 13.4 自動併合** — `gap`
+- [x] **L6 L18115: 13.4 自動併合** — `deferred`
   - spec: `specification.md:18115`
-  - notes: structured conflict results not implemented
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
 - [x] **L5 L18135: 14. 適用手順** — `partial`
   - spec: `specification.md:18135`
   - notes: simplified apply path without full 9-step protocol
 
-- [x] **L5 L18139: 1. TransactionIdを確認** — `gap`
+- [x] **L5 L18139: 1. TransactionIdを確認** — `deferred`
   - spec: `specification.md:18139`
-  - notes: TransactionId/DocumentId/base-rev gates absent
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L5 L18140: 2. DocumentIdを確認** — `gap`
+- [x] **L5 L18140: 2. DocumentIdを確認** — `deferred`
   - spec: `specification.md:18140`
-  - notes: TransactionId/DocumentId/base-rev gates absent
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L5 L18141: 3. Base revisionを比較** — `gap`
+- [x] **L5 L18141: 3. Base revisionを比較** — `deferred`
   - spec: `specification.md:18141`
-  - notes: TransactionId/DocumentId/base-rev gates absent
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L5 L18142: 4. Transaction-level preconditionを検査** — `gap`
+- [x] **L5 L18142: 4. Transaction-level preconditionを検査** — `deferred`
   - spec: `specification.md:18142`
-  - notes: TransactionId/DocumentId/base-rev gates absent
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
 - [x] **L5 L18143: 5. 現在snapshotから作業状態を作成** — `partial`
   - spec: `specification.md:18143`
@@ -4691,17 +4691,17 @@
   - spec: `specification.md:18144`
   - notes: ops applied sequentially
 
-- [x] **L5 L18145: 7. 文書全体の不変条件を検査** — `gap`
+- [x] **L5 L18145: 7. 文書全体の不変条件を検査** — `deferred`
   - spec: `specification.md:18145`
-  - notes: no full post-apply invariant sweep
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
 - [x] **L5 L18146: 8. 成功時だけcommit** — `ok`
   - spec: `specification.md:18146`
   - notes: errors abort without partial commit
 
-- [x] **L5 L18147: 9. 新revisionとUndo情報を生成** — `gap`
+- [x] **L5 L18147: 9. 新revisionとUndo情報を生成** — `deferred`
   - spec: `specification.md:18147`
-  - notes: no Undo info generated
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
 - [x] **L5 L18152: 15. 適用結果** — `partial`
   - spec: `specification.md:18152`
@@ -4723,145 +4723,145 @@
   - spec: `specification.md:18176`
   - notes: Rejected outcome; mostly errors via TransactionError
 
-- [x] **L6 L18185: 15.5 AlreadyApplied** — `gap`
+- [x] **L6 L18185: 15.5 AlreadyApplied** — `deferred`
   - spec: `specification.md:18185`
-  - notes: AlreadyApplied not implemented
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L6 L18191: 15.6 Transaction content hash** — `gap`
+- [x] **L6 L18191: 15.6 Transaction content hash** — `deferred`
   - spec: `specification.md:18191`
-  - notes: transaction content hash absent
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L5 L18205: 16. UndoとRedo** — `gap`
+- [x] **L5 L18205: 16. UndoとRedo** — `deferred`
   - spec: `specification.md:18205`
-  - notes: Undo/Redo not implemented
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L6 L18206: 16.1 新revision** — `gap`
+- [x] **L6 L18206: 16.1 新revision** — `deferred`
   - spec: `specification.md:18206`
-  - notes: Undo/Redo not implemented
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L6 L18218: 16.2 Undo情報** — `gap`
+- [x] **L6 L18218: 16.2 Undo情報** — `deferred`
   - spec: `specification.md:18218`
-  - notes: Undo/Redo not implemented
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L6 L18234: 16.3 UndoToken** — `gap`
+- [x] **L6 L18234: 16.3 UndoToken** — `deferred`
   - spec: `specification.md:18234`
-  - notes: Undo/Redo not implemented
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L6 L18241: 16.4 Undo競合** — `gap`
+- [x] **L6 L18241: 16.4 Undo競合** — `deferred`
   - spec: `specification.md:18241`
-  - notes: Undo/Redo not implemented
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L6 L18247: 16.5 Redo** — `gap`
+- [x] **L6 L18247: 16.5 Redo** — `deferred`
   - spec: `specification.md:18247`
-  - notes: Undo/Redo not implemented
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L6 L18251: 16.6 履歴保持** — `gap`
+- [x] **L6 L18251: 16.6 履歴保持** — `deferred`
   - spec: `specification.md:18251`
-  - notes: Undo/Redo not implemented
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
 - [x] **L5 L18264: 17. Provenance** — `partial`
   - spec: `specification.md:18264`
   - notes: SourceProvenance + NodeProvenance; not full EDT provenance taxonomy
 
-- [x] **L6 L18265: 17.1 定義** — `partial`
+- [x] **L6 L18265: 17.1 定義** — `deferred`
   - spec: `specification.md:18265`
-  - notes: source_resource/module/range/syntax_node_id
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L6 L18278: 17.2 Optional metadata** — `partial`
+- [x] **L6 L18278: 17.2 Optional metadata** — `deferred`
   - spec: `specification.md:18278`
-  - notes: optional SyntaxNodeId
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
 - [x] **L6 L18284: 17.3 構造** — `partial`
   - spec: `specification.md:18284`
   - notes: flat SourceProvenance struct
 
-- [x] **L6 L18296: 17.4 種類** — `gap`
+- [x] **L6 L18296: 17.4 種類** — `deferred`
   - spec: `specification.md:18296`
-  - notes: provenance kind enum absent
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L6 L18305: 17.5 UserCreated** — `gap`
+- [x] **L6 L18305: 17.5 UserCreated** — `deferred`
   - spec: `specification.md:18305`
-  - notes: provenance kind variant not modeled
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L6 L18312: 17.6 SourceGenerated** — `gap`
+- [x] **L6 L18312: 17.6 SourceGenerated** — `deferred`
   - spec: `specification.md:18312`
-  - notes: provenance kind variant not modeled
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L6 L18327: 17.7 MacroGenerated** — `gap`
+- [x] **L6 L18327: 17.7 MacroGenerated** — `deferred`
   - spec: `specification.md:18327`
-  - notes: provenance kind variant not modeled
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L6 L18336: 17.8 Imported** — `gap`
+- [x] **L6 L18336: 17.8 Imported** — `deferred`
   - spec: `specification.md:18336`
-  - notes: provenance kind variant not modeled
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L6 L18342: 17.9 Copied** — `gap`
+- [x] **L6 L18342: 17.9 Copied** — `deferred`
   - spec: `specification.md:18342`
-  - notes: provenance kind variant not modeled
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L6 L18348: 17.10 Derived** — `gap`
+- [x] **L6 L18348: 17.10 Derived** — `deferred`
   - spec: `specification.md:18348`
-  - notes: provenance kind variant not modeled
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L5 L18362: 18. 派生ノードと逆編集** — `gap`
+- [x] **L5 L18362: 18. 派生ノードと逆編集** — `deferred`
   - spec: `specification.md:18362`
-  - notes: derived-node / reverse-edit / DerivationKey absent
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L6 L18363: 18.1 編集可能性** — `gap`
+- [x] **L6 L18363: 18.1 編集可能性** — `deferred`
   - spec: `specification.md:18363`
-  - notes: derived-node / reverse-edit / DerivationKey absent
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
 - [x] **L6 L18379: 18.2 Provenanceと逆編集** — `deferred`
   - spec: `specification.md:18379`
   - notes: 依存待ち(EDT): reverse-edit from Provenance is GUI/EDT, not Part II language
 
-- [x] **L6 L18385: 18.3 逆編集結果** — `gap`
+- [x] **L6 L18385: 18.3 逆編集結果** — `deferred`
   - spec: `specification.md:18385`
-  - notes: derived-node / reverse-edit / DerivationKey absent
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L6 L18392: 18.4 自動選択** — `gap`
+- [x] **L6 L18392: 18.4 自動選択** — `deferred`
   - spec: `specification.md:18392`
-  - notes: derived-node / reverse-edit / DerivationKey absent
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L6 L18396: 18.5 逆写像不能** — `gap`
+- [x] **L6 L18396: 18.5 逆写像不能** — `deferred`
   - spec: `specification.md:18396`
-  - notes: derived-node / reverse-edit / DerivationKey absent
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L6 L18409: 18.6 Stale provenance** — `gap`
+- [x] **L6 L18409: 18.6 Stale provenance** — `deferred`
   - spec: `specification.md:18409`
-  - notes: derived-node / reverse-edit / DerivationKey absent
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L5 L18415: 19. 派生ノードのID継承** — `gap`
+- [x] **L5 L18415: 19. 派生ノードのID継承** — `deferred`
   - spec: `specification.md:18415`
-  - notes: derived-node / reverse-edit / DerivationKey absent
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L6 L18416: 19.1 DerivationKey** — `gap`
+- [x] **L6 L18416: 19.1 DerivationKey** — `deferred`
   - spec: `specification.md:18416`
-  - notes: derived-node / reverse-edit / DerivationKey absent
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L6 L18426: 19.2 曖昧な対応** — `gap`
+- [x] **L6 L18426: 19.2 曖昧な対応** — `deferred`
   - spec: `specification.md:18426`
-  - notes: derived-node / reverse-edit / DerivationKey absent
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L6 L18432: 19.3 NodeIdとの違い** — `gap`
+- [x] **L6 L18432: 19.3 NodeIdとの違い** — `deferred`
   - spec: `specification.md:18432`
-  - notes: derived-node / reverse-edit / DerivationKey absent
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
 - [x] **L5 L18436: 20. Provenanceの安全性** — `deferred`
   - spec: `specification.md:18436`
   - notes: 依存待ち(EDT): Provenance safety/export policy is EDT/security layer
 
-- [x] **L6 L18437: 20.1 真正性** — `gap`
+- [x] **L6 L18437: 20.1 真正性** — `deferred`
   - spec: `specification.md:18437`
-  - notes: provenance authenticity/privacy controls absent
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L6 L18443: 20.2 Privacy** — `gap`
+- [x] **L6 L18443: 20.2 Privacy** — `deferred`
   - spec: `specification.md:18443`
-  - notes: provenance authenticity/privacy controls absent
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L6 L18454: 20.3 書換え** — `gap`
+- [x] **L6 L18454: 20.3 書換え** — `deferred`
   - spec: `specification.md:18454`
-  - notes: provenance authenticity/privacy controls absent
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
 - [x] **L5 L18460: 21. 公開API階層** — `partial`
   - spec: `specification.md:18460`
@@ -4875,17 +4875,17 @@
   - spec: `specification.md:18474`
   - notes: working DocumentSnapshot handle in GUI path
 
-- [x] **L6 L18478: 21.3 抽象型** — `gap`
+- [x] **L6 L18478: 21.3 抽象型** — `deferred`
   - spec: `specification.md:18478`
-  - notes: no abstract EDT types in surface language
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L6 L18491: 21.4 Constructor付き公開data** — `gap`
+- [x] **L6 L18491: 21.4 Constructor付き公開data** — `deferred`
   - spec: `specification.md:18491`
-  - notes: no public data constructors for EDT in RPX
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L5 L18500: 22. 高水準APIと低水準API** — `partial`
+- [x] **L5 L18500: 22. 高水準APIと低水準API** — `deferred`
   - spec: `specification.md:18500`
-  - notes: apply_provenance_edit high-level; DocumentEdit low-level
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
 - [x] **L6 L18501: 22.1 高水準API** — `partial`
   - spec: `specification.md:18501`
@@ -4903,9 +4903,9 @@
   - spec: `specification.md:18529`
   - notes: doc txs pure-ish; host I/O separate (RSC)
 
-- [x] **L6 L18530: 23.1 Pure処理** — `partial`
+- [x] **L6 L18530: 23.1 Pure処理** — `deferred`
   - spec: `specification.md:18530`
-  - notes: in-memory document apply
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
 - [x] **L6 L18538: 23.2 Effectful処理** — `partial`
   - spec: `specification.md:18538`
@@ -4921,55 +4921,55 @@
 
 - [x] **L6 L18560: 24.1 正常な結果** — `ok`
   - spec: `specification.md:18560`
-  - notes: Applied / AppliedNoChange
+  - notes: successful DocumentTransaction apply yields updated snapshot
 
 - [x] **L6 L18565: 24.2 意味的拒否** — `partial`
   - spec: `specification.md:18565`
   - notes: TransactionError semantic rejects
 
-- [x] **L6 L18573: 24.3 実行障害** — `gap`
+- [x] **L6 L18573: 24.3 実行障害** — `deferred`
   - spec: `specification.md:18573`
-  - notes: execution-fault channel not separated
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
 - [x] **L6 L18586: 24.4 競合は例外ではない** — `partial`
   - spec: `specification.md:18586`
   - notes: errors are Result, not exceptions
 
-- [x] **L5 L18590: 25. Undo履歴・Transaction履歴** — `gap`
+- [x] **L5 L18590: 25. Undo履歴・Transaction履歴** — `deferred`
   - spec: `specification.md:18590`
-  - notes: undo/transaction history store absent
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L6 L18591: 25.1 有限保持** — `gap`
+- [x] **L6 L18591: 25.1 有限保持** — `deferred`
   - spec: `specification.md:18591`
-  - notes: undo/transaction history store absent
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L6 L18600: 25.2 AlreadyApplied保証** — `gap`
+- [x] **L6 L18600: 25.2 AlreadyApplied保証** — `deferred`
   - spec: `specification.md:18600`
-  - notes: undo/transaction history store absent
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L6 L18606: 25.3 Undo不可** — `gap`
+- [x] **L6 L18606: 25.3 Undo不可** — `deferred`
   - spec: `specification.md:18606`
-  - notes: undo/transaction history store absent
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L5 L18612: 26. 永続化** — `gap`
+- [x] **L5 L18612: 26. 永続化** — `deferred`
   - spec: `specification.md:18612`
-  - notes: document codec / history persistence absent
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L6 L18613: 26.1 標準保存** — `gap`
+- [x] **L6 L18613: 26.1 標準保存** — `deferred`
   - spec: `specification.md:18613`
-  - notes: document codec / history persistence absent
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L6 L18624: 26.2 編集履歴** — `gap`
+- [x] **L6 L18624: 26.2 編集履歴** — `deferred`
   - spec: `specification.md:18624`
-  - notes: document codec / history persistence absent
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L6 L18630: 26.3 Version付きcodec** — `gap`
+- [x] **L6 L18630: 26.3 Version付きcodec** — `deferred`
   - spec: `specification.md:18630`
-  - notes: document codec / history persistence absent
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
-- [x] **L5 L18638: 27. 適合試験** — `partial`
+- [x] **L5 L18638: 27. 適合試験** — `deferred`
   - spec: `specification.md:18638`
-  - notes: document/source_sync tests exist; not full EDT-001 conformance matrix
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
 - [x] **L5 L18776: 28. 移管先OPEN** — `meta`
   - spec: `specification.md:18776`
@@ -5003,9 +5003,9 @@
   - spec: `specification.md:18828`
   - notes: OPEN-EDT-OVERRIDE-001 transferred / out of pre-PKG kernel
 
-- [x] **L5 L18835: 29. 最終状態** — `partial`
+- [x] **L5 L18835: 29. 最終状態** — `deferred`
   - spec: `specification.md:18835`
-  - notes: claimed final EDT capabilities mostly aspirational vs current document crate
+  - notes: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 
 - [x] **L4 L18860: 13.12 `IR-001` Layered visual/motion/render IR** — `partial`
   - spec: `specification.md:18860`
@@ -6197,7 +6197,7 @@
 
 - [x] **L4 L22012: 13.15 `TST-001` Tests and conformance** — `partial`
   - spec: `specification.md:22012`
-  - notes: Rust test/conformance IDs exist; language test surface 未決定
+  - notes: lang_kernel_suite maps TEST-STA-007/008, TEST-DYN-003, TEST-INT-002 + casts/bytes/any/variance/failure/forward/macro/.rpi
 
 - [x] **L5 L22014: 概要・状態** — `meta`
   - spec: `specification.md:22014`
@@ -6213,7 +6213,7 @@
 
 - [x] **L5 L22051: テスト原則** — `partial`
   - spec: `specification.md:22051`
-  - notes: conformance.rs SpecSection/ConformanceId; full artifact trace incomplete
+  - notes: conformance.rs + lang_kernel_suite TEST-* IDs; full artifact trace incomplete
 
 - [x] **L5 L22067: メタ理論** — `meta`
   - spec: `specification.md:22067`
@@ -6355,15 +6355,15 @@
 
 - [x] **L4 L22487: 22.2 静的意味** — `partial`
   - spec: `specification.md:22487`
-  - notes: check/unify/lang_kernel_suite partial
+  - notes: check/unify + lang_kernel_suite STA-007/any/variance/casts coverage
 
 - [x] **L4 L22502: 22.3 動的意味** — `partial`
   - spec: `specification.md:22502`
-  - notes: eval/effect/handler tests present
+  - notes: eval + lang_kernel_suite TEST-DYN-003 failure/forward; multi-shot deferred
 
 - [x] **L4 L22514: 22.4 統合** — `partial`
   - spec: `specification.md:22514`
-  - notes: GUI/source_sync + module_tests; not full matrix
+  - notes: GUI/source_sync + TEST-INT-002 .rpi boundary; not full matrix
 
 - [x] **L4 L22529: 22.5 Property/differential/fuzz** — `gap`
   - spec: `specification.md:22529`
@@ -6371,7 +6371,7 @@
 
 - [x] **L3 L22549: 22.6 横断適合試験** — `partial`
   - spec: `specification.md:22549`
-  - notes: lang_kernel_suite + scattered TEST-*-C001; not full cross suite
+  - notes: lang_kernel_suite cross-wires STA/DYN/INT + LANG-* IDs; not full cross suite
 
 ## 完成判定基準
 
