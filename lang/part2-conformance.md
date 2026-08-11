@@ -17,10 +17,10 @@
 
 - **total**: 1589
 - **unchecked**: 0
-- **ok**: 729
-- **partial**: 99
+- **ok**: 730
+- **partial**: 93
 - **gap**: 0
-- **deferred**: 623
+- **deferred**: 628
 - **meta**: 138
 
 （LEX/SYN/MAC および導入メタ節を照合済み。他機能ブロックも並行更新済み。）
@@ -2920,11 +2920,11 @@
 
 - [x] **L4 L13226: 13.8 `EFF-001` Algebraic effects and handlers** — `partial`
   - spec: `specification.md:13226`
-  - notes: deep one-shot + ambient + with/handler; multi-shot/return deferred
+  - notes: deep one-shot + ambient + with/handler 実装済; multi-shot/return は意図的後回し
 
 - [x] **L5 L13230: 状態** — `partial`
   - spec: `specification.md:13230`
-  - notes: deep one-shot + ambient + with/handler; multi-shot/return deferred
+  - notes: deep one-shot + ambient + with/handler; multi-shot/return は意図的後回し
 
 - [x] **L5 L13262: `DD-EFF-001`: deep handler** — `ok`
   - spec: `specification.md:13262`
@@ -2934,9 +2934,9 @@
   - spec: `specification.md:13295`
   - notes: eval.rs deep handle + one-shot; control.rs; lang_kernel_suite
 
-- [x] **L5 L13351: `DD-EFF-003`: resumptionの型とscope** — `partial`
+- [x] **L5 L13351: `DD-EFF-003`: resumptionの型とscope** — `deferred`
   - spec: `specification.md:13351`
-  - notes: one-shot resume value; resume typing interim Dynamic
+  - notes: 意図的後回し: one-shot resume 値あり; resume 精密型付けは interim Dynamic
 
 - [x] **L5 L13426: `DD-EFF-004`: effect operationの呼出し** — `ok`
   - spec: `specification.md:13426`
@@ -2962,9 +2962,9 @@
   - spec: `specification.md:13634`
   - notes: return-clause / Handler<L,A,B,H> typing deferred (plan)
 
-- [x] **L5 L13681: `DD-EFF-010`: handler valueのrank-1多相性** — `partial`
+- [x] **L5 L13681: `DD-EFF-010`: handler valueのrank-1多相性** — `deferred`
   - spec: `specification.md:13681`
-  - notes: HandlerValue is Dynamic in check.rs
+  - notes: 意図的後回し: HandlerValue は check 上 Dynamic; rank-1 多相 handler は後回し
 
 - [x] **L5 L13725: `DD-EFF-011`: first-class handler value** — `ok`
   - spec: `specification.md:13725`
@@ -2974,9 +2974,9 @@
   - spec: `specification.md:13781`
   - notes: HandlerValue + With; elaborate.rs / eval.rs
 
-- [x] **L5 L13845: `DD-EFF-013`: ambient effectとnamed/scoped effect instance** — `partial`
+- [x] **L5 L13845: `DD-EFF-013`: ambient effectとnamed/scoped effect instance** — `ok`
   - spec: `specification.md:13845`
-  - notes: ambient ok (elaborate Perform); named/scoped instances deferred
+  - notes: ambient（elaborate→Perform）実装済; named/scoped instance は意図的後回し
 
 - [x] **L6 L13854: Ambient effect** — `ok`
   - spec: `specification.md:13854`
@@ -2986,17 +2986,17 @@
   - spec: `specification.md:13875`
   - notes: named/scoped effect instances not in kernel
 
-- [x] **L5 L13931: `DD-EFF-014`: EffectRowの意味** — `partial`
+- [x] **L5 L13931: `DD-EFF-014`: EffectRowの意味** — `deferred`
   - spec: `specification.md:13931`
-  - notes: thin EffectRow; handler typing interim (check.rs)
+  - notes: 意図的後回し: thin EffectRow; handler 精密型付けは後回し
 
-- [x] **L5 L14013: `DD-EFF-015`: ambient effect rowと制約生成** — `partial`
+- [x] **L5 L14013: `DD-EFF-015`: ambient effect rowと制約生成** — `deferred`
   - spec: `specification.md:14013`
-  - notes: thin EffectRow; handler typing interim (check.rs)
+  - notes: 意図的後回し: ambient EffectRow 制約生成は薄い
 
-- [x] **L5 L14109: `DD-EFF-016`: handlerの型付け骨格** — `partial`
+- [x] **L5 L14109: `DD-EFF-016`: handlerの型付け骨格** — `deferred`
   - spec: `specification.md:14109`
-  - notes: thin EffectRow; handler typing interim (check.rs)
+  - notes: 意図的後回し: handler 型付け骨格は interim（op+fn）
 
 - [x] **L5 L14189: `DD-EFF-017`: 利用者向けmaskの禁止** — `ok`
   - spec: `specification.md:14189`
