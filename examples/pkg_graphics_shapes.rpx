@@ -1,5 +1,5 @@
-(// Full static graphics package surface: shapes + transforms + text/image.
-(// Interim GUI `(page …)(circle …)` remains; package constructors are data records.)
+(// language-only: full static graphics package surface.)
+(// Interim GUI page/circle remains; package constructors are data records.)
 (import graphics/shapes only
   circle rect ellipse line path polyline polygon ring frame group
   text text-box image translate rotate scale opacity
