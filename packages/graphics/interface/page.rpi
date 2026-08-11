@@ -2,4 +2,8 @@
 (val a4)
 (val letter)
 (val a5)
+(val a3)
+(val legal)
+(val square)
 (val page)
+(val page-size)
