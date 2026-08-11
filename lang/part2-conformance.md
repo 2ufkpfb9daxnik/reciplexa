@@ -17,10 +17,10 @@
 
 - **total**: 1589
 - **unchecked**: 0
-- **ok**: 728
-- **partial**: 105
+- **ok**: 729
+- **partial**: 99
 - **gap**: 0
-- **deferred**: 618
+- **deferred**: 623
 - **meta**: 138
 
 （LEX/SYN/MAC および導入メタ節を照合済み。他機能ブロックも並行更新済み。）
@@ -1456,7 +1456,7 @@
 
 - [x] **L4 L6790: 13.5 `MAC-001` 最小式マクロ・展開・衛生性** — `partial`
   - spec: `specification.md:6790`
-  - notes: 式マクロ核ok; hygiene/scope/診断に差
+  - notes: 式マクロ核（expand_language / ...+ / hygiene DAG）実装済; 診断帰属・衝突検査に残差
 
 - [x] **L5 L6791: DD-001 決定概要** — `ok`
   - spec: `specification.md:6791`
@@ -1632,7 +1632,7 @@
 
 - [x] **L6 L7258: 7.3 Templateの構文妥当性** — `partial`
   - spec: `specification.md:7258`
-  - notes: def時var検査; 完全構文妥当性は弱い
+  - notes: def 時 var 検査あり; template 完全構文妥当性は弱い
 
 - [x] **L6 L7264: 7.4 評価回数** — `ok`
   - spec: `specification.md:7264`
@@ -1658,9 +1658,9 @@
   - spec: `specification.md:7327`
   - notes: child/sibling scopes: later/sibling macros not visible (MAC §8.4)
 
-- [x] **L5 L7333: 9. マクロ名と呼出し** — `partial`
+- [x] **L5 L7333: 9. マクロ名と呼出し** — `ok`
   - spec: `specification.md:7333`
-  - notes: 呼出し構文ok; 衝突検査弱
+  - notes: マクロ呼出し構文 + 展開; 名前衝突の完全静的検査は軽い
 
 - [x] **L6 L7334: 9.1 呼出し構文** — `ok`
   - spec: `specification.md:7334`
@@ -1804,7 +1804,7 @@
 
 - [x] **L6 L7510: 14.3 概念的なidentity** — `partial`
   - spec: `specification.md:7510`
-  - notes: MacroSourceMap SyntaxNodeId + BindingMap use-sites; Core BindingId string dual still open
+  - notes: MacroSourceMap SyntaxNodeId + BindingMap use-sites; Core 文字列 BindingId 二重表現は残差
 
 - [x] **L5 L7532: 15. 意図的capture** — `ok`
   - spec: `specification.md:7532`
@@ -1866,9 +1866,9 @@
   - spec: `specification.md:7631`
   - notes: sourceからの無制限化なし
 
-- [x] **L5 L7637: 18. エラー診断** — `partial`
+- [x] **L5 L7637: 18. エラー診断** — `deferred`
   - spec: `specification.md:7637`
-  - notes: 主要診断あり; span/provenance弱
+  - notes: 意図的後回し: 主要 expand 診断あり; 深い span/provenance 帰属は後回し
 
 - [x] **L6 L7638: 18.1 Pattern不一致** — `ok`
   - spec: `specification.md:7638`
@@ -1886,13 +1886,13 @@
   - spec: `specification.md:7660`
   - notes: 未束縛template変数拒否
 
-- [x] **L6 L7664: 18.5 不正な展開結果** — `partial`
+- [x] **L6 L7664: 18.5 不正な展開結果** — `deferred`
   - spec: `specification.md:7664`
-  - notes: 不正結果は後段エラーに依存
+  - notes: 意図的後回し: 不正展開結果は後段エラー依存
 
-- [x] **L6 L7668: 18.6 型エラー** — `partial`
+- [x] **L6 L7668: 18.6 型エラー** — `deferred`
   - spec: `specification.md:7668`
-  - notes: 型エラーのマクロ帰属なし
+  - notes: 意図的後回し: 型エラーのマクロ起点帰属なし
 
 - [x] **L5 L7672: 19. Provenance** — `ok`
   - spec: `specification.md:7672`
@@ -1902,9 +1902,9 @@
   - spec: `specification.md:7673`
   - notes: ExpansionOrigin keeps call/def site ids/spans and chain
 
-- [x] **L6 L7683: 19.2 診断例** — `partial`
+- [x] **L6 L7683: 19.2 診断例** — `deferred`
   - spec: `specification.md:7683`
-  - notes: expand provenance recorded; typed diagnostic attachment still light
+  - notes: 意図的後回し: expand provenance 記録あり; typed diagnostic 付着は後回し
 
 - [x] **L6 L7692: 19.3 Source map** — `ok`
   - spec: `specification.md:7692`
@@ -1930,9 +1930,9 @@
   - spec: `specification.md:7720`
   - notes: 将来のpkg公開
 
-- [x] **L5 L7724: 21. 適合試験** — `partial`
+- [x] **L5 L7724: 21. 適合試験** — `deferred`
   - spec: `specification.md:7724`
-  - notes: unit/integrationで一部; 全MAC試験未
+  - notes: 意図的後回し: lang_kernel_suite TEST-LANG-MAC-001 等; 版付き全 MAC 試験は後回し
 
 - [x] **L6 L7725: 21.1 適合試験 MAC-01：固定arity** — `ok`
   - spec: `specification.md:7725`
