@@ -6,13 +6,15 @@ Measured with `cargo llvm-cov -p reciplexa-core -p reciplexa-eval -p reciplexa-b
 
 ## Current (this pass)
 
+Workspace remasure (`cargo llvm-cov --workspace`, filtered impl src):
+
 | Crate | Regions | % | vs ≥95% |
 |-------|--------:|--:|---------|
-| `reciplexa-eval` | 2128/2223 | **95.73%** | met |
-| `reciplexa-core` | 8718/9540 | **91.38%** | short (~360 regions) |
-| `reciplexa-bind` | 2395/2650 | **90.38%** | short (~122 regions) |
+| `reciplexa-eval` | 2129/2223 | **95.77%** | met |
+| `reciplexa-bind` | 2395/2524 | **94.89%** | ~3 regions short |
+| `reciplexa-core` | 8719/9532 | **91.47%** | short (~337 regions) |
 
-Scoped three-crate total ≈ **91.87%**. Full workspace regenerate recorded in `coverage-status.md`.
+Filtered workspace overall **97.12%**. Scoped-only `-p` remasures can inflate bind region counts (module.cfg(test)); prefer workspace table in `coverage-status.md`.
 
 ## Justified / intentional residues
 
