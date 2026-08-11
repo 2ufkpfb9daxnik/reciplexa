@@ -154,13 +154,17 @@ fn elaborate_units_empty_duplicate_self_import() {
 
 #[test]
 fn elaborate_units_empty_body_and_interface_exports() {
-    let units = elaborate_units(&[("lib", "(val id 1)"), ("main", "(import lib only id)")]).unwrap();
+    let units =
+        elaborate_units(&[("lib", "(val id 1)"), ("main", "(import lib only id)")]).unwrap();
     assert!(units.iter().any(|u| u.name == "main"));
 
     let mut iface = HashMap::new();
     iface.insert("lib".into(), vec!["id".into()]);
     let units = elaborate_units_with_interfaces(
-        &[("lib", "(val id 1) (val hidden 2)"), ("main", "(import lib only id) (val main id)")],
+        &[
+            ("lib", "(val id 1) (val hidden 2)"),
+            ("main", "(import lib only id) (val main id)"),
+        ],
         &iface,
     )
     .unwrap();
@@ -169,7 +173,10 @@ fn elaborate_units_empty_body_and_interface_exports() {
     assert_eq!(v, RuntimeValue::Int(1));
 
     let err = elaborate_units_with_interfaces(
-        &[("lib", "(val id 1)"), ("main", "(import lib only hidden) (val main 0)")],
+        &[
+            ("lib", "(val id 1)"),
+            ("main", "(import lib only hidden) (val main 0)"),
+        ],
         &iface,
     )
     .unwrap_err();
@@ -181,10 +188,7 @@ fn elaborate_units_prefix_collision_and_parse_imports() {
     let err = elaborate_units(&[
         ("a", "(val x 1)"),
         ("b", "(val x 2)"),
-        (
-            "main",
-            "(import a as p) (import b as p) (val main 0)",
-        ),
+        ("main", "(import a as p) (import b as p) (val main 0)"),
     ])
     .unwrap_err();
     assert!(err.message.contains("prefix") || err.message.contains("distinct"));
@@ -273,10 +277,13 @@ fn load_module_tree_self_import_and_missing_sibling() {
 fn interface_rejects_unknown_export_name() {
     let mut iface = HashMap::new();
     iface.insert("lib".into(), vec!["ghost".into()]);
-    let err = elaborate_units_with_interfaces(&[("lib", "(val id 1)"), ("main", "(val main 0)")], &iface)
-        .unwrap_err();
+    let err =
+        elaborate_units_with_interfaces(&[("lib", "(val id 1)"), ("main", "(val main 0)")], &iface)
+            .unwrap_err();
     assert!(
-        err.message.contains("ghost") || err.message.contains("export") || err.message.contains("interface"),
+        err.message.contains("ghost")
+            || err.message.contains("export")
+            || err.message.contains("interface"),
         "{}",
         err.message
     );

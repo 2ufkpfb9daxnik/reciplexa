@@ -17,7 +17,10 @@ fn binding_map_definition_of() {
         .map(|(id, _)| *id)
         .expect("x");
     assert!(r.binding_map.definition_of(id).is_some());
-    assert!(r.binding_map.definition_of(BindingId::new(999_999)).is_none());
+    assert!(r
+        .binding_map
+        .definition_of(BindingId::new(999_999))
+        .is_none());
 }
 
 #[test]
@@ -98,15 +101,12 @@ fn parse_imports_node_and_only_as_errors() {
 #[test]
 fn elaborate_units_missing_export_table_edge() {
     // Empty-body unit with only import.
-    let units = elaborate_units(&[
-        ("lib", "(val id 1)"),
-        ("main", "(import lib only id)\n"),
-    ])
-    .unwrap();
+    let units =
+        elaborate_units(&[("lib", "(val id 1)"), ("main", "(import lib only id)\n")]).unwrap();
     assert!(units.iter().any(|u| u.name == "main"));
 
     // LetRec exports via letrec-elaborated libs already covered; force From ElaborateError.
-    let err = elaborate_units(&[("main", "(val main")]) .unwrap_err();
+    let err = elaborate_units(&[("main", "(val main")]).unwrap_err();
     assert!(!err.message.is_empty());
 }
 

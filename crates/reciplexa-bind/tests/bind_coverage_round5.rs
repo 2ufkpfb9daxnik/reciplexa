@@ -65,10 +65,7 @@ fn module_collision_and_empty_body_and_dir_load() {
     let err = elaborate_units(&[
         ("a", "(val x 1)"),
         ("b", "(val y 2)"),
-        (
-            "main",
-            "(import a only x)\n(import b only x)\n(val main x)",
-        ),
+        ("main", "(import a only x)\n(import b only x)\n(val main x)"),
     ]);
     assert!(err.is_err());
 
@@ -79,9 +76,11 @@ fn module_collision_and_empty_body_and_dir_load() {
     ]);
     let _ = err;
 
-    let units =
-        elaborate_units(&[("lib", "(val x 1)"), ("main", "(import lib as l)\n(val main l/x)")])
-            .unwrap();
+    let units = elaborate_units(&[
+        ("lib", "(val x 1)"),
+        ("main", "(import lib as l)\n(val main l/x)"),
+    ])
+    .unwrap();
     assert!(units.iter().any(|u| u.name == "main"));
 
     let dir = std::env::temp_dir().join(format!("reciplexa-b5-{}", std::process::id()));
@@ -110,7 +109,7 @@ fn module_collision_and_empty_body_and_dir_load() {
 
 #[test]
 fn module_parse_error_on_import_unit() {
-    let err = elaborate_units(&[("main", "(import")]) .unwrap_err();
+    let err = elaborate_units(&[("main", "(import")]).unwrap_err();
     assert!(!err.message.is_empty());
 
     let err = parse_imports("(import foo as Bar only a)").unwrap();

@@ -66,7 +66,10 @@ fn module_tree_utf8_and_self_import_file() {
     let mut iface = HashMap::new();
     iface.insert("lib".into(), vec!["x".into()]);
     let elab = elaborate_units_with_interfaces(
-        &[("lib", "(val x 1)"), ("main", "(import lib only x)\n(val main x)")],
+        &[
+            ("lib", "(val x 1)"),
+            ("main", "(import lib only x)\n(val main x)"),
+        ],
         &iface,
     );
     assert!(elab.is_ok(), "{elab:?}");

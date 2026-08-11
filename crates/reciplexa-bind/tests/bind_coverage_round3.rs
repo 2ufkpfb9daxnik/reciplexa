@@ -69,8 +69,8 @@ fn elaborate_interface_empty_and_self_prefixed_import() {
     assert!(units.iter().any(|u| u.name == "main"));
 
     // From(ElaborateError) path via bad body while imports ok.
-    let err = elaborate_units(&[("lib", "(val x 1)"), ("main", "(import lib only x) (val")])
-        .unwrap_err();
+    let err =
+        elaborate_units(&[("lib", "(val x 1)"), ("main", "(import lib only x) (val")]).unwrap_err();
     assert!(!err.message.is_empty());
 }
 
@@ -86,6 +86,8 @@ fn load_nested_path_module_via_slash_name() {
     )
     .unwrap();
     let units = load_module_tree(dir.join("main.rpx")).unwrap();
-    assert!(units.iter().any(|(n, _)| n.contains("color") || n == "main" || n.starts_with("gfx")));
+    assert!(units
+        .iter()
+        .any(|(n, _)| n.contains("color") || n == "main" || n.starts_with("gfx")));
     let _ = std::fs::remove_dir_all(&dir);
 }

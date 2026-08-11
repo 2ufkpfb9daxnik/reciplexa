@@ -203,7 +203,10 @@ fn module_interface_and_load_edges() {
     let mut bad_iface = HashMap::new();
     bad_iface.insert("lib".into(), vec!["missing".into()]);
     let err = elaborate_units_with_interfaces(
-        &[("lib", "(val x 1)"), ("main", "(import lib only x)\n(val main x)")],
+        &[
+            ("lib", "(val x 1)"),
+            ("main", "(import lib only x)\n(val main x)"),
+        ],
         &bad_iface,
     );
     assert!(err.is_err());
@@ -211,7 +214,10 @@ fn module_interface_and_load_edges() {
     let mut good_iface = HashMap::new();
     good_iface.insert("lib".into(), vec!["x".into()]);
     let units = elaborate_units_with_interfaces(
-        &[("lib", "(val x 1)"), ("main", "(import lib only x)\n(val main x)")],
+        &[
+            ("lib", "(val x 1)"),
+            ("main", "(import lib only x)\n(val main x)"),
+        ],
         &good_iface,
     )
     .unwrap();
@@ -241,6 +247,6 @@ fn module_interface_and_load_edges() {
 
 #[test]
 fn module_from_elaborate_error() {
-    let err = elaborate_units(&[("main", "(val")]) .unwrap_err();
+    let err = elaborate_units(&[("main", "(val")]).unwrap_err();
     assert!(!err.message.is_empty());
 }
