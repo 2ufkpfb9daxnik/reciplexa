@@ -2,3 +2,6 @@
 (val circle)
 (val rect)
 (val ellipse)
+(val ring)
+(val frame)
+(val group)

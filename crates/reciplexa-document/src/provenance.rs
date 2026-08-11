@@ -4,6 +4,7 @@ use std::collections::HashMap;
 
 use reciplexa_identity::document::StableNodeId;
 use reciplexa_identity::package::ModuleId;
+use reciplexa_identity::provenance::ProvenanceKind;
 use reciplexa_identity::syntax::SyntaxNodeId;
 use reciplexa_source::range::TextRange;
 use reciplexa_source::resource::SourceResourceId;
@@ -15,6 +16,8 @@ pub struct SourceProvenance {
     pub module_id: ModuleId,
     pub text_range: TextRange,
     pub syntax_node_id: Option<SyntaxNodeId>,
+    /// EDT-001 §17.4 — optional provenance kind.
+    pub kind: Option<ProvenanceKind>,
 }
 
 /// Maps stable document nodes back to source.

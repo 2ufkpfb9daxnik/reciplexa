@@ -241,6 +241,9 @@ impl Lowerer {
                 });
                 dst
             }
+            CoreExpr::Cast { expr, .. }
+            | CoreExpr::TryCast { expr, .. }
+            | CoreExpr::CheckCast { expr, .. } => self.lower_expr(expr, env),
             CoreExpr::Error => self.unit(),
         }
     }

@@ -5,8 +5,10 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
+use reciplexa_core::cast::{plan_cast_evidence, CastEvidence};
 use reciplexa_core::elaborate::{elaborate_source, ElaborateError};
 use reciplexa_core::expr::{CoreExpr, CoreLiteral, CorePattern, MatchArm};
+use reciplexa_core::ty::CoreType;
 
 use crate::control::{
     identity_resume, EffectHost, EvalError, EvalResult, Outcome, ResumeCont, UnitHost,
@@ -134,6 +136,57 @@ fn eval_outcome(
                 message: format!("`forward` expects resume binder `{resume_name}`"),
             }),
         },
+        CoreExpr::Cast { expr, evidence, .. } => {
+            let v = match eval_outcome(expr, env, host)? {
+                Outcome::Value(v) => v,
+                other => return Ok(other),
+            };
+            if runtime_cast_ok(&v, evidence) {
+                Ok(Outcome::Value(v))
+            } else {
+                Err(EvalError {
+                    message: "dynamic cast failed".into(),
+                })
+            }
+        }
+        CoreExpr::TryCast { expr, target, .. } => {
+            let v = match eval_outcome(expr, env, host)? {
+                Outcome::Value(v) => v,
+                other => return Ok(other),
+            };
+            let evidence =
+                plan_cast_evidence(&CoreType::Dynamic, target).unwrap_or(CastEvidence::Identity);
+            if runtime_cast_ok(&v, &evidence) {
+                Ok(Outcome::Value(RuntimeValue::Variant {
+                    tag: "some".into(),
+                    payload: Some(Box::new(v)),
+                }))
+            } else {
+                Ok(Outcome::Value(RuntimeValue::Variant {
+                    tag: "none".into(),
+                    payload: None,
+                }))
+            }
+        }
+        CoreExpr::CheckCast { expr, target, .. } => {
+            let v = match eval_outcome(expr, env, host)? {
+                Outcome::Value(v) => v,
+                other => return Ok(other),
+            };
+            let evidence =
+                plan_cast_evidence(&CoreType::Dynamic, target).unwrap_or(CastEvidence::Identity);
+            if runtime_cast_ok(&v, &evidence) {
+                Ok(Outcome::Value(RuntimeValue::Variant {
+                    tag: "ok".into(),
+                    payload: Some(Box::new(v)),
+                }))
+            } else {
+                Ok(Outcome::Value(RuntimeValue::Variant {
+                    tag: "err".into(),
+                    payload: Some(Box::new(RuntimeValue::String("cast-mismatch".into()))),
+                }))
+            }
+        }
         CoreExpr::Handle {
             op,
             handler_params,
@@ -1086,7 +1139,10 @@ fn apply_builtin(op: BuiltinOp, args: Vec<RuntimeValue>) -> Result<Outcome, Eval
             }
             let flag = match op {
                 BuiltinOp::IsNumber => {
-                    matches!(v, RuntimeValue::Number(_) | RuntimeValue::Int(_) | RuntimeValue::F64(_))
+                    matches!(
+                        v,
+                        RuntimeValue::Number(_) | RuntimeValue::Int(_) | RuntimeValue::F64(_)
+                    )
                 }
                 BuiltinOp::IsString => matches!(v, RuntimeValue::String(_)),
                 BuiltinOp::IsBool => matches!(v, RuntimeValue::Bool(_)),
@@ -1151,4 +1207,64 @@ fn eval_lit(lit: &CoreLiteral) -> EvalResult {
         CoreLiteral::Unit => RuntimeValue::Unit,
         CoreLiteral::Bytes(b) => RuntimeValue::Bytes(b.clone()),
     })
+}
+
+/// Runtime tag check for DD-TYP-DYN-015 evidence (minimal v1).
+fn runtime_cast_ok(value: &RuntimeValue, evidence: &CastEvidence) -> bool {
+    match evidence {
+        CastEvidence::Identity | CastEvidence::Widen => true,
+        CastEvidence::TagCheck { tag } => value_matches_tag(value, tag),
+        CastEvidence::UnionCheck { members } => members.iter().any(|m| {
+            runtime_cast_ok(
+                value,
+                &CastEvidence::TagCheck {
+                    tag: reciplexa_core::cast::plan_cast_evidence(&CoreType::Dynamic, m)
+                        .and_then(|e| match e {
+                            CastEvidence::TagCheck { tag } => Some(tag),
+                            _ => None,
+                        })
+                        .unwrap_or_else(|| "value".into()),
+                },
+            )
+        }),
+        CastEvidence::VariantCheck { variants } => variants.iter().any(|(tag, _)| {
+            matches!(
+                value,
+                RuntimeValue::Variant { tag: vt, .. } if vt == tag
+            )
+        }),
+        CastEvidence::RecordCheck { fields } => matches!(
+            value,
+            RuntimeValue::Record(rec) if fields.iter().all(|(k, _)| rec.iter().any(|(rk, _)| rk == k))
+        ),
+        CastEvidence::FunctionGuard { .. } => matches!(value, RuntimeValue::Closure { .. }),
+        CastEvidence::NominalCheck { name } => value_matches_tag(value, name),
+        CastEvidence::IntersectionCheck { members } => members.iter().all(|m| {
+            plan_cast_evidence(&CoreType::Dynamic, m)
+                .map(|e| runtime_cast_ok(value, &e))
+                .unwrap_or(false)
+        }),
+        CastEvidence::Compose(parts) => parts.iter().all(|p| runtime_cast_ok(value, p)),
+    }
+}
+
+fn value_matches_tag(value: &RuntimeValue, tag: &str) -> bool {
+    match tag {
+        "int" => matches!(value, RuntimeValue::Int(_)),
+        "f64" | "number" => {
+            matches!(
+                value,
+                RuntimeValue::F64(_) | RuntimeValue::Number(_) | RuntimeValue::Int(_)
+            )
+        }
+        "string" => matches!(value, RuntimeValue::String(_)),
+        "bool" => matches!(value, RuntimeValue::Bool(_)),
+        "unit" => matches!(value, RuntimeValue::Unit),
+        "bytes" => matches!(value, RuntimeValue::Bytes(_)),
+        "any" | "dynamic" => true,
+        other => matches!(
+            value,
+            RuntimeValue::Variant { tag: t, .. } if t == other
+        ),
+    }
 }

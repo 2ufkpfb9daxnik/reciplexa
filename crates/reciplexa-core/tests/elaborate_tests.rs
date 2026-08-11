@@ -29,7 +29,7 @@ fn elaborates_val_main_identity_app() {
                     ref fun,
                     ref args,
                 } if matches!(**fun, CoreExpr::Lambda { ref params, .. } if params == &["x".to_string()])
-                    && args == &[CoreExpr::Lit(CoreLiteral::Number(42.0))]
+                    && args == &[CoreExpr::Lit(CoreLiteral::Int(42))]
             )
     ));
 }
@@ -44,8 +44,8 @@ fn elaborates_if_true_branch() {
         *value,
         CoreExpr::If {
             cond: Box::new(CoreExpr::Lit(CoreLiteral::Bool(true))),
-            then_branch: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
-            else_branch: Box::new(CoreExpr::Lit(CoreLiteral::Number(2.0))),
+            then_branch: Box::new(CoreExpr::Lit(CoreLiteral::Int(1))),
+            else_branch: Box::new(CoreExpr::Lit(CoreLiteral::Int(2))),
         }
     );
 }
@@ -122,7 +122,7 @@ fn typechecks_elaborated_identity_app() {
     let expr = elaborate_source("(val main ((fn (x) x) 42))").unwrap();
     let mut subst = Subst::new();
     let ty = infer_expr(&expr, &TypeEnv::new(), &mut subst, range()).unwrap();
-    assert_eq!(subst.apply(&ty), CoreType::Number);
+    assert_eq!(subst.apply(&ty), CoreType::Int);
 }
 
 #[test]
@@ -130,7 +130,7 @@ fn typechecks_elaborated_if() {
     let expr = elaborate_source("(val main (if true 1 2))").unwrap();
     let mut subst = Subst::new();
     let ty = infer_expr(&expr, &TypeEnv::new(), &mut subst, range()).unwrap();
-    assert_eq!(subst.apply(&ty), CoreType::Number);
+    assert_eq!(subst.apply(&ty), CoreType::Int);
 }
 
 #[test]
@@ -754,19 +754,19 @@ fn elaborates_radix_and_scientific_numbers() {
     let CoreExpr::Let { value, .. } = hex else {
         panic!("expected Let");
     };
-    assert_eq!(*value, CoreExpr::Lit(CoreLiteral::Number(42.0)));
+    assert_eq!(*value, CoreExpr::Lit(CoreLiteral::Int(42)));
 
     let sci = elaborate_source("(val main 1e2)").unwrap();
     let CoreExpr::Let { value, .. } = sci else {
         panic!("expected Let");
     };
-    assert_eq!(*value, CoreExpr::Lit(CoreLiteral::Number(100.0)));
+    assert_eq!(*value, CoreExpr::Lit(CoreLiteral::F64(100.0)));
 
     let sep = elaborate_source("(val main 1_000)").unwrap();
     let CoreExpr::Let { value, .. } = sep else {
         panic!("expected Let");
     };
-    assert_eq!(*value, CoreExpr::Lit(CoreLiteral::Number(1000.0)));
+    assert_eq!(*value, CoreExpr::Lit(CoreLiteral::Int(1000)));
 }
 
 #[test]
@@ -845,8 +845,8 @@ fn parses_surface_fn_app_forall_row_and_effects_types() {
         data.type_aliases.get("id-fn"),
         Some(CoreType::Fun { args, ret, effects })
             if args.len() == 1
-                && matches!(args[0], CoreType::Number)
-                && matches!(ret.as_ref(), CoreType::Number)
+                && matches!(args[0], CoreType::Int)
+                && matches!(ret.as_ref(), CoreType::Int)
                 && effects.ops.is_empty()
     ));
     assert!(matches!(

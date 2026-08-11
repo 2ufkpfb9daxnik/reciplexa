@@ -21,7 +21,7 @@ fn lower_perform_direct() {
 
 #[test]
 fn literal_and_seq_lower_to_return() {
-    let lit = lower_expr(&CoreExpr::Lit(CoreLiteral::Number(1.0)));
+    let lit = lower_expr(&CoreExpr::Lit(CoreLiteral::Int(1)));
     assert_eq!(lit.ops, vec![LoweredOp::Return]);
 
     let seq = lower_expr(&CoreExpr::Seq(vec![
@@ -29,7 +29,7 @@ fn literal_and_seq_lower_to_return() {
             op: "log".into(),
             arg: Box::new(CoreExpr::Lit(CoreLiteral::String("a".into()))),
         },
-        CoreExpr::Lit(CoreLiteral::Number(2.0)),
+        CoreExpr::Lit(CoreLiteral::Int(2)),
     ]));
     assert_eq!(seq.ops.len(), 2);
     assert!(matches!(seq.ops[0], LoweredOp::Perform { .. }));
@@ -47,13 +47,13 @@ fn empty_seq_lowers_to_empty_program() {
 fn unsupported_expr_lowers_to_return() {
     let lambda = lower_expr(&CoreExpr::Lambda {
         params: vec!["x".into()],
-        body: Box::new(CoreExpr::Lit(CoreLiteral::Number(0.0))),
+        body: Box::new(CoreExpr::Lit(CoreLiteral::Int(0))),
     });
     assert_eq!(lambda.ops, vec![LoweredOp::Return]);
 
     let app = lower_expr(&CoreExpr::App {
-        fun: Box::new(CoreExpr::Lit(CoreLiteral::Number(0.0))),
-        args: vec![CoreExpr::Lit(CoreLiteral::Number(1.0))],
+        fun: Box::new(CoreExpr::Lit(CoreLiteral::Int(0))),
+        args: vec![CoreExpr::Lit(CoreLiteral::Int(1))],
     });
     assert_eq!(app.ops, vec![LoweredOp::Return]);
 }

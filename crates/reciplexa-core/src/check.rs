@@ -5,7 +5,7 @@ use reciplexa_syntax::is_wildcard_ident;
 
 use crate::elaborate::DataEnv;
 use crate::expr::{first_unreachable_arm, CoreExpr, CoreLiteral, CorePattern, CoreValue, MatchArm};
-use crate::ty::{CoreType, EffectRow};
+use crate::ty::{CoreType, EffectRow, NumericClass};
 use crate::unify::{unify, Subst, UnifyError};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -551,6 +551,44 @@ pub fn infer_with_effects(
             }
             Ok((subst.apply(&ret_var), scr_effs.merge(&arm_effs)))
         }
+        CoreExpr::Cast {
+            expr,
+            evidence: _,
+            target,
+            ..
+        } => {
+            let (src, effs) = infer_with_effects(expr, env, subst, range)?;
+            let src = subst.apply(&src);
+            crate::cast::plan_cast_evidence(&src, target)
+                .ok_or_else(|| CheckError::at("cast is statically impossible", range))?;
+            Ok((target.clone(), effs))
+        }
+        CoreExpr::TryCast { expr, target, .. } => {
+            let (src, effs) = infer_with_effects(expr, env, subst, range)?;
+            let src = subst.apply(&src);
+            crate::cast::plan_cast_evidence(&src, target)
+                .ok_or_else(|| CheckError::at("`try-cast` is statically impossible", range))?;
+            Ok((
+                CoreType::App {
+                    ctor: "option".into(),
+                    args: vec![target.clone()],
+                },
+                effs,
+            ))
+        }
+        CoreExpr::CheckCast { expr, target, .. } => {
+            let (src, effs) = infer_with_effects(expr, env, subst, range)?;
+            let src = subst.apply(&src);
+            crate::cast::plan_cast_evidence(&src, target)
+                .ok_or_else(|| CheckError::at("`check-cast` is statically impossible", range))?;
+            Ok((
+                CoreType::App {
+                    ctor: "result".into(),
+                    args: vec![target.clone(), CoreType::String],
+                },
+                effs,
+            ))
+        }
     }
 }
 
@@ -798,6 +836,55 @@ fn bind_pattern(pat: &CorePattern, scr_ty: &CoreType, env: &mut TypeEnv) {
 
 const NUMERIC_BINOPS: &[&str] = &["+", "-", "*", "/", "<", ">", "<=", ">="];
 
+/// Resolve a numeric operand class, including `number?` occurrence refinements.
+fn operand_numeric_class(ty: &CoreType) -> Option<NumericClass> {
+    if let Some(c) = ty.numeric_class() {
+        return Some(c);
+    }
+    match ty {
+        CoreType::Intersect(members) if members.len() == 2 => {
+            let [scr, constraint] = members.as_slice() else {
+                return None;
+            };
+            if matches!(constraint, CoreType::Number) {
+                return numeric_union_class(scr);
+            }
+        }
+        CoreType::Union(_arms) => return numeric_union_class(ty),
+        _ => {}
+    }
+    None
+}
+
+fn numeric_union_class(ty: &CoreType) -> Option<NumericClass> {
+    let arms = match ty {
+        CoreType::Union(arms) => arms.as_slice(),
+        CoreType::Int => return Some(NumericClass::Int),
+        CoreType::F64 => return Some(NumericClass::F64),
+        _ => return None,
+    };
+    let mut int_ok = false;
+    let mut f64_ok = false;
+    for arm in arms {
+        match arm {
+            CoreType::Int => int_ok = true,
+            CoreType::F64 => f64_ok = true,
+            CoreType::Number => {
+                int_ok = true;
+                f64_ok = true;
+            }
+            _ => {}
+        }
+    }
+    if int_ok && !f64_ok {
+        Some(NumericClass::Int)
+    } else if f64_ok && !int_ok {
+        Some(NumericClass::F64)
+    } else {
+        None
+    }
+}
+
 fn try_infer_numeric_builtin(
     op: &str,
     args: &[CoreExpr],
@@ -814,7 +901,7 @@ fn try_infer_numeric_builtin(
     effs = effs.merge(&a_eff).merge(&b_eff);
     let a_ty = subst.apply(&a_ty);
     let b_ty = subst.apply(&b_ty);
-    let a_class = match a_ty.numeric_class() {
+    let a_class = match operand_numeric_class(&a_ty) {
         Some(c) => c,
         None if matches!(a_ty, CoreType::Number | CoreType::Dynamic) => {
             return Some(Err(CheckError::at(
@@ -831,7 +918,7 @@ fn try_infer_numeric_builtin(
             )));
         }
     };
-    let b_class = match b_ty.numeric_class() {
+    let b_class = match operand_numeric_class(&b_ty) {
         Some(c) => c,
         None if matches!(b_ty, CoreType::Number | CoreType::Dynamic) => {
             return Some(Err(CheckError::at(

@@ -153,6 +153,15 @@ pub fn elaborate_units(units: &[(&str, &str)]) -> Result<Vec<ElaboratedUnit>, Mo
         .iter()
         .map(|(name, _, expr, _)| (name.clone(), collect_bindings(expr)))
         .collect();
+    let export_tables: HashMap<String, HashSet<String>> = parsed
+        .iter()
+        .map(|(name, _, _, exports)| {
+            (
+                name.clone(),
+                exports.iter().cloned().collect::<HashSet<_>>(),
+            )
+        })
+        .collect();
 
     let mut out = Vec::with_capacity(parsed.len());
     for (name, imports, expr, exports) in parsed {
@@ -161,14 +170,23 @@ pub fn elaborate_units(units: &[(&str, &str)]) -> Result<Vec<ElaboratedUnit>, Mo
             let table = binding_tables.get(&imp.module).ok_or_else(|| {
                 ModuleError::new(format!("missing unit `{}` during link", imp.module))
             })?;
+            let export_set = export_tables.get(&imp.module).ok_or_else(|| {
+                ModuleError::new(format!("missing unit `{}` during link", imp.module))
+            })?;
 
             // Bare names from `only` (§6.3–6.4), applied innermost so they
             // shadow any same-named qualified bindings from outer wraps.
             if let Some(items) = &imp.only {
                 for item in items.iter().rev() {
+                    if !export_set.contains(&item.name) {
+                        return Err(ModuleError::new(format!(
+                            "module `{name}` imports `{}` from `{}`, but it is not exported",
+                            item.name, imp.module
+                        )));
+                    }
                     let value = table.get(&item.name).ok_or_else(|| {
                         ModuleError::new(format!(
-                            "module `{name}` imports `{}` from `{}`, but it is not exported",
+                            "module `{name}` imports `{}` from `{}`, but it is not defined",
                             item.name, imp.module
                         ))
                     })?;
@@ -185,10 +203,10 @@ pub fn elaborate_units(units: &[(&str, &str)]) -> Result<Vec<ElaboratedUnit>, Mo
             // when there is a module alias, or when `only` is absent (formal path).
             if imp.alias.is_some() || imp.only.is_none() {
                 let prefix = imp.alias.as_deref().unwrap_or(imp.module.as_str());
-                let mut keys: Vec<_> = table.keys().cloned().collect();
+                let mut keys: Vec<_> = export_set.iter().cloned().collect();
                 keys.sort();
                 for export_name in keys.into_iter().rev() {
-                    let value = table.get(&export_name).expect("key from table");
+                    let value = table.get(&export_name).expect("exported binding");
                     linked = CoreExpr::Let {
                         name: format!("{prefix}/{export_name}"),
                         value: Box::new(value.clone()),

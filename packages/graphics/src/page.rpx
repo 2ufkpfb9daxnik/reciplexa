@@ -3,3 +3,5 @@
 (val a4 (record (width 210) (height 297)))
 (val letter (record (width 215.9) (height 279.4)))
 (val a5 (record (width 148) (height 210)))
+(val page (fn (size content)
+  (record (tag "page") (size size) (content content))))

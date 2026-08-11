@@ -153,6 +153,24 @@ fn language_shadowing_let_over_val_resolves() {
 }
 
 #[test]
+fn language_binding_map_records_definitions_with_syntax_node_id() {
+    let r = resolve_language_source("(val x 1) (val main x)");
+    assert!(r.is_ok(), "{:?}", r.errors);
+    let main_site = r
+        .binding_map
+        .definitions
+        .values()
+        .find(|s| s.name == "main")
+        .expect("main binding site");
+    assert!(main_site.syntax_node_id.is_some());
+    assert_eq!(
+        main_site.provenance,
+        reciplexa_identity::provenance::ProvenanceKind::SourceGenerated
+    );
+    assert!(!r.binding_map.uses.is_empty());
+}
+
+#[test]
 fn language_unbound_identifier_errors_with_span() {
     let r = resolve_language_source("(val main y)");
     assert!(!r.is_ok());

@@ -5,3 +5,7 @@
   (record (tag "math-row") (children children))))
 (val fraction (fn (num den)
   (record (tag "math-fraction") (numerator num) (denominator den))))
+(val superscript (fn (base exp)
+  (record (tag "math-superscript") (base base) (exp exp))))
+(val subscript (fn (base exp)
+  (record (tag "math-subscript") (base base) (exp exp))))

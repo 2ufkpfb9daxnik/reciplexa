@@ -9,6 +9,7 @@ pub mod binding;
 pub mod document;
 pub mod gui;
 pub mod package;
+pub mod provenance;
 pub mod scope;
 pub mod semantic;
 pub mod syntax;

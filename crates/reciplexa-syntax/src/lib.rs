@@ -26,7 +26,7 @@ pub use identity::{build_identity_map, preserve_identity_on_reparse, SyntaxIdent
 pub use kind::{SyntaxElement, SyntaxKind, SyntaxLanguage, SyntaxNode, SyntaxToken};
 pub use lexer::{Lexer, LexerMode, Token};
 pub use markup::{flatten_lines, flatten_readable, markup_parts, MarkupPart, MarkupWalkError};
-pub use number_lit::parse_number_literal;
+pub use number_lit::{is_f64_literal_form, parse_int_literal, parse_number_literal};
 pub use parse::{parse_source, unparse, Parse, ParseError};
 pub use reserved::is_reserved_special_form;
 pub use string_lit::{

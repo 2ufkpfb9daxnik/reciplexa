@@ -2,3 +2,5 @@
 (val heading)
 (val note)
 (val section)
+(val paragraph)
+(val emphasis)

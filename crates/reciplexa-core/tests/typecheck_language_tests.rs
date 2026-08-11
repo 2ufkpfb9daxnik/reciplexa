@@ -3,9 +3,9 @@
 use reciplexa_core::{typecheck_language_source, CoreType};
 
 #[test]
-fn identity_app_types_as_number() {
+fn identity_app_types_as_int() {
     let ty = typecheck_language_source("(val main ((fn (x) x) 1))").unwrap();
-    assert_eq!(ty, CoreType::Number);
+    assert_eq!(ty, CoreType::Int);
 }
 
 #[test]
@@ -41,7 +41,7 @@ fn match_exhaustive_option_ok() {
 "#,
     )
     .unwrap();
-    assert_eq!(ty, CoreType::Number);
+    assert_eq!(ty, CoreType::Int);
 }
 
 #[test]
@@ -104,7 +104,7 @@ fn if_branch_union_when_types_differ() {
     .unwrap();
     match ty {
         CoreType::Union(members) => {
-            assert!(members.contains(&CoreType::Number));
+            assert!(members.contains(&CoreType::Int));
             assert!(members.contains(&CoreType::String));
         }
         other => panic!("expected Union, got {other:?}"),
@@ -152,11 +152,18 @@ fn occurrence_typing_is_some_string() {
             fun: Box::new(CoreExpr::Var("string-length".into())),
             args: vec![CoreExpr::Var("x".into())],
         }),
-        else_branch: Box::new(CoreExpr::Lit(CoreLiteral::Number(0.0))),
+        else_branch: Box::new(CoreExpr::Lit(CoreLiteral::Int(0))),
     };
     let mut subst = Subst::new();
     let ty = infer_expr(&expr, &env, &mut subst, TextRange::EMPTY).unwrap();
-    assert_eq!(subst.apply(&ty), CoreType::Number);
+    match subst.apply(&ty) {
+        CoreType::Union(members) => {
+            assert!(members.contains(&CoreType::Number));
+            assert!(members.contains(&CoreType::Int));
+        }
+        CoreType::Number | CoreType::Int => {}
+        other => panic!("expected Number/Int or Union, got {other:?}"),
+    }
 }
 
 #[test]
@@ -167,10 +174,7 @@ fn occurrence_typing_number_pred() {
     use reciplexa_source::range::TextRange;
 
     let mut env = TypeEnv::new();
-    env.insert(
-        "x",
-        CoreType::Union(vec![CoreType::Number, CoreType::String]),
-    );
+    env.insert("x", CoreType::Union(vec![CoreType::Int, CoreType::String]));
     env.insert(
         "number?",
         CoreType::Fun {
@@ -197,14 +201,14 @@ fn occurrence_typing_number_pred() {
             fun: Box::new(CoreExpr::Var("+".into())),
             args: vec![
                 CoreExpr::Var("x".into()),
-                CoreExpr::Lit(CoreLiteral::Number(1.0)),
+                CoreExpr::Lit(CoreLiteral::Int(1)),
             ],
         }),
-        else_branch: Box::new(CoreExpr::Lit(CoreLiteral::Number(0.0))),
+        else_branch: Box::new(CoreExpr::Lit(CoreLiteral::Int(0))),
     };
     let mut subst = Subst::new();
     let ty = infer_expr(&expr, &env, &mut subst, TextRange::EMPTY).unwrap();
-    assert_eq!(subst.apply(&ty), CoreType::Number);
+    assert_eq!(subst.apply(&ty), CoreType::Int);
 }
 
 #[test]
@@ -236,12 +240,12 @@ fn occurrence_typing_is_none() {
             fun: Box::new(CoreExpr::Var("is-none".into())),
             args: vec![CoreExpr::Var("x".into())],
         }),
-        then_branch: Box::new(CoreExpr::Lit(CoreLiteral::Number(0.0))),
+        then_branch: Box::new(CoreExpr::Lit(CoreLiteral::Int(0))),
         else_branch: Box::new(CoreExpr::Var("x".into())),
     };
     let mut subst = Subst::new();
     let ty = infer_expr(&expr, &env, &mut subst, TextRange::EMPTY).unwrap();
-    assert_eq!(subst.apply(&ty), CoreType::Number);
+    assert_eq!(subst.apply(&ty), CoreType::Int);
 }
 
 #[test]
@@ -347,4 +351,34 @@ fn var_removes_local_state_effect_from_residual() {
         !residual.ops.iter().any(|o| o.starts_with("local-state/")),
         "var should strip local-state: {residual:?}"
     );
+}
+
+#[test]
+fn int_plus_int_types_as_int() {
+    let ty = typecheck_language_source("(val main (+ 1 2))").unwrap();
+    assert_eq!(ty, CoreType::Int);
+}
+
+#[test]
+fn mixed_numeric_promotes_to_f64() {
+    let ty = typecheck_language_source("(val main (+ 1 1.0))").unwrap();
+    assert_eq!(ty, CoreType::F64);
+}
+
+#[test]
+fn int_division_types_as_f64() {
+    let ty = typecheck_language_source("(val main (/ 4 2))").unwrap();
+    assert_eq!(ty, CoreType::F64);
+}
+
+#[test]
+fn integer_literal_types_as_int() {
+    let ty = typecheck_language_source("(val main 42)").unwrap();
+    assert_eq!(ty, CoreType::Int);
+}
+
+#[test]
+fn f64_literal_types_as_f64() {
+    let ty = typecheck_language_source("(val main 1.5)").unwrap();
+    assert_eq!(ty, CoreType::F64);
 }

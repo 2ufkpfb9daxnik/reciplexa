@@ -18,11 +18,11 @@ fn infers_lambda_application() {
             params: vec!["x".into()],
             body: Box::new(CoreExpr::Var("x".into())),
         }),
-        args: vec![CoreExpr::Lit(CoreLiteral::Number(2.0))],
+        args: vec![CoreExpr::Lit(CoreLiteral::Int(2))],
     };
     let mut subst = Subst::new();
     let ty = infer_expr(&expr, &TypeEnv::new(), &mut subst, range()).unwrap();
-    assert_eq!(subst.apply(&ty), CoreType::Number);
+    assert_eq!(subst.apply(&ty), CoreType::Int);
 }
 
 #[test]
@@ -30,12 +30,12 @@ fn infers_let_binding_via_var() {
     // let x = 1 in x
     let expr = CoreExpr::Let {
         name: "x".into(),
-        value: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
+        value: Box::new(CoreExpr::Lit(CoreLiteral::Int(1))),
         body: Box::new(CoreExpr::Var("x".into())),
     };
     let mut subst = Subst::new();
     let ty = infer_expr(&expr, &TypeEnv::new(), &mut subst, range()).unwrap();
-    assert_eq!(ty, CoreType::Number);
+    assert_eq!(ty, CoreType::Int);
 }
 
 #[test]
@@ -57,20 +57,20 @@ fn type_env_lookup_for_var() {
 fn infers_if_with_bool() {
     let expr = CoreExpr::If {
         cond: Box::new(CoreExpr::Lit(CoreLiteral::Bool(true))),
-        then_branch: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
-        else_branch: Box::new(CoreExpr::Lit(CoreLiteral::Number(2.0))),
+        then_branch: Box::new(CoreExpr::Lit(CoreLiteral::Int(1))),
+        else_branch: Box::new(CoreExpr::Lit(CoreLiteral::Int(2))),
     };
     let mut subst = Subst::new();
     let ty = infer_expr(&expr, &TypeEnv::new(), &mut subst, range()).unwrap();
-    assert_eq!(subst.apply(&ty), CoreType::Number);
+    assert_eq!(subst.apply(&ty), CoreType::Int);
 }
 
 #[test]
 fn if_requires_bool_cond() {
     let expr = CoreExpr::If {
-        cond: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
-        then_branch: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
-        else_branch: Box::new(CoreExpr::Lit(CoreLiteral::Number(2.0))),
+        cond: Box::new(CoreExpr::Lit(CoreLiteral::Int(1))),
+        then_branch: Box::new(CoreExpr::Lit(CoreLiteral::Int(1))),
+        else_branch: Box::new(CoreExpr::Lit(CoreLiteral::Int(2))),
     };
     assert!(infer_expr(&expr, &TypeEnv::new(), &mut Subst::new(), range()).is_err());
 }
@@ -80,7 +80,7 @@ fn if_branch_types_form_union_when_distinct() {
     // TYP if-branch: distinct branch types yield Union rather than hard error.
     let expr = CoreExpr::If {
         cond: Box::new(CoreExpr::Lit(CoreLiteral::Bool(false))),
-        then_branch: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
+        then_branch: Box::new(CoreExpr::Lit(CoreLiteral::Int(1))),
         else_branch: Box::new(CoreExpr::Lit(CoreLiteral::String("x".into()))),
     };
     let ty = infer_expr(&expr, &TypeEnv::new(), &mut Subst::new(), range()).unwrap();
@@ -92,22 +92,22 @@ fn infers_record_get() {
     let expr = CoreExpr::RecordGet {
         record: Box::new(CoreExpr::Record {
             fields: vec![
-                ("x".into(), CoreExpr::Lit(CoreLiteral::Number(1.0))),
-                ("y".into(), CoreExpr::Lit(CoreLiteral::Number(2.0))),
+                ("x".into(), CoreExpr::Lit(CoreLiteral::Int(1))),
+                ("y".into(), CoreExpr::Lit(CoreLiteral::Int(2))),
             ],
         }),
         field: "y".into(),
     };
     let mut subst = Subst::new();
     let ty = infer_expr(&expr, &TypeEnv::new(), &mut subst, range()).unwrap();
-    assert_eq!(ty, CoreType::Number);
+    assert_eq!(ty, CoreType::Int);
 }
 
 #[test]
 fn perform_requires_string_arg() {
     let expr = CoreExpr::Perform {
         op: "log".into(),
-        arg: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
+        arg: Box::new(CoreExpr::Lit(CoreLiteral::Int(1))),
     };
     let mut subst = Subst::new();
     let err = infer_expr(&expr, &TypeEnv::new(), &mut subst, range()).unwrap_err();
@@ -118,7 +118,7 @@ fn perform_requires_string_arg() {
 fn record_get_unknown_field_errors() {
     let expr = CoreExpr::RecordGet {
         record: Box::new(CoreExpr::Record {
-            fields: vec![("a".into(), CoreExpr::Lit(CoreLiteral::Number(1.0)))],
+            fields: vec![("a".into(), CoreExpr::Lit(CoreLiteral::Int(1)))],
         }),
         field: "missing".into(),
     };
@@ -130,7 +130,7 @@ fn record_get_unknown_field_errors() {
 #[test]
 fn record_get_on_non_record_errors() {
     let expr = CoreExpr::RecordGet {
-        record: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
+        record: Box::new(CoreExpr::Lit(CoreLiteral::Int(1))),
         field: "x".into(),
     };
     let mut subst = Subst::new();
@@ -142,21 +142,21 @@ fn record_get_on_non_record_errors() {
 fn infers_seq_returns_last() {
     let expr = CoreExpr::Seq(vec![
         CoreExpr::Lit(CoreLiteral::String("a".into())),
-        CoreExpr::Lit(CoreLiteral::Number(2.0)),
+        CoreExpr::Lit(CoreLiteral::Int(2)),
     ]);
     let mut subst = Subst::new();
     let ty = infer_expr(&expr, &TypeEnv::new(), &mut subst, range()).unwrap();
-    assert_eq!(ty, CoreType::Number);
+    assert_eq!(ty, CoreType::Int);
 }
 
 #[test]
 fn infers_let_and_variant() {
     let expr = CoreExpr::Let {
         name: "v".into(),
-        value: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
+        value: Box::new(CoreExpr::Lit(CoreLiteral::Int(1))),
         body: Box::new(CoreExpr::Variant {
             tag: "Ok".into(),
-            payload: Some(Box::new(CoreExpr::Lit(CoreLiteral::Number(2.0)))),
+            payload: Some(Box::new(CoreExpr::Lit(CoreLiteral::Int(2)))),
         }),
     };
     let mut subst = Subst::new();
@@ -175,10 +175,10 @@ fn typecheck_value_wraps_expr() {
 fn type_env_insert() {
     let mut env = TypeEnv::new();
     env.insert("x", CoreType::Number);
-    let expr = CoreExpr::Lit(CoreLiteral::Number(1.0));
+    let expr = CoreExpr::Lit(CoreLiteral::Int(1));
     let mut subst = Subst::new();
     let ty = infer_expr(&expr, &env, &mut subst, range()).unwrap();
-    assert_eq!(ty, CoreType::Number);
+    assert_eq!(ty, CoreType::Int);
 }
 
 #[test]
@@ -189,13 +189,13 @@ fn match_arm_unifies_return_types() {
             payload: None,
         }),
         arms: vec![
-            MatchArm::variant("A".into(), None, CoreExpr::Lit(CoreLiteral::Number(1.0))),
-            MatchArm::variant("B".into(), None, CoreExpr::Lit(CoreLiteral::Number(2.0))),
+            MatchArm::variant("A".into(), None, CoreExpr::Lit(CoreLiteral::Int(1))),
+            MatchArm::variant("B".into(), None, CoreExpr::Lit(CoreLiteral::Int(2))),
         ],
     };
     let mut subst = Subst::new();
     let ty = infer_expr(&expr, &TypeEnv::new(), &mut subst, range()).unwrap();
-    assert_eq!(subst.apply(&ty), CoreType::Number);
+    assert_eq!(subst.apply(&ty), CoreType::Int);
 }
 
 #[test]
@@ -217,7 +217,7 @@ fn match_arm_return_type_mismatch() {
             payload: None,
         }),
         arms: vec![
-            MatchArm::variant("A".into(), None, CoreExpr::Lit(CoreLiteral::Number(1.0))),
+            MatchArm::variant("A".into(), None, CoreExpr::Lit(CoreLiteral::Int(1))),
             MatchArm::variant(
                 "B".into(),
                 None,
@@ -234,17 +234,17 @@ fn match_binds_payload_in_arm() {
     let expr = CoreExpr::Match {
         scrutinee: Box::new(CoreExpr::Variant {
             tag: "Some".into(),
-            payload: Some(Box::new(CoreExpr::Lit(CoreLiteral::Number(5.0)))),
+            payload: Some(Box::new(CoreExpr::Lit(CoreLiteral::Int(5)))),
         }),
         arms: vec![MatchArm::variant(
             "Some".into(),
             Some("v".into()),
-            CoreExpr::Lit(CoreLiteral::Number(5.0)),
+            CoreExpr::Lit(CoreLiteral::Int(5)),
         )],
     };
     let mut subst = Subst::new();
     let ty = infer_expr(&expr, &TypeEnv::new(), &mut subst, range()).unwrap();
-    assert_eq!(subst.apply(&ty), CoreType::Number);
+    assert_eq!(subst.apply(&ty), CoreType::Int);
 }
 
 #[test]
@@ -256,7 +256,7 @@ fn match_binds_record_fields_in_arm() {
                     "title".into(),
                     CoreExpr::Lit(CoreLiteral::String("Hi".into())),
                 ),
-                ("n".into(), CoreExpr::Lit(CoreLiteral::Number(1.0))),
+                ("n".into(), CoreExpr::Lit(CoreLiteral::Int(1))),
             ],
         }),
         arms: vec![MatchArm {
@@ -271,12 +271,12 @@ fn match_binds_record_fields_in_arm() {
     };
     let mut subst = Subst::new();
     let ty = infer_expr(&expr, &TypeEnv::new(), &mut subst, range()).unwrap();
-    assert_eq!(subst.apply(&ty), CoreType::Number);
+    assert_eq!(subst.apply(&ty), CoreType::Int);
 }
 
 fn bad_record_get() -> CoreExpr {
     CoreExpr::RecordGet {
-        record: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
+        record: Box::new(CoreExpr::Lit(CoreLiteral::Int(1))),
         field: "missing".into(),
     }
 }
@@ -286,12 +286,9 @@ fn syntax_error_expr_suppresses_cascade() {
     let mut subst = Subst::new();
     let env = TypeEnv::new();
     let r = range();
-    let expr = CoreExpr::Seq(vec![
-        CoreExpr::Error,
-        CoreExpr::Lit(CoreLiteral::Number(1.0)),
-    ]);
+    let expr = CoreExpr::Seq(vec![CoreExpr::Error, CoreExpr::Lit(CoreLiteral::Int(1))]);
     let ty = infer_expr(&expr, &env, &mut subst, r).unwrap();
-    assert_eq!(subst.apply(&ty), CoreType::Number);
+    assert_eq!(subst.apply(&ty), CoreType::Int);
 }
 
 #[test]
@@ -313,7 +310,7 @@ fn infer_propagates_nested_errors() {
     .is_err());
 
     assert!(infer_expr(
-        &CoreExpr::Seq(vec![CoreExpr::Lit(CoreLiteral::Number(1.0)), bad.clone(),]),
+        &CoreExpr::Seq(vec![CoreExpr::Lit(CoreLiteral::Int(1)), bad.clone(),]),
         &env,
         &mut subst,
         r
@@ -324,7 +321,7 @@ fn infer_propagates_nested_errors() {
         &CoreExpr::Let {
             name: "x".into(),
             value: Box::new(bad.clone()),
-            body: Box::new(CoreExpr::Lit(CoreLiteral::Number(0.0))),
+            body: Box::new(CoreExpr::Lit(CoreLiteral::Int(0))),
         },
         &env,
         &mut subst,
@@ -356,7 +353,7 @@ fn infer_propagates_nested_errors() {
     assert!(infer_expr(
         &CoreExpr::Let {
             name: "x".into(),
-            value: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
+            value: Box::new(CoreExpr::Lit(CoreLiteral::Int(1))),
             body: Box::new(bad.clone()),
         },
         &env,
@@ -379,7 +376,7 @@ fn infer_propagates_nested_errors() {
     assert!(infer_expr(
         &CoreExpr::App {
             fun: Box::new(bad.clone()),
-            args: vec![CoreExpr::Lit(CoreLiteral::Number(1.0))],
+            args: vec![CoreExpr::Lit(CoreLiteral::Int(1))],
         },
         &env,
         &mut subst,
@@ -391,7 +388,7 @@ fn infer_propagates_nested_errors() {
         &CoreExpr::App {
             fun: Box::new(CoreExpr::Lambda {
                 params: vec!["x".into()],
-                body: Box::new(CoreExpr::Lit(CoreLiteral::Number(0.0))),
+                body: Box::new(CoreExpr::Lit(CoreLiteral::Int(0))),
             }),
             args: vec![bad.clone()],
         },
@@ -407,7 +404,7 @@ fn infer_propagates_nested_errors() {
             arms: vec![MatchArm::variant(
                 "A".into(),
                 None,
-                CoreExpr::Lit(CoreLiteral::Number(0.0))
+                CoreExpr::Lit(CoreLiteral::Int(0))
             )],
         },
         &env,
@@ -431,8 +428,8 @@ fn infer_propagates_nested_errors() {
 #[test]
 fn app_non_function_unify_fails() {
     let expr = CoreExpr::App {
-        fun: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
-        args: vec![CoreExpr::Lit(CoreLiteral::Number(2.0))],
+        fun: Box::new(CoreExpr::Lit(CoreLiteral::Int(1))),
+        args: vec![CoreExpr::Lit(CoreLiteral::Int(2))],
     };
     let err = infer_expr(&expr, &TypeEnv::new(), &mut Subst::new(), range()).unwrap_err();
     assert!(err.message.contains("Mismatch"));
@@ -465,15 +462,15 @@ fn infers_empty_seq_and_lambda() {
 #[test]
 fn match_on_non_variant_scrutinee() {
     let expr = CoreExpr::Match {
-        scrutinee: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
+        scrutinee: Box::new(CoreExpr::Lit(CoreLiteral::Int(1))),
         arms: vec![MatchArm::variant(
             "ignored".into(),
             None,
-            CoreExpr::Lit(CoreLiteral::Number(2.0)),
+            CoreExpr::Lit(CoreLiteral::Int(2)),
         )],
     };
     let ty = infer_expr(&expr, &TypeEnv::new(), &mut Subst::new(), range()).unwrap();
-    assert_eq!(ty, CoreType::Number);
+    assert_eq!(ty, CoreType::Int);
 }
 
 #[test]
@@ -499,7 +496,7 @@ fn match_arm_bind_without_payload_and_unknown_tag() {
         arms: vec![MatchArm::variant(
             "None".into(),
             Some("x".into()),
-            CoreExpr::Lit(CoreLiteral::Number(0.0)),
+            CoreExpr::Lit(CoreLiteral::Int(0)),
         )],
     };
     let mut subst = Subst::new();
@@ -514,7 +511,7 @@ fn match_arm_bind_without_payload_and_unknown_tag() {
         arms: vec![MatchArm::variant(
             "B".into(),
             Some("x".into()),
-            CoreExpr::Lit(CoreLiteral::Number(1.0)),
+            CoreExpr::Lit(CoreLiteral::Int(1)),
         )],
     };
     let mut subst = Subst::new();
@@ -530,11 +527,11 @@ fn infers_nary_lambda_application() {
             body: Box::new(CoreExpr::Var("x".into())),
         }),
         args: vec![
-            CoreExpr::Lit(CoreLiteral::Number(1.0)),
-            CoreExpr::Lit(CoreLiteral::Number(2.0)),
+            CoreExpr::Lit(CoreLiteral::Int(1)),
+            CoreExpr::Lit(CoreLiteral::Int(2)),
         ],
     };
     let mut subst = Subst::new();
     let ty = infer_expr(&expr, &TypeEnv::new(), &mut subst, range()).unwrap();
-    assert_eq!(subst.apply(&ty), CoreType::Number);
+    assert_eq!(subst.apply(&ty), CoreType::Int);
 }

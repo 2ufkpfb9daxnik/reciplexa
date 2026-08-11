@@ -147,9 +147,9 @@ fn lowered_ir_resume_then_return() {
 
 #[test]
 fn eval_number_literal_pipeline() {
-    let expr = CoreExpr::Lit(CoreLiteral::Number(7.5));
+    let expr = CoreExpr::Lit(CoreLiteral::F64(7.5));
     let v = eval_expr(&expr, &HashMap::new(), &mut UnitHost).unwrap();
-    assert_eq!(format!("{v:?}"), "Number(7.5)");
+    assert_eq!(format!("{v:?}"), "F64(7.5)");
 }
 
 #[test]

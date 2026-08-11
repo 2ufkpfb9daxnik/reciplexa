@@ -42,6 +42,8 @@ pub enum CoreType {
     Bytes,
     /// Gradual typing entry point (TYP-001). Unifies with any type in v0.
     Dynamic,
+    /// DD-TYP-DYN-003: static top type — supertype of all unrestricted static types.
+    Any,
     /// SYN §16.3 union — unifies loosely like [`CoreType::Dynamic`] for now.
     Union(Vec<CoreType>),
     /// SYN §16.3 intersection — stub structural type for occurrence typing / TYP.

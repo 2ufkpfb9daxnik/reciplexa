@@ -224,6 +224,13 @@ pub fn unify(a: &CoreType, b: &CoreType, subst: &mut Subst) -> Result<(), UnifyE
         (CoreType::Error, _) | (_, CoreType::Error) => Ok(()),
         // ERR-001 §4.2: never is a subtype of every type.
         (CoreType::Never, _) | (_, CoreType::Never) => Ok(()),
+        // DD-TYP-DYN-003: `any` is static top; `S <: any` but not `any <: T`.
+        (CoreType::Any, CoreType::Any) => Ok(()),
+        (_, CoreType::Any) => Ok(()),
+        (CoreType::Any, _) => Err(UnifyError::Mismatch {
+            expected: b.clone(),
+            found: a.clone(),
+        }),
         // Gradual stub: Dynamic is consistent with every type.
         (CoreType::Dynamic, _) | (_, CoreType::Dynamic) => Ok(()),
         // SYN §16.3 union stub: treat like Dynamic for v0.

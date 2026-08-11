@@ -21,10 +21,10 @@ fn mem01_drop_before_unrelated_work() {
     let expr = CoreExpr::Seq(vec![
         CoreExpr::Let {
             name: "value".into(),
-            value: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
-            body: Box::new(CoreExpr::Lit(CoreLiteral::Number(2.0))),
+            value: Box::new(CoreExpr::Lit(CoreLiteral::Int(1))),
+            body: Box::new(CoreExpr::Lit(CoreLiteral::Int(2))),
         },
-        CoreExpr::Lit(CoreLiteral::Number(3.0)),
+        CoreExpr::Lit(CoreLiteral::Int(3)),
     ]);
     assert_observational_equiv(&expr).unwrap();
     let raw = lower_core_linear(&expr);
@@ -76,15 +76,15 @@ fn mem03_exclusive_branch_match() {
     let expr = CoreExpr::Match {
         scrutinee: Box::new(CoreExpr::Variant {
             tag: "Some".into(),
-            payload: Some(Box::new(CoreExpr::Lit(CoreLiteral::Number(42.0)))),
+            payload: Some(Box::new(CoreExpr::Lit(CoreLiteral::Int(42)))),
         }),
         arms: vec![
             MatchArm::variant(
                 "Some".into(),
                 Some("n".into()),
-                CoreExpr::Lit(CoreLiteral::Number(42.0)),
+                CoreExpr::Lit(CoreLiteral::Int(42)),
             ),
-            MatchArm::variant("None".into(), None, CoreExpr::Lit(CoreLiteral::Number(0.0))),
+            MatchArm::variant("None".into(), None, CoreExpr::Lit(CoreLiteral::Int(0))),
         ],
     };
     assert_observational_equiv(&expr).unwrap();
@@ -132,11 +132,11 @@ fn mem04_reuse_success_same_observable_result() {
 fn mem05_shared_value_no_reuse_specialization() {
     let expr = CoreExpr::Let {
         name: "v".into(),
-        value: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
+        value: Box::new(CoreExpr::Lit(CoreLiteral::Int(1))),
         body: Box::new(CoreExpr::Seq(vec![
-            CoreExpr::Lit(CoreLiteral::Number(1.0)),
+            CoreExpr::Lit(CoreLiteral::Int(1)),
             CoreExpr::Record {
-                fields: vec![("x".into(), CoreExpr::Lit(CoreLiteral::Number(1.0)))],
+                fields: vec![("x".into(), CoreExpr::Lit(CoreLiteral::Int(1)))],
             },
         ])),
     };
@@ -157,10 +157,10 @@ fn mem05_shared_value_no_reuse_specialization() {
 fn mem06_closure_capture_observational_equiv() {
     let expr = CoreExpr::Let {
         name: "x".into(),
-        value: Box::new(CoreExpr::Lit(CoreLiteral::Number(10.0))),
+        value: Box::new(CoreExpr::Lit(CoreLiteral::Int(10))),
         body: Box::new(CoreExpr::Lambda {
             params: vec!["y".into()],
-            body: Box::new(CoreExpr::Lit(CoreLiteral::Number(10.0))),
+            body: Box::new(CoreExpr::Lit(CoreLiteral::Int(10))),
         }),
     };
     assert_observational_equiv(&expr).unwrap();
@@ -318,20 +318,20 @@ fn mem19_reuse_verifier_rejects_shared_reuse() {
 #[test]
 fn equiv_conservative_matches_reference() {
     let cases = vec![
-        CoreExpr::Lit(CoreLiteral::Number(0.0)),
+        CoreExpr::Lit(CoreLiteral::Int(0)),
         CoreExpr::Seq(vec![
-            CoreExpr::Lit(CoreLiteral::Number(1.0)),
-            CoreExpr::Lit(CoreLiteral::Number(2.0)),
+            CoreExpr::Lit(CoreLiteral::Int(1)),
+            CoreExpr::Lit(CoreLiteral::Int(2)),
         ]),
         CoreExpr::Record {
             fields: vec![
                 ("a".into(), CoreExpr::Lit(CoreLiteral::String("hi".into()))),
-                ("b".into(), CoreExpr::Lit(CoreLiteral::Number(3.0))),
+                ("b".into(), CoreExpr::Lit(CoreLiteral::Int(3))),
             ],
         },
         CoreExpr::Variant {
             tag: "Ok".into(),
-            payload: Some(Box::new(CoreExpr::Lit(CoreLiteral::Number(99.0)))),
+            payload: Some(Box::new(CoreExpr::Lit(CoreLiteral::Int(99)))),
         },
     ];
     for expr in cases {
@@ -354,11 +354,11 @@ fn equiv_perceus_matches_conservative() {
     let expr = CoreExpr::Let {
         name: "v".into(),
         value: Box::new(CoreExpr::Record {
-            fields: vec![("k".into(), CoreExpr::Lit(CoreLiteral::Number(4.0)))],
+            fields: vec![("k".into(), CoreExpr::Lit(CoreLiteral::Int(4)))],
         }),
         body: Box::new(CoreExpr::RecordGet {
             record: Box::new(CoreExpr::Record {
-                fields: vec![("k".into(), CoreExpr::Lit(CoreLiteral::Number(0.0)))],
+                fields: vec![("k".into(), CoreExpr::Lit(CoreLiteral::Int(0)))],
             }),
             field: "k".into(),
         }),
@@ -371,7 +371,7 @@ fn equiv_perceus_matches_conservative() {
 #[test]
 fn sealed_pipeline_passes_verifier() {
     let expr = CoreExpr::Record {
-        fields: vec![("z".into(), CoreExpr::Lit(CoreLiteral::Number(8.0)))],
+        fields: vec![("z".into(), CoreExpr::Lit(CoreLiteral::Int(8)))],
     };
     let sealed = seal_before_return(reuse_pass(perceus_pass(&lower_core_linear(&expr))));
     verify_ownership(&sealed).unwrap();
@@ -391,7 +391,7 @@ fn perform_effect_observational_equiv() {
 fn record_get_observational_equiv() {
     let expr = CoreExpr::RecordGet {
         record: Box::new(CoreExpr::Record {
-            fields: vec![("f".into(), CoreExpr::Lit(CoreLiteral::Number(12.0)))],
+            fields: vec![("f".into(), CoreExpr::Lit(CoreLiteral::Int(12)))],
         }),
         field: "f".into(),
     };
@@ -402,13 +402,13 @@ fn record_get_observational_equiv() {
 fn nested_let_chain_equiv() {
     let expr = CoreExpr::Let {
         name: "a".into(),
-        value: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
+        value: Box::new(CoreExpr::Lit(CoreLiteral::Int(1))),
         body: Box::new(CoreExpr::Let {
             name: "b".into(),
-            value: Box::new(CoreExpr::Lit(CoreLiteral::Number(2.0))),
+            value: Box::new(CoreExpr::Lit(CoreLiteral::Int(2))),
             body: Box::new(CoreExpr::Seq(vec![
-                CoreExpr::Lit(CoreLiteral::Number(3.0)),
-                CoreExpr::Lit(CoreLiteral::Number(4.0)),
+                CoreExpr::Lit(CoreLiteral::Int(3)),
+                CoreExpr::Lit(CoreLiteral::Int(4)),
             ])),
         }),
     };
@@ -419,10 +419,10 @@ fn nested_let_chain_equiv() {
 fn refcount_trace_records_dup_and_drop() {
     let expr = CoreExpr::Let {
         name: "v".into(),
-        value: Box::new(CoreExpr::Lit(CoreLiteral::Number(1.0))),
+        value: Box::new(CoreExpr::Lit(CoreLiteral::Int(1))),
         body: Box::new(CoreExpr::Seq(vec![
-            CoreExpr::Lit(CoreLiteral::Number(1.0)),
-            CoreExpr::Lit(CoreLiteral::Number(2.0)),
+            CoreExpr::Lit(CoreLiteral::Int(1)),
+            CoreExpr::Lit(CoreLiteral::Int(2)),
         ])),
     };
     let sealed = seal_before_return(conservative_rc(&lower_core_linear(&expr)));
@@ -458,7 +458,7 @@ fn mem_dup_drop_order_observable() {
 fn mem_construct_record_fields() {
     let expr = CoreExpr::Record {
         fields: vec![
-            ("x".into(), CoreExpr::Lit(CoreLiteral::Number(1.0))),
+            ("x".into(), CoreExpr::Lit(CoreLiteral::Int(1))),
             ("y".into(), CoreExpr::Lit(CoreLiteral::String("z".into()))),
         ],
     };
@@ -469,7 +469,7 @@ fn mem_construct_record_fields() {
 fn mem_lambda_no_capture_drop() {
     let expr = CoreExpr::Lambda {
         params: vec!["x".into()],
-        body: Box::new(CoreExpr::Lit(CoreLiteral::Number(0.0))),
+        body: Box::new(CoreExpr::Lit(CoreLiteral::Int(0))),
     };
     assert_observational_equiv(&expr).unwrap();
 }
@@ -485,9 +485,9 @@ fn mem_variant_none_arm() {
             MatchArm::variant(
                 "Some".into(),
                 Some("v".into()),
-                CoreExpr::Lit(CoreLiteral::Number(1.0)),
+                CoreExpr::Lit(CoreLiteral::Int(1)),
             ),
-            MatchArm::variant("None".into(), None, CoreExpr::Lit(CoreLiteral::Number(0.0))),
+            MatchArm::variant("None".into(), None, CoreExpr::Lit(CoreLiteral::Int(0))),
         ],
     };
     assert_observational_equiv(&expr).unwrap();
@@ -528,8 +528,8 @@ fn mem_string_literal_equiv() {
 
 #[test]
 fn mem_observably_equal_detects_difference() {
-    let a = eval_ref(&CoreExpr::Lit(CoreLiteral::Number(1.0)));
-    let b = eval_ref(&CoreExpr::Lit(CoreLiteral::Number(2.0)));
+    let a = eval_ref(&CoreExpr::Lit(CoreLiteral::Int(1)));
+    let b = eval_ref(&CoreExpr::Lit(CoreLiteral::Int(2)));
     assert!(!observably_equal(&a, &b));
 }
 

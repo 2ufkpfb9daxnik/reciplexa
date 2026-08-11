@@ -134,19 +134,22 @@ pub fn resolve_language_source(source: &str) -> ResolveResult {
             }
             SyntaxElement::Node(n) => match n.kind() {
                 SyntaxKind::StructuredComment => continue,
-                SyntaxKind::List => {
-                    lang_resolve_top_form(
-                        &n,
-                        &mut stack,
-                        &mut env,
-                        &mut errors,
-                        &mut binding_map,
-                        &identity,
-                    )
-                }
-                _ => {
-                    lang_resolve_expr_node(&n, &mut stack, &mut env, &mut errors, &mut binding_map, &identity)
-                }
+                SyntaxKind::List => lang_resolve_top_form(
+                    &n,
+                    &mut stack,
+                    &mut env,
+                    &mut errors,
+                    &mut binding_map,
+                    &identity,
+                ),
+                _ => lang_resolve_expr_node(
+                    &n,
+                    &mut stack,
+                    &mut env,
+                    &mut errors,
+                    &mut binding_map,
+                    &identity,
+                ),
             },
         }
     }
@@ -264,7 +267,15 @@ fn lang_resolve_top_form(
             if atoms.len() >= 3 {
                 if let (Atom::Token(name_tok), Atom::Node(params)) = (&atoms[1], &atoms[2]) {
                     if name_tok.kind() == SyntaxKind::Ident && is_param_list(params) {
-                        lang_resolve_fn_body(params, &atoms[3..], stack, env, errors, map, identity);
+                        lang_resolve_fn_body(
+                            params,
+                            &atoms[3..],
+                            stack,
+                            env,
+                            errors,
+                            map,
+                            identity,
+                        );
                         declare_binding(name_tok, stack, env, errors, map, identity);
                         return;
                     }
@@ -915,7 +926,9 @@ fn declare_binding(
         binding_id: id,
         name,
         range,
-        syntax_node_id: identity.get(tok.text_range()),
+        syntax_node_id: identity
+            .get(tok.text_range())
+            .or_else(|| identity.get_enclosing(tok.text_range())),
         provenance: ProvenanceKind::SourceGenerated,
     });
 }

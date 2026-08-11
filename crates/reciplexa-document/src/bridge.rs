@@ -167,6 +167,7 @@ fn provenance_for_layer(
         module_id: ModuleId::new(1),
         text_range,
         syntax_node_id,
+        kind: None,
     }
 }
 

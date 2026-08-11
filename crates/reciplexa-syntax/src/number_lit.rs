@@ -3,6 +3,53 @@
 //! Accepts decimal, `0b`/`0o`/`0x` radix, `_` digit separators, and scientific
 //! `e` notation. Rejects unnecessary leading zeros on decimal integers.
 
+/// True when the token text denotes an `f64` literal (fractional or scientific).
+pub fn is_f64_literal_form(text: &str) -> bool {
+    let Ok((_, body)) = strip_sign(text) else {
+        return false;
+    };
+    body.contains('.') || body.contains('e') || body.contains('E')
+}
+
+/// Parse a SYN §7 integer literal into `i128` (DD-TYP-NUM-001 kernel subset).
+pub fn parse_int_literal(text: &str) -> Result<i128, String> {
+    let (signed, body) = strip_sign(text)?;
+    if body.is_empty() {
+        return Err(format!("invalid number literal `{text}`"));
+    }
+    if is_f64_literal_form(text) {
+        return Err(format!("expected integer literal, got f64 form `{text}`"));
+    }
+
+    let value = if let Some(rest) = body.strip_prefix("0x") {
+        parse_radix_i128(rest, 16, text)?
+    } else if let Some(rest) = body.strip_prefix("0b") {
+        parse_radix_i128(rest, 2, text)?
+    } else if let Some(rest) = body.strip_prefix("0o") {
+        parse_radix_i128(rest, 8, text)?
+    } else {
+        reject_leading_zeros(body, text)?;
+        let cleaned = strip_digit_separators(body, |c| c.is_ascii_digit(), text)?;
+        if cleaned.is_empty() {
+            return Err(format!("invalid number literal `{text}`"));
+        }
+        cleaned
+            .parse::<i128>()
+            .map_err(|_| format!("integer literal out of range `{text}`"))?
+    };
+
+    Ok(if signed { -value } else { value })
+}
+
+fn parse_radix_i128(digits: &str, radix: u32, raw: &str) -> Result<i128, String> {
+    let cleaned = strip_digit_separators(digits, |c| char::is_digit(c, radix), raw)?;
+    if cleaned.is_empty() {
+        return Err(format!("invalid number literal `{raw}`"));
+    }
+    i128::from_str_radix(&cleaned, radix)
+        .map_err(|_| format!("integer literal out of range `{raw}`"))
+}
+
 /// Parse a SYN §7 number token text into `f64`.
 ///
 /// Underscores are ignored. Radix prefixes use lowercase `0b`/`0o`/`0x` only.

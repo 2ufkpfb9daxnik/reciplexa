@@ -57,7 +57,7 @@ fn elaborate_units_links_import_only() {
     );
     assert!(matches!(main.expr, CoreExpr::Let { ref name, .. } if name == "id"));
     let v = eval_expr(&main.expr, &HashMap::new(), &mut UnitHost).unwrap();
-    assert_eq!(v, RuntimeValue::Number(7.0));
+    assert_eq!(v, RuntimeValue::Int(7));
 }
 
 #[test]
@@ -89,7 +89,7 @@ fn elaborate_units_import_as_and_flat_only() {
         }]
     );
     let v = eval_expr(&main.expr, &HashMap::new(), &mut UnitHost).unwrap();
-    assert_eq!(v, RuntimeValue::Number(0.0));
+    assert_eq!(v, RuntimeValue::Int(0));
 }
 
 #[test]
@@ -104,7 +104,7 @@ fn elaborate_units_qualified_ref_after_as() {
     .unwrap();
     let main = units.iter().find(|u| u.name == "main").unwrap();
     let v = eval_expr(&main.expr, &HashMap::new(), &mut UnitHost).unwrap();
-    assert_eq!(v, RuntimeValue::Number(0.0));
+    assert_eq!(v, RuntimeValue::Int(0));
 }
 
 #[test]
@@ -126,7 +126,7 @@ fn elaborate_units_only_rename() {
         }
     );
     let v = eval_expr(&main.expr, &HashMap::new(), &mut UnitHost).unwrap();
-    assert_eq!(v, RuntimeValue::Number(0.0));
+    assert_eq!(v, RuntimeValue::Int(0));
 }
 
 #[test]
@@ -185,9 +185,46 @@ fn load_module_tree_reads_sibling_imports() {
     let elaborated = elaborate_module_tree(dir.join("main.rpx")).unwrap();
     let main = elaborated.iter().find(|u| u.name == "main").unwrap();
     let v = eval_expr(&main.expr, &HashMap::new(), &mut UnitHost).unwrap();
-    assert_eq!(v, RuntimeValue::Number(7.0));
+    assert_eq!(v, RuntimeValue::Int(7));
 
     let dir_units = load_module_tree(&dir).unwrap();
     assert_eq!(dir_units.len(), 2);
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn load_module_tree_resolves_nested_sibling_paths() {
+    let dir = std::env::temp_dir().join(format!("reciplexa-mod-nested-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("graphics")).unwrap();
+    std::fs::write(
+        dir.join("graphics/color.rpx"),
+        "(val black 0)\n(val white 1)\n",
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("main.rpx"),
+        "(import graphics/color only black)\n(val main black)\n",
+    )
+    .unwrap();
+
+    let elaborated = elaborate_module_tree(dir.join("main.rpx")).unwrap();
+    let main = elaborated.iter().find(|u| u.name == "main").unwrap();
+    let v = eval_expr(&main.expr, &HashMap::new(), &mut UnitHost).unwrap();
+    assert_eq!(v, RuntimeValue::Int(0));
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn elaborate_units_rejects_only_import_of_unknown_export() {
+    let err = elaborate_units(&[
+        ("lib", r#"(val id (fn (x) x))"#),
+        ("main", r#"(import lib only missing) (val main 0)"#),
+    ])
+    .unwrap_err();
+    assert!(
+        err.message.contains("not exported"),
+        "unexpected: {}",
+        err.message
+    );
 }

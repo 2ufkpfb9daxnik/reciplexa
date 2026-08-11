@@ -125,6 +125,25 @@ pub enum CoreExpr {
         scrutinee: Box<CoreExpr>,
         arms: Vec<MatchArm>,
     },
+    /// DD-TYP-DYN-015: implicit/explicit cast with evidence.
+    Cast {
+        expr: Box<CoreExpr>,
+        evidence: crate::cast::CastEvidence,
+        target: CoreType,
+        cast_id: u32,
+    },
+    /// DD-TYP-DYN-014: `(try-cast expr Ty)` → `Option<intersect(S,T)>`.
+    TryCast {
+        expr: Box<CoreExpr>,
+        target: CoreType,
+        cast_id: u32,
+    },
+    /// DD-TYP-DYN-014: `(check-cast expr Ty)` → `Result<intersect(S,T), cast-mismatch>`.
+    CheckCast {
+        expr: Box<CoreExpr>,
+        target: CoreType,
+        cast_id: u32,
+    },
 }
 
 /// DAT-001 §15–18 match pattern.

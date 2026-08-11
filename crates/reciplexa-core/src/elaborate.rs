@@ -720,6 +720,7 @@ fn parse_type_syntax_in(
                 "bool" => CoreType::Bool,
                 "unit" => CoreType::Unit,
                 "never" => CoreType::Never,
+                "any" => CoreType::Any,
                 "dynamic" => CoreType::Dynamic,
                 "color" => CoreType::Color,
                 other
@@ -1413,6 +1414,8 @@ fn elaborate_list(node: &SyntaxNode, ctx: &ElabCtx) -> Result<CoreExpr, Elaborat
                 "handler" => return elaborate_handler(&atoms[1..], node, ctx),
                 "with" => return elaborate_with(&atoms[1..], node, ctx),
                 "forward" => return elaborate_forward(&atoms[1..], node, ctx),
+                "try-cast" => return elaborate_try_cast(&atoms[1..], node, ctx),
+                "check-cast" => return elaborate_check_cast(&atoms[1..], node, ctx),
                 "unicode" => return elaborate_unicode(&atoms[1..], node, ctx),
                 "val" => {
                     return Err(ElaborateError::at_node(
@@ -2319,6 +2322,70 @@ fn elaborate_as_result(
             payload: Some(body),
         }),
     })
+}
+
+fn next_cast_id() -> u32 {
+    use std::sync::atomic::{AtomicU32, Ordering};
+    static ID: AtomicU32 = AtomicU32::new(1);
+    ID.fetch_add(1, Ordering::Relaxed)
+}
+
+/// DD-TYP-DYN-014: `(try-cast expr Ty)`.
+fn elaborate_try_cast(
+    rest: &[Atom],
+    parent: &SyntaxNode,
+    ctx: &ElabCtx,
+) -> Result<CoreExpr, ElaborateError> {
+    if rest.len() != 2 {
+        return Err(ElaborateError::at_node(
+            "`try-cast` requires expression and target type",
+            parent,
+        ));
+    }
+    let expr = elaborate_atom(&rest[0], ctx)?;
+    let target = parse_type_atom(&rest[1], ctx)?;
+    if crate::cast::plan_cast_evidence(&CoreType::Dynamic, &target).is_none() {
+        return Err(ElaborateError::at_node(
+            "`try-cast` target is statically incompatible (intersect ≃ never)",
+            parent,
+        ));
+    }
+    Ok(CoreExpr::TryCast {
+        expr: Box::new(expr),
+        target,
+        cast_id: next_cast_id(),
+    })
+}
+
+/// DD-TYP-DYN-014: `(check-cast expr Ty)`.
+fn elaborate_check_cast(
+    rest: &[Atom],
+    parent: &SyntaxNode,
+    ctx: &ElabCtx,
+) -> Result<CoreExpr, ElaborateError> {
+    if rest.len() != 2 {
+        return Err(ElaborateError::at_node(
+            "`check-cast` requires expression and target type",
+            parent,
+        ));
+    }
+    let expr = elaborate_atom(&rest[0], ctx)?;
+    let target = parse_type_atom(&rest[1], ctx)?;
+    if crate::cast::plan_cast_evidence(&CoreType::Dynamic, &target).is_none() {
+        return Err(ElaborateError::at_node(
+            "`check-cast` target is statically incompatible (intersect ≃ never)",
+            parent,
+        ));
+    }
+    Ok(CoreExpr::CheckCast {
+        expr: Box::new(expr),
+        target,
+        cast_id: next_cast_id(),
+    })
+}
+
+fn parse_type_atom(atom: &Atom, ctx: &ElabCtx) -> Result<CoreType, ElaborateError> {
+    parse_type_syntax(atom, ctx)
 }
 
 fn elaborate_handle(

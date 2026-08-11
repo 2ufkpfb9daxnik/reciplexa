@@ -56,6 +56,7 @@ fn missing_layout_with_provenance_is_unknown_node() {
             module_id: ModuleId::new(1),
             text_range: TextRange::EMPTY,
             syntax_node_id: None,
+            kind: None,
         },
     );
     let err = apply_provenance_edit(
@@ -94,6 +95,7 @@ fn set_text_apply_fails_when_node_missing_from_store() {
             module_id: ModuleId::new(1),
             text_range: TextRange::EMPTY,
             syntax_node_id: None,
+            kind: None,
         },
     );
     let err = apply_provenance_edit(
@@ -183,6 +185,7 @@ fn non_invertible_expression_keeps_document_only() {
             module_id: ModuleId::new(1),
             text_range: TextRange::try_new(ByteOffset::new(15), ByteOffset::new(200)).unwrap(),
             syntax_node_id: None,
+            kind: None,
         },
     );
     let outcome = apply_provenance_edit(

@@ -6,7 +6,7 @@ use std::collections::HashMap;
 #[test]
 fn display_all_variants() {
     assert_eq!(RuntimeValue::Unit.to_string(), "unit");
-    assert_eq!(RuntimeValue::Number(3.5).to_string(), "3.5");
+    assert_eq!(RuntimeValue::F64(3.5).to_string(), "3.5");
     assert_eq!(RuntimeValue::String("hi".into()).to_string(), "\"hi\"");
     assert_eq!(RuntimeValue::Bool(true).to_string(), "true");
     assert_eq!(RuntimeValue::Bool(false).to_string(), "false");
@@ -17,20 +17,20 @@ fn display_all_variants() {
     assert_eq!(
         RuntimeValue::Closure {
             params: vec!["x".into()],
-            body: CoreExpr::Lit(reciplexa_core::expr::CoreLiteral::Number(0.0)),
+            body: CoreExpr::Lit(reciplexa_core::expr::CoreLiteral::Int(0)),
             env: std::rc::Rc::new(std::cell::RefCell::new(HashMap::new())),
         }
         .to_string(),
         "closure(x)"
     );
     assert_eq!(
-        RuntimeValue::Record(vec![("a".into(), RuntimeValue::Number(1.0))]).to_string(),
+        RuntimeValue::Record(vec![("a".into(), RuntimeValue::Int(1))]).to_string(),
         "record{a: 1}"
     );
     assert_eq!(
         RuntimeValue::Variant {
             tag: "Ok".into(),
-            payload: Some(Box::new(RuntimeValue::Number(1.0))),
+            payload: Some(Box::new(RuntimeValue::Int(1))),
         }
         .to_string(),
         "Ok(1)"
@@ -47,8 +47,8 @@ fn display_all_variants() {
 
 #[test]
 fn debug_format_is_stable() {
-    let v = RuntimeValue::Number(42.0);
-    assert!(format!("{v:?}").contains("42.0"));
+    let v = RuntimeValue::Int(42);
+    assert!(format!("{v:?}").contains("42"));
     let rec = RuntimeValue::Record(vec![]);
     assert!(format!("{rec:?}").contains("Record"));
 }
@@ -64,13 +64,13 @@ fn equality_and_clone() {
 #[test]
 fn ty_maps_all_variants() {
     assert_eq!(RuntimeValue::Unit.ty(), CoreType::Unit);
-    assert_eq!(RuntimeValue::Number(1.0).ty(), CoreType::Number);
+    assert_eq!(RuntimeValue::Int(1).ty(), CoreType::Int);
     assert_eq!(RuntimeValue::String("s".into()).ty(), CoreType::String);
     assert_eq!(RuntimeValue::Bool(true).ty(), CoreType::Bool);
     assert_eq!(RuntimeValue::ShapeTag("rect".into()).ty(), CoreType::Shape);
     let closure_ty = RuntimeValue::Closure {
         params: vec!["x".into()],
-        body: CoreExpr::Lit(reciplexa_core::expr::CoreLiteral::Number(0.0)),
+        body: CoreExpr::Lit(reciplexa_core::expr::CoreLiteral::Int(0)),
         env: std::rc::Rc::new(std::cell::RefCell::new(HashMap::new())),
     }
     .ty();
@@ -83,28 +83,25 @@ fn ty_maps_all_variants() {
         }
     );
     let rec_ty = RuntimeValue::Record(vec![
-        ("x".into(), RuntimeValue::Number(1.0)),
+        ("x".into(), RuntimeValue::Int(1)),
         ("y".into(), RuntimeValue::String("z".into())),
     ])
     .ty();
     assert_eq!(
         rec_ty,
         CoreType::Record {
-            fields: vec![
-                ("x".into(), CoreType::Number),
-                ("y".into(), CoreType::String),
-            ],
+            fields: vec![("x".into(), CoreType::Int), ("y".into(), CoreType::String),],
         }
     );
     let var_ty = RuntimeValue::Variant {
         tag: "Some".into(),
-        payload: Some(Box::new(RuntimeValue::Number(2.0))),
+        payload: Some(Box::new(RuntimeValue::Int(2))),
     }
     .ty();
     assert_eq!(
         var_ty,
         CoreType::Variant {
-            variants: vec![("Some".into(), Some(CoreType::Number))],
+            variants: vec![("Some".into(), Some(CoreType::Int))],
         }
     );
     let nullary = RuntimeValue::Variant {
@@ -143,7 +140,7 @@ fn ty_nullary_variant_and_unit_record() {
 fn closure_ty_has_fun_shape() {
     let v = RuntimeValue::Closure {
         params: vec!["n".into()],
-        body: CoreExpr::Lit(reciplexa_core::expr::CoreLiteral::Number(0.0)),
+        body: CoreExpr::Lit(reciplexa_core::expr::CoreLiteral::Int(0)),
         env: std::rc::Rc::new(std::cell::RefCell::new(HashMap::new())),
     };
     if let CoreType::Fun { args, ret, effects } = v.ty() {
@@ -158,11 +155,11 @@ fn closure_ty_has_fun_shape() {
 #[test]
 fn record_ty_preserves_field_types() {
     if let CoreType::Record { fields } =
-        RuntimeValue::Record(vec![("n".into(), RuntimeValue::Number(1.0))]).ty()
+        RuntimeValue::Record(vec![("n".into(), RuntimeValue::Int(1))]).ty()
     {
         assert_eq!(fields.len(), 1);
         assert_eq!(fields[0].0, "n");
-        assert_eq!(fields[0].1, CoreType::Number);
+        assert_eq!(fields[0].1, CoreType::Int);
     } else {
         panic!("expected Record");
     }
@@ -171,7 +168,7 @@ fn record_ty_preserves_field_types() {
 #[test]
 fn display_formats_multi_field_record_and_variants() {
     let rec = RuntimeValue::Record(vec![
-        ("a".into(), RuntimeValue::Number(1.0)),
+        ("a".into(), RuntimeValue::Int(1)),
         ("b".into(), RuntimeValue::String("x".into())),
     ]);
     let s = format!("{rec}");
@@ -183,7 +180,7 @@ fn display_formats_multi_field_record_and_variants() {
             "{}",
             RuntimeValue::Variant {
                 tag: "Ok".into(),
-                payload: Some(Box::new(RuntimeValue::Number(1.0))),
+                payload: Some(Box::new(RuntimeValue::Int(1))),
             }
         ),
         "Ok(1)"
@@ -203,7 +200,7 @@ fn display_formats_multi_field_record_and_variants() {
             "{}",
             RuntimeValue::Closure {
                 params: vec!["x".into()],
-                body: CoreExpr::Lit(reciplexa_core::expr::CoreLiteral::Number(0.0)),
+                body: CoreExpr::Lit(reciplexa_core::expr::CoreLiteral::Int(0)),
                 env: std::rc::Rc::new(std::cell::RefCell::new(HashMap::new())),
             }
         ),

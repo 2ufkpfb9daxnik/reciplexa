@@ -768,3 +768,49 @@ fn eval_bytes_literal() {
     let v = eval_source("(val main (bytes 0xff 42))").unwrap();
     assert_eq!(v, RuntimeValue::Bytes(vec![255, 42]));
 }
+
+#[test]
+fn eval_try_cast_on_dynamic_value_some_and_none() {
+    use reciplexa_core::cast::CastEvidence;
+    use reciplexa_core::ty::CoreType;
+
+    let dynamic_int = CoreExpr::Cast {
+        expr: Box::new(CoreExpr::Lit(CoreLiteral::Int(42))),
+        evidence: CastEvidence::Widen,
+        target: CoreType::Dynamic,
+        cast_id: 0,
+    };
+    let some_expr = CoreExpr::TryCast {
+        expr: Box::new(dynamic_int),
+        target: CoreType::Int,
+        cast_id: 1,
+    };
+    let v = eval_expr(&some_expr, &HashMap::new(), &mut UnitHost).unwrap();
+    assert_eq!(
+        v,
+        RuntimeValue::Variant {
+            tag: "some".into(),
+            payload: Some(Box::new(RuntimeValue::Int(42))),
+        }
+    );
+
+    let dynamic_str = CoreExpr::Cast {
+        expr: Box::new(CoreExpr::Lit(CoreLiteral::String("x".into()))),
+        evidence: CastEvidence::Widen,
+        target: CoreType::Dynamic,
+        cast_id: 2,
+    };
+    let none_expr = CoreExpr::TryCast {
+        expr: Box::new(dynamic_str),
+        target: CoreType::Int,
+        cast_id: 3,
+    };
+    let v = eval_expr(&none_expr, &HashMap::new(), &mut UnitHost).unwrap();
+    assert_eq!(
+        v,
+        RuntimeValue::Variant {
+            tag: "none".into(),
+            payload: None,
+        }
+    );
+}

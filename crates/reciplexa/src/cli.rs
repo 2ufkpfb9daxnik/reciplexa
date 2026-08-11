@@ -345,7 +345,7 @@ mod tests {
                         self.logs.push(msg);
                         Ok(RuntimeValue::Unit)
                     }
-                    "random" => Ok(RuntimeValue::Number(0.5)),
+                    "random" => Ok(RuntimeValue::F64(0.5)),
                     other => Err(reciplexa_eval::EvalError {
                         message: format!("unknown op `{other}`"),
                     }),
@@ -356,7 +356,7 @@ mod tests {
         let mut host = CaptureHost::default();
         let v =
             eval_source_with_host(r#"(val main (seq (log "hello") 42))"#, &mut host).expect("eval");
-        assert_eq!(v, RuntimeValue::Number(42.0));
+        assert_eq!(v, RuntimeValue::Int(42));
         assert_eq!(host.logs, vec!["hello".to_string()]);
     }
 }

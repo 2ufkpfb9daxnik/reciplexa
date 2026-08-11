@@ -4,11 +4,22 @@
 //! typecheck_language. Document / page / circle surface checks live in
 //! `reciplexa-types` (DOCUMENT SURFACE), not here.
 
-use reciplexa_bind::resolve_language_source;
+use std::path::PathBuf;
+
+use reciplexa_bind::{elaborate_module_tree, elaborate_units, resolve_language_source};
 use reciplexa_core::{elaborate_source, typecheck_language_source, CoreType};
-use reciplexa_eval::{eval_source, RuntimeValue};
+use reciplexa_eval::{eval_expr, eval_source, primitive_env, RuntimeValue, UnitHost};
 use reciplexa_macro::expand_language;
+use reciplexa_package::{elaborate_with_packages, LocalPackageIndex};
 use reciplexa_test::{run_conformance, ConformanceCase};
+
+fn workspace_packages() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../packages")
+}
+
+fn package_index() -> LocalPackageIndex {
+    LocalPackageIndex::discover(&[workspace_packages()]).expect("discover packages/")
+}
 
 #[test]
 fn lang_elaborate_and_eval_identity() {
@@ -21,7 +32,7 @@ fn lang_elaborate_and_eval_identity() {
         let expr = elaborate_source("(val main ((fn (x) x) 42))").unwrap();
         let _ = expr;
         let v = eval_source("(val main ((fn (x) x) 42))").unwrap();
-        assert_eq!(v, RuntimeValue::Number(42.0));
+        assert_eq!(v, RuntimeValue::Int(42));
     });
 }
 
@@ -53,7 +64,7 @@ fn lang_expand_language_call1() {
         let expanded = expand_language(src).unwrap();
         assert!(!expanded.contains("call1") || expanded.contains("fn"));
         let v = eval_source(src).unwrap();
-        assert_eq!(v, RuntimeValue::Number(9.0));
+        assert_eq!(v, RuntimeValue::Int(9));
     });
 }
 
@@ -62,11 +73,11 @@ fn lang_typecheck_language_identity_number() {
     let case = ConformanceCase::new(
         "TEST-LANG-TYP-001",
         "TYP-001",
-        "typecheck_language_source identity app is Number",
+        "typecheck_language_source identity app is Int",
     );
     run_conformance(&case, || {
         let ty = typecheck_language_source("(val main ((fn (x) x) 1))").unwrap();
-        assert_eq!(ty, CoreType::Number);
+        assert_eq!(ty, CoreType::Int);
     });
 }
 
@@ -90,9 +101,9 @@ fn lang_data_match() {
     run_conformance(&case, || {
         let src = include_str!("../../../examples/lang_match.rpx");
         let v = eval_source(src).unwrap();
-        assert_eq!(v, RuntimeValue::Number(1.0));
+        assert_eq!(v, RuntimeValue::Int(1));
         let ty = typecheck_language_source(src).unwrap();
-        assert_eq!(ty, CoreType::Number);
+        assert_eq!(ty, CoreType::Int);
     });
 }
 
@@ -139,7 +150,7 @@ fn lang_literal_tuple_multipayload_patterns() {
 "#,
         )
         .unwrap();
-        assert_eq!(v, RuntimeValue::Number(3.0));
+        assert_eq!(v, RuntimeValue::Int(3));
 
         let v = eval_source(
             r#"
@@ -148,7 +159,7 @@ fn lang_literal_tuple_multipayload_patterns() {
 "#,
         )
         .unwrap();
-        assert_eq!(v, RuntimeValue::Number(20.0));
+        assert_eq!(v, RuntimeValue::Int(20));
     });
 }
 
@@ -158,7 +169,7 @@ fn lang_letrec() {
     run_conformance(&case, || {
         let src = include_str!("../../../examples/lang_letrec.rpx");
         let v = eval_source(src).unwrap();
-        assert_eq!(v, RuntimeValue::Number(7.0));
+        assert_eq!(v, RuntimeValue::Int(7));
     });
 }
 
@@ -196,7 +207,7 @@ fn lang_toplevel_rec_and_local_var() {
 "#,
         )
         .unwrap();
-        assert_eq!(v, RuntimeValue::Number(2.0));
+        assert_eq!(v, RuntimeValue::Int(2));
     });
 }
 
@@ -206,7 +217,7 @@ fn lang_primitives() {
     run_conformance(&case, || {
         let src = include_str!("../../../examples/lang_prim.rpx");
         let v = eval_source(src).unwrap();
-        assert_eq!(v, RuntimeValue::Number(10.0));
+        assert_eq!(v, RuntimeValue::Int(10));
     });
 }
 
@@ -221,7 +232,7 @@ fn lang_deep_resume() {
         let v =
             eval_source(r#"(val main (handle ask (fn (_ k) (k 41)) (seq (perform ask 0) 99)))"#)
                 .unwrap();
-        assert_eq!(v, RuntimeValue::Number(99.0));
+        assert_eq!(v, RuntimeValue::Int(99));
     });
 }
 
@@ -250,7 +261,7 @@ fn lang_with_and_handler_value() {
 "#,
         )
         .unwrap();
-        assert_eq!(v2, RuntimeValue::Number(42.0));
+        assert_eq!(v2, RuntimeValue::Int(42));
     });
 }
 
@@ -267,7 +278,7 @@ fn lang_var_set() {
 "#,
         )
         .unwrap();
-        assert_eq!(v, RuntimeValue::Number(3.0));
+        assert_eq!(v, RuntimeValue::Int(3));
     });
 }
 
@@ -360,7 +371,7 @@ fn lang_occurrence_typing_predicates() {
 "#,
         )
         .unwrap();
-        assert_eq!(ty, CoreType::Number);
+        assert_eq!(ty, CoreType::Int);
     });
 }
 
@@ -386,5 +397,208 @@ fn lang_data_rec_group_positivity() {
             "{}",
             err.message
         );
+    });
+}
+
+#[test]
+fn lang_mod_import_link_and_qualified_ref() {
+    let case = ConformanceCase::new(
+        "TEST-LANG-MOD-01",
+        "MOD-001",
+        "import only + qualified ref linking (MOD-01)",
+    );
+    run_conformance(&case, || {
+        let units = elaborate_units(&[
+            ("graphics/color", r#"(val black 0) (val white 1)"#),
+            (
+                "main",
+                r#"(import graphics/color as color only black) (val main color/black)"#,
+            ),
+        ])
+        .unwrap();
+        let main = units.iter().find(|u| u.name == "main").unwrap();
+        let v = eval_expr(&main.expr, &primitive_env(), &mut UnitHost).unwrap();
+        assert_eq!(v, RuntimeValue::Int(0));
+    });
+}
+
+#[test]
+fn lang_mod_duplicate_identity_import() {
+    let case = ConformanceCase::new(
+        "TEST-LANG-MOD-02",
+        "MOD-001",
+        "same module identity imported twice (MOD-02 / §7.4)",
+    );
+    run_conformance(&case, || {
+        let units = elaborate_units(&[
+            ("lib", r#"(val id (fn (x) x))"#),
+            (
+                "main",
+                r#"(import lib only id) (import lib only id) (val main (id 9))"#,
+            ),
+        ])
+        .unwrap();
+        let main = units.iter().find(|u| u.name == "main").unwrap();
+        let v = eval_expr(&main.expr, &primitive_env(), &mut UnitHost).unwrap();
+        assert_eq!(v, RuntimeValue::Int(9));
+    });
+}
+
+#[test]
+fn lang_mod_rejects_colliding_locals_from_distinct_modules() {
+    let case = ConformanceCase::new(
+        "TEST-LANG-MOD-03",
+        "MOD-001",
+        "distinct module identities cannot share only-import local",
+    );
+    run_conformance(&case, || {
+        let err = elaborate_units(&[
+            ("a", r#"(val id 1)"#),
+            ("b", r#"(val id 2)"#),
+            (
+                "main",
+                r#"(import a only id) (import b only id) (val main id)"#,
+            ),
+        ])
+        .unwrap_err();
+        assert!(err.message.contains("distinct modules"), "{}", err.message);
+    });
+}
+
+#[test]
+fn lang_mod_filesystem_nested_module_path() {
+    let case = ConformanceCase::new(
+        "TEST-LANG-MOD-fs",
+        "MOD-001",
+        "load_module_tree resolves nested sibling paths",
+    );
+    run_conformance(&case, || {
+        let dir =
+            std::env::temp_dir().join(format!("reciplexa-lang-mod-fs-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("lib")).unwrap();
+        std::fs::write(dir.join("lib/util.rpx"), "(val twice (fn (x) (* x 2)))\n").unwrap();
+        std::fs::write(
+            dir.join("main.rpx"),
+            "(import lib/util only twice)\n(val main (twice 3))\n",
+        )
+        .unwrap();
+        let units = elaborate_module_tree(dir.join("main.rpx")).unwrap();
+        let main = units.iter().find(|u| u.name == "main").unwrap();
+        let v = eval_expr(&main.expr, &primitive_env(), &mut UnitHost).unwrap();
+        assert_eq!(v, RuntimeValue::Int(6));
+        let _ = std::fs::remove_dir_all(&dir);
+    });
+}
+
+#[test]
+fn lang_pkg_graphics_shapes_import() {
+    let case = ConformanceCase::new(
+        "TEST-LANG-PKG-01",
+        "PKG-001",
+        "script imports graphics/shapes circle from packages/",
+    );
+    run_conformance(&case, || {
+        let src = include_str!("../../../examples/pkg_circle.rpx");
+        let dir =
+            std::env::temp_dir().join(format!("reciplexa-lang-pkg-01-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let entry = dir.join("demo.rpx");
+        std::fs::write(&entry, src).unwrap();
+        let units = elaborate_with_packages(&entry, &package_index()).unwrap();
+        let demo = units.iter().find(|u| u.name == "demo").unwrap();
+        let v = eval_expr(&demo.expr, &primitive_env(), &mut UnitHost).unwrap();
+        let s = format!("{v}");
+        assert!(
+            s.contains("circle") || s.contains("105"),
+            "expected circle record, got {s}"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    });
+}
+
+#[test]
+fn lang_pkg_path_dep_alias_import() {
+    let case = ConformanceCase::new(
+        "TEST-LANG-PKG-02",
+        "PKG-001",
+        "consumer path dependency alias g/shapes resolves",
+    );
+    run_conformance(&case, || {
+        let consumer =
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/pkg_consumer");
+        let (idx, _) =
+            LocalPackageIndex::discover_with_consumer(&[workspace_packages()], &consumer).unwrap();
+        let entry = consumer.join("src/main.rpx");
+        let units = elaborate_with_packages(&entry, &idx).unwrap();
+        let main = units.iter().find(|u| u.name == "main").unwrap();
+        let v = eval_expr(&main.expr, &primitive_env(), &mut UnitHost).unwrap();
+        let s = format!("{v}");
+        assert!(s.contains("circle") || s.contains("10"), "got {s}");
+    });
+}
+
+#[test]
+fn lang_pkg_math_and_japanese_stubs() {
+    let case = ConformanceCase::new(
+        "TEST-LANG-PKG-stubs",
+        "PKG-001",
+        "math/atoms and japanese/markup package stubs elaborate",
+    );
+    run_conformance(&case, || {
+        let idx = package_index();
+        let dir =
+            std::env::temp_dir().join(format!("reciplexa-lang-pkg-stubs-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let entry = dir.join("demo.rpx");
+        std::fs::write(
+            &entry,
+            r#"(import math/atoms only fraction)
+(import japanese/markup only heading)
+(val main (heading "ok"))
+"#,
+        )
+        .unwrap();
+        let units = elaborate_with_packages(&entry, &idx).unwrap();
+        let demo = units.iter().find(|u| u.name == "demo").unwrap();
+        let v = eval_expr(&demo.expr, &primitive_env(), &mut UnitHost).unwrap();
+        let s = format!("{v}");
+        assert!(s.contains("ja-heading") || s.contains("ok"), "got {s}");
+        let _ = std::fs::remove_dir_all(&dir);
+    });
+}
+
+#[test]
+fn lang_pkg_graphics_page_and_ring() {
+    let case = ConformanceCase::new(
+        "TEST-LANG-PKG-graphics",
+        "PKG-001",
+        "graphics page + ring constructors from packages",
+    );
+    run_conformance(&case, || {
+        let dir =
+            std::env::temp_dir().join(format!("reciplexa-lang-pkg-gfx-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let entry = dir.join("demo.rpx");
+        std::fs::write(
+            &entry,
+            r#"(import graphics/page only page a4)
+(import graphics/shapes only ring)
+(val main (page a4 (ring 1 2 3 0.5)))
+"#,
+        )
+        .unwrap();
+        let units = elaborate_with_packages(&entry, &package_index()).unwrap();
+        let demo = units.iter().find(|u| u.name == "demo").unwrap();
+        let v = eval_expr(&demo.expr, &primitive_env(), &mut UnitHost).unwrap();
+        let s = format!("{v}");
+        assert!(
+            s.contains("page") || s.contains("ring"),
+            "expected page/ring record, got {s}"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
     });
 }

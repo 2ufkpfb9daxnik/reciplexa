@@ -12,6 +12,7 @@ fn sample_provenance() -> SourceProvenance {
         module_id: ModuleId::new(2),
         text_range: TextRange::try_new(ByteOffset::ZERO, ByteOffset::new(10)).unwrap(),
         syntax_node_id: Some(SyntaxNodeId::new(3)),
+        kind: None,
     }
 }
 

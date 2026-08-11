@@ -44,6 +44,22 @@ impl SyntaxIdentityMap {
         self.by_range.get(&key).copied()
     }
 
+    /// Smallest interned syntax subtree that fully contains `inner` (e.g. binder token → parent form).
+    pub fn get_enclosing(&self, inner: TextRange) -> Option<SyntaxNodeId> {
+        let start = u32::from(inner.start());
+        let end = u32::from(inner.end());
+        let mut best: Option<(u32, SyntaxNodeId)> = None;
+        for (&(s, e), &id) in &self.by_range {
+            if s <= start && end <= e {
+                let size = e.saturating_sub(s);
+                if best.is_none_or(|(best_size, _)| size < best_size) {
+                    best = Some((size, id));
+                }
+            }
+        }
+        best.map(|(_, id)| id)
+    }
+
     pub fn get_byte_offsets(&self, start: u32, end: u32) -> Option<SyntaxNodeId> {
         self.by_range.get(&(start, end)).copied()
     }

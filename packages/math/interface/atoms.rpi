@@ -2,3 +2,5 @@
 (val symbol)
 (val row)
 (val fraction)
+(val superscript)
+(val subscript)
