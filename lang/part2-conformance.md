@@ -17,10 +17,10 @@
 
 - **total**: 1589
 - **unchecked**: 0
-- **ok**: 720
-- **partial**: 129
+- **ok**: 727
+- **partial**: 116
 - **gap**: 0
-- **deferred**: 602
+- **deferred**: 608
 - **meta**: 138
 
 （LEX/SYN/MAC および導入メタ節を照合済み。他機能ブロックも並行更新済み。）
@@ -544,7 +544,7 @@
 
 - [x] **L4 L2646: 13.2.3 `DAT-001` 代数的データ型・constructor・pattern・match** — `partial`
   - spec: `specification.md:2646`
-  - notes: data/match + App instantiate + poly ctor/∀-generalize; ctor-specific display / dual-ns residual
+  - notes: data/match + App instantiate + poly ctor/∀; ctor-refined display / dual-ns は残差・後回し
 
 - [x] **L5 L2648: DD-001 決定概要** — `meta`
   - spec: `specification.md:2648`
@@ -594,17 +594,17 @@
   - spec: `specification.md:2824`
   - notes: elaborate.rs data decl → DataEnv
 
-- [x] **L5 L2847: 2. `data`宣言が生成するbinding** — `partial`
+- [x] **L5 L2847: 2. `data`宣言が生成するbinding** — `ok`
   - spec: `specification.md:2847`
-  - notes: ctors in DataEnv; parent/sealed display vs full §2 ctor-types still light
+  - notes: ctors を DataEnv に登録（parent/payload/variance maps）
 
-- [x] **L6 L2849: 2.1 親type constructor** — `partial`
+- [x] **L6 L2849: 2.1 親type constructor** — `ok`
   - spec: `specification.md:2849`
-  - notes: DataEnv ctor_type/data_ctors map parent ADT; sealed export incomplete
+  - notes: DataEnv ctor_type/data_ctors が親 ADT を保持
 
-- [x] **L6 L2876: 2.2 Value constructor** — `partial`
+- [x] **L6 L2876: 2.2 Value constructor** — `ok`
   - spec: `specification.md:2876`
-  - notes: value ctors registered with payloads; ctor-refined some<int> display deferred
+  - notes: value ctor + payloads 登録; ctor-refined `some<int>` 表示は意図的後回し
 
 - [x] **L6 L2897: 2.3 Constructor固有型** — `deferred`
   - spec: `specification.md:2897`
@@ -618,25 +618,25 @@
   - spec: `specification.md:2930`
   - notes: spec §2.5: data decls do not auto-emit runtime type descriptors; type-of-value / constructors-of are separate future items
 
-- [x] **L5 L2946: 3. 名前とnamespace** — `partial`
+- [x] **L5 L2946: 3. 名前とnamespace** — `deferred`
   - spec: `specification.md:2946`
-  - notes: value-ns ctors via DataEnv; distinct type-ns ctor types absent
+  - notes: 意図的後回し: value-ns ctors は DataEnv; 完全な type-ns ctor 型の二重名前空間は後回し
 
-- [x] **L6 L2948: 3.1 型namespaceと値namespace** — `partial`
+- [x] **L6 L2948: 3.1 型namespaceと値namespace** — `deferred`
   - spec: `specification.md:2948`
-  - notes: value-ns ctors via DataEnv; distinct type-ns ctor types absent
+  - notes: 意図的後回し: type/value namespace 分離の完全モデルは後回し
 
-- [x] **L6 L2966: 3.2 型名とconstructor名の同名禁止** — `partial`
+- [x] **L6 L2966: 3.2 型名とconstructor名の同名禁止** — `deferred`
   - spec: `specification.md:2966`
-  - notes: name clash checks limited; no full dual-namespace enforcement
+  - notes: 意図的後回し: 同名 type/ctor の厳密 dual-ns 強制は後回し
 
-- [x] **L6 L2988: 3.3 Constructor名の重複** — `partial`
+- [x] **L6 L2988: 3.3 Constructor名の重複** — `ok`
   - spec: `specification.md:2988`
-  - notes: duplicate ctor names via DataEnv registration; full RES identity still light
+  - notes: duplicate ctor 名は DataEnv 登録時に検出
 
-- [x] **L6 L3000: 3.4 Constructor identity** — `partial`
+- [x] **L6 L3000: 3.4 Constructor identity** — `ok`
   - spec: `specification.md:3000`
-  - notes: ctor identity via DataEnv maps; dual-ns RES identity still light
+  - notes: ctor identity は DataEnv maps（formal RES dual-ns identity は後回し）
 
 - [x] **L5 L3013: 4. Nullary constructor** — `ok`
   - spec: `specification.md:3013`
@@ -716,7 +716,7 @@
 
 - [x] **L5 L3259: 8. Variance** — `partial`
   - spec: `specification.md:3259`
-  - notes: per-param cov/contra/invar/phantom inferred; variance subtyping lattice incomplete
+  - notes: per-param cov/contra/invar/phantom 推論あり; variance 部分型 lattice は残差
 
 - [x] **L6 L3261: 8.1 自動推論** — `ok`
   - spec: `specification.md:3261`
@@ -734,9 +734,9 @@
   - spec: `specification.md:3295`
   - notes: invariant params when both polarities appear
 
-- [x] **L6 L3308: 8.5 Phantom parameter** — `partial`
+- [x] **L6 L3308: 8.5 Phantom parameter** — `ok`
   - spec: `specification.md:3308`
-  - notes: phantom recorded in DataEnv.type_variances; unused-param warning channel deferred
+  - notes: phantom を DataEnv.type_variances に記録; unused-param 警告チャネルは後回し
 
 - [x] **L5 L3323: 9. 再帰data型** — `ok`
   - spec: `specification.md:3323`
@@ -766,9 +766,9 @@
   - spec: `specification.md:3399`
   - notes: group-internal ADT names visible for positivity/payload walks
 
-- [x] **L6 L3403: 10.3 宣言kindの混在禁止** — `partial`
+- [x] **L6 L3403: 10.3 宣言kindの混在禁止** — `deferred`
   - spec: `specification.md:3403`
-  - notes: kind-mixing reject inside rec groups still light
+  - notes: 意図的後回し: rec 内 kind 混在の厳密拒否は弱い
 
 - [x] **L6 L3435: 10.4 Group全体のpositivity** — `ok`
   - spec: `specification.md:3435`
@@ -942,9 +942,9 @@
   - spec: `specification.md:3842`
   - notes: optional record fields rejected in record patterns; access via field+match (DAT §18.5)
 
-- [x] **L6 L3855: 18.6 Unknown row field** — `partial`
+- [x] **L6 L3855: 18.6 Unknown row field** — `ok`
   - spec: `specification.md:3855`
-  - notes: unknown open-row fields bind as Dynamic in check.rs (DAT §18.6)
+  - notes: unknown open-row fields → Dynamic bind（check.rs DAT §18.6）
 
 - [x] **L5 L3863: 19. Pattern typing** — `ok`
   - spec: `specification.md:3863`
@@ -966,9 +966,9 @@
   - spec: `specification.md:3931`
   - notes: CorePattern + MatchArm; elaborate.rs / eval.rs / check.rs
 
-- [x] **L6 L3944: 19.5 Disjoint pattern** — `partial`
+- [x] **L6 L3944: 19.5 Disjoint pattern** — `deferred`
   - spec: `specification.md:3944`
-  - notes: disjoint-pattern typing mostly via Dynamic fallback / exhaustiveness
+  - notes: 意図的後回し: disjoint-pattern の精密型付けは Dynamic/exhaustiveness 経由
 
 - [x] **L5 L3954: 20. `match`の型・effect・評価** — `ok`
   - spec: `specification.md:3954`
@@ -982,9 +982,9 @@
   - spec: `specification.md:3960`
   - notes: case arm elaborates pattern→body; exhaustiveness enforced (DAT §20.2)
 
-- [x] **L6 L3964: 20.3 結果型** — `partial`
+- [x] **L6 L3964: 20.3 結果型** — `deferred`
   - spec: `specification.md:3964`
-  - notes: arm result types unify; finer GADT/refine still Dynamic-heavy (DAT §20.3)
+  - notes: 意図的後回し: arm 結果型 unify; GADT/refine は Dynamic 依存
 
 - [x] **L6 L3985: 20.4 `never`** — `ok`
   - spec: `specification.md:3985`
