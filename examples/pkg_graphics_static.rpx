@@ -1,4 +1,4 @@
-(// Package import of graphics shapes/page/color for static graphics demo.)
+(// language-only: package import of graphics shapes/page/color for static graphics demo.)
 (// Interim GUI `(page …)(circle …)` remains; this is the package surface.)
 (import graphics/shapes only circle line path fill stroke)
 (import graphics/page only a4 page)
