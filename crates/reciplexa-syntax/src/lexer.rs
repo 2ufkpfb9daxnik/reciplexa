@@ -268,12 +268,16 @@ impl<'a> Lexer<'a> {
             return self.finish(SyntaxKind::String, start);
         }
         if open == 1 {
-            // Short one-line string: first unescaped `"` terminates (§8.1: no escapes).
+            // Short one-line string: first `"` terminates (§8.1: no escapes).
+            // Unclosed at newline/EOF becomes a partial String (§18.4 virtual close).
             loop {
                 match self.peek_char() {
-                    None => return self.finish(SyntaxKind::Error, start),
+                    None => return self.finish(SyntaxKind::String, start),
                     Some('"') => {
                         self.advance_char();
+                        return self.finish(SyntaxKind::String, start);
+                    }
+                    Some('\n') | Some('\r') => {
                         return self.finish(SyntaxKind::String, start);
                     }
                     Some(_) => {
@@ -285,7 +289,7 @@ impl<'a> Lexer<'a> {
         // Multi-quote (n ≥ 3): close on the first run of ≥ n quotes (consume n).
         loop {
             match self.peek_char() {
-                None => return self.finish(SyntaxKind::Error, start),
+                None => return self.finish(SyntaxKind::String, start),
                 Some('"') => {
                     let mut n = 0usize;
                     while self.peek_char() == Some('"') {

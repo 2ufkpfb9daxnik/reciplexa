@@ -25,6 +25,8 @@ fn roundtrip_every_real_kind_through_language() {
         SyntaxKind::Comment,
         SyntaxKind::Shebang,
         SyntaxKind::Error,
+        SyntaxKind::MissingToken,
+        SyntaxKind::UnexpectedToken,
         SyntaxKind::SourceFile,
         SyntaxKind::List,
         SyntaxKind::BracketList,

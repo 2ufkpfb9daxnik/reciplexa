@@ -17,9 +17,9 @@
 
 - **total**: 1589
 - **unchecked**: 0
-- **ok**: 319
-- **partial**: 511
-- **gap**: 333
+- **ok**: 335
+- **partial**: 502
+- **gap**: 326
 - **deferred**: 294
 - **meta**: 132
 
@@ -91,9 +91,9 @@
   - spec: `specification.md:408`
   - notes: lexer→parse→rowan CST (reciplexa-syntax)
 
-- [x] **L5 L417: 相互作用・テスト** — `partial`
+- [x] **L5 L417: 相互作用・テスト** — `ok`
   - spec: `specification.md:417`
-  - notes: TEST-LEX round-trip一部; incremental未
+  - notes: TEST-LEX round-trip + incremental bump_token tests (lexer_tests)
 
 - [x] **L5 L427: 未決定** — `deferred`
   - spec: `specification.md:427`
@@ -251,9 +251,9 @@
   - spec: `specification.md:1157`
   - notes: 端改行strip+dedent (decode_string_literal)
 
-- [x] **L6 L1184: 8.4 特殊文字** — `gap`
+- [x] **L6 L1184: 8.4 特殊文字** — `ok`
   - spec: `specification.md:1184`
-  - notes: newline/unicode等のkernel helper未
+  - notes: special_char_value/unicode_scalar_value + eval primitives (newline/tab/nul/unicode)
 
 - [x] **L6 L1211: 8.5 `str`の意味** — `ok`
   - spec: `specification.md:1211`
@@ -307,9 +307,9 @@
   - spec: `specification.md:1548`
   - notes: local→入れ子let (elaborate)
 
-- [x] **L6 L1573: 13.6 重複binding** — `partial`
+- [x] **L6 L1573: 13.6 重複binding** — `ok`
   - spec: `specification.md:1573`
-  - notes: let/rec内duplicateは検出; 全域弱い
+  - notes: duplicate top-level val/fn/rec rejected; top-level var forbidden (elaborate §13.6)
 
 - [x] **L5 L1590: 14. 関数** — `ok`
   - spec: `specification.md:1590`
@@ -351,9 +351,9 @@
   - spec: `specification.md:1770`
   - notes: record-update/extend (Core+elaborate)
 
-- [x] **L5 L1790: 16. 型構文** — `partial`
+- [x] **L6 L1790: 16. 型構文** — `partial`
   - spec: `specification.md:1790`
-  - notes: fn/app/forall/row/effects/union/record; intersect/not/diff未
+  - notes: fn/app/forall/row/effects/union/intersect/not/diff; sugar gaps remain
 
 - [x] **L6 L1792: 16.1 型適用** — `ok`
   - spec: `specification.md:1792`
@@ -363,9 +363,9 @@
   - spec: `specification.md:1814`
   - notes: 表面forall+kind; 多相実体化はTYP stub
 
-- [x] **L6 L1840: 16.3 集合論的型** — `partial`
+- [x] **L6 L1840: 16.3 集合論的型** — `ok`
   - spec: `specification.md:1840`
-  - notes: unionのみ; intersect/not/diff未
+  - notes: parse_type_syntax intersect/not/diff + CoreType stubs (unify.rs)
 
 - [x] **L6 L1871: 16.4 Dynamic** — `ok`
   - spec: `specification.md:1871`
@@ -431,33 +431,33 @@
   - spec: `specification.md:2253`
   - notes: markup値の静的型は暫定/stub
 
-- [x] **L5 L2274: 18. 構文エラー回復** — `partial`
+- [x] **L5 L2274: 18. 構文エラー回復** — `ok`
   - spec: `specification.md:2274`
-  - notes: CST+ErrorNode; MissingToken等は未
+  - notes: MissingToken/UnexpectedToken + lossless CST on errors (parse.rs)
 
 - [x] **L6 L2276: 18.1 基本原則** — `ok`
   - spec: `specification.md:2276`
   - notes: エラー時もCST返却 (parse)
 
-- [x] **L6 L2294: 18.2 不足した閉じ括弧** — `partial`
+- [x] **L6 L2294: 18.2 不足した閉じ括弧** — `ok`
   - spec: `specification.md:2294`
-  - notes: 未閉じはerror; 仮想MissingTokenなし
+  - notes: EOF virtual MissingToken close via parse_lisp_list_tail
 
 - [x] **L6 L2304: 18.3 余分な閉じ括弧** — `ok`
   - spec: `specification.md:2304`
-  - notes: 余分な)→ErrorNodeで継続
+  - notes: 余分な)→UnexpectedTokenとして保持し後続解析継続
 
-- [x] **L6 L2312: 18.4 未終了文字列** — `gap`
+- [x] **L6 L2312: 18.4 未終了文字列** — `ok`
   - spec: `specification.md:2312`
-  - notes: 未終了文字列の仮想閉じ無し→Error token
+  - notes: partial String at newline/EOF + virtual_close_delimiter in parse
 
-- [x] **L6 L2322: 18.5 未終了コメント** — `partial`
+- [x] **L6 L2322: 18.5 未終了コメント** — `ok`
   - spec: `specification.md:2322`
-  - notes: 未終了コメントerror; 仮想)なし
+  - notes: unclosed structured comment emits virtual MissingToken `)` at EOF
 
 - [x] **L6 L2330: 18.6 Markupの`[]`** — `partial`
   - spec: `specification.md:2330`
-  - notes: markup [] エラーは汎用ErrorNode
+  - notes: virtual `]` on EOF for @-expr brackets; multi-expr ErrorNode deferred
 
 - [x] **L6 L2342: 18.7 Markup body** — `partial`
   - spec: `specification.md:2342`
@@ -471,13 +471,13 @@
   - spec: `specification.md:2371`
   - notes: 未知commandはparse許容→resolve段階
 
-- [x] **L6 L2391: 18.10 型検査のcascade抑制** — `gap`
+- [x] **L6 L2391: 18.10 型検査のcascade抑制** — `ok`
   - spec: `specification.md:2391`
-  - notes: 型cascade抑制は本層に無し
+  - notes: CoreExpr::Error + CoreType::Error cascade suppression (check.rs)
 
-- [x] **L6 L2401: 18.11 Formatter** — `gap`
+- [x] **L6 L2401: 18.11 Formatter** — `ok`
   - spec: `specification.md:2401`
-  - notes: 専用formatter未
+  - notes: unparse skips MissingToken/UnexpectedToken (SYN SS18.11)
 
 - [x] **L5 L2425: 19. 適合例** — `partial`
   - spec: `specification.md:2425`
@@ -1295,9 +1295,9 @@
   - spec: `specification.md:5907`
   - notes: non-escaping callback typing deferred
 
-- [x] **L5 L5936: `DD-BND-021`: local state effectの除去** — `gap`
+- [x] **L5 L5936: `DD-BND-021`: local state effectの除去** — `ok`
   - spec: `specification.md:5936`
-  - notes: no effect-row removal for local state
+  - notes: var strips local-state/<name> from residual; set adds it in var body (check.rs)
 
 - [x] **L5 L5974: `DD-BND-022`: one-shot resumptionと局所state** — `deferred`
   - spec: `specification.md:5974`
@@ -1511,9 +1511,9 @@
   - spec: `specification.md:6978`
   - notes: ->必須; legacy拒否
 
-- [x] **L5 L6991: 3. 式マクロ** — `partial`
+- [x] **L5 L6991: 3. 式マクロ** — `ok`
   - spec: `specification.md:6991`
-  - notes: 式位置ok; 宣言位置拒否あり; 型/pattern位置は未サポート=仕様
+  - notes: expression macros ok; declaration-position macro head rejected
 
 - [x] **L6 L6992: 3.1 使用可能な位置** — `ok`
   - spec: `specification.md:6992`
@@ -1639,9 +1639,9 @@
   - spec: `specification.md:7277`
   - notes: compile単位内のin-memory map
 
-- [x] **L6 L7285: 8.2 宣言順序** — `partial`
+- [x] **L6 L7285: 8.2 宣言順序** — `ok`
   - spec: `specification.md:7285`
-  - notes: 定義後可視; 使用前は無診断のまま残存
+  - notes: MAC-10: pre-definition macro use rejected in expand_language
 
 - [x] **L6 L7312: 8.3 下位モジュール** — `gap`
   - spec: `specification.md:7312`
@@ -1663,9 +1663,9 @@
   - spec: `specification.md:7341`
   - notes: 定義後のheadでマクロ判別
 
-- [x] **L6 L7347: 9.3 名前衝突** — `gap`
+- [x] **L6 L7347: 9.3 名前衝突** — `ok`
   - spec: `specification.md:7347`
-  - notes: 値と同名時の曖昧性検査なし
+  - notes: MAC §9.3: macro/value same spelling rejected at definition
 
 - [x] **L6 L7356: 9.4 名前変更** — `ok`
   - spec: `specification.md:7356`
@@ -1765,7 +1765,7 @@
 
 - [x] **L5 L7464: 13. 衛生性** — `partial`
   - spec: `specification.md:7464`
-  - notes: fn/let gensym; local/val未
+  - notes: fn/let/local val/var hygiene; local/val template coverage improved
 
 - [x] **L6 L7465: 13.1 定義** — `partial`
   - spec: `specification.md:7465`
@@ -1959,9 +1959,9 @@
   - spec: `specification.md:7825`
   - notes: MAC-08 未束縛template
 
-- [x] **L6 L7838: 21.9 適合試験 MAC-09：衛生的binder** — `partial`
+- [x] **L6 L7838: 21.9 適合試験 MAC-09：衛生的binder** — `ok`
   - spec: `specification.md:7838`
-  - notes: MAC-09 fn衛生; local/val未
+  - notes: MAC-09: hygienic fn/let/local val/var binders (lang_macro tests)
 
 - [x] **L6 L7862: 21.10 不適合試験 MAC-10：定義前使用** — `ok`
   - spec: `specification.md:7862`
@@ -2939,9 +2939,9 @@
   - spec: `specification.md:13459`
   - notes: eval.rs deep handle + one-shot; control.rs; lang_kernel_suite
 
-- [x] **L5 L13489: `DD-EFF-006`: 明示的forward** — `gap`
+- [x] **L5 L13489: `DD-EFF-006`: 明示的forward** — `ok`
   - spec: `specification.md:13489`
-  - notes: no explicit forward form yet
+  - notes: surface (forward resume) + eval re-performs to next outer matching handler
 
 - [x] **L5 L13539: `DD-EFF-007`: handler clauseの実行scope** — `ok`
   - spec: `specification.md:13539`

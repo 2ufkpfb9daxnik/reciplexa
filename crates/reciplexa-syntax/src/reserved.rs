@@ -34,6 +34,7 @@ pub fn is_reserved_special_form(name: &str) -> bool {
             | "list"
             | "tuple"
             | "perform"
+            | "forward"
             | "raise"
             | "macro"
             | "true"

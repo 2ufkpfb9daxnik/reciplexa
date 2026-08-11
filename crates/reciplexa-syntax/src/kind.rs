@@ -42,6 +42,10 @@ pub enum SyntaxKind {
 
     // --- error recovery leaf ---
     Error,
+    /// SYN §18: virtual missing delimiter (not present in source bytes).
+    MissingToken,
+    /// SYN §18.3: extra closing delimiter preserved but skipped semantically.
+    UnexpectedToken,
 
     // --- composite nodes (parser) ---
     SourceFile,
@@ -90,6 +94,8 @@ impl SyntaxKind {
             x if x == Self::Comment as u16 => Self::Comment,
             x if x == Self::Shebang as u16 => Self::Shebang,
             x if x == Self::Error as u16 => Self::Error,
+            x if x == Self::MissingToken as u16 => Self::MissingToken,
+            x if x == Self::UnexpectedToken as u16 => Self::UnexpectedToken,
             x if x == Self::SourceFile as u16 => Self::SourceFile,
             x if x == Self::List as u16 => Self::List,
             x if x == Self::BracketList as u16 => Self::BracketList,
@@ -111,6 +117,11 @@ impl SyntaxKind {
             self,
             Self::Whitespace | Self::Newline | Self::Comment | Self::Shebang
         )
+    }
+
+    /// Virtual recovery tokens must not appear in formatted / unparsed output (SYN §18.11).
+    pub const fn is_virtual_recovery(self) -> bool {
+        matches!(self, Self::MissingToken | Self::UnexpectedToken)
     }
 
     pub const fn is_token(self) -> bool {

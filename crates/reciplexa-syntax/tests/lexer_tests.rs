@@ -280,8 +280,17 @@ fn scribble_preserves_newlines_separately() {
 // --- defect: robust lexing ---
 
 #[test]
-fn unterminated_string_is_error_token_not_panic() {
-    assert_eq!(kinds("\"abc"), vec![SyntaxKind::Error]);
+fn unterminated_string_is_partial_string_not_panic() {
+    assert_eq!(kinds("\"abc"), vec![SyntaxKind::String]);
+}
+
+#[test]
+fn unterminated_short_string_at_newline_is_partial_string() {
+    let src = "\"abc\nx";
+    assert_eq!(
+        kinds(src),
+        vec![SyntaxKind::String, SyntaxKind::Newline, SyntaxKind::Ident]
+    );
 }
 
 #[test]
@@ -440,9 +449,9 @@ fn shebang_at_offset_zero_is_trivia() {
 }
 
 #[test]
-fn string_backslash_at_eof_yields_error() {
-    // Opening quote then backslash at EOF.
+fn string_backslash_at_eof_yields_partial_string() {
+    // Opening quote then backslash at EOF — partial string (§18.4 virtual close).
     let mut lx = Lexer::new("\"\\");
     let tok = lx.bump_token().unwrap();
-    assert_eq!(tok.kind, SyntaxKind::Error);
+    assert_eq!(tok.kind, SyntaxKind::String);
 }

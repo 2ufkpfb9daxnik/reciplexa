@@ -54,6 +54,60 @@ pub fn decode_string_literal(raw: &str) -> Result<String, String> {
     dedent_lines(&body, &baseline)
 }
 
+/// SYN §8.4 special character values (no escapes — use these identifiers / `unicode`).
+pub fn special_char_value(name: &str) -> Option<&'static str> {
+    match name {
+        "newline" => Some("\n"),
+        "tab" => Some("\t"),
+        "carriage-return" => Some("\r"),
+        "nul" => Some("\0"),
+        _ => None,
+    }
+}
+
+/// Build a one-character `str` from a Unicode scalar value (SYN §8.4 `(unicode 0x…)`).
+pub fn unicode_scalar_value(code: f64) -> Result<String, String> {
+    if !code.is_finite() || code < 0.0 || code.fract() != 0.0 {
+        return Err("unicode code point must be a non-negative integer".into());
+    }
+    let cp = code as u32;
+    char::from_u32(cp)
+        .map(|c| c.to_string())
+        .ok_or_else(|| format!("invalid Unicode scalar value U+{cp:X}"))
+}
+
+/// When a string token's source text lacks a closing delimiter, return the virtual closer.
+pub fn virtual_close_delimiter(raw: &str) -> Option<String> {
+    if raw.is_empty() || !raw.starts_with('"') {
+        return None;
+    }
+    let mut open = 0usize;
+    for c in raw.chars() {
+        if c == '"' {
+            open += 1;
+        } else {
+            break;
+        }
+    }
+    if open == 0 {
+        return None;
+    }
+    if open == 2 {
+        return if raw.len() == 2 {
+            None
+        } else {
+            Some("\"".to_string())
+        };
+    }
+    if raw.len() < open * 2 {
+        return Some("\"".repeat(open));
+    }
+    if !raw[raw.len() - open..].chars().all(|c| c == '"') {
+        return Some("\"".repeat(open));
+    }
+    None
+}
+
 /// Encode a runtime string as an RPX string literal (SYN-001 §8).
 ///
 /// Never invents backslash escapes. Uses short `"…"` when safe; otherwise a
@@ -171,5 +225,27 @@ mod tests {
         let lit = encode_string_literal(s);
         assert!(!lit.contains('\\'));
         assert_eq!(decode_string_literal(&lit).unwrap(), s);
+    }
+
+    #[test]
+    fn encode_roundtrips_unicode_content() {
+        let s = "日本語\u{3002}emoji🎉";
+        let lit = encode_string_literal(s);
+        assert!(!lit.contains('\\'));
+        assert_eq!(decode_string_literal(&lit).unwrap(), s);
+    }
+
+    #[test]
+    fn special_char_helpers() {
+        assert_eq!(special_char_value("newline"), Some("\n"));
+        assert_eq!(unicode_scalar_value(12290.0).unwrap(), "。");
+        assert!(unicode_scalar_value(-1.0).is_err());
+        assert!(unicode_scalar_value(1114112.0).is_err());
+    }
+
+    #[test]
+    fn virtual_close_for_unterminated_short_string() {
+        assert_eq!(virtual_close_delimiter("\"abc"), Some("\"".into()));
+        assert_eq!(virtual_close_delimiter("\"hi\""), None);
     }
 }

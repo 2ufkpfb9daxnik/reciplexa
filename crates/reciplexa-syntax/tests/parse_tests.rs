@@ -2,8 +2,7 @@
 
 use reciplexa_syntax::kind::SyntaxKind;
 use reciplexa_syntax::parse::*;
-use reciplexa_syntax::SyntaxNode;
-use reciplexa_syntax::Token;
+use reciplexa_syntax::{Lexer, SyntaxNode, Token};
 
 fn parse_ok(src: &str) -> SyntaxNode {
     parse_source(src)
@@ -153,9 +152,24 @@ fn mismatched_closer_is_error() {
 }
 
 #[test]
-fn error_tree_still_unparses_without_panic() {
+fn incremental_bump_token_matches_tokenize_all() {
+    let src = "(val x 1)\n\"hi\"";
+    let mut lex = Lexer::new(src);
+    let incremental: Vec<_> = std::iter::from_fn(|| lex.bump_token())
+        .map(|t| t.kind)
+        .collect();
+    let mut lex2 = Lexer::new(src);
+    let all: Vec<_> = lex2.tokenize_all().into_iter().map(|t| t.kind).collect();
+    assert_eq!(incremental, all);
+}
+
+#[test]
+fn unparse_omits_virtual_missing_close() {
     let parse = parse_source("(a");
-    let _ = unparse(&parse.root);
+    assert!(parse.has_errors());
+    let text = unparse(&parse.root);
+    assert!(!text.contains("MISSING"));
+    assert_eq!(text, "(a");
 }
 
 #[test]

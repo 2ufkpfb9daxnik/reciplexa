@@ -14,6 +14,7 @@ use rowan::GreenNodeBuilder;
 
 use crate::kind::{SyntaxKind, SyntaxNode};
 use crate::lexer::{Lexer, LexerMode, Token};
+use crate::virtual_close_delimiter;
 
 /// A single parse diagnostic with a byte span into the source.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -157,10 +158,11 @@ impl<'a> Parser<'a> {
         loop {
             let Some(tok) = self.current.clone() else {
                 self.push_error(
-                    "unclosed structured comment `(//`".into(),
+                    "unclosed structured comment `(//`".to_string(),
                     self.input.len(),
                     self.input.len(),
                 );
+                self.emit_missing_token(")", self.input.len());
                 break;
             };
             match tok.kind {
@@ -191,11 +193,13 @@ impl<'a> Parser<'a> {
                 SyntaxKind::BracketList,
                 SyntaxKind::LBracket,
                 SyntaxKind::RBracket,
+                false,
             ),
             SyntaxKind::LBrace => self.parse_delimited(
                 SyntaxKind::BraceList,
                 SyntaxKind::LBrace,
                 SyntaxKind::RBrace,
+                false,
             ),
             SyntaxKind::At => self.parse_at_expr(),
             SyntaxKind::Ident
@@ -204,6 +208,13 @@ impl<'a> Parser<'a> {
             | SyntaxKind::TextChunk
             | SyntaxKind::Arrow
             | SyntaxKind::Error => {
+                if tok.kind == SyntaxKind::String {
+                    if let Some(close) = virtual_close_delimiter(tok.text(self.input)) {
+                        self.bump();
+                        self.emit_missing_token(&close, tok.end);
+                        return;
+                    }
+                }
                 self.bump();
             }
             SyntaxKind::RParen | SyntaxKind::RBracket | SyntaxKind::RBrace => {
@@ -213,7 +224,7 @@ impl<'a> Parser<'a> {
                     tok.end,
                 );
                 self.builder.start_node(SyntaxKind::ErrorNode.into());
-                self.bump();
+                self.bump_as(SyntaxKind::UnexpectedToken);
                 self.builder.finish_node();
             }
             other => {
@@ -264,21 +275,22 @@ impl<'a> Parser<'a> {
                         self.input.len(),
                         self.input.len(),
                     );
+                    self.emit_missing_token(")", self.input.len());
                 }
             }
             Some("src") => {
                 self.bump(); // src
                              // Body stays in Lisp (default). Same as a normal list.
-                self.parse_lisp_list_tail(SyntaxKind::RParen);
+                self.parse_lisp_list_tail(SyntaxKind::RParen, false);
             }
             _ => {
-                self.parse_lisp_list_tail(SyntaxKind::RParen);
+                self.parse_lisp_list_tail(SyntaxKind::RParen, false);
             }
         }
         self.builder.finish_node();
     }
 
-    fn parse_lisp_list_tail(&mut self, close: SyntaxKind) {
+    fn parse_lisp_list_tail(&mut self, close: SyntaxKind, _code_bracket_arg: bool) {
         loop {
             self.eat_trivia();
             let Some(tok) = self.current.clone() else {
@@ -287,6 +299,7 @@ impl<'a> Parser<'a> {
                     self.input.len(),
                     self.input.len(),
                 );
+                self.emit_missing_token(closing_text(close), self.input.len());
                 break;
             };
             if tok.kind == close {
@@ -302,20 +315,24 @@ impl<'a> Parser<'a> {
                     tok.start,
                     tok.end,
                 );
-                self.builder.start_node(SyntaxKind::ErrorNode.into());
-                self.bump();
-                self.builder.finish_node();
+                self.bump_as(SyntaxKind::UnexpectedToken);
                 break;
             }
             self.parse_form();
         }
     }
 
-    fn parse_delimited(&mut self, node: SyntaxKind, open: SyntaxKind, close: SyntaxKind) {
+    fn parse_delimited(
+        &mut self,
+        node: SyntaxKind,
+        open: SyntaxKind,
+        close: SyntaxKind,
+        code_bracket_arg: bool,
+    ) {
         self.builder.start_node(node.into());
         debug_assert_eq!(self.current.as_ref().map(|t| t.kind), Some(open));
         self.bump(); // open
-        self.parse_lisp_list_tail(close);
+        self.parse_lisp_list_tail(close, code_bracket_arg);
         self.builder.finish_node();
     }
 
@@ -397,6 +414,7 @@ impl<'a> Parser<'a> {
                 SyntaxKind::BracketList,
                 SyntaxKind::LBracket,
                 SyntaxKind::RBracket,
+                true,
             );
             self.eat_trivia();
         }
@@ -423,6 +441,7 @@ impl<'a> Parser<'a> {
                     self.input.len(),
                     self.input.len(),
                 );
+                self.emit_missing_token(")", self.input.len());
             }
             self.builder.finish_node();
         }
@@ -450,6 +469,7 @@ impl<'a> Parser<'a> {
                     self.input.len(),
                     self.input.len(),
                 );
+                self.emit_missing_token("}", self.input.len());
             }
             self.builder.finish_node();
         }
@@ -469,6 +489,7 @@ impl<'a> Parser<'a> {
             self.bump();
         } else {
             self.push_error("unclosed `{`".into(), self.input.len(), self.input.len());
+            self.emit_missing_token("}", self.input.len());
         }
         self.builder.finish_node();
     }
@@ -506,6 +527,21 @@ impl<'a> Parser<'a> {
         self.current = self.lexer.bump_token();
     }
 
+    fn bump_as(&mut self, kind: SyntaxKind) {
+        let Some(tok) = self.current.take() else {
+            return;
+        };
+        let text = tok.text(self.input);
+        self.builder.token(kind.into(), text);
+        self.current = self.lexer.bump_token();
+    }
+
+    /// Insert a virtual closer at `at` (SYN §18; omitted from `unparse` / format).
+    fn emit_missing_token(&mut self, text: &str, at: usize) {
+        let _ = at;
+        self.builder.token(SyntaxKind::MissingToken.into(), text);
+    }
+
     fn push_error(&mut self, message: String, start: usize, end: usize) {
         self.errors.push(ParseError {
             message,
@@ -528,8 +564,22 @@ fn unparse_into(node: &SyntaxNode, out: &mut String) {
     for child in node.children_with_tokens() {
         match child {
             rowan::NodeOrToken::Node(n) => unparse_into(&n, out),
-            rowan::NodeOrToken::Token(t) => out.push_str(t.text()),
+            rowan::NodeOrToken::Token(t) => {
+                if t.kind().is_virtual_recovery() {
+                    continue;
+                }
+                out.push_str(t.text());
+            }
         }
+    }
+}
+
+fn closing_text(close: SyntaxKind) -> &'static str {
+    match close {
+        SyntaxKind::RParen => ")",
+        SyntaxKind::RBracket => "]",
+        SyntaxKind::RBrace => "}",
+        _ => "",
     }
 }
 

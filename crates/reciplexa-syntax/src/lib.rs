@@ -29,4 +29,7 @@ pub use markup::{flatten_lines, flatten_readable, markup_parts, MarkupPart, Mark
 pub use number_lit::parse_number_literal;
 pub use parse::{parse_source, unparse, Parse, ParseError};
 pub use reserved::is_reserved_special_form;
-pub use string_lit::{decode_string_literal, encode_string_literal};
+pub use string_lit::{
+    decode_string_literal, encode_string_literal, special_char_value, unicode_scalar_value,
+    virtual_close_delimiter,
+};
