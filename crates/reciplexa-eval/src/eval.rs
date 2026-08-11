@@ -63,12 +63,8 @@ pub fn eval_source(src: &str) -> EvalResult {
 pub fn eval_source_with_host(src: &str, host: &mut dyn EffectHost) -> EvalResult {
     let expanded =
         reciplexa_macro::expand_language(src).map_err(|e| EvalError { message: e.message })?;
-    let parse = reciplexa_syntax::parse_source(&expanded);
-    if let Some(err) = parse.errors.first() {
-        return Err(EvalError {
-            message: format!("parse error: {}", err.message),
-        });
-    }
+    // Language expand is expected to yield parseable source; elaboration owns
+    // residual syntax diagnostics (no separate post-expand parse Err arm).
     let expr = elaborate_source(&expanded)
         .map_err(|e: ElaborateError| EvalError { message: e.message })?;
     eval_expr(&expr, &primitive_env(), host)
