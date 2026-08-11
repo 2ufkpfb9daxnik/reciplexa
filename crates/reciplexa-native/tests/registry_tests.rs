@@ -104,3 +104,12 @@ fn shutdown_makes_instance_unusable() {
         Err(NegotiationError::NotReady(_))
     ));
 }
+
+#[test]
+fn quarantine_builds_structured_defect_report() {
+    let mut reg = AdapterRegistry::with_portable_defaults();
+    let report = reg.defect_report_for_quarantine("portable-image-decode", "unknown op");
+    assert_eq!(report.code.namespace, "foreign");
+    assert_eq!(report.code.code, "ADAPTER_CONTRACT");
+    assert!(report.violated_invariant.contains("portable-image-decode"));
+}

@@ -335,6 +335,28 @@ fn handle_removes_effect_from_residual() {
     );
 }
 
+/// MEM-001 §22.1: ordinary heap allocation (records) is not an Effect.
+#[test]
+fn ordinary_allocation_absent_from_effect_row() {
+    use reciplexa_core::elaborate_source;
+    use reciplexa_core::unify::Subst;
+    use reciplexa_core::{infer_with_effects, TypeEnv};
+    use reciplexa_source::range::TextRange;
+
+    let src = r#"(val main (let ((r (record (x 1) (y 2)))) r))"#;
+    let expr = elaborate_source(src).unwrap();
+    let reciplexa_core::CoreExpr::Let { value, .. } = expr else {
+        panic!("expected Let");
+    };
+    let mut subst = Subst::new();
+    let (_ty, residual) =
+        infer_with_effects(&value, &TypeEnv::new(), &mut subst, TextRange::EMPTY).unwrap();
+    assert!(
+        residual.ops.is_empty(),
+        "record allocation must not appear in effect row: {residual:?}"
+    );
+}
+
 #[test]
 fn var_removes_local_state_effect_from_residual() {
     use reciplexa_core::elaborate_source;

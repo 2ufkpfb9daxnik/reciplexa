@@ -158,6 +158,31 @@ fn as_result_wraps_success_and_failure() {
 fn raise_without_handler_surfaces_unhandled_failure() {
     let err = eval_source(r#"(val main (raise "boom"))"#).unwrap_err();
     assert!(err.message.contains("unhandled failure"));
+    assert!(
+        err.message.contains("runtime") || err.message.contains("failure:"),
+        "expected FailureReport-shaped message, got {}",
+        err.message
+    );
+}
+
+/// ERR-01: dynamic mismatch returns result/option path via as-result (not Defect).
+#[test]
+fn err_01_as_result_is_not_defect() {
+    let err = eval_source(r#"(val main (as-result (fn () (raise "nope"))))"#).unwrap();
+    assert!(matches!(
+        err,
+        RuntimeValue::Variant {
+            tag,
+            ..
+        } if tag == "err"
+    ));
+}
+
+/// ERR-02 / ERR-03: failure effect handled without resume.
+#[test]
+fn err_02_03_handle_failure_type_and_handler() {
+    let v = eval_source(r#"(val main (handle failure (fn (err) err) (raise "caught")))"#).unwrap();
+    assert_eq!(v, RuntimeValue::String("caught".into()));
 }
 
 #[test]
