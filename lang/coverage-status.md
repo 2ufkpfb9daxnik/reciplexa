@@ -16,11 +16,11 @@ Generated via `cargo llvm-cov --workspace --json --offline`.
 
 | Package | Covered | Count | Missed | % |
 |---------|--------:|------:|-------:|------:|
-| `reciplexa-core` | 6627 | 8541 | 1914 | 77.59% |
-| `reciplexa-bind` | 2099 | 2462 | 363 | 85.26% |
-| `reciplexa-eval` | 1988 | 2230 | 242 | 89.15% |
+| `reciplexa-core` | 6775 | 8541 | 1766 | 79.32% |
+| `reciplexa-bind` | 2163 | 2462 | 299 | 87.86% |
 | `reciplexa-macro` | 2730 | 3004 | 274 | 90.88% |
 | `reciplexa-package` | 1609 | 1740 | 131 | 92.47% |
+| `reciplexa-eval` | 2069 | 2230 | 161 | 92.78% |
 | `reciplexa` | 1198 | 1282 | 84 | 93.45% |
 | `reciplexa-mem` | 2272 | 2429 | 157 | 93.54% |
 | `reciplexa-syntax` | 2998 | 3190 | 192 | 93.98% |
@@ -58,10 +58,10 @@ Generated via `cargo llvm-cov --workspace --json --offline`.
 
 | Missed | Covered/Count | % | File |
 |-------:|--------------:|------:|------|
-| 1914 | — | — | `reciplexa-core` (aggregate; esp. check/elaborate/cast/unify) |
-| 363 | — | — | `reciplexa-bind` (esp. resolve/module) |
+| 1766 | 6775/8541 | 79.32% | `reciplexa-core` (esp. check/elaborate/cast/unify) |
+| 299 | 2163/2462 | 87.86% | `reciplexa-bind` (esp. resolve/module) |
 | 274 | 2730/3004 | 90.88% | `reciplexa-macro` (esp. `lang_macro.rs`) |
-| 242 | — | — | `reciplexa-eval` |
+| 161 | 2069/2230 | 92.78% | `reciplexa-eval` |
 | 192 | — | — | `reciplexa-syntax` |
 | 157 | 2272/2429 | 93.54% | `reciplexa-mem` |
 | 131 | 1609/1740 | 92.47% | `reciplexa-package` |
@@ -70,9 +70,8 @@ Generated via `cargo llvm-cov --workspace --json --offline`.
 ## Notes
 
 - Do not treat this file as a substitute for live llvm-cov; re-run after filling holes.
-- **gui / package / macro / mem push (this update):**
-  - `reciplexa-gui`: **36.08% → 97.21%** — moved `preview_paint` + `fonts` into the lib; unit-tested geometry hits, aspect lock, and egui paint paths without a live window.
-  - `reciplexa-package`: **83.85% → 92.47%** — lockfile consistency errors, workspace/rpxm/rpi edges, load discover/resolve failures.
-  - `reciplexa-macro`: **89.65% → 90.88%** — MAC-001 hygiene/expand failure corpus (duplicate/conflict/cycle/arity/reserved).
-  - `reciplexa-mem`: **89.21% → 93.54%** — observably_equal numerics, lower Seq/LetRec/Lambda/App/If, Select error path.
-- Remaining holes of note: GUI CJK font success path (machine-dependent), package `load.rs` IO/alias overlay branches, lang_macro budget/gensym/hygiene interior, mem Select-as-Bool (Bool lowers to String today).
+- **core / eval / bind push (this update):** remasured with `cargo llvm-cov -p reciplexa-core -p reciplexa-eval -p reciplexa-bind`.
+  - `reciplexa-core`: **68.90% → 79.32%** — cast/unify/ty helpers, coerce/insert-casts, Handle/LetRec/Set typing, elaborator error surfaces (check.rs + elaborate.rs still dominate misses).
+  - `reciplexa-eval`: **60.45% → 92.78%** — deep resume across expr forms, cast evidence kinds, MemoryFsHost/value surfaces, Resumed/Forward propagation.
+  - `reciplexa-bind`: **68.60% → 87.86%** — language resolve forms (data/let/match/import), module interface/load error arms.
+- Remaining holes of note: `reciplexa-core` check/elaborate (~1500 regions), bind resolve residual match/import arms, eval deep-resume `other`/short-circuit dead Err regions.
