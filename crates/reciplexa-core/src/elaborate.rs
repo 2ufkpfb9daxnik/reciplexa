@@ -59,11 +59,14 @@ pub struct DataEnv {
     pub ctor_type: HashMap<String, String>,
     /// type name → ordered constructors `(tag, arity)`
     pub data_ctors: HashMap<String, Vec<(String, usize)>>,
+    /// tag → payload type schemas (`Name` for type parameters; Dynamic for opaque slots).
+    pub ctor_payloads: HashMap<String, Vec<CoreType>>,
     /// type name → type parameter names from `((a type)…)` (DAT-001 §1.2).
     pub type_params: HashMap<String, Vec<String>>,
     /// DAT §8: inferred variance per type parameter.
     pub type_variances: HashMap<String, HashMap<String, Variance>>,
     /// Transparent type aliases from `(type name Ty)` / `(type-alias name Ty)`.
+    /// Also used as BIDI value annotations when a same-named `val`/`var` exists.
     pub type_aliases: HashMap<String, CoreType>,
 }
 
@@ -259,8 +262,8 @@ fn nest_lets(bindings: Vec<(String, CoreExpr)>, body: CoreExpr) -> CoreExpr {
 struct PendingDataDecl {
     type_name: String,
     type_params: Vec<String>,
-    ctors: Vec<(String, usize)>,
-    payload_atoms: Vec<Atom>,
+    /// `(tag, payload type atoms)` — arity is `payloads.len()`.
+    ctors: Vec<(String, Vec<Atom>)>,
 }
 
 /// `(data Name …)` / `(data Name ((a type)…) …)` — registers constructors; no Core binding.
@@ -350,11 +353,10 @@ fn parse_pending_data(node: &SyntaxNode) -> Result<PendingDataDecl, ElaborateErr
     }
 
     let mut ctors = Vec::new();
-    let mut payload_atoms = Vec::new();
     for ctor in &atoms[ctor_start..] {
         match ctor {
             Atom::Token(t) if t.kind() == SyntaxKind::Ident => {
-                ctors.push((binder_name(t)?, 0));
+                ctors.push((binder_name(t)?, Vec::new()));
             }
             Atom::Node(n) if n.kind() == SyntaxKind::List => {
                 let ca = list_atoms(n);
@@ -376,9 +378,7 @@ fn parse_pending_data(node: &SyntaxNode) -> Result<PendingDataDecl, ElaborateErr
                         tag_tok,
                     ));
                 }
-                let arity = ca.len() - 1;
-                payload_atoms.extend_from_slice(&ca[1..]);
-                ctors.push((binder_name(tag_tok)?, arity));
+                ctors.push((binder_name(tag_tok)?, ca[1..].to_vec()));
             }
             Atom::Token(t) => {
                 return Err(ElaborateError::at_token(
@@ -406,7 +406,6 @@ fn parse_pending_data(node: &SyntaxNode) -> Result<PendingDataDecl, ElaborateErr
         type_name,
         type_params,
         ctors,
-        payload_atoms,
     })
 }
 
@@ -415,26 +414,65 @@ fn commit_data_decl(
     group: &HashSet<String>,
     ctx: &mut ElabCtx,
 ) -> Result<(), ElaborateError> {
-    for payload in &decl.payload_atoms {
+    let payload_atoms: Vec<Atom> = decl
+        .ctors
+        .iter()
+        .flat_map(|(_, payloads)| payloads.iter().cloned())
+        .collect();
+    for payload in &payload_atoms {
         check_payload_positivity(payload, group, true)?;
     }
+    let binders: HashSet<String> = decl.type_params.iter().cloned().collect();
     if !decl.type_params.is_empty() {
-        let variances = infer_type_param_variances(&decl.type_params, &decl.payload_atoms);
+        let variances = infer_type_param_variances(&decl.type_params, &payload_atoms);
         ctx.data
             .type_variances
             .insert(decl.type_name.clone(), variances);
         ctx.data
             .type_params
-            .insert(decl.type_name.clone(), decl.type_params);
+            .insert(decl.type_name.clone(), decl.type_params.clone());
     }
-    for (tag, arity) in &decl.ctors {
-        ctx.data.ctors.insert(tag.clone(), *arity);
+    let mut registered = Vec::with_capacity(decl.ctors.len());
+    for (tag, payloads) in &decl.ctors {
+        let arity = payloads.len();
+        ctx.data.ctors.insert(tag.clone(), arity);
         ctx.data
             .ctor_type
             .insert(tag.clone(), decl.type_name.clone());
+        let mut schemas = Vec::with_capacity(arity);
+        for payload in payloads {
+            schemas.push(parse_data_payload_type(payload, ctx, &binders)?);
+        }
+        ctx.data.ctor_payloads.insert(tag.clone(), schemas);
+        registered.push((tag.clone(), arity));
     }
-    ctx.data.data_ctors.insert(decl.type_name, decl.ctors);
+    ctx.data.data_ctors.insert(decl.type_name, registered);
     Ok(())
+}
+
+/// Parse a constructor payload type. Type parameters become [`CoreType::Name`];
+/// unknown bare identifiers stay [`CoreType::Dynamic`] so legacy `(some x)` forms work.
+fn parse_data_payload_type(
+    atom: &Atom,
+    ctx: &ElabCtx,
+    binders: &HashSet<String>,
+) -> Result<CoreType, ElaborateError> {
+    match atom {
+        Atom::Token(t) if t.kind() == SyntaxKind::Ident => {
+            let name = normalize_ident(t.text());
+            if binders.contains(&name) {
+                return Ok(CoreType::Name(name));
+            }
+            match parse_type_syntax_in(atom, ctx, binders) {
+                Ok(ty) => Ok(ty),
+                Err(_) => Ok(CoreType::dyn_any()),
+            }
+        }
+        _ => match parse_type_syntax_in(atom, ctx, binders) {
+            Ok(ty) => Ok(ty),
+            Err(_) => Ok(CoreType::dyn_any()),
+        },
+    }
 }
 
 /// DAT §8: infer variance from constructor-payload polarity walks.
@@ -832,7 +870,11 @@ fn parse_type_syntax_in(
                     head,
                 )),
                 other => {
-                    // SYN §16.1: `(type-constructor type-argument …)`
+                    // SYN §16.1: `(type-constructor type-argument …)`.
+                    // A lone `(T)` is parentheses around a type, not a nullary app.
+                    if items.len() == 1 {
+                        return parse_type_syntax_in(&items[0], ctx, binders);
+                    }
                     let mut args = Vec::with_capacity(items.len().saturating_sub(1));
                     for item in &items[1..] {
                         args.push(parse_type_syntax_in(item, ctx, binders)?);

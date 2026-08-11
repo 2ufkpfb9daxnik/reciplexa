@@ -27,7 +27,7 @@ Goal: complete LEX→SYN→MAC→RES→TYP/ROW/EFF→Core→EVAL/BND (+ MOD/KER/
 | DAT record patterns (§18) | DAT §18 | **done** (`CorePattern::Record`; partial required fields; elaborate/eval/check/resolve) |
 | `/` path-only vs division | SYN §4–5 | **done** (`/` not ident_continue; `coalesce_slash_paths`; `//` kept) |
 | Mem IR `record-update` / `record-extend` | MEM | **done** (Construct tags + exec merge; lower no longer returns base unchanged) |
-| DAT parameterized ADTs (light) | DAT-001 §1.2 | **done** (parse `((a type)…)` + `DataEnv.type_params`; match/eval work; **type instantiation / ctor typing still Dynamic**) |
+| DAT parameterized ADTs (light) | DAT-001 §1.2 | **done** (parse `((a type)…)` + `DataEnv.type_params` / `ctor_payloads`; App instantiate; val generalize / var VR) |
 
 ### Remaining gaps (pre-PKG / language)
 | Gap | Notes |
@@ -36,7 +36,7 @@ Goal: complete LEX→SYN→MAC→RES→TYP/ROW/EFF→Core→EVAL/BND (+ MOD/KER/
 | EFF handler `return` clauses / full `Handler<L,A,B,H>` typing | interim op+fn handlers only |
 | ROW unrestricted / multi-tail | ROW-001 deferral |
 | Full MOD functors / signatures | MOD-001 deferral |
-| DAT ADT type instantiation | params stored; no `option number` type apps / polymorphic ctor check yet |
+| DAT ADT type instantiation | App `(option int)` expands; poly ctor → `App`; val ∀-generalize / var annotation-required (ADT-07/08). Ctor-refined `some<int>` display still deferred |
 | Unit suffixes as typed constructors | interim Number+Ident (`40mm`); NumberWithUnit / package apply deferred with PKG |
 | `CoreType::Union` / local type-alias registration | union unifies like Dynamic; local `(type …)` parse-checked only |
 | Record pattern optional fields | §18.5 — use `option` match on `(field …)` (not direct record decomp) |
@@ -81,7 +81,7 @@ cargo check --offline -p reciplexa-gui
 | **EFF-001** | Multi-shot / shallow choice handlers; full return-clause handler typing |
 | **MOD-001** | Full ML functors / signatures |
 | **KER-001** | Full typed Rust/foreign ABI (beyond BuiltinOp + EffectHost) |
-| **DAT-001** | Full polymorphic ADT typing / type apps (params parse+env done; record patterns done) |
+| **DAT-001** | Full ctor-refined types (`some<int>` vs parent); record optional field patterns (§18.5); residual ADT display sugar |
 | **BND-001** | Full escape analysis; typed `var` store |
 | **RSC-001** | Richer resource catalog / path safety |
 | **EDT-001** | Full GUI Provenance taxonomy / reverse-edit / export policy（MAC §19 language source map via `expand_language_with_map` done; BindingId use-site map done） |

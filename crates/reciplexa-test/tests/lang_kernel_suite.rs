@@ -962,13 +962,17 @@ fn lang_dat_adt_01_parameterized_option() {
 "#;
         let ty = typecheck_language_source(src).unwrap();
         match ty {
+            CoreType::App { ctor, args } => {
+                assert_eq!(ctor, "option");
+                assert_eq!(args, vec![CoreType::Int]);
+            }
             CoreType::Variant { variants } => {
                 assert!(variants.iter().any(|(t, _)| t == "none"));
-                assert!(variants.iter().any(|(t, p)| {
-                    t == "some" && matches!(p, Some(CoreType::Int))
-                }));
+                assert!(variants
+                    .iter()
+                    .any(|(t, p)| { t == "some" && matches!(p, Some(CoreType::Int)) }));
             }
-            other => panic!("expected option-shaped Variant, got {other:?}"),
+            other => panic!("expected option App or Variant, got {other:?}"),
         }
         let v = eval_source(src).unwrap();
         assert!(matches!(v, RuntimeValue::Variant { tag, .. } if tag == "some"));
@@ -1090,6 +1094,78 @@ fn lang_dat_adt_06_negative_recursion() {
 }
 
 #[test]
+fn lang_dat_adt_07_result_generalizes_error_param() {
+    // Spec DAT §21.15 ADT-07 / §7.3.
+    let case = ConformanceCase::new(
+        "TEST-LANG-ADT-07",
+        "DAT-001",
+        "ADT-07 forall e. result<int, e> generalization",
+    );
+    run_conformance(&case, || {
+        let src = r#"
+(data result
+  ((a type) (e type))
+  (ok a)
+  (err e))
+(val success (ok 42))
+(val main success)
+"#;
+        let ty = typecheck_language_source(src).unwrap();
+        match ty {
+            CoreType::Forall { params, body } => {
+                assert_eq!(params.len(), 1);
+                assert_eq!(params[0].0, "e");
+                assert_eq!(params[0].1, "type");
+                match *body {
+                    CoreType::App { ctor, args } => {
+                        assert_eq!(ctor, "result");
+                        assert_eq!(args.len(), 2);
+                        assert_eq!(args[0], CoreType::Int);
+                        assert_eq!(args[1], CoreType::Name("e".into()));
+                    }
+                    other => panic!("expected App body, got {other:?}"),
+                }
+            }
+            other => panic!("expected forall e. result<int, e>, got {other:?}"),
+        }
+        let v = eval_source(src).unwrap();
+        assert!(matches!(v, RuntimeValue::Variant { tag, .. } if tag == "ok"));
+    });
+}
+
+#[test]
+fn lang_dat_adt_08_var_rejects_ungeneralized_error() {
+    // Spec DAT §21.16 ADT-08 / §7.4 value restriction.
+    let case = ConformanceCase::new(
+        "TEST-LANG-ADT-08",
+        "DAT-001",
+        "ADT-08 var ungeneralized error type annotation-required",
+    );
+    run_conformance(&case, || {
+        let err = typecheck_language_source(
+            r#"
+(data result
+  ((a type) (e type))
+  (ok a)
+  (err e))
+(val main
+  (local
+    (var success (ok 42))
+    success))
+"#,
+        )
+        .unwrap_err();
+        assert!(
+            err.message.contains("ungeneralized")
+                || err.message.contains("annotation")
+                || err.message.contains("error type"),
+            "{}",
+            err.message
+        );
+    });
+}
+
+#[test]
 fn lang_dat_adt_09_record_pattern() {
     // Spec DAT §21.17 ADT-09.
     let case = ConformanceCase::new(
@@ -1104,10 +1180,7 @@ fn lang_dat_adt_09_record_pattern() {
     (record (title title) -> title)))
 "#;
         assert_eq!(typecheck_language_source(src).unwrap(), CoreType::String);
-        assert_eq!(
-            eval_source(src).unwrap(),
-            RuntimeValue::String("ok".into())
-        );
+        assert_eq!(eval_source(src).unwrap(), RuntimeValue::String("ok".into()));
     });
 }
 

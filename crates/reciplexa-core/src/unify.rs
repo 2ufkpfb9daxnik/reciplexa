@@ -244,7 +244,23 @@ pub fn unify(a: &CoreType, b: &CoreType, subst: &mut Subst) -> Result<(), UnifyE
         (CoreType::Intersect(_), _) | (_, CoreType::Intersect(_)) => Ok(()),
         (CoreType::Not(_), _) | (_, CoreType::Not(_)) => Ok(()),
         (CoreType::Diff(_, _), _) | (_, CoreType::Diff(_, _)) => Ok(()),
-        // SYN §16.1/16.2 surface stubs until polymorphic instantiation lands.
+        // SYN §16.1: unify type applications with the same constructor.
+        (
+            CoreType::App {
+                ctor: a_ctor,
+                args: a_args,
+            },
+            CoreType::App {
+                ctor: b_ctor,
+                args: b_args,
+            },
+        ) if a_ctor == b_ctor && a_args.len() == b_args.len() => {
+            for (x, y) in a_args.iter().zip(b_args.iter()) {
+                unify(x, y, subst)?;
+            }
+            Ok(())
+        }
+        // Name variables and unmatched apps stay gradual until full DAT instantiation.
         (CoreType::App { .. }, _)
         | (_, CoreType::App { .. })
         | (CoreType::Forall { .. }, _)

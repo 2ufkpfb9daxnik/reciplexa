@@ -2,12 +2,14 @@
 
 #![allow(clippy::result_large_err)]
 
+use std::collections::{HashMap, HashSet};
+
 use reciplexa_source::range::TextRange;
 use reciplexa_syntax::is_wildcard_ident;
 
 use crate::elaborate::DataEnv;
 use crate::expr::{first_unreachable_arm, CoreExpr, CoreLiteral, CorePattern, CoreValue, MatchArm};
-use crate::ty::{CoreType, EffectRow, NumericClass};
+use crate::ty::{CoreType, EffectRow, NumericClass, TypeVarId};
 use crate::unify::{unify, Subst, UnifyError};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -88,7 +90,8 @@ pub fn infer_with_effects(
                 .get(name)
                 .cloned()
                 .ok_or_else(|| CheckError::at(format!("unbound variable `{name}`"), range))?;
-            Ok((ty, EffectRow::default()))
+            // TYP forall instantiate: prenex ∀ is opened at each use site.
+            Ok((instantiate_forall(&ty, subst), EffectRow::default()))
         }
         CoreExpr::Perform { op, arg } => {
             let (arg_ty, arg_effs) = infer_with_effects(arg, env, subst, range)?;
@@ -240,9 +243,17 @@ pub fn infer_with_effects(
             Ok((last, effs))
         }
         CoreExpr::Let { name, value, body } => {
-            let (v_ty, v_effs) = infer_with_effects(value, env, subst, range)?;
+            let (v_ty, v_effs) =
+                infer_binding_init(name, value, env, subst, range, /*generalize*/ true)?;
             let mut child = env.clone();
-            child.insert(name.clone(), v_ty);
+            child.insert(name.clone(), v_ty.clone());
+            // When the body is just the binder (top-level `val` sugar), report the
+            // principle type of the binding rather than a use-site instantiation.
+            if let CoreExpr::Var(n) = body.as_ref() {
+                if n == name {
+                    return Ok((v_ty, v_effs));
+                }
+            }
             let (b_ty, b_effs) = infer_with_effects(body, &child, subst, range)?;
             Ok((b_ty, v_effs.merge(&b_effs)))
         }
@@ -271,7 +282,9 @@ pub fn infer_with_effects(
             Ok((b_ty, bind_effs.merge(&b_effs)))
         }
         CoreExpr::LocalVar { name, init, body } => {
-            let (init_ty, init_effs) = infer_with_effects(init, env, subst, range)?;
+            // DAT §7.4 / DD-BND-025: value restriction — do not generalize `var`.
+            let (init_ty, init_effs) =
+                infer_binding_init(name, init, env, subst, range, /*generalize*/ false)?;
             let state_op = TypeEnv::local_state_op(name);
             let mut child = env.clone();
             child.insert(name.clone(), init_ty);
@@ -330,7 +343,7 @@ pub fn infer_with_effects(
                 arg_effs = arg_effs.merge(&e);
             }
             let ret_var = CoreType::Var(subst.fresh_var());
-            let fun_ty = subst.apply(&fun_ty);
+            let fun_ty = instantiate_forall(&subst.apply(&fun_ty), subst);
             let call_effs = match &fun_ty {
                 CoreType::Fun { effects, .. } => effects.clone(),
                 CoreType::Var(_) => EffectRow::default(),
@@ -480,6 +493,12 @@ pub fn infer_with_effects(
             } else {
                 (None, EffectRow::default())
             };
+            if let Some(result) =
+                try_infer_parameterized_ctor(tag, payload_ty.as_ref(), env, subst, range)
+            {
+                let ty = result?;
+                return Ok((ty, payload_effs));
+            }
             let adt = env.data.adt_for_tag(tag);
             let variants = if adt.is_empty() {
                 vec![(tag.clone(), payload_ty)]
@@ -488,6 +507,8 @@ pub fn infer_with_effects(
                     .map(|(t, arity)| {
                         if t == tag {
                             (t.clone(), payload_ty.clone())
+                        } else if let Some(schemas) = env.data.ctor_payloads.get(t) {
+                            (t.clone(), schema_payload_type(schemas))
                         } else if *arity == 0 {
                             (t.clone(), None)
                         } else {
@@ -500,7 +521,7 @@ pub fn infer_with_effects(
         }
         CoreExpr::Match { scrutinee, arms } => {
             let (scr_ty, scr_effs) = infer_with_effects(scrutinee, env, subst, range)?;
-            let scr_ty = subst.apply(&scr_ty);
+            let scr_ty = expand_type_app(&subst.apply(&scr_ty), &env.data);
             let expected_adt = arms.iter().find_map(|a| {
                 let tag = a.tag()?;
                 let adt = env.data.adt_for_tag(tag);
@@ -640,6 +661,432 @@ fn unify_fun_flexible(
 
 fn unify_to_check(e: UnifyError, range: TextRange) -> CheckError {
     CheckError::at(format!("{e:?}"), range)
+}
+
+/// BIDI-002/003: infer a binding initializer, optionally checking against a same-named type annotation.
+fn infer_binding_init(
+    name: &str,
+    init: &CoreExpr,
+    env: &TypeEnv,
+    subst: &mut Subst,
+    range: TextRange,
+    generalize: bool,
+) -> Result<(CoreType, EffectRow), CheckError> {
+    let (inferred, effs) = infer_with_effects(init, env, subst, range)?;
+    let inferred = subst.apply(&inferred);
+    if let Some(ann) = env.data.type_aliases.get(name).cloned() {
+        // Check initializer against the declared type (annotation is not an unchecked assumption).
+        let expected = instantiate_forall(&ann, subst);
+        let expected = expand_type_app(&expected, &env.data);
+        let found = expand_type_app(&inferred, &env.data);
+        unify(&found, &expected, subst).map_err(|e| unify_to_check(e, range))?;
+        // Bind the annotated (possibly ∀) type so uses re-instantiate.
+        return Ok((ann, effs));
+    }
+    if generalize {
+        Ok((generalize_type(inferred, env, subst), effs))
+    } else {
+        // Value restriction: undetermined parameters need an annotation.
+        if has_free_unification_vars(&inferred, env, subst) {
+            return Err(CheckError::at(
+                "cannot infer ungeneralized error type; add a type annotation",
+                range,
+            ));
+        }
+        Ok((inferred, effs))
+    }
+}
+
+/// Open prenex `forall` binders to fresh unification variables.
+fn instantiate_forall(ty: &CoreType, subst: &mut Subst) -> CoreType {
+    match ty {
+        CoreType::Forall { params, body } => {
+            let mut map = HashMap::new();
+            for (name, _kind) in params {
+                map.insert(name.clone(), CoreType::Var(subst.fresh_var()));
+            }
+            let body = subst_type_names(body, &map);
+            instantiate_forall(&body, subst)
+        }
+        other => other.clone(),
+    }
+}
+
+/// Generalize free unification variables not free in the environment (rank-1 / prenex).
+fn generalize_type(ty: CoreType, env: &TypeEnv, subst: &Subst) -> CoreType {
+    let ty = subst.apply(&ty);
+    let env_vars = env_free_vars(env, subst);
+    // Prefer declared ADT parameter names when generalizing type applications (ADT-07).
+    if let CoreType::App { ctor, args } = &ty {
+        if let Some(params) = env.data.type_params.get(ctor) {
+            if params.len() == args.len() {
+                let mut forall_params = Vec::new();
+                let mut new_args = Vec::new();
+                let mut used_names = HashSet::new();
+                for (pname, arg) in params.iter().zip(args.iter()) {
+                    let arg = subst.apply(arg);
+                    if let CoreType::Var(v) = &arg {
+                        if !env_vars.contains(v) {
+                            forall_params.push((pname.clone(), "type".to_string()));
+                            used_names.insert(pname.clone());
+                            new_args.push(CoreType::Name(pname.clone()));
+                            continue;
+                        }
+                    }
+                    new_args.push(generalize_type(arg, env, subst));
+                }
+                if !forall_params.is_empty() {
+                    // Nested forall from args is unusual; flatten to App under outer binders.
+                    let body = CoreType::App {
+                        ctor: ctor.clone(),
+                        args: new_args
+                            .into_iter()
+                            .map(|a| match a {
+                                CoreType::Forall { body, .. } => *body,
+                                other => other,
+                            })
+                            .collect(),
+                    };
+                    let _ = used_names;
+                    return CoreType::Forall {
+                        params: forall_params,
+                        body: Box::new(body),
+                    };
+                }
+            }
+        }
+    }
+    let mut free = HashSet::new();
+    collect_free_vars(&ty, &mut free);
+    let mut params = Vec::new();
+    let mut map = HashMap::new();
+    let mut free_sorted: Vec<TypeVarId> =
+        free.into_iter().filter(|v| !env_vars.contains(v)).collect();
+    free_sorted.sort();
+    for (i, var) in free_sorted.into_iter().enumerate() {
+        let name = format!("t{i}");
+        params.push((name.clone(), "type".to_string()));
+        map.insert(var, CoreType::Name(name));
+    }
+    if params.is_empty() {
+        return ty;
+    }
+    let body = subst_type_vars(&ty, &map);
+    CoreType::Forall {
+        params,
+        body: Box::new(body),
+    }
+}
+
+fn has_free_unification_vars(ty: &CoreType, env: &TypeEnv, subst: &Subst) -> bool {
+    let ty = subst.apply(ty);
+    let env_vars = env_free_vars(env, subst);
+    let mut free = HashSet::new();
+    collect_free_vars(&ty, &mut free);
+    free.iter().any(|v| !env_vars.contains(v))
+}
+
+fn env_free_vars(env: &TypeEnv, subst: &Subst) -> HashSet<TypeVarId> {
+    let mut out = HashSet::new();
+    for ty in env.vars.values() {
+        collect_free_vars(&subst.apply(ty), &mut out);
+    }
+    out
+}
+
+fn collect_free_vars(ty: &CoreType, out: &mut HashSet<TypeVarId>) {
+    match ty {
+        CoreType::Var(v) => {
+            out.insert(*v);
+        }
+        CoreType::Fun { args, ret, .. } => {
+            for a in args {
+                collect_free_vars(a, out);
+            }
+            collect_free_vars(ret, out);
+        }
+        CoreType::Record { fields } | CoreType::OpenRecord { fields, .. } => {
+            for (_, t) in fields {
+                collect_free_vars(t, out);
+            }
+            if let CoreType::OpenRecord { row, .. } = ty {
+                collect_free_vars(row, out);
+            }
+        }
+        CoreType::Variant { variants } => {
+            for (_, p) in variants {
+                if let Some(t) = p {
+                    collect_free_vars(t, out);
+                }
+            }
+        }
+        CoreType::App { args, .. } => {
+            for a in args {
+                collect_free_vars(a, out);
+            }
+        }
+        CoreType::Forall { body, .. } => collect_free_vars(body, out),
+        CoreType::Union(ms) | CoreType::Intersect(ms) => {
+            for m in ms {
+                collect_free_vars(m, out);
+            }
+        }
+        CoreType::Not(inner)
+        | CoreType::OptionalField(inner)
+        | CoreType::Dynamic(inner)
+        | CoreType::Lacks { row: inner, .. } => collect_free_vars(inner, out),
+        CoreType::Diff(a, b) => {
+            collect_free_vars(a, out);
+            collect_free_vars(b, out);
+        }
+        _ => {}
+    }
+}
+
+fn subst_type_vars(ty: &CoreType, map: &HashMap<TypeVarId, CoreType>) -> CoreType {
+    match ty {
+        CoreType::Var(v) => map.get(v).cloned().unwrap_or(CoreType::Var(*v)),
+        CoreType::Fun { args, ret, effects } => CoreType::Fun {
+            args: args.iter().map(|a| subst_type_vars(a, map)).collect(),
+            ret: Box::new(subst_type_vars(ret, map)),
+            effects: effects.clone(),
+        },
+        CoreType::Record { fields } => CoreType::Record {
+            fields: fields
+                .iter()
+                .map(|(k, v)| (k.clone(), subst_type_vars(v, map)))
+                .collect(),
+        },
+        CoreType::OpenRecord { fields, row } => CoreType::OpenRecord {
+            fields: fields
+                .iter()
+                .map(|(k, v)| (k.clone(), subst_type_vars(v, map)))
+                .collect(),
+            row: Box::new(subst_type_vars(row, map)),
+        },
+        CoreType::Variant { variants } => CoreType::Variant {
+            variants: variants
+                .iter()
+                .map(|(k, v)| (k.clone(), v.as_ref().map(|t| subst_type_vars(t, map))))
+                .collect(),
+        },
+        CoreType::App { ctor, args } => CoreType::App {
+            ctor: ctor.clone(),
+            args: args.iter().map(|a| subst_type_vars(a, map)).collect(),
+        },
+        CoreType::Forall { params, body } => CoreType::Forall {
+            params: params.clone(),
+            body: Box::new(subst_type_vars(body, map)),
+        },
+        CoreType::Union(ms) => {
+            CoreType::Union(ms.iter().map(|m| subst_type_vars(m, map)).collect())
+        }
+        CoreType::Intersect(ms) => {
+            CoreType::Intersect(ms.iter().map(|m| subst_type_vars(m, map)).collect())
+        }
+        CoreType::Not(inner) => CoreType::Not(Box::new(subst_type_vars(inner, map))),
+        CoreType::Diff(a, b) => CoreType::Diff(
+            Box::new(subst_type_vars(a, map)),
+            Box::new(subst_type_vars(b, map)),
+        ),
+        CoreType::OptionalField(inner) => {
+            CoreType::OptionalField(Box::new(subst_type_vars(inner, map)))
+        }
+        CoreType::Dynamic(inner) => CoreType::Dynamic(Box::new(subst_type_vars(inner, map))),
+        CoreType::Lacks { label, row } => CoreType::Lacks {
+            label: label.clone(),
+            row: Box::new(subst_type_vars(row, map)),
+        },
+        other => other.clone(),
+    }
+}
+
+fn subst_type_names(ty: &CoreType, map: &HashMap<String, CoreType>) -> CoreType {
+    match ty {
+        CoreType::Name(n) => map
+            .get(n)
+            .cloned()
+            .unwrap_or_else(|| CoreType::Name(n.clone())),
+        CoreType::Fun { args, ret, effects } => CoreType::Fun {
+            args: args.iter().map(|a| subst_type_names(a, map)).collect(),
+            ret: Box::new(subst_type_names(ret, map)),
+            effects: effects.clone(),
+        },
+        CoreType::Record { fields } => CoreType::Record {
+            fields: fields
+                .iter()
+                .map(|(k, v)| (k.clone(), subst_type_names(v, map)))
+                .collect(),
+        },
+        CoreType::OpenRecord { fields, row } => CoreType::OpenRecord {
+            fields: fields
+                .iter()
+                .map(|(k, v)| (k.clone(), subst_type_names(v, map)))
+                .collect(),
+            row: Box::new(subst_type_names(row, map)),
+        },
+        CoreType::Variant { variants } => CoreType::Variant {
+            variants: variants
+                .iter()
+                .map(|(k, v)| (k.clone(), v.as_ref().map(|t| subst_type_names(t, map))))
+                .collect(),
+        },
+        CoreType::App { ctor, args } => CoreType::App {
+            ctor: ctor.clone(),
+            args: args.iter().map(|a| subst_type_names(a, map)).collect(),
+        },
+        CoreType::Forall { params, body } => {
+            let mut inner = map.clone();
+            for (p, _) in params {
+                inner.remove(p);
+            }
+            CoreType::Forall {
+                params: params.clone(),
+                body: Box::new(subst_type_names(body, &inner)),
+            }
+        }
+        CoreType::Union(ms) => {
+            CoreType::Union(ms.iter().map(|m| subst_type_names(m, map)).collect())
+        }
+        CoreType::Intersect(ms) => {
+            CoreType::Intersect(ms.iter().map(|m| subst_type_names(m, map)).collect())
+        }
+        CoreType::Not(inner) => CoreType::Not(Box::new(subst_type_names(inner, map))),
+        CoreType::Diff(a, b) => CoreType::Diff(
+            Box::new(subst_type_names(a, map)),
+            Box::new(subst_type_names(b, map)),
+        ),
+        CoreType::OptionalField(inner) => {
+            CoreType::OptionalField(Box::new(subst_type_names(inner, map)))
+        }
+        CoreType::Dynamic(inner) => CoreType::Dynamic(Box::new(subst_type_names(inner, map))),
+        CoreType::Lacks { label, row } => CoreType::Lacks {
+            label: label.clone(),
+            row: Box::new(subst_type_names(row, map)),
+        },
+        other => other.clone(),
+    }
+}
+
+/// Expand `(option int)` / nominal apps to sealed constructor Variant shapes when known.
+fn expand_type_app(ty: &CoreType, data: &DataEnv) -> CoreType {
+    match ty {
+        CoreType::App { ctor, args } => {
+            let Some(params) = data.type_params.get(ctor) else {
+                // Nullary / non-param ADT: expand data_ctors with schemas if present.
+                return expand_nominal_variant(ctor, &HashMap::new(), data)
+                    .unwrap_or_else(|| ty.clone());
+            };
+            if params.len() != args.len() {
+                return ty.clone();
+            }
+            let map: HashMap<String, CoreType> =
+                params.iter().cloned().zip(args.iter().cloned()).collect();
+            expand_nominal_variant(ctor, &map, data).unwrap_or_else(|| ty.clone())
+        }
+        other => other.clone(),
+    }
+}
+
+fn expand_nominal_variant(
+    type_name: &str,
+    map: &HashMap<String, CoreType>,
+    data: &DataEnv,
+) -> Option<CoreType> {
+    let ctors = data.data_ctors.get(type_name)?;
+    let mut variants = Vec::with_capacity(ctors.len());
+    for (tag, _) in ctors {
+        let schemas = data.ctor_payloads.get(tag).cloned().unwrap_or_default();
+        let schemas: Vec<CoreType> = schemas.iter().map(|s| subst_type_names(s, map)).collect();
+        variants.push((tag.clone(), schema_payload_type(&schemas)));
+    }
+    Some(CoreType::Variant { variants })
+}
+
+fn schema_payload_type(schemas: &[CoreType]) -> Option<CoreType> {
+    match schemas {
+        [] => None,
+        [one] => Some(one.clone()),
+        many => Some(CoreType::Record {
+            fields: many
+                .iter()
+                .enumerate()
+                .map(|(i, t)| (i.to_string(), t.clone()))
+                .collect(),
+        }),
+    }
+}
+
+/// Parameterized ADT constructor → `App { ctor: type_name, args }` (DAT §7).
+fn try_infer_parameterized_ctor(
+    tag: &str,
+    payload_ty: Option<&CoreType>,
+    env: &TypeEnv,
+    subst: &mut Subst,
+    range: TextRange,
+) -> Option<Result<CoreType, CheckError>> {
+    let type_name = env.data.ctor_type.get(tag)?.clone();
+    let params = env.data.type_params.get(&type_name)?;
+    if params.is_empty() {
+        return None;
+    }
+    let schemas = env.data.ctor_payloads.get(tag).cloned().unwrap_or_default();
+    let mut name_map = HashMap::new();
+    let mut arg_vars = Vec::with_capacity(params.len());
+    for p in params {
+        let v = CoreType::Var(subst.fresh_var());
+        name_map.insert(p.clone(), v.clone());
+        arg_vars.push(v);
+    }
+    let expected_schemas: Vec<CoreType> = schemas
+        .iter()
+        .map(|s| subst_type_names(s, &name_map))
+        .collect();
+    if let Err(e) = unify_ctor_payload(payload_ty, &expected_schemas, subst) {
+        return Some(Err(unify_to_check(e, range)));
+    }
+    let args: Vec<CoreType> = arg_vars.iter().map(|t| subst.apply(t)).collect();
+    Some(Ok(CoreType::App {
+        ctor: type_name,
+        args,
+    }))
+}
+
+fn unify_ctor_payload(
+    actual: Option<&CoreType>,
+    schemas: &[CoreType],
+    subst: &mut Subst,
+) -> Result<(), UnifyError> {
+    match (actual, schemas) {
+        (None, []) => Ok(()),
+        (Some(act), [exp]) => unify(act, exp, subst),
+        (Some(CoreType::Record { fields }), schemas) if schemas.len() > 1 => {
+            for (i, exp) in schemas.iter().enumerate() {
+                let key = i.to_string();
+                if let Some((_, act)) = fields.iter().find(|(k, _)| *k == key) {
+                    unify(act, exp, subst)?;
+                } else {
+                    return Err(UnifyError::Mismatch {
+                        expected: exp.clone(),
+                        found: CoreType::dyn_any(),
+                    });
+                }
+            }
+            Ok(())
+        }
+        (None, _) | (Some(_), []) => Err(UnifyError::Mismatch {
+            expected: schema_payload_type(schemas).unwrap_or(CoreType::Unit),
+            found: actual.cloned().unwrap_or(CoreType::Unit),
+        }),
+        (Some(act), schemas) => {
+            // Fallback: unify against packed schema shape.
+            if let Some(exp) = schema_payload_type(schemas) {
+                unify(act, &exp, subst)
+            } else {
+                Ok(())
+            }
+        }
+    }
 }
 
 /// DAT §18.5: optional field access yields an option-shaped variant type.
@@ -793,6 +1240,7 @@ fn check_arm(
 }
 
 fn bind_pattern(pat: &CorePattern, scr_ty: &CoreType, env: &mut TypeEnv) {
+    let scr_ty = expand_type_app(scr_ty, &env.data);
     match pat {
         CorePattern::Wildcard | CorePattern::Lit(_) => {}
         CorePattern::Bind(name) => {

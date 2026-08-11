@@ -427,3 +427,89 @@ fn singleton_type_alias_elaborates() {
         ]))
     );
 }
+
+#[test]
+fn parameterized_option_types_as_app() {
+    let src = r#"
+(data option ((a type)) none (some a))
+(val main (some 42))
+"#;
+    let ty = typecheck_language_source(src).unwrap();
+    assert_eq!(
+        ty,
+        CoreType::App {
+            ctor: "option".into(),
+            args: vec![CoreType::Int],
+        }
+    );
+}
+
+#[test]
+fn annotated_option_binding_checks_against_type_app() {
+    let src = r#"
+(data option ((a type)) none (some a))
+(type value (option int))
+(val value none)
+(val main value)
+"#;
+    let ty = typecheck_language_source(src).unwrap();
+    assert_eq!(
+        ty,
+        CoreType::App {
+            ctor: "option".into(),
+            args: vec![CoreType::Int],
+        }
+    );
+}
+
+#[test]
+fn forall_annotation_identity_instantiates_at_use() {
+    let src = r#"
+(type identity
+  (forall ((a type))
+    (fn (a) a)))
+(val identity
+  (fn (x) x))
+(val main (identity 7))
+"#;
+    let ty = typecheck_language_source(src).unwrap();
+    assert_eq!(ty, CoreType::Int);
+}
+
+#[test]
+fn result_ok_generalizes_error_param() {
+    let src = r#"
+(data result ((a type) (e type)) (ok a) (err e))
+(val main (ok 1))
+"#;
+    let ty = typecheck_language_source(src).unwrap();
+    match ty {
+        CoreType::Forall { params, body } => {
+            assert_eq!(params, vec![("e".into(), "type".into())]);
+            assert_eq!(
+                *body,
+                CoreType::App {
+                    ctor: "result".into(),
+                    args: vec![CoreType::Int, CoreType::Name("e".into())],
+                }
+            );
+        }
+        other => panic!("expected forall, got {other:?}"),
+    }
+}
+
+#[test]
+fn var_result_ok_requires_annotation() {
+    let err = typecheck_language_source(
+        r#"
+(data result ((a type) (e type)) (ok a) (err e))
+(val main (var success (ok 1) success))
+"#,
+    )
+    .unwrap_err();
+    assert!(
+        err.message.contains("ungeneralized") || err.message.contains("annotation"),
+        "{}",
+        err.message
+    );
+}
