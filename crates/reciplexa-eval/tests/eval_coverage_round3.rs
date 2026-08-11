@@ -68,10 +68,7 @@ fn with_handler_emitting_forward_and_performed() {
     )
     .unwrap();
     // Outer abort-style handler may ignore payload and return Unit.
-    assert!(matches!(
-        v,
-        RuntimeValue::String(_) | RuntimeValue::Unit
-    ));
+    assert!(matches!(v, RuntimeValue::String(_) | RuntimeValue::Unit));
 }
 
 #[test]

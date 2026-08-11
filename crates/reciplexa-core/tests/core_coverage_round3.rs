@@ -160,7 +160,11 @@ fn letrec_non_lambda_and_annotated() {
         range(),
     )
     .unwrap_err();
-    assert!(err.message.contains("fn") || err.message.contains("lambda") || err.message.contains("letrec"));
+    assert!(
+        err.message.contains("fn")
+            || err.message.contains("lambda")
+            || err.message.contains("letrec")
+    );
 
     let mut env = TypeEnv::new();
     env.data = DataEnv::default();
@@ -248,7 +252,10 @@ fn cast_try_check_typing() {
         range(),
     )
     .unwrap();
-    assert!(matches!(ty, CoreType::App { .. } | CoreType::Variant { .. } | CoreType::Dynamic(_)));
+    assert!(matches!(
+        ty,
+        CoreType::App { .. } | CoreType::Variant { .. } | CoreType::Dynamic(_)
+    ));
 
     let ty = infer_expr(
         &CoreExpr::CheckCast {
@@ -261,7 +268,10 @@ fn cast_try_check_typing() {
         range(),
     )
     .unwrap();
-    assert!(matches!(ty, CoreType::App { .. } | CoreType::Variant { .. } | CoreType::Dynamic(_)));
+    assert!(matches!(
+        ty,
+        CoreType::App { .. } | CoreType::Variant { .. } | CoreType::Dynamic(_)
+    ));
 }
 
 #[test]

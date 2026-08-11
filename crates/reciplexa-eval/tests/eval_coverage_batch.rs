@@ -8,9 +8,7 @@ use reciplexa_core::cast::CastEvidence;
 use reciplexa_core::elaborate_source;
 use reciplexa_core::expr::{CoreExpr, CoreLiteral, CorePattern, MatchArm};
 use reciplexa_core::ty::CoreType;
-use reciplexa_eval::control::{
-    identity_resume, EffectHost, EvalError, MemoryFsHost, UnitHost,
-};
+use reciplexa_eval::control::{identity_resume, EffectHost, EvalError, MemoryFsHost, UnitHost};
 use reciplexa_eval::eval::{eval_expr, eval_source, eval_source_with_host};
 use reciplexa_eval::value::{BuiltinOp, RuntimeValue};
 
@@ -275,10 +273,7 @@ fn cast_union_variant_record_function_and_compose() {
 
     let compose = CoreExpr::Cast {
         expr: Box::new(CoreExpr::Lit(CoreLiteral::Int(4))),
-        evidence: CastEvidence::Compose(vec![
-            CastEvidence::Identity,
-            CastEvidence::NumericPromote,
-        ]),
+        evidence: CastEvidence::Compose(vec![CastEvidence::Identity, CastEvidence::NumericPromote]),
         target: CoreType::F64,
         cast_id: 4,
     };
@@ -292,9 +287,7 @@ fn cast_union_variant_record_function_and_compose() {
             tag: "ok".into(),
             payload: None,
         }),
-        evidence: CastEvidence::NominalCheck {
-            name: "ok".into(),
-        },
+        evidence: CastEvidence::NominalCheck { name: "ok".into() },
         target: CoreType::dyn_any(),
         cast_id: 5,
     };
@@ -439,37 +432,23 @@ fn with_non_handler_and_forward_misuse_and_handler_arity() {
         err.message
     );
 
-    let err = eval_source(
-        r#"(val main (handle log (fn (a b c) a) (perform log "x")))"#,
-    )
-    .unwrap_err();
+    let err =
+        eval_source(r#"(val main (handle log (fn (a b c) a) (perform log "x")))"#).unwrap_err();
     assert!(err.message.contains("1 or 2") || err.message.contains("parameter"));
 }
 
 #[test]
 fn record_update_extend_errors_and_match_lit() {
-    let err = eval_source(
-        r#"(val main (record-update 1 (a 2)))"#,
-    )
-    .unwrap_err();
+    let err = eval_source(r#"(val main (record-update 1 (a 2)))"#).unwrap_err();
     assert!(err.message.contains("record-update"));
 
-    let err = eval_source(
-        r#"(val main (record-update (record (a 1)) (b 2)))"#,
-    )
-    .unwrap_err();
+    let err = eval_source(r#"(val main (record-update (record (a 1)) (b 2)))"#).unwrap_err();
     assert!(err.message.contains("not present"));
 
-    let err = eval_source(
-        r#"(val main (record-extend 1 (a 2)))"#,
-    )
-    .unwrap_err();
+    let err = eval_source(r#"(val main (record-extend 1 (a 2)))"#).unwrap_err();
     assert!(err.message.contains("record-extend"));
 
-    let err = eval_source(
-        r#"(val main (record-extend (record (a 1)) (a 2)))"#,
-    )
-    .unwrap_err();
+    let err = eval_source(r#"(val main (record-extend (record (a 1)) (a 2)))"#).unwrap_err();
     assert!(err.message.contains("already present"));
 
     let lit_ok = eval_expr(
@@ -524,9 +503,7 @@ fn record_update_extend_errors_and_match_lit() {
 #[test]
 fn memory_fs_host_error_paths_and_unit_failure() {
     let mut host = MemoryFsHost::default();
-    let err = host
-        .perform("read-file", RuntimeValue::Int(1))
-        .unwrap_err();
+    let err = host.perform("read-file", RuntimeValue::Int(1)).unwrap_err();
     assert!(err.message.contains("string"));
     let err = host
         .perform("read-file", RuntimeValue::String("missing.txt".into()))
@@ -540,9 +517,7 @@ fn memory_fs_host_error_paths_and_unit_failure() {
         .perform("write-file", RuntimeValue::String("nopath".into()))
         .unwrap_err();
     assert!(err.message.contains("path"));
-    let err = host
-        .perform("unknown", RuntimeValue::Unit)
-        .unwrap_err();
+    let err = host.perform("unknown", RuntimeValue::Unit).unwrap_err();
     assert!(err.message.contains("unknown"));
     assert!(host.perform("log", RuntimeValue::Unit).is_ok());
     assert_eq!(
@@ -763,10 +738,7 @@ fn handler_value_forms_without_perform() {
 #[test]
 fn match_literal_patterns_bool_unit_string_bytes() {
     for (lit, val) in [
-        (
-            CoreLiteral::Bool(true),
-            RuntimeValue::Bool(true),
-        ),
+        (CoreLiteral::Bool(true), RuntimeValue::Bool(true)),
         (CoreLiteral::Unit, RuntimeValue::Unit),
         (
             CoreLiteral::String("a".into()),

@@ -5,9 +5,7 @@ use reciplexa_core::cast::{
 };
 use reciplexa_core::check::{infer_expr, infer_with_effects, typecheck_language_source, TypeEnv};
 use reciplexa_core::elaborate::{elaborate_source, elaborate_with_data};
-use reciplexa_core::expr::{
-    first_unreachable_arm, CoreExpr, CoreLiteral, CorePattern, MatchArm,
-};
+use reciplexa_core::expr::{first_unreachable_arm, CoreExpr, CoreLiteral, CorePattern, MatchArm};
 use reciplexa_core::ty::{CoreType, EffectRow};
 use reciplexa_core::unify::{unify, Subst};
 use reciplexa_source::offset::ByteOffset;
@@ -328,12 +326,8 @@ fn check_perform_forward_handle_record_edges() {
 fn check_record_match_cast_occurrence() {
     assert!(typecheck_language_source("(val main (field 1 a))").is_err());
     assert!(typecheck_language_source("(val main (record-update 1 (a 2)))").is_err());
-    assert!(
-        typecheck_language_source("(val main (record-update (record (a 1)) (b 2)))").is_err()
-    );
-    assert!(
-        typecheck_language_source("(val main (record-extend (record (a 1)) (a 2)))").is_err()
-    );
+    assert!(typecheck_language_source("(val main (record-update (record (a 1)) (b 2)))").is_err());
+    assert!(typecheck_language_source("(val main (record-extend (record (a 1)) (a 2)))").is_err());
     assert!(typecheck_language_source(
         r#"(val main
   (field (record-extend (record (a 1)) (b 2)) b))"#,

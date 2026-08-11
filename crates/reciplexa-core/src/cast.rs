@@ -1002,7 +1002,9 @@ mod tests {
             },
         );
         assert!(is_fully_decidable_fragment(&CoreType::Int));
-        assert!(!is_fully_decidable_fragment(&CoreType::Var(crate::ty::TypeVarId(0))));
+        assert!(!is_fully_decidable_fragment(&CoreType::Var(
+            crate::ty::TypeVarId(0)
+        )));
         let _ = normalize_union(vec![CoreType::Int, CoreType::Int, CoreType::Never]);
         let _ = normalize_intersect(vec![CoreType::Int, CoreType::Any, CoreType::Number]);
         let _ = types_disjoint_bases(&CoreType::Int, &CoreType::String);

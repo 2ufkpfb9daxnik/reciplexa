@@ -931,20 +931,26 @@ fn select_pipeline_covers_conservative_perceus_seal_verify_ir() {
     assert_eq!(regs, vec![Reg(3), Reg(0), Reg(1), Reg(2)]);
 
     let cons = conservative_rc(&prog);
-    assert!(cons.instrs.iter().any(|i| matches!(i, MemInstr::Select { .. })));
+    assert!(cons
+        .instrs
+        .iter()
+        .any(|i| matches!(i, MemInstr::Select { .. })));
     let perc = perceus_pass(&prog);
-    assert!(perc.instrs.iter().any(|i| matches!(i, MemInstr::Select { .. })));
+    assert!(perc
+        .instrs
+        .iter()
+        .any(|i| matches!(i, MemInstr::Select { .. })));
     let sealed = seal_before_return(prog.clone());
     verify_ownership(&sealed).unwrap();
 }
 
 #[test]
 fn exec_select_bool_true_false_and_unbound_pick() {
+    use reciplexa_eval::RuntimeValue;
     use reciplexa_mem::ir::{MemInstr, MemLiteral};
     use reciplexa_mem::linear::LinearProgram;
     use reciplexa_mem::reg::Reg;
     use reciplexa_mem::trace::RcTrace;
-    use reciplexa_eval::RuntimeValue;
     use reciplexa_mem::{exec_linear, ExecError};
 
     // true picks then
@@ -1050,11 +1056,11 @@ fn exec_select_bool_true_false_and_unbound_pick() {
 
 #[test]
 fn exec_bytes_and_record_mutate_error_edges() {
+    use reciplexa_eval::RuntimeValue;
     use reciplexa_mem::ir::{MemInstr, MemLiteral};
     use reciplexa_mem::linear::LinearProgram;
     use reciplexa_mem::reg::Reg;
     use reciplexa_mem::trace::RcTrace;
-    use reciplexa_eval::RuntimeValue;
     use reciplexa_mem::{exec_linear, ExecError};
 
     let mut trace = RcTrace::default();

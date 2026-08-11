@@ -423,9 +423,7 @@ fn register_path_dep_error_paths() {
 
     let mut idx = LocalPackageIndex::discover(&[scratch()]).unwrap();
     let man = parse_rpxm(&fs::read_to_string(consumer.join("package.rpxm")).unwrap()).unwrap();
-    let err = idx
-        .register_path_dependencies(&consumer, &man)
-        .unwrap_err();
+    let err = idx.register_path_dependencies(&consumer, &man).unwrap_err();
     assert!(matches!(err, PackageLoadError::NotFound(_)));
 
     // Wrong formal name
@@ -437,9 +435,7 @@ fn register_path_dep_error_paths() {
   version "0.1.0"
   (public-modules shapes))"#,
     );
-    let err = idx
-        .register_path_dependencies(&consumer, &man)
-        .unwrap_err();
+    let err = idx.register_path_dependencies(&consumer, &man).unwrap_err();
     assert!(
         err.to_string().contains("expects package `graphics`"),
         "{err}"
@@ -454,9 +450,7 @@ fn register_path_dep_error_paths() {
   (public-modules shapes))"#,
     )
     .unwrap();
-    let err = idx
-        .register_path_dependencies(&consumer, &man)
-        .unwrap_err();
+    let err = idx.register_path_dependencies(&consumer, &man).unwrap_err();
     assert!(err.to_string().contains("wants version"), "{err}");
 }
 
@@ -672,8 +666,8 @@ fn discover_with_consumer_parse_and_io_errors() {
     let consumer = root.join("app");
     fs::create_dir_all(&consumer).unwrap();
     fs::write(consumer.join("package.rpxm"), "(package").unwrap();
-    let err = LocalPackageIndex::discover_with_consumer(&[root.join("pkgs")], &consumer)
-        .unwrap_err();
+    let err =
+        LocalPackageIndex::discover_with_consumer(&[root.join("pkgs")], &consumer).unwrap_err();
     assert!(matches!(err, PackageLoadError::Manifest(_)));
 
     #[cfg(windows)]
@@ -825,11 +819,7 @@ fn load_module_tree_directory_self_import_sibling_and_packages() {
     fs::create_dir_all(root.join("graphics/src")).unwrap();
     fs::write(root.join("graphics/src/shapes.rpx"), "(val circle 1)\n").unwrap();
     let idx = LocalPackageIndex::discover(&[&root]).unwrap();
-    fs::write(
-        root.join("sib.rpx"),
-        "(val helper 2)\n",
-    )
-    .unwrap();
+    fs::write(root.join("sib.rpx"), "(val helper 2)\n").unwrap();
     let entry2 = root.join("app.rpx");
     fs::write(
         &entry2,
@@ -839,8 +829,7 @@ fn load_module_tree_directory_self_import_sibling_and_packages() {
 "#,
     )
     .unwrap();
-    let units =
-        reciplexa_package::load_module_tree_with_packages(&entry2, &idx).unwrap();
+    let units = reciplexa_package::load_module_tree_with_packages(&entry2, &idx).unwrap();
     assert!(units.iter().any(|(n, _)| n == "sib"));
     assert!(units.iter().any(|(n, _)| n == "graphics/shapes"));
 
@@ -854,8 +843,7 @@ fn load_module_tree_directory_self_import_sibling_and_packages() {
         fs::write(&entry3, "(val main 1)\n").unwrap();
         {
             let _guard = exclusive_open(&entry3);
-            let err =
-                reciplexa_package::load_module_tree_with_packages(&entry3, &idx).unwrap_err();
+            let err = reciplexa_package::load_module_tree_with_packages(&entry3, &idx).unwrap_err();
             assert!(matches!(err, PackageLoadError::Io(_)), "{err}");
         }
 
@@ -867,8 +855,7 @@ fn load_module_tree_directory_self_import_sibling_and_packages() {
         // Sanity: unlocked load succeeds.
         reciplexa_package::load_module_tree_with_packages(&entry4, &idx).unwrap();
         let _guard2 = exclusive_open(&sib_locked);
-        let err =
-            reciplexa_package::load_module_tree_with_packages(&entry4, &idx).unwrap_err();
+        let err = reciplexa_package::load_module_tree_with_packages(&entry4, &idx).unwrap_err();
         assert!(matches!(err, PackageLoadError::Io(_)), "{err}");
     }
 }
@@ -1007,9 +994,7 @@ fn remaining_load_error_branches_and_cycles() {
     .unwrap();
     let mut idx = LocalPackageIndex::discover(&[scratch()]).unwrap();
     let man = parse_rpxm(&fs::read_to_string(consumer.join("package.rpxm")).unwrap()).unwrap();
-    let err = idx
-        .register_path_dependencies(&consumer, &man)
-        .unwrap_err();
+    let err = idx.register_path_dependencies(&consumer, &man).unwrap_err();
     assert!(matches!(err, PackageLoadError::Manifest(_)));
 
     // discover_with_consumer: discover Err (ambiguous search roots)
@@ -1057,8 +1042,7 @@ fn remaining_load_error_branches_and_cycles() {
     (g package graphics version "1" path "../missing-graphics")))"#,
     )
     .unwrap();
-    let err =
-        LocalPackageIndex::discover_with_consumer(&[scratch()], &consumer3).unwrap_err();
+    let err = LocalPackageIndex::discover_with_consumer(&[scratch()], &consumer3).unwrap_err();
     assert!(matches!(err, PackageLoadError::NotFound(_)));
 
     // Bad .rpi contents → parse_rpi_exports Err during resolve
@@ -1094,9 +1078,8 @@ fn remaining_load_error_branches_and_cycles() {
     let bad = scratch();
     fs::write(bad.join("entry.rpx"), "(import badmod)\n(val main 1)\n").unwrap();
     fs::write(bad.join("badmod.rpx"), "(import)\n").unwrap();
-    let err =
-        reciplexa_package::load_module_tree_with_packages(bad.join("entry.rpx"), &idx5)
-            .unwrap_err();
+    let err = reciplexa_package::load_module_tree_with_packages(bad.join("entry.rpx"), &idx5)
+        .unwrap_err();
     assert!(matches!(err, PackageLoadError::Module(_)));
 
     // elaborate_with_packages load Err
@@ -1210,11 +1193,7 @@ fn discover_read_dir_denied_errors() {
     );
     let user = std::env::var("USERNAME").unwrap_or_else(|_| "Everyone".into());
     let status = std::process::Command::new("icacls")
-        .args([
-            root.to_str().unwrap(),
-            "/deny",
-            &format!("{user}:(RD)"),
-        ])
+        .args([root.to_str().unwrap(), "/deny", &format!("{user}:(RD)")])
         .status()
         .expect("icacls");
     if !status.success() {

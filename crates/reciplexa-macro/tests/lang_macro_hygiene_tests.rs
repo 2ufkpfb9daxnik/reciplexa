@@ -45,10 +45,7 @@ fn value_conflicts_with_prior_macro() {
 (val m 1)
 (val z 1)"#,
     );
-    assert!(
-        msg.contains("conflicts with an existing macro"),
-        "{msg}"
-    );
+    assert!(msg.contains("conflicts with an existing macro"), "{msg}");
 }
 
 #[test]

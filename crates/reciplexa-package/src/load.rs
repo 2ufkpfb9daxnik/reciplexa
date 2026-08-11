@@ -413,10 +413,7 @@ mod stem_tests {
     #[test]
     fn entry_parent_dir_falls_back_when_no_parent() {
         assert_eq!(entry_parent_dir(Path::new("")), PathBuf::from("."));
-        assert_eq!(
-            entry_parent_dir(Path::new("main.rpx")),
-            PathBuf::from("")
-        );
+        assert_eq!(entry_parent_dir(Path::new("main.rpx")), PathBuf::from(""));
     }
 
     #[test]

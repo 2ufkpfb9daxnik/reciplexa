@@ -296,10 +296,7 @@ fn cast_decide_matrix_extended() {
             CoreType::Union(vec![CoreType::Int, CoreType::Never]),
             CoreType::Int,
         ),
-        (
-            CoreType::Not(Box::new(CoreType::Int)),
-            CoreType::String,
-        ),
+        (CoreType::Not(Box::new(CoreType::Int)), CoreType::String),
         (
             CoreType::Diff(Box::new(CoreType::Number), Box::new(CoreType::Int)),
             CoreType::F64,
@@ -330,11 +327,7 @@ fn cast_decide_matrix_extended() {
     }
 
     let mut s = Subst::new();
-    let _ = unify(
-        &CoreType::Color,
-        &CoreType::Color,
-        &mut s,
-    );
+    let _ = unify(&CoreType::Color, &CoreType::Color, &mut s);
     let arms = vec![
         MatchArm {
             pattern: CorePattern::Wildcard,

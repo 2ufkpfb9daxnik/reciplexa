@@ -84,10 +84,7 @@ fn dead_cell_and_cast_fail_and_with_non_handler() {
 fn oneshot_cont_returns_resumed_forward_performed() {
     // Cont → Resumed
     let mut env = HashMap::new();
-    env.insert(
-        "k".into(),
-        oneshot(Rc::new(|v, _| Ok(Outcome::Resumed(v)))),
-    );
+    env.insert("k".into(), oneshot(Rc::new(|v, _| Ok(Outcome::Resumed(v)))));
     let v = eval_expr(
         &CoreExpr::App {
             fun: Box::new(CoreExpr::Var("k".into())),
@@ -101,10 +98,7 @@ fn oneshot_cont_returns_resumed_forward_performed() {
 
     // Cont → Forward (top-level unwraps to error)
     let mut env = HashMap::new();
-    env.insert(
-        "k".into(),
-        oneshot(Rc::new(|_, _| Ok(Outcome::Forward))),
-    );
+    env.insert("k".into(), oneshot(Rc::new(|_, _| Ok(Outcome::Forward))));
     let err = eval_expr(
         &CoreExpr::App {
             fun: Box::new(CoreExpr::Var("k".into())),
@@ -264,10 +258,7 @@ fn deep_resume_other_through_compound_forms() {
 #[test]
 fn with_handler_resumed_and_forward_paths() {
     let mut env = HashMap::new();
-    env.insert(
-        "k".into(),
-        oneshot(identity_resume()),
-    );
+    env.insert("k".into(), oneshot(identity_resume()));
     // With's handler expr is App of resume → Resumed propagates.
     let v = eval_expr(
         &CoreExpr::With {
@@ -284,10 +275,7 @@ fn with_handler_resumed_and_forward_paths() {
     assert_eq!(v, RuntimeValue::Int(4));
 
     let mut env = HashMap::new();
-    env.insert(
-        "k".into(),
-        oneshot(Rc::new(|_, _| Ok(Outcome::Forward))),
-    );
+    env.insert("k".into(), oneshot(Rc::new(|_, _| Ok(Outcome::Forward))));
     let err = eval_expr(
         &CoreExpr::With {
             handler: Box::new(CoreExpr::App {
@@ -322,10 +310,7 @@ fn nested_same_op_deep_resume_and_forward_in_handler() {
       (perform log "x"))))"#,
     )
     .unwrap();
-    assert!(matches!(
-        v,
-        RuntimeValue::String(_) | RuntimeValue::Unit
-    ));
+    assert!(matches!(v, RuntimeValue::String(_) | RuntimeValue::Unit));
 }
 
 #[test]
@@ -333,10 +318,7 @@ fn memory_fs_host_edges() {
     let mut host = MemoryFsHost::default();
     let _ = host.perform("read-file", RuntimeValue::String("missing".into()));
     let _ = host.perform("write-file", RuntimeValue::Int(1));
-    let _ = host.perform(
-        "write-file",
-        RuntimeValue::String("path\0contents".into()),
-    );
+    let _ = host.perform("write-file", RuntimeValue::String("path\0contents".into()));
     let _ = host.perform("write-file", RuntimeValue::String("nopath".into()));
     let _ = host.perform("unknown", RuntimeValue::Unit);
     let _ = host.perform("log", RuntimeValue::String("hi".into()));

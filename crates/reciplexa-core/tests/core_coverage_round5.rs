@@ -175,10 +175,7 @@ fn coerce_insert_casts_and_impossible() {
             variants: vec![("none".into(), None)],
         },
         &CoreType::Variant {
-            variants: vec![
-                ("none".into(), None),
-                ("some".into(), Some(CoreType::Int)),
-            ],
+            variants: vec![("none".into(), None), ("some".into(), Some(CoreType::Int))],
         },
     );
     let _ = plan;
@@ -232,9 +229,7 @@ fn generalize_complex_types_and_effects() {
     let _ = ty;
 
     // Ambiguous number
-    let err = typecheck_language_source(
-        r#"(val main (+ (as dynamic 1) (as dynamic 2)))"#,
-    );
+    let err = typecheck_language_source(r#"(val main (+ (as dynamic 1) (as dynamic 2)))"#);
     let _ = err;
 }
 

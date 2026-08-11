@@ -2287,7 +2287,10 @@ mod coverage_helpers {
         assert!(refine_predicate("number?", &CoreType::Int).is_some());
         assert!(refine_predicate("nope", &CoreType::Int).is_none());
 
-        assert_eq!(operand_numeric_class(&CoreType::Int), Some(NumericClass::Int));
+        assert_eq!(
+            operand_numeric_class(&CoreType::Int),
+            Some(NumericClass::Int)
+        );
         assert_eq!(
             operand_numeric_class(&CoreType::Dynamic(Box::new(CoreType::Int))),
             Some(NumericClass::Int)

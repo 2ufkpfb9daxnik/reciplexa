@@ -476,7 +476,10 @@ mod coverage_helpers {
             v,
             &CoreType::Diff(Box::new(CoreType::Var(v)), Box::new(CoreType::Int))
         ));
-        assert!(occurs(v, &CoreType::OptionalField(Box::new(CoreType::Var(v)))));
+        assert!(occurs(
+            v,
+            &CoreType::OptionalField(Box::new(CoreType::Var(v)))
+        ));
         assert!(occurs(v, &CoreType::Dynamic(Box::new(CoreType::Var(v)))));
         assert!(occurs(
             v,
@@ -571,10 +574,7 @@ mod coverage_helpers {
             row: Box::new(row.clone()),
         };
         let closed = CoreType::Record {
-            fields: vec![
-                ("a".into(), CoreType::Int),
-                ("b".into(), CoreType::String),
-            ],
+            fields: vec![("a".into(), CoreType::Int), ("b".into(), CoreType::String)],
         };
         assert!(unify(&open, &closed, &mut subst).is_ok());
 

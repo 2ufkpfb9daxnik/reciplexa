@@ -629,7 +629,10 @@ mod tests {
             grab: ScaleGrab::Edge(ScaleEdge::Left),
             start_bounds: bounds,
         };
-        assert_eq!(apply_aspect_lock(edge, 1.0, 2.0, 3.0, 4.0), (1.0, 2.0, 3.0, 4.0));
+        assert_eq!(
+            apply_aspect_lock(edge, 1.0, 2.0, 3.0, 4.0),
+            (1.0, 2.0, 3.0, 4.0)
+        );
     }
 
     #[test]
@@ -646,11 +649,7 @@ mod tests {
         assert!(hit_scale_grab(&layout, bounds, frame.left_center()).is_some());
         assert!(hit_scale_grab(&layout, bounds, frame.right_center()).is_some());
         assert!(hit_scale_grab(&layout, bounds, egui::pos2(0.0, 0.0)).is_none());
-        assert!(hit_rotate_handle(
-            &layout,
-            bounds,
-            rotate_handle_pos(frame)
-        ));
+        assert!(hit_rotate_handle(&layout, bounds, rotate_handle_pos(frame)));
         assert!(!hit_rotate_handle(&layout, bounds, egui::pos2(0.0, 0.0)));
 
         let pts = [(10.0, 10.0), (50.0, 50.0)];
@@ -659,10 +658,7 @@ mod tests {
             hit_line_endpoint(&layout, &pts, egui::pos2(px, py)),
             Some(0)
         );
-        assert_eq!(
-            hit_line_endpoint(&layout, &pts, egui::pos2(0.0, 0.0)),
-            None
-        );
+        assert_eq!(hit_line_endpoint(&layout, &pts, egui::pos2(0.0, 0.0)), None);
     }
 
     #[test]
@@ -820,12 +816,7 @@ mod tests {
                 &layout,
                 &WorldShape::Image(WorldImage {
                     path: "missing.png".into(),
-                    corners_mm: [
-                        (10.0, 10.0),
-                        (40.0, 10.0),
-                        (40.0, 40.0),
-                        (10.0, 40.0),
-                    ],
+                    corners_mm: [(10.0, 10.0), (40.0, 10.0), (40.0, 40.0), (10.0, 40.0)],
                     alpha: 0.5,
                 }),
                 &mut textures,
@@ -837,7 +828,8 @@ mod tests {
 
     #[test]
     fn ensure_texture_loads_real_raster_when_present() {
-        let demo = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/figures/demo.png");
+        let demo =
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/figures/demo.png");
         if !demo.is_file() {
             return;
         }
@@ -851,12 +843,7 @@ mod tests {
                 &layout,
                 &WorldShape::Image(WorldImage {
                     path: "demo.png".into(),
-                    corners_mm: [
-                        (10.0, 10.0),
-                        (40.0, 10.0),
-                        (40.0, 40.0),
-                        (10.0, 40.0),
-                    ],
+                    corners_mm: [(10.0, 10.0), (40.0, 10.0), (40.0, 40.0), (10.0, 40.0)],
                     alpha: 1.0,
                 }),
                 &mut textures,
@@ -871,12 +858,7 @@ mod tests {
                 &layout,
                 &WorldShape::Image(WorldImage {
                     path: "demo.png".into(),
-                    corners_mm: [
-                        (10.0, 10.0),
-                        (40.0, 10.0),
-                        (40.0, 40.0),
-                        (10.0, 40.0),
-                    ],
+                    corners_mm: [(10.0, 10.0), (40.0, 10.0), (40.0, 40.0), (10.0, 40.0)],
                     alpha: 1.0,
                 }),
                 &mut textures,

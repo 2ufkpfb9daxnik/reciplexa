@@ -3488,7 +3488,10 @@ mod tests {
             ],
             CoreExpr::Var("a".into()),
         );
-        assert!(matches!(nested, CoreExpr::Let { .. } | CoreExpr::LetRec { .. }));
+        assert!(matches!(
+            nested,
+            CoreExpr::Let { .. } | CoreExpr::LetRec { .. }
+        ));
         let _ = normalize_intersect(vec![CoreType::Int, CoreType::Any, CoreType::Number]);
         let _ = next_cast_id();
     }

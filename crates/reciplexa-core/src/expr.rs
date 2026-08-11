@@ -245,10 +245,12 @@ mod coverage_helpers {
     #[test]
     fn variant_payload_and_unreachable_arms() {
         assert!(variant_payload_irrefutable(&None));
-        assert!(variant_payload_irrefutable(&Some(Box::new(CorePattern::Wildcard))));
-        assert!(variant_payload_irrefutable(&Some(Box::new(CorePattern::Bind(
-            "x".into()
-        )))));
+        assert!(variant_payload_irrefutable(&Some(Box::new(
+            CorePattern::Wildcard
+        ))));
+        assert!(variant_payload_irrefutable(&Some(Box::new(
+            CorePattern::Bind("x".into())
+        ))));
         assert!(!variant_payload_irrefutable(&Some(Box::new(
             CorePattern::Lit(CoreLiteral::Int(1))
         ))));

@@ -106,10 +106,7 @@ fn expansion_budget_exceeded_depth_chain() {
     let mut src = String::new();
     src.push_str("(macro m0 ($x) -> $x)\n");
     for i in 1..=(EXPANSION_BUDGET as usize + 1) {
-        src.push_str(&format!(
-            "(macro m{i} ($x) -> (m{} $x))\n",
-            i - 1
-        ));
+        src.push_str(&format!("(macro m{i} ($x) -> (m{} $x))\n", i - 1));
     }
     let last = EXPANSION_BUDGET as usize + 1;
     src.push_str(&format!("(val z (m{last} 1))\n"));
@@ -265,7 +262,10 @@ fn layout_embed_top_level_and_nested_contexts() {
         })
         .collect::<Vec<_>>()
         .join("");
-    assert!(joined.contains("(+ 1 2)") || joined.contains("before"), "{joined:?}");
+    assert!(
+        joined.contains("(+ 1 2)") || joined.contains("before"),
+        "{joined:?}"
+    );
 
     // Embed inside @em / @li / @code via markup forms that walk Embed arms.
     let parsed = reciplexa_macro::expand_document_surface(
@@ -289,7 +289,10 @@ fn rename_let_non_atom_binder_and_local_too_short() {
 (val z (seq (c) (h) (i) (j) (k)))"#,
     )
     .unwrap();
-    assert!(out.contains("let") || out.contains("local") || out.contains("seq"), "{out}");
+    assert!(
+        out.contains("let") || out.contains("local") || out.contains("seq"),
+        "{out}"
+    );
 }
 
 #[test]
@@ -302,4 +305,3 @@ fn at_expr_with_nested_list_roundtrips() {
     .unwrap();
     assert!(out.contains("@") || out.contains("val"), "{out}");
 }
-

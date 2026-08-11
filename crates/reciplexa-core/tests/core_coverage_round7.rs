@@ -9,9 +9,7 @@ use reciplexa_core::check::{
     typecheck_language_source, TypeEnv,
 };
 use reciplexa_core::elaborate::{elaborate_source, elaborate_with_data};
-use reciplexa_core::expr::{
-    first_unreachable_arm, CoreExpr, CoreLiteral, CorePattern, MatchArm,
-};
+use reciplexa_core::expr::{first_unreachable_arm, CoreExpr, CoreLiteral, CorePattern, MatchArm};
 use reciplexa_core::ty::{CoreType, EffectRow, SingletonValue};
 use reciplexa_core::unify::{unify, Subst};
 use reciplexa_source::offset::ByteOffset;
@@ -414,9 +412,10 @@ fn check_occurrence_numeric_and_generalize_shapes() {
     );
     let _ = ty;
 
-    env.data
-        .ctor_payloads
-        .insert("pair".into(), vec![CoreType::Name("a".into()), CoreType::Int]);
+    env.data.ctor_payloads.insert(
+        "pair".into(),
+        vec![CoreType::Name("a".into()), CoreType::Int],
+    );
     env.data.ctors.insert("pair".into(), 2);
     env.data.ctor_type.insert("pair".into(), "box".into());
     let ty = infer_expr(
@@ -475,10 +474,7 @@ fn check_occurrence_numeric_and_generalize_shapes() {
 
     let err = infer_expr(
         &CoreExpr::LetRec {
-            bindings: vec![(
-                "bad".into(),
-                CoreExpr::Lit(CoreLiteral::Int(1)),
-            )],
+            bindings: vec![("bad".into(), CoreExpr::Lit(CoreLiteral::Int(1)))],
             body: Box::new(CoreExpr::Var("bad".into())),
         },
         &TypeEnv::new(),
@@ -650,10 +646,7 @@ fn check_coerce_insert_casts_and_complex_types() {
             },
             CoreType::Record { fields: vec![] },
         ),
-        (
-            CoreType::Not(Box::new(CoreType::Int)),
-            CoreType::String,
-        ),
+        (CoreType::Not(Box::new(CoreType::Int)), CoreType::String),
         (
             CoreType::Diff(Box::new(CoreType::Number), Box::new(CoreType::Int)),
             CoreType::F64,
