@@ -2286,6 +2286,20 @@ mod coverage_helpers {
         assert!(refine_predicate("bool?", &CoreType::Dynamic(Box::new(CoreType::Any))).is_some());
         assert!(refine_predicate("number?", &CoreType::Int).is_some());
         assert!(refine_predicate("nope", &CoreType::Int).is_none());
+        // Static predicates cover then/else refine shapes for common domains.
+        for pred in ["number?", "string?", "bool?", "is-none", "is-some"] {
+            let _ = refine_predicate(pred, &CoreType::Any);
+            let _ = refine_predicate(pred, &CoreType::Number);
+            let _ = refine_predicate(pred, &CoreType::String);
+            let _ = refine_predicate(pred, &CoreType::dyn_any());
+            let option = CoreType::Variant {
+                variants: vec![
+                    ("none".into(), None),
+                    ("some".into(), Some(CoreType::Int)),
+                ],
+            };
+            let _ = refine_predicate(pred, &option);
+        }
 
         assert_eq!(
             operand_numeric_class(&CoreType::Int),
@@ -2303,6 +2317,21 @@ mod coverage_helpers {
             Some(NumericClass::Int)
         );
         assert_eq!(
+            operand_numeric_class(&CoreType::Intersect(vec![
+                CoreType::Int,
+                CoreType::String,
+            ])),
+            Some(NumericClass::Int)
+        );
+        assert_eq!(
+            operand_numeric_class(&CoreType::Intersect(vec![
+                CoreType::String,
+                CoreType::Bool,
+                CoreType::Unit,
+            ])),
+            None
+        );
+        assert_eq!(
             numeric_union_class(&CoreType::Union(vec![CoreType::Int, CoreType::F64])),
             None
         );
@@ -2311,5 +2340,311 @@ mod coverage_helpers {
             numeric_union_class(&CoreType::Union(vec![CoreType::Number])),
             None
         );
+        assert_eq!(
+            numeric_union_class(&CoreType::Union(vec![CoreType::Int, CoreType::String])),
+            Some(NumericClass::Int)
+        );
+        assert_eq!(
+            numeric_union_class(&CoreType::Union(vec![CoreType::F64, CoreType::String])),
+            Some(NumericClass::F64)
+        );
+        assert_eq!(numeric_union_class(&CoreType::String), None);
+    }
+
+    #[test]
+    fn variant_tag_keep_strip_and_field_access() {
+        let option = CoreType::Variant {
+            variants: vec![
+                ("none".into(), None),
+                ("some".into(), Some(CoreType::Int)),
+            ],
+        };
+        // strip leaving only `some` unwraps payload
+        assert_eq!(
+            strip_variant_tag(&option, "none"),
+            CoreType::Int
+        );
+        // strip leaving empty → Dynamic
+        let only_none = CoreType::Variant {
+            variants: vec![("none".into(), None)],
+        };
+        assert!(matches!(
+            strip_variant_tag(&only_none, "none"),
+            CoreType::Dynamic(_)
+        ));
+        // strip leaving multiple → Variant rest
+        let three = CoreType::Variant {
+            variants: vec![
+                ("a".into(), None),
+                ("b".into(), Some(CoreType::Int)),
+                ("c".into(), None),
+            ],
+        };
+        assert!(matches!(
+            strip_variant_tag(&three, "a"),
+            CoreType::Variant { .. }
+        ));
+        // non-variant passthrough
+        assert_eq!(strip_variant_tag(&CoreType::Int, "x"), CoreType::Int);
+
+        // keep: payload tag → Intersect(scr, payload)
+        assert!(matches!(
+            keep_variant_tag(&option, "some"),
+            CoreType::Intersect(_)
+        ));
+        // keep: nullary tag → Intersect with singleton Variant
+        assert!(matches!(
+            keep_variant_tag(&option, "none"),
+            CoreType::Intersect(_)
+        ));
+        // keep: unknown tag on Variant → Intersect with Dynamic payload
+        assert!(matches!(
+            keep_variant_tag(&option, "maybe"),
+            CoreType::Intersect(_)
+        ));
+        // keep: non-Variant scrutinee
+        assert!(matches!(
+            keep_variant_tag(&CoreType::String, "some"),
+            CoreType::Intersect(_)
+        ));
+
+        assert!(matches!(
+            field_access_type(CoreType::OptionalField(Box::new(CoreType::Int))),
+            CoreType::Variant { .. }
+        ));
+        assert_eq!(field_access_type(CoreType::Int), CoreType::Int);
+
+        assert_eq!(schema_payload_type(&[]), None);
+        assert_eq!(schema_payload_type(&[CoreType::Int]), Some(CoreType::Int));
+        assert!(matches!(
+            schema_payload_type(&[CoreType::Int, CoreType::String]),
+            Some(CoreType::Record { .. })
+        ));
+    }
+
+    #[test]
+    fn occurrence_envs_and_expand_type_app_matrix() {
+        let mut env = TypeEnv::new();
+        env.insert("x", CoreType::dyn_any());
+        // Non-App / non-pred → identity envs
+        let (a, b) = occurrence_envs(&CoreExpr::Lit(CoreLiteral::Bool(true)), &env);
+        assert_eq!(a.vars.get("x"), b.vars.get("x"));
+        // App but not Var fun / not single Var arg
+        let app = CoreExpr::App {
+            fun: Box::new(CoreExpr::Lit(CoreLiteral::Int(1))),
+            args: vec![CoreExpr::Var("x".into())],
+        };
+        let _ = occurrence_envs(&app, &env);
+        let app2 = CoreExpr::App {
+            fun: Box::new(CoreExpr::Var("number?".into())),
+            args: vec![
+                CoreExpr::Var("x".into()),
+                CoreExpr::Lit(CoreLiteral::Int(1)),
+            ],
+        };
+        let _ = occurrence_envs(&app2, &env);
+        // Unbound scrutinee name
+        let app3 = CoreExpr::App {
+            fun: Box::new(CoreExpr::Var("number?".into())),
+            args: vec![CoreExpr::Var("missing".into())],
+        };
+        let _ = occurrence_envs(&app3, &env);
+        // Unknown predicate
+        let app4 = CoreExpr::App {
+            fun: Box::new(CoreExpr::Var("weird?".into())),
+            args: vec![CoreExpr::Var("x".into())],
+        };
+        let _ = occurrence_envs(&app4, &env);
+        // Known predicate refines
+        let app5 = CoreExpr::App {
+            fun: Box::new(CoreExpr::Var("number?".into())),
+            args: vec![CoreExpr::Var("x".into())],
+        };
+        let (then_env, else_env) = occurrence_envs(&app5, &env);
+        assert_ne!(then_env.vars.get("x"), else_env.vars.get("x"));
+
+        // expand_type_app / expand_nominal_variant
+        let mut data = DataEnv::default();
+        data.data_ctors.insert(
+            "option".into(),
+            vec![("none".into(), 0), ("some".into(), 1)],
+        );
+        data.ctor_payloads
+            .insert("none".into(), vec![]);
+        data.ctor_payloads
+            .insert("some".into(), vec![CoreType::Name("a".into())]);
+        data.type_params
+            .insert("option".into(), vec!["a".into()]);
+        let expanded = expand_type_app(
+            &CoreType::App {
+                ctor: "option".into(),
+                args: vec![CoreType::Int],
+            },
+            &data,
+        );
+        assert!(matches!(expanded, CoreType::Variant { .. }));
+        // arity mismatch → unchanged App
+        let mismatch = expand_type_app(
+            &CoreType::App {
+                ctor: "option".into(),
+                args: vec![],
+            },
+            &data,
+        );
+        assert!(matches!(mismatch, CoreType::App { .. }));
+        // nullary unknown ADT
+        let unknown = expand_type_app(
+            &CoreType::App {
+                ctor: "ghost".into(),
+                args: vec![],
+            },
+            &data,
+        );
+        assert!(matches!(unknown, CoreType::App { .. }));
+        // non-App passthrough
+        assert_eq!(expand_type_app(&CoreType::Int, &data), CoreType::Int);
+        // Nullary ADT without type_params entry but with data_ctors
+        data.data_ctors
+            .insert("color".into(), vec![("red".into(), 0)]);
+        data.ctor_payloads.insert("red".into(), vec![]);
+        let color = expand_type_app(
+            &CoreType::App {
+                ctor: "color".into(),
+                args: vec![],
+            },
+            &data,
+        );
+        assert!(matches!(color, CoreType::Variant { .. }));
+    }
+
+    #[test]
+    fn bind_pattern_and_unify_ctor_payload_edges() {
+        let mut env = TypeEnv::new();
+        // Tuple against Record keys
+        bind_pattern(
+            &CorePattern::Tuple(vec![
+                CorePattern::Bind("a".into()),
+                CorePattern::Bind("b".into()),
+                CorePattern::Wildcard,
+            ]),
+            &CoreType::Record {
+                fields: vec![
+                    ("0".into(), CoreType::Int),
+                    ("1".into(), CoreType::String),
+                ],
+            },
+            &mut env,
+        );
+        assert_eq!(env.vars.get("a"), Some(&CoreType::Int));
+        // Tuple against non-Record
+        bind_pattern(
+            &CorePattern::Tuple(vec![CorePattern::Bind("z".into())]),
+            &CoreType::Int,
+            &mut env,
+        );
+        // Record pattern / OpenRecord / OptionalField
+        bind_pattern(
+            &CorePattern::Record {
+                fields: vec![
+                    ("a".into(), CorePattern::Bind("ra".into())),
+                    ("miss".into(), CorePattern::Bind("rm".into())),
+                ],
+            },
+            &CoreType::Record {
+                fields: vec![
+                    ("a".into(), CoreType::Int),
+                    (
+                        "opt".into(),
+                        CoreType::OptionalField(Box::new(CoreType::String)),
+                    ),
+                ],
+            },
+            &mut env,
+        );
+        bind_pattern(
+            &CorePattern::Record {
+                fields: vec![("a".into(), CorePattern::Bind("oa".into()))],
+            },
+            &CoreType::OpenRecord {
+                fields: vec![("a".into(), CoreType::Int)],
+                row: Box::new(CoreType::Unit),
+            },
+            &mut env,
+        );
+        bind_pattern(
+            &CorePattern::Record {
+                fields: vec![("a".into(), CorePattern::Bind("xa".into()))],
+            },
+            &CoreType::Int,
+            &mut env,
+        );
+        // optional field label explicitly
+        bind_pattern(
+            &CorePattern::Record {
+                fields: vec![("opt".into(), CorePattern::Bind("ro".into()))],
+            },
+            &CoreType::Record {
+                fields: vec![(
+                    "opt".into(),
+                    CoreType::OptionalField(Box::new(CoreType::String)),
+                )],
+            },
+            &mut env,
+        );
+        // Variant patterns
+        bind_pattern(
+            &CorePattern::Variant {
+                tag: "some".into(),
+                payload: Some(Box::new(CorePattern::Bind("v".into()))),
+            },
+            &CoreType::Variant {
+                variants: vec![("some".into(), Some(CoreType::Int))],
+            },
+            &mut env,
+        );
+        bind_pattern(
+            &CorePattern::Variant {
+                tag: "none".into(),
+                payload: None,
+            },
+            &CoreType::Variant {
+                variants: vec![("none".into(), None)],
+            },
+            &mut env,
+        );
+        bind_pattern(
+            &CorePattern::Variant {
+                tag: "some".into(),
+                payload: Some(Box::new(CorePattern::Bind("w".into()))),
+            },
+            &CoreType::Int,
+            &mut env,
+        );
+
+        let mut subst = Subst::new();
+        // unify_ctor_payload shape matrix
+        assert!(unify_ctor_payload(None, &[], &mut subst).is_ok());
+        assert!(unify_ctor_payload(Some(&CoreType::Int), &[], &mut subst).is_err());
+        assert!(unify_ctor_payload(None, &[CoreType::Int], &mut subst).is_err());
+        assert!(unify_ctor_payload(Some(&CoreType::Int), &[CoreType::Int], &mut subst).is_ok());
+        assert!(unify_ctor_payload(
+            Some(&CoreType::Record {
+                fields: vec![
+                    ("0".into(), CoreType::Int),
+                    ("1".into(), CoreType::String),
+                ],
+            }),
+            &[CoreType::Int, CoreType::String],
+            &mut subst
+        )
+        .is_ok());
+        // Fallback packed schema when actual not Record
+        assert!(unify_ctor_payload(
+            Some(&CoreType::Int),
+            &[CoreType::Int, CoreType::String],
+            &mut subst
+        )
+        .is_err());
+        assert!(unify_ctor_payload(Some(&CoreType::Unit), &[], &mut subst).is_err());
     }
 }
