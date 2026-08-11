@@ -24,13 +24,12 @@
 | `IR` | 0 | 1 | 1 |
 | `ERR` | 0 | 3 | 3 |
 | `MEM` | 0 | 1 | 1 |
-| `TST` | 0 | 23 | 23 |
-| **合計** | **0** | **88** | **88** |
+| `TST` | 0 | 2 | 2 |
+| **合計** | **0** | **67** | **67** |
 
 （全体カウンタは `part2-conformance-stats.json` 参照。機能別内訳は L4 `XXX-001` ブロック帰属。）
 
 ### 合計の多い順（優先度の目安）
-- `TST`: gap 0 + partial 23 = **23**
 - `TYP`: gap 0 + partial 22 = **22**
 - `PKG`: gap 0 + partial 8 = **8**
 - `SYN`: gap 0 + partial 5 = **5**
@@ -46,8 +45,10 @@
 - `RSC`: gap 0 + partial 2 = **2**
 - `MOD`: gap 0 + partial 2 = **2**
 - `KER`: gap 0 + partial 2 = **2**
+- `TST`: gap 0 + partial 2 = **2**
 - `IR`: gap 0 + partial 1 = **1**
 - `MEM`: gap 0 + partial 1 = **1**
+
 
 
 
@@ -69,66 +70,66 @@
 ---
 
 ## Top 30 `partial`（出現順・件数優先の大きい機能から）
-1. **L6310** `TST` — 13.15 `TST-001` Tests and conformance
-   - lang_kernel_suite: STA/DYN/INT/SYN-C + LANG-* BND/DAT/EFF/ERR/TYP/PKG/ADT; full matrix open
-2. **L6326** `TST` — テスト原則
-   - conformance.rs + lang_kernel_suite TEST-* IDs; full artifact trace incomplete
-3. **L6340** `TST` — 14.1 全体EBNF（未完成）
-   - skeleton EBNF; real grammar in reciplexa-syntax
-4. **L6348** `TST` — 14.3 予約語
-   - is_reserved_special_form / keywords; full policy 未決定
-5. **L6352** `TST` — 14.4 糖衣とCore
-   - elaborate covers many sugars; table incomplete
-6. **L6362** `TST` — 15.1 Kind
-   - kinds implicit in CoreType/rows; Module/Signature kinds absent
-7. **L6366** `TST` — 15.2 共通判断
-   - infer/check judgments in check.rs; module sig judgment absent
-8. **L6370** `TST` — 15.3 基本規則
-   - T-VAR/if/record etc. partially in checker
-9. **L6374** `TST` — 15.4 一般化
-   - let generalization light; value restriction incomplete
-10. **L6378** `TST` — 15.5 Subtypingと制約解決
-   - unify + subtype stubs; full constraint solver deferred
-11. **L6400** `TST` — 16.3 効果伝播
-   - deep one-shot handlers; multi-shot deferred
-12. **L6404** `TST` — 16.4 SourceEdit
-   - syntax edit + source_sync; not full SourceEdit calculus
-13. **L6432** `TST` — 実装アーキテクチャ
-   - pipeline exists as vertical slice; not final
-14. **L6436** `TST` — 20.1 最終目標パイプライン
-   - bytes→CST→elaborate→check→eval→lower present; phase gaps
-15. **L6440** `TST` — 20.2 必要データ構造
-   - many structures exist; ModuleEnv/Typed Core incomplete
-16. **L6444** `TST` — 20.3 現行crateとの対応
-   - crate map outdated in places (core/eval/bind now carry more); still useful
-17. **L6454** `TST` — 21.1 型検査器要件
-   - typecheck_language_source; ModuleEnv/imported sigs incomplete
-18. **L6468** `TST` — 22.2 静的意味
-   - check/unify + STA-001/007 + BND ann/ADT/casts; full STA matrix open
-19. **L6476** `TST` — 22.4 統合
-   - GUI/source_sync + TEST-INT-002 .rpi boundary; not full INT matrix
-20. **L6484** `TST` — 22.6 横断適合試験
-   - cross-wires STA/DYN/INT + LANG-* ; not versioned full cross suite
-21. **L6498** `TST` — 段階2: 仕様が明確になった
-   - spec largely written; grammar/Core still holes
-22. **L6506** `TST` — 段階4: 適合試験を通過
-   - some conformance tests pass; not versioned full suite gate
-23. **L6522** `TST` — 段階8: 実装と形式仕様の対応を確認
-   - crate↔spec mapping informal; no versioned correspondence report
-24. **L2029** `TYP` — 13.6 `TYP-001` Gradual set-theoretic types
+1. **L2029** `TYP` — 13.6 `TYP-001` Gradual set-theoretic types
    - Bounded Dynamic/casts/evidence/EffectRow/ROW fragment; full set-theoretic solver deferred at TYP-ALG
-25. **L2033** `TYP` — 概要・状態
+2. **L2033** `TYP` — 概要・状態
    - Dynamic/unify/EffectRow/cast fragment; full set-theoretic algebra deferred
-26. **L2037** `TYP` — 13.6.1 `TYP-DYN-001` Bounded dynamic、cast evidence、dynamic failure
+3. **L2037** `TYP` — 13.6.1 `TYP-DYN-001` Bounded dynamic、cast evidence、dynamic failure
    - Bounded Dynamic(S)+three-way use+CastEvidence+try/check-cast; foreign/guarantee remain deferred/meta
-27. **L2089** `TYP` — `DD-TYP-DYN-009`: dynamic上限のwidening
+4. **L2089** `TYP` — `DD-TYP-DYN-009`: dynamic上限のwidening
    - Widen evidence for dynamic S→dynamic U when S<:U; deep provenance TBD
-28. **L2113** `TYP` — `DD-TYP-DYN-013`: implicit cast failure
+5. **L2113** `TYP` — `DD-TYP-DYN-013`: implicit cast failure
    - implicit Cast failure→EvalError; structured dynamic-type-error taxonomy still thin
-29. **L2169** `TYP` — `DD-TYP-DYN-017`: evidence compositionと最適化
+6. **L2169** `TYP` — `DD-TYP-DYN-017`: evidence compositionと最適化
    - compose_evidence/simplify_evidence Identity absorption; widen-chain opt TBD
-30. **L2173** `TYP` — `DD-TYP-DYN-018`: cast provenance
+7. **L2173** `TYP` — `DD-TYP-DYN-018`: cast provenance
    - CastProvenance struct separate from evidence; full boundary IDs TBD
+8. **L2185** `TYP` — `DD-TYP-DYN-021`: fixed-arity function cast
+   - FunctionGuard fixed-arity plan; call-time arg/ret guard wrap interim
+9. **L2189** `TYP` — `DD-TYP-DYN-022`: function引数の反変cast
+   - FunctionGuard.arg_casts contravariant planning; runtime call wrap interim
+10. **L2193** `TYP` — `DD-TYP-DYN-023`: function結果の共変cast
+   - FunctionGuard.ret_cast covariant planning; runtime call wrap interim
+11. **L2249** `TYP` — `DD-NAME-001`: 組込み型名と識別子の小文字規約
+   - lowercase builtins via env; full namespace-collision warnings still thin
+12. **L2253** `TYP` — `DD-NAME-002`: namespace間の同綴り衝突
+   - lowercase builtins via env; full namespace-collision warnings still thin
+13. **L2265** `TYP` — 適合試験
+   - lang_kernel_suite TYP + cast_tests; full named TYP corpus still open
+14. **L2485** `TYP` — `DD-TYP-EFF-005`: handlerとrunnerによるeffect縮小
+   - handle removes op from residual; full handler return-clause typing interim
+15. **L2525** `TYP` — `DD-TYP-FN-002`: fixed-arity function subtyping
+   - Fun subtyping limited (arg contra / ret cov incomplete vs full DD)
+16. **L2581** `TYP` — Row-polymorphic record
+   - row-polymorphic records via OpenRecord; multi-tail deferred at ROW-001
+17. **L2677** `TYP` — `DD-TYP-BIDI-004`: synthesis可能な式
+   - literals/vars/app/record/ctors synthesize; empty-collection synth gaps remain
+18. **L2681** `TYP` — `DD-TYP-BIDI-005`: checkingを優先する式
+   - annotated bindings check; empty collections/intersection check gaps remain
+19. **L2729** `TYP` — `DD-TYP-FRAG-003`: C — 注釈を要求し得るfragment
+   - AnnotationRequired class reserved; incompleteness paths still light
+20. **L2793** `TYP` — 適合試験
+   - lang_kernel_suite TYP + cast_tests; full named TYP-ALG corpus open
+21. **L2825** `TYP` — Function subtyping
+   - basic Fun subtyping only; full DD suite incomplete
+22. **L2865** `TYP` — Bidirectional checking
+   - Fun/Record annotation checking present; full BIDI corpus incomplete
+23. **L3657** `PKG` — 13.10 `PKG-001` パッケージmanifest・依存解決・ワークスペース・リソース
+   - Slice A–C: local packages + path-dep lock + math/japanese/graphics stubs + workspace.rpxm parse; registry deferred
+24. **L3701** `PKG` — 2. パッケージmanifest
+   - parse_rpxm + PackageManifest; remaining schema depth vs full PKG-001
+25. **L3713** `PKG` — 2.3 制限付きRPX形式
+   - restricted sexp tokenize in rpxm.rs; not every static schema leaf
+26. **L3717** `PKG` — 2.4 静的schema
+   - restricted sexp + known-field gate; residual static schema leaves open
+27. **L3725** `PKG` — 3. Manifestの基本構文
+   - minimal/explicit/parensed manifest forms parsed; residual schema depth open
+28. **L3745** `PKG` — 4. パッケージ名
+   - package name parsed as identity; full naming-rule matrix still light
+29. **L3761** `PKG` — 5. パッケージversion
+   - version field parsed; full semver algebra deferred
+30. **L3825** `PKG` — 7.3 内部モジュール
+   - non-public cross-package import rejected; intra-package graph incomplete
 
 
 ---

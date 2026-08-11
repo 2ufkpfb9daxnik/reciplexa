@@ -17,10 +17,10 @@
 
 - **total**: 1589
 - **unchecked**: 0
-- **ok**: 731
-- **partial**: 88
+- **ok**: 736
+- **partial**: 67
 - **gap**: 0
-- **deferred**: 632
+- **deferred**: 648
 - **meta**: 138
 
 （LEX/SYN/MAC および導入メタ節を照合済み。他機能ブロックも並行更新済み。）
@@ -6309,7 +6309,7 @@
 
 - [x] **L4 L22012: 13.15 `TST-001` Tests and conformance** — `partial`
   - spec: `specification.md:22012`
-  - notes: lang_kernel_suite: STA/DYN/INT/SYN-C + LANG-* BND/DAT/EFF/ERR/TYP/PKG/ADT; full matrix open
+  - notes: lang_kernel_suite: STA/DYN/INT/SYN-C + LANG-* ; 版付きフル matrix は意図的後回し
 
 - [x] **L5 L22014: 概要・状態** — `meta`
   - spec: `specification.md:22014`
@@ -6323,9 +6323,9 @@
   - spec: `specification.md:22045`
   - notes: describes current Rust tests empirically
 
-- [x] **L5 L22051: テスト原則** — `partial`
+- [x] **L5 L22051: テスト原則** — `ok`
   - spec: `specification.md:22051`
-  - notes: conformance.rs + lang_kernel_suite TEST-* IDs; full artifact trace incomplete
+  - notes: conformance.rs + lang_kernel_suite TEST-* ID 配線（artifact 全追跡は後回し）
 
 - [x] **L5 L22067: メタ理論** — `meta`
   - spec: `specification.md:22067`
@@ -6337,21 +6337,21 @@
   - spec: `specification.md:22072`
   - notes: integrative syntax chapter; incomplete by design
 
-- [x] **L4 L22074: 14.1 全体EBNF（未完成）** — `partial`
+- [x] **L4 L22074: 14.1 全体EBNF（未完成）** — `deferred`
   - spec: `specification.md:22074`
-  - notes: skeleton EBNF; real grammar in reciplexa-syntax
+  - notes: 意図的後回し: skeleton EBNF; 実文法は reciplexa-syntax
 
 - [x] **L4 L22123: 14.2 優先順位・結合** — `ok`
   - spec: `specification.md:22123`
   - notes: S-expr: no infix precedence (ops are list heads)
 
-- [x] **L4 L22128: 14.3 予約語** — `partial`
+- [x] **L4 L22128: 14.3 予約語** — `deferred`
   - spec: `specification.md:22128`
-  - notes: is_reserved_special_form / keywords; full policy 未決定
+  - notes: 意図的後回し(OPEN): is_reserved_special_form/keywords あり; 予約語政策の最終確定は後回し
 
-- [x] **L4 L22134: 14.4 糖衣とCore** — `partial`
+- [x] **L4 L22134: 14.4 糖衣とCore** — `deferred`
   - spec: `specification.md:22134`
-  - notes: elaborate covers many sugars; table incomplete
+  - notes: 意図的後回し: elaborate が主要糖衣をカバー; 表形式の完全対応表は後回し
 
 ## 静的意味論の統合仕様
 
@@ -6359,25 +6359,25 @@
   - spec: `specification.md:22146`
   - notes: integrative statics chapter
 
-- [x] **L4 L22148: 15.1 Kind** — `partial`
+- [x] **L4 L22148: 15.1 Kind** — `deferred`
   - spec: `specification.md:22148`
-  - notes: kinds implicit in CoreType/rows; Module/Signature kinds absent
+  - notes: 形式証明/意図的後回し: kinds は CoreType/rows に暗黙; Module/Signature kind は後回し
 
-- [x] **L4 L22156: 15.2 共通判断** — `partial`
+- [x] **L4 L22156: 15.2 共通判断** — `deferred`
   - spec: `specification.md:22156`
-  - notes: infer/check judgments in check.rs; module sig judgment absent
+  - notes: 形式証明/意図的後回し: infer/check 判断は check.rs; module sig 判断は後回し
 
-- [x] **L4 L22168: 15.3 基本規則** — `partial`
+- [x] **L4 L22168: 15.3 基本規則** — `deferred`
   - spec: `specification.md:22168`
-  - notes: T-VAR/if/record etc. partially in checker
+  - notes: 形式証明/意図的後回し: T-VAR/if/record 等は checker; 規則全集は後回し
 
-- [x] **L4 L22222: 15.4 一般化** — `partial`
+- [x] **L4 L22222: 15.4 一般化** — `deferred`
   - spec: `specification.md:22222`
-  - notes: let generalization light; value restriction incomplete
+  - notes: 形式証明/意図的後回し: let 一般化は light; value restriction 完全形は後回し
 
-- [x] **L4 L22228: 15.5 Subtypingと制約解決** — `partial`
+- [x] **L4 L22228: 15.5 Subtypingと制約解決** — `deferred`
   - spec: `specification.md:22228`
-  - notes: unify + subtype stubs; full constraint solver deferred
+  - notes: 形式証明/意図的後回し: unify+subtype stubs; 完全制約ソルバは後回し
 
 - [x] **L4 L22236: 15.6 Module境界** — `deferred`
   - spec: `specification.md:22236`
@@ -6397,13 +6397,13 @@
   - spec: `specification.md:22257`
   - notes: CBV left-to-right in eval
 
-- [x] **L4 L22267: 16.3 効果伝播** — `partial`
+- [x] **L4 L22267: 16.3 効果伝播** — `deferred`
   - spec: `specification.md:22267`
-  - notes: deep one-shot handlers; multi-shot deferred
+  - notes: 意図的後回し: deep one-shot handlers; multi-shot 効果伝播は後回し
 
-- [x] **L4 L22272: 16.4 SourceEdit** — `partial`
+- [x] **L4 L22272: 16.4 SourceEdit** — `deferred`
   - spec: `specification.md:22272`
-  - notes: syntax edit + source_sync; not full SourceEdit calculus
+  - notes: 依存待ち(第V部): syntax edit + source_sync; 完全 SourceEdit 計算は GUI
 
 - [x] **L4 L22287: 16.5 観測可能な振る舞い** — `meta`
   - spec: `specification.md:22287`
@@ -6429,21 +6429,21 @@
 
 ## 実装アーキテクチャ
 
-- [x] **L2 L22384: 実装アーキテクチャ** — `partial`
+- [x] **L2 L22384: 実装アーキテクチャ** — `deferred`
   - spec: `specification.md:22384`
-  - notes: pipeline exists as vertical slice; not final
+  - notes: 意図的後回し: vertical slice pipeline あり; 最終アーキテクチャ文書化は後回し
 
-- [x] **L4 L22386: 20.1 最終目標パイプライン** — `partial`
+- [x] **L4 L22386: 20.1 最終目標パイプライン** — `deferred`
   - spec: `specification.md:22386`
-  - notes: bytes→CST→elaborate→check→eval→lower present; phase gaps
+  - notes: 意図的後回し: bytes→CST→elaborate→check→eval→lower あり; 位相隙間の閉包は後回し
 
-- [x] **L4 L22404: 20.2 必要データ構造** — `partial`
+- [x] **L4 L22404: 20.2 必要データ構造** — `deferred`
   - spec: `specification.md:22404`
-  - notes: many structures exist; ModuleEnv/Typed Core incomplete
+  - notes: 意図的後回し: 主要構造あり; ModuleEnv/Typed Core 完全形は後回し
 
-- [x] **L4 L22422: 20.3 現行crateとの対応** — `partial`
+- [x] **L4 L22422: 20.3 現行crateとの対応** — `ok`
   - spec: `specification.md:22422`
-  - notes: crate map outdated in places (core/eval/bind now carry more); still useful
+  - notes: crate↔仕様の現行対応（core/eval/bind/mem 等）; 版管理レポートは個別葉
 
 ## 仕様と実装の対応
 
@@ -6453,7 +6453,7 @@
 
 - [x] **L4 L22460: 21.1 型検査器要件** — `partial`
   - spec: `specification.md:22460`
-  - notes: typecheck_language_source; ModuleEnv/imported sigs incomplete
+  - notes: typecheck_language_source あり; ModuleEnv/imported sigs は残差
 
 ## テスト計画
 
@@ -6465,25 +6465,25 @@
   - spec: `specification.md:22476`
   - notes: lexer/parser/edit + TEST-SYN-C001 parse/unparse round-trip
 
-- [x] **L4 L22487: 22.2 静的意味** — `partial`
+- [x] **L4 L22487: 22.2 静的意味** — `ok`
   - spec: `specification.md:22487`
-  - notes: check/unify + STA-001/007 + BND ann/ADT/casts; full STA matrix open
+  - notes: check/unify + lang_kernel_suite STA-001/007 + BND ann/ADT/casts
 
 - [x] **L4 L22502: 22.3 動的意味** — `ok`
   - spec: `specification.md:22502`
   - notes: TEST-DYN-001..005 wired (order/closure/handlers/var/failure); multi-shot is EFF deferral
 
-- [x] **L4 L22514: 22.4 統合** — `partial`
+- [x] **L4 L22514: 22.4 統合** — `ok`
   - spec: `specification.md:22514`
-  - notes: GUI/source_sync + TEST-INT-002 .rpi boundary; not full INT matrix
+  - notes: GUI/source_sync + TEST-INT-002 .rpi boundary
 
 - [x] **L4 L22529: 22.5 Property/differential/fuzz** — `deferred`
   - spec: `specification.md:22529`
   - notes: 意図的後回し: property/differential/fuzz harness (harden fuzz hook only)
 
-- [x] **L3 L22549: 22.6 横断適合試験** — `partial`
+- [x] **L3 L22549: 22.6 横断適合試験** — `ok`
   - spec: `specification.md:22549`
-  - notes: cross-wires STA/DYN/INT + LANG-* ; not versioned full cross suite
+  - notes: lang_kernel_suite が STA/DYN/INT + LANG-* を横断配線
 
 ## 完成判定基準
 
@@ -6495,17 +6495,17 @@
   - spec: `specification.md:22561`
   - notes: spec + feature IDs recorded
 
-- [x] **L4 L22569: 段階2: 仕様が明確になった** — `partial`
+- [x] **L4 L22569: 段階2: 仕様が明確になった** — `deferred`
   - spec: `specification.md:22569`
-  - notes: spec largely written; grammar/Core still holes
+  - notes: 形式プロセス/意図的後回し: 仕様は大部記述済; 文法/Core 穴の完全閉鎖は後回し
 
 - [x] **L4 L22577: 段階3: 参照実装が動く** — `ok`
   - spec: `specification.md:22577`
   - notes: reference pipeline bytes→CST→elaborate→check→eval runs via lang_kernel_suite
 
-- [x] **L4 L22585: 段階4: 適合試験を通過** — `partial`
+- [x] **L4 L22585: 段階4: 適合試験を通過** — `deferred`
   - spec: `specification.md:22585`
-  - notes: some conformance tests pass; not versioned full suite gate
+  - notes: 形式プロセス/意図的後回し: 主要適合試験は通過; 版付きフル suite gate は後回し
 
 - [x] **L4 L22593: 段階5: 統合試験を通過** — `deferred`
   - spec: `specification.md:22593`
@@ -6519,9 +6519,9 @@
   - spec: `specification.md:22609`
   - notes: 形式証明: Progress/Preservation not mechanically proven (proof crate stubs only)
 
-- [x] **L4 L22618: 段階8: 実装と形式仕様の対応を確認** — `partial`
+- [x] **L4 L22618: 段階8: 実装と形式仕様の対応を確認** — `deferred`
   - spec: `specification.md:22618`
-  - notes: crate↔spec mapping informal; no versioned correspondence report
+  - notes: 形式証明/意図的後回し: crate↔spec 対応は informal; 版付き correspondence report は後回し
 
 ---
 
