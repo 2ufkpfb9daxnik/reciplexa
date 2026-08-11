@@ -74,6 +74,13 @@ impl Subst {
             CoreType::Union(members) => {
                 CoreType::Union(members.iter().map(|m| self.apply(m)).collect())
             }
+            CoreType::Intersect(members) => {
+                CoreType::Intersect(members.iter().map(|m| self.apply(m)).collect())
+            }
+            CoreType::Not(inner) => CoreType::Not(Box::new(self.apply(inner))),
+            CoreType::Diff(a, b) => {
+                CoreType::Diff(Box::new(self.apply(a)), Box::new(self.apply(b)))
+            }
             CoreType::OptionalField(inner) => CoreType::OptionalField(Box::new(self.apply(inner))),
             CoreType::App { ctor, args } => CoreType::App {
                 ctor: ctor.clone(),
@@ -115,6 +122,9 @@ fn occurs(var: TypeVarId, ty: &CoreType) -> bool {
             .any(|(_, t)| t.as_ref().is_some_and(|x| occurs(var, x))),
         CoreType::Lacks { row, .. } => occurs(var, row),
         CoreType::Union(members) => members.iter().any(|m| occurs(var, m)),
+        CoreType::Intersect(members) => members.iter().any(|m| occurs(var, m)),
+        CoreType::Not(inner) => occurs(var, inner),
+        CoreType::Diff(a, b) => occurs(var, a) || occurs(var, b),
         CoreType::OptionalField(inner) => occurs(var, inner),
         CoreType::App { args, .. } => args.iter().any(|a| occurs(var, a)),
         CoreType::Forall { body, .. } => occurs(var, body),
@@ -159,6 +169,9 @@ fn enforce_lacks(label: &str, row: &CoreType, subst: &mut Subst) -> Result<(), U
         | CoreType::Unit
         | CoreType::Dynamic
         | CoreType::Union(_)
+        | CoreType::Intersect(_)
+        | CoreType::Not(_)
+        | CoreType::Diff(_, _)
         | CoreType::Name(_)
         | CoreType::App { .. }
         | CoreType::Forall { .. } => Ok(()),
@@ -207,10 +220,16 @@ pub fn unify(a: &CoreType, b: &CoreType, subst: &mut Subst) -> Result<(), UnifyE
     match (&a, &b) {
         (CoreType::Var(v), _) => subst.bind(*v, b),
         (_, CoreType::Var(v)) => subst.bind(*v, a),
+        // SYN §18.10: internal error type absorbs any expected type.
+        (CoreType::Error, _) | (_, CoreType::Error) => Ok(()),
         // Gradual stub: Dynamic is consistent with every type.
         (CoreType::Dynamic, _) | (_, CoreType::Dynamic) => Ok(()),
         // SYN §16.3 union stub: treat like Dynamic for v0.
         (CoreType::Union(_), _) | (_, CoreType::Union(_)) => Ok(()),
+        // SYN §16.3 intersect/not/diff stubs until full semantic subtyping lands.
+        (CoreType::Intersect(_), _) | (_, CoreType::Intersect(_)) => Ok(()),
+        (CoreType::Not(_), _) | (_, CoreType::Not(_)) => Ok(()),
+        (CoreType::Diff(_, _), _) | (_, CoreType::Diff(_, _)) => Ok(()),
         // SYN §16.1/16.2 surface stubs until polymorphic instantiation lands.
         (CoreType::App { .. }, _)
         | (_, CoreType::App { .. })

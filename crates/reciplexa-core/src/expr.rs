@@ -72,6 +72,16 @@ pub enum CoreExpr {
         name: String,
         value: Box<CoreExpr>,
     },
+    /// EFF-001 DD-EFF-006: delegate the current handler operation outward.
+    ///
+    /// Surface `(forward resume)` where `resume` is the handler's resume binder.
+    /// Consumes the one-shot resume and re-performs the caught operation to the
+    /// next outer matching handler.
+    Forward {
+        resume_name: String,
+    },
+    /// SYN §18.10: syntax-error placeholder; carries internal error type during check.
+    Error,
     Lambda {
         params: Vec<String>,
         body: Box<CoreExpr>,

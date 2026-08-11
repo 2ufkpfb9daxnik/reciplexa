@@ -137,6 +137,21 @@ fn variant_payload_mismatch() {
 }
 
 #[test]
+fn set_theoretic_types_unify_as_stub() {
+    use reciplexa_core::unify::{unify, Subst};
+    let mut s = Subst::new();
+    let a = CoreType::Intersect(vec![CoreType::Number, CoreType::String]);
+    let b = CoreType::Not(Box::new(CoreType::Number));
+    let c = CoreType::Diff(
+        Box::new(CoreType::Union(vec![CoreType::Number, CoreType::String])),
+        Box::new(CoreType::Number),
+    );
+    assert!(unify(&a, &CoreType::Dynamic, &mut s).is_ok());
+    assert!(unify(&b, &CoreType::String, &mut s).is_ok());
+    assert!(unify(&c, &CoreType::String, &mut s).is_ok());
+}
+
+#[test]
 fn variant_unifies_nullary() {
     let mut s = Subst::new();
     let a = CoreType::Variant {

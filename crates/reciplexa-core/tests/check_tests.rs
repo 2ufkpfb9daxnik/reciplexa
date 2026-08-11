@@ -282,6 +282,19 @@ fn bad_record_get() -> CoreExpr {
 }
 
 #[test]
+fn syntax_error_expr_suppresses_cascade() {
+    let mut subst = Subst::new();
+    let env = TypeEnv::new();
+    let r = range();
+    let expr = CoreExpr::Seq(vec![
+        CoreExpr::Error,
+        CoreExpr::Lit(CoreLiteral::Number(1.0)),
+    ]);
+    let ty = infer_expr(&expr, &env, &mut subst, r).unwrap();
+    assert_eq!(subst.apply(&ty), CoreType::Number);
+}
+
+#[test]
 fn infer_propagates_nested_errors() {
     let bad = bad_record_get();
     let mut subst = Subst::new();

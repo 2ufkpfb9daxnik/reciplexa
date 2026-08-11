@@ -27,6 +27,8 @@ impl CheckError {
 pub struct TypeEnv {
     pub vars: std::collections::HashMap<String, CoreType>,
     pub data: DataEnv,
+    /// Active non-escaping `var` binders (DD-BND-021 local-state effects).
+    pub local_state: std::collections::HashSet<String>,
 }
 
 impl TypeEnv {
@@ -36,6 +38,10 @@ impl TypeEnv {
 
     pub fn insert(&mut self, name: impl Into<String>, ty: CoreType) {
         self.vars.insert(name.into(), ty);
+    }
+
+    fn local_state_op(name: &str) -> String {
+        format!("local-state/{name}")
     }
 }
 
@@ -61,6 +67,7 @@ pub fn infer_with_effects(
     range: TextRange,
 ) -> Result<(CoreType, EffectRow), CheckError> {
     match expr {
+        CoreExpr::Error => Ok((CoreType::Error, EffectRow::default())),
         CoreExpr::Lit(lit) => Ok((
             match lit {
                 CoreLiteral::Number(_) => CoreType::Number,
@@ -118,6 +125,21 @@ pub fn infer_with_effects(
                 _ => CoreType::Unit,
             };
             Ok((ty, arg_effs.with_op(op.clone())))
+        }
+        CoreExpr::Forward { resume_name } => {
+            let resume_ty = env.vars.get(resume_name).cloned().ok_or_else(|| {
+                CheckError::at(format!("unbound resume `{resume_name}` in forward"), range)
+            })?;
+            if !matches!(
+                resume_ty,
+                CoreType::Fun { .. } | CoreType::Var(_) | CoreType::Dynamic
+            ) {
+                return Err(CheckError::at(
+                    "`forward` expects a resume continuation",
+                    range,
+                ));
+            }
+            Ok((CoreType::Unit, EffectRow::default()))
         }
         CoreExpr::Handle {
             op,
@@ -248,10 +270,13 @@ pub fn infer_with_effects(
         }
         CoreExpr::LocalVar { name, init, body } => {
             let (init_ty, init_effs) = infer_with_effects(init, env, subst, range)?;
+            let state_op = TypeEnv::local_state_op(name);
             let mut child = env.clone();
             child.insert(name.clone(), init_ty);
+            child.local_state.insert(name.clone());
             let (b_ty, b_effs) = infer_with_effects(body, &child, subst, range)?;
-            Ok((b_ty, init_effs.merge(&b_effs)))
+            // DD-BND-021: strip scoped local-state from the var expression residual.
+            Ok((b_ty, init_effs.merge(&b_effs.without_op(&state_op))))
         }
         CoreExpr::Set { name, value } => {
             let (v_ty, v_effs) = infer_with_effects(value, env, subst, range)?;
@@ -259,7 +284,12 @@ pub fn infer_with_effects(
                 CheckError::at(format!("unbound variable `{name}` in set"), range)
             })?;
             unify(&v_ty, &expected, subst).map_err(|e| unify_to_check(e, range))?;
-            Ok((CoreType::Unit, v_effs))
+            let effs = if env.local_state.contains(name) {
+                v_effs.with_op(TypeEnv::local_state_op(name))
+            } else {
+                v_effs
+            };
+            Ok((CoreType::Unit, effs))
         }
         CoreExpr::Lambda { params, body } => {
             let mut child = env.clone();
@@ -587,53 +617,41 @@ fn occurrence_envs(cond: &CoreExpr, env: &TypeEnv) -> (TypeEnv, TypeEnv) {
 }
 
 fn refine_predicate(pred: &str, scr: &CoreType) -> Option<(CoreType, CoreType)> {
+    let intersect = |t: CoreType| CoreType::Intersect(vec![scr.clone(), t]);
+    let diff = |t: CoreType| CoreType::Diff(Box::new(scr.clone()), Box::new(t));
     match pred {
-        "number?" => Some((CoreType::Number, diff_type(scr, &CoreType::Number))),
-        "string?" => Some((CoreType::String, diff_type(scr, &CoreType::String))),
-        "bool?" => Some((CoreType::Bool, diff_type(scr, &CoreType::Bool))),
+        "number?" => Some((intersect(CoreType::Number), diff(CoreType::Number))),
+        "string?" => Some((intersect(CoreType::String), diff(CoreType::String))),
+        "bool?" => Some((intersect(CoreType::Bool), diff(CoreType::Bool))),
         "is-none" => Some((
-            CoreType::Variant {
-                variants: vec![("none".into(), None)],
-            },
+            CoreType::Intersect(vec![
+                scr.clone(),
+                CoreType::Variant {
+                    variants: vec![("none".into(), None)],
+                },
+            ]),
             strip_variant_tag(scr, "none"),
         )),
-        "is-some" => Some((
-            keep_variant_tag(scr, "some"),
-            CoreType::Variant {
-                variants: vec![("none".into(), None)],
-            },
-        )),
-        _ => None,
-    }
-}
-
-fn type_structurally_eq(a: &CoreType, b: &CoreType) -> bool {
-    matches!(
-        (a, b),
-        (CoreType::Number, CoreType::Number)
-            | (CoreType::String, CoreType::String)
-            | (CoreType::Bool, CoreType::Bool)
-            | (CoreType::Unit, CoreType::Unit)
-            | (CoreType::Dynamic, CoreType::Dynamic)
-    )
-}
-
-fn diff_type(scr: &CoreType, removed: &CoreType) -> CoreType {
-    match scr {
-        CoreType::Union(members) => {
-            let left: Vec<CoreType> = members
-                .iter()
-                .filter(|m| !type_structurally_eq(m, removed))
-                .cloned()
-                .collect();
-            match left.as_slice() {
-                [] => CoreType::Dynamic,
-                [one] => one.clone(),
-                _ => CoreType::Union(left),
-            }
+        "is-some" => {
+            let then_ty = match scr {
+                CoreType::Variant { variants } => variants
+                    .iter()
+                    .find(|(t, _)| t == "some")
+                    .and_then(|(_, p)| p.clone())
+                    .unwrap_or_else(|| keep_variant_tag(scr, "some")),
+                _ => keep_variant_tag(scr, "some"),
+            };
+            Some((
+                then_ty,
+                CoreType::Intersect(vec![
+                    scr.clone(),
+                    CoreType::Variant {
+                        variants: vec![("none".into(), None)],
+                    },
+                ]),
+            ))
         }
-        other if type_structurally_eq(other, removed) => CoreType::Dynamic,
-        other => other.clone(),
+        _ => None,
     }
 }
 
@@ -654,16 +672,30 @@ fn strip_variant_tag(scr: &CoreType, tag: &str) -> CoreType {
 fn keep_variant_tag(scr: &CoreType, tag: &str) -> CoreType {
     match scr {
         CoreType::Variant { variants } => {
-            let kept: Vec<_> = variants.iter().filter(|(t, _)| t == tag).cloned().collect();
-            if kept.is_empty() {
+            if let Some((_, payload)) = variants.iter().find(|(t, _)| t == tag) {
+                if let Some(p) = payload {
+                    return CoreType::Intersect(vec![scr.clone(), p.clone()]);
+                }
+                return CoreType::Intersect(vec![
+                    scr.clone(),
+                    CoreType::Variant {
+                        variants: vec![(tag.into(), None)],
+                    },
+                ]);
+            }
+            CoreType::Intersect(vec![
+                scr.clone(),
                 CoreType::Variant {
                     variants: vec![(tag.into(), Some(CoreType::Dynamic))],
-                }
-            } else {
-                CoreType::Variant { variants: kept }
-            }
+                },
+            ])
         }
-        other => other.clone(),
+        other => CoreType::Intersect(vec![
+            other.clone(),
+            CoreType::Variant {
+                variants: vec![(tag.into(), Some(CoreType::Dynamic))],
+            },
+        ]),
     }
 }
 
@@ -816,6 +848,18 @@ pub fn typecheck_language_source(src: &str) -> Result<CoreType, CheckError> {
     env.insert("bool?", pred1.clone());
     env.insert("is-none", pred1.clone());
     env.insert("is-some", pred1);
+    env.insert("newline", CoreType::String);
+    env.insert("tab", CoreType::String);
+    env.insert("carriage-return", CoreType::String);
+    env.insert("nul", CoreType::String);
+    env.insert(
+        "unicode",
+        CoreType::Fun {
+            args: vec![CoreType::Number],
+            ret: Box::new(CoreType::String),
+            effects: EffectRow::default(),
+        },
+    );
     let ty = infer_expr(&expr, &env, &mut subst, TextRange::EMPTY)?;
     Ok(subst.apply(&ty))
 }

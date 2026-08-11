@@ -112,6 +112,54 @@ fn if_branch_union_when_types_differ() {
 }
 
 #[test]
+fn occurrence_typing_is_some_string() {
+    use reciplexa_core::check::{infer_expr, TypeEnv};
+    use reciplexa_core::expr::{CoreExpr, CoreLiteral};
+    use reciplexa_core::unify::Subst;
+    use reciplexa_source::range::TextRange;
+
+    let opt = CoreType::Variant {
+        variants: vec![
+            ("none".into(), None),
+            ("some".into(), Some(CoreType::String)),
+        ],
+    };
+    let mut env = TypeEnv::new();
+    env.insert("x", opt);
+    env.insert(
+        "is-some",
+        CoreType::Fun {
+            args: vec![CoreType::Dynamic],
+            ret: Box::new(CoreType::Bool),
+            effects: Default::default(),
+        },
+    );
+    env.insert(
+        "string-length",
+        CoreType::Fun {
+            args: vec![CoreType::String],
+            ret: Box::new(CoreType::Number),
+            effects: Default::default(),
+        },
+    );
+    // (if (is-some x) (string-length x) 0)
+    let expr = CoreExpr::If {
+        cond: Box::new(CoreExpr::App {
+            fun: Box::new(CoreExpr::Var("is-some".into())),
+            args: vec![CoreExpr::Var("x".into())],
+        }),
+        then_branch: Box::new(CoreExpr::App {
+            fun: Box::new(CoreExpr::Var("string-length".into())),
+            args: vec![CoreExpr::Var("x".into())],
+        }),
+        else_branch: Box::new(CoreExpr::Lit(CoreLiteral::Number(0.0))),
+    };
+    let mut subst = Subst::new();
+    let ty = infer_expr(&expr, &env, &mut subst, TextRange::EMPTY).unwrap();
+    assert_eq!(subst.apply(&ty), CoreType::Number);
+}
+
+#[test]
 fn occurrence_typing_number_pred() {
     use reciplexa_core::check::{infer_expr, TypeEnv};
     use reciplexa_core::expr::{CoreExpr, CoreLiteral};
@@ -280,5 +328,23 @@ fn handle_removes_effect_from_residual() {
     assert!(
         !residual.ops.iter().any(|o| o == "log"),
         "handle should remove log: {residual:?}"
+    );
+}
+
+#[test]
+fn var_removes_local_state_effect_from_residual() {
+    use reciplexa_core::elaborate_source;
+    use reciplexa_core::unify::Subst;
+    use reciplexa_core::{infer_with_effects, TypeEnv};
+    use reciplexa_source::range::TextRange;
+
+    let src = r#"(val main (var count 0 (seq (set count 1) count)))"#;
+    let expr = elaborate_source(src).unwrap();
+    let mut subst = Subst::new();
+    let env = TypeEnv::new();
+    let (_ty, residual) = infer_with_effects(&expr, &env, &mut subst, TextRange::EMPTY).unwrap();
+    assert!(
+        !residual.ops.iter().any(|o| o.starts_with("local-state/")),
+        "var should strip local-state: {residual:?}"
     );
 }
