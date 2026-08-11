@@ -368,6 +368,10 @@ mod tests {
     fn named_colors_resolve() {
         assert_eq!(Color::named("red"), Some(Color::RED));
         assert_eq!(Color::named("black"), Some(Color::BLACK));
+        assert_eq!(Color::named("white"), Some(Color::WHITE));
+        assert_eq!(Color::named("green"), Some(Color::GREEN));
+        assert_eq!(Color::named("blue"), Some(Color::BLUE));
+        assert_eq!(Color::named("magenta"), None);
     }
 
     #[test]
@@ -383,10 +387,10 @@ mod tests {
                 fill: Color::BLUE,
             })],
         };
-        match g {
-            Shape::Group { children, .. } => assert_eq!(children.len(), 1),
-            _ => panic!("expected group"),
-        }
+        assert!(matches!(
+            &g,
+            Shape::Group { children, .. } if children.len() == 1
+        ));
     }
 
     #[test]

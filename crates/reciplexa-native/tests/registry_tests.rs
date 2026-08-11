@@ -113,3 +113,32 @@ fn quarantine_builds_structured_defect_report() {
     assert_eq!(report.code.code, "ADAPTER_CONTRACT");
     assert!(report.violated_invariant.contains("portable-image-decode"));
 }
+
+#[test]
+fn provider_terminal_error_maps_to_terminal() {
+    use std::sync::Arc;
+
+    use reciplexa_native::adapter::{AdapterContract, NativeProvider};
+
+    struct Boom;
+    impl NativeProvider for Boom {
+        fn contract(&self) -> AdapterContract {
+            AdapterContract {
+                name: "boom-terminal".into(),
+                abi_version: 1,
+                pure_replayable: true,
+            }
+        }
+        fn call(&self, _: &str, _: &[ForeignValue]) -> Result<ForeignValue, String> {
+            Err("memory safety: use-after-free detected".into())
+        }
+    }
+
+    let mut reg = AdapterRegistry::default();
+    reg.register(Arc::new(Boom));
+    let id = reg.negotiate("boom-terminal", 1).unwrap();
+    assert!(matches!(
+        reg.call(id, "any", &[]),
+        Err(NegotiationError::Terminal(_))
+    ));
+}
