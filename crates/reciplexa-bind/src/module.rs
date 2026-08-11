@@ -131,25 +131,34 @@ pub fn elaborate_units_with_interfaces(
         }
     }
 
-    let mut parsed: Vec<(String, Vec<ImportDecl>, CoreExpr, Vec<String>)> = Vec::new();
+    let name_order: HashMap<String, usize> = units
+        .iter()
+        .enumerate()
+        .map(|(i, (name, _))| ((*name).to_string(), i))
+        .collect();
+
+    let mut parsed: Vec<(String, Vec<(usize, ImportDecl)>, CoreExpr, Vec<String>)> = Vec::new();
     for (name, src) in units {
         let (imports, body_src) = split_imports(src)?;
-        for imp in &imports {
-            if !names.contains_key(&imp.module) {
+        let mut indexed_imports = Vec::with_capacity(imports.len());
+        for imp in imports {
+            let Some(&idx) = name_order.get(&imp.module) else {
                 return Err(ModuleError::new(format!(
                     "module `{name}` imports unknown unit `{}`",
                     imp.module
                 )));
-            }
+            };
             if imp.module == *name {
                 return Err(ModuleError::new(format!(
                     "module `{name}` cannot import itself"
                 )));
             }
+            indexed_imports.push((idx, imp));
         }
         // MOD-001 §7.4: same identity via multiple imports is ok; colliding
         // local names from different module identities are errors.
-        check_import_local_collisions(name, &imports)?;
+        let plain: Vec<ImportDecl> = indexed_imports.iter().map(|(_, i)| i.clone()).collect();
+        check_import_local_collisions(name, &plain)?;
         let expr = if body_src.trim().is_empty() {
             CoreExpr::Seq(vec![])
         } else {
@@ -161,31 +170,24 @@ pub fn elaborate_units_with_interfaces(
         } else {
             impl_exports
         };
-        parsed.push(((*name).to_string(), imports, expr, exports));
+        parsed.push(((*name).to_string(), indexed_imports, expr, exports));
     }
 
-    let binding_tables: HashMap<String, HashMap<String, CoreExpr>> = parsed
+    let binding_tables: Vec<HashMap<String, CoreExpr>> = parsed
         .iter()
-        .map(|(name, _, expr, _)| (name.clone(), collect_bindings(expr)))
+        .map(|(_, _, expr, _)| collect_bindings(expr))
         .collect();
-    let export_tables: HashMap<String, HashSet<String>> = parsed
+    let export_tables: Vec<HashSet<String>> = parsed
         .iter()
-        .map(|(name, _, _, exports)| {
-            (
-                name.clone(),
-                exports.iter().cloned().collect::<HashSet<_>>(),
-            )
-        })
+        .map(|(_, _, _, exports)| exports.iter().cloned().collect::<HashSet<_>>())
         .collect();
 
     let mut out = Vec::with_capacity(parsed.len());
     for (name, imports, expr, exports) in parsed {
         let mut linked = expr;
-        for imp in imports.iter().rev() {
-            // Imports were checked against `names`; both maps are built from the
-            // same `parsed` units — Index is infallible here (no recoverable Err).
-            let table = &binding_tables[&imp.module];
-            let export_set = &export_tables[&imp.module];
+        for (provider_idx, imp) in imports.iter().rev() {
+            let table = &binding_tables[*provider_idx];
+            let export_set = &export_tables[*provider_idx];
 
             // Bare names from `only` (§6.3–6.4), applied innermost so they
             // shadow any same-named qualified bindings from outer wraps.
@@ -197,8 +199,11 @@ pub fn elaborate_units_with_interfaces(
                             item.name, imp.module
                         )));
                     }
-                    // Export names come from the same Let/LetRec spine as bindings.
-                    let value = &table[&item.name];
+                    // Exports and bindings share the Let/LetRec spine — skip if
+                    // they ever diverge rather than synthesize a dead Err arm.
+                    let Some(value) = table.get(&item.name) else {
+                        continue;
+                    };
                     let local = item.rename.clone().unwrap_or_else(|| item.name.clone());
                     linked = CoreExpr::Let {
                         name: local,
@@ -215,7 +220,9 @@ pub fn elaborate_units_with_interfaces(
                 let mut keys: Vec<_> = export_set.iter().cloned().collect();
                 keys.sort();
                 for export_name in keys.into_iter().rev() {
-                    let value = &table[&export_name];
+                    let Some(value) = table.get(&export_name) else {
+                        continue;
+                    };
                     linked = CoreExpr::Let {
                         name: format!("{prefix}/{export_name}"),
                         value: Box::new(value.clone()),
@@ -226,7 +233,7 @@ pub fn elaborate_units_with_interfaces(
         }
         out.push(ElaboratedUnit {
             name,
-            imports,
+            imports: imports.into_iter().map(|(_, i)| i).collect(),
             expr: linked,
             exports,
         });
@@ -596,10 +603,10 @@ pub fn load_module_tree(root_path: impl AsRef<Path>) -> Result<Vec<(String, Stri
         loaded.insert(name, src);
     }
     // Stable order: entry first, then remaining sorted by name.
-    // Entry was inserted when loaded; remove cannot miss.
     let mut out = Vec::with_capacity(loaded.len());
-    let src = loaded.remove(&entry_name).expect("entry unit was loaded");
-    out.push((entry_name, src));
+    if let Some(src) = loaded.remove(&entry_name) {
+        out.push((entry_name, src));
+    }
     let mut rest: Vec<_> = loaded.into_iter().collect();
     rest.sort_by(|a, b| a.0.cmp(&b.0));
     out.extend(rest);
