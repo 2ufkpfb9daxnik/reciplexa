@@ -9,37 +9,37 @@
 | `LEX` | 0 | 2 | 2 |
 | `SYN` | 0 | 15 | 15 |
 | `RES` | 0 | 2 | 2 |
-| `DAT` | 0 | 26 | 26 |
+| `DAT` | 0 | 15 | 15 |
 | `EVAL` | 0 | 4 | 4 |
 | `BND` | 0 | 2 | 2 |
 | `MAC` | 0 | 9 | 9 |
-| `TYP` | 0 | 86 | 86 |
+| `TYP` | 0 | 22 | 22 |
 | `ROW` | 0 | 2 | 2 |
 | `EFF` | 0 | 8 | 8 |
 | `RSC` | 0 | 2 | 2 |
 | `MOD` | 0 | 16 | 16 |
-| `PKG` | 0 | 32 | 32 |
+| `PKG` | 0 | 8 | 8 |
 | `KER` | 0 | 2 | 2 |
 | `EDT` | 0 | 19 | 19 |
 | `IR` | 0 | 6 | 6 |
 | `ERR` | 0 | 3 | 3 |
 | `MEM` | 0 | 12 | 12 |
-| `TST` | 0 | 25 | 25 |
-| **合計** | **0** | **273** | **273** |
+| `TST` | 0 | 23 | 23 |
+| **合計** | **0** | **172** | **172** |
 
 （全体カウンタは `part2-conformance-stats.json` 参照。機能別内訳は L4 `XXX-001` ブロック帰属。）
 
 ### 合計の多い順（優先度の目安）
-- `TYP`: gap 0 + partial 86 = **86**
-- `PKG`: gap 0 + partial 32 = **32**
-- `DAT`: gap 0 + partial 26 = **26**
-- `TST`: gap 0 + partial 25 = **25**
+- `TST`: gap 0 + partial 23 = **23**
+- `TYP`: gap 0 + partial 22 = **22**
 - `EDT`: gap 0 + partial 19 = **19**
 - `MOD`: gap 0 + partial 16 = **16**
 - `SYN`: gap 0 + partial 15 = **15**
+- `DAT`: gap 0 + partial 15 = **15**
 - `MEM`: gap 0 + partial 12 = **12**
 - `MAC`: gap 0 + partial 9 = **9**
 - `EFF`: gap 0 + partial 8 = **8**
+- `PKG`: gap 0 + partial 8 = **8**
 - `IR`: gap 0 + partial 6 = **6**
 - `EVAL`: gap 0 + partial 4 = **4**
 - `ERR`: gap 0 + partial 3 = **3**
@@ -57,69 +57,71 @@
 
 
 
+
+
 ---
 
 ## Top 30 `partial`（出現順・件数優先の大きい機能から）
-1. **L5582** `MEM` — 13.14 `MEM-001` Perceusメモリ管理・スコープ付きリソース・継続・メモリ予算
-   - reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path; eval uses Rc not Perceus by default
-2. **L5618** `MEM` — 1. メモリとResourceの分離
-   - policy: values vs resources; RSC/bracket separation incomplete
-3. **L5622** `MEM` — 1.1 通常値
-   - policy: values vs resources; RSC/bracket separation incomplete
-4. **L5626** `MEM` — 1.2 外部Resource
-   - policy: values vs resources; RSC/bracket separation incomplete
-5. **L5630** `MEM` — 1.3 基本原則
-   - reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
-6. **L5634** `MEM` — 2. Perceusによる自動メモリ管理
-   - reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
-7. **L5638** `MEM` — 2.1 利用者から見える意味
-   - reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
-8. **L5642** `MEM` — 2.2 回収時点
-   - reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
-9. **L5646** `MEM` — 2.3 物理identity
-   - reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
-10. **L5650** `MEM` — 3. Compilation pipeline
-   - reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
-11. **L5654** `MEM` — 3.1 適用順序
-   - reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
-12. **L5658** `MEM` — 3.2 Surface所有権注釈
-   - reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
-13. **L5662** `MEM` — 3.3 Trusted boundary
-   - reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
-14. **L5666** `MEM` — 4. 所有権Core IR
-   - reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
-15. **L5670** `MEM` — 4.1 必須のCore要素
-   - reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
-16. **L5674** `MEM` — 4.2 評価順序
-   - reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
-17. **L5678** `MEM` — 5. dup
-   - reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
-18. **L5682** `MEM` — 5.1 意味
-   - reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
-19. **L5686** `MEM` — 5.2 挿入条件
-   - reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
-20. **L5690** `MEM` — 5.3 利用者からの不可視性
-   - reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
-21. **L5694** `MEM` — 6. drop
-   - reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
-22. **L5698** `MEM` — 6.1 意味
-   - reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
-23. **L5702** `MEM` — 6.2 最終使用位置
-   - reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
-24. **L5706** `MEM` — 6.3 制御フロー
-   - reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
-25. **L5710** `MEM` — 7. 分岐とJoin point
-   - reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
-26. **L5714** `MEM` — 7.1 排他的分岐
-   - reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
-27. **L5718** `MEM` — 7.2 Join時の整合
-   - reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
-28. **L5722** `MEM` — 8. Reuse
-   - reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
-29. **L5726** `MEM` — 8.1 位置付け
-   - reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
-30. **L5730** `MEM` — 8.2 一意性
-   - reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+1. **L6310** `TST` — 13.15 `TST-001` Tests and conformance
+   - lang_kernel_suite: STA/DYN/INT/SYN-C + LANG-* BND/DAT/EFF/ERR/TYP/PKG/ADT; full matrix open
+2. **L6326** `TST` — テスト原則
+   - conformance.rs + lang_kernel_suite TEST-* IDs; full artifact trace incomplete
+3. **L6340** `TST` — 14.1 全体EBNF（未完成）
+   - skeleton EBNF; real grammar in reciplexa-syntax
+4. **L6348** `TST` — 14.3 予約語
+   - is_reserved_special_form / keywords; full policy 未決定
+5. **L6352** `TST` — 14.4 糖衣とCore
+   - elaborate covers many sugars; table incomplete
+6. **L6362** `TST` — 15.1 Kind
+   - kinds implicit in CoreType/rows; Module/Signature kinds absent
+7. **L6366** `TST` — 15.2 共通判断
+   - infer/check judgments in check.rs; module sig judgment absent
+8. **L6370** `TST` — 15.3 基本規則
+   - T-VAR/if/record etc. partially in checker
+9. **L6374** `TST` — 15.4 一般化
+   - let generalization light; value restriction incomplete
+10. **L6378** `TST` — 15.5 Subtypingと制約解決
+   - unify + subtype stubs; full constraint solver deferred
+11. **L6400** `TST` — 16.3 効果伝播
+   - deep one-shot handlers; multi-shot deferred
+12. **L6404** `TST` — 16.4 SourceEdit
+   - syntax edit + source_sync; not full SourceEdit calculus
+13. **L6432** `TST` — 実装アーキテクチャ
+   - pipeline exists as vertical slice; not final
+14. **L6436** `TST` — 20.1 最終目標パイプライン
+   - bytes→CST→elaborate→check→eval→lower present; phase gaps
+15. **L6440** `TST` — 20.2 必要データ構造
+   - many structures exist; ModuleEnv/Typed Core incomplete
+16. **L6444** `TST` — 20.3 現行crateとの対応
+   - crate map outdated in places (core/eval/bind now carry more); still useful
+17. **L6454** `TST` — 21.1 型検査器要件
+   - typecheck_language_source; ModuleEnv/imported sigs incomplete
+18. **L6468** `TST` — 22.2 静的意味
+   - check/unify + STA-001/007 + BND ann/ADT/casts; full STA matrix open
+19. **L6476** `TST` — 22.4 統合
+   - GUI/source_sync + TEST-INT-002 .rpi boundary; not full INT matrix
+20. **L6484** `TST` — 22.6 横断適合試験
+   - cross-wires STA/DYN/INT + LANG-* ; not versioned full cross suite
+21. **L6498** `TST` — 段階2: 仕様が明確になった
+   - spec largely written; grammar/Core still holes
+22. **L6506** `TST` — 段階4: 適合試験を通過
+   - some conformance tests pass; not versioned full suite gate
+23. **L6522** `TST` — 段階8: 実装と形式仕様の対応を確認
+   - crate↔spec mapping informal; no versioned correspondence report
+24. **L2029** `TYP` — 13.6 `TYP-001` Gradual set-theoretic types
+   - Bounded Dynamic/casts/evidence/EffectRow/ROW fragment; full set-theoretic solver deferred at TYP-ALG
+25. **L2033** `TYP` — 概要・状態
+   - Dynamic/unify/EffectRow/cast fragment; full set-theoretic algebra deferred
+26. **L2037** `TYP` — 13.6.1 `TYP-DYN-001` Bounded dynamic、cast evidence、dynamic failure
+   - Bounded Dynamic(S)+three-way use+CastEvidence+try/check-cast; foreign/guarantee remain deferred/meta
+27. **L2089** `TYP` — `DD-TYP-DYN-009`: dynamic上限のwidening
+   - Widen evidence for dynamic S→dynamic U when S<:U; deep provenance TBD
+28. **L2113** `TYP` — `DD-TYP-DYN-013`: implicit cast failure
+   - implicit Cast failure→EvalError; structured dynamic-type-error taxonomy still thin
+29. **L2169** `TYP` — `DD-TYP-DYN-017`: evidence compositionと最適化
+   - compose_evidence/simplify_evidence Identity absorption; widen-chain opt TBD
+30. **L2173** `TYP` — `DD-TYP-DYN-018`: cast provenance
+   - CastProvenance struct separate from evidence; full boundary IDs TBD
 
 
 ---

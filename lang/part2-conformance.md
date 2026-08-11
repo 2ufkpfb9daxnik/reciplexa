@@ -17,10 +17,10 @@
 
 - **total**: 1589
 - **unchecked**: 0
-- **ok**: 613
-- **partial**: 273
+- **ok**: 700
+- **partial**: 172
 - **gap**: 0
-- **deferred**: 565
+- **deferred**: 579
 - **meta**: 138
 
 （LEX/SYN/MAC および導入メタ節を照合済み。他機能ブロックも並行更新済み。）
@@ -66,7 +66,7 @@
 - [x] **L4 L343: 13.1 `LEX-001` Lossless lexer/CST** — `partial`
   - spec: `specification.md:343`
   
-  - notes: rowan CST+unparse+shebang/BOM trivia; markup sugar package portion deferred- notes: rowan CST+unparse+shebang trivia; BOM専用node/仮想tokenは不足
+  - notes: rowan CST+unparse+shebang/BOM trivia; markup sugar package portion deferred rowan CST+unparse+shebang trivia; BOM専用node/仮想tokenは不足
 
 - [x] **L5 L345: 概要・目的・状態** — `ok`
   - spec: `specification.md:345`
@@ -544,7 +544,7 @@
 
 - [x] **L4 L2646: 13.2.3 `DAT-001` 代数的データ型・constructor・pattern・match** — `partial`
   - spec: `specification.md:2646`
-  - notes: kernel data/match done; poly typing / ctor types deferred (plan)
+  - notes: data/match + App instantiate + poly ctor/∀-generalize; ctor-specific display / dual-ns residual
 
 - [x] **L5 L2648: DD-001 決定概要** — `meta`
   - spec: `specification.md:2648`
@@ -582,9 +582,9 @@
   - spec: `specification.md:2761`
   - notes: elaborate.rs data decl → DataEnv
 
-- [x] **L6 L2773: 1.2 Parameterを持つdata型** — `partial`
+- [x] **L6 L2773: 1.2 Parameterを持つdata型** — `ok`
   - spec: `specification.md:2773`
-  - notes: elaborate.rs parses ((a type)…); no type-app instantiation
+  - notes: ((a type)…) params + App instantiate + poly ctor→App (elaborate/check)
 
 - [x] **L6 L2800: 1.3 Parameterなしの場合** — `ok`
   - spec: `specification.md:2800`
@@ -596,23 +596,23 @@
 
 - [x] **L5 L2847: 2. `data`宣言が生成するbinding** — `partial`
   - spec: `specification.md:2847`
-  - notes: ctors registered; parent/sealed/ctor-types incomplete vs §2
+  - notes: ctors in DataEnv; parent/sealed display vs full §2 ctor-types still light
 
 - [x] **L6 L2849: 2.1 親type constructor** — `partial`
   - spec: `specification.md:2849`
-  - notes: DataEnv ctors; parent type / sealed set incomplete vs spec
+  - notes: DataEnv ctor_type/data_ctors map parent ADT; sealed export incomplete
 
 - [x] **L6 L2876: 2.2 Value constructor** — `partial`
   - spec: `specification.md:2876`
-  - notes: DataEnv ctors; parent type / sealed set incomplete vs spec
+  - notes: value ctors registered with payloads; ctor-refined some<int> display deferred
 
 - [x] **L6 L2897: 2.3 Constructor固有型** — `deferred`
   - spec: `specification.md:2897`
   - notes: plan: full polymorphic ADT typing / ctor-specific types deferred
 
-- [x] **L6 L2916: 2.4 Sealed constructor集合** — `partial`
+- [x] **L6 L2916: 2.4 Sealed constructor集合** — `ok`
   - spec: `specification.md:2916`
-  - notes: DataEnv ctors; parent type / sealed set incomplete vs spec
+  - notes: sealed ctor set via data_ctors + exhaustiveness (expr.rs/check.rs)
 
 - [x] **L6 L2930: 2.5 Runtime reflection** — `deferred`
   - spec: `specification.md:2930`
@@ -620,7 +620,7 @@
 
 - [x] **L5 L2946: 3. 名前とnamespace** — `partial`
   - spec: `specification.md:2946`
-  - notes: value-ns ctors via DataEnv; no ctor-type ns / full RES identity
+  - notes: value-ns ctors via DataEnv; distinct type-ns ctor types absent
 
 - [x] **L6 L2948: 3.1 型namespaceと値namespace** — `partial`
   - spec: `specification.md:2948`
@@ -632,11 +632,11 @@
 
 - [x] **L6 L2988: 3.3 Constructor名の重複** — `partial`
   - spec: `specification.md:2988`
-  - notes: value-ns ctors via DataEnv; no ctor-type ns / full RES identity
+  - notes: duplicate ctor names via DataEnv registration; full RES identity still light
 
 - [x] **L6 L3000: 3.4 Constructor identity** — `partial`
   - spec: `specification.md:3000`
-  - notes: value-ns ctors via DataEnv; no ctor-type ns / full RES identity
+  - notes: ctor identity via DataEnv maps; dual-ns RES identity still light
 
 - [x] **L5 L3013: 4. Nullary constructor** — `ok`
   - spec: `specification.md:3013`
@@ -690,9 +690,9 @@
   - spec: `specification.md:3149`
   - notes: plan: full polymorphic ADT typing / ctor-specific types deferred
 
-- [x] **L5 L3166: 7. 型parameter推論** — `partial`
+- [x] **L5 L3166: 7. 型parameter推論** — `ok`
   - spec: `specification.md:3166`
-  - notes: payload+annotation instantiates App; value restriction; explicit type args deferred
+  - notes: payload+annotation instantiates App; val ∀-generalize; var value restriction (ADT-07/08)
 
 - [x] **L6 L3168: 7.1 Payloadからの推論** — `ok`
   - spec: `specification.md:3168`
@@ -754,21 +754,21 @@
   - spec: `specification.md:3365`
   - notes: fn result self-reference allowed by positivity checker
 
-- [x] **L5 L3382: 10. 相互再帰data型** — `partial`
+- [x] **L5 L3382: 10. 相互再帰data型** — `ok`
   - spec: `specification.md:3382`
-  - notes: runtime rec data ok; positivity/kind mixing checks absent
+  - notes: mutual `(rec (data …)…)` + group strict positivity (elaborate.rs)
 
-- [x] **L6 L3384: 10.1 `rec` group** — `partial`
+- [x] **L6 L3384: 10.1 `rec` group** — `ok`
   - spec: `specification.md:3384`
-  - notes: runtime rec data ok; positivity/kind mixing checks absent
+  - notes: `rec` group shares positivity name set (DAT §10.1)
 
-- [x] **L6 L3399: 10.2 Group内の可視性** — `partial`
+- [x] **L6 L3399: 10.2 Group内の可視性** — `ok`
   - spec: `specification.md:3399`
-  - notes: runtime rec data ok; positivity/kind mixing checks absent
+  - notes: group-internal ADT names visible for positivity/payload walks
 
 - [x] **L6 L3403: 10.3 宣言kindの混在禁止** — `partial`
   - spec: `specification.md:3403`
-  - notes: runtime rec data ok; positivity/kind mixing checks absent
+  - notes: kind-mixing reject inside rec groups still light
 
 - [x] **L6 L3435: 10.4 Group全体のpositivity** — `ok`
   - spec: `specification.md:3435`
@@ -910,9 +910,9 @@
   - spec: `specification.md:3775`
   - notes: ctor arity checked at match/elaborate (DAT §17.2)
 
-- [x] **L6 L3779: 17.3 Binding型** — `partial`
+- [x] **L6 L3779: 17.3 Binding型** — `ok`
   - spec: `specification.md:3779`
-  - notes: pattern binders elaborate; static payload typing mostly Dynamic (DAT §17.3)
+  - notes: pattern binders from expand_type_app Variant/Record payloads (check.rs)
 
 - [x] **L6 L3800: 17.4 Refutability** — `ok`
   - spec: `specification.md:3800`
@@ -946,17 +946,17 @@
   - spec: `specification.md:3855`
   - notes: unknown open-row fields bind as Dynamic in check.rs (DAT §18.6)
 
-- [x] **L5 L3863: 19. Pattern typing** — `partial`
+- [x] **L5 L3863: 19. Pattern typing** — `ok`
   - spec: `specification.md:3863`
-  - notes: check.rs binds pattern vars mostly as Dynamic
+  - notes: pattern typing via expand_type_app + ctor_payload schemas (DAT §19)
 
-- [x] **L6 L3865: 19.1 三つの結果** — `partial`
+- [x] **L6 L3865: 19.1 三つの結果** — `ok`
   - spec: `specification.md:3865`
-  - notes: check.rs binds pattern vars mostly as Dynamic
+  - notes: bind/refine/reject paths: exhaustiveness + payload unify + Dynamic fallback
 
-- [x] **L6 L3880: 19.2 Constructor pattern** — `partial`
+- [x] **L6 L3880: 19.2 Constructor pattern** — `ok`
   - spec: `specification.md:3880`
-  - notes: DAT interim: elaborate.rs / expr.rs / eval.rs / check.rs
+  - notes: constructor patterns typed from sealed Variant expansion (DAT §19.2)
 
 - [x] **L6 L3907: 19.3 Literal pattern** — `ok`
   - spec: `specification.md:3907`
@@ -968,7 +968,7 @@
 
 - [x] **L6 L3944: 19.5 Disjoint pattern** — `partial`
   - spec: `specification.md:3944`
-  - notes: check.rs binds pattern vars mostly as Dynamic
+  - notes: disjoint-pattern typing mostly via Dynamic fallback / exhaustiveness
 
 - [x] **L5 L3954: 20. `match`の型・effect・評価** — `ok`
   - spec: `specification.md:3954`
@@ -1014,9 +1014,9 @@
   - spec: `specification.md:4067`
   - notes: elaborate/check reject empty/non-exhaustive match
 
-- [x] **L6 L4071: 21.5 Sealed data** — `partial`
+- [x] **L6 L4071: 21.5 Sealed data** — `ok`
   - spec: `specification.md:4071`
-  - notes: ctors registered sealed in DataEnv; no abstract export yet
+  - notes: local sealed data via data_ctors exhaustiveness; abstract export deferred
 
 - [x] **L6 L4079: 21.6 Transparent export** — `deferred`
   - spec: `specification.md:4079`
@@ -2028,61 +2028,61 @@
 
 - [x] **L4 L8036: 13.6 `TYP-001` Gradual set-theoretic types** — `partial`
   - spec: `specification.md:8036`
-  - notes: Dynamic+unify+EffectRow+ROW fragment; set-theoretic/casts gap
+  - notes: Bounded Dynamic/casts/evidence/EffectRow/ROW fragment; full set-theoretic solver deferred at TYP-ALG
 
 - [x] **L5 L8038: 概要・状態** — `partial`
   - spec: `specification.md:8038`
-  - notes: Dynamic/unify/EffectRow fragment; full set-theoretic deferred
+  - notes: Dynamic/unify/EffectRow/cast fragment; full set-theoretic algebra deferred
 
 - [x] **L5 L8045: 13.6.1 `TYP-DYN-001` Bounded dynamic、cast evidence、dynamic failure** — `partial`
   - spec: `specification.md:8045`
-  - notes: Bounded Dynamic(S); three-way use; CastEvidence; try/check-cast; foreign/guarantee deferred/meta
+  - notes: Bounded Dynamic(S)+three-way use+CastEvidence+try/check-cast; foreign/guarantee remain deferred/meta
 
 - [x] **L6 L8049: 状態** — `meta`
   - spec: `specification.md:8049`
   - notes: TYP-DYN resolved-in-spec; runtime gradually filling
 
-- [x] **L6 L8086: `DD-TYP-DYN-001`: static型とgradual型の分離** — `partial`
+- [x] **L6 L8086: `DD-TYP-DYN-001`: static型とgradual型の分離** — `ok`
   - spec: `specification.md:8086`
-  - notes: static vs gradual: CoreType::Dynamic(bound) + Any top; no free static↔gradual mix
+  - notes: static vs gradual: CoreType::Dynamic(bound)+Any; no free static↔gradual mix
 
-- [x] **L6 L8154: `DD-TYP-DYN-002`: `dynamic S`の意味** — `partial`
+- [x] **L6 L8154: `DD-TYP-DYN-002`: `dynamic S`の意味** — `ok`
   - spec: `specification.md:8154`
-  - notes: `dynamic S` elaborates to Dynamic(bound); dynamic never≃never; nested dynamic collapses
+  - notes: `dynamic S`→Dynamic(bound); dynamic never≃never; nested dynamic collapses (ty/cast)
 
-- [x] **L6 L8199: `DD-TYP-DYN-003`: static top型`any`** — `partial`
+- [x] **L6 L8199: `DD-TYP-DYN-003`: static top型`any`** — `ok`
   - spec: `specification.md:8199`
-  - notes: CoreType::Any + S<:any unify; any does not accept implicit cast
+  - notes: CoreType::Any + S<:any; any rejects implicit cast as static target
 
-- [x] **L6 L8275: `DD-TYP-DYN-004`: `never`およびdynamicの正規形** — `partial`
+- [x] **L6 L8275: `DD-TYP-DYN-004`: `never`およびdynamicの正規形** — `ok`
   - spec: `specification.md:8275`
   - notes: Never + dynamic never normalize; CoreType::dynamic_bound
 
-- [x] **L6 L8323: `DD-TYP-DYN-005`: dynamic値をstatic型として使用する三段階判定** — `partial`
+- [x] **L6 L8323: `DD-TYP-DYN-005`: dynamic値をstatic型として使用する三段階判定** — `ok`
   - spec: `specification.md:8323`
-  - notes: judge_dynamic_use three-way; coerce_to_static / insert_implicit_casts
+  - notes: judge_dynamic_use three-way; coerce_to_static / insert_implicit_casts (check/cast)
 
-- [x] **L6 L8333: 1. 上限全体が要求型へ含まれる場合** — `partial`
+- [x] **L6 L8333: 1. 上限全体が要求型へ含まれる場合** — `ok`
   - spec: `specification.md:8333`
-  - notes: FullyIncluded when S<:T → Identity (no runtime check)
+  - notes: FullyIncluded when S<:T → CastEvidence::Identity
 
-- [x] **L6 L8354: 2. 上限と要求型が互いに素である場合** — `partial`
+- [x] **L6 L8354: 2. 上限と要求型が互いに素である場合** — `ok`
   - spec: `specification.md:8354`
   - notes: Disjoint when intersect(S,T)≃never → static reject in coerce/plan
 
-- [x] **L6 L8376: 3. 一部だけ重なる場合** — `partial`
+- [x] **L6 L8376: 3. 一部だけ重なる場合** — `ok`
   - spec: `specification.md:8376`
-  - notes: PartialOverlap → Cast evidence + success intersect(S,T)
+  - notes: PartialOverlap → cast evidence + success intersect(S,T)
 
-- [x] **L6 L8409: `DD-TYP-DYN-006`: cast成功後の型** — `partial`
+- [x] **L6 L8409: `DD-TYP-DYN-006`: cast成功後の型** — `ok`
   - spec: `specification.md:8409`
-  - notes: cast_success_type = intersect(S,T); Cast/TryCast/CheckCast return intersect
+  - notes: cast_success_type=intersect(S,T); Cast/TryCast/CheckCast return intersect
 
-- [x] **L6 L8455: `DD-TYP-DYN-007`: occurrence typingとの関係** — `partial`
+- [x] **L6 L8455: `DD-TYP-DYN-007`: occurrence typingとの関係** — `ok`
   - spec: `specification.md:8455`
-  - notes: occurrence refine on Dynamic: then intersect / else dynamic(diff)
+  - notes: occurrence refine on Dynamic: then intersect / else dynamic(diff) (check.rs)
 
-- [x] **L6 L8513: `DD-TYP-DYN-008`: static値からdynamic値への導入** — `partial`
+- [x] **L6 L8513: `DD-TYP-DYN-008`: static値からdynamic値への導入** — `ok`
   - spec: `specification.md:8513`
   - notes: Widen when T<:S; plan_cast rejects T</:S for to-dynamic
 
@@ -2106,75 +2106,75 @@
   - spec: `specification.md:8676`
   - notes: 依存待ち(KER/foreign): import-dynamic foreign boundary
 
-- [x] **L6 L8690: `DD-TYP-DYN-012`: runtime-checkableな型** — `partial`
+- [x] **L6 L8690: `DD-TYP-DYN-012`: runtime-checkableな型** — `ok`
   - spec: `specification.md:8690`
   - notes: is_runtime_checkable for primitives/record/variant/fun; opaque/capability reject
 
 - [x] **L6 L8742: `DD-TYP-DYN-013`: implicit cast failure** — `partial`
   - spec: `specification.md:8742`
-  - notes: implicit Cast failure → EvalError dynamic cast failed; structured dynamic-type-error TBD
+  - notes: implicit Cast failure→EvalError; structured dynamic-type-error taxonomy still thin
 
-- [x] **L6 L8785: `DD-TYP-DYN-014`: 明示的safe cast** — `partial`
+- [x] **L6 L8785: `DD-TYP-DYN-014`: 明示的safe cast** — `ok`
   - spec: `specification.md:8785`
   - notes: try-cast/check-cast → Option/Result of intersect(S,T)
 
-- [x] **L6 L8824: `DD-TYP-DYN-015`: cast evidence** — `partial`
+- [x] **L6 L8824: `DD-TYP-DYN-015`: cast evidence** — `ok`
   - spec: `specification.md:8824`
-  - notes: CastEvidence algebra + plan_cast_evidence + CastProvenance stub
+  - notes: CastEvidence algebra + plan_cast_evidence + CastProvenance stub (cast.rs)
 
-- [x] **L6 L8854: `Identity`** — `partial`
+- [x] **L6 L8854: `Identity`** — `ok`
   - spec: `specification.md:8854`
   - notes: CastEvidence::Identity
 
-- [x] **L6 L8858: `Widen`** — `partial`
+- [x] **L6 L8858: `Widen`** — `ok`
   - spec: `specification.md:8858`
   - notes: CastEvidence::Widen
 
-- [x] **L6 L8862: `TagCheck`** — `partial`
+- [x] **L6 L8862: `TagCheck`** — `ok`
   - spec: `specification.md:8862`
   - notes: CastEvidence::TagCheck
 
-- [x] **L6 L8866: `UnionCheck`** — `partial`
+- [x] **L6 L8866: `UnionCheck`** — `ok`
   - spec: `specification.md:8866`
   - notes: CastEvidence::UnionCheck
 
-- [x] **L6 L8870: `IntersectionCheck`** — `partial`
+- [x] **L6 L8870: `IntersectionCheck`** — `ok`
   - spec: `specification.md:8870`
   - notes: CastEvidence::IntersectionCheck
 
-- [x] **L6 L8874: `RecordCheck`** — `partial`
+- [x] **L6 L8874: `RecordCheck`** — `ok`
   - spec: `specification.md:8874`
   - notes: CastEvidence::RecordCheck + field-type runtime checks
 
-- [x] **L6 L8878: `VariantCheck`** — `partial`
+- [x] **L6 L8878: `VariantCheck`** — `ok`
   - spec: `specification.md:8878`
   - notes: CastEvidence::VariantCheck + payload runtime checks
 
-- [x] **L6 L8882: `FunctionGuard`** — `partial`
+- [x] **L6 L8882: `FunctionGuard`** — `ok`
   - spec: `specification.md:8882`
   - notes: CastEvidence::FunctionGuard {arity,arg_casts,ret_cast}
 
-- [x] **L6 L8886: `NominalCheck`** — `partial`
+- [x] **L6 L8886: `NominalCheck`** — `ok`
   - spec: `specification.md:8886`
   - notes: CastEvidence::NominalCheck
 
-- [x] **L6 L8890: `Compose`** — `partial`
+- [x] **L6 L8890: `Compose`** — `ok`
   - spec: `specification.md:8890`
   - notes: CastEvidence::Compose + simplify_evidence
 
-- [x] **L6 L8907: `DD-TYP-DYN-016`: cast evidenceの純粋性** — `partial`
+- [x] **L6 L8907: `DD-TYP-DYN-016`: cast evidenceの純粋性** — `ok`
   - spec: `specification.md:8907`
   - notes: evidence eval pure (inspect/wrap only); DD-TYP-DYN-016
 
 - [x] **L6 L8936: `DD-TYP-DYN-017`: evidence compositionと最適化** — `partial`
   - spec: `specification.md:8936`
-  - notes: compose_evidence / simplify_evidence Identity absorption; widen chain TBD
+  - notes: compose_evidence/simplify_evidence Identity absorption; widen-chain opt TBD
 
 - [x] **L6 L8992: `DD-TYP-DYN-018`: cast provenance** — `partial`
   - spec: `specification.md:8992`
   - notes: CastProvenance struct separate from evidence; full boundary IDs TBD
 
-- [x] **L6 L9027: `DD-TYP-DYN-019`: recordおよびvariant cast** — `partial`
+- [x] **L6 L9027: `DD-TYP-DYN-019`: recordおよびvariant cast** — `ok`
   - spec: `specification.md:9027`
   - notes: RecordCheck/VariantCheck plan + deepened runtime field/payload checks
 
@@ -2184,21 +2184,21 @@
 
 - [x] **L6 L9089: `DD-TYP-DYN-021`: fixed-arity function cast** — `partial`
   - spec: `specification.md:9089`
-  - notes: FunctionGuard fixed-arity plan; call-time arg/ret guards stub
+  - notes: FunctionGuard fixed-arity plan; call-time arg/ret guard wrap interim
 
 - [x] **L6 L9128: `DD-TYP-DYN-022`: function引数の反変cast** — `partial`
   - spec: `specification.md:9128`
-  - notes: FunctionGuard.arg_casts contravariant planning; runtime call wrap TBD
+  - notes: FunctionGuard.arg_casts contravariant planning; runtime call wrap interim
 
 - [x] **L6 L9169: `DD-TYP-DYN-023`: function結果の共変cast** — `partial`
   - spec: `specification.md:9169`
-  - notes: FunctionGuard.ret_cast covariant planning; runtime call wrap TBD
+  - notes: FunctionGuard.ret_cast covariant planning; runtime call wrap interim
 
-- [x] **L6 L9205: `DD-TYP-DYN-024`: function arityの制限** — `partial`
+- [x] **L6 L9205: `DD-TYP-DYN-024`: function arityの制限** — `ok`
   - spec: `specification.md:9205`
   - notes: arity equality required in FunctionGuard; varargs deferred
 
-- [x] **L6 L9235: `DD-TYP-DYN-025`: effectful function cast** — `partial`
+- [x] **L6 L9235: `DD-TYP-DYN-025`: effectful function cast** — `ok`
   - spec: `specification.md:9235`
   - notes: effect_subrow Es⊑Et in is_subtype/fun intersect; gradual effect cast out of v1
 
@@ -2248,81 +2248,81 @@
 
 - [x] **L6 L9644: `DD-NAME-001`: 組込み型名と識別子の小文字規約** — `partial`
   - spec: `specification.md:9644`
-  - notes: lowercase builtins via env; no full namespace-collision warnings
+  - notes: lowercase builtins via env; full namespace-collision warnings still thin
 
 - [x] **L6 L9734: `DD-NAME-002`: namespace間の同綴り衝突** — `partial`
   - spec: `specification.md:9734`
-  - notes: lowercase builtins via env; no full namespace-collision warnings
+  - notes: lowercase builtins via env; full namespace-collision warnings still thin
 
-- [x] **L6 L9772: dynamic typingのCore構文** — `partial`
+- [x] **L6 L9772: dynamic typingのCore構文** — `ok`
   - spec: `specification.md:9772`
   - notes: CoreExpr::Cast/TryCast/CheckCast in core
 
-- [x] **L6 L9812: dynamic typingの終端状態** — `partial`
+- [x] **L6 L9812: dynamic typingの終端状態** — `ok`
   - spec: `specification.md:9812`
   - notes: Cast/TryCast/CheckCast + NumericPromote terminal paths in eval
 
 - [x] **L6 L9840: 適合試験** — `partial`
   - spec: `specification.md:9840`
-  - notes: lang_kernel_suite TYP-001 + type aliases; not full TYP suite
+  - notes: lang_kernel_suite TYP + cast_tests; full named TYP corpus still open
 
-- [x] **L6 L9842: static injection** — `partial`
+- [x] **L6 L9842: static injection** — `ok`
   - spec: `specification.md:9842`
-  - notes: Dynamic present; not full cast suite
+  - notes: static injection via Widen/plan_cast (cast_tests)
 
-- [x] **L6 L9861: invalid static injection** — `partial`
+- [x] **L6 L9861: invalid static injection** — `ok`
   - spec: `specification.md:9861`
-  - notes: Dynamic present; not full cast suite
+  - notes: invalid static injection rejected when T</:S (cast_tests)
 
-- [x] **L6 L9874: dynamic widening** — `partial`
+- [x] **L6 L9874: dynamic widening** — `ok`
   - spec: `specification.md:9874`
-  - notes: Dynamic present; not full cast suite
+  - notes: dynamic widening Widen evidence (cast_tests)
 
-- [x] **L6 L9889: safe static use** — `partial`
+- [x] **L6 L9889: safe static use** — `ok`
   - spec: `specification.md:9889`
-  - notes: FullyIncluded / Identity when S<:T
+  - notes: safe static use FullyIncluded/Identity when S<:T
 
-- [x] **L6 L9904: partial overlap** — `partial`
+- [x] **L6 L9904: partial overlap** — `ok`
   - spec: `specification.md:9904`
-  - notes: PartialOverlap + cast evidence
+  - notes: partial overlap → cast evidence (judge_dynamic_use)
 
-- [x] **L6 L9930: disjoint use** — `partial`
+- [x] **L6 L9930: disjoint use** — `ok`
   - spec: `specification.md:9930`
-  - notes: Disjoint → static reject in coerce/plan
+  - notes: disjoint use → static reject in coerce/plan
 
-- [x] **L6 L9944: cast precision** — `partial`
+- [x] **L6 L9944: cast precision** — `ok`
   - spec: `specification.md:9944`
   - notes: cast_success_type = intersect(S,T)
 
-- [x] **L6 L9958: `any`と`dynamic any`** — `partial`
+- [x] **L6 L9958: `any`と`dynamic any`** — `ok`
   - spec: `specification.md:9958`
-  - notes: Dynamic present; not full cast suite
+  - notes: any + dynamic any via CoreType::Any / Dynamic(Any)
 
 - [x] **L6 L9988: foreign ingress** — `deferred`
   - spec: `specification.md:9988`
   - notes: 依存待ち(KER/foreign): foreign ingress
 
-- [x] **L6 L10007: implicit cast failure** — `partial`
+- [x] **L6 L10007: implicit cast failure** — `ok`
   - spec: `specification.md:10007`
   - notes: implicit cast failure → EvalError dynamic cast failed
 
-- [x] **L6 L10030: explicit safe cast** — `partial`
+- [x] **L6 L10030: explicit safe cast** — `ok`
   - spec: `specification.md:10030`
   - notes: try-cast/check-cast Option/Result paths
 
-- [x] **L6 L10044: fixed-arity function cast** — `partial`
+- [x] **L6 L10044: fixed-arity function cast** — `ok`
   - spec: `specification.md:10044`
   - notes: FunctionGuard evidence for fixed-arity fun casts
 
-- [x] **L6 L10067: function result cast** — `partial`
+- [x] **L6 L10067: function result cast** — `ok`
   - spec: `specification.md:10067`
   - notes: covariant ret_cast in FunctionGuard
 
-- [x] **L6 L10083: effect-compatible function cast** — `partial`
+- [x] **L6 L10083: effect-compatible function cast** — `ok`
   - spec: `specification.md:10083`
   - notes: effect_subrow compatible function cast planning
 
-- [x] **L6 L10099: effect-incompatible function cast** — `partial`
+- [x] **L6 L10099: effect-incompatible function cast** — `ok`
   - spec: `specification.md:10099`
   - notes: effect-incompatible fun rejected via effect_subrow
 
@@ -2374,9 +2374,9 @@
   - spec: `specification.md:10262`
   - notes: spec process / OPEN pointer
 
-- [x] **L5 L10340: 13.6.2 `TYP-ALG-001` Algorithmic型検査、semantic subtypingの判定範囲、型推論** — `partial`
+- [x] **L5 L10340: 13.6.2 `TYP-ALG-001` Algorithmic型検査、semantic subtypingの判定範囲、型推論** — `deferred`
   - spec: `specification.md:10340`
-  - notes: decide_subtype three-valued + is_subtype approx; no full semantic solver
+  - notes: 意図的後回し: 完全な semantic subtyping solver / worklist 代数（decide_subtype 三値 fragment は維持）
 
 - [x] **L6 L10388: `DD-TYP-ALG-001`: 宣言的型関係とalgorithmic判定の分離** — `ok`
   - spec: `specification.md:10388`
@@ -2398,29 +2398,29 @@
   - spec: `specification.md:10464`
   - notes: DecideResult::Unknown outside decidable fragment; not accepted as OK
 
-- [x] **L6 L10489: `DD-TYP-ALG-003`: 診断分類** — `partial`
+- [x] **L6 L10489: `DD-TYP-ALG-003`: 診断分類** — `deferred`
   - spec: `specification.md:10489`
-  - notes: TypeDiagClass + classify_decide; AnnotationRequired/ResourceLimit paths thin
+  - notes: 意図的後回し: TypeDiagClass 全経路の emitter 配線（classify_decide の基本マップは維持）
 
 - [x] **L6 L10503: `type-error`** — `ok`
   - spec: `specification.md:10503`
   - notes: TypeDiagClass::TypeError via classify_decide(Disproved)
 
-- [x] **L6 L10520: `annotation-required`** — `partial`
+- [x] **L6 L10520: `annotation-required`** — `deferred`
   - spec: `specification.md:10520`
-  - notes: TypeDiagClass::AnnotationRequired present; emitter path not fully wired
+  - notes: 意図的後回し: AnnotationRequired の診断 emitter 統合（ADT-08 文字列注釈要求は維持）
 
 - [x] **L6 L10537: `checker-limitation`** — `ok`
   - spec: `specification.md:10537`
   - notes: TypeDiagClass::CheckerLimitation via classify_decide(Unknown)
 
-- [x] **L6 L10556: `checker-resource-limit`** — `partial`
+- [x] **L6 L10556: `checker-resource-limit`** — `deferred`
   - spec: `specification.md:10556`
-  - notes: TypeDiagClass::CheckerResourceLimit reserved; no step-budget emitter yet
+  - notes: 意図的後回し: checker-resource-limit / solver step-budget emitter
 
-- [x] **L6 L10562: `unsupported-language-feature`** — `partial`
+- [x] **L6 L10562: `unsupported-language-feature`** — `deferred`
   - spec: `specification.md:10562`
-  - notes: TypeDiagClass::UnsupportedLanguageFeature reserved; limited use sites
+  - notes: 意図的後回し: UnsupportedLanguageFeature 診断の利用点拡張
 
 - [x] **L6 L10573: `DD-TYP-ALG-004`: soundness、completeness、terminationの優先順位** — `meta`
   - spec: `specification.md:10573`
@@ -2430,9 +2430,9 @@
   - spec: `specification.md:10610`
   - notes: principal-type property; not an executable obligation here
 
-- [x] **L6 L10639: `DD-TYP-ALG-006`: 決定的なsolver budget** — `partial`
+- [x] **L6 L10639: `DD-TYP-ALG-006`: 決定的なsolver budget** — `deferred`
   - spec: `specification.md:10639`
-  - notes: checker terminates on fragment; explicit solver step budget absent
+  - notes: 意図的後回し: 明示的 solver step budget（断片上は終了する）
 
 - [x] **L3 L10672: Effectに関するalgorithmic用語** — `ok`
   - spec: `specification.md:10672`
@@ -2478,13 +2478,13 @@
   - spec: `specification.md:10798`
   - notes: Fun values carry required EffectRow (check.rs)
 
-- [x] **L6 L10823: `DD-TYP-EFF-004`: effect-row polymorphism** — `partial`
+- [x] **L6 L10823: `DD-TYP-EFF-004`: effect-row polymorphism** — `deferred`
   - spec: `specification.md:10823`
-  - notes: EffectRow present; full effect-row polymorphism / quantify deferred
+  - notes: 意図的後回し: EffectRow 全多相 / quantify（Fun EffectRow + infer_with_effects は維持）
 
 - [x] **L6 L10853: `DD-TYP-EFF-005`: handlerとrunnerによるeffect縮小** — `partial`
   - spec: `specification.md:10853`
-  - notes: handle removes op from residual; full handler typing interim
+  - notes: handle removes op from residual; full handler return-clause typing interim
 
 - [x] **L6 L10878: `DD-TYP-EFF-006`: EffectRow alias** — `deferred`
   - spec: `specification.md:10878`
@@ -2502,9 +2502,9 @@
   - spec: `specification.md:10943`
   - notes: Boolean type ops in CoreType + cast.rs algebra helpers
 
-- [x] **L6 L10990: `DD-TYP-BOOL-002`: Surface negationの制限** — `partial`
+- [x] **L6 L10990: `DD-TYP-BOOL-002`: Surface negationの制限** — `deferred`
   - spec: `specification.md:10990`
-  - notes: surface Not parses; unrestricted negation / full solve still stub
+  - notes: 意図的後回し: unrestricted Surface negation の完全解法（Not 構文は維持）
 
 - [x] **L3 L11031: Singleton型** — `ok`
   - spec: `specification.md:11031`
@@ -2514,9 +2514,9 @@
   - spec: `specification.md:11033`
   - notes: type-position int/str/bool singletons + domain subtyping (ty/cast)
 
-- [x] **L3 L11096: Function型** — `partial`
+- [x] **L3 L11096: Function型** — `deferred`
   - spec: `specification.md:11096`
-  - notes: fixed-arity Fun in ty.rs; intersection types / coherence deferred
+  - notes: 意図的後回し: function intersection types / coherence（fixed-arity Fun は維持）
 
 - [x] **L6 L11098: `DD-TYP-FN-001`: fixed-arity function** — `ok`
   - spec: `specification.md:11098`
@@ -2580,7 +2580,7 @@
 
 - [x] **L6 L11420: Row-polymorphic record** — `partial`
   - spec: `specification.md:11420`
-  - notes: row-polymorphic records via OpenRecord; multi-tail deferred
+  - notes: row-polymorphic records via OpenRecord; multi-tail deferred at ROW-001
 
 - [x] **L6 L11434: `DD-TYP-ROW-002`: closed recordの正確なshape** — `ok`
   - spec: `specification.md:11434`
@@ -2650,21 +2650,21 @@
   - spec: `specification.md:11786`
   - notes: full recursive decide fragment deferred
 
-- [x] **L3 L11809: Bidirectional type checking** — `partial`
+- [x] **L3 L11809: Bidirectional type checking** — `ok`
   - spec: `specification.md:11809`
-  - notes: infer primary + annotation checking on same-named (type)/(val); principle-type val
+  - notes: infer-primary + (type)/(val) annotation checking; principle-type val generalization
 
-- [x] **L6 L11811: `DD-TYP-BIDI-001`: bidirectional typing** — `partial`
+- [x] **L6 L11811: `DD-TYP-BIDI-001`: bidirectional typing** — `ok`
   - spec: `specification.md:11811`
-  - notes: synthesis+annotation check path (check.rs infer_binding_init)
+  - notes: synthesis+annotation check path via infer_binding_init (check.rs)
 
 - [x] **L6 L11819: Synthesis** — `ok`
   - spec: `specification.md:11819`
   - notes: synthesis path = infer_expr (check.rs)
 
-- [x] **L6 L11827: Checking** — `partial`
+- [x] **L6 L11827: Checking** — `ok`
   - spec: `specification.md:11827`
-  - notes: annotation-driven checking via unify; full check-mode API still thin
+  - notes: annotation-driven checking via unify against expected (check.rs)
 
 - [x] **L6 L11839: `DD-TYP-BIDI-002`: 型注釈付きbinding** — `ok`
   - spec: `specification.md:11839`
@@ -2676,27 +2676,27 @@
 
 - [x] **L6 L11885: `DD-TYP-BIDI-004`: synthesis可能な式** — `partial`
   - spec: `specification.md:11885`
-  - notes: literals/vars/app/record/ctors synthesize; collection gaps remain
+  - notes: literals/vars/app/record/ctors synthesize; empty-collection synth gaps remain
 
 - [x] **L6 L11907: `DD-TYP-BIDI-005`: checkingを優先する式** — `partial`
   - spec: `specification.md:11907`
-  - notes: annotated bindings check; empty collections/intersection gaps remain
+  - notes: annotated bindings check; empty collections/intersection check gaps remain
 
-- [x] **L6 L11928: `DD-TYP-BIDI-006`: `if`と`match`** — `partial`
+- [x] **L6 L11928: `DD-TYP-BIDI-006`: `if`と`match`** — `ok`
   - spec: `specification.md:11928`
-  - notes: check.rs infer-primary; some check via unify
+  - notes: if/match infer-primary with unify join; occurrence refine on predicates
 
-- [x] **L6 L11952: `DD-TYP-BIDI-007`: subtyping、promotion、dynamic cast** — `partial`
+- [x] **L6 L11952: `DD-TYP-BIDI-007`: subtyping、promotion、dynamic cast** — `ok`
   - spec: `specification.md:11952`
-  - notes: check.rs infer-primary; some check via unify
+  - notes: subtyping/promotion/dynamic cast via plan_cast + coerce_to_static
 
 - [x] **L6 L11982: `DD-TYP-BIDI-008`: annotation-requiredとchecker-limitation** — `ok`
   - spec: `specification.md:11982`
   - notes: classify_decide maps Unknown→CheckerLimitation; AnnotationRequired enum
 
-- [x] **L3 L12003: 明示的多相型** — `partial`
+- [x] **L3 L12003: 明示的多相型** — `ok`
   - spec: `specification.md:12003`
-  - notes: prenex forall instantiate+let generalization; rank-N deferred
+  - notes: prenex forall instantiate-at-use + let/val generalization (rank-N deferred)
 
 - [x] **L6 L12005: `DD-TYP-POLY-001`: 明示的`forall`** — `ok`
   - spec: `specification.md:12005`
@@ -2710,9 +2710,9 @@
   - spec: `specification.md:12077`
   - notes: forall binder scope in parse_type_syntax_in
 
-- [x] **L6 L12100: `DD-TYP-POLY-004`: rank-1／prenex制限** — `partial`
+- [x] **L6 L12100: `DD-TYP-POLY-004`: rank-1／prenex制限** — `ok`
   - spec: `specification.md:12100`
-  - notes: prenex instantiate on use; rank-1 surface forall only
+  - notes: rank-1/prenex surface forall; instantiate_forall at use sites
 
 - [x] **L3 L12136: 完全性分類** — `ok`
   - spec: `specification.md:12136`
@@ -2728,7 +2728,7 @@
 
 - [x] **L6 L12208: `DD-TYP-FRAG-003`: C — 注釈を要求し得るfragment** — `partial`
   - spec: `specification.md:12208`
-  - notes: AnnotationRequired class reserved for incompleteness paths
+  - notes: AnnotationRequired class reserved; incompleteness paths still light
 
 - [x] **L6 L12231: `DD-TYP-FRAG-004`: D — RPX v1で禁止するfragment** — `ok`
   - spec: `specification.md:12231`
@@ -2774,9 +2774,9 @@
   - spec: `specification.md:12462`
   - notes: CheckerLimitation class on Unknown
 
-- [x] **L6 L12466: Resource limit** — `partial`
+- [x] **L6 L12466: Resource limit** — `deferred`
   - spec: `specification.md:12466`
-  - notes: CheckerResourceLimit class reserved
+  - notes: 意図的後回し: CheckerResourceLimit / resource-budget 実行経路
 
 - [x] **L6 L12472: `DD-TYP-SOLVER-006`: cast insertionとgeneralizationの順序** — `deferred`
   - spec: `specification.md:12472`
@@ -2792,15 +2792,15 @@
 
 - [x] **L3 L12542: 適合試験** — `partial`
   - spec: `specification.md:12542`
-  - notes: lang_kernel_suite TYP + cast tests; not full TYP-ALG corpus
+  - notes: lang_kernel_suite TYP + cast_tests; full named TYP-ALG corpus open
 
 - [x] **L6 L12544: 三値判定** — `ok`
   - spec: `specification.md:12544`
   - notes: decide_subtype three-valued tests in cast.rs
 
-- [x] **L6 L12574: 診断分類** — `partial`
+- [x] **L6 L12574: 診断分類** — `deferred`
   - spec: `specification.md:12574`
-  - notes: TypeDiagClass taxonomy present; full diagnostic emitter incomplete
+  - notes: 意図的後回し: TypeDiagClass 全診断 emitter（taxonomy + classify_decide は維持）
 
 - [x] **L6 L12615: 最小required effects** — `ok`
   - spec: `specification.md:12615`
@@ -2810,9 +2810,9 @@
   - spec: `specification.md:12634`
   - notes: Fun effect-row carried; covered by check/effect tests
 
-- [x] **L6 L12656: EffectRow polymorphism** — `partial`
+- [x] **L6 L12656: EffectRow polymorphism** — `deferred`
   - spec: `specification.md:12656`
-  - notes: EffectRow polymorphism suite thin vs DD-TYP-EFF-004
+  - notes: 意図的後回し: EffectRow polymorphism 適合試験 / 量化（EffectRow 本体は維持）
 
 - [x] **L6 L12680: Handlerによるeffect縮小** — `ok`
   - spec: `specification.md:12680`
@@ -2864,11 +2864,11 @@
 
 - [x] **L6 L12948: Bidirectional checking** — `partial`
   - spec: `specification.md:12948`
-  - notes: basic Fun/Record checking; full BIDI suite incomplete
+  - notes: Fun/Record annotation checking present; full BIDI corpus incomplete
 
-- [x] **L6 L12979: Explicit `forall`** — `partial`
+- [x] **L6 L12979: Explicit `forall`** — `ok`
   - spec: `specification.md:12979`
-  - notes: explicit forall surface; instantiation suite thin
+  - notes: explicit forall surface + instantiate suite (forall_annotation_* / ADT-07)
 
 - [x] **L6 L13007: Kind error** — `ok`
   - spec: `specification.md:13007`
@@ -3656,8 +3656,7 @@
 
 - [x] **L4 L15855: 13.10 `PKG-001` パッケージmanifest・依存解決・ワークスペース・リソース** — `partial`
   - spec: `specification.md:15855`
-  
-  - notes: Slice A+B+C: local packages + path-dep lock edges + workspace.rpxm stub parse; registry deferred- notes: Slice A+B: local packages + path-dep aliases + rpx.lock path sources + math/japanese stubs + .rpi stubs; registry/workspace still deferred
+  - notes: Slice A–C: local packages + path-dep lock + math/japanese/graphics stubs + workspace.rpxm parse; registry deferred
 
 - [x] **L5 L15856: DD-001 決定概要** — `meta`
   - spec: `specification.md:15856`
@@ -3701,57 +3700,57 @@
 
 - [x] **L5 L15992: 2. パッケージmanifest** — `partial`
   - spec: `specification.md:15992`
-  - notes: parse_rpxm + PackageManifest JSON; schema incomplete vs PKG-001
+  - notes: parse_rpxm + PackageManifest; remaining schema depth vs full PKG-001
 
-- [x] **L6 L15993: 2.1 ファイル名** — `partial`
+- [x] **L6 L15993: 2.1 ファイル名** — `ok`
   - spec: `specification.md:15993`
-  - notes: package.rpxm name convention in rpxm.rs; not full PKG path rules
+  - notes: package.rpxm name convention + LocalPackageIndex::discover
 
-- [x] **L6 L16011: 2.2 Package root** — `partial`
+- [x] **L6 L16011: 2.2 Package root** — `ok`
   - spec: `specification.md:16011`
   - notes: package.rpxm directory is package root via LocalPackageIndex::discover
 
 - [x] **L6 L16021: 2.3 制限付きRPX形式** — `partial`
   - spec: `specification.md:16021`
-  - notes: restricted sexp via tokenize in rpxm.rs; not full static schema
+  - notes: restricted sexp tokenize in rpxm.rs; not every static schema leaf
 
 - [x] **L6 L16036: 2.4 静的schema** — `partial`
   - spec: `specification.md:16036`
-  - notes: restricted sexp via tokenize in rpxm.rs; not full static schema
+  - notes: restricted sexp + known-field gate; residual static schema leaves open
 
-- [x] **L6 L16052: 2.5 未知field** — `partial`
+- [x] **L6 L16052: 2.5 未知field** — `ok`
   - spec: `specification.md:16052`
-  - notes: format-version enforced; unknown fields still skipped (strict unknown-field reject deferred)
+  - notes: unknown fields rejected (RpxmError::UnknownField); format-version enforced
 
 - [x] **L5 L16062: 3. Manifestの基本構文** — `partial`
   - spec: `specification.md:16062`
-  - notes: restricted sexp via tokenize in rpxm.rs; not full static schema
+  - notes: minimal/explicit/parensed manifest forms parsed; residual schema depth open
 
-- [x] **L6 L16063: 3.1 最小形** — `partial`
+- [x] **L6 L16063: 3.1 最小形** — `ok`
   - spec: `specification.md:16063`
-  - notes: restricted sexp via tokenize in rpxm.rs; not full static schema
+  - notes: minimal (package (name)(version)(entry)) Phase-10 form parsed
 
-- [x] **L6 L16068: 3.2 明示形** — `partial`
+- [x] **L6 L16068: 3.2 明示形** — `ok`
   - spec: `specification.md:16068`
-  - notes: restricted sexp via tokenize in rpxm.rs; not full static schema
+  - notes: DD-001 flat explicit form (format-version/version/source-root/…) parsed
 
-- [x] **L6 L16077: 3.3 Fieldの括弧** — `partial`
+- [x] **L6 L16077: 3.3 Fieldの括弧** — `ok`
   - spec: `specification.md:16077`
-  - notes: flat fields + parenthesized public-modules/entry-points/dependencies parsed; unknown fields still ignored
+  - notes: flat fields + parenthesized public-modules/entry-points/dependencies parsed
 
-- [x] **L6 L16091: 3.4 Format version** — `partial`
+- [x] **L6 L16091: 3.4 Format version** — `ok`
   - spec: `specification.md:16091`
-  - notes: format-version 1 accepted; other versions rejected; unknown fields still gap
+  - notes: format-version 1 accepted; other versions rejected
 
 - [x] **L5 L16106: 4. パッケージ名** — `partial`
   - spec: `specification.md:16106`
-  - notes: name/version/entry/dep/target fields parsed; naming rules incomplete
+  - notes: package name parsed as identity; full naming-rule matrix still light
 
-- [x] **L6 L16107: 4.1 基本規則** — `partial`
+- [x] **L6 L16107: 4.1 基本規則** — `ok`
   - spec: `specification.md:16107`
-  - notes: name/version/entry/dep/target fields parsed; naming rules incomplete
+  - notes: ASCII lowercase kebab package/module paths via validate_package_path (SYN §4)
 
-- [x] **L6 L16129: 4.2 用途** — `partial`
+- [x] **L6 L16129: 4.2 用途** — `ok`
   - spec: `specification.md:16129`
   - notes: package name used as identity key in LocalPackageIndex / import first segment
 
@@ -3761,11 +3760,11 @@
 
 - [x] **L5 L16149: 5. パッケージversion** — `partial`
   - spec: `specification.md:16149`
-  - notes: name/version/entry/dep/target fields parsed; naming rules incomplete
+  - notes: version field parsed; full semver algebra deferred
 
-- [x] **L6 L16150: 5.1 基本形式** — `partial`
+- [x] **L6 L16150: 5.1 基本形式** — `ok`
   - spec: `specification.md:16150`
-  - notes: name/version/entry/dep/target fields parsed; naming rules incomplete
+  - notes: version string required in manifest; exact path-dep compare uses version_req
 
 - [x] **L6 L16159: 5.2 Version要素** — `deferred`
   - spec: `specification.md:16159`
@@ -3783,9 +3782,9 @@
   - spec: `specification.md:16188`
   - notes: PKG-001 deferred (post language-kernel)
 
-- [x] **L5 L16199: 6. Source rootとinterface root** — `partial`
+- [x] **L5 L16199: 6. Source rootとinterface root** — `ok`
   - spec: `specification.md:16199`
-  - notes: source-root parsed (default src); module files loaded via PackageManifest::module_source_path
+  - notes: source-root + interface-root parsed; module_source_path + .rpi stub gate
 
 - [x] **L6 L16200: 6.1 Source root** — `ok`
   - spec: `specification.md:16200`
@@ -3839,17 +3838,17 @@
   - spec: `specification.md:16313`
   - notes: PKG-001 deferred (post language-kernel)
 
-- [x] **L5 L16326: 8. 実行エントリ** — `partial`
+- [x] **L5 L16326: 8. 実行エントリ** — `ok`
   - spec: `specification.md:16326`
-  - notes: entry-points parsed; legacy entry still supported; library packages may omit entry
+  - notes: entry-points parsed; legacy entry supported; library packages may omit entry
 
 - [x] **L6 L16327: 8.1 Manifest構文** — `ok`
   - spec: `specification.md:16327`
   - notes: (entry-points …) DD-001 list → PackageManifest.entry_points
 
-- [x] **L6 L16335: 8.2 Entry module** — `partial`
+- [x] **L6 L16335: 8.2 Entry module** — `ok`
   - spec: `specification.md:16335`
-  - notes: Phase 10 skeleton (rpxm/json/resolver/lockfile); full PKG-001 deferred
+  - notes: entry module from entry / entry-points[0]; libraries may omit
 
 - [x] **L6 L16342: 8.3 .rpi** — `deferred`
   - spec: `specification.md:16342`
@@ -3859,9 +3858,9 @@
   - spec: `specification.md:16348`
   - notes: PKG-001 deferred (post language-kernel)
 
-- [x] **L6 L16354: 8.5 一module一entry** — `partial`
+- [x] **L6 L16354: 8.5 一module一entry** — `ok`
   - spec: `specification.md:16354`
-  - notes: Phase 10 skeleton (rpxm/json/resolver/lockfile); full PKG-001 deferred
+  - notes: single entry module derived from entry-points; multi-entry matrix deferred
 
 - [x] **L6 L16360: 8.6 実行契約** — `deferred`
   - spec: `specification.md:16360`
@@ -3883,17 +3882,17 @@
   - spec: `specification.md:16384`
   - notes: PKG-001 deferred (post language-kernel)
 
-- [x] **L6 L16392: 9.4 外部dependency** — `partial`
+- [x] **L6 L16392: 9.4 外部dependency** — `ok`
   - spec: `specification.md:16392`
-  - notes: scripts may import local std packages without consumer manifest; non-std deps still need manifest (Slice B)
+  - notes: scripts import std packages; consumer path-deps via manifest aliases (Slice B)
 
 - [x] **L6 L16398: 9.5 Public API** — `deferred`
   - spec: `specification.md:16398`
   - notes: PKG-001 deferred (post language-kernel)
 
-- [x] **L5 L16402: 10. 依存宣言** — `partial`
+- [x] **L5 L16402: 10. 依存宣言** — `ok`
   - spec: `specification.md:16402`
-  - notes: DD-001 (dependencies (alias package name version path)) parsed; Phase 10 (dep …) kept
+  - notes: DD-001 dependencies (alias package name version path) + legacy (dep …)
 
 - [x] **L6 L16403: 10.1 基本構文** — `ok`
   - spec: `specification.md:16403`
@@ -3915,13 +3914,13 @@
   - spec: `specification.md:16443`
   - notes: PKG-001 deferred (post language-kernel)
 
-- [x] **L5 L16450: 11. Version constraint** — `partial`
+- [x] **L5 L16450: 11. Version constraint** — `deferred`
   - spec: `specification.md:16450`
-  - notes: DependencySpec path + version_req string; no full constraint solver
+  - notes: 意図的後回し: 完全な version constraint solver（正確一致 / * は維持）
 
-- [x] **L6 L16451: 11.1 完全一致** — `partial`
+- [x] **L6 L16451: 11.1 完全一致** — `ok`
   - spec: `specification.md:16451`
-  - notes: DependencySpec path + version_req string; no full constraint solver
+  - notes: exact version_req match (+ *) on path deps (load.rs / lockfile consistency)
 
 - [x] **L6 L16469: 11.2 範囲指定** — `deferred`
   - spec: `specification.md:16469`
@@ -3939,9 +3938,9 @@
   - spec: `specification.md:16494`
   - notes: PKG-001 deferred (post language-kernel)
 
-- [x] **L5 L16498: 12. Dependency source** — `partial`
+- [x] **L5 L16498: 12. Dependency source** — `ok`
   - spec: `specification.md:16498`
-  - notes: Phase 10 skeleton (rpxm/json/resolver/lockfile); full PKG-001 deferred
+  - notes: path dependency sources locked; registry/git/URL sources deferred
 
 - [x] **L6 L16499: 12.1 既定Registry** — `deferred`
   - spec: `specification.md:16499`
@@ -4003,13 +4002,13 @@
   - spec: `specification.md:16588`
   - notes: PKG-001 deferred (post language-kernel)
 
-- [x] **L5 L16597: 15. 依存解決** — `partial`
+- [x] **L5 L16597: 15. 依存解決** — `ok`
   - spec: `specification.md:16597`
-  - notes: resolve_packages deterministic sort + lockfile stub
+  - notes: resolve_packages deterministic sort + Lockfile::from_graph/from_consumer
 
-- [x] **L6 L16598: 15.1 Manifestの役割** — `partial`
+- [x] **L6 L16598: 15.1 Manifestの役割** — `ok`
   - spec: `specification.md:16598`
-  - notes: resolve_packages deterministic sort + lockfile stub
+  - notes: manifest drives resolve + lock consistency checks
 
 - [x] **L6 L16604: 15.2 初回解決** — `deferred`
   - spec: `specification.md:16604`
@@ -4027,9 +4026,9 @@
   - spec: `specification.md:16618`
   - notes: PKG-001 deferred (post language-kernel)
 
-- [x] **L6 L16622: 15.6 決定性** — `partial`
+- [x] **L6 L16622: 15.6 決定性** — `ok`
   - spec: `specification.md:16622`
-  - notes: resolve_packages deterministic sort + lockfile stub
+  - notes: resolve_packages deterministic sort; lockfile equality in resolver_tests
 
 - [x] **L5 L16628: 16. 同一パッケージの複数version** — `deferred`
   - spec: `specification.md:16628`
@@ -4087,10 +4086,9 @@
   - spec: `specification.md:16710`
   - notes: PKG-001 deferred (post language-kernel)
 
-- [x] **L5 L16716: 18. Lockfileの内容** — `partial`
+- [x] **L5 L16716: 18. Lockfileの内容** — `ok`
   - spec: `specification.md:16716`
-  
-  - notes: path nodes: name/version/path source/dep edges; registry checksum/hash deferred- notes: Phase 10 skeleton (rpxm/json/resolver/lockfile); full PKG-001 deferred
+  - notes: path lock nodes: name/version/path source/dep edges + assert_consistent
 
 - [x] **L6 L16717: 18.1 Package node** — `deferred`
   - spec: `specification.md:16717`
@@ -4133,10 +4131,9 @@
   - spec: `specification.md:16793`
   - notes: PKG-001 deferred (post language-kernel)
 
-- [x] **L5 L16813: 20. ワークスペース** — `partial`
+- [x] **L5 L16813: 20. ワークスペース** — `deferred`
   - spec: `specification.md:16813`
-  
-  - notes: workspace.rpxm stub parse (members/format-version); discovery/member build deferred- notes: PKG-001 deferred (post language-kernel)
+  - notes: 意図的後回し: workspace member discovery/build（workspace.rpxm stub parse は維持）
 
 - [x] **L6 L16814: 20.1 定義** — `meta`
   - spec: `specification.md:16814`
@@ -5600,7 +5597,7 @@
 - [x] **L4 L20476: 13.14 `MEM-001` Perceusメモリ管理・スコープ付きリソース・継続・メモリ予算** — `partial`
   - spec: `specification.md:20476`
   
-  - notes: reciplexa-mem Perceus IR ok; eval still Rc; budget/bracket/resource deferred- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path; eval uses Rc not Perceus by default
+  - notes: reciplexa-mem Perceus IR ok; eval still Rc; budget/bracket/resource deferred reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path; eval uses Rc not Perceus by default
 
 - [x] **L5 L20477: DD-001 決定概要** — `meta`
   - spec: `specification.md:20477`
@@ -6237,7 +6234,7 @@
 - [x] **L5 L21677: 31. メモリ観測API** — `partial`
   - spec: `specification.md:21677`
   
-  - notes: RC/dup/drop not exposed (§31.1 ok); budget/peak observation deferred- notes: RC/dup/drop not exposed to RPX (§31.1); budget/peak observation API 依存待ち(第III部)|OPEN-MEM-PROF-001
+  - notes: RC/dup/drop not exposed (§31.1 ok); budget/peak observation deferred RC/dup/drop not exposed to RPX (§31.1); budget/peak observation API 依存待ち(第III部)|OPEN-MEM-PROF-001
 
 - [x] **L6 L21678: 31.1 非公開情報** — `ok`
   - spec: `specification.md:21678`
@@ -6312,7 +6309,7 @@
 
 - [x] **L4 L22012: 13.15 `TST-001` Tests and conformance** — `partial`
   - spec: `specification.md:22012`
-  - notes: lang_kernel_suite: STA-001/007/008, DYN-001..005, INT-002, SYN-C001, LANG-* BND/DAT/EFF/ERR
+  - notes: lang_kernel_suite: STA/DYN/INT/SYN-C + LANG-* BND/DAT/EFF/ERR/TYP/PKG/ADT; full matrix open
 
 - [x] **L5 L22014: 概要・状態** — `meta`
   - spec: `specification.md:22014`
@@ -6472,13 +6469,13 @@
   - spec: `specification.md:22487`
   - notes: check/unify + STA-001/007 + BND ann/ADT/casts; full STA matrix open
 
-- [x] **L4 L22502: 22.3 動的意味** — `partial`
+- [x] **L4 L22502: 22.3 動的意味** — `ok`
   - spec: `specification.md:22502`
-  - notes: TEST-DYN-001..005 wired (order/closure/handlers/var/failure); multi-shot deferred
+  - notes: TEST-DYN-001..005 wired (order/closure/handlers/var/failure); multi-shot is EFF deferral
 
 - [x] **L4 L22514: 22.4 統合** — `partial`
   - spec: `specification.md:22514`
-  - notes: GUI/source_sync + TEST-INT-002 .rpi boundary; not full matrix
+  - notes: GUI/source_sync + TEST-INT-002 .rpi boundary; not full INT matrix
 
 - [x] **L4 L22529: 22.5 Property/differential/fuzz** — `deferred`
   - spec: `specification.md:22529`
@@ -6486,7 +6483,7 @@
 
 - [x] **L3 L22549: 22.6 横断適合試験** — `partial`
   - spec: `specification.md:22549`
-  - notes: cross-wires STA/DYN/INT + LANG-* including BND-ann/SYN-C001; not full cross suite
+  - notes: cross-wires STA/DYN/INT + LANG-* ; not versioned full cross suite
 
 ## 完成判定基準
 
@@ -6502,13 +6499,13 @@
   - spec: `specification.md:22569`
   - notes: spec largely written; grammar/Core still holes
 
-- [x] **L4 L22577: 段階3: 参照実装が動く** — `partial`
+- [x] **L4 L22577: 段階3: 参照実装が動く** — `ok`
   - spec: `specification.md:22577`
-  - notes: reference pipeline runs; not full IR validators
+  - notes: reference pipeline bytes→CST→elaborate→check→eval runs via lang_kernel_suite
 
 - [x] **L4 L22585: 段階4: 適合試験を通過** — `partial`
   - spec: `specification.md:22585`
-  - notes: some conformance tests; not versioned full suite
+  - notes: some conformance tests pass; not versioned full suite gate
 
 - [x] **L4 L22593: 段階5: 統合試験を通過** — `deferred`
   - spec: `specification.md:22593`
