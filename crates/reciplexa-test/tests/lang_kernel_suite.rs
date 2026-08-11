@@ -941,3 +941,199 @@ fn lang_pkg_rpi_export_boundary() {
         let _ = std::fs::remove_dir_all(&dir);
     });
 }
+
+#[test]
+fn lang_dat_adt_01_parameterized_option() {
+    // Spec DAT §21.9 ADT-01 (parameterized option + type alias).
+    let case = ConformanceCase::new(
+        "TEST-LANG-ADT-01",
+        "DAT-001",
+        "ADT-01 parameterized option elaborates",
+    );
+    run_conformance(&case, || {
+        let src = r#"
+(data option
+  ((a type))
+  none
+  (some a))
+(type value (option int))
+(val value (some 42))
+(val main value)
+"#;
+        let ty = typecheck_language_source(src).unwrap();
+        match ty {
+            CoreType::Variant { variants } => {
+                assert!(variants.iter().any(|(t, _)| t == "none"));
+                assert!(variants.iter().any(|(t, p)| {
+                    t == "some" && matches!(p, Some(CoreType::Int))
+                }));
+            }
+            other => panic!("expected option-shaped Variant, got {other:?}"),
+        }
+        let v = eval_source(src).unwrap();
+        assert!(matches!(v, RuntimeValue::Variant { tag, .. } if tag == "some"));
+    });
+}
+
+#[test]
+fn lang_dat_adt_02_exhaustive_match() {
+    // Spec DAT §21.10 ADT-02.
+    let case = ConformanceCase::new(
+        "TEST-LANG-ADT-02",
+        "DAT-001",
+        "ADT-02 exhaustive option match → int",
+    );
+    run_conformance(&case, || {
+        let src = r#"
+(data option (none) (some x))
+(val value (some 42))
+(val main
+  (match value
+    (some item -> item)
+    (none -> 0)))
+"#;
+        assert_eq!(typecheck_language_source(src).unwrap(), CoreType::Int);
+        assert_eq!(eval_source(src).unwrap(), RuntimeValue::Int(42));
+    });
+}
+
+#[test]
+fn lang_dat_adt_03_non_exhaustive() {
+    // Spec DAT §21.11 ADT-03.
+    let case = ConformanceCase::new(
+        "TEST-LANG-ADT-03",
+        "DAT-001",
+        "ADT-03 non-exhaustive match static error",
+    );
+    run_conformance(&case, || {
+        let src = r#"
+(data option (none) (some x))
+(val value (some 42))
+(val main (match value (some item -> item)))
+"#;
+        let err = elaborate_source(src).unwrap_err();
+        assert!(err.message.contains("non-exhaustive"), "{}", err.message);
+        assert!(err.message.contains("none"), "{}", err.message);
+    });
+}
+
+#[test]
+fn lang_dat_adt_04_unreachable() {
+    // Spec DAT §21.12 ADT-04.
+    let case = ConformanceCase::new(
+        "TEST-LANG-ADT-04",
+        "DAT-001",
+        "ADT-04 unreachable arm after wildcard",
+    );
+    run_conformance(&case, || {
+        let src = r#"
+(data option (none) (some x))
+(val value (some 42))
+(val main
+  (match value
+    (_ -> 0)
+    (some item -> item)))
+"#;
+        let err = elaborate_source(src).unwrap_err();
+        assert!(err.message.contains("unreachable"), "{}", err.message);
+    });
+}
+
+#[test]
+fn lang_dat_adt_05_strictly_positive_tree() {
+    // Spec DAT §21.13 ADT-05.
+    let case = ConformanceCase::new(
+        "TEST-LANG-ADT-05",
+        "DAT-001",
+        "ADT-05 recursive tree is strictly positive",
+    );
+    run_conformance(&case, || {
+        let src = r#"
+(data tree
+  ((a type))
+  empty
+  (node a (tree a) (tree a)))
+(val main empty)
+"#;
+        let (_, data) = elaborate_with_data(src).unwrap();
+        assert!(data.data_ctors.contains_key("tree"));
+        assert_eq!(
+            data.type_variances.get("tree").and_then(|v| v.get("a")),
+            Some(&Variance::Covariant)
+        );
+    });
+}
+
+#[test]
+fn lang_dat_adt_06_negative_recursion() {
+    // Spec DAT §21.14 ADT-06.
+    let case = ConformanceCase::new(
+        "TEST-LANG-ADT-06",
+        "DAT-001",
+        "ADT-06 negative recursion rejected",
+    );
+    run_conformance(&case, || {
+        let err = elaborate_source(
+            r#"
+(data bad
+  (bad (fn bad unit)))
+(val main unit)
+"#,
+        )
+        .unwrap_err();
+        assert!(
+            err.message.contains("positivity") || err.message.contains("negative"),
+            "{}",
+            err.message
+        );
+    });
+}
+
+#[test]
+fn lang_dat_adt_09_record_pattern() {
+    // Spec DAT §21.17 ADT-09.
+    let case = ConformanceCase::new(
+        "TEST-LANG-ADT-09",
+        "DAT-001",
+        "ADT-09 required record field pattern",
+    );
+    run_conformance(&case, || {
+        let src = r#"
+(val main
+  (match (record (title "ok") (page-count 1))
+    (record (title title) -> title)))
+"#;
+        assert_eq!(typecheck_language_source(src).unwrap(), CoreType::String);
+        assert_eq!(
+            eval_source(src).unwrap(),
+            RuntimeValue::String("ok".into())
+        );
+    });
+}
+
+#[test]
+fn lang_dat_adt_10_optional_pattern_rejected() {
+    // Spec DAT §21.18 ADT-10.
+    let case = ConformanceCase::new(
+        "TEST-LANG-ADT-10",
+        "DAT-001",
+        "ADT-10 optional field record pattern rejected",
+    );
+    run_conformance(&case, || {
+        let err = elaborate_source(
+            r#"
+(val main
+  (match (record (title "t"))
+    (record (optional subtitle x) -> x)
+    (_ -> unit)))
+"#,
+        )
+        .unwrap_err();
+        assert!(
+            err.message.contains("optional")
+                && (err.message.contains("18.5") || err.message.contains("decompos")),
+            "{}",
+            err.message
+        );
+    });
+}
