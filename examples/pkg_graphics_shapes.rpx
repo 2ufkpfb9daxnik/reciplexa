@@ -1,0 +1,24 @@
+(// Full static graphics package surface: shapes + transforms + text/image.
+(// Interim GUI `(page …)(circle …)` remains; package constructors are data records.)
+(import graphics/shapes only
+  circle rect ellipse line path polyline polygon ring frame group
+  text text-box image translate rotate scale opacity
+  fill stroke paint)
+(import graphics/page only a4 letter page page-size)
+(import graphics/color only black red blue rgba transparent)
+(val main
+  (page a4
+    (group
+      (list
+        (fill (circle 40 40 20) black)
+        (stroke (rect 80 20 50 30) 1.5 red)
+        (opacity 0.5 (fill (ellipse 160 40 25 15) blue))
+        (translate 20 80 (text 0 0 12 "hello"))
+        (rotate 15 (text-box 100 90 10 60 20 "boxed"))
+        (scale 1.2 1.2 (image "figures/demo.png" 20 140 40 30))
+        (paint (line 10 200 100 220) transparent 2 red)
+        (fill (polygon (list 120 200 150 200 135 230)) red)
+        (stroke (polyline (list 160 200 180 220 200 200)) 1 black)
+        (ring 50 250 18 3)
+        (frame 90 235 40 30 2 blue)
+        (path (list 10 280 40 290 70 280) false)))))

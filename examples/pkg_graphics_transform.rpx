@@ -1,0 +1,15 @@
+(// Package transforms/opacity over interim-compatible shape tags.)
+(import graphics/shapes only circle text image translate rotate scale opacity fill)
+(import graphics/page only letter page)
+(import graphics/color only gray)
+(val main
+  (page letter
+    (opacity 0.8
+      (translate 30 40
+        (rotate -10
+          (scale 0.9 0.9
+            (group
+              (list
+                (fill (circle 0 0 25) gray)
+                (text 30 -5 14 "graphic")
+                (image "figures/demo.png" 0 40 50 40)))))))))
