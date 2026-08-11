@@ -466,7 +466,7 @@ pub fn unify(a: &CoreType, b: &CoreType, subst: &mut Subst) -> Result<(), UnifyE
 #[cfg(test)]
 mod coverage_helpers {
     use super::*;
-    use crate::ty::CoreType;
+    use crate::ty::{CoreType, EffectRow};
 
     #[test]
     fn occurs_and_enforce_lacks_matrix() {
@@ -611,5 +611,171 @@ mod coverage_helpers {
             &mut Subst::new()
         )
         .is_ok());
+        // Singleton domain unify + lacks both orientations + open/open exclusive
+        let sing = CoreType::Singleton(crate::ty::SingletonValue::Int(7));
+        assert!(unify(&sing, &sing, &mut Subst::new()).is_ok());
+        assert!(unify(&sing, &CoreType::Int, &mut Subst::new()).is_ok());
+        assert!(unify(&CoreType::Int, &sing, &mut Subst::new()).is_ok());
+        assert!(unify(
+            &CoreType::Singleton(crate::ty::SingletonValue::Bool(true)),
+            &CoreType::Bool,
+            &mut Subst::new()
+        )
+        .is_ok());
+        assert!(unify(
+            &CoreType::Singleton(crate::ty::SingletonValue::Int(1)),
+            &CoreType::Singleton(crate::ty::SingletonValue::Int(2)),
+            &mut Subst::new()
+        )
+        .is_err());
+
+        let lacks_a = CoreType::Lacks {
+            label: "a".into(),
+            row: Box::new(CoreType::Record {
+                fields: vec![("b".into(), CoreType::Int)],
+            }),
+        };
+        let lacks_a2 = CoreType::Lacks {
+            label: "a".into(),
+            row: Box::new(CoreType::Record {
+                fields: vec![("b".into(), CoreType::Int)],
+            }),
+        };
+        assert!(unify(&lacks_a, &lacks_a2, &mut Subst::new()).is_ok());
+        let lacks_b = CoreType::Lacks {
+            label: "b".into(),
+            row: Box::new(CoreType::Record { fields: vec![] }),
+        };
+        assert!(unify(&lacks_a, &lacks_b, &mut Subst::new()).is_err());
+        assert!(unify(
+            &lacks_a,
+            &CoreType::Record {
+                fields: vec![("b".into(), CoreType::Int)],
+            },
+            &mut Subst::new()
+        )
+        .is_ok());
+        assert!(unify(
+            &CoreType::Record {
+                fields: vec![("b".into(), CoreType::Int)],
+            },
+            &lacks_a,
+            &mut Subst::new()
+        )
+        .is_ok());
+        // Present forbidden label
+        assert!(unify(
+            &CoreType::Lacks {
+                label: "a".into(),
+                row: Box::new(CoreType::Unit),
+            },
+            &CoreType::Record {
+                fields: vec![("a".into(), CoreType::Int)],
+            },
+            &mut Subst::new()
+        )
+        .is_err());
+
+        let mut subst = Subst::new();
+        let open_share = CoreType::OpenRecord {
+            fields: vec![
+                ("a".into(), CoreType::Int),
+                ("extra".into(), CoreType::Bool),
+            ],
+            row: Box::new(CoreType::Var(subst.fresh_var())),
+        };
+        let open_share2 = CoreType::OpenRecord {
+            fields: vec![("a".into(), CoreType::Int)],
+            row: Box::new(CoreType::Unit),
+        };
+        // Shared label + one exclusive into a closed Unit tail (no infinite open/open cycle).
+        let _ = unify(&open_share, &open_share2, &mut subst);
+
+        let mut subst = Subst::new();
+        let closed = CoreType::Record {
+            fields: vec![
+                ("a".into(), CoreType::Int),
+                ("b".into(), CoreType::String),
+            ],
+        };
+        let open = CoreType::OpenRecord {
+            fields: vec![("a".into(), CoreType::Int)],
+            row: Box::new(CoreType::Var(subst.fresh_var())),
+        };
+        assert!(unify(&open, &closed, &mut subst).is_ok());
+        assert!(unify(&closed, &open, &mut Subst::new()).is_ok());
+
+        // Fun effect row mismatch + Color/Shape primitives
+        assert!(unify(&CoreType::Color, &CoreType::Color, &mut Subst::new()).is_ok());
+        assert!(unify(&CoreType::Shape, &CoreType::Shape, &mut Subst::new()).is_ok());
+        assert!(unify(
+            &CoreType::Fun {
+                args: vec![CoreType::Int],
+                ret: Box::new(CoreType::Int),
+                effects: EffectRow::default().with_op("ask"),
+            },
+            &CoreType::Fun {
+                args: vec![CoreType::Int],
+                ret: Box::new(CoreType::Int),
+                effects: EffectRow::default().with_op("log"),
+            },
+            &mut Subst::new()
+        )
+        .is_err());
+        assert!(unify(
+            &CoreType::Fun {
+                args: vec![CoreType::Int],
+                ret: Box::new(CoreType::Int),
+                effects: EffectRow::default(),
+            },
+            &CoreType::Fun {
+                args: vec![CoreType::Int, CoreType::Int],
+                ret: Box::new(CoreType::Int),
+                effects: EffectRow::default(),
+            },
+            &mut Subst::new()
+        )
+        .is_err());
+        // Variant length / tag mismatch
+        assert!(unify(
+            &CoreType::Variant {
+                variants: vec![("a".into(), None)],
+            },
+            &CoreType::Variant {
+                variants: vec![("a".into(), None), ("b".into(), None)],
+            },
+            &mut Subst::new()
+        )
+        .is_err());
+        assert!(unify(
+            &CoreType::Variant {
+                variants: vec![("a".into(), None)],
+            },
+            &CoreType::Variant {
+                variants: vec![("b".into(), None)],
+            },
+            &mut Subst::new()
+        )
+        .is_err());
+        assert!(unify(
+            &CoreType::Variant {
+                variants: vec![("a".into(), Some(CoreType::Int))],
+            },
+            &CoreType::Variant {
+                variants: vec![("a".into(), Some(CoreType::String))],
+            },
+            &mut Subst::new()
+        )
+        .is_err());
+        assert!(unify(
+            &CoreType::Variant {
+                variants: vec![("a".into(), Some(CoreType::Int))],
+            },
+            &CoreType::Variant {
+                variants: vec![("a".into(), None)],
+            },
+            &mut Subst::new()
+        )
+        .is_err());
     }
 }

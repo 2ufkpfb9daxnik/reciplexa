@@ -1019,5 +1019,83 @@ mod tests {
         let _ = plan_structural_check(&CoreType::Variant {
             variants: vec![("none".into(), None)],
         });
+        // Broader residual for structural / decidable / tags / normalize clashes
+        for dst in [
+            CoreType::Never,
+            CoreType::Union(vec![CoreType::Int, CoreType::String]),
+            CoreType::Intersect(vec![CoreType::Int, CoreType::Number]),
+            CoreType::Fun {
+                args: vec![CoreType::Int, CoreType::String],
+                ret: Box::new(CoreType::Bool),
+                effects: EffectRow::default(),
+            },
+            CoreType::App {
+                ctor: "box".into(),
+                args: vec![CoreType::Int],
+            },
+            CoreType::F64,
+            CoreType::Number,
+            CoreType::String,
+            CoreType::Bool,
+            CoreType::Unit,
+            CoreType::Bytes,
+            CoreType::Any,
+            CoreType::Singleton(crate::ty::SingletonValue::Int(1)),
+            CoreType::Singleton(crate::ty::SingletonValue::Bool(true)),
+            CoreType::Singleton(crate::ty::SingletonValue::String("x".into())),
+            CoreType::Singleton(crate::ty::SingletonValue::Unit),
+            CoreType::dyn_any(),
+            CoreType::Diff(Box::new(CoreType::Number), Box::new(CoreType::Int)),
+            CoreType::Not(Box::new(CoreType::String)),
+            CoreType::OptionalField(Box::new(CoreType::Int)),
+            CoreType::Color,
+            CoreType::Shape,
+            CoreType::OpenRecord {
+                fields: vec![],
+                row: Box::new(CoreType::Unit),
+            },
+            CoreType::Name("t".into()),
+            CoreType::Forall {
+                params: vec![("a".into(), "type".into())],
+                body: Box::new(CoreType::Name("a".into())),
+            },
+            CoreType::Lacks {
+                label: "a".into(),
+                row: Box::new(CoreType::Unit),
+            },
+            CoreType::Error,
+        ] {
+            let _ = plan_structural_check(&dst);
+            let _ = is_fully_decidable_fragment(&dst);
+            let _ = type_tag_name(&dst);
+            let _ = is_runtime_checkable(&dst);
+            let _ = plan_cast_evidence(&CoreType::dyn_any(), &dst);
+            let _ = plan_cast_evidence(&dst, &CoreType::dyn_any());
+            let _ = decide_subtype(&dst, &CoreType::Any);
+            let _ = types_disjoint(&dst, &CoreType::Never);
+        }
+        // normalize_intersect clash → Never
+        let _ = normalize_intersect(vec![CoreType::Int, CoreType::String]);
+        let _ = normalize_intersect(vec![CoreType::Int, CoreType::F64]);
+        let _ = normalize_intersect(vec![
+            CoreType::Intersect(vec![CoreType::Int]),
+            CoreType::Never,
+        ]);
+        let _ = normalize_intersect(vec![]);
+        let _ = normalize_union(vec![]);
+        let _ = normalize_union(vec![CoreType::Union(vec![CoreType::Int]), CoreType::Any]);
+        let _ = types_disjoint_bases(&CoreType::Bool, &CoreType::Unit);
+        let _ = types_disjoint_bases(&CoreType::Color, &CoreType::Shape);
+        let _ = types_disjoint_bases(&CoreType::Int, &CoreType::Int);
+        let _ = types_disjoint_bases(&CoreType::String, &CoreType::Number);
+        // Compose / simplify residual nests
+        let _ = simplify_evidence(CastEvidence::Compose(vec![
+            CastEvidence::Compose(vec![CastEvidence::Identity, CastEvidence::Widen]),
+            CastEvidence::Identity,
+            CastEvidence::TagCheck { tag: "int".into() },
+            CastEvidence::Widen,
+        ]));
+        let _ = compose_evidence(vec![]);
+        let _ = compose_evidence(vec![CastEvidence::Identity]);
     }
 }
