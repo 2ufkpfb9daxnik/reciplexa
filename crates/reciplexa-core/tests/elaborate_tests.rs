@@ -791,7 +791,7 @@ fn intersect_not_diff_type_syntax_parses() {
     let mut s = Subst::new();
     assert!(unify(
         data.type_aliases.get("narrow").unwrap(),
-        &CoreType::Dynamic,
+        &CoreType::dyn_any(),
         &mut s
     )
     .is_ok());
@@ -818,7 +818,7 @@ fn registers_surface_type_aliases_and_dynamic() {
     ));
     assert!(matches!(
         data.type_aliases.get("any-val"),
-        Some(CoreType::Dynamic)
+        Some(CoreType::Dynamic(b)) if matches!(b.as_ref(), CoreType::Any)
     ));
     let CoreExpr::Let { value, .. } = expr else {
         panic!("expected Let");

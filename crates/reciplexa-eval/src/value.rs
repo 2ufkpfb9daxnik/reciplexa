@@ -77,6 +77,10 @@ pub enum BuiltinOp {
     IsSome,
     /// SYN §8.4 `(unicode codepoint)` — one Number arg → one-char String.
     Unicode,
+    /// SYN §11 `(encode-utf8 text)` — str → bytes.
+    EncodeUtf8,
+    /// SYN §11 `(decode-utf8 data)` — bytes → result variant.
+    DecodeUtf8,
 }
 
 impl fmt::Debug for RuntimeValue {
@@ -202,14 +206,14 @@ impl RuntimeValue {
             Self::ShapeTag(_) => CoreType::Shape,
             Self::Cell { value, .. } => value.borrow().ty(),
             Self::OneShotResume { .. } => CoreType::Fun {
-                args: vec![CoreType::Dynamic],
-                ret: Box::new(CoreType::Dynamic),
+                args: vec![CoreType::dyn_any()],
+                ret: Box::new(CoreType::dyn_any()),
                 effects: Default::default(),
             },
-            Self::Handler { .. } => CoreType::Dynamic,
+            Self::Handler { .. } => CoreType::dyn_any(),
             Self::Builtin(_) => CoreType::Fun {
                 args: vec![CoreType::Number, CoreType::Number],
-                ret: Box::new(CoreType::Dynamic),
+                ret: Box::new(CoreType::dyn_any()),
                 effects: Default::default(),
             },
             Self::Closure { params, .. } => CoreType::Fun {

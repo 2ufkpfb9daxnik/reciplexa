@@ -92,7 +92,7 @@ pub fn infer_with_effects(
             let (arg_ty, arg_effs) = infer_with_effects(arg, env, subst, range)?;
             match op.as_str() {
                 "random" => {
-                    if !matches!(arg_ty, CoreType::Unit | CoreType::Dynamic) {
+                    if !matches!(arg_ty, CoreType::Unit | CoreType::Dynamic(_)) {
                         return Err(CheckError::at(
                             "perform `random` takes unit (no payload)",
                             range,
@@ -102,7 +102,7 @@ pub fn infer_with_effects(
                 // ERR-001 Failure payload is an ordinary RPX value (any type).
                 "failure" => {}
                 "read-file" | "write-file" | "log" | "write-path" | "load-image" => {
-                    if !matches!(arg_ty, CoreType::String | CoreType::Dynamic) {
+                    if !matches!(arg_ty, CoreType::String | CoreType::Dynamic(_)) {
                         return Err(CheckError::at(
                             format!("perform `{op}` arg must be string"),
                             range,
@@ -112,7 +112,7 @@ pub fn infer_with_effects(
                 _ => {
                     if !matches!(
                         arg_ty,
-                        CoreType::String | CoreType::Dynamic | CoreType::Unit
+                        CoreType::String | CoreType::Dynamic(_) | CoreType::Unit
                     ) {
                         return Err(CheckError::at("perform arg must be string or unit", range));
                     }
@@ -132,7 +132,7 @@ pub fn infer_with_effects(
             })?;
             if !matches!(
                 resume_ty,
-                CoreType::Fun { .. } | CoreType::Var(_) | CoreType::Dynamic
+                CoreType::Fun { .. } | CoreType::Var(_) | CoreType::Dynamic(_)
             ) {
                 return Err(CheckError::at(
                     "`forward` expects a resume continuation",
@@ -156,7 +156,7 @@ pub fn infer_with_effects(
                     child.insert(
                         arg.clone(),
                         if failure_op {
-                            CoreType::Dynamic
+                            CoreType::dyn_any()
                         } else {
                             CoreType::String
                         },
@@ -218,7 +218,7 @@ pub fn infer_with_effects(
             }
             let (_hb_ty, hb_effs) = infer_with_effects(handler_body, &child, subst, range)?;
             // Handler values are Dynamic until a dedicated Handler type lands.
-            Ok((CoreType::Dynamic, hb_effs))
+            Ok((CoreType::dyn_any(), hb_effs))
         }
         CoreExpr::With { handler, body } => {
             let (_h_ty, h_effs) = infer_with_effects(handler, env, subst, range)?;
@@ -489,7 +489,7 @@ pub fn infer_with_effects(
                         } else if *arity == 0 {
                             (t.clone(), None)
                         } else {
-                            (t.clone(), Some(CoreType::Dynamic))
+                            (t.clone(), Some(CoreType::dyn_any()))
                         }
                     })
                     .collect()
@@ -561,17 +561,21 @@ pub fn infer_with_effects(
             let src = subst.apply(&src);
             crate::cast::plan_cast_evidence(&src, target)
                 .ok_or_else(|| CheckError::at("cast is statically impossible", range))?;
-            Ok((target.clone(), effs))
+            let bound = src.as_dyn_bound().cloned().unwrap_or(src);
+            let success = crate::cast::cast_success_type(&bound, target);
+            Ok((success, effs))
         }
         CoreExpr::TryCast { expr, target, .. } => {
             let (src, effs) = infer_with_effects(expr, env, subst, range)?;
             let src = subst.apply(&src);
             crate::cast::plan_cast_evidence(&src, target)
                 .ok_or_else(|| CheckError::at("`try-cast` is statically impossible", range))?;
+            let bound = src.as_dyn_bound().cloned().unwrap_or(src);
+            let success = crate::cast::cast_success_type(&bound, target);
             Ok((
                 CoreType::App {
                     ctor: "option".into(),
-                    args: vec![target.clone()],
+                    args: vec![success],
                 },
                 effs,
             ))
@@ -581,10 +585,12 @@ pub fn infer_with_effects(
             let src = subst.apply(&src);
             crate::cast::plan_cast_evidence(&src, target)
                 .ok_or_else(|| CheckError::at("`check-cast` is statically impossible", range))?;
+            let bound = src.as_dyn_bound().cloned().unwrap_or(src);
+            let success = crate::cast::cast_success_type(&bound, target);
             Ok((
                 CoreType::App {
                     ctor: "result".into(),
-                    args: vec![target.clone(), CoreType::String],
+                    args: vec![success, CoreType::String],
                 },
                 effs,
             ))
@@ -668,6 +674,27 @@ fn occurrence_envs(cond: &CoreExpr, env: &TypeEnv) -> (TypeEnv, TypeEnv) {
 fn refine_predicate(pred: &str, scr: &CoreType) -> Option<(CoreType, CoreType)> {
     let intersect = |t: CoreType| CoreType::Intersect(vec![scr.clone(), t]);
     let diff = |t: CoreType| CoreType::Diff(Box::new(scr.clone()), Box::new(t));
+    // DD-TYP-DYN-007: predicates on dynamic S refine then→intersect(S,T), else→dynamic(diff(S,T)).
+    if let CoreType::Dynamic(bound) = scr {
+        let static_pred = |t: CoreType| {
+            let then_ty = crate::cast::cast_success_type(bound, &t);
+            let else_bound = crate::cast::normalize_type(&CoreType::Diff(
+                Box::new(bound.as_ref().clone()),
+                Box::new(t),
+            ));
+            let else_ty = match else_bound {
+                CoreType::Never => CoreType::Never,
+                other => CoreType::dynamic_bound(other),
+            };
+            (then_ty, else_ty)
+        };
+        return match pred {
+            "number?" => Some(static_pred(CoreType::Number)),
+            "string?" => Some(static_pred(CoreType::String)),
+            "bool?" => Some(static_pred(CoreType::Bool)),
+            _ => None,
+        };
+    }
     match pred {
         "number?" => Some((intersect(CoreType::Number), diff(CoreType::Number))),
         "string?" => Some((intersect(CoreType::String), diff(CoreType::String))),
@@ -710,7 +737,7 @@ fn strip_variant_tag(scr: &CoreType, tag: &str) -> CoreType {
             let rest: Vec<_> = variants.iter().filter(|(t, _)| t != tag).cloned().collect();
             match rest.as_slice() {
                 [(t, Some(p))] if t == "some" => p.clone(),
-                [] => CoreType::Dynamic,
+                [] => CoreType::dyn_any(),
                 _ => CoreType::Variant { variants: rest },
             }
         }
@@ -735,14 +762,14 @@ fn keep_variant_tag(scr: &CoreType, tag: &str) -> CoreType {
             CoreType::Intersect(vec![
                 scr.clone(),
                 CoreType::Variant {
-                    variants: vec![(tag.into(), Some(CoreType::Dynamic))],
+                    variants: vec![(tag.into(), Some(CoreType::dyn_any()))],
                 },
             ])
         }
         other => CoreType::Intersect(vec![
             other.clone(),
             CoreType::Variant {
-                variants: vec![(tag.into(), Some(CoreType::Dynamic))],
+                variants: vec![(tag.into(), Some(CoreType::dyn_any()))],
             },
         ]),
     }
@@ -776,12 +803,12 @@ fn bind_pattern(pat: &CorePattern, scr_ty: &CoreType, env: &mut TypeEnv) {
                     if let Some((_, ty)) = fields.iter().find(|(k, _)| *k == key) {
                         bind_pattern(ep, ty, env);
                     } else {
-                        bind_pattern(ep, &CoreType::Dynamic, env);
+                        bind_pattern(ep, &CoreType::dyn_any(), env);
                     }
                 }
             } else {
                 for ep in elems {
-                    bind_pattern(ep, &CoreType::Dynamic, env);
+                    bind_pattern(ep, &CoreType::dyn_any(), env);
                 }
             }
         }
@@ -794,19 +821,19 @@ fn bind_pattern(pat: &CorePattern, scr_ty: &CoreType, env: &mut TypeEnv) {
                             // Bind Dynamic so typechecking can still proceed; the
                             // elaborator rejects explicit `(optional …)` patterns.
                             // Required-only patterns against optional fields stay Dynamic.
-                            bind_pattern(ep, &CoreType::Dynamic, env);
+                            bind_pattern(ep, &CoreType::dyn_any(), env);
                         } else {
                             bind_pattern(ep, ty, env);
                         }
                     } else {
                         // §18.6 unknown open-row fields: bind Dynamic interim.
-                        bind_pattern(ep, &CoreType::Dynamic, env);
+                        bind_pattern(ep, &CoreType::dyn_any(), env);
                     }
                 }
             }
             _ => {
                 for (_, ep) in pats {
-                    bind_pattern(ep, &CoreType::Dynamic, env);
+                    bind_pattern(ep, &CoreType::dyn_any(), env);
                 }
             }
         },
@@ -818,17 +845,17 @@ fn bind_pattern(pat: &CorePattern, scr_ty: &CoreType, env: &mut TypeEnv) {
                     } else if let (Some(inner), None) = (payload, p_ty) {
                         // Unknown payload type — bind as Dynamic when binder.
                         if let CorePattern::Bind(name) = inner.as_ref() {
-                            env.insert(name.clone(), CoreType::Dynamic);
+                            env.insert(name.clone(), CoreType::dyn_any());
                         } else {
-                            bind_pattern(inner, &CoreType::Dynamic, env);
+                            bind_pattern(inner, &CoreType::dyn_any(), env);
                         }
                     }
                 } else if let Some(inner) = payload {
                     // Tag not in scrutinee type; still bind Dynamic for nested binders.
-                    bind_pattern(inner, &CoreType::Dynamic, env);
+                    bind_pattern(inner, &CoreType::dyn_any(), env);
                 }
             } else if let Some(inner) = payload {
-                bind_pattern(inner, &CoreType::Dynamic, env);
+                bind_pattern(inner, &CoreType::dyn_any(), env);
             }
         }
     }
@@ -842,6 +869,7 @@ fn operand_numeric_class(ty: &CoreType) -> Option<NumericClass> {
         return Some(c);
     }
     match ty {
+        CoreType::Dynamic(bound) => operand_numeric_class(bound),
         CoreType::Intersect(members) if members.len() == 2 => {
             let [scr, constraint] = members.as_slice() else {
                 return None;
@@ -849,11 +877,12 @@ fn operand_numeric_class(ty: &CoreType) -> Option<NumericClass> {
             if matches!(constraint, CoreType::Number) {
                 return numeric_union_class(scr);
             }
+            // Prefer a concrete member if one is numeric.
+            members.iter().find_map(operand_numeric_class)
         }
-        CoreType::Union(_arms) => return numeric_union_class(ty),
-        _ => {}
+        CoreType::Union(_arms) => numeric_union_class(ty),
+        _ => None,
     }
-    None
 }
 
 fn numeric_union_class(ty: &CoreType) -> Option<NumericClass> {
@@ -903,7 +932,7 @@ fn try_infer_numeric_builtin(
     let b_ty = subst.apply(&b_ty);
     let a_class = match operand_numeric_class(&a_ty) {
         Some(c) => c,
-        None if matches!(a_ty, CoreType::Number | CoreType::Dynamic) => {
+        None if matches!(a_ty, CoreType::Number | CoreType::Dynamic(_)) => {
             return Some(Err(CheckError::at(
                 format!(
                     "numeric operand for `{op}` must be `int` or `f64`, not ambiguous `number`"
@@ -920,7 +949,7 @@ fn try_infer_numeric_builtin(
     };
     let b_class = match operand_numeric_class(&b_ty) {
         Some(c) => c,
-        None if matches!(b_ty, CoreType::Number | CoreType::Dynamic) => {
+        None if matches!(b_ty, CoreType::Number | CoreType::Dynamic(_)) => {
             return Some(Err(CheckError::at(
                 format!(
                     "numeric operand for `{op}` must be `int` or `f64`, not ambiguous `number`"
@@ -973,7 +1002,7 @@ pub fn typecheck_language_source(src: &str) -> Result<CoreType, CheckError> {
         effects: EffectRow::default(),
     };
     let eq2 = CoreType::Fun {
-        args: vec![CoreType::Dynamic, CoreType::Dynamic],
+        args: vec![CoreType::dyn_any(), CoreType::dyn_any()],
         ret: Box::new(CoreType::Bool),
         effects: EffectRow::default(),
     };
@@ -997,7 +1026,7 @@ pub fn typecheck_language_source(src: &str) -> Result<CoreType, CheckError> {
         env.insert(c, CoreType::Color);
     }
     let pred1 = CoreType::Fun {
-        args: vec![CoreType::Dynamic],
+        args: vec![CoreType::dyn_any()],
         ret: Box::new(CoreType::Bool),
         effects: EffectRow::default(),
     };
@@ -1018,6 +1047,201 @@ pub fn typecheck_language_source(src: &str) -> Result<CoreType, CheckError> {
             effects: EffectRow::default(),
         },
     );
+    env.insert(
+        "encode-utf8",
+        CoreType::Fun {
+            args: vec![CoreType::String],
+            ret: Box::new(CoreType::Bytes),
+            effects: EffectRow::default(),
+        },
+    );
+    env.insert(
+        "decode-utf8",
+        CoreType::Fun {
+            args: vec![CoreType::Bytes],
+            ret: Box::new(CoreType::dyn_any()),
+            effects: EffectRow::default(),
+        },
+    );
     let ty = infer_expr(&expr, &env, &mut subst, TextRange::EMPTY)?;
     Ok(subst.apply(&ty))
+}
+
+/// DD-TYP-DYN-005: coerce a value of `found` to static `needed`, inserting `Cast` when needed.
+pub fn coerce_to_static(
+    expr: CoreExpr,
+    found: &CoreType,
+    needed: &CoreType,
+    cast_id: u32,
+) -> Result<CoreExpr, CheckError> {
+    let found = found.clone();
+    let needed = needed.clone();
+    if crate::cast::is_subtype(&found, &needed) {
+        return Ok(expr);
+    }
+    if let CoreType::Dynamic(bound) = &found {
+        match crate::cast::judge_dynamic_use(bound, &needed) {
+            crate::cast::DynamicUseJudgment::FullyIncluded => Ok(expr),
+            crate::cast::DynamicUseJudgment::Disjoint => Err(CheckError::at(
+                format!(
+                    "dynamic bound is disjoint from required type (intersect ≃ never): {:?} vs {:?}",
+                    bound, needed
+                ),
+                TextRange::EMPTY,
+            )),
+            crate::cast::DynamicUseJudgment::PartialOverlap { evidence, .. } => {
+                Ok(CoreExpr::Cast {
+                    expr: Box::new(expr),
+                    evidence,
+                    target: needed,
+                    cast_id,
+                })
+            }
+        }
+    } else if crate::cast::types_disjoint(&found, &needed) {
+        Err(CheckError::at(
+            "cast is statically impossible (intersect ≃ never)",
+            TextRange::EMPTY,
+        ))
+    } else if let Some(evidence) = crate::cast::plan_cast_evidence(&found, &needed) {
+        if matches!(evidence, crate::cast::CastEvidence::Identity) {
+            Ok(expr)
+        } else {
+            Ok(CoreExpr::Cast {
+                expr: Box::new(expr),
+                evidence,
+                target: needed,
+                cast_id,
+            })
+        }
+    } else {
+        Err(CheckError::at(
+            "cast is statically impossible",
+            TextRange::EMPTY,
+        ))
+    }
+}
+
+fn next_implicit_cast_id() -> u32 {
+    use std::sync::atomic::{AtomicU32, Ordering};
+    static ID: AtomicU32 = AtomicU32::new(10_000);
+    ID.fetch_add(1, Ordering::Relaxed)
+}
+
+/// Rewrite Core, inserting implicit casts at application sites (DD-TYP-DYN-005).
+pub fn insert_implicit_casts(expr: &CoreExpr, env: &TypeEnv) -> Result<CoreExpr, CheckError> {
+    insert_casts_rec(expr, env, &mut Subst::new())
+}
+
+fn insert_casts_rec(
+    expr: &CoreExpr,
+    env: &TypeEnv,
+    subst: &mut Subst,
+) -> Result<CoreExpr, CheckError> {
+    match expr {
+        CoreExpr::App { fun, args } => {
+            let fun2 = insert_casts_rec(fun, env, subst)?;
+            let mut args2 = Vec::with_capacity(args.len());
+            for a in args {
+                args2.push(insert_casts_rec(a, env, subst)?);
+            }
+            let fun_ty = infer_expr(&fun2, env, subst, TextRange::EMPTY)?;
+            let fun_ty = subst.apply(&fun_ty);
+            if let CoreType::Fun {
+                args: param_tys, ..
+            } = fun_ty
+            {
+                if param_tys.len() == args2.len() {
+                    for (arg, pty) in args2.iter_mut().zip(param_tys.iter()) {
+                        let aty = infer_expr(arg, env, subst, TextRange::EMPTY)?;
+                        let aty = subst.apply(&aty);
+                        *arg = coerce_to_static(
+                            std::mem::replace(arg, CoreExpr::Lit(CoreLiteral::Unit)),
+                            &aty,
+                            pty,
+                            next_implicit_cast_id(),
+                        )?;
+                    }
+                }
+            }
+            Ok(CoreExpr::App {
+                fun: Box::new(fun2),
+                args: args2,
+            })
+        }
+        CoreExpr::Let { name, value, body } => {
+            let value = insert_casts_rec(value, env, subst)?;
+            let v_ty = infer_expr(&value, env, subst, TextRange::EMPTY)?;
+            let mut child = env.clone();
+            child.insert(name.clone(), v_ty);
+            let body = insert_casts_rec(body, &child, subst)?;
+            Ok(CoreExpr::Let {
+                name: name.clone(),
+                value: Box::new(value),
+                body: Box::new(body),
+            })
+        }
+        CoreExpr::If {
+            cond,
+            then_branch,
+            else_branch,
+        } => {
+            let cond = insert_casts_rec(cond, env, subst)?;
+            let (then_env, else_env) = occurrence_envs(&cond, env);
+            Ok(CoreExpr::If {
+                cond: Box::new(cond),
+                then_branch: Box::new(insert_casts_rec(then_branch, &then_env, subst)?),
+                else_branch: Box::new(insert_casts_rec(else_branch, &else_env, subst)?),
+            })
+        }
+        CoreExpr::Seq(items) => {
+            let mut out = Vec::with_capacity(items.len());
+            for item in items {
+                out.push(insert_casts_rec(item, env, subst)?);
+            }
+            Ok(CoreExpr::Seq(out))
+        }
+        CoreExpr::Lambda { params, body } => {
+            let mut child = env.clone();
+            for p in params {
+                if !is_wildcard_ident(p) {
+                    child.insert(p.clone(), CoreType::dyn_any());
+                }
+            }
+            Ok(CoreExpr::Lambda {
+                params: params.clone(),
+                body: Box::new(insert_casts_rec(body, &child, subst)?),
+            })
+        }
+        CoreExpr::Cast {
+            expr: inner,
+            evidence,
+            target,
+            cast_id,
+        } => Ok(CoreExpr::Cast {
+            expr: Box::new(insert_casts_rec(inner, env, subst)?),
+            evidence: evidence.clone(),
+            target: target.clone(),
+            cast_id: *cast_id,
+        }),
+        CoreExpr::TryCast {
+            expr: inner,
+            target,
+            cast_id,
+        } => Ok(CoreExpr::TryCast {
+            expr: Box::new(insert_casts_rec(inner, env, subst)?),
+            target: target.clone(),
+            cast_id: *cast_id,
+        }),
+        CoreExpr::CheckCast {
+            expr: inner,
+            target,
+            cast_id,
+        } => Ok(CoreExpr::CheckCast {
+            expr: Box::new(insert_casts_rec(inner, env, subst)?),
+            target: target.clone(),
+            cast_id: *cast_id,
+        }),
+        other => Ok(other.clone()),
+    }
 }

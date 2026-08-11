@@ -146,7 +146,7 @@ fn set_theoretic_types_unify_as_stub() {
         Box::new(CoreType::Union(vec![CoreType::Number, CoreType::String])),
         Box::new(CoreType::Number),
     );
-    assert!(unify(&a, &CoreType::Dynamic, &mut s).is_ok());
+    assert!(unify(&a, &CoreType::dyn_any(), &mut s).is_ok());
     assert!(unify(&b, &CoreType::String, &mut s).is_ok());
     assert!(unify(&c, &CoreType::String, &mut s).is_ok());
 }

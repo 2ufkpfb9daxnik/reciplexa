@@ -82,6 +82,7 @@ impl Subst {
                 CoreType::Diff(Box::new(self.apply(a)), Box::new(self.apply(b)))
             }
             CoreType::OptionalField(inner) => CoreType::OptionalField(Box::new(self.apply(inner))),
+            CoreType::Dynamic(inner) => CoreType::Dynamic(Box::new(self.apply(inner))),
             CoreType::App { ctor, args } => CoreType::App {
                 ctor: ctor.clone(),
                 args: args.iter().map(|a| self.apply(a)).collect(),
@@ -126,6 +127,7 @@ fn occurs(var: TypeVarId, ty: &CoreType) -> bool {
         CoreType::Not(inner) => occurs(var, inner),
         CoreType::Diff(a, b) => occurs(var, a) || occurs(var, b),
         CoreType::OptionalField(inner) => occurs(var, inner),
+        CoreType::Dynamic(inner) => occurs(var, inner),
         CoreType::App { args, .. } => args.iter().any(|a| occurs(var, a)),
         CoreType::Forall { body, .. } => occurs(var, body),
         _ => false,
@@ -167,7 +169,7 @@ fn enforce_lacks(label: &str, row: &CoreType, subst: &mut Subst) -> Result<(), U
         }
         CoreType::Var(_)
         | CoreType::Unit
-        | CoreType::Dynamic
+        | CoreType::Dynamic(_)
         | CoreType::Union(_)
         | CoreType::Intersect(_)
         | CoreType::Not(_)
@@ -231,8 +233,9 @@ pub fn unify(a: &CoreType, b: &CoreType, subst: &mut Subst) -> Result<(), UnifyE
             expected: b.clone(),
             found: a.clone(),
         }),
-        // Gradual stub: Dynamic is consistent with every type.
-        (CoreType::Dynamic, _) | (_, CoreType::Dynamic) => Ok(()),
+        // Gradual consistency: `dynamic S` is consistent with every type (≠ subtype).
+        // Disjointness is enforced at use sites via `judge_dynamic_use` (DD-TYP-DYN-005).
+        (CoreType::Dynamic(_), _) | (_, CoreType::Dynamic(_)) => Ok(()),
         // SYN §16.3 union stub: treat like Dynamic for v0.
         (CoreType::Union(_), _) | (_, CoreType::Union(_)) => Ok(()),
         // SYN §16.3 intersect/not/diff stubs until full semantic subtyping lands.

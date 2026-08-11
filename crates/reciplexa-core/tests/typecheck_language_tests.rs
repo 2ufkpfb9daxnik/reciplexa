@@ -12,8 +12,8 @@ fn identity_app_types_as_int() {
 fn dynamic_unifies_as_gradual_stub() {
     use reciplexa_core::unify::{unify, Subst};
     let mut s = Subst::new();
-    assert!(unify(&CoreType::Dynamic, &CoreType::Number, &mut s).is_ok());
-    assert!(unify(&CoreType::String, &CoreType::Dynamic, &mut s).is_ok());
+    assert!(unify(&CoreType::dyn_any(), &CoreType::Number, &mut s).is_ok());
+    assert!(unify(&CoreType::String, &CoreType::dyn_any(), &mut s).is_ok());
 }
 
 #[test]
@@ -129,7 +129,7 @@ fn occurrence_typing_is_some_string() {
     env.insert(
         "is-some",
         CoreType::Fun {
-            args: vec![CoreType::Dynamic],
+            args: vec![CoreType::dyn_any()],
             ret: Box::new(CoreType::Bool),
             effects: Default::default(),
         },
@@ -178,7 +178,7 @@ fn occurrence_typing_number_pred() {
     env.insert(
         "number?",
         CoreType::Fun {
-            args: vec![CoreType::Dynamic],
+            args: vec![CoreType::dyn_any()],
             ret: Box::new(CoreType::Bool),
             effects: Default::default(),
         },
@@ -229,7 +229,7 @@ fn occurrence_typing_is_none() {
     env.insert(
         "is-none",
         CoreType::Fun {
-            args: vec![CoreType::Dynamic],
+            args: vec![CoreType::dyn_any()],
             ret: Box::new(CoreType::Bool),
             effects: Default::default(),
         },

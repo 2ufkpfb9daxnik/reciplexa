@@ -770,6 +770,31 @@ fn eval_bytes_literal() {
 }
 
 #[test]
+fn eval_bytes_encode_decode_utf8() {
+    let encoded = eval_source("(val main (encode-utf8 \"hi\"))").unwrap();
+    assert_eq!(encoded, RuntimeValue::Bytes(vec![104, 105]));
+
+    let decoded = eval_source(r#"(val main (decode-utf8 (encode-utf8 "ok")))"#).unwrap();
+    assert!(matches!(
+        decoded,
+        RuntimeValue::Variant {
+            tag,
+            payload: Some(inner)
+        } if tag == "ok" && matches!(inner.as_ref(), RuntimeValue::String(s) if s == "ok")
+    ));
+
+    let bad = eval_source("(val main (decode-utf8 (bytes 0xff)))").unwrap();
+    assert!(matches!(
+        bad,
+        RuntimeValue::Variant {
+            tag,
+            payload: Some(inner)
+        } if tag == "err"
+            && matches!(inner.as_ref(), RuntimeValue::String(s) if s == "utf8-decode-error")
+    ));
+}
+
+#[test]
 fn eval_try_cast_on_dynamic_value_some_and_none() {
     use reciplexa_core::cast::CastEvidence;
     use reciplexa_core::ty::CoreType;
@@ -777,7 +802,7 @@ fn eval_try_cast_on_dynamic_value_some_and_none() {
     let dynamic_int = CoreExpr::Cast {
         expr: Box::new(CoreExpr::Lit(CoreLiteral::Int(42))),
         evidence: CastEvidence::Widen,
-        target: CoreType::Dynamic,
+        target: CoreType::dyn_any(),
         cast_id: 0,
     };
     let some_expr = CoreExpr::TryCast {
@@ -797,7 +822,7 @@ fn eval_try_cast_on_dynamic_value_some_and_none() {
     let dynamic_str = CoreExpr::Cast {
         expr: Box::new(CoreExpr::Lit(CoreLiteral::String("x".into()))),
         evidence: CastEvidence::Widen,
-        target: CoreType::Dynamic,
+        target: CoreType::dyn_any(),
         cast_id: 2,
     };
     let none_expr = CoreExpr::TryCast {

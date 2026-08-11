@@ -306,7 +306,7 @@ fn lang_surface_type_decls_and_dynamic() {
         ));
         assert!(matches!(
             data.type_aliases.get("blob"),
-            Some(CoreType::Dynamic)
+            Some(CoreType::Dynamic(b)) if matches!(b.as_ref(), CoreType::Any)
         ));
         assert!(matches!(
             data.type_aliases.get("either"),
@@ -397,6 +397,52 @@ fn lang_data_rec_group_positivity() {
             "{}",
             err.message
         );
+    });
+}
+
+#[test]
+fn lang_lit_bytes_utf8_roundtrip() {
+    let case = ConformanceCase::new(
+        "TEST-LANG-LIT-bytes",
+        "SYN-001",
+        "encode-utf8 / decode-utf8 builtins (SYN §11)",
+    );
+    run_conformance(&case, || {
+        let v = eval_source(r#"(val main (encode-utf8 "hi"))"#).unwrap();
+        assert_eq!(v, RuntimeValue::Bytes(vec![104, 105]));
+        let v = eval_source(r#"(val main (decode-utf8 (encode-utf8 "ok")))"#).unwrap();
+        let s = format!("{v}");
+        assert!(s.contains("ok"), "got {s}");
+    });
+}
+
+#[test]
+fn lang_pkg_length_and_color_imports() {
+    let case = ConformanceCase::new(
+        "TEST-LANG-PKG-length-color",
+        "PKG-001",
+        "length/units and color/srgb package imports",
+    );
+    run_conformance(&case, || {
+        let dir =
+            std::env::temp_dir().join(format!("reciplexa-lang-pkg-lc-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let entry = dir.join("demo.rpx");
+        std::fs::write(
+            &entry,
+            r#"(import length/units only cm)
+(import color/srgb only blue)
+(val main (record (len (cm 10)) (color blue)))
+"#,
+        )
+        .unwrap();
+        let units = elaborate_with_packages(&entry, &package_index()).unwrap();
+        let demo = units.iter().find(|u| u.name == "demo").unwrap();
+        let v = eval_expr(&demo.expr, &primitive_env(), &mut UnitHost).unwrap();
+        let s = format!("{v}");
+        assert!(s.contains("cm") || s.contains("blue"), "got {s}");
+        let _ = std::fs::remove_dir_all(&dir);
     });
 }
 

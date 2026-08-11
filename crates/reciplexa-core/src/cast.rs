@@ -1,8 +1,11 @@
-//! DD-TYP-DYN-014/015: cast evidence and runtime check planning.
+//! DD-TYP-DYN: cast evidence, three-way dynamic use, and success-type intersection.
 
-use crate::ty::CoreType;
+use crate::ty::{CoreType, EffectRow};
 
 /// Cast evidence algebra (DD-TYP-DYN-015).
+///
+/// Evidence execution is pure (DD-TYP-DYN-016): inspect / wrap / identity only —
+/// never I/O, ambient effects, or handler-stack observation.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CastEvidence {
     Identity,
@@ -24,6 +27,10 @@ pub enum CastEvidence {
     },
     FunctionGuard {
         arity: usize,
+        /// Contravariant argument casts (target arg → source arg) planned at call time.
+        arg_casts: Vec<CastEvidence>,
+        /// Covariant result cast (source ret → target ret).
+        ret_cast: Box<CastEvidence>,
     },
     NominalCheck {
         name: String,
@@ -31,80 +38,532 @@ pub enum CastEvidence {
     Compose(Vec<CastEvidence>),
 }
 
+/// Diagnostic provenance for a cast site (DD-TYP-DYN-018). Kept separate from
+/// executable evidence so optimizations cannot erase introduction/use sites.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CastProvenance {
+    pub cast_id: u32,
+    pub source: CoreType,
+    pub target: CoreType,
+    pub introduction: Option<String>,
+    pub module_path: Option<String>,
+}
+
+/// Three-way judgment for using `dynamic S` where static `T` is required (DD-TYP-DYN-005).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum DynamicUseJudgment {
+    /// `S <: T` — no runtime check.
+    FullyIncluded,
+    /// `intersect(S, T) ≃ never` — static reject.
+    Disjoint,
+    /// Partial overlap — insert runtime cast; success type is `intersect(S, T)`.
+    PartialOverlap {
+        evidence: CastEvidence,
+        success: CoreType,
+    },
+}
+
 /// Plan evidence for casting `src` to `dst` at compile time.
 ///
 /// Returns `None` when the cast is statically impossible (`intersect(S,T) ≃ never`).
 pub fn plan_cast_evidence(src: &CoreType, dst: &CoreType) -> Option<CastEvidence> {
-    if src == dst {
+    let src = normalize_type(src);
+    let dst = normalize_type(dst);
+    if type_eq(&src, &dst) {
         return Some(CastEvidence::Identity);
     }
-    if matches!(dst, CoreType::Dynamic) {
-        return Some(CastEvidence::Widen);
-    }
-    if matches!(src, CoreType::Dynamic) {
-        return plan_dynamic_to_static(dst);
-    }
-    if let CoreType::Union(members) = dst {
-        return Some(CastEvidence::UnionCheck {
-            members: members.clone(),
-        });
-    }
-    if let CoreType::Intersect(members) = dst {
-        return Some(CastEvidence::IntersectionCheck {
-            members: members.clone(),
-        });
-    }
-    if let CoreType::Record { fields } = dst {
-        return Some(CastEvidence::RecordCheck {
-            fields: fields.clone(),
-        });
-    }
-    if let CoreType::Variant { variants } = dst {
-        return Some(CastEvidence::VariantCheck {
-            variants: variants.clone(),
-        });
-    }
-    if let CoreType::Fun { args, .. } = dst {
-        return Some(CastEvidence::FunctionGuard { arity: args.len() });
-    }
-    if let CoreType::App { ctor, .. } = dst {
-        return Some(CastEvidence::NominalCheck { name: ctor.clone() });
-    }
-    plan_tag_check(src, dst)
-}
-
-fn plan_dynamic_to_static(dst: &CoreType) -> Option<CastEvidence> {
-    if matches!(dst, CoreType::Never) {
+    if matches!(dst, CoreType::Never) || matches!(src, CoreType::Never) {
         return None;
     }
-    plan_tag_check(&CoreType::Dynamic, dst)
+    // static → dynamic S when src <: S (DD-TYP-DYN-008); otherwise reject.
+    if let CoreType::Dynamic(bound) = &dst {
+        return if is_subtype(&src, bound) {
+            Some(CastEvidence::Widen)
+        } else {
+            None
+        };
+    }
+    // dynamic S → T: three-way (DD-TYP-DYN-005).
+    if let CoreType::Dynamic(bound) = &src {
+        return match judge_dynamic_use(bound, &dst) {
+            DynamicUseJudgment::FullyIncluded => Some(CastEvidence::Identity),
+            DynamicUseJudgment::Disjoint => None,
+            DynamicUseJudgment::PartialOverlap { evidence, .. } => Some(evidence),
+        };
+    }
+    // static → static narrowing when overlap exists.
+    if is_subtype(&src, &dst) {
+        return Some(CastEvidence::Identity);
+    }
+    if types_disjoint(&src, &dst) {
+        return None;
+    }
+    plan_structural_check(&dst)
 }
 
-fn plan_tag_check(src: &CoreType, dst: &CoreType) -> Option<CastEvidence> {
-    let tag = match dst {
-        CoreType::Int => "int",
-        CoreType::F64 => "f64",
-        CoreType::Number => "number",
-        CoreType::String => "string",
-        CoreType::Bool => "bool",
-        CoreType::Unit => "unit",
-        CoreType::Bytes => "bytes",
-        CoreType::Any => "any",
-        CoreType::Never => return None,
-        CoreType::Dynamic => return Some(CastEvidence::Identity),
-        _ if matches!(src, CoreType::Dynamic) => {
-            return Some(CastEvidence::TagCheck {
-                tag: type_tag_name(dst),
+/// DD-TYP-DYN-005 three-way judgment for bound `S` needed as static `T`.
+pub fn judge_dynamic_use(bound: &CoreType, needed: &CoreType) -> DynamicUseJudgment {
+    let bound = normalize_type(bound);
+    let needed = normalize_type(needed);
+    if is_subtype(&bound, &needed) {
+        return DynamicUseJudgment::FullyIncluded;
+    }
+    if types_disjoint(&bound, &needed) {
+        return DynamicUseJudgment::Disjoint;
+    }
+    let success = cast_success_type(&bound, &needed);
+    let evidence = plan_structural_check(&needed).unwrap_or(CastEvidence::TagCheck {
+        tag: type_tag_name(&needed),
+    });
+    DynamicUseJudgment::PartialOverlap { evidence, success }
+}
+
+/// DD-TYP-DYN-006: cast success type is `intersect(S, T)` (normalized).
+pub fn cast_success_type(bound: &CoreType, needed: &CoreType) -> CoreType {
+    normalize_type(&intersect_types(bound, needed))
+}
+
+/// DD-TYP-DYN-017: compose evidence sequentially, then simplify.
+pub fn compose_evidence(parts: Vec<CastEvidence>) -> CastEvidence {
+    simplify_evidence(CastEvidence::Compose(parts))
+}
+
+/// DD-TYP-DYN-017 identity/widen composition shortcuts (provenance preserved by caller).
+pub fn simplify_evidence(ev: CastEvidence) -> CastEvidence {
+    match ev {
+        CastEvidence::Compose(parts) => {
+            let mut out = Vec::new();
+            for p in parts {
+                let p = simplify_evidence(p);
+                match p {
+                    CastEvidence::Identity => {}
+                    CastEvidence::Compose(inner) => out.extend(inner),
+                    other => out.push(other),
+                }
+            }
+            match out.len() {
+                0 => CastEvidence::Identity,
+                1 => out.pop().expect("len 1"),
+                _ => CastEvidence::Compose(out),
+            }
+        }
+        other => other,
+    }
+}
+
+/// DD-TYP-DYN-012: structural / tagged types that may be validated at a boundary.
+pub fn is_runtime_checkable(ty: &CoreType) -> bool {
+    match normalize_type(ty) {
+        CoreType::Bool
+        | CoreType::Unit
+        | CoreType::Int
+        | CoreType::F64
+        | CoreType::Number
+        | CoreType::String
+        | CoreType::Bytes
+        | CoreType::Any => true,
+        CoreType::Never => false,
+        CoreType::Dynamic(b) => is_runtime_checkable(&b),
+        CoreType::Union(ms) | CoreType::Intersect(ms) => {
+            !ms.is_empty() && ms.iter().all(is_runtime_checkable)
+        }
+        CoreType::Record { fields } => fields.iter().all(|(_, t)| is_runtime_checkable(t)),
+        CoreType::Variant { variants } => variants
+            .iter()
+            .all(|(_, p)| p.as_ref().is_none_or(is_runtime_checkable)),
+        CoreType::Fun { args, ret, effects } => {
+            // Stage-1/2 fixed-arity: known latent effects + checkable args/ret.
+            effects.ops.iter().all(|op| !op.is_empty())
+                && args.iter().all(is_runtime_checkable)
+                && is_runtime_checkable(&ret)
+        }
+        CoreType::App { .. } => true,
+        CoreType::Not(_) | CoreType::Diff(_, _) => false,
+        _ => false,
+    }
+}
+
+/// Approximate static subtype used by gradual planning (not full semantic subtyping).
+pub fn is_subtype(a: &CoreType, b: &CoreType) -> bool {
+    let a = normalize_type(a);
+    let b = normalize_type(b);
+    if type_eq(&a, &b) {
+        return true;
+    }
+    match (&a, &b) {
+        (CoreType::Never, _) => true,
+        (_, CoreType::Any) => true,
+        (CoreType::Any, _) => false,
+        (CoreType::Dynamic(sa), CoreType::Dynamic(sb)) => is_subtype(sa, sb),
+        (CoreType::Int | CoreType::F64, CoreType::Number) => true,
+        (CoreType::Number, CoreType::Int | CoreType::F64) => false,
+        (CoreType::Union(ms), other) => ms.iter().all(|m| is_subtype(m, other)),
+        (other, CoreType::Union(ms)) => ms.iter().any(|m| is_subtype(other, m)),
+        (CoreType::Intersect(ms), other) => ms.iter().any(|m| is_subtype(m, other)),
+        (other, CoreType::Intersect(ms)) => ms.iter().all(|m| is_subtype(other, m)),
+        (
+            CoreType::Fun {
+                args: a_args,
+                ret: a_ret,
+                effects: a_eff,
+            },
+            CoreType::Fun {
+                args: b_args,
+                ret: b_ret,
+                effects: b_eff,
+            },
+        ) => {
+            a_args.len() == b_args.len()
+                && a_args
+                    .iter()
+                    .zip(b_args.iter())
+                    .all(|(x, y)| is_subtype(y, x)) // contravariant args
+                && is_subtype(a_ret, b_ret)
+                && effect_subrow(a_eff, b_eff)
+        }
+        (CoreType::Record { fields: a_f }, CoreType::Record { fields: b_f }) => {
+            // Closed width+depth: every b field present in a with subtype.
+            b_f.iter().all(|(bk, bv)| {
+                a_f.iter()
+                    .find(|(ak, _)| ak == bk)
+                    .is_some_and(|(_, av)| is_subtype(av, bv))
+            }) && a_f.len() == b_f.len()
+        }
+        (CoreType::Variant { variants: a_v }, CoreType::Variant { variants: b_v }) => {
+            a_v.iter().all(|(at, ap)| {
+                b_v.iter().any(|(bt, bp)| {
+                    at == bt
+                        && match (ap, bp) {
+                            (None, None) => true,
+                            (Some(a_t), Some(b_t)) => is_subtype(a_t, b_t),
+                            _ => false,
+                        }
+                })
             })
         }
-        _ => return None,
-    };
-    if matches!(src, CoreType::Dynamic) || src == dst {
-        Some(CastEvidence::TagCheck {
-            tag: tag.to_string(),
-        })
-    } else {
-        None
+        _ => false,
+    }
+}
+
+/// `intersect(S, T) ≃ never` under the same approximate algebra.
+pub fn types_disjoint(a: &CoreType, b: &CoreType) -> bool {
+    matches!(normalize_type(&intersect_types(a, b)), CoreType::Never)
+}
+
+pub fn intersect_types(a: &CoreType, b: &CoreType) -> CoreType {
+    let a = normalize_type(a);
+    let b = normalize_type(b);
+    if type_eq(&a, &b) {
+        return a;
+    }
+    match (&a, &b) {
+        (CoreType::Never, _) | (_, CoreType::Never) => CoreType::Never,
+        (CoreType::Any, other) | (other, CoreType::Any) => other.clone(),
+        (CoreType::Dynamic(sa), other) | (other, CoreType::Dynamic(sa)) => {
+            CoreType::dynamic_bound(intersect_types(sa, other))
+        }
+        (CoreType::Int, CoreType::Number) | (CoreType::Number, CoreType::Int) => CoreType::Int,
+        (CoreType::F64, CoreType::Number) | (CoreType::Number, CoreType::F64) => CoreType::F64,
+        (CoreType::Int, CoreType::F64) | (CoreType::F64, CoreType::Int) => CoreType::Never,
+        (CoreType::Union(ms), other) => {
+            let parts: Vec<_> = ms
+                .iter()
+                .map(|m| intersect_types(m, other))
+                .filter(|t| !matches!(t, CoreType::Never))
+                .collect();
+            normalize_union(parts)
+        }
+        (other, CoreType::Union(ms)) => {
+            let parts: Vec<_> = ms
+                .iter()
+                .map(|m| intersect_types(other, m))
+                .filter(|t| !matches!(t, CoreType::Never))
+                .collect();
+            normalize_union(parts)
+        }
+        (CoreType::Intersect(ms), other) => {
+            let mut all = ms.clone();
+            all.push(other.clone());
+            normalize_intersect(all)
+        }
+        (other, CoreType::Intersect(ms)) => {
+            let mut all = ms.clone();
+            all.push(other.clone());
+            normalize_intersect(all)
+        }
+        (
+            CoreType::Fun {
+                args: a_args,
+                ret: a_ret,
+                effects: a_eff,
+            },
+            CoreType::Fun {
+                args: b_args,
+                ret: b_ret,
+                effects: b_eff,
+            },
+        ) if a_args.len() == b_args.len() && effect_subrow(a_eff, b_eff) => {
+            // Arg intersection is union (contravariant); result is intersect.
+            let args: Vec<_> = a_args
+                .iter()
+                .zip(b_args.iter())
+                .map(|(x, y)| normalize_union(vec![x.clone(), y.clone()]))
+                .collect();
+            CoreType::Fun {
+                args,
+                ret: Box::new(intersect_types(a_ret, b_ret)),
+                effects: a_eff.clone(),
+            }
+        }
+        (CoreType::Record { fields: a_f }, CoreType::Record { fields: b_f }) => {
+            // Require same labels; intersect field types.
+            if a_f.len() != b_f.len() {
+                return CoreType::Never;
+            }
+            let mut fields = Vec::new();
+            for (ak, av) in a_f {
+                let Some((_, bv)) = b_f.iter().find(|(bk, _)| bk == ak) else {
+                    return CoreType::Never;
+                };
+                let it = intersect_types(av, bv);
+                if matches!(it, CoreType::Never) {
+                    return CoreType::Never;
+                }
+                fields.push((ak.clone(), it));
+            }
+            CoreType::Record { fields }
+        }
+        (CoreType::Variant { variants: a_v }, CoreType::Variant { variants: b_v }) => {
+            let mut variants = Vec::new();
+            for (at, ap) in a_v {
+                if let Some((_, bp)) = b_v.iter().find(|(bt, _)| bt == at) {
+                    match (ap, bp) {
+                        (None, None) => variants.push((at.clone(), None)),
+                        (Some(a_t), Some(b_t)) => {
+                            let it = intersect_types(a_t, b_t);
+                            if !matches!(it, CoreType::Never) {
+                                variants.push((at.clone(), Some(it)));
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            if variants.is_empty() {
+                CoreType::Never
+            } else {
+                CoreType::Variant { variants }
+            }
+        }
+        // Distinct concrete bases with no shared values.
+        (
+            CoreType::Int
+            | CoreType::F64
+            | CoreType::Number
+            | CoreType::String
+            | CoreType::Bool
+            | CoreType::Unit
+            | CoreType::Bytes
+            | CoreType::Color
+            | CoreType::Shape,
+            CoreType::Int
+            | CoreType::F64
+            | CoreType::Number
+            | CoreType::String
+            | CoreType::Bool
+            | CoreType::Unit
+            | CoreType::Bytes
+            | CoreType::Color
+            | CoreType::Shape,
+        ) => CoreType::Never,
+        // Conservative: keep an intersection node for unresolved shapes.
+        _ => CoreType::Intersect(vec![a, b]),
+    }
+}
+
+pub fn normalize_type(ty: &CoreType) -> CoreType {
+    match ty {
+        CoreType::Dynamic(inner) => {
+            let inner = normalize_type(inner);
+            match inner {
+                CoreType::Never => CoreType::Never,
+                CoreType::Dynamic(nested) => CoreType::Dynamic(nested),
+                other => CoreType::Dynamic(Box::new(other)),
+            }
+        }
+        CoreType::Union(ms) => normalize_union(ms.iter().map(normalize_type).collect()),
+        CoreType::Intersect(ms) => normalize_intersect(ms.iter().map(normalize_type).collect()),
+        CoreType::Diff(a, b) => {
+            // diff(S,T) ≃ intersect(S, not(T)) — keep when both survive.
+            let a = normalize_type(a);
+            let b = normalize_type(b);
+            if is_subtype(&a, &b) {
+                CoreType::Never
+            } else {
+                CoreType::Diff(Box::new(a), Box::new(b))
+            }
+        }
+        other => other.clone(),
+    }
+}
+
+fn normalize_union(members: Vec<CoreType>) -> CoreType {
+    let mut out = Vec::new();
+    for m in members {
+        let m = normalize_type(&m);
+        match m {
+            CoreType::Never => {}
+            CoreType::Union(inner) => {
+                for i in inner {
+                    if !out.iter().any(|e| type_eq(e, &i)) {
+                        out.push(i);
+                    }
+                }
+            }
+            other => {
+                if !out.iter().any(|e| type_eq(e, &other)) {
+                    out.push(other);
+                }
+            }
+        }
+    }
+    match out.len() {
+        0 => CoreType::Never,
+        1 => out.pop().expect("len 1"),
+        _ => CoreType::Union(out),
+    }
+}
+
+fn normalize_intersect(members: Vec<CoreType>) -> CoreType {
+    let mut out = Vec::new();
+    for m in members {
+        let m = normalize_type(&m);
+        match m {
+            CoreType::Any => {}
+            CoreType::Never => return CoreType::Never,
+            CoreType::Intersect(inner) => {
+                for i in inner {
+                    if !out.iter().any(|e| type_eq(e, &i)) {
+                        out.push(i);
+                    }
+                }
+            }
+            other => {
+                if !out.iter().any(|e| type_eq(e, &other)) {
+                    out.push(other);
+                }
+            }
+        }
+    }
+    // Pairwise collapse known concrete clashes.
+    for i in 0..out.len() {
+        for j in (i + 1)..out.len() {
+            if types_disjoint_bases(&out[i], &out[j]) {
+                return CoreType::Never;
+            }
+        }
+    }
+    match out.len() {
+        0 => CoreType::Any,
+        1 => out.pop().expect("len 1"),
+        _ => CoreType::Intersect(out),
+    }
+}
+
+fn types_disjoint_bases(a: &CoreType, b: &CoreType) -> bool {
+    matches!(
+        (a, b),
+        (
+            CoreType::String
+                | CoreType::Bool
+                | CoreType::Unit
+                | CoreType::Bytes
+                | CoreType::Color
+                | CoreType::Shape,
+            CoreType::String
+                | CoreType::Bool
+                | CoreType::Unit
+                | CoreType::Bytes
+                | CoreType::Color
+                | CoreType::Shape
+        ) if !type_eq(a, b)
+    ) || matches!(
+        (a, b),
+        (CoreType::Int, CoreType::F64) | (CoreType::F64, CoreType::Int)
+    ) || matches!(
+        (a, b),
+        (
+            CoreType::Int | CoreType::F64 | CoreType::Number,
+            CoreType::String
+                | CoreType::Bool
+                | CoreType::Unit
+                | CoreType::Bytes
+                | CoreType::Color
+                | CoreType::Shape
+        ) | (
+            CoreType::String
+                | CoreType::Bool
+                | CoreType::Unit
+                | CoreType::Bytes
+                | CoreType::Color
+                | CoreType::Shape,
+            CoreType::Int | CoreType::F64 | CoreType::Number
+        )
+    )
+}
+
+fn effect_subrow(src: &EffectRow, dst: &EffectRow) -> bool {
+    // Es ⊑ Et: every source op appears in the target ambient allowance.
+    src.ops.iter().all(|op| dst.ops.iter().any(|d| d == op))
+}
+
+fn type_eq(a: &CoreType, b: &CoreType) -> bool {
+    a == b
+}
+
+fn plan_structural_check(dst: &CoreType) -> Option<CastEvidence> {
+    match dst {
+        CoreType::Never => None,
+        CoreType::Union(members) => Some(CastEvidence::UnionCheck {
+            members: members.clone(),
+        }),
+        CoreType::Intersect(members) => Some(CastEvidence::IntersectionCheck {
+            members: members.clone(),
+        }),
+        CoreType::Record { fields } => Some(CastEvidence::RecordCheck {
+            fields: fields.clone(),
+        }),
+        CoreType::Variant { variants } => Some(CastEvidence::VariantCheck {
+            variants: variants.clone(),
+        }),
+        CoreType::Fun { args, ret, .. } => {
+            let arg_casts = args
+                .iter()
+                .map(|a| plan_cast_evidence(a, &CoreType::dyn_any()).unwrap_or(CastEvidence::Widen))
+                .collect();
+            let ret_cast =
+                plan_cast_evidence(&CoreType::dyn_any(), ret).unwrap_or(CastEvidence::Identity);
+            Some(CastEvidence::FunctionGuard {
+                arity: args.len(),
+                arg_casts,
+                ret_cast: Box::new(ret_cast),
+            })
+        }
+        CoreType::App { ctor, .. } => Some(CastEvidence::NominalCheck { name: ctor.clone() }),
+        CoreType::Int
+        | CoreType::F64
+        | CoreType::Number
+        | CoreType::String
+        | CoreType::Bool
+        | CoreType::Unit
+        | CoreType::Bytes
+        | CoreType::Any => Some(CastEvidence::TagCheck {
+            tag: type_tag_name(dst),
+        }),
+        CoreType::Dynamic(_) => Some(CastEvidence::Identity),
+        _ => Some(CastEvidence::TagCheck {
+            tag: type_tag_name(dst),
+        }),
     }
 }
 
@@ -118,7 +577,7 @@ fn type_tag_name(ty: &CoreType) -> String {
         CoreType::Unit => "unit".into(),
         CoreType::Bytes => "bytes".into(),
         CoreType::Any => "any".into(),
-        CoreType::Dynamic => "dynamic".into(),
+        CoreType::Dynamic(_) => "dynamic".into(),
         CoreType::App { ctor, .. } => ctor.clone(),
         _ => "value".into(),
     }
@@ -139,13 +598,65 @@ mod tests {
     #[test]
     fn dynamic_to_int_tag_check() {
         assert!(matches!(
-            plan_cast_evidence(&CoreType::Dynamic, &CoreType::Int),
+            plan_cast_evidence(&CoreType::dyn_any(), &CoreType::Int),
             Some(CastEvidence::TagCheck { tag }) if tag == "int"
         ));
     }
 
     #[test]
     fn never_cast_impossible() {
-        assert!(plan_cast_evidence(&CoreType::Dynamic, &CoreType::Never).is_none());
+        assert!(plan_cast_evidence(&CoreType::dyn_any(), &CoreType::Never).is_none());
+    }
+
+    #[test]
+    fn three_way_fully_included() {
+        assert_eq!(
+            judge_dynamic_use(&CoreType::Int, &CoreType::Number),
+            DynamicUseJudgment::FullyIncluded
+        );
+    }
+
+    #[test]
+    fn three_way_disjoint() {
+        assert_eq!(
+            judge_dynamic_use(
+                &CoreType::Union(vec![CoreType::Number, CoreType::String]),
+                &CoreType::Bool
+            ),
+            DynamicUseJudgment::Disjoint
+        );
+    }
+
+    #[test]
+    fn three_way_partial_overlap_success_is_intersect() {
+        match judge_dynamic_use(
+            &CoreType::Union(vec![CoreType::Int, CoreType::String]),
+            &CoreType::Number,
+        ) {
+            DynamicUseJudgment::PartialOverlap { success, .. } => {
+                assert_eq!(success, CoreType::Int);
+            }
+            other => panic!("expected partial, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn compose_drops_identity() {
+        assert_eq!(
+            compose_evidence(vec![
+                CastEvidence::Identity,
+                CastEvidence::TagCheck { tag: "int".into() },
+                CastEvidence::Identity,
+            ]),
+            CastEvidence::TagCheck { tag: "int".into() }
+        );
+    }
+
+    #[test]
+    fn dynamic_never_normalizes_to_never() {
+        assert_eq!(
+            normalize_type(&CoreType::Dynamic(Box::new(CoreType::Never))),
+            CoreType::Never
+        );
     }
 }

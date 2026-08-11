@@ -38,6 +38,14 @@ pub fn primitive_env() -> HashMap<String, RuntimeValue> {
     env.insert("carriage-return".into(), RuntimeValue::String("\r".into()));
     env.insert("nul".into(), RuntimeValue::String("\0".into()));
     env.insert("unicode".into(), RuntimeValue::Builtin(BuiltinOp::Unicode));
+    env.insert(
+        "encode-utf8".into(),
+        RuntimeValue::Builtin(BuiltinOp::EncodeUtf8),
+    );
+    env.insert(
+        "decode-utf8".into(),
+        RuntimeValue::Builtin(BuiltinOp::DecodeUtf8),
+    );
     env
 }
 
@@ -155,7 +163,7 @@ fn eval_outcome(
                 other => return Ok(other),
             };
             let evidence =
-                plan_cast_evidence(&CoreType::Dynamic, target).unwrap_or(CastEvidence::Identity);
+                plan_cast_evidence(&CoreType::dyn_any(), target).unwrap_or(CastEvidence::Identity);
             if runtime_cast_ok(&v, &evidence) {
                 Ok(Outcome::Value(RuntimeValue::Variant {
                     tag: "some".into(),
@@ -174,7 +182,7 @@ fn eval_outcome(
                 other => return Ok(other),
             };
             let evidence =
-                plan_cast_evidence(&CoreType::Dynamic, target).unwrap_or(CastEvidence::Identity);
+                plan_cast_evidence(&CoreType::dyn_any(), target).unwrap_or(CastEvidence::Identity);
             if runtime_cast_ok(&v, &evidence) {
                 Ok(Outcome::Value(RuntimeValue::Variant {
                     tag: "ok".into(),
@@ -1116,7 +1124,9 @@ fn apply_builtin(op: BuiltinOp, args: Vec<RuntimeValue>) -> Result<Outcome, Eval
         | BuiltinOp::IsBool
         | BuiltinOp::IsNone
         | BuiltinOp::IsSome
-        | BuiltinOp::Unicode => {
+        | BuiltinOp::Unicode
+        | BuiltinOp::EncodeUtf8
+        | BuiltinOp::DecodeUtf8 => {
             if args.len() != 1 {
                 return Err(EvalError {
                     message: format!("builtin `{op:?}` expects 1 arg, got {}", args.len()),
@@ -1136,6 +1146,37 @@ fn apply_builtin(op: BuiltinOp, args: Vec<RuntimeValue>) -> Result<Outcome, Eval
                 let s = reciplexa_syntax::unicode_scalar_value(code)
                     .map_err(|msg| EvalError { message: msg })?;
                 return Ok(Outcome::Value(RuntimeValue::String(s)));
+            }
+            if matches!(op, BuiltinOp::EncodeUtf8) {
+                let s = match &v {
+                    RuntimeValue::String(text) => text.clone(),
+                    _ => {
+                        return Err(EvalError {
+                            message: "builtin `encode-utf8` expects string argument".into(),
+                        });
+                    }
+                };
+                return Ok(Outcome::Value(RuntimeValue::Bytes(s.clone().into_bytes())));
+            }
+            if matches!(op, BuiltinOp::DecodeUtf8) {
+                let data = match v {
+                    RuntimeValue::Bytes(b) => b.clone(),
+                    _ => {
+                        return Err(EvalError {
+                            message: "builtin `decode-utf8` expects bytes argument".into(),
+                        });
+                    }
+                };
+                return match String::from_utf8(data) {
+                    Ok(text) => Ok(Outcome::Value(RuntimeValue::Variant {
+                        tag: "ok".into(),
+                        payload: Some(Box::new(RuntimeValue::String(text))),
+                    })),
+                    Err(_) => Ok(Outcome::Value(RuntimeValue::Variant {
+                        tag: "err".into(),
+                        payload: Some(Box::new(RuntimeValue::String("utf8-decode-error".into()))),
+                    })),
+                };
             }
             let flag = match op {
                 BuiltinOp::IsNumber => {
@@ -1209,38 +1250,51 @@ fn eval_lit(lit: &CoreLiteral) -> EvalResult {
     })
 }
 
-/// Runtime tag check for DD-TYP-DYN-015 evidence (minimal v1).
+/// Runtime tag check for DD-TYP-DYN-015 evidence (minimal v1; pure — DD-TYP-DYN-016).
 fn runtime_cast_ok(value: &RuntimeValue, evidence: &CastEvidence) -> bool {
     match evidence {
         CastEvidence::Identity | CastEvidence::Widen => true,
         CastEvidence::TagCheck { tag } => value_matches_tag(value, tag),
         CastEvidence::UnionCheck { members } => members.iter().any(|m| {
-            runtime_cast_ok(
-                value,
-                &CastEvidence::TagCheck {
-                    tag: reciplexa_core::cast::plan_cast_evidence(&CoreType::Dynamic, m)
-                        .and_then(|e| match e {
-                            CastEvidence::TagCheck { tag } => Some(tag),
-                            _ => None,
-                        })
-                        .unwrap_or_else(|| "value".into()),
-                },
-            )
+            plan_cast_evidence(&CoreType::dyn_any(), m)
+                .map(|e| runtime_cast_ok(value, &e))
+                .unwrap_or(false)
         }),
-        CastEvidence::VariantCheck { variants } => variants.iter().any(|(tag, _)| {
-            matches!(
-                value,
-                RuntimeValue::Variant { tag: vt, .. } if vt == tag
-            )
-        }),
-        CastEvidence::RecordCheck { fields } => matches!(
-            value,
-            RuntimeValue::Record(rec) if fields.iter().all(|(k, _)| rec.iter().any(|(rk, _)| rk == k))
-        ),
-        CastEvidence::FunctionGuard { .. } => matches!(value, RuntimeValue::Closure { .. }),
+        CastEvidence::VariantCheck { variants } => match value {
+            RuntimeValue::Variant { tag, payload } => variants.iter().any(|(vt, pty)| {
+                if tag != vt {
+                    return false;
+                }
+                match (payload, pty) {
+                    (None, None) => true,
+                    (Some(p), Some(ty)) => plan_cast_evidence(&CoreType::dyn_any(), ty)
+                        .map(|e| runtime_cast_ok(p, &e))
+                        .unwrap_or(false),
+                    (None, Some(_)) => false,
+                    (Some(_), None) => true,
+                }
+            }),
+            _ => false,
+        },
+        CastEvidence::RecordCheck { fields } => match value {
+            RuntimeValue::Record(rec) => fields.iter().all(|(k, ty)| {
+                rec.iter().any(|(rk, rv)| {
+                    rk == k
+                        && plan_cast_evidence(&CoreType::dyn_any(), ty)
+                            .map(|e| runtime_cast_ok(rv, &e))
+                            .unwrap_or(false)
+                })
+            }),
+            _ => false,
+        },
+        CastEvidence::FunctionGuard { arity, .. } => match value {
+            RuntimeValue::Closure { params, .. } => params.len() == *arity,
+            RuntimeValue::Builtin(_) => true,
+            _ => false,
+        },
         CastEvidence::NominalCheck { name } => value_matches_tag(value, name),
         CastEvidence::IntersectionCheck { members } => members.iter().all(|m| {
-            plan_cast_evidence(&CoreType::Dynamic, m)
+            plan_cast_evidence(&CoreType::dyn_any(), m)
                 .map(|e| runtime_cast_ok(value, &e))
                 .unwrap_or(false)
         }),

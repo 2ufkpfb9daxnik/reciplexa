@@ -574,7 +574,7 @@ fn normalize_intersect(members: Vec<CoreType>) -> CoreType {
         })
         .collect();
     match flat.as_slice() {
-        [] => CoreType::Dynamic,
+        [] => CoreType::dyn_any(),
         [one] => one.clone(),
         _ => CoreType::Intersect(flat),
     }
@@ -721,7 +721,7 @@ fn parse_type_syntax_in(
                 "unit" => CoreType::Unit,
                 "never" => CoreType::Never,
                 "any" => CoreType::Any,
-                "dynamic" => CoreType::Dynamic,
+                "dynamic" => CoreType::dyn_any(),
                 "color" => CoreType::Color,
                 other
                     if ctx.data.type_params.contains_key(other)
@@ -753,8 +753,18 @@ fn parse_type_syntax_in(
             }
             match head.text() {
                 "dynamic" => {
-                    // `(dynamic)` / `(dynamic any)` / `(dynamic number)` — stub to Dynamic.
-                    Ok(CoreType::Dynamic)
+                    // `(dynamic)` → dynamic any; `(dynamic S)` → dynamic S (DD-TYP-DYN-002/004).
+                    match items.len() {
+                        1 => Ok(CoreType::dyn_any()),
+                        2 => {
+                            let bound = parse_type_syntax_in(&items[1], ctx, binders)?;
+                            Ok(CoreType::dynamic_bound(bound))
+                        }
+                        _ => Err(ElaborateError::at_node(
+                            "`dynamic` takes at most one static bound",
+                            n,
+                        )),
+                    }
                 }
                 "union" => {
                     let mut members = Vec::new();
@@ -2344,7 +2354,7 @@ fn elaborate_try_cast(
     }
     let expr = elaborate_atom(&rest[0], ctx)?;
     let target = parse_type_atom(&rest[1], ctx)?;
-    if crate::cast::plan_cast_evidence(&CoreType::Dynamic, &target).is_none() {
+    if crate::cast::plan_cast_evidence(&CoreType::dyn_any(), &target).is_none() {
         return Err(ElaborateError::at_node(
             "`try-cast` target is statically incompatible (intersect ≃ never)",
             parent,
@@ -2371,7 +2381,7 @@ fn elaborate_check_cast(
     }
     let expr = elaborate_atom(&rest[0], ctx)?;
     let target = parse_type_atom(&rest[1], ctx)?;
-    if crate::cast::plan_cast_evidence(&CoreType::Dynamic, &target).is_none() {
+    if crate::cast::plan_cast_evidence(&CoreType::dyn_any(), &target).is_none() {
         return Err(ElaborateError::at_node(
             "`check-cast` target is statically incompatible (intersect ≃ never)",
             parent,

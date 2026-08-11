@@ -40,8 +40,9 @@ pub enum CoreType {
     Bool,
     /// SYN §11 immutable byte sequence.
     Bytes,
-    /// Gradual typing entry point (TYP-001). Unifies with any type in v0.
-    Dynamic,
+    /// Gradual typing `dynamic S` (DD-TYP-DYN-002). Bound is a static upper bound;
+    /// bare `(dynamic)` elaborates to `dynamic any`.
+    Dynamic(Box<CoreType>),
     /// DD-TYP-DYN-003: static top type — supertype of all unrestricted static types.
     Any,
     /// SYN §16.3 union — unifies loosely like [`CoreType::Dynamic`] for now.
@@ -115,6 +116,28 @@ pub enum NumericClass {
 }
 
 impl CoreType {
+    /// `dynamic any` — unbounded gradual value.
+    pub fn dyn_any() -> Self {
+        CoreType::Dynamic(Box::new(CoreType::Any))
+    }
+
+    /// `dynamic S`, normalizing `dynamic never ≃ never` and collapsing nested dynamics.
+    pub fn dynamic_bound(bound: CoreType) -> Self {
+        match bound {
+            CoreType::Never => CoreType::Never,
+            CoreType::Dynamic(inner) => CoreType::Dynamic(inner),
+            other => CoreType::Dynamic(Box::new(other)),
+        }
+    }
+
+    /// Static upper bound of a gradual type, if any.
+    pub fn as_dyn_bound(&self) -> Option<&CoreType> {
+        match self {
+            CoreType::Dynamic(b) => Some(b.as_ref()),
+            _ => None,
+        }
+    }
+
     /// Classify a concrete numeric type (not [`CoreType::Number`] union).
     pub fn numeric_class(&self) -> Option<NumericClass> {
         match self {

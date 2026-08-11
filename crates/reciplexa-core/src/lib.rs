@@ -10,9 +10,14 @@ pub mod lower;
 pub mod ty;
 pub mod unify;
 
-pub use cast::{plan_cast_evidence, CastEvidence};
+pub use cast::{
+    cast_success_type, compose_evidence, is_runtime_checkable, is_subtype, judge_dynamic_use,
+    plan_cast_evidence, simplify_evidence, types_disjoint, CastEvidence, CastProvenance,
+    DynamicUseJudgment,
+};
 pub use check::{
-    infer_expr, infer_with_effects, typecheck_language_source, typecheck_value, CheckError, TypeEnv,
+    coerce_to_static, infer_expr, infer_with_effects, insert_implicit_casts,
+    typecheck_language_source, typecheck_value, CheckError, TypeEnv,
 };
 pub use elaborate::{elaborate_source, elaborate_with_data, DataEnv, ElaborateError};
 pub use expr::{first_unreachable_arm, CoreExpr, CoreLiteral, CorePattern, CoreValue, MatchArm};
