@@ -928,4 +928,94 @@ mod tests {
         assert!(is_subtype(&number_to_int, &int_to_number));
         assert!(!is_subtype(&int_to_number, &number_to_int));
     }
+
+    #[test]
+    fn numeric_promote_and_intersect_residuals() {
+        assert!(plan_numeric_promote_evidence(&CoreType::F64, &CoreType::F64).is_some());
+        assert!(plan_numeric_promote_evidence(&CoreType::Int, &CoreType::F64).is_some());
+        assert!(plan_numeric_promote_evidence(&CoreType::Number, &CoreType::F64).is_some());
+        assert!(plan_numeric_promote_evidence(&CoreType::Any, &CoreType::F64).is_some());
+        assert!(plan_numeric_promote_evidence(
+            &CoreType::Singleton(crate::ty::SingletonValue::Int(1)),
+            &CoreType::F64
+        )
+        .is_some());
+        assert!(plan_numeric_promote_evidence(
+            &CoreType::Union(vec![CoreType::Int, CoreType::F64]),
+            &CoreType::F64
+        )
+        .is_some());
+        assert!(plan_numeric_promote_evidence(
+            &CoreType::Union(vec![CoreType::Int, CoreType::String]),
+            &CoreType::F64
+        )
+        .is_some());
+        assert!(plan_numeric_promote_evidence(
+            &CoreType::Union(vec![CoreType::String]),
+            &CoreType::F64
+        )
+        .is_none());
+        assert!(plan_numeric_promote_evidence(&CoreType::Int, &CoreType::Int).is_none());
+
+        let _ = intersect_types(
+            &CoreType::Singleton(crate::ty::SingletonValue::Int(1)),
+            &CoreType::Singleton(crate::ty::SingletonValue::Int(2)),
+        );
+        let _ = intersect_types(
+            &CoreType::Singleton(crate::ty::SingletonValue::Int(1)),
+            &CoreType::Number,
+        );
+        let _ = intersect_types(
+            &CoreType::OptionalField(Box::new(CoreType::Int)),
+            &CoreType::OptionalField(Box::new(CoreType::Int)),
+        );
+        let _ = intersect_types(
+            &CoreType::OptionalField(Box::new(CoreType::Int)),
+            &CoreType::OptionalField(Box::new(CoreType::String)),
+        );
+        let _ = intersect_types(
+            &CoreType::Union(vec![CoreType::Int, CoreType::String]),
+            &CoreType::Int,
+        );
+        let _ = intersect_types(
+            &CoreType::Int,
+            &CoreType::Union(vec![CoreType::Int, CoreType::String]),
+        );
+        let _ = intersect_types(
+            &CoreType::Intersect(vec![CoreType::Int, CoreType::Number]),
+            &CoreType::Int,
+        );
+        let _ = intersect_types(
+            &CoreType::Int,
+            &CoreType::Intersect(vec![CoreType::Int, CoreType::Number]),
+        );
+        let _ = intersect_types(
+            &CoreType::Fun {
+                args: vec![CoreType::Int],
+                ret: Box::new(CoreType::Int),
+                effects: EffectRow::default(),
+            },
+            &CoreType::Fun {
+                args: vec![CoreType::Int],
+                ret: Box::new(CoreType::Number),
+                effects: EffectRow::default(),
+            },
+        );
+        assert!(is_fully_decidable_fragment(&CoreType::Int));
+        assert!(!is_fully_decidable_fragment(&CoreType::Var(crate::ty::TypeVarId(0))));
+        let _ = normalize_union(vec![CoreType::Int, CoreType::Int, CoreType::Never]);
+        let _ = normalize_intersect(vec![CoreType::Int, CoreType::Any, CoreType::Number]);
+        let _ = types_disjoint_bases(&CoreType::Int, &CoreType::String);
+        let _ = type_tag_name(&CoreType::Int);
+        let _ = type_tag_name(&CoreType::App {
+            ctor: "opt".into(),
+            args: vec![CoreType::Int],
+        });
+        let _ = plan_structural_check(&CoreType::Record {
+            fields: vec![("a".into(), CoreType::Int)],
+        });
+        let _ = plan_structural_check(&CoreType::Variant {
+            variants: vec![("none".into(), None)],
+        });
+    }
 }
