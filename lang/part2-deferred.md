@@ -4,15 +4,17 @@
 
 `deferred` は、`lang/part2-conformance.md` 上で**レビュー済みだが、いま実装適合を追わない**と印した見出しである。「未実装だから gap」ではなく、**意図的に後回し**（実装順序・依存・仕様の開き）であることを notes に残すためのステータス。したがって `gap`/`partial` の埋める優先度とは別枠で管理する。
 
+**重要:** `deferred` は必ずしも「ユーザー未決定」ではない。レビュー時の分類であり、仕様 OPEN・依存待ち・実装順序による後回しも含む。
+
 ### 分類ごとの件数
 
-- **合計**: 518
-- **仕様未決定**: 51
-- **意図的後回し**: 277
-- **依存待ち**: 190
+- **合計**: 683
+- **仕様未決定**: 60
+- **意図的後回し**: 366
+- **依存待ち**: 257
 - **要確認**: 0
 
-分類の見方:
+分類の基準:
 
 - **仕様未決定** — `OPEN-*`、仕様本文の「未決定／保留」、またはまだ閉じない設計選択
 - **意図的後回し** — 仕様は概ね確定しているが、実装順序（カーネル→PKG、multi-shot EFF 等）で後にする
@@ -21,7 +23,7 @@
 
 ---
 
-## 仕様未決定（51）
+## 仕様未決定（60）
 
 ### L427: 未決定
 - **機能ブロック**: `LEX`
@@ -233,9 +235,54 @@
 - **notes**: OPEN transfer; deferred
 - **分類**: 仕様未決定
 
+### L21061: 13.2 Capture
+- **機能ブロック**: `MEM`
+- **notes**: 意図的後回し(OPEN-MEM-CONT): continuation capture 表現は最小
+- **分類**: 仕様未決定
+
+### L21098: 13.6 Escape
+- **機能ブロック**: `MEM`
+- **notes**: 意図的後回し(OPEN-MEM-CONT): resume 範囲を越える escape 検査は後回し
+- **分類**: 仕様未決定
+
 ### L21338: 20. Concurrencyへの接続
 - **機能ブロック**: `MEM`
 - **notes**: 依存待ち(ASY)|仕様未決定: OPEN-CON-001 atomic RC / Send/Share
+- **分類**: 仕様未決定
+
+### L21339: 20.1 v1の範囲
+- **機能ブロック**: `MEM`
+- **notes**: 依存待ち(ASY)|OPEN-CON-001: concurrency v1 scope- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+- **分類**: 仕様未決定
+
+### L21345: 20.2 共有値
+- **機能ブロック**: `MEM`
+- **notes**: 依存待ち(ASY)|OPEN-CON-001: shared values across tasks- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+- **分類**: 仕様未決定
+
+### L21677: 31. メモリ観測API
+- **機能ブロック**: `MEM`
+- **notes**: 依存待ち(第III部)|OPEN-MEM-PROF-001: RC 非公開は §31.1 ok; budget/peak 観測 API は後回し
+- **分類**: 仕様未決定
+
+### L21691: 31.2 許可される情報
+- **機能ブロック**: `MEM`
+- **notes**: 依存待ち|OPEN-MEM-PROF-001: allowed memory observation API- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+- **分類**: 仕様未決定
+
+### L21701: 31.3 安定性
+- **機能ブロック**: `MEM`
+- **notes**: 依存待ち|OPEN-MEM-PROF-001: observation API stability- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+- **分類**: 仕様未決定
+
+### L21714: 32. GUI状態
+- **機能ブロック**: `MEM`
+- **notes**: 意図的後回し(OPEN-GUI-STATE-001): DocumentSnapshot 明示モデル; 完全 GUI 状態は第V部
+- **分類**: 仕様未決定
+
+### L21719: 32.2 推奨モデル
+- **機能ブロック**: `MEM`
+- **notes**: 意図的後回し(OPEN-GUI-STATE-001): Perceus 既定経路ではなく推奨モデル記述のみ
 - **分類**: 仕様未決定
 
 ### L21908: `OPEN-MEM-CELL-001`
@@ -280,7 +327,7 @@
 
 ---
 
-## 意図的後回し（277）
+## 意図的後回し（366）
 
 ### L1360: 12. 単位と色
 - **機能ブロック**: `SYN`
@@ -297,6 +344,26 @@
 - **notes**: #hexなし; 色ctorはPKG
 - **分類**: 意図的後回し
 
+### L2342: 18.7 Markup body
+- **機能ブロック**: `SYN`
+- **notes**: 意図的後回し: markup body 回復は汎用; 専用回復戦略は後回し
+- **分類**: 意図的後回し
+
+### L2425: 19. 適合例
+- **機能ブロック**: `SYN`
+- **notes**: 意図的後回し: examples/tests で主要適合; 仕様列挙の全網羅は後回し
+- **分類**: 意図的後回し
+
+### L2477: 20. 不適合例
+- **機能ブロック**: `SYN`
+- **notes**: 意図的後回し: 主要拒否は検出; markup 複数式など差のある葉は個別追跡
+- **分類**: 意図的後回し
+
+### L2520: Markup引数内の複数式
+- **機能ブロック**: `SYN`
+- **notes**: 意図的後回し(OPEN): markup 引数内複数式の厳密拒否は部分的
+- **分類**: 意図的後回し
+
 ### L2897: 2.3 Constructor固有型
 - **機能ブロック**: `DAT`
 - **notes**: plan: full polymorphic ADT typing / ctor-specific types deferred
@@ -305,6 +372,21 @@
 ### L2930: 2.5 Runtime reflection
 - **機能ブロック**: `DAT`
 - **notes**: spec §2.5: data decls do not auto-emit runtime type descriptors; type-of-value / constructors-of are separate future items
+- **分類**: 意図的後回し
+
+### L2946: 3. 名前とnamespace
+- **機能ブロック**: `DAT`
+- **notes**: 意図的後回し: value-ns ctors は DataEnv; 完全な type-ns ctor 型の二重名前空間は後回し
+- **分類**: 意図的後回し
+
+### L2948: 3.1 型namespaceと値namespace
+- **機能ブロック**: `DAT`
+- **notes**: 意図的後回し: type/value namespace 分離の完全モデルは後回し
+- **分類**: 意図的後回し
+
+### L2966: 3.2 型名とconstructor名の同名禁止
+- **機能ブロック**: `DAT`
+- **notes**: 意図的後回し: 同名 type/ctor の厳密 dual-ns 強制は後回し
 - **分類**: 意図的後回し
 
 ### L3106: 6. Constructor固有型
@@ -327,29 +409,29 @@
 - **notes**: plan: full polymorphic ADT typing / ctor-specific types deferred
 - **分類**: 意図的後回し
 
-### L3166: 7. 型parameter推論
-- **機能ブロック**: `DAT`
-- **notes**: params in DataEnv.type_params; ctor typing still Dynamic (plan)
-- **分類**: 意図的後回し
-
-### L3182: 7.2 期待型からの推論
-- **機能ブロック**: `DAT`
-- **notes**: params in DataEnv.type_params; ctor typing still Dynamic (plan)
-- **分類**: 意図的後回し
-
-### L3200: 7.3 一部未確定のparameter
-- **機能ブロック**: `DAT`
-- **notes**: params in DataEnv.type_params; ctor typing still Dynamic (plan)
-- **分類**: 意図的後回し
-
-### L3222: 7.4 Value restriction
-- **機能ブロック**: `DAT`
-- **notes**: DAT param typing still Dynamic; plan DAT-001 deferral
-- **分類**: 意図的後回し
-
 ### L3251: 7.5 値位置の明示型argument
 - **機能ブロック**: `DAT`
 - **notes**: DAT param typing still Dynamic; plan DAT-001 deferral
+- **分類**: 意図的後回し
+
+### L3259: 8. Variance
+- **機能ブロック**: `DAT`
+- **notes**: 意図的後回し: per-param cov/contra/invar/phantom 記録済（DataEnv.type_variances）; 部分型latticeへの完全反映は後回し
+- **分類**: 意図的後回し
+
+### L3403: 10.3 宣言kindの混在禁止
+- **機能ブロック**: `DAT`
+- **notes**: 意図的後回し: rec 内 kind 混在の厳密拒否は弱い
+- **分類**: 意図的後回し
+
+### L3944: 19.5 Disjoint pattern
+- **機能ブロック**: `DAT`
+- **notes**: 意図的後回し: disjoint-pattern の精密型付けは Dynamic/exhaustiveness 経由
+- **分類**: 意図的後回し
+
+### L3964: 20.3 結果型
+- **機能ブロック**: `DAT`
+- **notes**: 意図的後回し: arm 結果型 unify; GADT/refine は Dynamic 依存
 - **分類**: 意図的後回し
 
 ### L4079: 21.6 Transparent export
@@ -367,9 +449,29 @@
 - **notes**: MOD export/abstract data boundary; MOD-001 deferral
 - **分類**: 意図的後回し
 
+### L4788: 評価文脈
+- **機能ブロック**: `EVAL`
+- **notes**: 形式証明/意図的後回し: Outcome/resume 経由; 形式 EC 文法は後回し
+- **分類**: 意図的後回し
+
+### L4867: 適合試験
+- **機能ブロック**: `EVAL`
+- **notes**: 意図的後回し: eval_tests + lang_kernel_suite; 版付き named EVAL corpus は後回し
+- **分類**: 意図的後回し
+
+### L5016: 解決後の最小Core
+- **機能ブロック**: `EVAL`
+- **notes**: 意図的後回し: BindingMap+SyntaxNodeIdは解決相; eval CoreのBindingId昇格は後回し
+- **分類**: 意図的後回し
+
 ### L5597: `DD-BND-011`: 多相再帰の禁止
 - **機能ブロック**: `BND`
 - **notes**: polymorphic recursion out of v1; plan BND deferral
+- **分類**: 意図的後回し
+
+### L5834: `DD-BND-018`: local state identity
+- **機能ブロック**: `BND`
+- **notes**: 意図的後回し/形式証明: local-state effect + Cell Rc identity実装済; formal scope identity代数は後回し
 - **分類**: 意図的後回し
 
 ### L5907: `DD-BND-020`: non-escaping callback
@@ -442,9 +544,44 @@
 - **notes**: 0個以上`...`はv1対象外
 - **分類**: 意図的後回し
 
+### L7258: 7.3 Templateの構文妥当性
+- **機能ブロック**: `MAC`
+- **notes**: 意図的後回し: def時 var/DAG検査あり（check_template_vars）; template完全構文妥当性の網羅は後回し
+- **分類**: 意図的後回し
+
+### L7510: 14.3 概念的なidentity
+- **機能ブロック**: `MAC`
+- **notes**: 意図的後回し: MacroSourceMap SyntaxNodeId + BindingMap use-sites; Core文字列 BindingId 統一は後回し
+- **分類**: 意図的後回し
+
+### L7637: 18. エラー診断
+- **機能ブロック**: `MAC`
+- **notes**: 意図的後回し: 主要 expand 診断あり; 深い span/provenance 帰属は後回し
+- **分類**: 意図的後回し
+
+### L7664: 18.5 不正な展開結果
+- **機能ブロック**: `MAC`
+- **notes**: 意図的後回し: 不正展開結果は後段エラー依存
+- **分類**: 意図的後回し
+
+### L7668: 18.6 型エラー
+- **機能ブロック**: `MAC`
+- **notes**: 意図的後回し: 型エラーのマクロ起点帰属なし
+- **分類**: 意図的後回し
+
+### L7683: 19.2 診断例
+- **機能ブロック**: `MAC`
+- **notes**: 意図的後回し: expand provenance 記録あり; typed diagnostic 付着は後回し
+- **分類**: 意図的後回し
+
 ### L7720: 20.3 将来拡張
 - **機能ブロック**: `MAC`
 - **notes**: 将来のpkg公開
+- **分類**: 意図的後回し
+
+### L7724: 21. 適合試験
+- **機能ブロック**: `MAC`
+- **notes**: 意図的後回し: lang_kernel_suite TEST-LANG-MAC-001 等; 版付き全 MAC 試験は後回し
 - **分類**: 意図的後回し
 
 ### L7900: 21.13 不適合試験 MAC-13：Interface
@@ -457,9 +594,74 @@
 - **notes**: OPEN移管カタログ
 - **分類**: 意図的後回し
 
+### L8036: 13.6 `TYP-001` Gradual set-theoretic types
+- **機能ブロック**: `TYP`
+- **notes**: 意図的後回し(TYP-ALG): Bounded Dynamic/casts/EffectRow/ROW fragment実装済; 完全集合論ソルバは後回し
+- **分類**: 意図的後回し
+
+### L8038: 概要・状態
+- **機能ブロック**: `TYP`
+- **notes**: 意図的後回し(TYP-ALG): Dynamic/unify/EffectRow/cast fragment実装済; 完全集合論代数は後回し
+- **分類**: 意図的後回し
+
+### L8992: `DD-TYP-DYN-018`: cast provenance
+- **機能ブロック**: `TYP`
+- **notes**: 意図的後回し: CastProvenance struct 分離済; 完全 boundary ID 配線は後回し
+- **分類**: 意図的後回し
+
+### L9734: `DD-NAME-002`: namespace間の同綴り衝突
+- **機能ブロック**: `TYP`
+- **notes**: 意図的後回し: namespace 間同綴り衝突の完全警告は後回し
+- **分類**: 意図的後回し
+
+### L9840: 適合試験
+- **機能ブロック**: `TYP`
+- **notes**: 意図的後回し: lang_kernel_suite TYP+cast_tests; 版付き named TYP corpus は後回し
+- **分類**: 意図的後回し
+
 ### L10176: namespace collision warning
 - **機能ブロック**: `TYP`
 - **notes**: namespace collision warnings deferred (NAME-002)
+- **分類**: 意図的後回し
+
+### L10340: 13.6.2 `TYP-ALG-001` Algorithmic型検査、semantic subtypingの判定範囲、型推論
+- **機能ブロック**: `TYP`
+- **notes**: 意図的後回し: 完全な semantic subtyping solver / worklist 代数（decide_subtype 三値 fragment は維持）
+- **分類**: 意図的後回し
+
+### L10489: `DD-TYP-ALG-003`: 診断分類
+- **機能ブロック**: `TYP`
+- **notes**: 意図的後回し: TypeDiagClass 全経路の emitter 配線（classify_decide の基本マップは維持）
+- **分類**: 意図的後回し
+
+### L10520: `annotation-required`
+- **機能ブロック**: `TYP`
+- **notes**: 意図的後回し: AnnotationRequired の診断 emitter 統合（ADT-08 文字列注釈要求は維持）
+- **分類**: 意図的後回し
+
+### L10556: `checker-resource-limit`
+- **機能ブロック**: `TYP`
+- **notes**: 意図的後回し: checker-resource-limit / solver step-budget emitter
+- **分類**: 意図的後回し
+
+### L10562: `unsupported-language-feature`
+- **機能ブロック**: `TYP`
+- **notes**: 意図的後回し: UnsupportedLanguageFeature 診断の利用点拡張
+- **分類**: 意図的後回し
+
+### L10639: `DD-TYP-ALG-006`: 決定的なsolver budget
+- **機能ブロック**: `TYP`
+- **notes**: 意図的後回し: 明示的 solver step budget（断片上は終了する）
+- **分類**: 意図的後回し
+
+### L10823: `DD-TYP-EFF-004`: effect-row polymorphism
+- **機能ブロック**: `TYP`
+- **notes**: 意図的後回し: EffectRow 全多相 / quantify（Fun EffectRow + infer_with_effects は維持）
+- **分類**: 意図的後回し
+
+### L10853: `DD-TYP-EFF-005`: handlerとrunnerによるeffect縮小
+- **機能ブロック**: `TYP`
+- **notes**: 意図的後回し: handle が residual から op 除去; return-clause 精密型付けは後回し
 - **分類**: 意図的後回し
 
 ### L10878: `DD-TYP-EFF-006`: EffectRow alias
@@ -470,6 +672,16 @@
 ### L10915: `DD-TYP-EFF-007`: 注釈されたrequired effects
 - **機能ブロック**: `TYP`
 - **notes**: annotated required-effects surface deferred
+- **分類**: 意図的後回し
+
+### L10990: `DD-TYP-BOOL-002`: Surface negationの制限
+- **機能ブロック**: `TYP`
+- **notes**: 意図的後回し: unrestricted Surface negation の完全解法（Not 構文は維持）
+- **分類**: 意図的後回し
+
+### L11096: Function型
+- **機能ブロック**: `TYP`
+- **notes**: 意図的後回し: function intersection types / coherence（fixed-arity Fun は維持）
 - **分類**: 意図的後回し
 
 ### L11201: `DD-TYP-FN-003`: function intersection
@@ -517,6 +729,11 @@
 - **notes**: union-arg dispatch deferred with function intersection
 - **分類**: 意図的後回し
 
+### L11420: Row-polymorphic record
+- **機能ブロック**: `TYP`
+- **notes**: 意図的後回し(ROW-001): OpenRecord 行多相; multi-tail は後回し
+- **分類**: 意図的後回し
+
 ### L11591: `DD-TYP-ROW-008`: recordのBoolean演算
 - **機能ブロック**: `TYP`
 - **notes**: record Boolean combination complete fragment deferred
@@ -562,6 +779,11 @@
 - **notes**: full recursive decide fragment deferred
 - **分類**: 意図的後回し
 
+### L12208: `DD-TYP-FRAG-003`: C — 注釈を要求し得るfragment
+- **機能ブロック**: `TYP`
+- **notes**: 意図的後回し: AnnotationRequired class 予約; incompleteness 経路は薄い
+- **分類**: 意図的後回し
+
 ### L12266: 共通constraint worklist
 - **機能ブロック**: `TYP`
 - **notes**: shared constraint worklist deferred; unify is direct
@@ -592,6 +814,11 @@
 - **notes**: solver end-states folded into CheckError for now
 - **分類**: 意図的後回し
 
+### L12466: Resource limit
+- **機能ブロック**: `TYP`
+- **notes**: 意図的後回し: CheckerResourceLimit / resource-budget 実行経路
+- **分類**: 意図的後回し
+
 ### L12472: `DD-TYP-SOLVER-006`: cast insertionとgeneralizationの順序
 - **機能ブロック**: `TYP`
 - **notes**: cast insertion vs generalization ordering deferred
@@ -605,6 +832,26 @@
 ### L12496: `DD-TYP-SOLVER-007`: checkerの全体処理順序
 - **機能ブロック**: `TYP`
 - **notes**: overall checker processing order deferred
+- **分類**: 意図的後回し
+
+### L12542: 適合試験
+- **機能ブロック**: `TYP`
+- **notes**: 意図的後回し: TYP + cast_tests; 版付き TYP-ALG corpus は後回し
+- **分類**: 意図的後回し
+
+### L12574: 診断分類
+- **機能ブロック**: `TYP`
+- **notes**: 意図的後回し: TypeDiagClass 全診断 emitter（taxonomy + classify_decide は維持）
+- **分類**: 意図的後回し
+
+### L12656: EffectRow polymorphism
+- **機能ブロック**: `TYP`
+- **notes**: 意図的後回し: EffectRow polymorphism 適合試験 / 量化（EffectRow 本体は維持）
+- **分類**: 意図的後回し
+
+### L12722: Function subtyping
+- **機能ブロック**: `TYP`
+- **notes**: 意図的後回し: 基本 Fun 部分型; 完全 DD suite は後回し
 - **分類**: 意図的後回し
 
 ### L12744: Function intersection coherence
@@ -637,9 +884,34 @@
 - **notes**: non-regular recursion suite deferred
 - **分類**: 意図的後回し
 
+### L12948: Bidirectional checking
+- **機能ブロック**: `TYP`
+- **notes**: 意図的後回し: Fun/Record annotation checking あり; 完全 BIDI corpus は後回し
+- **分類**: 意図的後回し
+
 ### L13022: Solver determinism
 - **機能ブロック**: `TYP`
 - **notes**: solver determinism suite deferred with worklist
+- **分類**: 意図的後回し
+
+### L13203: 13.7 `ROW-001` Row-polymorphic records
+- **機能ブロック**: `ROW`
+- **notes**: 意図的後回し(ROW-001): closed+OpenRecord+Lacks実装済; multi-tailは後回し
+- **分類**: 意図的後回し
+
+### L13226: 13.8 `EFF-001` Algebraic effects and handlers
+- **機能ブロック**: `EFF`
+- **notes**: 意図的後回し: deep one-shot + ambient + with/handler実装済; multi-shot/return句は後回し
+- **分類**: 意図的後回し
+
+### L13230: 状態
+- **機能ブロック**: `EFF`
+- **notes**: 意図的後回し: deep one-shot + ambient + with/handler; multi-shot/return句は後回し
+- **分類**: 意図的後回し
+
+### L13351: `DD-EFF-003`: resumptionの型とscope
+- **機能ブロック**: `EFF`
+- **notes**: 意図的後回し: one-shot resume 値あり; resume 精密型付けは interim Dynamic
 - **分類**: 意図的後回し
 
 ### L13579: `DD-EFF-008`: return clause
@@ -652,14 +924,44 @@
 - **notes**: return-clause / Handler<L,A,B,H> typing deferred (plan)
 - **分類**: 意図的後回し
 
+### L13681: `DD-EFF-010`: handler valueのrank-1多相性
+- **機能ブロック**: `EFF`
+- **notes**: 意図的後回し: HandlerValue は check 上 Dynamic; rank-1 多相 handler は後回し
+- **分類**: 意図的後回し
+
 ### L13875: Named/scoped effect instance
 - **機能ブロック**: `EFF`
 - **notes**: named/scoped effect instances not in kernel
 - **分類**: 意図的後回し
 
+### L13931: `DD-EFF-014`: EffectRowの意味
+- **機能ブロック**: `EFF`
+- **notes**: 意図的後回し: thin EffectRow; handler 精密型付けは後回し
+- **分類**: 意図的後回し
+
+### L14013: `DD-EFF-015`: ambient effect rowと制約生成
+- **機能ブロック**: `EFF`
+- **notes**: 意図的後回し: ambient EffectRow 制約生成は薄い
+- **分類**: 意図的後回し
+
+### L14109: `DD-EFF-016`: handlerの型付け骨格
+- **機能ブロック**: `EFF`
+- **notes**: 意図的後回し: handler 型付け骨格は interim（op+fn）
+- **分類**: 意図的後回し
+
 ### L14371: `DD-EFF-020`: cleanupとの接続要件
 - **機能ブロック**: `EFF`
 - **notes**: cleanup/finalization → ERR; plan deferral
+- **分類**: 意図的後回し
+
+### L14412: 13.9 `MOD-001` モジュール・シグネチャ・Functor・分割コンパイル
+- **機能ブロック**: `MOD`
+- **notes**: 意図的後回し: outer unit + import/link + .rpi実装済; signatures/functorsは後回し
+- **分類**: 意図的後回し
+
+### L14434: DD-001.2 中心的な決定
+- **機能ブロック**: `MOD`
+- **notes**: 意図的後回し: import as/only/rename+qualified + .rpi境界実装済; functors/signaturesは後回し
 - **分類**: 意図的後回し
 
 ### L14477: 0.2 本項目が直接定めないもの
@@ -712,6 +1014,16 @@
 - **notes**: 意図的後回し: nested forward-ref N/A until nested modules
 - **分類**: 意図的後回し
 
+### L14685: 4.5 Top-level effect
+- **機能ブロック**: `MOD`
+- **notes**: 意図的後回し: unit body は Core として評価; module-level effect gate は未導入
+- **分類**: 意図的後回し
+
+### L14727: 5.3 内部表現
+- **機能ブロック**: `MOD`
+- **notes**: 意図的後回し: qualified binder は `alias/export` 文字列; formal ModuleId path IR は後回し
+- **分類**: 意図的後回し
+
 ### L14737: 5.4 .
 - **機能ブロック**: `MOD`
 - **notes**: 意図的後回し: dot-qualified module refs; slash paths are primary
@@ -720,6 +1032,11 @@
 ### L14811: 6.7 自動再公開
 - **機能ブロック**: `MOD`
 - **notes**: 意図的後回し: auto re-export of imports not in bind skeleton
+- **分類**: 意図的後回し
+
+### L14821: 7. Importと正式identity
+- **機能ブロック**: `MOD`
+- **notes**: 意図的後回し: alias は局所接頭辞; formal ModuleId identity 層は後回し
 - **分類**: 意図的後回し
 
 ### L14870: 8.2 Wrapper
@@ -1067,6 +1384,21 @@
 - **notes**: module-alias/re-export/include not in bind skeleton
 - **分類**: 意図的後回し
 
+### L15400: 20. 正式identity
+- **機能ブロック**: `MOD`
+- **notes**: 意図的後回し: reciplexa-identity に opaque ID; MOD metadata への正式配線は後回し
+- **分類**: 意図的後回し
+
+### L15441: 20.5 TypeId
+- **機能ブロック**: `MOD`
+- **notes**: 意図的後回し: TypeId opaque は identity crate; MOD metadata 未配線
+- **分類**: 意図的後回し
+
+### L15447: 20.6 ConstructorId
+- **機能ブロック**: `MOD`
+- **notes**: 意図的後回し: ConstructorId opaque は identity crate; MOD metadata 未配線
+- **分類**: 意図的後回し
+
 ### L15473: 20.9 Functor適用結果
 - **機能ブロック**: `MOD`
 - **notes**: functor apply identity N/A until functors
@@ -1142,6 +1474,11 @@
 - **notes**: PKG-001 deferred (post language-kernel)
 - **分類**: 意図的後回し
 
+### L16149: 5. パッケージversion
+- **機能ブロック**: `PKG`
+- **notes**: 意図的後回し: version フィールド parse; 完全 semver 代数は後回し
+- **分類**: 意図的後回し
+
 ### L16159: 5.2 Version要素
 - **機能ブロック**: `PKG`
 - **notes**: PKG-001 deferred (post language-kernel)
@@ -1175,6 +1512,11 @@
 ### L16255: 6.6 Root pathの制限
 - **機能ブロック**: `PKG`
 - **notes**: PKG-001 deferred (post language-kernel)
+- **分類**: 意図的後回し
+
+### L16287: 7.3 内部モジュール
+- **機能ブロック**: `PKG`
+- **notes**: 意図的後回し: 非公開 cross-package import拒否済; 同一package内モジュールグラフは後回し
 - **分類**: 意図的後回し
 
 ### L16297: 7.4 Internal moduleの.rpi
@@ -1230,6 +1572,11 @@
 ### L16443: 10.5 Aliasの重複
 - **機能ブロック**: `PKG`
 - **notes**: PKG-001 deferred (post language-kernel)
+- **分類**: 意図的後回し
+
+### L16450: 11. Version constraint
+- **機能ブロック**: `PKG`
+- **notes**: 意図的後回し: 完全な version constraint solver（正確一致 / * は維持）
 - **分類**: 意図的後回し
 
 ### L16469: 11.2 範囲指定
@@ -1367,22 +1714,12 @@
 - **notes**: PKG-001 deferred (post language-kernel)
 - **分類**: 意図的後回し
 
-### L16674: 17.2 役割
-- **機能ブロック**: `PKG`
-- **notes**: PKG-001 deferred (post language-kernel)
-- **分類**: 意図的後回し
-
 ### L16681: 17.3 通常build
 - **機能ブロック**: `PKG`
 - **notes**: PKG-001 deferred (post language-kernel)
 - **分類**: 意図的後回し
 
 ### L16687: 17.4 初回build
-- **機能ブロック**: `PKG`
-- **notes**: PKG-001 deferred (post language-kernel)
-- **分類**: 意図的後回し
-
-### L16698: 17.5 不整合
 - **機能ブロック**: `PKG`
 - **notes**: PKG-001 deferred (post language-kernel)
 - **分類**: 意図的後回し
@@ -1444,7 +1781,7 @@
 
 ### L16813: 20. ワークスペース
 - **機能ブロック**: `PKG`
-- **notes**: PKG-001 deferred (post language-kernel)
+- **notes**: 意図的後回し: workspace member discovery/build（workspace.rpxm stub parse は維持）
 - **分類**: 意図的後回し
 
 ### L16839: 20.4 Member
@@ -1637,9 +1974,84 @@
 - **notes**: OPEN transferred; deferred with PKG
 - **分類**: 意図的後回し
 
+### L17299: 13.10.1 `KER-001` Rust kernelとforeign primitive境界
+- **機能ブロック**: `KER`
+- **notes**: 意図的後回し: BuiltinOp + EffectHost; 完全 Rust/FFI ABI は後回し
+- **分類**: 意図的後回し
+
+### L17301: 概要・状態
+- **機能ブロック**: `KER`
+- **notes**: 意図的後回し: kernel ops は eval/check; TEST-KER-*/foreign validator は後回し
+- **分類**: 意図的後回し
+
+### L17326: 13.10.2 `RSC-001` Resource、I/O、host-handler境界
+- **機能ブロック**: `RSC`
+- **notes**: 意図的後回し: MemoryFsHost read-file/write-file実装済; 豊かなcatalog/path safetyは後回し
+- **分類**: 意図的後回し
+
+### L17328: 概要・状態
+- **機能ブロック**: `RSC`
+- **notes**: 意図的後回し: in-memory host は試験用; resolve-font/load-image 等は言語核外
+- **分類**: 意図的後回し
+
+### L18860: 13.12 `IR-001` Layered visual/motion/render IR
+- **機能ブロック**: `IR`
+- **notes**: 意図的後回し: backends+motion+view実装済; 完全 layered IR schemaは後回し
+- **分類**: 意図的後回し
+
+### L18875: SurfaceとArtifact
+- **機能ブロック**: `IR`
+- **notes**: 意図的後回し: scene/document surface あり; Artifact 代数は後回し
+- **分類**: 意図的後回し
+
+### L18889: RenderIR node algebra
+- **機能ブロック**: `IR`
+- **notes**: 意図的後回し: pdf/svg/pptx/view 原始あり; 完全 RenderIR node 代数は後回し
+- **分類**: 意図的後回し
+
+### L18949: Backend lowering
+- **機能ブロック**: `IR`
+- **notes**: 意図的後回し: pdf/svg/pptx lowering あり; AE/edit-preserving path は後回し
+- **分類**: 意図的後回し
+
+### L18981: テスト
+- **機能ブロック**: `IR`
+- **notes**: 意図的後回し: phase12_motion TEST-IR-007; 版付き IR-001..009 validator suite は後回し
+- **分類**: 意図的後回し
+
+### L19275: 5.4 Handlerの結果型
+- **機能ブロック**: `ERR`
+- **notes**: 意図的後回し: handler 結果型は共有 handle infer（interim）
+- **分類**: 意図的後回し
+
 ### L20399: 30. 移管先OPEN
 - **機能ブロック**: `ERR`
 - **notes**: OPEN transfer; deferred
+- **分類**: 意図的後回し
+
+### L20476: 13.14 `MEM-001` Perceusメモリ管理・スコープ付きリソース・継続・メモリ予算
+- **機能ブロック**: `MEM`
+- **notes**: 意図的後回し: reciplexa-mem Perceus IR（dup/drop/reuse/verify/lower）実装済; 既定evalのPerceus切替は後回し
+- **分類**: 意図的後回し
+
+### L20956: 10. var
+- **機能ブロック**: `MEM`
+- **notes**: 意図的後回し: LocalVar escape check は eval; Perceus-var cell 統合は後回し
+- **分類**: 意図的後回し
+
+### L20966: 10.2 物理表現
+- **機能ブロック**: `MEM`
+- **notes**: 意図的後回し: var 物理セルの独立 ownership クラスは mem IR 未
+- **分類**: 意図的後回し
+
+### L21047: 13. Continuation
+- **機能ブロック**: `MEM`
+- **notes**: 意図的後回し: Resume/DiscardCont/Raise はあるが完全継続捕捉モデルは後回し
+- **分類**: 意図的後回し
+
+### L21728: 33. 適合試験
+- **機能ブロック**: `MEM`
+- **notes**: 意図的後回し: phase6_mem / mem tests あり; 版付きフル MEM-001 suite は後回し
 - **分類**: 意図的後回し
 
 ### L21906: 34. 移管先OPEN
@@ -1647,14 +2059,89 @@
 - **notes**: OPEN transfer; deferred
 - **分類**: 意図的後回し
 
+### L22074: 14.1 全体EBNF（未完成）
+- **機能ブロック**: `TST`
+- **notes**: 意図的後回し: skeleton EBNF; 実文法は reciplexa-syntax
+- **分類**: 意図的後回し
+
+### L22128: 14.3 予約語
+- **機能ブロック**: `TST`
+- **notes**: 意図的後回し(OPEN): is_reserved_special_form/keywords あり; 予約語政策の最終確定は後回し
+- **分類**: 意図的後回し
+
+### L22134: 14.4 糖衣とCore
+- **機能ブロック**: `TST`
+- **notes**: 意図的後回し: elaborate が主要糖衣をカバー; 表形式の完全対応表は後回し
+- **分類**: 意図的後回し
+
+### L22148: 15.1 Kind
+- **機能ブロック**: `TST`
+- **notes**: 形式証明/意図的後回し: kinds は CoreType/rows に暗黙; Module/Signature kind は後回し
+- **分類**: 意図的後回し
+
+### L22156: 15.2 共通判断
+- **機能ブロック**: `TST`
+- **notes**: 形式証明/意図的後回し: infer/check 判断は check.rs; module sig 判断は後回し
+- **分類**: 意図的後回し
+
+### L22168: 15.3 基本規則
+- **機能ブロック**: `TST`
+- **notes**: 形式証明/意図的後回し: T-VAR/if/record 等は checker; 規則全集は後回し
+- **分類**: 意図的後回し
+
+### L22222: 15.4 一般化
+- **機能ブロック**: `TST`
+- **notes**: 形式証明/意図的後回し: let 一般化は light; value restriction 完全形は後回し
+- **分類**: 意図的後回し
+
+### L22228: 15.5 Subtypingと制約解決
+- **機能ブロック**: `TST`
+- **notes**: 形式証明/意図的後回し: unify+subtype stubs; 完全制約ソルバは後回し
+- **分類**: 意図的後回し
+
 ### L22236: 15.6 Module境界
 - **機能ブロック**: `TST`
 - **notes**: module signature checking deferred with MOD signatures
 - **分類**: 意図的後回し
 
+### L22267: 16.3 効果伝播
+- **機能ブロック**: `TST`
+- **notes**: 意図的後回し: deep one-shot handlers; multi-shot 効果伝播は後回し
+- **分類**: 意図的後回し
+
+### L22384: 実装アーキテクチャ
+- **機能ブロック**: `TST`
+- **notes**: 意図的後回し: vertical slice pipeline あり; 最終アーキテクチャ文書化は後回し
+- **分類**: 意図的後回し
+
+### L22386: 20.1 最終目標パイプライン
+- **機能ブロック**: `TST`
+- **notes**: 意図的後回し: bytes→CST→elaborate→check→eval→lower あり; 位相隙間の閉包は後回し
+- **分類**: 意図的後回し
+
+### L22404: 20.2 必要データ構造
+- **機能ブロック**: `TST`
+- **notes**: 意図的後回し: 主要構造あり; ModuleEnv/Typed Core 完全形は後回し
+- **分類**: 意図的後回し
+
+### L22460: 21.1 型検査器要件
+- **機能ブロック**: `TST`
+- **notes**: 意図的後回し: typecheck_language_sourceあり; ModuleEnv/imported sigs完全形は後回し
+- **分類**: 意図的後回し
+
 ### L22529: 22.5 Property/differential/fuzz
 - **機能ブロック**: `TST`
 - **notes**: 意図的後回し: property/differential/fuzz harness (harden fuzz hook only)
+- **分類**: 意図的後回し
+
+### L22569: 段階2: 仕様が明確になった
+- **機能ブロック**: `TST`
+- **notes**: 形式プロセス/意図的後回し: 仕様は大部記述済; 文法/Core 穴の完全閉鎖は後回し
+- **分類**: 意図的後回し
+
+### L22585: 段階4: 適合試験を通過
+- **機能ブロック**: `TST`
+- **notes**: 形式プロセス/意図的後回し: 主要適合試験は通過; 版付きフル suite gate は後回し
 - **分類**: 意図的後回し
 
 ### L22593: 段階5: 統合試験を通過
@@ -1667,9 +2154,24 @@
 - **notes**: 意図的後回し: stage-6 generators/differential/fuzz gate
 - **分類**: 意図的後回し
 
+### L22618: 段階8: 実装と形式仕様の対応を確認
+- **機能ブロック**: `TST`
+- **notes**: 形式証明/意図的後回し: crate↔spec 対応は informal; 版付き correspondence report は後回し
+- **分類**: 意図的後回し
+
 ---
 
-## 依存待ち（190）
+## 依存待ち（257）
+
+### L1986: 17.2 Coreとpackageの分担
+- **機能ブロック**: `SYN`
+- **notes**: 依存待ち(PKG): Core reader vs package constructors (circle/space/…)- notes: CST readerあり; package分担は暫定
+- **分類**: 依存待ち
+
+### L2129: 17.7 糖衣展開
+- **機能ブロック**: `SYN`
+- **notes**: 依存待ち(PKG): @name[…]/{} sugar expands to package constructors- notes: document/macro prototype; 完全sugar未
+- **分類**: 依存待ち
 
 ### L8609: `DD-TYP-DYN-010`: foreign値のdynamic導入
 - **機能ブロック**: `TYP`
@@ -1719,6 +2221,11 @@
 ### L10147: dynamicからforall
 - **機能ブロック**: `TYP`
 - **notes**: 依存待ち: dynamic→forall boundary
+- **分類**: 依存待ち
+
+### L17355: 13.11 `EDT-001` 編集スナップショット・トランザクション・競合・由来情報
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): DocumentSnapshot/Transaction は言語側骨格あり; full GUI reconciliation/conflict/undo/codec は後回し
 - **分類**: 依存待ち
 
 ### L17401: 0.1 本項目が扱う編集
@@ -1906,6 +2413,11 @@
 - **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 - **分類**: 依存待ち
 
+### L17900: 9.3 SetProperty
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): SetLayout/SetText のみ; 汎用 SetProperty は GUI EDT
+- **分類**: 依存待ち
+
 ### L17950: 9.5 RemoveChild
 - **機能ブロック**: `EDT`
 - **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
@@ -1919,6 +2431,11 @@
 ### L18005: 10.3 Copy
 - **機能ブロック**: `EDT`
 - **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18011: 11. 適用前条件
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): UnknownNode/InvalidParent 等の基本検査あり; 完全な適用前条件プロトコルは GUI
 - **分類**: 依存待ち
 
 ### L18037: 11.3 Base revision
@@ -1976,6 +2493,11 @@
 - **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 - **分類**: 依存待ち
 
+### L18135: 14. 適用手順
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): 簡略 apply; 仕様9段プロトコルは GUI reconciliation
+- **分類**: 依存待ち
+
 ### L18139: 1. TransactionIdを確認
 - **機能ブロック**: `EDT`
 - **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
@@ -1994,6 +2516,11 @@
 ### L18142: 4. Transaction-level preconditionを検査
 - **機能ブロック**: `EDT`
 - **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18143: 5. 現在snapshotから作業状態を作成
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): in-place mutate+rollback; 作業 snapshot 複製モデルは GUI
 - **分類**: 依存待ち
 
 ### L18145: 7. 文書全体の不変条件を検査
@@ -2171,6 +2698,21 @@
 - **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 - **分類**: 依存待ち
 
+### L18460: 21. 公開API階層
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): Rust document API; RPX 第一級 EDT API は後回し
+- **分類**: 依存待ち
+
+### L18461: 21.1 純粋な第一級値
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): DocumentEdit 値はあるが RPX 第一級化は GUI/EDT
+- **分類**: 依存待ち
+
+### L18474: 21.2 状態付きhandle
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): DocumentSnapshot handle は GUI 経路
+- **分類**: 依存待ち
+
 ### L18478: 21.3 抽象型
 - **機能ブロック**: `EDT`
 - **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
@@ -2186,9 +2728,34 @@
 - **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
 - **分類**: 依存待ち
 
+### L18501: 22.1 高水準API
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): source_sync GUI edits
+- **分類**: 依存待ち
+
+### L18515: 22.2 低水準API
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): DocumentTransaction 低水準 API は GUI 層
+- **分類**: 依存待ち
+
+### L18529: 23. Pure処理とEffectful処理
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): doc tx 純関数性 vs host I/O の完全分離は GUI/RSC 境界
+- **分類**: 依存待ち
+
 ### L18530: 23.1 Pure処理
 - **機能ブロック**: `EDT`
 - **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18538: 23.2 Effectful処理
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): source rewrite side effects via GUI sync
+- **分類**: 依存待ち
+
+### L18559: 24. 競合・不正・実行障害の分離
+- **機能ブロック**: `EDT`
+- **notes**: 依存待ち(第V部): Outcome vs Error 骨格あり; 競合型の完全分離は GUI
 - **分類**: 依存待ち
 
 ### L18573: 24.3 実行障害
@@ -2244,6 +2811,46 @@
 ### L18835: 29. 最終状態
 - **機能ブロック**: `EDT`
 - **notes**: 依存待ち(第V部): full GUI reconciliation (EDT ops/conflict/undo/codec)
+- **分類**: 依存待ち
+
+### L18993: 13.13 `ERR-001` 通常の失敗・Failure effect・後始末・Defect・最上位実行境界
+- **機能ブロック**: `ERR`
+- **notes**: 依存待ち(第III部): raise/handle/or-raise/as-result + Never + DYN-005実装済; bracket/cleanup/defect境界は後回し
+- **分類**: 依存待ち
+
+### L19114: 2. resultおよび専用結果型
+- **機能ブロック**: `ERR`
+- **notes**: dedicated ERR result API beyond DAT result 依存待ち(第III部); user data result path ok
+- **分類**: 依存待ち
+
+### L19115: 2.1 用途
+- **機能ブロック**: `ERR`
+- **notes**: 専用結果型 API 依存待ち(第III部); DAT result/option usable
+- **分類**: 依存待ち
+
+### L19135: 2.2 専用結果型
+- **機能ブロック**: `ERR`
+- **notes**: dedicated ERR result constructors 依存待ち(第III部)
+- **分類**: 依存待ち
+
+### L19150: 2.3 複数errorの収集
+- **機能ブロック**: `ERR`
+- **notes**: multi-error collect language primitive 依存待ち(第III部)/OPEN
+- **分類**: 依存待ち
+
+### L19359: 7. 一つのFailure型への統合
+- **機能ブロック**: `ERR`
+- **notes**: single-failure-type-per-boundary enforcement 依存待ち(第III部)
+- **分類**: 依存待ち
+
+### L19468: 9. resultとFailureの選択指針
+- **機能ブロック**: `ERR`
+- **notes**: result vs Failure choice-policy auto-enforcement 依存待ち(第III部)/メタ指針
+- **分類**: 依存待ち
+
+### L19469: 9.1 resultを推奨する場合
+- **機能ブロック**: `ERR`
+- **notes**: result推奨指針はメタ; 言語強制なし 依存待ち(第III部)
 - **分類**: 依存待ち
 
 ### L19496: 10. Resource cleanup
@@ -2376,6 +2983,11 @@
 - **notes**: 依存待ち: finally (Part III runtime)
 - **分類**: 依存待ち
 
+### L19749: 18. Cancellation
+- **機能ブロック**: `ERR`
+- **notes**: full ERR Cancellation model beyond CancellationToken stub 依存待ち(第III部)
+- **分類**: 依存待ち
+
 ### L19757: 18.2 Cleanup
 - **機能ブロック**: `ERR`
 - **notes**: 依存待ち: cancellation cleanup (Part III runtime)
@@ -2501,6 +3113,26 @@
 - **notes**: 依存待ち: validator defect (Part III)
 - **分類**: 依存待ち
 
+### L19957: 22.9 Foreign adapter
+- **機能ブロック**: `ERR`
+- **notes**: classify_foreign_adapter done; Terminal/fault boundary 依存待ち(第III部)
+- **分類**: 依存待ち
+
+### L19964: 22.10 Resource exhaustion
+- **機能ブロック**: `ERR`
+- **notes**: classify_resource_exhaustion done; job budget/Terminal OOM 依存待ち(第III部)
+- **分類**: 依存待ち
+
+### L20007: 23.3 権限・機密性
+- **機能ブロック**: `ERR`
+- **notes**: permission/secrecy fields present; host redaction 依存待ち(第III部)
+- **分類**: 依存待ち
+
+### L20039: 25. Entry pointと実行環境
+- **機能ブロック**: `ERR`
+- **notes**: RequiredEffects⊆Provided entry matrix 依存待ち(第III部)
+- **分類**: 依存待ち
+
 ### L20040: 25.1 Runtime capability
 - **機能ブロック**: `ERR`
 - **notes**: 依存待ち(第III部): entry RequiredEffects ⊆ ProvidedEffects capability check
@@ -2511,9 +3143,24 @@
 - **notes**: 依存待ち(第III部): CLI/GUI/Server/Worker distinct main contracts
 - **分類**: 依存待ち
 
+### L20097: 26. 未処理Failure
+- **機能ブロック**: `ERR`
+- **notes**: Application sink/retry for unhandled Failure 依存待ち(第III部)
+- **分類**: 依存待ち
+
+### L20098: 26.1 原則
+- **機能ブロック**: `ERR`
+- **notes**: Application-boundary policy for unhandled Failure 依存待ち(第III部)
+- **分類**: 依存待ち
+
 ### L20108: 26.2 最終防御
 - **機能ブロック**: `ERR`
 - **notes**: 依存待ち(第III部): final Failure sink cleanup + JobResult conversion
+- **分類**: 依存待ち
+
+### L20119: 26.3 Runtime default表示
+- **機能ブロック**: `ERR`
+- **notes**: full Error→Diagnostic explain API 依存待ち(第III部); default FailureReport display present
 - **分類**: 依存待ち
 
 ### L20136: 27. 実行環境別の処理
@@ -2546,6 +3193,36 @@
 - **notes**: 依存待ち(第III部|第V部): Render job fault boundary
 - **分類**: 依存待ち
 
+### L20190: 28. Diagnostic
+- **機能ブロック**: `ERR`
+- **notes**: 依存待ち(第III部): reciplexa-diagnostic + FailureDiagnosticBundle; ERR §28 主モデルは後回し
+- **分類**: 依存待ち
+
+### L20208: 28.2 PrimaryとSuppressed
+- **機能ブロック**: `ERR`
+- **notes**: primary→suppressed order present; cleanup wiring 依存待ち(第III部)
+- **分類**: 依存待ち
+
+### L20577: 1. メモリとResourceの分離
+- **機能ブロック**: `MEM`
+- **notes**: 依存待ち(第III部): values vs bracket resources 方針のみ; bracket 表面は後回し
+- **分類**: 依存待ち
+
+### L20594: 1.2 外部Resource
+- **機能ブロック**: `MEM`
+- **notes**: 依存待ち: external Resource lifetime via bracket (Part III)- notes: policy: values vs resources; RSC/bracket separation incomplete
+- **分類**: 依存待ち
+
+### L20684: 3.2 Surface所有権注釈
+- **機能ブロック**: `MEM`
+- **notes**: 依存待ち: Surface ownership annotations (none in v1 core path)- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+- **分類**: 依存待ち
+
+### L20708: 3.3 Trusted boundary
+- **機能ブロック**: `MEM`
+- **notes**: 依存待ち: Trusted foreign ownership boundary metadata- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+- **分類**: 依存待ち
+
 ### L20940: 9.4 Closure identity
 - **機能ブロック**: `MEM`
 - **notes**: 依存待ち: closure identity observability (Part III / full MEM)
@@ -2556,9 +3233,19 @@
 - **notes**: 依存待ち: scoped resource handle + bracket (Part III)
 - **分類**: 依存待ち
 
+### L21136: 15.1 隠れたscope
+- **機能ブロック**: `MEM`
+- **notes**: 依存待ち: hidden resource scope / bracket (Part III)- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+- **分類**: 依存待ち
+
 ### L21153: 15.2 bracketの概念型
 - **機能ブロック**: `MEM`
 - **notes**: 依存待ち: bracket concept type surface (Part III)
+- **分類**: 依存待ち
+
+### L21168: 15.3 Escape禁止
+- **機能ブロック**: `MEM`
+- **notes**: 依存待ち: scoped resource escape ban (Part III)- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 - **分類**: 依存待ち
 
 ### L21182: 15.4 Scope内Closure
@@ -2566,14 +3253,54 @@
 - **notes**: 依存待ち: scope closure capture rules (Part III)
 - **分類**: 依存待ち
 
+### L21188: 15.5 独立した結果値
+- **機能ブロック**: `MEM`
+- **notes**: 依存待ち: independent result vs handle (Part III)- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+- **分類**: 依存待ち
+
 ### L21201: 16. Resource API
 - **機能ブロック**: `MEM`
 - **notes**: 依存待ち: resource API surface (Part III)
 - **分類**: 依存待ち
 
+### L21202: 16.1 With-style API
+- **機能ブロック**: `MEM`
+- **notes**: 依存待ち: with-style resource API (Part III)- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+- **分類**: 依存待ち
+
+### L21210: 16.2 低水準API
+- **機能ブロック**: `MEM`
+- **notes**: 依存待ち: low-level resource API (Part III)- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+- **分類**: 依存待ち
+
+### L21216: 16.3 Release責任
+- **機能ブロック**: `MEM`
+- **notes**: 依存待ち: release responsibility model (Part III)- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+- **分類**: 依存待ち
+
+### L21223: 16.4 自発的な無効化
+- **機能ブロック**: `MEM`
+- **notes**: 依存待ち: voluntary invalidation API (Part III)- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+- **分類**: 依存待ち
+
 ### L21296: 19. Foreign boundary
 - **機能ブロック**: `MEM`
 - **notes**: 依存待ち: foreign ownership boundary (Part III)
+- **分類**: 依存待ち
+
+### L21297: 19.1 Ownership metadata
+- **機能ブロック**: `MEM`
+- **notes**: 依存待ち: foreign ownership metadata (Part III)- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+- **分類**: 依存待ち
+
+### L21320: 19.2 Borrowed契約違反
+- **機能ブロック**: `MEM`
+- **notes**: 依存待ち: borrowed foreign contract (Part III)- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+- **分類**: 依存待ち
+
+### L21330: 19.3 Owned移送
+- **機能ブロック**: `MEM`
+- **notes**: 依存待ち: owned foreign transfer (Part III)- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 - **分類**: 依存待ち
 
 ### L21360: 20.3 Scoped Resource
@@ -2586,9 +3313,44 @@
 - **notes**: 依存待ち: snapshot + Perceus integration (Part III)
 - **分類**: 依存待ち
 
+### L21367: 21.1 構造共有
+- **機能ブロック**: `MEM`
+- **notes**: 依存待ち: snapshot structural sharing + Perceus (Part III)- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+- **分類**: 依存待ち
+
+### L21380: 21.2 解放
+- **機能ブロック**: `MEM`
+- **notes**: 依存待ち: snapshot release with Perceus (Part III)- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+- **分類**: 依存待ち
+
+### L21386: 21.3 一意性
+- **機能ブロック**: `MEM`
+- **notes**: 依存待ち: snapshot uniqueness (Part III)- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+- **分類**: 依存待ち
+
+### L21390: 21.4 観測不能
+- **機能ブロック**: `MEM`
+- **notes**: 依存待ち: snapshot observability (Part III)- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+- **分類**: 依存待ち
+
 ### L21424: 23. メモリ予算
 - **機能ブロック**: `MEM`
 - **notes**: 依存待ち(第III部): job-increment memory budget model
+- **分類**: 依存待ち
+
+### L21425: 23.1 適用単位
+- **機能ブロック**: `MEM`
+- **notes**: 依存待ち(第III部): memory budget unit- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+- **分類**: 依存待ち
+
+### L21440: 23.2 Job増分方式
+- **機能ブロック**: `MEM`
+- **notes**: 依存待ち(第III部): job-increment budget- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+- **分類**: 依存待ち
+
+### L21459: 23.3 Commit時の移管
+- **機能ブロック**: `MEM`
+- **notes**: 依存待ち(第III部): commit-time budget transfer- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 - **分類**: 依存待ち
 
 ### L21475: 24. 予算超過
@@ -2596,9 +3358,34 @@
 - **notes**: 依存待ち(第III部): failure resource-exhausted on budget exceed
 - **分類**: 依存待ち
 
+### L21476: 24.1 型付きFailure
+- **機能ブロック**: `MEM`
+- **notes**: 依存待ち(第III部): resource-exhausted Failure- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+- **分類**: 依存待ち
+
+### L21492: 24.2 処理
+- **機能ブロック**: `MEM`
+- **notes**: 依存待ち(第III部): budget-exceed handling- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+- **分類**: 依存待ち
+
+### L21506: 24.3 予約領域
+- **機能ブロック**: `MEM`
+- **notes**: 依存待ち(第III部): reserved budget region- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+- **分類**: 依存待ち
+
 ### L21512: 25. 単一巨大Allocation
 - **機能ブロック**: `MEM`
 - **notes**: 依存待ち(第III部): huge-allocation precheck classification
+- **分類**: 依存待ち
+
+### L21513: 25.1 事前検査
+- **機能ブロック**: `MEM`
+- **notes**: 依存待ち(第III部): huge allocation precheck- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+- **分類**: 依存待ち
+
+### L21522: 25.2 分類
+- **機能ブロック**: `MEM`
+- **notes**: 依存待ち(第III部): huge allocation classification- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 - **分類**: 依存待ち
 
 ### L21538: 26. Continuation予算
@@ -2606,9 +3393,34 @@
 - **notes**: 依存待ち(第III部): continuation capture budget
 - **分類**: 依存待ち
 
+### L21539: 26.1 課金対象
+- **機能ブロック**: `MEM`
+- **notes**: 依存待ち(第III部): continuation capture budget- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+- **分類**: 依存待ち
+
+### L21552: 26.2 超過時
+- **機能ブロック**: `MEM`
+- **notes**: 依存待ち(第III部): continuation budget exceed- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+- **分類**: 依存待ち
+
 ### L21564: 27. Snapshot保持量
 - **機能ブロック**: `MEM`
 - **notes**: 依存待ち(第III部|第V部): snapshot retention budget / refuse new handles
+- **分類**: 依存待ち
+
+### L21565: 27.1 有効なSnapshot handle
+- **機能ブロック**: `MEM`
+- **notes**: 依存待ち(第III部|第V部): snapshot handle retention limit- notes: DocumentSnapshot holds while handle live; retention-limit refuse 依存待ち(第III部|第V部)
+- **分類**: 依存待ち
+
+### L21571: 27.2 保持policy
+- **機能ブロック**: `MEM`
+- **notes**: 依存待ち(第III部|第V部): snapshot retention policy- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+- **分類**: 依存待ち
+
+### L21584: 27.3 履歴破棄
+- **機能ブロック**: `MEM`
+- **notes**: 依存待ち(第III部|第V部): history discard policy- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 - **分類**: 依存待ち
 
 ### L21588: 28. 一般heap OOM
@@ -2619,6 +3431,21 @@
 ### L21589: 28.1 管理予算との区別
 - **機能ブロック**: `MEM`
 - **notes**: 依存待ち(第III部): managed budget vs Terminal OOM distinction
+- **分類**: 依存待ち
+
+### L21593: 28.2 分類
+- **機能ブロック**: `MEM`
+- **notes**: 依存待ち(第III部): OOM classification- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+- **分類**: 依存待ち
+
+### L21600: 28.3 Cleanup
+- **機能ブロック**: `MEM`
+- **notes**: 依存待ち(第III部): OOM cleanup path- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+- **分類**: 依存待ち
+
+### L22272: 16.4 SourceEdit
+- **機能ブロック**: `TST`
+- **notes**: 依存待ち(第V部): syntax edit + source_sync; 完全 SourceEdit 計算は GUI
 - **分類**: 依存待ち
 
 ---

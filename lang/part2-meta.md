@@ -4,7 +4,11 @@
 `meta` は、仕様見出しのうち**いまの実装（Rust クレート）に直接対応するコード表面がない**ものを追跡するためのステータスである。散文の用語定義、適用範囲の宣言、OPEN への移管表、Progress/Preservation などのメタ理論、完成判定の文章などが典型。「実装が足りない」(`gap`) とも「一部足りない」(`partial`) とも違い、**適合義務そのものがコードに落ちない**（または N/A）ことを示す。チェックリストから落とさず、仕様の骨格として残すために印す。
 
 ### 件数
-- **meta 合計**: 132
+- **meta 合計**: 138
+- **用語定義**: 8
+- **メタ理論**: 9
+- **プロセス**: 120
+- **完成判定の文章**: 1
 
 ---
 
@@ -51,7 +55,7 @@
 - **notes**: 意図的スコープ外リスト（DAT/MOD等）
 
 ### L2569: 22. 状態
-- **なぜ meta**: 完成判定の文章
+- **なぜ meta**: プロセス
 - **notes**: OPEN-SYN-002 RESOLVED 状態表
 
 ### L2648: DD-001 決定概要
@@ -123,7 +127,7 @@
 - **notes**: spec OPEN/status prose; no direct code surface
 
 ### L4435: 22.10 最終状態
-- **なぜ meta**: 完成判定の文章
+- **なぜ meta**: プロセス
 - **notes**: spec OPEN/status prose; no direct code surface
 
 ### L4460: 状態
@@ -179,12 +183,24 @@
 - **notes**: 下位OPEN一覧
 
 ### L8016: 22.8 最終状態
-- **なぜ meta**: 完成判定の文章
+- **なぜ meta**: プロセス
 - **notes**: 最終RESOLVED宣言（追跡用）
 
 ### L8049: 状態
 - **なぜ meta**: プロセス
-- **notes**: TYP-DYN resolved-in-spec; impl is Dynamic unify stub
+- **notes**: TYP-DYN resolved-in-spec; runtime gradually filling
+
+### L9394: `DD-TYP-DYN-028`: gradual guarantee
+- **なぜ meta**: メタ理論
+- **notes**: 形式証明: gradual guarantee (static/dynamic) not mechanically proven
+
+### L9412: Static gradual guarantee
+- **なぜ meta**: メタ理論
+- **notes**: 形式証明: Static gradual guarantee
+
+### L9426: Dynamic gradual guarantee
+- **なぜ meta**: メタ理論
+- **notes**: 形式証明: Dynamic gradual guarantee
 
 ### L10197: 関連する後続設計課題
 - **なぜ meta**: プロセス
@@ -217,6 +233,14 @@
 ### L10262: 確立された基本原則
 - **なぜ meta**: プロセス
 - **notes**: spec process / OPEN pointer
+
+### L10573: `DD-TYP-ALG-004`: soundness、completeness、terminationの優先順位
+- **なぜ meta**: プロセス
+- **notes**: formal priority: soundness > termination > completeness (spec policy)
+
+### L10610: `DD-TYP-ALG-005`: principal type
+- **なぜ meta**: プロセス
+- **notes**: principal-type property; not an executable obligation here
 
 ### L13037: 関連する後続設計課題
 - **なぜ meta**: プロセス
@@ -255,7 +279,7 @@
 - **notes**: decision overview
 
 ### L14414: DD-001.1 状態
-- **なぜ meta**: 完成判定の文章
+- **なぜ meta**: プロセス
 - **notes**: RESOLVED scope list; impl covers outer+import subset only
 
 ### L14452: 0. 適用範囲
@@ -295,55 +319,55 @@
 - **notes**: sub-item index
 
 ### L15831: 22.8 最終状態
-- **なぜ meta**: 完成判定の文章
+- **なぜ meta**: プロセス
 - **notes**: MOD final-state prose; impl = outer+import skeleton
 
 ### L15856: DD-001 決定概要
-- **なぜ meta**: 用語定義
+- **なぜ meta**: プロセス
 - **notes**: PKG glossary/decision prose; no direct impl obligation
 
 ### L15857: DD-001.1 状態
-- **なぜ meta**: 用語定義
+- **なぜ meta**: プロセス
 - **notes**: PKG glossary/decision prose; no direct impl obligation
 
 ### L15878: DD-001.2 中心的な決定
-- **なぜ meta**: 用語定義
+- **なぜ meta**: プロセス
 - **notes**: PKG glossary/decision prose; no direct impl obligation
 
 ### L15903: 0. 適用範囲
-- **なぜ meta**: 用語定義
+- **なぜ meta**: プロセス
 - **notes**: PKG glossary/decision prose; no direct impl obligation
 
 ### L15904: 0.1 本項目が定めるもの
-- **なぜ meta**: 用語定義
+- **なぜ meta**: プロセス
 - **notes**: PKG glossary/decision prose; no direct impl obligation
 
 ### L15934: 0.2 本項目が直接定めないもの
-- **なぜ meta**: 用語定義
+- **なぜ meta**: プロセス
 - **notes**: PKG glossary/decision prose; no direct impl obligation
 
 ### L15954: 1. パッケージ
-- **なぜ meta**: 用語定義
+- **なぜ meta**: プロセス
 - **notes**: PKG glossary/decision prose; no direct impl obligation
 
 ### L15955: 1.1 定義
-- **なぜ meta**: 用語定義
+- **なぜ meta**: プロセス
 - **notes**: PKG glossary/decision prose; no direct impl obligation
 
 ### L15969: 1.2 モジュールとの違い
-- **なぜ meta**: 用語定義
+- **なぜ meta**: プロセス
 - **notes**: PKG glossary/decision prose; no direct impl obligation
 
 ### L15979: 1.3 パッケージの種類
-- **なぜ meta**: 用語定義
+- **なぜ meta**: プロセス
 - **notes**: PKG glossary/decision prose; no direct impl obligation
 
 ### L16814: 20.1 定義
-- **なぜ meta**: 用語定義
+- **なぜ meta**: プロセス
 - **notes**: PKG glossary/decision prose; no direct impl obligation
 
 ### L17273: 22.9 最終状態
-- **なぜ meta**: 完成判定の文章
+- **なぜ meta**: プロセス
 - **notes**: PKG final-state / resolved declaration prose
 
 ### L17356: DD-001 決定概要
@@ -439,23 +463,23 @@
 - **notes**: ERR design principle / guideline prose
 
 ### L20450: 31. 最終状態
-- **なぜ meta**: 完成判定の文章
+- **なぜ meta**: プロセス
 - **notes**: ERR final-state prose
 
 ### L20477: DD-001 決定概要
-- **なぜ meta**: 用語定義
+- **なぜ meta**: プロセス
 - **notes**: MEM glossary / policy prose
 
 ### L20478: DD-001.1 状態
-- **なぜ meta**: 用語定義
+- **なぜ meta**: プロセス
 - **notes**: MEM glossary / policy prose
 
 ### L20496: DD-001.2 既存仕様との関係
-- **なぜ meta**: 用語定義
+- **なぜ meta**: プロセス
 - **notes**: MEM glossary / policy prose
 
 ### L20515: DD-001.3 中心的な決定
-- **なぜ meta**: 用語定義
+- **なぜ meta**: プロセス
 - **notes**: MEM glossary / policy prose
 
 ### L20530: 0. 用語
@@ -463,23 +487,23 @@
 - **notes**: MEM glossary / policy prose
 
 ### L20531: 0.1 Perceus
-- **なぜ meta**: 用語定義
+- **なぜ meta**: プロセス
 - **notes**: MEM glossary / policy prose
 
 ### L20549: 0.2 自動メモリ管理
-- **なぜ meta**: 用語定義
+- **なぜ meta**: プロセス
 - **notes**: MEM glossary / policy prose
 
 ### L20562: 0.3 Resource
-- **なぜ meta**: 用語定義
+- **なぜ meta**: プロセス
 - **notes**: MEM glossary / policy prose
 
 ### L20976: 10.3 Perceusとの関係
-- **なぜ meta**: 用語定義
+- **なぜ meta**: プロセス
 - **notes**: MEM glossary / policy prose
 
 ### L21958: 35. 最終状態
-- **なぜ meta**: 完成判定の文章
+- **なぜ meta**: プロセス
 - **notes**: MEM final-state prose
 
 ### L21990: 状態
@@ -537,3 +561,8 @@
 ### L22559: 完成判定基準
 - **なぜ meta**: 完成判定の文章
 - **notes**: completion criteria process
+
+### L22609: 段階7: メタ理論が確認された
+- **なぜ meta**: メタ理論
+- **notes**: 形式証明: Progress/Preservation not mechanically proven (proof crate stubs only)
+

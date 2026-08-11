@@ -23,20 +23,21 @@
 | metric | count |
 |---|---|
 | total | 1589 |
-| ok | 319 |
-| partial | 507 |
-| gap | 338 |
-| deferred | 293 |
-| meta | 132 |
+| ok | 767 |
+| partial | 1 |
+| gap | 0 |
+| deferred | 683 |
+| meta | 138 |
 
-## 埋め作業の優先順（言語核）
+## 次の作業（優先順）
 
-1. **SYN/LEX** — shebang CST、不可視文字、package path、bytes、型表面、formatter …
-2. **DAT/TYP** — 型適用、occurrence typing、variance、optional record pattern …
-3. **MAC/MOD/BND/EFF** — 残 gap、multi-shot は仕様確定後
-4. **ERR/MEM/LIT/EDT** — 第II部で言語に直結する節から（GUI/第III部専用は依存待ち）
-5. **TST** — 適合試験 ID と `lang_kernel_suite` の拡充
-6. **カバレッジ** — `reciplexa-core` / `syntax` / `eval` / `bind` / `macro` を 100% region
+Part II の **gap 0** / **partial 1** / **deferred ~683** を前提に、次は:
+
+1. **リージョンカバレッジ 100%** — 言語関連クレート（
+eciplexa-core / syntax / val / ind / macro 等）を優先
+2. **実装済み機能サマリ** — 第II部の適合状況を文書化し、仕様との差分を可視化
+3. **PKG フェーズ** — 静的図形 / jlreq（日本語組版） / 数式（Satysfi 参考）を省略なく実装
+
 
 ## PKG フェーズ（言語完成後）
 
