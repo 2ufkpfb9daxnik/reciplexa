@@ -7,6 +7,7 @@
 
 pub mod code;
 pub mod collector;
+pub mod failure_bundle;
 pub mod kind;
 pub mod message;
 pub mod origin;
@@ -19,6 +20,9 @@ pub mod syntax_bridge;
 
 pub use code::DiagnosticCode;
 pub use collector::DiagnosticCollector;
+pub use failure_bundle::{
+    primary_failure_diagnostic, suppressed_cleanup_diagnostic, FailureDiagnosticBundle,
+};
 pub use kind::{Diagnostic, DiagnosticCategory, DiagnosticId, DiagnosticLifecycleStage};
 pub use message::DiagnosticMessage;
 pub use origin::{DiagnosticOrigin, SourceOrigin};

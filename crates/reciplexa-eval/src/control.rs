@@ -3,11 +3,22 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 
+use reciplexa_outcome::unhandled_failure_report;
+
 use crate::value::RuntimeValue;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EvalError {
     pub message: String,
+}
+
+impl EvalError {
+    pub fn unhandled_failure(payload: impl std::fmt::Display) -> Self {
+        let report = unhandled_failure_report(0, payload.to_string());
+        Self {
+            message: format!("unhandled failure: {report}"),
+        }
+    }
 }
 
 pub type EvalResult = Result<RuntimeValue, EvalError>;
@@ -23,9 +34,7 @@ impl EffectHost for UnitHost {
         match op {
             "log" => Ok(RuntimeValue::Unit),
             "random" => Ok(RuntimeValue::F64(0.5)),
-            "failure" => Err(EvalError {
-                message: format!("unhandled failure: {_arg}"),
-            }),
+            "failure" => Err(EvalError::unhandled_failure(&_arg)),
             "read-file" | "write-file" => Err(EvalError {
                 message: format!("unhandled residual effect `{op}`"),
             }),

@@ -3,16 +3,25 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use reciplexa_outcome::{
+    classify_foreign_adapter, foreign_adapter_defect, DefectReport, ForeignAdapterClass,
+};
+
 use crate::adapter::{NativeProvider, PortableImageDecode};
 use crate::foreign::ForeignValue;
 use crate::lifecycle::{InstanceState, NativeInstance};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum NegotiationError {
-    AbiMismatch { expected: u32, found: u32 },
+    AbiMismatch {
+        expected: u32,
+        found: u32,
+    },
     NotRegistered(String),
     Quarantined(String),
     NotReady(u64),
+    /// ERR-001 §22.9 — memory/runtime integrity destruction (Terminal).
+    Terminal(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -27,6 +36,7 @@ pub struct AdapterRegistry {
     instances: HashMap<u64, NativeInstance>,
     next_id: u64,
     quarantined: HashMap<String, QuarantineReason>,
+    next_defect_id: u64,
 }
 
 impl AdapterRegistry {
@@ -95,16 +105,33 @@ impl AdapterRegistry {
             .clone();
         match provider.call(op, args) {
             Ok(v) => Ok(v),
-            Err(msg) => {
-                self.quarantined
-                    .insert(name, QuarantineReason::ContractViolation(msg.clone()));
-                self.instances
-                    .get_mut(&instance_id)
-                    .expect("ready instance must exist")
-                    .quarantine();
-                Err(NegotiationError::Quarantined(msg))
-            }
+            Err(msg) => match classify_foreign_adapter(&msg) {
+                ForeignAdapterClass::Terminal => {
+                    self.quarantined
+                        .insert(name, QuarantineReason::ContractViolation(msg.clone()));
+                    self.instances
+                        .get_mut(&instance_id)
+                        .expect("ready instance must exist")
+                        .quarantine();
+                    Err(NegotiationError::Terminal(msg))
+                }
+                ForeignAdapterClass::Defect => {
+                    self.quarantined
+                        .insert(name, QuarantineReason::ContractViolation(msg.clone()));
+                    self.instances
+                        .get_mut(&instance_id)
+                        .expect("ready instance must exist")
+                        .quarantine();
+                    Err(NegotiationError::Quarantined(msg))
+                }
+            },
         }
+    }
+
+    /// ERR-001 §22.9 — structured DefectReport for a quarantined adapter call.
+    pub fn defect_report_for_quarantine(&mut self, adapter: &str, message: &str) -> DefectReport {
+        self.next_defect_id += 1;
+        foreign_adapter_defect(self.next_defect_id, adapter, message)
     }
 
     pub fn shutdown(&mut self, instance_id: u64) {
