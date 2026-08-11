@@ -177,6 +177,10 @@ fn elaborate_and_eval_static_graphics_surface() {
     assert!(shapes_src.contains("(val path"));
     assert!(shapes_src.contains("(val fill"));
     assert!(shapes_src.contains("(val stroke"));
+    assert!(shapes_src.contains("(val text"));
+    assert!(shapes_src.contains("(val image"));
+    assert!(shapes_src.contains("(val translate"));
+    assert!(shapes_src.contains("(val opacity"));
 
     let (_, page_src) = idx.resolve_import("graphics/page").unwrap();
     assert!(page_src.contains("(val a3"));
@@ -193,6 +197,9 @@ fn elaborate_and_eval_static_graphics_surface() {
     assert!(exports.contains(&"line".into()));
     assert!(exports.contains(&"path".into()));
     assert!(exports.contains(&"paint".into()));
+    assert!(exports.contains(&"text".into()));
+    assert!(exports.contains(&"image".into()));
+    assert!(exports.contains(&"opacity".into()));
     assert!(!exports.iter().any(|e| e == "shapes-internal-tag"));
 
     let dir = tempfile_dir();
@@ -215,6 +222,62 @@ fn elaborate_and_eval_static_graphics_surface() {
     assert!(
         s.contains("page") || s.contains("circle") || s.contains("fill") || s.contains("210"),
         "expected static graphics page tree, got {s}"
+    );
+}
+
+#[test]
+fn load_full_graphics_package_tree_and_eval_transforms() {
+    let idx = index();
+    for mod_path in ["graphics/shapes", "graphics/page", "graphics/color"] {
+        let (name, _) = idx.resolve_import(mod_path).unwrap();
+        assert_eq!(name, mod_path);
+    }
+    let rpi = idx
+        .resolve_import_detailed("graphics/shapes")
+        .unwrap()
+        .interface_exports
+        .unwrap();
+    for export in [
+        "circle", "rect", "ellipse", "line", "path", "polyline", "polygon", "ring", "frame",
+        "group", "text", "text-box", "image", "translate", "rotate", "scale", "opacity", "fill",
+        "stroke", "paint",
+    ] {
+        assert!(rpi.iter().any(|e| e == export), "missing export {export}");
+    }
+
+    let dir = tempfile_dir();
+    let entry = dir.join("xf.rpx");
+    std::fs::write(
+        &entry,
+        r#"(import graphics/shapes only
+  circle text image translate rotate scale opacity fill group)
+(import graphics/page only a4 page)
+(import graphics/color only black)
+(val main
+  (page a4
+    (opacity 0.7
+      (translate 10 20
+        (rotate 5
+          (scale 1 1
+            (group
+              (list
+                (fill (circle 0 0 10) black)
+                (text 15 0 12 "hi")
+                (image "x.png" 0 20 30 20)))))))))
+"#,
+    )
+    .unwrap();
+    let units = load_module_tree_with_packages(&entry, &idx).unwrap();
+    assert!(units.iter().any(|(n, _)| n == "graphics/shapes"));
+    assert!(units.iter().any(|(n, _)| n == "graphics/page"));
+    assert!(units.iter().any(|(n, _)| n == "graphics/color"));
+    let units = elaborate_with_packages(&entry, &idx).unwrap();
+    let demo = units.iter().find(|u| u.name == "xf").unwrap();
+    let v = eval_expr(&demo.expr, &HashMap::new(), &mut UnitHost).unwrap();
+    let s = format!("{v}");
+    assert!(
+        s.contains("opacity") || s.contains("translate") || s.contains("text") || s.contains("page"),
+        "expected transform/text/image package tree, got {s}"
     );
 }
 
