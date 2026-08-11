@@ -267,3 +267,62 @@ fn with_non_handler_performed_bubbles() {
     // resume yields Int(1) to with — expects handler, errors — or ok depending.
     let _ = v;
 }
+
+#[test]
+fn parse_error_after_macro_expand_and_forward_in_seq() {
+    let err = eval_source("(val main (1)").unwrap_err();
+    assert!(err.message.contains("parse") || err.message.contains("error"));
+
+    let mut env = HashMap::new();
+    env.insert(
+        "k".into(),
+        RuntimeValue::OneShotResume {
+            used: Rc::new(Cell::new(false)),
+            cont: identity_resume(),
+        },
+    );
+    // Forward inside seq → top-level Forward error after unwrap.
+    let err = eval_expr(
+        &CoreExpr::Seq(vec![
+            CoreExpr::Forward {
+                resume_name: "k".into(),
+            },
+            CoreExpr::Lit(CoreLiteral::Int(1)),
+        ]),
+        &env,
+        &mut UnitHost,
+    )
+    .unwrap_err();
+    assert!(err.message.contains("forward"));
+}
+
+#[test]
+fn record_partial_eq_and_f64_ty() {
+    let a = RuntimeValue::Record(vec![("x".into(), RuntimeValue::Int(1))]);
+    let b = RuntimeValue::Record(vec![("x".into(), RuntimeValue::Int(1))]);
+    assert_eq!(a, b);
+    assert_ne!(
+        a,
+        RuntimeValue::Record(vec![("x".into(), RuntimeValue::Int(2))])
+    );
+    assert_eq!(RuntimeValue::F64(1.5).ty(), CoreType::F64);
+}
+
+#[test]
+fn nested_perform_in_app_args_and_record_fields() {
+    let v = eval_source(
+        r#"(val main
+  (handle ask (fn (_ k) (k 2))
+    ((fn (x y) y) 0 (perform ask unit))))"#,
+    )
+    .unwrap();
+    assert_eq!(v, RuntimeValue::Int(2));
+
+    let v = eval_source(
+        r#"(val main
+  (handle ask (fn (_ k) (k 3))
+    (field (record (a 1) (b (perform ask unit))) b)))"#,
+    )
+    .unwrap();
+    assert_eq!(v, RuntimeValue::Int(3));
+}
