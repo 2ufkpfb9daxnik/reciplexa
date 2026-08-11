@@ -2,6 +2,15 @@
 
 use std::fmt;
 
+/// DAT §8 variance classification for a type parameter.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Variance {
+    Covariant,
+    Contravariant,
+    Invariant,
+    Phantom,
+}
+
 /// Internal type variable for unification (Phase 2 step 2).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct TypeVarId(pub u32);
@@ -28,8 +37,14 @@ pub enum CoreType {
     Bytes,
     /// Gradual typing entry point (TYP-001). Unifies with any type in v0.
     Dynamic,
-    /// SYN §16.3 union stub — unifies loosely like [`CoreType::Dynamic`] for now.
+    /// SYN §16.3 union — unifies loosely like [`CoreType::Dynamic`] for now.
     Union(Vec<CoreType>),
+    /// SYN §16.3 intersection — stub structural type for occurrence typing / TYP.
+    Intersect(Vec<CoreType>),
+    /// SYN §16.3 negation — stub; pairs with [`CoreType::Intersect`] in narrowing.
+    Not(Box<CoreType>),
+    /// SYN §16.3 difference — `diff(S, T) ≃ intersect(S, not(T))`.
+    Diff(Box<CoreType>, Box<CoreType>),
     /// DAT §18.5 / SYN §16.5: optional record field of type `T`.
     ///
     /// Only meaningful as a field type inside [`CoreType::Record`] /
@@ -73,6 +88,8 @@ pub enum CoreType {
     },
     /// Bound type / row / effect-row variable from surface (`a`, `r`, `e`).
     Name(String),
+    /// SYN §18.10 internal error type for [`crate::expr::CoreExpr::Error`].
+    Error,
 }
 
 /// Thin effect row — grows in Phase 5 lowering.

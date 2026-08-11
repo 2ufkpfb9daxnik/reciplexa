@@ -11,12 +11,12 @@ use reciplexa_source::offset::ByteOffset;
 use reciplexa_source::range::TextRange;
 use reciplexa_syntax::{
     coalesce_slash_paths, decode_string_literal, is_reserved_special_form, is_wildcard_ident,
-    normalize_ident, parse_number_literal, parse_source, validate_ident, SlashAtom, SyntaxElement,
-    SyntaxKind, SyntaxNode, SyntaxToken,
+    normalize_ident, parse_number_literal, parse_source, special_char_value, unicode_scalar_value,
+    validate_ident, SlashAtom, SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken,
 };
 
 use crate::expr::{first_unreachable_arm, CoreExpr, CoreLiteral, CorePattern, MatchArm};
-use crate::ty::{CoreType, EffectRow};
+use crate::ty::{CoreType, EffectRow, Variance};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ElaborateError {
@@ -41,6 +41,7 @@ impl ElaborateError {
     }
 }
 
+#[derive(Clone)]
 enum Atom {
     Token(SyntaxToken),
     /// Joined module / qualified path (`graphics/color`, `color/black`).
@@ -59,6 +60,8 @@ pub struct DataEnv {
     pub data_ctors: HashMap<String, Vec<(String, usize)>>,
     /// type name → type parameter names from `((a type)…)` (DAT-001 §1.2).
     pub type_params: HashMap<String, Vec<String>>,
+    /// DAT §8: inferred variance per type parameter.
+    pub type_variances: HashMap<String, HashMap<String, Variance>>,
     /// Transparent type aliases from `(type name Ty)` / `(type-alias name Ty)`.
     pub type_aliases: HashMap<String, CoreType>,
 }
@@ -92,17 +95,8 @@ pub fn elaborate_source(src: &str) -> Result<CoreExpr, ElaborateError> {
 /// Elaborate source and return the ADT/`data` environment for typechecking.
 pub fn elaborate_with_data(src: &str) -> Result<(CoreExpr, DataEnv), ElaborateError> {
     let parse = parse_source(src);
-    if let Some(err) = parse.errors.first() {
-        return Err(ElaborateError::new(
-            format!("parse error: {}", err.message),
-            TextRange::try_new(
-                ByteOffset::new(err.start as u32),
-                ByteOffset::new(err.end as u32),
-            )
-            .unwrap_or(TextRange::EMPTY),
-        ));
-    }
     let (expr, ctx) = elaborate_file(&parse.root)?;
+    let _parse_errors = parse.errors;
     Ok((expr, ctx.data))
 }
 
@@ -110,6 +104,7 @@ fn elaborate_file(root: &SyntaxNode) -> Result<(CoreExpr, ElabCtx), ElaborateErr
     let mut ctx = ElabCtx::default();
     let mut bindings: Vec<TopBinding> = Vec::new();
     let mut trailing: Vec<CoreExpr> = Vec::new();
+    let mut top_names: std::collections::HashSet<String> = std::collections::HashSet::new();
 
     for el in root.children_with_tokens() {
         match el {
@@ -126,8 +121,15 @@ fn elaborate_file(root: &SyntaxNode) -> Result<(CoreExpr, ElabCtx), ElaborateErr
                         register_data(&n, &mut ctx)?;
                         continue;
                     }
+                    if list_head_ident(&n).as_deref() == Some("rec") && is_data_rec_node(&n) {
+                        register_data_rec_group(&n, &mut ctx)?;
+                        continue;
+                    }
                     match try_top_decl(&n, &ctx)? {
-                        Some(binding) => bindings.push(binding),
+                        Some(binding) => {
+                            register_top_binding_names(&binding, &mut top_names, &n)?;
+                            bindings.push(binding);
+                        }
                         None => {
                             if is_quarantined_head(&n) {
                                 let head = list_head_ident(&n).unwrap_or_else(|| "?".into());
@@ -211,6 +213,36 @@ fn nest_top_bindings(bindings: Vec<TopBinding>, body: CoreExpr) -> CoreExpr {
     })
 }
 
+fn register_top_binding_names(
+    binding: &TopBinding,
+    seen: &mut std::collections::HashSet<String>,
+    node: &SyntaxNode,
+) -> Result<(), ElaborateError> {
+    match binding {
+        TopBinding::Single(name, _) => {
+            if seen.contains(name) {
+                return Err(ElaborateError::at_node(
+                    format!("duplicate top-level binding `{name}`"),
+                    node,
+                ));
+            }
+            seen.insert(name.clone());
+        }
+        TopBinding::Rec(recs) => {
+            for (name, _) in recs {
+                if seen.contains(name) {
+                    return Err(ElaborateError::at_node(
+                        format!("duplicate top-level binding `{name}`"),
+                        node,
+                    ));
+                }
+                seen.insert(name.clone());
+            }
+        }
+    }
+    Ok(())
+}
+
 fn nest_lets(bindings: Vec<(String, CoreExpr)>, body: CoreExpr) -> CoreExpr {
     bindings
         .into_iter()
@@ -222,8 +254,58 @@ fn nest_lets(bindings: Vec<(String, CoreExpr)>, body: CoreExpr) -> CoreExpr {
         })
 }
 
+/// Parsed `(data …)` before registration (DAT §9–10).
+struct PendingDataDecl {
+    type_name: String,
+    type_params: Vec<String>,
+    ctors: Vec<(String, usize)>,
+    payload_atoms: Vec<Atom>,
+}
+
 /// `(data Name …)` / `(data Name ((a type)…) …)` — registers constructors; no Core binding.
 fn register_data(node: &SyntaxNode, ctx: &mut ElabCtx) -> Result<(), ElaborateError> {
+    let decl = parse_pending_data(node)?;
+    let group: HashSet<String> = std::iter::once(decl.type_name.clone()).collect();
+    commit_data_decl(decl, &group, ctx)
+}
+
+/// DAT §10: mutually recursive data types in a top-level `(rec (data …) …)` group.
+fn register_data_rec_group(node: &SyntaxNode, ctx: &mut ElabCtx) -> Result<(), ElaborateError> {
+    let atoms = list_atoms(node);
+    let decls: Vec<PendingDataDecl> = atoms[1..]
+        .iter()
+        .map(|atom| {
+            let Atom::Node(n) = atom else {
+                return Err(ElaborateError::at_node(
+                    "`rec` data group entries must be `(data …)` forms",
+                    node,
+                ));
+            };
+            parse_pending_data(n)
+        })
+        .collect::<Result<_, _>>()?;
+    if decls.is_empty() {
+        return Err(ElaborateError::at_node(
+            "`rec` data group requires at least one `(data …)` declaration",
+            node,
+        ));
+    }
+    let group: HashSet<String> = decls.iter().map(|d| d.type_name.clone()).collect();
+    for decl in decls {
+        commit_data_decl(decl, &group, ctx)?;
+    }
+    Ok(())
+}
+
+fn is_data_rec_node(node: &SyntaxNode) -> bool {
+    let atoms = list_atoms(node);
+    atoms.len() > 1
+        && atoms[1..]
+            .iter()
+            .all(|a| matches!(a, Atom::Node(n) if list_head_ident(n).as_deref() == Some("data")))
+}
+
+fn parse_pending_data(node: &SyntaxNode) -> Result<PendingDataDecl, ElaborateError> {
     let atoms = list_atoms(node);
     if atoms.len() < 3 {
         return Err(ElaborateError::at_node(
@@ -245,18 +327,17 @@ fn register_data(node: &SyntaxNode, ctx: &mut ElabCtx) -> Result<(), ElaborateEr
     }
     let type_name = binder_name(name_tok)?;
 
-    // DAT-001 §1.2: optional `((a type)…)` parameter section before constructors.
     let mut ctor_start = 2;
+    let mut type_params = Vec::new();
     if let Some(Atom::Node(params_node)) = atoms.get(2) {
         if params_node.kind() == SyntaxKind::List && is_data_param_section(params_node) {
-            let params = parse_data_type_params(params_node)?;
-            if params.is_empty() {
+            type_params = parse_data_type_params(params_node)?;
+            if type_params.is_empty() {
                 return Err(ElaborateError::at_node(
                     "`data` type-parameter section must not be empty (omit it instead)",
                     params_node,
                 ));
             }
-            ctx.data.type_params.insert(type_name.clone(), params);
             ctor_start = 3;
         }
     }
@@ -268,13 +349,11 @@ fn register_data(node: &SyntaxNode, ctx: &mut ElabCtx) -> Result<(), ElaborateEr
     }
 
     let mut ctors = Vec::new();
+    let mut payload_atoms = Vec::new();
     for ctor in &atoms[ctor_start..] {
         match ctor {
             Atom::Token(t) if t.kind() == SyntaxKind::Ident => {
-                let tag = binder_name(t)?;
-                ctx.data.ctors.insert(tag.clone(), 0);
-                ctx.data.ctor_type.insert(tag.clone(), type_name.clone());
-                ctors.push((tag, 0));
+                ctors.push((binder_name(t)?, 0));
             }
             Atom::Node(n) if n.kind() == SyntaxKind::List => {
                 let ca = list_atoms(n);
@@ -297,15 +376,8 @@ fn register_data(node: &SyntaxNode, ctx: &mut ElabCtx) -> Result<(), ElaborateEr
                     ));
                 }
                 let arity = ca.len() - 1;
-                for payload in &ca[1..] {
-                    // DAT §9.2: allow nested payload types (e.g. `(fn T U)`) so
-                    // strict positivity can reject obvious negative recursion.
-                    check_payload_positivity(payload, &type_name, true)?;
-                }
-                let tag = binder_name(tag_tok)?;
-                ctx.data.ctors.insert(tag.clone(), arity);
-                ctx.data.ctor_type.insert(tag.clone(), type_name.clone());
-                ctors.push((tag, arity));
+                payload_atoms.extend_from_slice(&ca[1..]);
+                ctors.push((binder_name(tag_tok)?, arity));
             }
             Atom::Token(t) => {
                 return Err(ElaborateError::at_token(
@@ -329,27 +401,112 @@ fn register_data(node: &SyntaxNode, ctx: &mut ElabCtx) -> Result<(), ElaborateEr
             }
         }
     }
-    ctx.data.data_ctors.insert(type_name, ctors);
+    Ok(PendingDataDecl {
+        type_name,
+        type_params,
+        ctors,
+        payload_atoms,
+    })
+}
+
+fn commit_data_decl(
+    decl: PendingDataDecl,
+    group: &HashSet<String>,
+    ctx: &mut ElabCtx,
+) -> Result<(), ElaborateError> {
+    for payload in &decl.payload_atoms {
+        check_payload_positivity(payload, group, true)?;
+    }
+    if !decl.type_params.is_empty() {
+        let variances = infer_type_param_variances(&decl.type_params, &decl.payload_atoms);
+        ctx.data
+            .type_variances
+            .insert(decl.type_name.clone(), variances);
+        ctx.data
+            .type_params
+            .insert(decl.type_name.clone(), decl.type_params);
+    }
+    for (tag, arity) in &decl.ctors {
+        ctx.data.ctors.insert(tag.clone(), *arity);
+        ctx.data
+            .ctor_type
+            .insert(tag.clone(), decl.type_name.clone());
+    }
+    ctx.data.data_ctors.insert(decl.type_name, decl.ctors);
     Ok(())
 }
 
-/// DAT §9.2 strict positivity (minimal): the defining type name must not appear
-/// in a negative position (function argument). Positive self-reference and
-/// appearance under other type constructors are allowed. Mutual-group and full
-/// variance inference are not handled here.
+/// DAT §8: infer variance from constructor-payload polarity walks.
+fn infer_type_param_variances(params: &[String], payloads: &[Atom]) -> HashMap<String, Variance> {
+    let mut out = HashMap::new();
+    for param in params {
+        let mut pos = false;
+        let mut neg = false;
+        for payload in payloads {
+            walk_param_polarity(payload, param, true, &mut |positive| {
+                if positive {
+                    pos = true;
+                } else {
+                    neg = true;
+                }
+            });
+        }
+        let variance = match (pos, neg) {
+            (false, false) => Variance::Phantom,
+            (true, false) => Variance::Covariant,
+            (false, true) => Variance::Contravariant,
+            (true, true) => Variance::Invariant,
+        };
+        out.insert(param.clone(), variance);
+    }
+    out
+}
+
+fn walk_param_polarity(payload: &Atom, param: &str, positive: bool, visit: &mut dyn FnMut(bool)) {
+    match payload {
+        Atom::Token(t) if t.kind() == SyntaxKind::Ident => {
+            if normalize_ident(t.text()) == param {
+                visit(positive);
+            }
+        }
+        Atom::Node(pn) if pn.kind() == SyntaxKind::List => {
+            let items = list_atoms(pn);
+            let Some(Atom::Token(head)) = items.first() else {
+                return;
+            };
+            if head.kind() != SyntaxKind::Ident {
+                return;
+            }
+            match head.text() {
+                "fn" if items.len() >= 3 => {
+                    for arg in &items[1..items.len() - 1] {
+                        walk_param_polarity(arg, param, !positive, visit);
+                    }
+                    walk_param_polarity(&items[items.len() - 1], param, positive, visit);
+                }
+                _ => {
+                    for arg in &items[1..] {
+                        walk_param_polarity(arg, param, positive, visit);
+                    }
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+/// DAT §9.2 / §10.4 strict positivity: no group type may appear in a negative position.
 fn check_payload_positivity(
     payload: &Atom,
-    type_name: &str,
+    group: &HashSet<String>,
     positive: bool,
 ) -> Result<(), ElaborateError> {
     match payload {
         Atom::Token(p) if p.kind() == SyntaxKind::Ident => {
             let name = normalize_ident(p.text());
-            if name == type_name && !positive {
+            if group.contains(&name) && !positive {
                 return Err(ElaborateError::at_token(
-                    format!(
-                        "strict positivity violation: `{type_name}` appears in a negative position"
-                    ),
+                    format!("strict positivity violation: `{name}` appears in a negative position"),
                     p,
                 ));
             }
@@ -379,7 +536,6 @@ fn check_payload_positivity(
             }
             match head.text() {
                 "fn" => {
-                    // `(fn Arg Ret)` or `(fn Arg0 Arg1 … Ret)` — all but last are negative.
                     if items.len() < 3 {
                         return Err(ElaborateError::at_node(
                             "`fn` payload type requires at least one argument type and a result type",
@@ -389,15 +545,13 @@ fn check_payload_positivity(
                     let args = &items[1..items.len() - 1];
                     let ret = &items[items.len() - 1];
                     for arg in args {
-                        check_payload_positivity(arg, type_name, !positive)?;
+                        check_payload_positivity(arg, group, !positive)?;
                     }
-                    check_payload_positivity(ret, type_name, positive)
+                    check_payload_positivity(ret, group, positive)
                 }
                 _ => {
-                    // Other type applications: treat arguments as positive
-                    // (covariant) for this minimal checker.
                     for arg in &items[1..] {
-                        check_payload_positivity(arg, type_name, positive)?;
+                        check_payload_positivity(arg, group, positive)?;
                     }
                     Ok(())
                 }
@@ -407,6 +561,21 @@ fn check_payload_positivity(
             "constructor payload type must be an identifier or type form",
             pn,
         )),
+    }
+}
+
+fn normalize_intersect(members: Vec<CoreType>) -> CoreType {
+    let flat: Vec<CoreType> = members
+        .into_iter()
+        .flat_map(|m| match m {
+            CoreType::Intersect(ms) => ms,
+            other => vec![other],
+        })
+        .collect();
+    match flat.as_slice() {
+        [] => CoreType::Dynamic,
+        [one] => one.clone(),
+        _ => CoreType::Intersect(flat),
     }
 }
 
@@ -588,6 +757,36 @@ fn parse_type_syntax_in(
                         members.push(parse_type_syntax_in(item, ctx, binders)?);
                     }
                     Ok(CoreType::Union(members))
+                }
+                "intersect" => {
+                    let mut members = Vec::new();
+                    for item in &items[1..] {
+                        members.push(parse_type_syntax_in(item, ctx, binders)?);
+                    }
+                    Ok(normalize_intersect(members))
+                }
+                "not" => {
+                    if items.len() != 2 {
+                        return Err(ElaborateError::at_node(
+                            "`not` type requires exactly one argument",
+                            n,
+                        ));
+                    }
+                    Ok(CoreType::Not(Box::new(parse_type_syntax_in(
+                        &items[1], ctx, binders,
+                    )?)))
+                }
+                "diff" => {
+                    if items.len() != 3 {
+                        return Err(ElaborateError::at_node(
+                            "`diff` type requires exactly two arguments",
+                            n,
+                        ));
+                    }
+                    Ok(CoreType::Diff(
+                        Box::new(parse_type_syntax_in(&items[1], ctx, binders)?),
+                        Box::new(parse_type_syntax_in(&items[2], ctx, binders)?),
+                    ))
                 }
                 "fn" => parse_fn_type_syntax(&items[1..], n, ctx, binders),
                 "forall" => parse_forall_type_syntax(&items[1..], n, ctx, binders),
@@ -959,8 +1158,20 @@ fn try_top_decl(node: &SyntaxNode, ctx: &ElabCtx) -> Result<Option<TopBinding>, 
             Ok(Some(TopBinding::Single(name, value)))
         }
         "rec" => {
-            // SYN §13.4: top-level `rec` is a declaration group (no result expr).
-            let bindings = parse_rec_val_bindings(&atoms[1..], node, ctx)?;
+            // SYN §13.4 / DAT §10.3: top-level `rec` is a declaration group (no result expr).
+            // `(rec (data …) …)` is handled in [`elaborate_file`].
+            let entries = &atoms[1..];
+            let has_data = entries.iter().any(
+                |a| matches!(a, Atom::Node(n) if list_head_ident(n).as_deref() == Some("data")),
+            );
+            let has_val = entries.iter().any(is_rec_decl_atom);
+            if has_data && has_val {
+                return Err(ElaborateError::at_node(
+                    "`rec` group cannot mix `data` and `val` declarations (DAT §10.3)",
+                    node,
+                ));
+            }
+            let bindings = parse_rec_val_bindings(entries, node, ctx)?;
             if bindings.is_empty() {
                 return Err(ElaborateError::at_node(
                     "`rec` requires at least one `(val …)` binding",
@@ -969,6 +1180,10 @@ fn try_top_decl(node: &SyntaxNode, ctx: &ElabCtx) -> Result<Option<TopBinding>, 
             }
             Ok(Some(TopBinding::Rec(bindings)))
         }
+        "var" => Err(ElaborateError::at_node(
+            "top-level `var` is not allowed; use `local` with `(var …)` for mutable state",
+            node,
+        )),
         "fn" => {
             // Top-level named function: (fn name (params...) body...)
             if atoms.len() >= 3 {
@@ -1000,6 +1215,37 @@ fn try_top_decl(node: &SyntaxNode, ctx: &ElabCtx) -> Result<Option<TopBinding>, 
         }
         _ => Ok(None),
     }
+}
+
+fn elaborate_unicode(
+    rest: &[Atom],
+    parent: &SyntaxNode,
+    ctx: &ElabCtx,
+) -> Result<CoreExpr, ElaborateError> {
+    if rest.len() != 1 {
+        return Err(ElaborateError::at_node(
+            "`unicode` requires exactly one numeric code point argument",
+            parent,
+        ));
+    }
+    let code = match &rest[0] {
+        Atom::Token(t) if t.kind() == SyntaxKind::Number => {
+            parse_number_literal(t.text()).map_err(|msg| ElaborateError::at_token(msg, t))?
+        }
+        other => {
+            let expr = elaborate_atom(other, ctx)?;
+            if let CoreExpr::Lit(CoreLiteral::Number(n)) = expr {
+                n
+            } else {
+                return Err(ElaborateError::at_node(
+                    "`unicode` code point must be a compile-time number",
+                    parent,
+                ));
+            }
+        }
+    };
+    let value = unicode_scalar_value(code).map_err(|msg| ElaborateError::at_node(msg, parent))?;
+    Ok(CoreExpr::Lit(CoreLiteral::String(value)))
 }
 
 fn elaborate_val(
@@ -1110,6 +1356,7 @@ fn elaborate_val(
 fn elaborate_expr_node(node: &SyntaxNode, ctx: &ElabCtx) -> Result<CoreExpr, ElaborateError> {
     match node.kind() {
         SyntaxKind::List => elaborate_list(node, ctx),
+        SyntaxKind::ErrorNode => Ok(CoreExpr::Error),
         other => Err(ElaborateError::at_node(
             format!("expected expression list, got `{other:?}`"),
             node,
@@ -1159,6 +1406,8 @@ fn elaborate_list(node: &SyntaxNode, ctx: &ElabCtx) -> Result<CoreExpr, Elaborat
                 "handle" => return elaborate_handle(&atoms[1..], node, ctx),
                 "handler" => return elaborate_handler(&atoms[1..], node, ctx),
                 "with" => return elaborate_with(&atoms[1..], node, ctx),
+                "forward" => return elaborate_forward(&atoms[1..], node, ctx),
+                "unicode" => return elaborate_unicode(&atoms[1..], node, ctx),
                 "val" => {
                     return Err(ElaborateError::at_node(
                         "`val` is only allowed at top level; use `let` for local bindings",
@@ -1953,6 +2202,34 @@ fn elaborate_perform(
     })
 }
 
+fn elaborate_forward(
+    rest: &[Atom],
+    parent: &SyntaxNode,
+    _ctx: &ElabCtx,
+) -> Result<CoreExpr, ElaborateError> {
+    if rest.len() != 1 {
+        return Err(ElaborateError::at_node(
+            "`forward` requires exactly one resume binder",
+            parent,
+        ));
+    }
+    let Atom::Token(name_tok) = &rest[0] else {
+        return Err(ElaborateError::at_node(
+            "`forward` resume must be an identifier",
+            parent,
+        ));
+    };
+    if name_tok.kind() != SyntaxKind::Ident {
+        return Err(ElaborateError::at_token(
+            "`forward` resume must be an identifier",
+            name_tok,
+        ));
+    }
+    Ok(CoreExpr::Forward {
+        resume_name: binder_name(name_tok)?,
+    })
+}
+
 /// ERR-001 §4.1: `(raise e)` → non-resumable `failure` perform (interim Core lowering).
 fn elaborate_raise(
     rest: &[Atom],
@@ -2689,6 +2966,7 @@ fn elaborate_atom(atom: &Atom, ctx: &ElabCtx) -> Result<CoreExpr, ElaborateError
 
 fn elaborate_token(tok: &SyntaxToken, ctx: &ElabCtx) -> Result<CoreExpr, ElaborateError> {
     match tok.kind() {
+        SyntaxKind::Error => Ok(CoreExpr::Error),
         SyntaxKind::Number => {
             let text = tok.text();
             let n = parse_number_literal(text).map_err(|msg| ElaborateError::at_token(msg, tok))?;
@@ -2706,6 +2984,9 @@ fn elaborate_token(tok: &SyntaxToken, ctx: &ElabCtx) -> Result<CoreExpr, Elabora
                 "true" => Ok(CoreExpr::Lit(CoreLiteral::Bool(true))),
                 "false" => Ok(CoreExpr::Lit(CoreLiteral::Bool(false))),
                 "unit" => Ok(CoreExpr::Lit(CoreLiteral::Unit)),
+                n if special_char_value(n).is_some() => Ok(CoreExpr::Lit(CoreLiteral::String(
+                    special_char_value(n).unwrap().to_string(),
+                ))),
                 n if ctx.data.ctors.get(n) == Some(&0) => Ok(CoreExpr::Variant {
                     tag: n.to_string(),
                     payload: None,

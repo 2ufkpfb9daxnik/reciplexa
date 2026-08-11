@@ -15,5 +15,5 @@ pub use check::{
 pub use elaborate::{elaborate_source, elaborate_with_data, DataEnv, ElaborateError};
 pub use expr::{first_unreachable_arm, CoreExpr, CoreLiteral, CorePattern, CoreValue, MatchArm};
 pub use lower::{lower_surface_form, LowerError, LoweredForm};
-pub use ty::{CoreType, EffectRow, TypeVarId};
+pub use ty::{CoreType, EffectRow, TypeVarId, Variance};
 pub use unify::{unify, Subst, UnifyError};

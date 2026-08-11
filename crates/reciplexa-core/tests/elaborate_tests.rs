@@ -275,7 +275,83 @@ fn allows_positive_recursion_in_data() {
     )
     .unwrap();
     assert!(data.data_ctors.contains_key("tree"));
+    assert_eq!(
+        data.type_variances.get("tree").and_then(|v| v.get("a")),
+        Some(&reciplexa_core::Variance::Covariant)
+    );
     assert!(matches!(expr, CoreExpr::Let { .. }));
+}
+
+#[test]
+fn infers_phantom_type_param() {
+    let (_, data) = elaborate_with_data(
+        r#"
+(data identifier
+  ((domain type))
+  (identifier int))
+(val main unit)
+"#,
+    )
+    .unwrap();
+    assert_eq!(
+        data.type_variances
+            .get("identifier")
+            .and_then(|v| v.get("domain")),
+        Some(&reciplexa_core::Variance::Phantom)
+    );
+}
+
+#[test]
+fn rejects_mutual_negative_recursion_in_data_rec_group() {
+    let err = elaborate_source(
+        r#"
+(rec
+  (data a (a-con (fn b unit)))
+  (data b (b-con (fn a unit))))
+(val main unit)
+"#,
+    )
+    .unwrap_err();
+    assert!(
+        err.message.contains("positivity") || err.message.contains("negative"),
+        "got: {}",
+        err.message
+    );
+}
+
+#[test]
+fn allows_mutual_positive_recursion_in_data_rec_group() {
+    elaborate_source(
+        r#"
+(rec
+  (data expression
+    (literal int)
+    (sequence (list statement)))
+  (data statement
+    (evaluate expression)
+    (return expression)))
+(val main unit)
+"#,
+    )
+    .unwrap();
+}
+
+#[test]
+fn rejects_mixed_data_val_rec_group() {
+    let err = elaborate_source(
+        r#"
+(rec
+  (data option (none) (some x))
+  (val f (fn (x) x)))
+(val main unit)
+"#,
+    )
+    .unwrap_err();
+    assert!(
+        err.message.contains("mix") || err.message.contains("10.3"),
+        "got: {}",
+        err.message
+    );
 }
 
 #[test]
@@ -694,6 +770,34 @@ fn elaborates_radix_and_scientific_numbers() {
 }
 
 #[test]
+fn intersect_not_diff_type_syntax_parses() {
+    use reciplexa_core::unify::{unify, Subst};
+    let (_, data) = elaborate_with_data(
+        r#"
+(type narrow (intersect number string))
+(type removed (diff (union number string) number))
+(val main unit)
+"#,
+    )
+    .unwrap();
+    assert!(matches!(
+        data.type_aliases.get("narrow"),
+        Some(CoreType::Intersect(_))
+    ));
+    assert!(matches!(
+        data.type_aliases.get("removed"),
+        Some(CoreType::Diff(_, _))
+    ));
+    let mut s = Subst::new();
+    assert!(unify(
+        data.type_aliases.get("narrow").unwrap(),
+        &CoreType::Dynamic,
+        &mut s
+    )
+    .is_ok());
+}
+
+#[test]
 fn registers_surface_type_aliases_and_dynamic() {
     let (expr, data) = elaborate_with_data(
         r#"
@@ -799,5 +903,25 @@ fn elaborates_bytes_literal() {
         bad.message.contains("0..255") || bad.message.contains("out of range"),
         "got: {}",
         bad.message
+    );
+}
+
+#[test]
+fn rejects_duplicate_top_level_binding() {
+    let err = elaborate_source("(val x 1)\n(val x 2)").unwrap_err();
+    assert!(
+        err.message.contains("duplicate top-level binding"),
+        "got: {}",
+        err.message
+    );
+}
+
+#[test]
+fn rejects_top_level_var() {
+    let err = elaborate_source("(var x 0 x)").unwrap_err();
+    assert!(
+        err.message.contains("top-level `var`"),
+        "got: {}",
+        err.message
     );
 }
