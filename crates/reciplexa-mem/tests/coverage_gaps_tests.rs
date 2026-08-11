@@ -880,3 +880,454 @@ fn exec_select_rejects_non_bool_cond() {
         Err(ExecError::UnhandledRaise(_))
     ));
 }
+
+#[test]
+fn select_pipeline_covers_conservative_perceus_seal_verify_ir() {
+    use reciplexa_mem::conservative::conservative_rc;
+    use reciplexa_mem::ir::{collect_regs_instr, MemInstr, MemLiteral};
+    use reciplexa_mem::linear::LinearProgram;
+    use reciplexa_mem::perceus::perceus_pass;
+    use reciplexa_mem::reg::Reg;
+    use reciplexa_mem::seal::seal_before_return;
+    use reciplexa_mem::verify::verify_ownership;
+
+    let prog = LinearProgram {
+        instrs: vec![
+            MemInstr::Lit {
+                dst: Reg(0),
+                lit: MemLiteral::Bool(true),
+            },
+            MemInstr::Lit {
+                dst: Reg(1),
+                lit: MemLiteral::Number(10.0),
+            },
+            MemInstr::Lit {
+                dst: Reg(2),
+                lit: MemLiteral::Number(20.0),
+            },
+            MemInstr::Select {
+                dst: Reg(3),
+                cond: Reg(0),
+                then_reg: Reg(1),
+                else_reg: Reg(2),
+            },
+            MemInstr::Drop { reg: Reg(0) },
+            MemInstr::Drop { reg: Reg(1) },
+            MemInstr::Drop { reg: Reg(2) },
+            MemInstr::Return { reg: Reg(3) },
+        ],
+        return_reg: Reg(3),
+    };
+    let mut regs = Vec::new();
+    collect_regs_instr(
+        &MemInstr::Select {
+            dst: Reg(3),
+            cond: Reg(0),
+            then_reg: Reg(1),
+            else_reg: Reg(2),
+        },
+        &mut regs,
+    );
+    assert_eq!(regs, vec![Reg(3), Reg(0), Reg(1), Reg(2)]);
+
+    let cons = conservative_rc(&prog);
+    assert!(cons.instrs.iter().any(|i| matches!(i, MemInstr::Select { .. })));
+    let perc = perceus_pass(&prog);
+    assert!(perc.instrs.iter().any(|i| matches!(i, MemInstr::Select { .. })));
+    let sealed = seal_before_return(prog.clone());
+    verify_ownership(&sealed).unwrap();
+}
+
+#[test]
+fn exec_select_bool_true_false_and_unbound_pick() {
+    use reciplexa_mem::ir::{MemInstr, MemLiteral};
+    use reciplexa_mem::linear::LinearProgram;
+    use reciplexa_mem::reg::Reg;
+    use reciplexa_mem::trace::RcTrace;
+    use reciplexa_eval::RuntimeValue;
+    use reciplexa_mem::{exec_linear, ExecError};
+
+    // true picks then
+    let mut trace = RcTrace::default();
+    let then_prog = LinearProgram {
+        instrs: vec![
+            MemInstr::Lit {
+                dst: Reg(0),
+                lit: MemLiteral::Bool(true),
+            },
+            MemInstr::Lit {
+                dst: Reg(1),
+                lit: MemLiteral::Number(10.0),
+            },
+            MemInstr::Lit {
+                dst: Reg(2),
+                lit: MemLiteral::Number(20.0),
+            },
+            MemInstr::Select {
+                dst: Reg(3),
+                cond: Reg(0),
+                then_reg: Reg(1),
+                else_reg: Reg(2),
+            },
+            MemInstr::Return { reg: Reg(3) },
+        ],
+        return_reg: Reg(3),
+    };
+    let v = exec_linear(&then_prog, &mut trace).unwrap();
+    assert_eq!(v, RuntimeValue::Number(10.0));
+
+    // false picks else
+    let mut trace = RcTrace::default();
+    let else_prog = LinearProgram {
+        instrs: vec![
+            MemInstr::Lit {
+                dst: Reg(0),
+                lit: MemLiteral::Bool(false),
+            },
+            MemInstr::Lit {
+                dst: Reg(1),
+                lit: MemLiteral::Number(10.0),
+            },
+            MemInstr::Lit {
+                dst: Reg(2),
+                lit: MemLiteral::Number(20.0),
+            },
+            MemInstr::Select {
+                dst: Reg(3),
+                cond: Reg(0),
+                then_reg: Reg(1),
+                else_reg: Reg(2),
+            },
+            MemInstr::Return { reg: Reg(3) },
+        ],
+        return_reg: Reg(3),
+    };
+    let v = exec_linear(&else_prog, &mut trace).unwrap();
+    assert_eq!(v, RuntimeValue::Number(20.0));
+
+    // unbound pick
+    let mut trace = RcTrace::default();
+    let bad = LinearProgram {
+        instrs: vec![
+            MemInstr::Lit {
+                dst: Reg(0),
+                lit: MemLiteral::Bool(true),
+            },
+            MemInstr::Lit {
+                dst: Reg(2),
+                lit: MemLiteral::Number(20.0),
+            },
+            MemInstr::Select {
+                dst: Reg(3),
+                cond: Reg(0),
+                then_reg: Reg(9),
+                else_reg: Reg(2),
+            },
+        ],
+        return_reg: Reg(3),
+    };
+    assert!(matches!(
+        exec_linear(&bad, &mut trace),
+        Err(ExecError::UnboundReg(_))
+    ));
+
+    // unbound cond
+    let mut trace = RcTrace::default();
+    let bad = LinearProgram {
+        instrs: vec![MemInstr::Select {
+            dst: Reg(3),
+            cond: Reg(9),
+            then_reg: Reg(1),
+            else_reg: Reg(2),
+        }],
+        return_reg: Reg(3),
+    };
+    assert!(matches!(
+        exec_linear(&bad, &mut trace),
+        Err(ExecError::UnboundReg(_))
+    ));
+}
+
+#[test]
+fn exec_bytes_and_record_mutate_error_edges() {
+    use reciplexa_mem::ir::{MemInstr, MemLiteral};
+    use reciplexa_mem::linear::LinearProgram;
+    use reciplexa_mem::reg::Reg;
+    use reciplexa_mem::trace::RcTrace;
+    use reciplexa_eval::RuntimeValue;
+    use reciplexa_mem::{exec_linear, ExecError};
+
+    let mut trace = RcTrace::default();
+    let bytes = LinearProgram {
+        instrs: vec![
+            MemInstr::Lit {
+                dst: Reg(0),
+                lit: MemLiteral::Bytes(vec![1, 2, 3]),
+            },
+            MemInstr::Return { reg: Reg(0) },
+        ],
+        return_reg: Reg(0),
+    };
+    assert_eq!(
+        exec_linear(&bytes, &mut trace).unwrap(),
+        RuntimeValue::Bytes(vec![1, 2, 3])
+    );
+
+    // missing __base
+    let mut trace = RcTrace::default();
+    let missing_base = LinearProgram {
+        instrs: vec![
+            MemInstr::Lit {
+                dst: Reg(1),
+                lit: MemLiteral::Number(1.0),
+            },
+            MemInstr::Construct {
+                dst: Reg(2),
+                tag: "record-update".into(),
+                fields: vec![("x".into(), Reg(1))],
+            },
+        ],
+        return_reg: Reg(2),
+    };
+    assert!(matches!(
+        exec_linear(&missing_base, &mut trace),
+        Err(ExecError::UnboundReg(_))
+    ));
+
+    // unbound base reg
+    let mut trace = RcTrace::default();
+    let unbound_base = LinearProgram {
+        instrs: vec![MemInstr::Construct {
+            dst: Reg(2),
+            tag: "record-update".into(),
+            fields: vec![("__base".into(), Reg(9))],
+        }],
+        return_reg: Reg(2),
+    };
+    assert!(matches!(
+        exec_linear(&unbound_base, &mut trace),
+        Err(ExecError::UnboundReg(_))
+    ));
+
+    // non-record base
+    let mut trace = RcTrace::default();
+    let non_rec = LinearProgram {
+        instrs: vec![
+            MemInstr::Lit {
+                dst: Reg(0),
+                lit: MemLiteral::Number(1.0),
+            },
+            MemInstr::Construct {
+                dst: Reg(2),
+                tag: "record-update".into(),
+                fields: vec![("__base".into(), Reg(0)), ("a".into(), Reg(0))],
+            },
+        ],
+        return_reg: Reg(2),
+    };
+    assert!(matches!(
+        exec_linear(&non_rec, &mut trace),
+        Err(ExecError::UnhandledRaise(_)) | Err(ExecError::UnboundReg(_))
+    ));
+
+    // unbound field value
+    let mut trace = RcTrace::default();
+    let unbound_field = LinearProgram {
+        instrs: vec![
+            MemInstr::Construct {
+                dst: Reg(0),
+                tag: "record".into(),
+                fields: vec![],
+            },
+            MemInstr::Construct {
+                dst: Reg(2),
+                tag: "record-update".into(),
+                fields: vec![("__base".into(), Reg(0)), ("title".into(), Reg(9))],
+            },
+        ],
+        return_reg: Reg(2),
+    };
+    assert!(matches!(
+        exec_linear(&unbound_field, &mut trace),
+        Err(ExecError::UnboundReg(_))
+    ));
+
+    // update happy + extend happy + missing key noop + existing key skip
+    let mut trace = RcTrace::default();
+    let mutate = LinearProgram {
+        instrs: vec![
+            MemInstr::Lit {
+                dst: Reg(0),
+                lit: MemLiteral::String("a".into()),
+            },
+            MemInstr::Construct {
+                dst: Reg(1),
+                tag: "record".into(),
+                fields: vec![("title".into(), Reg(0))],
+            },
+            MemInstr::Lit {
+                dst: Reg(2),
+                lit: MemLiteral::String("b".into()),
+            },
+            MemInstr::Construct {
+                dst: Reg(3),
+                tag: "record-update".into(),
+                fields: vec![("__base".into(), Reg(1)), ("title".into(), Reg(2))],
+            },
+            MemInstr::Construct {
+                dst: Reg(4),
+                tag: "record-update".into(),
+                fields: vec![("__base".into(), Reg(3)), ("missing".into(), Reg(2))],
+            },
+            MemInstr::Construct {
+                dst: Reg(5),
+                tag: "record-extend".into(),
+                fields: vec![("__base".into(), Reg(4)), ("extra".into(), Reg(2))],
+            },
+            MemInstr::Construct {
+                dst: Reg(6),
+                tag: "record-extend".into(),
+                fields: vec![("__base".into(), Reg(5)), ("extra".into(), Reg(0))],
+            },
+            MemInstr::Return { reg: Reg(6) },
+        ],
+        return_reg: Reg(6),
+    };
+    let v = exec_linear(&mutate, &mut trace).unwrap();
+    assert!(matches!(v, RuntimeValue::Record(_)));
+}
+
+#[test]
+fn observably_equal_remaining_value_arms() {
+    use std::cell::{Cell, RefCell};
+    use std::rc::Rc;
+
+    use reciplexa_eval::control::identity_resume;
+    use reciplexa_eval::RuntimeValue;
+    use reciplexa_mem::observably_equal;
+
+    assert!(observably_equal(
+        &RuntimeValue::Number(1.0),
+        &RuntimeValue::Number(1.0)
+    ));
+    assert!(observably_equal(
+        &RuntimeValue::F64(1.0),
+        &RuntimeValue::F64(1.0)
+    ));
+    assert!(observably_equal(
+        &RuntimeValue::Bytes(vec![1]),
+        &RuntimeValue::Bytes(vec![1])
+    ));
+    let cell = |n: i128| RuntimeValue::Cell {
+        value: Rc::new(RefCell::new(RuntimeValue::Int(n))),
+        alive: Rc::new(Cell::new(true)),
+    };
+    assert!(observably_equal(&cell(1), &cell(1)));
+    assert!(observably_equal(
+        &RuntimeValue::Handler {
+            op: "a".into(),
+            params: vec![],
+            body: reciplexa_core::expr::CoreExpr::Lit(reciplexa_core::expr::CoreLiteral::Unit),
+            env: Rc::new(RefCell::new(Default::default())),
+        },
+        &RuntimeValue::Handler {
+            op: "a".into(),
+            params: vec![],
+            body: reciplexa_core::expr::CoreExpr::Lit(reciplexa_core::expr::CoreLiteral::Unit),
+            env: Rc::new(RefCell::new(Default::default())),
+        },
+    ));
+    assert!(observably_equal(
+        &RuntimeValue::OneShotResume {
+            used: Rc::new(Cell::new(false)),
+            cont: identity_resume(),
+        },
+        &RuntimeValue::OneShotResume {
+            used: Rc::new(Cell::new(true)),
+            cont: identity_resume(),
+        },
+    ));
+}
+
+#[test]
+fn lower_remaining_core_expr_forms() {
+    use reciplexa_core::cast::CastEvidence;
+    use reciplexa_core::expr::{CoreExpr, CoreLiteral, CorePattern, MatchArm};
+    use reciplexa_core::ty::CoreType;
+    use reciplexa_mem::ir::{MemInstr, MemLiteral};
+    use reciplexa_mem::lower::lower_core_linear;
+
+    let unbound = lower_core_linear(&CoreExpr::Var("ghost".into()));
+    assert!(unbound.instrs.iter().any(|i| matches!(
+        i,
+        MemInstr::Lit {
+            lit: MemLiteral::Unit,
+            ..
+        }
+    )));
+
+    let wildcard_payload = CoreExpr::Match {
+        scrutinee: Box::new(CoreExpr::Variant {
+            tag: "Ok".into(),
+            payload: Some(Box::new(CoreExpr::Lit(CoreLiteral::Int(1)))),
+        }),
+        arms: vec![MatchArm {
+            pattern: CorePattern::Variant {
+                tag: "Ok".into(),
+                payload: Some(Box::new(CorePattern::Wildcard)),
+            },
+            body: CoreExpr::Lit(CoreLiteral::Int(9)),
+        }],
+    };
+    let _ = lower_core_linear(&wildcard_payload);
+
+    let handle = CoreExpr::Handle {
+        op: "log".into(),
+        handler_params: vec!["x".into()],
+        handler_body: Box::new(CoreExpr::Lit(CoreLiteral::Int(1))),
+        body: Box::new(CoreExpr::Lit(CoreLiteral::Int(2))),
+    };
+    let _ = lower_core_linear(&handle);
+
+    let hv = CoreExpr::HandlerValue {
+        op: "log".into(),
+        handler_params: vec![],
+        handler_body: Box::new(CoreExpr::Lit(CoreLiteral::Unit)),
+    };
+    let _ = lower_core_linear(&hv);
+
+    let with = CoreExpr::With {
+        handler: Box::new(hv.clone()),
+        body: Box::new(CoreExpr::Lit(CoreLiteral::Int(0))),
+    };
+    let _ = lower_core_linear(&with);
+
+    let forward = lower_core_linear(&CoreExpr::Forward {
+        resume_name: "k".into(),
+    });
+    assert!(forward.instrs.iter().any(|i| matches!(
+        i,
+        MemInstr::Construct { tag, .. } if tag == "perform:forward"
+    )));
+
+    let cast = CoreExpr::Cast {
+        expr: Box::new(CoreExpr::Lit(CoreLiteral::Int(1))),
+        evidence: CastEvidence::Identity,
+        target: CoreType::Int,
+        cast_id: 0,
+    };
+    let _ = lower_core_linear(&cast);
+    let try_cast = CoreExpr::TryCast {
+        expr: Box::new(CoreExpr::Lit(CoreLiteral::Int(1))),
+        target: CoreType::Int,
+        cast_id: 1,
+    };
+    let _ = lower_core_linear(&try_cast);
+    let check = CoreExpr::CheckCast {
+        expr: Box::new(CoreExpr::Lit(CoreLiteral::Int(1))),
+        target: CoreType::Int,
+        cast_id: 2,
+    };
+    let _ = lower_core_linear(&check);
+    let _ = lower_core_linear(&CoreExpr::Error);
+}

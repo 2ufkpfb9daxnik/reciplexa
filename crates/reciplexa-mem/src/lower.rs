@@ -45,7 +45,7 @@ impl Lowerer {
                     CoreLiteral::Int(n) => MemLiteral::Number(*n as f64),
                     CoreLiteral::F64(n) => MemLiteral::Number(*n),
                     CoreLiteral::String(s) | CoreLiteral::Color(s) => MemLiteral::String(s.clone()),
-                    CoreLiteral::Bool(b) => MemLiteral::String(b.to_string()),
+                    CoreLiteral::Bool(b) => MemLiteral::Bool(*b),
                     CoreLiteral::Unit => MemLiteral::Unit,
                     CoreLiteral::Bytes(b) => MemLiteral::Bytes(b.clone()),
                 };

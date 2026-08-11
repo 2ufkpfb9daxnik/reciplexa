@@ -236,6 +236,7 @@ fn lit_to_value(lit: &MemLiteral) -> RuntimeValue {
         MemLiteral::String(s) => RuntimeValue::String(s.clone()),
         MemLiteral::Unit => RuntimeValue::Unit,
         MemLiteral::Bytes(b) => RuntimeValue::Bytes(b.clone()),
+        MemLiteral::Bool(b) => RuntimeValue::Bool(*b),
     }
 }
 
@@ -344,5 +345,23 @@ mod tests {
         bump_refcount(&mut cell, Reg(0)).unwrap();
         assert_eq!(cell.refcount, 4);
         assert!(!cell.unique);
+    }
+
+    #[test]
+    fn drop_reg_rejects_underflow() {
+        let mut heap = HashMap::new();
+        heap.insert(
+            Reg(1),
+            Cell {
+                value: RuntimeValue::Unit,
+                refcount: 0,
+                unique: true,
+            },
+        );
+        let mut trace = RcTrace::default();
+        assert_eq!(
+            drop_reg(&mut heap, Reg(1), &mut trace),
+            Err(ExecError::RefCountUnderflow(Reg(1)))
+        );
     }
 }

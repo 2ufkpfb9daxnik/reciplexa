@@ -17,6 +17,7 @@ pub enum MemLiteral {
     String(String),
     Unit,
     Bytes(Vec<u8>),
+    Bool(bool),
 }
 
 /// Single ownership instruction.
