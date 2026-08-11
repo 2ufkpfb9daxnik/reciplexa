@@ -220,23 +220,21 @@ pub fn first_unreachable_arm(arms: &[MatchArm], adt_tags: &[&str]) -> Option<usi
             if covered.contains(tag) {
                 return Some(i);
             }
-            if variant_arm_fully_covers(&arm.pattern) {
-                covered.insert(tag);
+            if let CorePattern::Variant { payload, .. } = &arm.pattern {
+                if variant_payload_irrefutable(payload) {
+                    covered.insert(tag);
+                }
             }
         }
     }
     None
 }
 
-/// True when a variant pattern matches every value of that constructor.
-fn variant_arm_fully_covers(pat: &CorePattern) -> bool {
-    match pat {
-        CorePattern::Variant { payload: None, .. } => true,
-        CorePattern::Variant {
-            payload: Some(inner),
-            ..
-        } => matches!(inner.as_ref(), CorePattern::Wildcard | CorePattern::Bind(_)),
-        _ => false,
+/// True when a variant payload matches every value of that constructor.
+fn variant_payload_irrefutable(payload: &Option<Box<CorePattern>>) -> bool {
+    match payload {
+        None => true,
+        Some(inner) => matches!(inner.as_ref(), CorePattern::Wildcard | CorePattern::Bind(_)),
     }
 }
 
