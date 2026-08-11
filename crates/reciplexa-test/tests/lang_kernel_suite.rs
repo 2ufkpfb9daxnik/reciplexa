@@ -7,9 +7,11 @@
 use std::path::PathBuf;
 
 use reciplexa_bind::{elaborate_module_tree, elaborate_units, resolve_language_source};
-use reciplexa_core::{elaborate_source, typecheck_language_source, CoreType};
+use reciplexa_core::{
+    elaborate_source, elaborate_with_data, typecheck_language_source, CoreType, Variance,
+};
 use reciplexa_eval::{eval_expr, eval_source, primitive_env, RuntimeValue, UnitHost};
-use reciplexa_macro::expand_language;
+use reciplexa_macro::{expand_language, expand_language_with_map};
 use reciplexa_package::{elaborate_with_packages, LocalPackageIndex};
 use reciplexa_test::{run_conformance, ConformanceCase};
 
@@ -644,6 +646,297 @@ fn lang_pkg_graphics_page_and_ring() {
         assert!(
             s.contains("page") || s.contains("ring"),
             "expected page/ring record, got {s}"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    });
+}
+
+#[test]
+fn lang_typ_try_cast_and_check_cast() {
+    // Spec: TEST-STA-007 (dynamic boundary) / DD-TYP-DYN try-cast·check-cast.
+    let case = ConformanceCase::new(
+        "TEST-STA-007",
+        "TYP-001",
+        "try-cast / check-cast dynamic boundary (STA-007)",
+    );
+    run_conformance(&case, || {
+        let ty = typecheck_language_source("(val main (try-cast 1 int))").unwrap();
+        assert_eq!(
+            ty,
+            CoreType::App {
+                ctor: "option".into(),
+                args: vec![CoreType::Int],
+            }
+        );
+        let v = eval_source("(val main (try-cast 1 int))").unwrap();
+        assert!(matches!(
+            v,
+            RuntimeValue::Variant {
+                tag,
+                payload: Some(_),
+            } if tag == "some"
+        ));
+
+        let ty = typecheck_language_source(r#"(val main (check-cast "a" string))"#).unwrap();
+        assert_eq!(
+            ty,
+            CoreType::App {
+                ctor: "result".into(),
+                args: vec![CoreType::String, CoreType::String],
+            }
+        );
+        let v = eval_source(r#"(val main (check-cast "a" string))"#).unwrap();
+        assert!(matches!(
+            v,
+            RuntimeValue::Variant {
+                tag,
+                payload: Some(_),
+            } if tag == "ok"
+        ));
+    });
+}
+
+#[test]
+fn lang_typ_any_and_dynamic_any() {
+    let case = ConformanceCase::new(
+        "TEST-LANG-TYP-any",
+        "TYP-001",
+        "`any` / `(dynamic)` type surface (DD-TYP-DYN)",
+    );
+    run_conformance(&case, || {
+        let (_, data) = elaborate_with_data(
+            r#"
+(type blob (dynamic))
+(type anything any)
+(val main unit)
+"#,
+        )
+        .unwrap();
+        assert!(matches!(
+            data.type_aliases.get("blob"),
+            Some(CoreType::Dynamic(b)) if matches!(b.as_ref(), CoreType::Any)
+        ));
+        assert_eq!(data.type_aliases.get("anything"), Some(&CoreType::Any));
+    });
+}
+
+#[test]
+fn lang_dat_variance_inference() {
+    let case = ConformanceCase::new(
+        "TEST-LANG-DAT-variance",
+        "DAT-001",
+        "DAT §8 covariance / phantom inference",
+    );
+    run_conformance(&case, || {
+        let (_, data) = elaborate_with_data(
+            r#"
+(data tree
+  ((a type))
+  empty
+  (node a (tree a) (tree a)))
+(val main empty)
+"#,
+        )
+        .unwrap();
+        assert_eq!(
+            data.type_variances.get("tree").and_then(|v| v.get("a")),
+            Some(&Variance::Covariant)
+        );
+
+        let (_, data) = elaborate_with_data(
+            r#"
+(data identifier
+  ((domain type))
+  (identifier int))
+(val main unit)
+"#,
+        )
+        .unwrap();
+        assert_eq!(
+            data.type_variances
+                .get("identifier")
+                .and_then(|v| v.get("domain")),
+            Some(&Variance::Phantom)
+        );
+    });
+}
+
+#[test]
+fn lang_lit_bytes_literal() {
+    let case = ConformanceCase::new(
+        "TEST-LANG-LIT-bytes-lit",
+        "SYN-001",
+        "(bytes …) literal elaborates and evaluates (SYN §11)",
+    );
+    run_conformance(&case, || {
+        let v = eval_source("(val main (bytes 0xff 42))").unwrap();
+        assert_eq!(v, RuntimeValue::Bytes(vec![0xff, 42]));
+    });
+}
+
+#[test]
+fn lang_eff_failure_raise_and_forward() {
+    // Spec: TEST-DYN-003 nested handlers / resume / forward; failure op.
+    let case = ConformanceCase::new(
+        "TEST-DYN-003",
+        "EFF-001",
+        "failure/raise + forward nested handlers (DYN-003)",
+    );
+    run_conformance(&case, || {
+        let v =
+            eval_source(r#"(val main (handle failure (fn (err) err) (raise "caught")))"#).unwrap();
+        assert_eq!(v, RuntimeValue::String("caught".into()));
+
+        let v = eval_source(
+            r#"
+(val main
+  (handle log (fn (msg) (seq (perform log "inner") msg))
+    (handle log (fn (msg k) (forward k))
+      (perform log "outer"))))
+"#,
+        )
+        .unwrap();
+        assert_eq!(v, RuntimeValue::String("outer".into()));
+    });
+}
+
+#[test]
+fn lang_mac_nested_module_and_nest_expand() {
+    // Spec: TEST-STA-008 expanded binding identity / nested macros.
+    let case = ConformanceCase::new(
+        "TEST-STA-008",
+        "MAC-001",
+        "nested module macros + expand provenance (STA-008)",
+    );
+    run_conformance(&case, || {
+        let src = r#"
+(macro when ($condition $body ...+) -> (if $condition (seq $body ...) unit))
+(module rendering
+  (val render-if-ready (when ready? 1)))
+"#;
+        let out = expand_language(src).unwrap();
+        assert!(out.contains("(if ready? (seq 1) unit)"), "{out}");
+        assert!(!out.contains("(when "), "{out}");
+
+        let nested = r#"
+(macro unless ($condition $expression) -> (if $condition unit $expression))
+(macro unless-ready ($body ...+) -> (unless ready? $body ...))
+(val main (unless-ready 1))
+"#;
+        assert_eq!(
+            expand_language(nested).unwrap(),
+            "(val main (if ready? unit 1))"
+        );
+
+        let (expanded, map) = expand_language_with_map(
+            "(macro when ($c $b) -> (if $c $b unit))\n(val main (when true 1))",
+        )
+        .unwrap();
+        assert_eq!(expanded, "(val main (if true 1 unit))");
+        assert!(!map.origins.is_empty());
+        let o = &map.origins[0];
+        assert!(o.call_id.is_valid(), "call SyntaxNodeId");
+        assert!(o.def_id.is_valid(), "def SyntaxNodeId");
+    });
+}
+
+#[test]
+fn lang_edt_binding_map_use_sites() {
+    // EDT-001 language-core: BindingId use-sites via resolve BindingMap.
+    let case = ConformanceCase::new(
+        "TEST-LANG-EDT-binding",
+        "EDT-001",
+        "BindingMap use-site → declaration BindingId",
+    );
+    run_conformance(&case, || {
+        let src = "(val n 1) (val main (let ((x n)) n))";
+        let r = resolve_language_source(src);
+        assert!(r.is_ok(), "{:?}", r.errors);
+        assert!(
+            !r.binding_map.uses.is_empty(),
+            "expected use-sites, got defs={:?}",
+            r.binding_map.definitions.keys().collect::<Vec<_>>()
+        );
+        assert!(
+            !r.binding_map.definitions.is_empty(),
+            "expected definitions"
+        );
+        for id in r.binding_map.uses.values() {
+            let site = r
+                .binding_map
+                .definition_of(*id)
+                .unwrap_or_else(|| panic!("missing def for {id}"));
+            assert!(id.is_valid());
+            assert!(!site.name.is_empty());
+            assert!(
+                site.syntax_node_id.is_some(),
+                "def `{}` should carry SyntaxNodeId",
+                site.name
+            );
+        }
+        let n_def = r
+            .binding_map
+            .definitions
+            .values()
+            .find(|s| s.name == "n")
+            .expect("n binding");
+        let use_hits: Vec<_> = r
+            .binding_map
+            .uses
+            .iter()
+            .filter(|(_, id)| **id == n_def.binding_id)
+            .collect();
+        assert!(
+            use_hits.len() >= 2,
+            "expected ≥2 uses of n, got {}",
+            use_hits.len()
+        );
+    });
+}
+
+#[test]
+fn lang_pkg_rpi_export_boundary() {
+    // Spec: TEST-INT-002 multi-file module/package; MOD §8 .rpi boundary.
+    let case = ConformanceCase::new(
+        "TEST-INT-002",
+        "PKG-001",
+        ".rpi interface export boundary hides internal (INT-002)",
+    );
+    run_conformance(&case, || {
+        let idx = package_index();
+        let resolved = idx
+            .resolve_import_detailed("graphics/shapes")
+            .expect("shapes");
+        let exports = resolved.interface_exports.expect("shapes.rpi");
+        assert!(exports.contains(&"circle".into()));
+        assert!(!exports.iter().any(|e| e == "shapes-internal-tag"));
+
+        let (root, manifest) = idx.get("graphics").expect("graphics");
+        let path = manifest
+            .module_interface_path(root, "shapes")
+            .expect("interface-root");
+        assert!(
+            path.ends_with("interface\\shapes.rpi") || path.ends_with("interface/shapes.rpi"),
+            "{path:?}"
+        );
+        assert!(path.is_file());
+
+        let dir = std::env::temp_dir().join(format!("reciplexa-lang-rpi-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let entry = dir.join("demo.rpx");
+        std::fs::write(
+            &entry,
+            r#"(import graphics/shapes only shapes-internal-tag)
+(val main (shapes-internal-tag "x"))
+"#,
+        )
+        .unwrap();
+        let err = elaborate_with_packages(&entry, &idx).unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("not exported") && msg.contains("shapes-internal-tag"),
+            "unexpected: {msg}"
         );
         let _ = std::fs::remove_dir_all(&dir);
     });
