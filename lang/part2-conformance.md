@@ -17,10 +17,10 @@
 
 - **total**: 1589
 - **unchecked**: 0
-- **ok**: 727
-- **partial**: 116
+- **ok**: 728
+- **partial**: 105
 - **gap**: 0
-- **deferred**: 608
+- **deferred**: 618
 - **meta**: 138
 
 （LEX/SYN/MAC および導入メタ節を照合済み。他機能ブロックも並行更新済み。）
@@ -5597,7 +5597,7 @@
 - [x] **L4 L20476: 13.14 `MEM-001` Perceusメモリ管理・スコープ付きリソース・継続・メモリ予算** — `partial`
   - spec: `specification.md:20476`
   
-  - notes: reciplexa-mem Perceus IR ok; eval still Rc; budget/bracket/resource deferred reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path; eval uses Rc not Perceus by default
+  - notes: reciplexa-mem Perceus IR（dup/drop/reuse/verify/lower）実装済; 既定 eval は Rc（切替は後回し）
 
 - [x] **L5 L20477: DD-001 決定概要** — `meta`
   - spec: `specification.md:20477`
@@ -5631,10 +5631,10 @@
   - spec: `specification.md:20562`
   - notes: MEM glossary / policy prose
 
-- [x] **L5 L20577: 1. メモリとResourceの分離** — `partial`
+- [x] **L5 L20577: 1. メモリとResourceの分離** — `deferred`
   - spec: `specification.md:20577`
   
-  - notes: policy: Perceus values vs bracket resources; bracket surface incomplete- notes: policy: values vs resources; RSC/bracket separation incomplete
+  - notes: 依存待ち(第III部): values vs bracket resources 方針のみ; bracket 表面は後回し
 
 - [x] **L6 L20578: 1.1 通常値** — `ok`
   - spec: `specification.md:20578`
@@ -5820,20 +5820,20 @@
   
   - notes: IR path; eval still Rc- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L5 L20956: 10. var** — `partial`
+- [x] **L5 L20956: 10. var** — `deferred`
   - spec: `specification.md:20956`
   
-  - notes: LocalVar escape check in eval; Perceus-var cell integration incomplete- notes: LocalVar escape check in eval; full Perceus-var integration incomplete
+  - notes: 意図的後回し: LocalVar escape check は eval; Perceus-var cell 統合は後回し
 
-- [x] **L6 L20957: 10.1 既存意味論** — `partial`
+- [x] **L6 L20957: 10.1 既存意味論** — `ok`
   - spec: `specification.md:20957`
   
-  - notes: var semantics via LocalVar in Core/eval; IR lowers init as value- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  - notes: var 意味論は Core LocalVar/eval; IR は init を値として lower
 
-- [x] **L6 L20966: 10.2 物理表現** — `partial`
+- [x] **L6 L20966: 10.2 物理表現** — `deferred`
   - spec: `specification.md:20966`
   
-  - notes: var physical cell not separate ownership class in mem IR yet- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  - notes: 意図的後回し: var 物理セルの独立 ownership クラスは mem IR 未
 
 - [x] **L6 L20976: 10.3 Perceusとの関係** — `meta`
   - spec: `specification.md:20976`
@@ -5875,20 +5875,20 @@
   
   - notes: Logical ID refs out of heap cycles; identity ids separate- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L5 L21047: 13. Continuation** — `partial`
+- [x] **L5 L21047: 13. Continuation** — `deferred`
   - spec: `specification.md:21047`
   
-  - notes: Resume/DiscardCont/Raise in mem IR+exec; full continuation capture model light- notes: Resume/DiscardCont/Raise in mem IR+exec; not full continuation model
+  - notes: 意図的後回し: Resume/DiscardCont/Raise はあるが完全継続捕捉モデルは後回し
 
 - [x] **L6 L21048: 13.1 表現** — `ok`
   - spec: `specification.md:21048`
   
   - notes: IR path; eval still Rc- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L6 L21061: 13.2 Capture** — `partial`
+- [x] **L6 L21061: 13.2 Capture** — `deferred`
   - spec: `specification.md:21061`
   
-  - notes: Continuation capture representation minimal in IR- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  - notes: 意図的後回し(OPEN-MEM-CONT): continuation capture 表現は最小
 
 - [x] **L6 L21069: 13.3 Resume** — `ok`
   - spec: `specification.md:21069`
@@ -5905,10 +5905,10 @@
   
   - notes: IR path; eval still Rc- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L6 L21098: 13.6 Escape** — `partial`
+- [x] **L6 L21098: 13.6 Escape** — `deferred`
   - spec: `specification.md:21098`
   
-  - notes: Escape of continuation past resume scope still light- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  - notes: 意図的後回し(OPEN-MEM-CONT): resume 範囲を越える escape 検査は後回し
 
 - [x] **L5 L21106: 14. Failure unwind** — `ok`
   - spec: `specification.md:21106`
@@ -6231,10 +6231,10 @@
   - spec: `specification.md:21666`
   - notes: verifier failure reported by reciplexa-mem verify_*
 
-- [x] **L5 L21677: 31. メモリ観測API** — `partial`
+- [x] **L5 L21677: 31. メモリ観測API** — `deferred`
   - spec: `specification.md:21677`
   
-  - notes: RC/dup/drop not exposed (§31.1 ok); budget/peak observation deferred RC/dup/drop not exposed to RPX (§31.1); budget/peak observation API 依存待ち(第III部)|OPEN-MEM-PROF-001
+  - notes: 依存待ち(第III部)|OPEN-MEM-PROF-001: RC 非公開は §31.1 ok; budget/peak 観測 API は後回し
 
 - [x] **L6 L21678: 31.1 非公開情報** — `ok`
   - spec: `specification.md:21678`
@@ -6251,21 +6251,21 @@
   
   - notes: 依存待ち|OPEN-MEM-PROF-001: observation API stability- notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
 
-- [x] **L5 L21714: 32. GUI状態** — `partial`
+- [x] **L5 L21714: 32. GUI状態** — `deferred`
   - spec: `specification.md:21714`
-  - notes: GUI uses explicit DocumentSnapshot (no implicit cell); full model OPEN-GUI-STATE-001
+  - notes: 意図的後回し(OPEN-GUI-STATE-001): DocumentSnapshot 明示モデル; 完全 GUI 状態は第V部
 
 - [x] **L6 L21715: 32.1 暗黙cellへの非依存** — `ok`
   - spec: `specification.md:21715`
   - notes: v1 intentional non-feature (matches spec) — escape cell/weak/borrow out of v1
 
-- [x] **L6 L21719: 32.2 推奨モデル** — `partial`
+- [x] **L6 L21719: 32.2 推奨モデル** — `deferred`
   - spec: `specification.md:21719`
-  - notes: reciplexa-mem Perceus/dup/drop/reuse/verify/lower; not default eval path
+  - notes: 意図的後回し(OPEN-GUI-STATE-001): Perceus 既定経路ではなく推奨モデル記述のみ
 
-- [x] **L5 L21728: 33. 適合試験** — `partial`
+- [x] **L5 L21728: 33. 適合試験** — `deferred`
   - spec: `specification.md:21728`
-  - notes: phase6_mem / mem tests exist; full MEM-001 suite incomplete
+  - notes: 意図的後回し: phase6_mem / mem tests あり; 版付きフル MEM-001 suite は後回し
 
 - [x] **L5 L21906: 34. 移管先OPEN** — `deferred`
   - spec: `specification.md:21906`
