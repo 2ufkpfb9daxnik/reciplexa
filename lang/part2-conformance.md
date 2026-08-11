@@ -18,9 +18,9 @@
 - **total**: 1589
 - **unchecked**: 0
 - **ok**: 319
-- **partial**: 507
-- **gap**: 338
-- **deferred**: 293
+- **partial**: 511
+- **gap**: 333
+- **deferred**: 294
 - **meta**: 132
 
 （LEX/SYN/MAC および導入メタ節を照合済み。他機能ブロックも並行更新済み。）
@@ -607,9 +607,9 @@
   - spec: `specification.md:2916`
   - notes: DataEnv ctors; parent type / sealed set incomplete vs spec
 
-- [x] **L6 L2930: 2.5 Runtime reflection** — `gap`
+- [x] **L6 L2930: 2.5 Runtime reflection** — `deferred`
   - spec: `specification.md:2930`
-  - notes: no runtime reflection API for data
+  - notes: spec §2.5: data decls do not auto-emit runtime type descriptors; type-of-value / constructors-of are separate future items
 
 - [x] **L5 L2946: 3. 名前とnamespace** — `partial`
   - spec: `specification.md:2946`
@@ -709,27 +709,27 @@
 
 - [x] **L5 L3259: 8. Variance** — `partial`
   - spec: `specification.md:3259`
-  - notes: minimal positivity on data decls; full variance inference (co/contra/phantom) not yet
+  - notes: DAT §8–9: group positivity + per-param variance (cov/contra/invar/phantom) in elaborate
 
 - [x] **L6 L3261: 8.1 自動推論** — `partial`
   - spec: `specification.md:3261`
-  - notes: payload polarity walk for positivity; variance not auto-inferred for subtyping
+  - notes: variance inferred from payload polarity; subtyping lattice not yet
 
 - [x] **L6 L3265: 8.2 共変** — `partial`
   - spec: `specification.md:3265`
-  - notes: minimal checker treats type-app args as covariant; no subtype lattice yet
+  - notes: covariant params inferred when appearing only in positive positions
 
-- [x] **L6 L3283: 8.3 反変** — `gap`
+- [x] **L6 L3283: 8.3 反変** — `partial`
   - spec: `specification.md:3283`
-  - notes: contravariant params not inferred; only negativity reject for self in fn args
+  - notes: contravariant params inferred from fn-argument occurrences in payloads
 
-- [x] **L6 L3295: 8.4 不変** — `gap`
+- [x] **L6 L3295: 8.4 不変** — `partial`
   - spec: `specification.md:3295`
-  - notes: invariant params not inferred
+  - notes: invariant params inferred when both polarities appear
 
-- [x] **L6 L3308: 8.5 Phantom parameter** — `gap`
+- [x] **L6 L3308: 8.5 Phantom parameter** — `partial`
   - spec: `specification.md:3308`
-  - notes: phantom params not warned
+  - notes: phantom params recorded in DataEnv.type_variances; warning channel deferred
 
 - [x] **L5 L3323: 9. 再帰data型** — `partial`
   - spec: `specification.md:3323`
@@ -763,9 +763,9 @@
   - spec: `specification.md:3403`
   - notes: runtime rec data ok; positivity/kind mixing checks absent
 
-- [x] **L6 L3435: 10.4 Group全体のpositivity** — `gap`
+- [x] **L6 L3435: 10.4 Group全体のpositivity** — `partial`
   - spec: `specification.md:3435`
-  - notes: mutual-group positivity not checked; single-decl positivity only
+  - notes: mutual `(rec (data …) …)` group positivity via shared group name set
 
 - [x] **L5 L3441: 11. Data値の実行意味** — `ok`
   - spec: `specification.md:3441`
@@ -933,7 +933,7 @@
 
 - [x] **L6 L3842: 18.5 Optional field** — `ok`
   - spec: `specification.md:3842`
-  - notes: reject optional in record patterns; (optional label Ty) in record types; field access → option Variant
+  - notes: optional record fields rejected in record patterns; access via field+match (DAT §18.5)
 
 - [x] **L6 L3855: 18.6 Unknown row field** — `partial`
   - spec: `specification.md:3855`
@@ -1137,7 +1137,7 @@
 
 - [x] **L5 L4670: `DD-TYP-IF-001`: 条件分岐による型の絞り込み** — `ok`
   - spec: `specification.md:4670`
-  - notes: occurrence_envs for number?/string?/bool?/is-none/is-some on immutable locals
+  - notes: DD-TYP-IF-001: intersect/diff narrowing on immutable locals for eval builtins
 
 - [x] **L5 L4706: 値** — `partial`
   - spec: `specification.md:4706`
@@ -1201,7 +1201,7 @@
 
 - [x] **L6 L4997: occurrence typing** — `ok`
   - spec: `specification.md:4997`
-  - notes: simple occurrence typing for recognized predicates (DD-TYP-IF-001 subset)
+  - notes: occurrence typing for number?/string?/bool?/is-none/is-some predicates
 
 - [x] **L5 L5016: 解決後の最小Core** — `partial`
   - spec: `specification.md:5016`

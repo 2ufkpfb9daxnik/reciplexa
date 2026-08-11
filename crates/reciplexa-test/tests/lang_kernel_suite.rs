@@ -322,3 +322,69 @@ fn lang_surface_type_decls_and_dynamic() {
         assert_eq!(ty, CoreType::String);
     });
 }
+
+#[test]
+fn lang_match_unreachable_case() {
+    let case = ConformanceCase::new(
+        "TEST-LANG-DAT-unreach",
+        "DAT-001",
+        "unreachable match arm is a static error",
+    );
+    run_conformance(&case, || {
+        let src = r#"
+(data option (none) (some x))
+(val main (match (some 1) (_ -> 0) (some x -> x)))
+"#;
+        let err = elaborate_source(src).unwrap_err();
+        assert!(err.message.contains("unreachable"), "{}", err.message);
+        let err = typecheck_language_source(src).unwrap_err();
+        assert!(err.message.contains("unreachable"), "{}", err.message);
+    });
+}
+
+#[test]
+fn lang_occurrence_typing_predicates() {
+    let case = ConformanceCase::new(
+        "TEST-LANG-TYP-occ",
+        "TYP-001",
+        "DD-TYP-IF-001 occurrence typing on builtins",
+    );
+    run_conformance(&case, || {
+        let ty = typecheck_language_source(
+            r#"
+(val x (if true 1 "a"))
+(val main
+  (if (number? x)
+    (+ x 1)
+    0))
+"#,
+        )
+        .unwrap();
+        assert_eq!(ty, CoreType::Number);
+    });
+}
+
+#[test]
+fn lang_data_rec_group_positivity() {
+    let case = ConformanceCase::new(
+        "TEST-LANG-DAT-rec-pos",
+        "DAT-001",
+        "mutual data rec group positivity",
+    );
+    run_conformance(&case, || {
+        let err = elaborate_source(
+            r#"
+(rec
+  (data a (a-con (fn b unit)))
+  (data b (b-con (fn a unit))))
+(val main unit)
+"#,
+        )
+        .unwrap_err();
+        assert!(
+            err.message.contains("positivity") || err.message.contains("negative"),
+            "{}",
+            err.message
+        );
+    });
+}
