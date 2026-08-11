@@ -39,6 +39,8 @@ pub enum SyntaxKind {
     Comment,
     /// SYN §1.5: `#!/…` first line (lossless; no semantic effect).
     Shebang,
+    /// SYN §1.2: UTF-8 BOM at byte offset 0 (lossless; no semantic effect).
+    Bom,
 
     // --- error recovery leaf ---
     Error,
@@ -93,6 +95,7 @@ impl SyntaxKind {
             x if x == Self::Newline as u16 => Self::Newline,
             x if x == Self::Comment as u16 => Self::Comment,
             x if x == Self::Shebang as u16 => Self::Shebang,
+            x if x == Self::Bom as u16 => Self::Bom,
             x if x == Self::Error as u16 => Self::Error,
             x if x == Self::MissingToken as u16 => Self::MissingToken,
             x if x == Self::UnexpectedToken as u16 => Self::UnexpectedToken,
@@ -115,7 +118,7 @@ impl SyntaxKind {
     pub const fn is_trivia(self) -> bool {
         matches!(
             self,
-            Self::Whitespace | Self::Newline | Self::Comment | Self::Shebang
+            Self::Whitespace | Self::Newline | Self::Comment | Self::Shebang | Self::Bom
         )
     }
 

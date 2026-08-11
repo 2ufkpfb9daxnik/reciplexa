@@ -128,6 +128,12 @@ impl<'a> Lexer<'a> {
     fn bump_lisp(&mut self) -> Token {
         let start = self.pos;
 
+        // SYN §1.2: UTF-8 BOM at byte offset 0 is lossless trivia (no semantic effect).
+        if start == 0 && self.input.starts_with('\u{feff}') {
+            self.advance_char();
+            return self.finish(SyntaxKind::Bom, start);
+        }
+
         // SYN §1.5: shebang at byte offset 0 is lossless trivia (no semantic effect).
         if start == 0 && self.input.starts_with("#!") {
             while let Some(ch) = self.peek_char() {

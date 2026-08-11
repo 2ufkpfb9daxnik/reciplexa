@@ -19,6 +19,10 @@ pub enum MarkupPart {
         /// Nested scribble body from `{…}`, if present.
         brace_body: Vec<MarkupPart>,
     },
+    /// SYN §17.6: `@(…)` arbitrary code embedding (source of the parenthesized form).
+    Embed {
+        source: String,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -153,6 +157,7 @@ fn flush_part_lines(parts: &[MarkupPart], lines: &mut Vec<String>, cur: &mut Str
                     cur.push_str(args.trim());
                 }
             }
+            MarkupPart::Embed { source } => cur.push_str(source),
         }
     }
 }
@@ -178,6 +183,7 @@ fn walk_at_expr(node: &SyntaxNode) -> Result<MarkupPart, MarkupWalkError> {
     let mut name: Option<String> = None;
     let mut bracket_args: Option<String> = None;
     let mut brace_body: Vec<MarkupPart> = Vec::new();
+    let mut bare_list: Option<SyntaxNode> = None;
 
     for el in node.children_with_tokens() {
         match el {
@@ -197,22 +203,36 @@ fn walk_at_expr(node: &SyntaxNode) -> Result<MarkupPart, MarkupWalkError> {
                     brace_body = walk_scribble_container(&n)?;
                 }
                 SyntaxKind::List => {
-                    // SYN-001 `@name(markup-body)` — paren body is scribble, not a Lisp call.
-                    brace_body = walk_scribble_container(&n)?;
+                    if name.is_some() {
+                        // SYN-001 `@name(markup-body)` — paren body is scribble, not a Lisp call.
+                        brace_body = walk_scribble_container(&n)?;
+                    } else {
+                        // SYN §17.6: `@(…)` code embedding — keep the parenthesized form.
+                        bare_list = Some(n);
+                    }
                 }
                 _ => {}
             },
         }
     }
 
-    let Some(name) = name else {
-        return Err(MarkupWalkError::new("expected identifier after `@`"));
-    };
-    Ok(MarkupPart::At {
-        name,
-        bracket_args,
-        brace_body,
-    })
+    if let Some(name) = name {
+        return Ok(MarkupPart::At {
+            name,
+            bracket_args,
+            brace_body,
+        });
+    }
+
+    if let Some(list) = bare_list {
+        let source = list.to_string();
+        if source == "()" {
+            return Err(MarkupWalkError::new("empty `@(…)` embedding"));
+        }
+        return Ok(MarkupPart::Embed { source });
+    }
+
+    Err(MarkupWalkError::new("expected identifier after `@`"))
 }
 
 fn walk_scribble_container(node: &SyntaxNode) -> Result<Vec<MarkupPart>, MarkupWalkError> {

@@ -224,12 +224,24 @@ fn empty_parens_without_doc_head() {
 
 #[test]
 fn at_empty_parens_without_ident_errors() {
-    // `@()` has a paren body but no command name — still an error.
+    // Empty `@(…)` embedding is rejected.
     let err = markup_parts(&markup_list("(markup @())")).unwrap_err();
     assert!(
-        err.message.contains("identifier after `@`"),
+        err.message.contains("empty") || err.message.contains("identifier"),
         "{}",
         err.message
+    );
+}
+
+#[test]
+fn at_embed_paren_form_is_embed_part() {
+    // SYN §17.6: `@(space 20mm)` is arbitrary code embedding.
+    let parts = markup_parts(&markup_list("(markup @(space 20mm))")).unwrap();
+    assert!(
+        parts
+            .iter()
+            .any(|p| matches!(p, MarkupPart::Embed { source } if source.contains("space"))),
+        "{parts:?}"
     );
 }
 

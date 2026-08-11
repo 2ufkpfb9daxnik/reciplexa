@@ -410,6 +410,7 @@ pub fn layout_markup_parts(parts: &[MarkupPart]) -> Vec<LaidItem> {
                     }
                 }
             },
+            MarkupPart::Embed { source } => buf.push_str(source),
         }
     }
     flush_body(&mut buf, &mut out);
@@ -632,6 +633,7 @@ fn append_marked(parts: &[MarkupPart], buf: &mut String) {
                     }
                 }
             },
+            MarkupPart::Embed { source } => buf.push_str(source),
         }
     }
 }
@@ -676,6 +678,7 @@ fn append_marked_lines(parts: &[MarkupPart], lines: &mut Vec<String>, cur: &mut 
                     }
                 }
             },
+            MarkupPart::Embed { source } => cur.push_str(source),
         }
     }
 }
@@ -803,6 +806,7 @@ fn flush_code_parts(parts: &[MarkupPart], lines: &mut Vec<String>, cur: &mut Str
                     cur.push_str(args);
                 }
             }
+            MarkupPart::Embed { source } => cur.push_str(source),
         }
     }
 }

@@ -24,6 +24,7 @@ fn roundtrip_every_real_kind_through_language() {
         SyntaxKind::Newline,
         SyntaxKind::Comment,
         SyntaxKind::Shebang,
+        SyntaxKind::Bom,
         SyntaxKind::Error,
         SyntaxKind::MissingToken,
         SyntaxKind::UnexpectedToken,
@@ -59,6 +60,7 @@ fn trivia_predicate_matches_design_token_set() {
     assert!(SyntaxKind::Newline.is_trivia());
     assert!(SyntaxKind::Comment.is_trivia());
     assert!(SyntaxKind::Shebang.is_trivia());
+    assert!(SyntaxKind::Bom.is_trivia());
     assert!(!SyntaxKind::Ident.is_trivia());
     assert!(!SyntaxKind::LParen.is_trivia());
     assert!(!SyntaxKind::Error.is_trivia());
