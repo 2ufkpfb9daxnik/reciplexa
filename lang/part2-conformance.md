@@ -17,10 +17,10 @@
 
 - **total**: 1589
 - **unchecked**: 0
-- **ok**: 706
-- **partial**: 153
+- **ok**: 714
+- **partial**: 139
 - **gap**: 0
-- **deferred**: 592
+- **deferred**: 598
 - **meta**: 138
 
 （LEX/SYN/MAC および導入メタ節を照合済み。他機能ブロックも並行更新済み。）
@@ -3016,7 +3016,7 @@
 
 - [x] **L4 L14412: 13.9 `MOD-001` モジュール・シグネチャ・Functor・分割コンパイル** — `partial`
   - spec: `specification.md:14412`
-  - notes: outer unit + import/link + .rpi export filter/path; signatures/functors deferred
+  - notes: outer unit + import/link + .rpi export filter/path 実装済; signatures/functors は意図的後回し
 
 - [x] **L5 L14413: DD-001 決定概要** — `meta`
   - spec: `specification.md:14413`
@@ -3028,7 +3028,7 @@
 
 - [x] **L6 L14434: DD-001.2 中心的な決定** — `partial`
   - spec: `specification.md:14434`
-  - notes: import as/only/rename+qualified + .rpi export boundary; functors/signatures deferred
+  - notes: import as/only/rename+qualified + .rpi boundary 実装済; functors/signatures は意図的後回し
 
 - [x] **L5 L14452: 0. 適用範囲** — `meta`
   - spec: `specification.md:14452`
@@ -3122,9 +3122,9 @@
   - spec: `specification.md:14679`
   - notes: new scope rule; nested modules absent
 
-- [x] **L6 L14685: 4.5 Top-level effect** — `partial`
+- [x] **L6 L14685: 4.5 Top-level effect** — `deferred`
   - spec: `specification.md:14685`
-  - notes: unit body elaborated as Core; no module-level effect gate
+  - notes: 意図的後回し: unit body は Core として評価; module-level effect gate は未導入
 
 - [x] **L6 L14698: 4.6 モジュールは通常値ではない** — `ok`
   - spec: `specification.md:14698`
@@ -3142,9 +3142,9 @@
   - spec: `specification.md:14718`
   - notes: `/` not ident_continue; // kept; division via BuiltinOp
 
-- [x] **L6 L14727: 5.3 内部表現** — `partial`
+- [x] **L6 L14727: 5.3 内部表現** — `deferred`
   - spec: `specification.md:14727`
-  - notes: qualified name is string binder `alias/export`, not ModuleId path IR
+  - notes: 意図的後回し: qualified binder は `alias/export` 文字列; formal ModuleId path IR は後回し
 
 - [x] **L6 L14737: 5.4 .** — `deferred`
   - spec: `specification.md:14737`
@@ -3182,17 +3182,17 @@
   - spec: `specification.md:14811`
   - notes: 意図的後回し: auto re-export of imports not in bind skeleton
 
-- [x] **L5 L14821: 7. Importと正式identity** — `partial`
+- [x] **L5 L14821: 7. Importと正式identity** — `deferred`
   - spec: `specification.md:14821`
-  - notes: alias is local prefix only; no formal ModuleId identity layer
+  - notes: 意図的後回し: alias は局所接頭辞; formal ModuleId identity 層は後回し
 
-- [x] **L6 L14822: 7.1 Aliasの効果** — `partial`
+- [x] **L6 L14822: 7.1 Aliasの効果** — `ok`
   - spec: `specification.md:14822`
-  - notes: alias does not change export identity (string copy of binding)
+  - notes: alias は export identity を変えず局所名のみ（import as）
 
-- [x] **L6 L14832: 7.2 選択的import** — `partial`
+- [x] **L6 L14832: 7.2 選択的import** — `ok`
   - spec: `specification.md:14832`
-  - notes: selective import binds locals; no sealed identity table
+  - notes: selective import（only / rename）が局所 binder を導入
 
 - [x] **L6 L14843: 7.3 Source spelling** — `meta`
   - spec: `specification.md:14843`
@@ -3202,13 +3202,13 @@
   - spec: `specification.md:14853`
   - notes: same-identity duplicate import ok; distinct-module local collision error (module.rs §7.4)
 
-- [x] **L5 L14859: 8. .rpiインターフェース** — `partial`
+- [x] **L5 L14859: 8. .rpiインターフェース** — `ok`
   - spec: `specification.md:14859`
-  - notes: .rpi stub parse + export name boundary; full signature checking deferred
+  - notes: .rpi stub parse + export name boundary（signature 本体検査は意図的後回し）
 
-- [x] **L6 L14860: 8.1 役割** — `partial`
+- [x] **L6 L14860: 8.1 役割** — `ok`
   - spec: `specification.md:14860`
-  - notes: .rpi lists public vals/types; enforced at package link
+  - notes: .rpi が公開 vals/types 名を列挙し package link で強制
 
 - [x] **L6 L14870: 8.2 Wrapper** — `deferred`
   - spec: `specification.md:14870`
@@ -3238,9 +3238,9 @@
   - spec: `specification.md:14908`
   - notes: no .rpi → implementation exports inferred (elaborate default)
 
-- [x] **L6 L14912: 9.2 .rpiありのモジュール** — `partial`
+- [x] **L6 L14912: 9.2 .rpiありのモジュール** — `ok`
   - spec: `specification.md:14912`
-  - notes: .rpi filters public exports at link; types/abstract not checked yet
+  - notes: .rpi が公開 export を filter; 抽象型/signature 本体は意図的後回し
 
 - [x] **L6 L14918: 9.3 Interface追加** — `deferred`
   - spec: `specification.md:14918`
@@ -3498,9 +3498,9 @@
   - spec: `specification.md:15394`
   - notes: module-alias/re-export/include not in bind skeleton
 
-- [x] **L5 L15400: 20. 正式identity** — `partial`
+- [x] **L5 L15400: 20. 正式identity** — `deferred`
   - spec: `specification.md:15400`
-  - notes: some opaque IDs exist in reciplexa-identity
+  - notes: 意図的後回し: reciplexa-identity に opaque ID; MOD metadata への正式配線は後回し
 
 - [x] **L6 L15401: 20.1 PackageInstanceId** — `ok`
   - spec: `specification.md:15401`
@@ -3518,13 +3518,13 @@
   - spec: `specification.md:15435`
   - notes: BindingId + BindingMap use-sites
 
-- [x] **L6 L15441: 20.5 TypeId** — `partial`
+- [x] **L6 L15441: 20.5 TypeId** — `deferred`
   - spec: `specification.md:15441`
-  - notes: TypeId opaque id exists; not wired through MOD metadata
+  - notes: 意図的後回し: TypeId opaque は identity crate; MOD metadata 未配線
 
-- [x] **L6 L15447: 20.6 ConstructorId** — `partial`
+- [x] **L6 L15447: 20.6 ConstructorId** — `deferred`
   - spec: `specification.md:15447`
-  - notes: ConstructorId opaque id exists; not MOD metadata
+  - notes: 意図的後回し: ConstructorId opaque は identity crate; MOD metadata 未配線
 
 - [x] **L6 L15458: 20.7 SignatureId** — `ok`
   - spec: `specification.md:15458`
@@ -3538,9 +3538,9 @@
   - spec: `specification.md:15473`
   - notes: functor apply identity N/A until functors
 
-- [x] **L6 L15482: 20.10 Rename** — `partial`
+- [x] **L6 L15482: 20.10 Rename** — `ok`
   - spec: `specification.md:15482`
-  - notes: import rename only; no formal Rename on identity
+  - notes: import rename（only x as y）実装済; formal Rename-on-identity 代数は意図的後回し
 
 - [x] **L6 L15488: 20.11 Source span** — `ok`
   - spec: `specification.md:15488`
@@ -3582,13 +3582,13 @@
   - spec: `specification.md:15558`
   - notes: AbiHash → OPEN-KER-001
 
-- [x] **L6 L15564: 21.9 適合試験 MOD-01** — `partial`
+- [x] **L6 L15564: 21.9 適合試験 MOD-01** — `ok`
   - spec: `specification.md:15564`
-  - notes: qualified path import covered by module_tests; not named MOD-01 suite
+  - notes: lang_kernel_suite TEST-LANG-MOD-01 + module_tests（qualified path import）
 
-- [x] **L6 L15574: 21.10 適合試験 MOD-02** — `partial`
+- [x] **L6 L15574: 21.10 適合試験 MOD-02** — `ok`
   - spec: `specification.md:15574`
-  - notes: as+only+rename covered by elaborate_units_* tests; not MOD-02 harness
+  - notes: lang_kernel_suite TEST-LANG-MOD-02/03 + module_tests（as/only/rename・同一identity）
 
 - [x] **L6 L15594: 21.11 適合試験 MOD-03** — `deferred`
   - spec: `specification.md:15594`

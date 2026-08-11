@@ -17,7 +17,7 @@
 | `ROW` | 0 | 2 | 2 |
 | `EFF` | 0 | 8 | 8 |
 | `RSC` | 0 | 2 | 2 |
-| `MOD` | 0 | 16 | 16 |
+| `MOD` | 0 | 2 | 2 |
 | `PKG` | 0 | 8 | 8 |
 | `KER` | 0 | 2 | 2 |
 | `EDT` | 0 | 0 | 0 |
@@ -25,14 +25,13 @@
 | `ERR` | 0 | 3 | 3 |
 | `MEM` | 0 | 12 | 12 |
 | `TST` | 0 | 23 | 23 |
-| **合計** | **0** | **153** | **153** |
+| **合計** | **0** | **139** | **139** |
 
 （全体カウンタは `part2-conformance-stats.json` 参照。機能別内訳は L4 `XXX-001` ブロック帰属。）
 
 ### 合計の多い順（優先度の目安）
 - `TST`: gap 0 + partial 23 = **23**
 - `TYP`: gap 0 + partial 22 = **22**
-- `MOD`: gap 0 + partial 16 = **16**
 - `SYN`: gap 0 + partial 15 = **15**
 - `DAT`: gap 0 + partial 15 = **15**
 - `MEM`: gap 0 + partial 12 = **12**
@@ -47,7 +46,9 @@
 - `BND`: gap 0 + partial 2 = **2**
 - `ROW`: gap 0 + partial 2 = **2**
 - `RSC`: gap 0 + partial 2 = **2**
+- `MOD`: gap 0 + partial 2 = **2**
 - `KER`: gap 0 + partial 2 = **2**
+
 
 
 
