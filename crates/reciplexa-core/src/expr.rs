@@ -238,6 +238,66 @@ fn variant_payload_irrefutable(payload: &Option<Box<CorePattern>>) -> bool {
     }
 }
 
+#[cfg(test)]
+mod coverage_helpers {
+    use super::*;
+
+    #[test]
+    fn variant_payload_and_unreachable_arms() {
+        assert!(variant_payload_irrefutable(&None));
+        assert!(variant_payload_irrefutable(&Some(Box::new(CorePattern::Wildcard))));
+        assert!(variant_payload_irrefutable(&Some(Box::new(CorePattern::Bind(
+            "x".into()
+        )))));
+        assert!(!variant_payload_irrefutable(&Some(Box::new(
+            CorePattern::Lit(CoreLiteral::Int(1))
+        ))));
+
+        let arms = [
+            MatchArm {
+                pattern: CorePattern::Variant {
+                    tag: "a".into(),
+                    payload: None,
+                },
+                body: CoreExpr::Lit(CoreLiteral::Unit),
+            },
+            MatchArm {
+                pattern: CorePattern::Variant {
+                    tag: "b".into(),
+                    payload: Some(Box::new(CorePattern::Bind("x".into()))),
+                },
+                body: CoreExpr::Lit(CoreLiteral::Unit),
+            },
+            MatchArm {
+                pattern: CorePattern::Variant {
+                    tag: "a".into(),
+                    payload: Some(Box::new(CorePattern::Wildcard)),
+                },
+                body: CoreExpr::Lit(CoreLiteral::Unit),
+            },
+        ];
+        assert_eq!(first_unreachable_arm(&arms, &["a", "b"]), Some(2));
+        assert_eq!(first_unreachable_arm(&arms[..2], &["a", "b"]), None);
+        assert!(first_unreachable_arm(
+            &[
+                MatchArm {
+                    pattern: CorePattern::Wildcard,
+                    body: CoreExpr::Lit(CoreLiteral::Unit),
+                },
+                MatchArm {
+                    pattern: CorePattern::Variant {
+                        tag: "a".into(),
+                        payload: None,
+                    },
+                    body: CoreExpr::Lit(CoreLiteral::Unit),
+                },
+            ],
+            &[]
+        )
+        .is_some());
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct CoreValue {
     pub ty: CoreType,

@@ -3449,4 +3449,157 @@ mod tests {
         };
         assert!(matches!(*value, CoreExpr::Match { .. }));
     }
+
+    #[test]
+    fn helper_seq_nest_ambient_and_types() {
+        assert!(matches!(seq_or_one(vec![]), CoreExpr::Seq(_)));
+        assert!(matches!(
+            seq_or_one(vec![CoreExpr::Lit(CoreLiteral::Int(1))]),
+            CoreExpr::Lit(_)
+        ));
+        assert!(matches!(
+            seq_or_one(vec![
+                CoreExpr::Lit(CoreLiteral::Int(1)),
+                CoreExpr::Lit(CoreLiteral::Int(2)),
+            ]),
+            CoreExpr::Seq(_)
+        ));
+        assert!(is_ambient_effect_op("log"));
+        assert!(is_ambient_effect_op("random"));
+        assert!(!is_ambient_effect_op("ask"));
+        let nested = nest_lets(
+            vec![
+                ("a".into(), CoreExpr::Lit(CoreLiteral::Int(1))),
+                ("b".into(), CoreExpr::Lit(CoreLiteral::Int(2))),
+            ],
+            CoreExpr::Var("b".into()),
+        );
+        assert!(matches!(nested, CoreExpr::Let { .. }));
+        let nested = nest_top_bindings(
+            vec![
+                TopBinding::Single("a".into(), CoreExpr::Lit(CoreLiteral::Int(1))),
+                TopBinding::Rec(vec![(
+                    "f".into(),
+                    CoreExpr::Lambda {
+                        params: vec!["x".into()],
+                        body: Box::new(CoreExpr::Var("x".into())),
+                    },
+                )]),
+            ],
+            CoreExpr::Var("a".into()),
+        );
+        assert!(matches!(nested, CoreExpr::Let { .. } | CoreExpr::LetRec { .. }));
+        let _ = normalize_intersect(vec![CoreType::Int, CoreType::Any, CoreType::Number]);
+        let _ = next_cast_id();
+    }
+
+    #[test]
+    fn elaborate_dense_ok_and_err_residual() {
+        for src in [
+            // data / variance / rec
+            "(data box ((a type)) (mk a))\n(val main (mk 1))",
+            "(data pair ((a type)(b type)) (mk a b))\n(val main (mk 1 \"x\"))",
+            "(data ghost ((a type)) nullary)\n(val main nullary)",
+            "(rec (data a (x)) (data b (y x)))\n(val main x)",
+            "(data t ((a type)) (c (t a)))\n(val main (c (c 1)))",
+            // types
+            "(type id (forall ((a type)) (fn a a)))\n(val id (fn (x) x))\n(val main (id 1))",
+            "(type r (record (a int) (row rest)))\n(val main 1)",
+            "(type u (union int string))\n(val main 1)",
+            "(type i (intersect int number))\n(val main 1)",
+            "(type n (not int))\n(val main 1)",
+            "(type d (diff number int))\n(val main 1)",
+            "(type o (optional-field int))\n(val main 1)",
+            "(type dy (dynamic int))\n(val main 1)",
+            "(type f (fn int int (effects log)))\n(val main 1)",
+            "(type t (tuple int string))\n(val main 1)",
+            "(type s (singleton 1))\n(val main 1)",
+            "(type s (singleton true))\n(val main 1)",
+            "(type s (singleton \"x\"))\n(val main 1)",
+            "(type s (singleton unit))\n(val main 1)",
+            // forms
+            "(val main (bytes 1 2 255))",
+            "(val main (list 1 2 3))",
+            "(val main (tuple 1 2))",
+            "(val main (unicode 65))",
+            "(val main (let ((x 1)(y 2)) (+ x y)))",
+            "(val main (letrec ((f (fn (x) (f x)))) f))",
+            "(val main (local (val x 1) (var y 2) (+ x y)))",
+            "(val main (local (type t int) (val t 1) t))",
+            "(val main (local (rec (val f (fn (x) x))) (f 1)))",
+            "(val main (set x 1))",
+            "(val main (handle ask (fn (m) m) (perform ask \"x\")))",
+            "(val main (handle ask (fn (m k) (k m)) (perform ask \"x\")))",
+            "(val main (handler ask (fn (m k) (k m))))",
+            "(val main (with (handler ask (fn (m) m)) 1))",
+            "(val main (raise \"e\"))",
+            "(val main (or-raise (as-result (fn () 1))))",
+            "(val main (as-result (fn () 1)))",
+            "(val main (try-cast 1 int))",
+            "(val main (check-cast 1 int))",
+            "(val main (as (lacks a (record (b int))) (record (b 1))))",
+            "(val main (match 1 ((bind x) -> x)))",
+            "(val main (match (tuple 1 2) ((tuple a b) -> a) (_ -> 0)))",
+            "(val main (match (record (a 1)) ((record (a x)) -> x) (_ -> 0)))",
+            "(val main (match true (true -> 1) (false -> 0)))",
+            "(val main (match false (false -> 0) (_ -> 1)))",
+            "(val main (match unit (unit -> 0) (_ -> 1)))",
+            "(val main (match \"x\" (\"x\" -> 1) (_ -> 0)))",
+            "(val main (match 1.5 (1.5 -> 1) (_ -> 0)))",
+            "(data t (c a b))\n(val main (match (c 1 2) ((c x y) -> x) (_ -> 0)))",
+            "(val main (forward k))",
+            "(val main (perform log \"x\"))",
+            "(val main (random))",
+            "(val main (read-file \"a\"))",
+            "(val main (write-file \"a\"))",
+            "(val main foo/bar)",
+            "#\\space",
+            "#\\newline",
+            "0xFF",
+            "1.0e2",
+            // errors
+            "(data)",
+            "(data t ((a type)(a type)) c)",
+            "(data t ((a kind)) c)",
+            "(type)",
+            "(type-alias t)",
+            "(val)",
+            "(fn)",
+            "(val main (handle))",
+            "(val main (handler ask))",
+            "(val main (with 1))",
+            "(val main (local))",
+            "(val main (bytes 300))",
+            "(val main (bytes \"x\"))",
+            "(val main (match 1 ((bind) -> 0)))",
+            "(val main (match 1 ((tuple) -> 0)))",
+            "(val main (match 1 ((record) -> 0)))",
+            "(val main (as (forall) 1))",
+            "(val main (as (fn int) 1))",
+            "(val main (as (effects bad) 1))",
+            "(val main (as (record (row r) (a int)) 1))",
+            "(val main (as (singleton 1.5) 1))",
+            "(rec (val main 1))",
+            "(val main (set))",
+            "(val main (if true))",
+            "(val main (let))",
+            "(val main (letrec))",
+            "(val main (var))",
+            "(val main (perform))",
+            "(val main (raise))",
+            "(val main (forward))",
+            "(val main (or-raise))",
+            "(val main (as-result))",
+            "(val main (try-cast 1))",
+            "(val main (check-cast))",
+            "(val main (doc x))",
+            "(val main (page a4))",
+            "",
+            "(type orphan int)",
+            "(val x 1)(val x 2)",
+        ] {
+            let _ = elaborate_source(src);
+            let _ = elaborate_with_data(src);
+        }
+    }
 }
