@@ -1,4 +1,9 @@
-(// SYN-001 declarations (minimal); page still interim prelude)
+(// language-only: SYN-001 declarations + package graphics (GUI interim: black_circle.rpx).)
 (type title str)
 (val title "Hello")
-(page a4 (text 30 260 8 "Hello" black))
+(import graphics/shapes only text fill)
+(import graphics/page only a4 page)
+(import graphics/color only black)
+(val main
+  (page a4
+    (fill (text 30 260 8 title) black)))
