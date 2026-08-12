@@ -403,10 +403,7 @@ fn graphics_value_bridge_matches_interim_lower_source() {
     assert_eq!(from_pkg.pages.len(), 1);
     assert_eq!(from_cst.pages.len(), 1);
     assert_eq!(from_pkg.pages[0].paper, from_cst.pages[0].paper);
-    match (
-        &from_pkg.pages[0].shapes[0],
-        &from_cst.pages[0].shapes[0],
-    ) {
+    match (&from_pkg.pages[0].shapes[0], &from_cst.pages[0].shapes[0]) {
         (Shape::Circle(a), Shape::Circle(b)) => {
             assert_eq!(a.x_mm, b.x_mm);
             assert_eq!(a.y_mm, b.y_mm);

@@ -1161,10 +1161,7 @@ mod tests {
         // Both payloads Some: keep intersected arm when non-Never.
         let kept = intersect_types(
             &CoreType::Variant {
-                variants: vec![
-                    ("some".into(), Some(CoreType::Int)),
-                    ("none".into(), None),
-                ],
+                variants: vec![("some".into(), Some(CoreType::Int)), ("none".into(), None)],
             },
             &CoreType::Variant {
                 variants: vec![
