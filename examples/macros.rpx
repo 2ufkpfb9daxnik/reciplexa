@@ -1,7 +1,13 @@
-(// Surface macros expanded before typecheck: gray, color-byte, hline, vline.)
-(page a4
-  (circle 60 80 25 (gray 0.2))
-  (rect 100 60 70 50 (gray 0.75))
-  (hline 30 180 180 (gray 0.4) 0.8)
-  (vline 40 180 105 (gray 0.55) 0.6)
-  (text 30 210 5 "macros" (gray 0.2)))
+(// Slice D: macro surface (gray/hline/vline) expands before package graphics eval.)
+(import graphics/shapes only circle rect line text fill stroke group)
+(import graphics/page only a4 page)
+(import graphics/color only rgb)
+(val main
+  (page a4
+    (group
+      (list
+        (fill (circle 60 80 25) (gray 0.2))
+        (fill (rect 100 60 70 50) (gray 0.75))
+        (stroke (line 30 180 180 180) 0.8 (gray 0.4))
+        (stroke (line 40 180 40 105) 0.6 (gray 0.55))
+        (fill (text 30 210 5 "macros") (gray 0.2))))))

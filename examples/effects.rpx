@@ -1,4 +1,5 @@
 (// Top-level perform/handle (SYN-001); no (src …) wrapper. Effects run on export only; preview skips them.)
+(// Slice D: page tree via package graphics bridge (no top-level interim `(page …)`).)
 (perform log "effects.rpx: before handle")
 (handle log
   (perform log "muted")
@@ -10,6 +11,12 @@
   (perform log "inside write-path handle"))
 (perform write-path "after.pdf")
 
-(page a4
-  (text 30 260 7 "effects + page" black)
-  (circle 105 140 32 (color-byte 40 120 200)))
+(import graphics/shapes only circle text fill group)
+(import graphics/page only a4 page)
+(import graphics/color only black rgb)
+(val main
+  (page a4
+    (group
+      (list
+        (fill (text 30 260 7 "effects + page") black)
+        (fill (circle 105 140 32) (color-byte 40 120 200))))))
