@@ -1,0 +1,69 @@
+(// japanese/linebreak — JLReq-oriented line-break / kinsoku stubs.
+ // Honest scope: data + predicate helpers for a first solid LineBreakProvider
+ // shape. Full §C class-pair tables and Unicode classification are deferred
+ // (OPEN-TEXT-JA-001). Public fns are self-contained for MOD export linking.)
+(val sample-line-head-prohibited
+  "」、。．，）〕］｝〉》』】！？ーぁぃぅぇぉっゃゅょァィゥェォッャュョヽヾゝゞ々")
+(val sample-line-end-prohibited
+  "「『（〔［｛〈《￥＄￡＃")
+(val sample-inseparable
+  "—…‥〳〴〵")
+(val opportunity (fn (kind before after note)
+  (record (tag "jlreq-break-opportunity")
+    (kind kind) (before before) (after after) (note note))))
+(val line-head-prohibited-class? (fn (class-id)
+  (if (= class-id 2) true
+    (if (= class-id 6) true
+      (if (= class-id 7) true
+        (if (= class-id 9) true
+          (if (= class-id 10) true
+            (if (= class-id 11) true
+              (if (= class-id 29) true false)))))))))
+(val line-end-prohibited-class? (fn (class-id)
+  (if (= class-id 1) true
+    (if (= class-id 12) true
+      (if (= class-id 28) true false)))))
+(val inseparable-pair? (fn (before after)
+  (if (= before 8) true
+    (if (= after 8) true
+      (if (= before 24)
+        (if (= after 24) true false)
+        false)))))
+(// Simplified default table (not the full JLReq §C matrix).)
+(val break-between (fn (before after)
+  (if (= before 8)
+    (record (tag "jlreq-break-opportunity") (kind "inseparable") (before before) (after after) (note "cl-08"))
+    (if (= after 8)
+      (record (tag "jlreq-break-opportunity") (kind "inseparable") (before before) (after after) (note "cl-08"))
+      (if (= before 1)
+        (record (tag "jlreq-break-opportunity") (kind "prohibited") (before before) (after after) (note "line-end kinsoku"))
+        (if (= after 2)
+          (record (tag "jlreq-break-opportunity") (kind "prohibited") (before before) (after after) (note "line-head kinsoku"))
+          (if (= after 6)
+            (record (tag "jlreq-break-opportunity") (kind "prohibited") (before before) (after after) (note "line-head kinsoku"))
+            (if (= after 7)
+              (record (tag "jlreq-break-opportunity") (kind "prohibited") (before before) (after after) (note "line-head kinsoku"))
+              (record (tag "jlreq-break-opportunity") (kind "allowed") (before before) (after after) (note "default allow"))))))))))
+(val hangable-class? (fn (class-id)
+  (if (= class-id 6) true
+    (if (= class-id 7) true false))))
+(val kinsoku-profile
+  (record (tag "jlreq-kinsoku-profile")
+    (line-head-prohibited-classes (list 2 6 7 9 10 11 29))
+    (line-end-prohibited-classes (list 1 12 28))
+    (hangable-classes (list 6 7))
+    (sample-line-head-prohibited "」、。．，）〕］｝〉》』】！？ーぁぃぅぇぉっゃゅょァィゥェォッャュョヽヾゝゞ々")
+    (sample-line-end-prohibited "「『（〔［｛〈《￥＄￡＃")
+    (sample-inseparable "—…‥〳〴〵")
+    (completeness "subset-stub")))
+(// Representative glyph → class-id samples (not a full UCS map).)
+(val classify-sample (fn (glyph)
+  (if (= glyph "「") 1
+    (if (= glyph "」") 2
+      (if (= glyph "。") 6
+        (if (= glyph "、") 7
+          (if (= glyph "ー") 10
+            (if (= glyph "ぁ") 11
+              (if (= glyph "あ") 15
+                (if (= glyph "ア") 16
+                  (if (= glyph "＝") 17 19)))))))))))
