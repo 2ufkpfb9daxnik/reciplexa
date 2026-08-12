@@ -359,4 +359,53 @@ mod tests {
         assert_eq!(v, RuntimeValue::Int(42));
         assert_eq!(host.logs, vec!["hello".to_string()]);
     }
+
+    #[test]
+    fn cli_eval_host_log_string_and_non_string() {
+        let mut host = CliEvalHost::default();
+        use reciplexa_eval::{EffectHost, RuntimeValue};
+        assert_eq!(
+            host.perform("log", RuntimeValue::String("hi".into()))
+                .unwrap(),
+            RuntimeValue::Unit
+        );
+        assert_eq!(
+            host.perform("log", RuntimeValue::Int(7)).unwrap(),
+            RuntimeValue::Unit
+        );
+    }
+
+    #[test]
+    fn cli_eval_host_delegates_unknown_ops_to_fs() {
+        let mut host = CliEvalHost::default();
+        use reciplexa_eval::{EffectHost, RuntimeValue};
+        // MemoryFsHost rejects unknown ops; cover the delegation arm.
+        let err = host
+            .perform("not-a-real-op", RuntimeValue::Unit)
+            .unwrap_err();
+        assert!(!err.message.is_empty());
+    }
+
+    #[test]
+    fn cmd_eval_runs_log_program() {
+        let dir = std::env::temp_dir().join("rpx_cli_test");
+        let _ = std::fs::create_dir_all(&dir);
+        let path = dir.join("log_prog.rpx");
+        std::fs::write(&path, r#"(val main (seq (log "from-cli") 1))"#).unwrap();
+        cmd_eval(path.to_str().unwrap()).expect("eval log");
+    }
+
+    #[test]
+    fn cmd_eval_rejects_bad_program() {
+        let dir = std::env::temp_dir().join("rpx_cli_test");
+        let _ = std::fs::create_dir_all(&dir);
+        let path = dir.join("bad_eval.rpx");
+        std::fs::write(&path, "(val main").unwrap();
+        assert!(cmd_eval(path.to_str().unwrap()).is_err());
+    }
+
+    #[test]
+    fn json_string_escapes_backslash() {
+        assert_eq!(json_string("a\\b"), "\"a\\\\b\"");
+    }
 }
