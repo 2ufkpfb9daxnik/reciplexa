@@ -1,7 +1,13 @@
-(// Nested translate / rotate / scale.)
-(page a4
-  (translate 105 148.5
-    (rotate 30
-      (scale 1.5
-        (circle 0 0 20 red))))
-  (text 30 270 6 "transforms" black))
+(// Migrated Slice D: package transforms over graphics constructors.)
+(import graphics/shapes only circle text translate rotate scale fill group)
+(import graphics/page only a4 page)
+(import graphics/color only black red)
+(val main
+  (page a4
+    (group
+      (list
+        (translate 105 148.5
+          (rotate 30
+            (scale 1.5 1.5
+              (fill (circle 0 0 20) red))))
+        (text 30 270 6 "transforms")))))
