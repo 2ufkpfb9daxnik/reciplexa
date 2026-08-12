@@ -1155,4 +1155,92 @@ mod tests {
         let _ = compose_evidence(vec![]);
         let _ = compose_evidence(vec![CastEvidence::Identity]);
     }
+
+    #[test]
+    fn variant_intersect_and_singleton_domain_residuals() {
+        // Both payloads Some: keep intersected arm when non-Never.
+        let kept = intersect_types(
+            &CoreType::Variant {
+                variants: vec![
+                    ("some".into(), Some(CoreType::Int)),
+                    ("none".into(), None),
+                ],
+            },
+            &CoreType::Variant {
+                variants: vec![
+                    ("some".into(), Some(CoreType::Number)),
+                    ("none".into(), None),
+                ],
+            },
+        );
+        assert!(matches!(kept, CoreType::Variant { .. }));
+
+        // Payload intersect → Never drops the arm; empty → Never.
+        let dropped = intersect_types(
+            &CoreType::Variant {
+                variants: vec![("x".into(), Some(CoreType::Int))],
+            },
+            &CoreType::Variant {
+                variants: vec![("x".into(), Some(CoreType::String))],
+            },
+        );
+        assert!(matches!(dropped, CoreType::Never));
+
+        // Mismatched Some/None payload skips the arm.
+        let skipped = intersect_types(
+            &CoreType::Variant {
+                variants: vec![("x".into(), Some(CoreType::Int))],
+            },
+            &CoreType::Variant {
+                variants: vec![("x".into(), None)],
+            },
+        );
+        assert!(matches!(skipped, CoreType::Never));
+
+        // Singleton ∩ non-domain → Never; ∩ domain keeps singleton.
+        let never = intersect_types(
+            &CoreType::Singleton(crate::ty::SingletonValue::Int(1)),
+            &CoreType::String,
+        );
+        assert!(matches!(never, CoreType::Never));
+        let keep = intersect_types(
+            &CoreType::Singleton(crate::ty::SingletonValue::Int(1)),
+            &CoreType::Int,
+        );
+        assert!(matches!(
+            keep,
+            CoreType::Singleton(crate::ty::SingletonValue::Int(1))
+        ));
+
+        // Nested Compose flatten (inner Compose branch).
+        let nested = simplify_evidence(CastEvidence::Compose(vec![
+            CastEvidence::Compose(vec![
+                CastEvidence::Compose(vec![CastEvidence::Widen]),
+                CastEvidence::Identity,
+            ]),
+            CastEvidence::TagCheck { tag: "num".into() },
+        ]));
+        assert!(matches!(nested, CastEvidence::Compose(_)));
+
+        // Fun intersect with effect mismatch (exercise effect_subrow / Fun arm).
+        let _ = intersect_types(
+            &CoreType::Fun {
+                args: vec![CoreType::Int],
+                ret: Box::new(CoreType::Int),
+                effects: crate::ty::EffectRow::default().with_op("ask"),
+            },
+            &CoreType::Fun {
+                args: vec![CoreType::Int],
+                ret: Box::new(CoreType::Int),
+                effects: crate::ty::EffectRow::default().with_op("log"),
+            },
+        );
+
+        let _ = types_disjoint_bases(&CoreType::Color, &CoreType::Shape);
+        let _ = types_disjoint_bases(&CoreType::Int, &CoreType::F64);
+        let _ = types_disjoint(
+            &CoreType::Intersect(vec![CoreType::Color, CoreType::Shape]),
+            &CoreType::Never,
+        );
+    }
 }
