@@ -1,5 +1,11 @@
-(// Open polyline and filled polygon.)
-(page a4
-  (polyline 30 80 60 200 105 100 150 200 180 80 red 1.2)
-  (polygon 40 40 100 40 70 95 (rgb 0.2 0.55 0.35))
-  (text 30 270 6 "paths" black))
+(// Migrated Slice D: package polyline/polygon constructors.)
+(import graphics/shapes only polyline polygon text stroke fill group)
+(import graphics/page only a4 page)
+(import graphics/color only black red rgb)
+(val main
+  (page a4
+    (group
+      (list
+        (stroke (polyline (list 30 80 60 200 105 100 150 200 180 80)) 1.2 red)
+        (fill (polygon (list 40 40 100 40 70 95)) (rgb 0.2 0.55 0.35))
+        (text 30 270 6 "paths")))))
