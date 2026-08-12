@@ -4,7 +4,7 @@
 //! (`tag: "page"|"circle"|"fill"|"rgb"|…`). Interim CST `(page)/(circle)` remains
 //! the GUI path; this bridge is additive and does not touch keyword tables.
 
-use reciplexa_scene::{Circle, Color, Document, Page, PaperSize, Shape};
+use reciplexa_scene::{Circle, Color, Document, Page, PaperSize, Rect, Shape};
 
 use crate::value::RuntimeValue;
 
@@ -51,6 +51,7 @@ pub fn shape_from_graphics_value(v: &RuntimeValue) -> Result<Shape, GraphicsValu
     let tag = tag_of(fields).ok_or_else(|| GraphicsValueError::new("shape record missing tag"))?;
     match tag {
         "circle" => shape_circle(fields, Color::BLACK),
+        "rect" => shape_rect(fields, Color::BLACK),
         "fill" => {
             let shape = field(fields, "shape")
                 .ok_or_else(|| GraphicsValueError::new("fill missing shape"))?;
@@ -60,7 +61,7 @@ pub fn shape_from_graphics_value(v: &RuntimeValue) -> Result<Shape, GraphicsValu
             shape_with_fill(shape, color)
         }
         other => Err(GraphicsValueError::new(format!(
-            "unsupported graphics shape tag `{other}` (v1: circle, fill)"
+            "unsupported graphics shape tag `{other}` (v1: circle, rect, fill)"
         ))),
     }
 }
@@ -70,8 +71,9 @@ fn shape_with_fill(v: &RuntimeValue, fill: Color) -> Result<Shape, GraphicsValue
     let tag = tag_of(fields).ok_or_else(|| GraphicsValueError::new("shape missing tag"))?;
     match tag {
         "circle" => shape_circle(fields, fill),
+        "rect" => shape_rect(fields, fill),
         other => Err(GraphicsValueError::new(format!(
-            "fill applied to unsupported tag `{other}` (v1: circle)"
+            "fill applied to unsupported tag `{other}` (v1: circle, rect)"
         ))),
     }
 }
@@ -95,6 +97,26 @@ fn shape_circle(
         )));
     }
     Ok(Shape::Circle(circle))
+}
+
+fn shape_rect(fields: &[(String, RuntimeValue)], fill: Color) -> Result<Shape, GraphicsValueError> {
+    let x = number_field(fields, "x")?;
+    let y = number_field(fields, "y")?;
+    let w = number_field(fields, "w")?;
+    let h = number_field(fields, "h")?;
+    let rect = Rect {
+        x_mm: x,
+        y_mm: y,
+        width_mm: w,
+        height_mm: h,
+        fill,
+    };
+    if !rect.is_drawable() {
+        return Err(GraphicsValueError::new(format!(
+            "rect is not drawable (w={w}, h={h})"
+        )));
+    }
+    Ok(Shape::Rect(rect))
 }
 
 /// Color from package `rgb` / `rgba` records (alpha ignored for scene Color).
@@ -260,6 +282,25 @@ mod tests {
                 assert_eq!(c.radius_mm, 3.0);
             }
             other => panic!("expected circle, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn bare_rect_defaults_to_black() {
+        let v = rec(vec![
+            ("tag", RuntimeValue::String("rect".into())),
+            ("x", num(0.0)),
+            ("y", num(1.0)),
+            ("w", num(10.0)),
+            ("h", num(20.0)),
+        ]);
+        match shape_from_graphics_value(&v).unwrap() {
+            Shape::Rect(r) => {
+                assert_eq!(r.width_mm, 10.0);
+                assert_eq!(r.height_mm, 20.0);
+                assert_eq!(r.fill, Color::BLACK);
+            }
+            other => panic!("expected rect, got {other:?}"),
         }
     }
 
