@@ -161,6 +161,9 @@ fn resolve_math_domain_modules() {
         "math/frac",
         "math/sqrt",
         "math/delimiters",
+        "math/matrix",
+        "math/accents",
+        "math/bigops",
     ] {
         let (name, src) = idx.resolve_import(mod_path).unwrap();
         assert_eq!(name, mod_path);
@@ -170,6 +173,12 @@ fn resolve_math_domain_modules() {
     assert!(atoms.contains("class-ord") && atoms.contains("(val bin"));
     let (_, sqrt) = idx.resolve_import("math/sqrt").unwrap();
     assert!(sqrt.contains("radical-indexed"));
+    let (_, matrix) = idx.resolve_import("math/matrix").unwrap();
+    assert!(matrix.contains("bmatrix") && matrix.contains("math-matrix"));
+    let (_, accents) = idx.resolve_import("math/accents").unwrap();
+    assert!(accents.contains("hat") && accents.contains("math-accent"));
+    let (_, bigops) = idx.resolve_import("math/bigops").unwrap();
+    assert!(bigops.contains("sum") && bigops.contains("integral"));
     let exports = idx
         .resolve_import_detailed("math/delimiters")
         .unwrap()
