@@ -1,0 +1,24 @@
+(// language-only: SATySFi-inspired math package tree (Core records).)
+(import math/atoms only ord bin rel row class-ord)
+(import math/scripts only superscript subscript scripts)
+(import math/frac only fraction)
+(import math/sqrt only sqrt radical-indexed)
+(import math/delimiters only paren braces)
+(val x (ord "x"))
+(val two (ord "2"))
+(val n (ord "n"))
+(val expr
+  (paren
+    (row
+      (list
+        (fraction
+          (superscript x two)
+          (sqrt (row (list (ord "a") (bin "+") (ord "b")))))
+        (rel "=")
+        (scripts (ord "y") (ord "i") n)
+        (bin "+")
+        (braces (radical-indexed (ord "3") (ord "z")))))))
+(val main
+  (record (tag "math-demo")
+    (class-ord class-ord)
+    (tree expr)))
