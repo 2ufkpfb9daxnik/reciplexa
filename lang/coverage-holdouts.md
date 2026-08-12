@@ -4,22 +4,22 @@ Target: ≥99% region coverage on Rust implementation (`tests/` / `main` / `bin`
 
 Measured with `cargo llvm-cov --workspace --json --offline` (Env D: `CARGO_TARGET_DIR=d:\reciplexa\target`). Prefer workspace table in `coverage-status.md` (scoped `-p` remasures can inflate bind via module.cfg(test)).
 
-**This wave remasure:** filtered overall **97.81%** (51111/52255).
+**This wave remasure:** filtered overall **98.06%** (51621/52642).
 
 ## Current (this pass)
 
 | Crate | Regions | % | vs ≥95% |
 |-------|--------:|--:|---------|
-| `reciplexa-eval` | 3300/3575 | **92.31%** | below (≥95% floor broken by new `graphics_value` bridge; recovering) |
+| `reciplexa-eval` | 3185/3343 | **95.27%** | met |
 | `reciplexa-bind` | 2399/2524 | **95.05%** | met |
-| `reciplexa-core` | 10455/10936 | **95.60%** | met (≥95%); short of ≥99% (~381 regions at prior scale) |
+| `reciplexa-core` | 10760/11220 | **95.90%** | met (≥95%); short of ≥99% (~460 missed) |
 
 ### Core file split (workspace)
 
 | File | Missed (approx) |
 |------|----------------:|
-| `elaborate.rs` | ~269 |
-| `check.rs` | ~122 |
+| `elaborate.rs` | ~260 |
+| `check.rs` | ~110 |
 | `unify.rs` | ~54 |
 | `cast.rs` | ~35 |
 | `expr.rs` | 1 |
@@ -37,8 +37,8 @@ Prefer **eliminate** over documenting when reachable. Items below are either sti
 
 ### Prefer eliminate (still chasing)
 
-1. **`elaborate.rs` (~269)** — Round10–12 Err matrices + OpenRecord/pattern probes landed; remaining are largely `?` Err-only region ends after syntax-kind guards where the lexer does not emit a failing `Number`/`String` spelling (or only via exotic CST shapes).
-2. **`check.rs` (~122)** — OpenRecord field unify + record-update/extend matrices partially hit; leftover `?` / soft edges on Handle/With/Match happy-path region ends and cast insert tails.
+1. **`elaborate.rs` (~260)** — Round10–13 Err matrices landed; remaining are largely `?` Err-only region ends after syntax-kind guards.
+2. **`check.rs` (~110)** — Round13 infer/coerce/insert cfg(test) matrix; leftover `?` region ends on effect/cast tails.
 3. **`unify.rs` / `cast.rs`** — Open-row / lacks / Any-left residuals; remasure before promoting leftovers.
 4. **`graphics_value.rs`** — Slice D strangler bridge; exhaustive tag suites landed this wave; continue paint/error/cons-list edge leaves until ≥95% package floor restored.
 5. **`eval.rs` Cont other (~84)** — Leftover Cont results during deep-resume re-perform / builtin edges.
