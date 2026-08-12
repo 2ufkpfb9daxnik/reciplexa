@@ -1,0 +1,10 @@
+(// language-only: standalone color package (rgb/srgb aligned with graphics bridge).)
+(import color/srgb only rgb rgba from-byte gray50 orange with-alpha transparent)
+(val main
+  (record (tag "color-demo")
+    (accent orange)
+    (mid gray50)
+    (byte (from-byte 30 90 180))
+    (faint (with-alpha orange 0.4))
+    (clear transparent)
+    (custom (rgb 0.1 0.2 0.3))))
