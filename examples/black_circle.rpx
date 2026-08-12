@@ -1,3 +1,4 @@
+(// interim/CST: GUI golden + CST sync; keep until keyword tables retire (package: pkg_circle.rpx).)
 (// Minimal A4 page: one filled circle (mm, origin bottom-left).)
 (page a4
   (circle 105 148.5 40))

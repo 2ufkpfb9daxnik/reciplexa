@@ -1,3 +1,4 @@
+(// interim/CST: SYN-001 @name(…) markup expands to interim (page …); package mirror: pkg_markup_ja.rpx.)
 (// 日本語 markup（SYN-001 @name(…) 様式。意味はまだプロトタイプ展開。）)
 (markup
 @heading(日本語レポート草稿)

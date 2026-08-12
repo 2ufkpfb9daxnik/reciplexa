@@ -1,3 +1,4 @@
+(// interim/CST: SYN-001 @markup expands to interim (page …); no package bridge for @-forms yet.)
 (// SYN-001 markup surface: @name(…) bodies, plain text paragraphs.)
 (markup
 @heading(進捗報告)
