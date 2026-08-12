@@ -8,9 +8,9 @@ Generated via `cargo llvm-cov --workspace --json --offline` → `.tmp/cov.json` 
 
 ## Overall
 
-- **Filtered (impl src):** 51111/52255 regions = **97.81%** (1144 missed)
+- **Filtered (impl src):** 51136/52207 regions = **97.95%** (1071 missed)
 
-- **Raw (incl. tests/bins):** 51330/57568 = 89.16%.
+- **Raw (incl. tests/bins):** 51358/57525 = 89.28%.
 
 - **Target:** 100% region coverage on Rust-native implementation code (at least ~99%).
 
@@ -18,14 +18,14 @@ Generated via `cargo llvm-cov --workspace --json --offline` → `.tmp/cov.json` 
 
 | Package | Covered | Count | Missed | % |
 |---------|--------:|------:|-------:|------:|
-| `reciplexa-eval` | 3300 | 3575 | 275 | **92.31%** (graphics_value bridge residual) |
+| `reciplexa` | 1399 | 1500 | 101 | 93.27% |
 | `reciplexa-bind` | 2399 | 2524 | 125 | 95.05% |
-| `reciplexa` | 1280 | 1343 | 63 | 95.31% |
 | `reciplexa-core` | 10455 | 10936 | 481 | 95.60% |
+| `reciplexa-eval` | 3185 | 3343 | 158 | **95.27%** (graphics_value bridge recovered) |
 | `reciplexa-test` | 190 | 197 | 7 | 96.45% |
 | `reciplexa-syntax` | 3099 | 3190 | 91 | 97.15% |
 | `reciplexa-gui` | 1692 | 1735 | 43 | 97.52% |
-| `reciplexa-package` | 1802 | 1831 | 29 | 98.42% |
+| `reciplexa-package` | 1823 | 1858 | 35 | 98.12% |
 | `reciplexa-runtime` | 356 | 358 | 2 | 99.44% |
 | `reciplexa-macro` | 2753 | 2767 | 14 | 99.49% |
 | `reciplexa-view` | 1743 | 1748 | 5 | **99.71%** |
@@ -61,10 +61,10 @@ Generated via `cargo llvm-cov --workspace --json --offline` → `.tmp/cov.json` 
 | Missed | Covered/Count | % | File |
 |-------:|--------------:|------:|------|
 | 481 | 10455/10936 | 95.60% | `reciplexa-core` (elaborate / check / unify / cast) |
-| 275 | 3300/3575 | 92.31% | `reciplexa-eval` (esp. `graphics_value.rs` + Cont edges) |
+| 158 | 3185/3343 | 95.27% | `reciplexa-eval` (graphics_value bridge + eval Cont edges) |
 | 125 | 2399/2524 | 95.05% | `reciplexa-bind` |
+| 101 | 1399/1500 | 93.27% | `reciplexa` (cli) |
 | 91 | 3099/3190 | 97.15% | `reciplexa-syntax` |
-| 63 | 1280/1343 | 95.31% | `reciplexa` (cli) |
 | 43 | 1692/1735 | 97.52% | `reciplexa-gui` |
 | 7 | 190/197 | 96.45% | `reciplexa-test` (derive noise) |
 | 5 | 1743/1748 | 99.71% | `reciplexa-view` |
@@ -73,12 +73,12 @@ Generated via `cargo llvm-cov --workspace --json --offline` → `.tmp/cov.json` 
 
 - Do not treat this file as a substitute for live llvm-cov; re-run after filling holes.
 
-- **This wave:** view tip (empty bounds + expect-helper arms), syntax literal/lexer matrices, cli CliEvalHost, gui fonts/canvas soft-align, core round12 OpenRecord/pattern/cast, eval graphics_value bridge suites. Filtered overall **97.20% → 97.81%**.
+- **This wave:** multipage `graphics_value` bridge (cons/`pages` records, multi-shape page content), external bridge suites (round2–4 + expanded integration matrix), eval round11–12 residual leaves, inline `graphics_value` unit tests removed (integration suites attribute to src). Filtered overall **97.81% → 97.95%**; **eval 92.31% → 95.27%** (≥95% floor restored).
 
-- **eval note:** Slice D `graphics_value.rs` landed with a large new region count; bridge suites recovered package % from a mid-wave ~82% dip to **92.31%**. Still the worst package; continue paint/error leaves before promoting holdouts.
+- **eval note:** `graphics_value.rs` bridge leaves largely covered; residual ~75 regions are paint/? gap ends and `eval.rs` Cont other (~84). Holdouts in `lang/coverage-holdouts.md`.
 
-- **gui note:** fonts success path is sensitive to `WINDIR` mutation races in unit tests; tip remasures can under-count relative to a clean workspace run.
+- **core / bind / cli / syntax / gui:** still under 99%; next chase targets after eval floor.
 
 - See `lang/coverage-holdouts.md` for justified misses and prefer-eliminate residuals.
 
-- Remaining under-99: eval, bind, cli, core, test, syntax, gui (view tipped to 99.71%).
+- Remaining under-99: cli, bind, core, eval, test, syntax, gui (view tipped to 99.71%).
