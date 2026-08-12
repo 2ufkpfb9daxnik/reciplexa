@@ -807,5 +807,60 @@ mod coverage_helpers {
             &mut Subst::new()
         )
         .is_err());
+
+        // Any on the left is not a subtype of concrete types.
+        assert!(unify(&CoreType::Any, &CoreType::Int, &mut Subst::new()).is_err());
+        assert!(unify(&CoreType::Int, &CoreType::Any, &mut Subst::new()).is_ok());
+
+        // Lacks/Lacks same label: enforce_lacks fails when the row already has the label.
+        let lacks_bad = CoreType::Lacks {
+            label: "a".into(),
+            row: Box::new(CoreType::Record {
+                fields: vec![("a".into(), CoreType::Int)],
+            }),
+        };
+        let lacks_bad2 = CoreType::Lacks {
+            label: "a".into(),
+            row: Box::new(CoreType::Record {
+                fields: vec![("a".into(), CoreType::Int)],
+            }),
+        };
+        assert!(unify(&lacks_bad, &lacks_bad2, &mut Subst::new()).is_err());
+
+        // (Record, Lacks) when record carries the forbidden label.
+        assert!(unify(
+            &CoreType::Record {
+                fields: vec![("a".into(), CoreType::Int)],
+            },
+            &CoreType::Lacks {
+                label: "a".into(),
+                row: Box::new(CoreType::Unit),
+            },
+            &mut Subst::new()
+        )
+        .is_err());
+
+        // Open→closed: shared field types that fail to unify.
+        let mut subst = Subst::new();
+        let open_bad = CoreType::OpenRecord {
+            fields: vec![("a".into(), CoreType::Int)],
+            row: Box::new(CoreType::Var(subst.fresh_var())),
+        };
+        let closed_bad = CoreType::Record {
+            fields: vec![("a".into(), CoreType::String)],
+        };
+        assert!(unify(&open_bad, &closed_bad, &mut subst).is_err());
+
+        // Open/open exclusive shared label with conflicting types.
+        let mut subst = Subst::new();
+        let open_l = CoreType::OpenRecord {
+            fields: vec![("a".into(), CoreType::Int)],
+            row: Box::new(CoreType::Var(subst.fresh_var())),
+        };
+        let open_r = CoreType::OpenRecord {
+            fields: vec![("a".into(), CoreType::String)],
+            row: Box::new(CoreType::Var(subst.fresh_var())),
+        };
+        assert!(unify(&open_l, &open_r, &mut subst).is_err());
     }
 }
