@@ -178,8 +178,8 @@ fn resolve_math_domain_modules() {
 #[test]
 fn elaborate_and_eval_japanese_jlreq_example() {
     let idx = index();
-    let entry = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../examples/pkg_japanese_jlreq.rpx");
+    let entry =
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/pkg_japanese_jlreq.rpx");
     let units = load_module_tree_with_packages(&entry, &idx).unwrap();
     assert!(units.iter().any(|(n, _)| n == "japanese/classes"));
     assert!(units.iter().any(|(n, _)| n == "japanese/linebreak"));
