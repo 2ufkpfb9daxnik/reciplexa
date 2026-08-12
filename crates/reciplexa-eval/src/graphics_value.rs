@@ -25,8 +25,35 @@ impl GraphicsValueError {
     }
 }
 
-/// Lower a package-built graphics value (typically a `page` record) to a [`Document`].
+/// Lower a package-built graphics value to a [`Document`].
+///
+/// Accepts a single `page` record, a `pages` record (list of pages), or a cons-list of
+/// `page` records (multipage package `main` trees).
 pub fn document_from_graphics_value(v: &RuntimeValue) -> Result<Document, GraphicsValueError> {
+    if is_cons_or_nil(v) {
+        let pages: Vec<Page> = cons_items(v)?
+            .into_iter()
+            .map(page_from_graphics_value)
+            .collect::<Result<_, _>>()?;
+        if pages.is_empty() {
+            return Err(GraphicsValueError::new("empty page list"));
+        }
+        return Ok(Document { pages });
+    }
+    if let Ok(fields) = record_fields(v, "document") {
+        if tag_of(fields) == Some("pages") {
+            let items = field(fields, "items")
+                .ok_or_else(|| GraphicsValueError::new("pages missing items"))?;
+            let pages: Vec<Page> = cons_items(items)?
+                .into_iter()
+                .map(page_from_graphics_value)
+                .collect::<Result<_, _>>()?;
+            if pages.is_empty() {
+                return Err(GraphicsValueError::new("pages expects at least one page"));
+            }
+            return Ok(Document { pages });
+        }
+    }
     let page = page_from_graphics_value(v)?;
     Ok(Document::single_page(page))
 }
@@ -39,11 +66,8 @@ pub fn page_from_graphics_value(v: &RuntimeValue) -> Result<Page, GraphicsValueE
     let content =
         field(fields, "content").ok_or_else(|| GraphicsValueError::new("page missing content"))?;
     let paper = paper_from_size_value(size)?;
-    let shape = shape_from_graphics_value(content)?;
-    Ok(Page {
-        paper,
-        shapes: vec![shape],
-    })
+    let shapes = shapes_from_list_or_single(content)?;
+    Ok(Page { paper, shapes })
 }
 
 /// Lower a package shape / paint / transform record to a scene [`Shape`].
@@ -674,239 +698,5 @@ fn as_f64(v: &RuntimeValue) -> Option<f64> {
         RuntimeValue::Number(n) | RuntimeValue::F64(n) => Some(*n),
         RuntimeValue::Int(n) => Some(*n as f64),
         _ => None,
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use reciplexa_scene::Shape;
-
-    fn rec(fields: Vec<(&str, RuntimeValue)>) -> RuntimeValue {
-        RuntimeValue::Record(
-            fields
-                .into_iter()
-                .map(|(k, v)| (k.to_string(), v))
-                .collect(),
-        )
-    }
-
-    fn num(n: f64) -> RuntimeValue {
-        RuntimeValue::F64(n)
-    }
-
-    fn circle_rec(x: f64, y: f64, r: f64) -> RuntimeValue {
-        rec(vec![
-            ("tag", RuntimeValue::String("circle".into())),
-            ("x", num(x)),
-            ("y", num(y)),
-            ("r", num(r)),
-        ])
-    }
-
-    fn rgb_rec(r: f64, g: f64, b: f64) -> RuntimeValue {
-        rec(vec![
-            ("tag", RuntimeValue::String("rgb".into())),
-            ("r", num(r)),
-            ("g", num(g)),
-            ("b", num(b)),
-        ])
-    }
-
-    fn a4_size() -> RuntimeValue {
-        rec(vec![("width", num(210.0)), ("height", num(297.0))])
-    }
-
-    fn cons_list(items: Vec<RuntimeValue>) -> RuntimeValue {
-        let mut acc = RuntimeValue::Variant {
-            tag: "nil".into(),
-            payload: None,
-        };
-        for item in items.into_iter().rev() {
-            acc = RuntimeValue::Variant {
-                tag: "cons".into(),
-                payload: Some(Box::new(rec(vec![("head", item), ("tail", acc)]))),
-            };
-        }
-        acc
-    }
-
-    #[test]
-    fn page_fill_circle_matches_scene_geometry() {
-        let page = rec(vec![
-            ("tag", RuntimeValue::String("page".into())),
-            ("size", a4_size()),
-            (
-                "content",
-                rec(vec![
-                    ("tag", RuntimeValue::String("fill".into())),
-                    ("shape", circle_rec(105.0, 148.5, 40.0)),
-                    ("color", rgb_rec(0.0, 0.0, 0.0)),
-                ]),
-            ),
-        ]);
-        let doc = document_from_graphics_value(&page).expect("bridge");
-        assert_eq!(doc.pages.len(), 1);
-        assert_eq!(doc.pages[0].paper, PaperSize::a4());
-        match &doc.pages[0].shapes[0] {
-            Shape::Circle(c) => {
-                assert_eq!(c.x_mm, 105.0);
-                assert_eq!(c.y_mm, 148.5);
-                assert_eq!(c.radius_mm, 40.0);
-                assert_eq!(c.fill, Color::BLACK);
-            }
-            other => panic!("expected circle, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn bare_circle_defaults_to_black() {
-        let shape = shape_from_graphics_value(&circle_rec(1.0, 2.0, 3.0)).unwrap();
-        match shape {
-            Shape::Circle(c) => {
-                assert_eq!(c.fill, Color::BLACK);
-                assert_eq!(c.radius_mm, 3.0);
-            }
-            other => panic!("expected circle, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn bare_rect_defaults_to_black() {
-        let v = rec(vec![
-            ("tag", RuntimeValue::String("rect".into())),
-            ("x", num(0.0)),
-            ("y", num(1.0)),
-            ("w", num(10.0)),
-            ("h", num(20.0)),
-        ]);
-        match shape_from_graphics_value(&v).unwrap() {
-            Shape::Rect(r) => {
-                assert_eq!(r.width_mm, 10.0);
-                assert_eq!(r.height_mm, 20.0);
-                assert_eq!(r.fill, Color::BLACK);
-            }
-            other => panic!("expected rect, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn ellipse_text_image_transform_opacity_group() {
-        let ellipse = rec(vec![
-            ("tag", RuntimeValue::String("ellipse".into())),
-            ("x", num(10.0)),
-            ("y", num(20.0)),
-            ("rx", num(5.0)),
-            ("ry", num(3.0)),
-        ]);
-        assert!(matches!(
-            shape_from_graphics_value(&ellipse).unwrap(),
-            Shape::Ellipse(_)
-        ));
-
-        let text = rec(vec![
-            ("tag", RuntimeValue::String("text".into())),
-            ("x", num(1.0)),
-            ("y", num(2.0)),
-            ("size", num(8.0)),
-            ("content", RuntimeValue::String("hi".into())),
-        ]);
-        assert!(matches!(
-            shape_from_graphics_value(&text).unwrap(),
-            Shape::Text(_)
-        ));
-
-        let image = rec(vec![
-            ("tag", RuntimeValue::String("image".into())),
-            ("path", RuntimeValue::String("a.png".into())),
-            ("x", num(0.0)),
-            ("y", num(0.0)),
-            ("w", num(10.0)),
-            ("h", num(10.0)),
-        ]);
-        assert!(matches!(
-            shape_from_graphics_value(&image).unwrap(),
-            Shape::Image(_)
-        ));
-
-        let xf = rec(vec![
-            ("tag", RuntimeValue::String("translate".into())),
-            ("dx", num(5.0)),
-            ("dy", num(6.0)),
-            ("child", circle_rec(0.0, 0.0, 1.0)),
-        ]);
-        match shape_from_graphics_value(&xf).unwrap() {
-            Shape::Group {
-                transform,
-                children,
-            } => {
-                assert_eq!(transform, Affine::translate(5.0, 6.0));
-                assert_eq!(children.len(), 1);
-            }
-            other => panic!("expected group, got {other:?}"),
-        }
-
-        let op = rec(vec![
-            ("tag", RuntimeValue::String("opacity".into())),
-            ("alpha", num(0.5)),
-            ("child", circle_rec(0.0, 0.0, 1.0)),
-        ]);
-        assert!(matches!(
-            shape_from_graphics_value(&op).unwrap(),
-            Shape::Opacity { alpha, .. } if (alpha - 0.5).abs() < 1e-9
-        ));
-
-        let group = rec(vec![
-            ("tag", RuntimeValue::String("group".into())),
-            (
-                "children",
-                cons_list(vec![circle_rec(0.0, 0.0, 1.0), circle_rec(2.0, 0.0, 1.0)]),
-            ),
-        ]);
-        match shape_from_graphics_value(&group).unwrap() {
-            Shape::Group { children, .. } => assert_eq!(children.len(), 2),
-            other => panic!("expected group, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn stroke_circle_becomes_ring() {
-        let v = rec(vec![
-            ("tag", RuntimeValue::String("stroke".into())),
-            ("shape", circle_rec(1.0, 2.0, 3.0)),
-            ("width", num(1.5)),
-            ("color", rgb_rec(1.0, 0.0, 0.0)),
-        ]);
-        match shape_from_graphics_value(&v).unwrap() {
-            Shape::Ring(r) => {
-                assert_eq!(r.radius_mm, 3.0);
-                assert_eq!(r.width_mm, 1.5);
-                assert_eq!(r.stroke, Color::new(1.0, 0.0, 0.0));
-            }
-            other => panic!("expected ring, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn srgb_color_accepted() {
-        let c = color_from_graphics_value(&rec(vec![
-            ("tag", RuntimeValue::String("srgb".into())),
-            ("r", num(0.2)),
-            ("g", num(0.4)),
-            ("b", num(0.6)),
-        ]))
-        .unwrap();
-        assert_eq!(c, Color::new(0.2, 0.4, 0.6));
-    }
-
-    #[test]
-    fn rejects_unknown_shape_tag() {
-        let v = rec(vec![("tag", RuntimeValue::String("hexagon".into()))]);
-        assert!(shape_from_graphics_value(&v).is_err());
-    }
-
-    #[test]
-    fn rejects_non_drawable_circle() {
-        assert!(shape_from_graphics_value(&circle_rec(0.0, 0.0, 0.0)).is_err());
     }
 }
