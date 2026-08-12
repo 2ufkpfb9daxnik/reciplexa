@@ -262,19 +262,28 @@ fn elaborate_and_eval_math_package_example() {
 
 #[test]
 fn elaborate_and_eval_pkg_markup_ja_example() {
-    let idx = index();
-    let entry = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/pkg_markup_ja.rpx");
-    let units = elaborate_with_packages(&entry, &idx).unwrap();
-    let demo = units.iter().find(|u| u.name == "pkg_markup_ja").unwrap();
-    let v = eval_expr(&demo.expr, &primitive_env(), &mut UnitHost).unwrap();
-    let s = format!("{v}");
-    assert!(
-        s.contains("markup-ja-package-demo")
-            || s.contains("ja-doc")
-            || s.contains("jlreq")
-            || s.contains("ideographic"),
-        "expected markup_ja package tree, got {s}"
-    );
+    std::thread::Builder::new()
+        .name("markup-ja-pkg-eval".into())
+        .stack_size(8 * 1024 * 1024)
+        .spawn(|| {
+            let idx = index();
+            let entry =
+                PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/pkg_markup_ja.rpx");
+            let units = elaborate_with_packages(&entry, &idx).unwrap();
+            let demo = units.iter().find(|u| u.name == "pkg_markup_ja").unwrap();
+            let v = eval_expr(&demo.expr, &primitive_env(), &mut UnitHost).unwrap();
+            let s = format!("{v}");
+            assert!(
+                s.contains("markup-ja-package-demo")
+                    || s.contains("ja-doc")
+                    || s.contains("jlreq")
+                    || s.contains("ideographic"),
+                "expected markup_ja package tree, got {s}"
+            );
+        })
+        .expect("spawn markup-ja-pkg-eval")
+        .join()
+        .expect("markup-ja-pkg-eval thread");
 }
 
 #[test]
@@ -480,6 +489,49 @@ fn graphics_value_bridge_grows_ellipse_text_transform_opacity() {
     )
     .expect("interim lower");
     assert_eq!(from_cst.pages[0].shapes.len(), 3);
+}
+
+#[test]
+fn graphics_value_bridge_multipage_pages_constructor() {
+    use reciplexa_eval::document_from_graphics_value;
+    use reciplexa_lower::lower_source;
+
+    let idx = index();
+    let dir = tempfile_dir();
+    let entry = dir.join("bridge_pages.rpx");
+    std::fs::write(
+        &entry,
+        r#"(import graphics/shapes only circle text group fill)
+(import graphics/page only a4 page pages)
+(import graphics/color only black red)
+(val main
+  (pages
+    (list
+      (page a4
+        (group
+          (list
+            (fill (text 30 260 8 "Page 1") black)
+            (fill (circle 105 148.5 40) red))))
+      (page a4
+        (fill (text 30 260 8 "Page 2") black)))))
+"#,
+    )
+    .unwrap();
+    let units = elaborate_with_packages(&entry, &idx).unwrap();
+    let demo = units.iter().find(|u| u.name == "bridge_pages").unwrap();
+    let v = eval_expr(&demo.expr, &HashMap::new(), &mut UnitHost).unwrap();
+    let from_pkg = document_from_graphics_value(&v).expect("multipage bridge");
+    assert_eq!(from_pkg.pages.len(), 2);
+
+    let from_cst = lower_source(
+        r#"(page a4
+  (text 30 260 8 "Page 1" black)
+  (circle 105 148.5 40 red))
+(page a4
+  (text 30 260 8 "Page 2" black))"#,
+    )
+    .expect("interim lower");
+    assert_eq!(from_cst.pages.len(), 2);
 }
 
 #[test]

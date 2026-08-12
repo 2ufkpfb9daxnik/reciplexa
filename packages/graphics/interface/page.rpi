@@ -6,4 +6,5 @@
 (val legal)
 (val square)
 (val page)
+(val pages)
 (val page-size)

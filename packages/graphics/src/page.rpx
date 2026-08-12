@@ -8,5 +8,7 @@
 (val square (record (width 210) (height 210)))
 (val page (fn (size content)
   (record (tag "page") (size size) (content content))))
+(val pages (fn (items)
+  (record (tag "pages") (items items))))
 (val page-size (fn (width height)
   (record (width width) (height height))))
