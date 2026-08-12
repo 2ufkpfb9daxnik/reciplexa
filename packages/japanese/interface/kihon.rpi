@@ -23,3 +23,7 @@
 (val column-count-one)
 (val column-count-two)
 (val multi-column)
+(val vertical-flow)
+(val tate-digits)
+(val vertical-stack)
+(val tate-chu-yoko-span)

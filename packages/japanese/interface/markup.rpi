@@ -9,5 +9,8 @@
 (val ruby)
 (val jukugo-ruby)
 (val tate-chu-yoko)
+(val tategaki-paragraph)
+(val markup-bridge)
+(val doc-with-markup)
 (val ul)
 (val doc)

@@ -10,5 +10,6 @@
 (val sample-pair-rules)
 (val break-between)
 (val hangable-class?)
+(val numeric-before-close-prohibited?)
 (val kinsoku-profile)
 (val classify-sample)
