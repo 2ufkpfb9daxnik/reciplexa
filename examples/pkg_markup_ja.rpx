@@ -3,12 +3,13 @@
  // the package-record path that will bind to Text IR later.)
 (import japanese/markup only
   heading section paragraph note warn todo ul ruby doc emphasis
-  tategaki-paragraph markup-bridge doc-with-markup)
+  tategaki-paragraph tategaki-text markup-bridge doc-with-markup)
 (import japanese/classes only cl-01 cl-19 cl-30 class-name)
 (import japanese/linebreak only break-between kinsoku-profile)
 (import japanese/kihon only
   default-horizontal-kihon default-vertical-kihon a5-trim margins place-hanmen
-  vertical-flow vertical-stack tate-chu-yoko-span)
+  vertical-flow vertical-stack tate-chu-yoko-span vertical-text place-vertical-text
+  vertical-text-stack)
 (val markup-source
   "(markup @heading(日本語レポート草稿) … see examples/markup_ja.rpx)")
 (val draft
@@ -22,6 +23,9 @@
       (emphasis "強調")
       (ruby "漢字" "かんじ")
       (tategaki-paragraph "縦書き段落のスタブです。")
+      (tategaki-text 120 40 4 "縦組み")
+      (vertical-text 130 40 4 "graphics-bridge")
+      (place-vertical-text 140 40 4 "配置スタブ")
       (todo "禁則をもう少し厚くする。")
       (warn "まだフォントウェイトはない。"))))
 (val layout

@@ -27,3 +27,6 @@
 (val tate-digits)
 (val vertical-stack)
 (val tate-chu-yoko-span)
+(val vertical-text)
+(val place-vertical-text)
+(val vertical-text-stack)
