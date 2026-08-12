@@ -415,6 +415,64 @@ fn graphics_value_bridge_matches_interim_lower_source() {
 }
 
 #[test]
+fn graphics_value_bridge_grows_ellipse_text_transform_opacity() {
+    // Slice D step 4/6: more package tags lower like interim CST forms.
+    use reciplexa_eval::document_from_graphics_value;
+    use reciplexa_lower::lower_source;
+    use reciplexa_scene::Shape;
+
+    let idx = index();
+    let dir = tempfile_dir();
+    let entry = dir.join("bridge_more.rpx");
+    std::fs::write(
+        &entry,
+        r#"(import graphics/shapes only
+  circle ellipse text translate rotate scale opacity fill group)
+(import graphics/page only a4 page)
+(import graphics/color only red black)
+(val main
+  (page a4
+    (group
+      (list
+        (fill (ellipse 105 220 55 28) red)
+        (opacity 0.45
+          (translate 105 148.5
+            (rotate 30
+              (scale 1.5 1.5
+                (fill (circle 0 0 20) black)))))
+        (text 30 270 6 "shapes")))))
+"#,
+    )
+    .unwrap();
+    let units = elaborate_with_packages(&entry, &idx).unwrap();
+    let demo = units.iter().find(|u| u.name == "bridge_more").unwrap();
+    let v = eval_expr(&demo.expr, &HashMap::new(), &mut UnitHost).unwrap();
+    let from_pkg = document_from_graphics_value(&v).expect("package bridge");
+    assert_eq!(from_pkg.pages.len(), 1);
+    match &from_pkg.pages[0].shapes[0] {
+        Shape::Group { children, .. } => {
+            assert!(children.iter().any(|s| matches!(s, Shape::Ellipse(_))));
+            assert!(children.iter().any(|s| matches!(s, Shape::Opacity { .. })));
+            assert!(children.iter().any(|s| matches!(s, Shape::Text(_))));
+        }
+        other => panic!("expected top-level group, got {other:?}"),
+    }
+
+    let from_cst = lower_source(
+        r#"(page a4
+  (ellipse 105 220 55 28 red)
+  (opacity 0.45
+    (translate 105 148.5
+      (rotate 30
+        (scale 1.5
+          (circle 0 0 20)))))
+  (text 30 270 6 "shapes"))"#,
+    )
+    .expect("interim lower");
+    assert_eq!(from_cst.pages[0].shapes.len(), 3);
+}
+
+#[test]
 fn load_full_graphics_package_tree_and_eval_transforms() {
     let idx = index();
     for mod_path in ["graphics/shapes", "graphics/page", "graphics/color"] {
