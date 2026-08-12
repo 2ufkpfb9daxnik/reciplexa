@@ -1,6 +1,12 @@
-(// Embedded raster (paths relative to this .rpx file).)
-(page a4
-  (text 30 270 6 "embedded images" black)
-  (image "figures/demo.png" 40 80 130 100)
-  (image "figures/demo.jpg" 40 200 50 50)
-  (circle 105 220 18 blue))
+(// Migrated Slice D: package image + shape constructors.)
+(import graphics/shapes only circle text image fill group)
+(import graphics/page only a4 page)
+(import graphics/color only black blue)
+(val main
+  (page a4
+    (group
+      (list
+        (text 30 270 6 "embedded images")
+        (image "figures/demo.png" 40 80 130 100)
+        (image "figures/demo.jpg" 40 200 50 50)
+        (fill (circle 105 220 18) blue)))))
