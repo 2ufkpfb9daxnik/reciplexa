@@ -605,9 +605,6 @@ pub fn wrap_text_to_width(content: &str, size_mm: f64, max_width_mm: f64) -> Vec
         }
         out.push(line);
     }
-    if out.is_empty() {
-        out.push(String::new());
-    }
     out
 }
 
@@ -726,6 +723,37 @@ mod tests {
         Rect, Ring, Shape, Text,
     };
 
+    fn expect_circle(s: &WorldShape) -> &WorldCircle {
+        match s {
+            WorldShape::Circle(c) => c,
+            _ => panic!("expected circle"),
+        }
+    }
+    fn expect_polygon(s: &WorldShape) -> &WorldPolygon {
+        match s {
+            WorldShape::Polygon(p) => p,
+            _ => panic!("expected polygon"),
+        }
+    }
+    fn expect_text(s: &WorldShape) -> &WorldText {
+        match s {
+            WorldShape::Text(t) => t,
+            _ => panic!("expected text"),
+        }
+    }
+    fn expect_image(s: &WorldShape) -> &WorldImage {
+        match s {
+            WorldShape::Image(i) => i,
+            _ => panic!("expected image"),
+        }
+    }
+    fn expect_path(s: &WorldShape) -> &WorldPath {
+        match s {
+            WorldShape::Path(p) => p,
+            _ => panic!("expected path"),
+        }
+    }
+
     // --- validity ---
 
     #[test]
@@ -740,14 +768,10 @@ mod tests {
             })],
         });
         let (_, shapes) = flatten_first_page(&doc).unwrap();
-        match &shapes[0] {
-            WorldShape::Circle(c) => {
-                assert_eq!(c.x_mm, 105.0);
-                assert_eq!(c.radius_mm, 40.0);
-                assert!(c.stroke_width_mm.is_none());
-            }
-            _ => panic!("expected circle"),
-        }
+        let c = expect_circle(&shapes[0]);
+        assert_eq!(c.x_mm, 105.0);
+        assert_eq!(c.radius_mm, 40.0);
+        assert!(c.stroke_width_mm.is_none());
     }
 
     #[test]
@@ -762,13 +786,9 @@ mod tests {
             })],
             Affine::identity(),
         );
-        match &shapes[0] {
-            WorldShape::Polygon(p) => {
-                assert_eq!(p.points_mm.len(), 4);
-                assert_eq!(p.points_mm[2], (10.0, 5.0));
-            }
-            _ => panic!("expected polygon"),
-        }
+        let p = expect_polygon(&shapes[0]);
+        assert_eq!(p.points_mm.len(), 4);
+        assert_eq!(p.points_mm[2], (10.0, 5.0));
     }
 
     #[test]
@@ -785,13 +805,9 @@ mod tests {
             })],
             Affine::identity(),
         );
-        match &shapes[0] {
-            WorldShape::Text(t) => {
-                assert_eq!(t.content, "Hi");
-                assert_eq!(t.rotation_deg, 0.0);
-            }
-            _ => panic!("expected text"),
-        }
+        let t = expect_text(&shapes[0]);
+        assert_eq!(t.content, "Hi");
+        assert_eq!(t.rotation_deg, 0.0);
         assert_eq!(hit_test_shapes(&shapes, 11.0, 22.0), Some(0));
     }
 
@@ -812,10 +828,8 @@ mod tests {
             }],
             Affine::identity(),
         );
-        match &shapes[0] {
-            WorldShape::Text(t) => assert!((t.rotation_deg - 30.0).abs() < 1e-9),
-            _ => panic!("expected text"),
-        }
+        let t = expect_text(&shapes[0]);
+        assert!((t.rotation_deg - 30.0).abs() < 1e-9);
     }
 
     #[test]
@@ -835,17 +849,13 @@ mod tests {
             }],
             Affine::identity(),
         );
-        match &shapes[0] {
-            WorldShape::Image(img) => {
-                // BL stays at pivot (10,20)
-                assert!((img.corners_mm[0].0 - 10.0).abs() < 1e-9);
-                assert!((img.corners_mm[0].1 - 20.0).abs() < 1e-9);
-                // BR (14,20) → relative (4,0) → after 90° CCW (0,4) → (10,24)
-                assert!((img.corners_mm[1].0 - 10.0).abs() < 1e-9);
-                assert!((img.corners_mm[1].1 - 24.0).abs() < 1e-9);
-            }
-            _ => panic!("expected image"),
-        }
+        let img = expect_image(&shapes[0]);
+        // BL stays at pivot (10,20)
+        assert!((img.corners_mm[0].0 - 10.0).abs() < 1e-9);
+        assert!((img.corners_mm[0].1 - 20.0).abs() < 1e-9);
+        // BR (14,20) → relative (4,0) → after 90° CCW (0,4) → (10,24)
+        assert!((img.corners_mm[1].0 - 10.0).abs() < 1e-9);
+        assert!((img.corners_mm[1].1 - 24.0).abs() < 1e-9);
     }
 
     #[test]
@@ -863,14 +873,10 @@ mod tests {
             }],
         }];
         let out = flatten_shapes(&shapes, Affine::identity());
-        match &out[0] {
-            WorldShape::Circle(c) => {
-                assert!((c.x_mm - 12.0).abs() < 1e-9);
-                assert!((c.y_mm - 22.0).abs() < 1e-9);
-                assert!((c.radius_mm - 10.0).abs() < 1e-9);
-            }
-            _ => panic!("expected circle"),
-        }
+        let c = expect_circle(&out[0]);
+        assert!((c.x_mm - 12.0).abs() < 1e-9);
+        assert!((c.y_mm - 22.0).abs() < 1e-9);
+        assert!((c.radius_mm - 10.0).abs() < 1e-9);
     }
 
     #[test]
@@ -894,18 +900,14 @@ mod tests {
             }],
         }];
         let out = flatten_shapes(&shapes, Affine::identity());
-        match &out[0] {
-            WorldShape::Circle(c) => {
-                assert!(
-                    (c.x_mm - cx).abs() < 1e-9 && (c.y_mm - cy).abs() < 1e-9,
-                    "center drifted to ({}, {})",
-                    c.x_mm,
-                    c.y_mm
-                );
-                assert!((c.radius_mm - 5.0).abs() < 1e-9);
-            }
-            _ => panic!("expected circle"),
-        }
+        let c = expect_circle(&out[0]);
+        assert!(
+            (c.x_mm - cx).abs() < 1e-9 && (c.y_mm - cy).abs() < 1e-9,
+            "center drifted to ({}, {})",
+            c.x_mm,
+            c.y_mm
+        );
+        assert!((c.radius_mm - 5.0).abs() < 1e-9);
     }
 
     #[test]
@@ -981,10 +983,7 @@ mod tests {
             })],
             Affine::identity(),
         );
-        match &shapes[0] {
-            WorldShape::Polygon(p) => assert!(p.points_mm.len() >= 8),
-            _ => panic!("expected polygon"),
-        }
+        assert!(expect_polygon(&shapes[0]).points_mm.len() >= 8);
         assert_eq!(hit_test_shapes(&shapes, 0.0, 0.0), Some(0));
         assert_eq!(hit_test_shapes(&shapes, 20.0, 0.0), None);
     }
@@ -1006,10 +1005,7 @@ mod tests {
             }],
             Affine::identity(),
         );
-        match &shapes[0] {
-            WorldShape::Circle(c) => assert!((c.alpha - 0.25).abs() < 1e-9),
-            _ => panic!("expected circle"),
-        }
+        assert!((expect_circle(&shapes[0]).alpha - 0.25).abs() < 1e-9);
     }
 
     #[test]
@@ -1167,10 +1163,7 @@ mod tests {
             })],
         }];
         let out = flatten_shapes(&shapes, Affine::identity());
-        match &out[0] {
-            WorldShape::Circle(c) => assert_eq!(c.radius_mm, 0.0),
-            _ => panic!("expected circle"),
-        }
+        assert_eq!(expect_circle(&out[0]).radius_mm, 0.0);
     }
 
     fn ellipse_polygon_sides(options: FlattenOptions) -> usize {
@@ -1185,10 +1178,7 @@ mod tests {
             Affine::identity(),
             options,
         );
-        match &shapes[0] {
-            WorldShape::Polygon(p) => p.points_mm.len(),
-            _ => panic!("expected polygon"),
-        }
+        expect_polygon(&shapes[0]).points_mm.len()
     }
 
     #[test]
@@ -1251,14 +1241,8 @@ mod tests {
             ],
             Affine::identity(),
         );
-        match &shapes[0] {
-            WorldShape::Circle(c) => assert!(c.stroke_width_mm.is_some()),
-            _ => panic!("expected stroked circle"),
-        }
-        match &shapes[1] {
-            WorldShape::Polygon(p) => assert!(p.stroke_width_mm.is_some()),
-            _ => panic!("expected stroked polygon"),
-        }
+        assert!(expect_circle(&shapes[0]).stroke_width_mm.is_some());
+        assert!(expect_polygon(&shapes[1]).stroke_width_mm.is_some());
     }
 
     #[test]
@@ -1282,10 +1266,7 @@ mod tests {
             Affine::identity(),
         );
         for s in &shapes {
-            match s {
-                WorldShape::Path(p) => assert!(!p.closed),
-                _ => panic!("expected path"),
-            }
+            assert!(!expect_path(s).closed);
         }
     }
 
@@ -1298,10 +1279,7 @@ mod tests {
             })],
             Affine::identity(),
         );
-        match &shapes[0] {
-            WorldShape::Polygon(p) => assert!(p.stroke_width_mm.is_none()),
-            _ => panic!("expected polygon"),
-        }
+        assert!(expect_polygon(&shapes[0]).stroke_width_mm.is_none());
     }
 
     #[test]
@@ -1318,13 +1296,9 @@ mod tests {
             })],
             Affine::identity(),
         );
-        match &shapes[0] {
-            WorldShape::Text(t) => {
-                assert!((t.width_mm - 50.0).abs() < 1e-9);
-                assert!((t.height_mm - 30.0).abs() < 1e-9);
-            }
-            _ => panic!("expected text"),
-        }
+        let t = expect_text(&shapes[0]);
+        assert!((t.width_mm - 50.0).abs() < 1e-9);
+        assert!((t.height_mm - 30.0).abs() < 1e-9);
     }
 
     #[test]
@@ -1534,5 +1508,51 @@ mod tests {
             alpha: 1.0,
         });
         assert_eq!(hit_test_shapes(&[path], 0.0, 0.0), Some(0));
+    }
+
+    #[test]
+    fn expect_helpers_reject_wrong_shape() {
+        let circle = WorldShape::Circle(WorldCircle {
+            x_mm: 0.0,
+            y_mm: 0.0,
+            radius_mm: 1.0,
+            color: Color::BLACK,
+            stroke_width_mm: None,
+            alpha: 1.0,
+        });
+        let poly = WorldShape::Polygon(WorldPolygon {
+            points_mm: vec![(0.0, 0.0), (1.0, 0.0), (0.0, 1.0)],
+            color: Color::RED,
+            stroke_width_mm: None,
+            alpha: 1.0,
+        });
+        use std::panic::{catch_unwind, AssertUnwindSafe};
+        assert!(catch_unwind(AssertUnwindSafe(|| expect_circle(&poly))).is_err());
+        assert!(catch_unwind(AssertUnwindSafe(|| expect_polygon(&circle))).is_err());
+        assert!(catch_unwind(AssertUnwindSafe(|| expect_text(&circle))).is_err());
+        assert!(catch_unwind(AssertUnwindSafe(|| expect_image(&circle))).is_err());
+        assert!(catch_unwind(AssertUnwindSafe(|| expect_path(&circle))).is_err());
+    }
+
+    #[test]
+    fn empty_polygon_and_path_have_no_bounds_and_skip_marquee() {
+        let empty_poly = WorldShape::Polygon(WorldPolygon {
+            points_mm: vec![],
+            color: Color::BLACK,
+            stroke_width_mm: None,
+            alpha: 1.0,
+        });
+        let empty_path = WorldShape::Path(WorldPath {
+            points_mm: vec![],
+            stroke: Color::BLACK,
+            width_mm: 1.0,
+            closed: false,
+            alpha: 1.0,
+        });
+        assert!(PaperLayout::shape_bounds_mm(&empty_poly).is_none());
+        assert!(PaperLayout::shape_bounds_mm(&empty_path).is_none());
+        assert!(bounds_of_points(&[]).is_none());
+        let idx = shapes_intersecting_aabb(&[empty_poly, empty_path], (0.0, 0.0, 10.0, 10.0));
+        assert!(idx.is_empty());
     }
 }
