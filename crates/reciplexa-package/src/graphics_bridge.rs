@@ -1,7 +1,7 @@
 //! Thin Slice D adapter: package-entry → scene document via graphics bridge.
 //!
-//! GUI preview keeps interim CST `(page)/(circle)` keyword lower by default.
-//! Call this path explicitly when ingesting package-built `main` page trees.
+//! GUI preview routes package-shaped sources through [`reciplexa::pipeline::document_from_source`].
+//! Interim CST `(page)/(circle)` keyword lower remains for `black_circle.rpx` CST sync.
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -59,8 +59,13 @@ pub fn document_from_package_source(
     entry_stem: &str,
     index: &LocalPackageIndex,
 ) -> Result<Document, GraphicsBridgeError> {
-    let dir =
-        std::env::temp_dir().join(format!("reciplexa-pkg-{}-{entry_stem}", std::process::id()));
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static TEMP_SEQ: AtomicU64 = AtomicU64::new(0);
+    let seq = TEMP_SEQ.fetch_add(1, Ordering::Relaxed);
+    let dir = std::env::temp_dir().join(format!(
+        "reciplexa-pkg-{}-{entry_stem}-{seq}",
+        std::process::id()
+    ));
     std::fs::create_dir_all(&dir).map_err(|e| GraphicsBridgeError::Load(e.to_string()))?;
     let entry = dir.join(format!("{entry_stem}.rpx"));
     std::fs::write(&entry, source).map_err(|e| GraphicsBridgeError::Load(e.to_string()))?;
