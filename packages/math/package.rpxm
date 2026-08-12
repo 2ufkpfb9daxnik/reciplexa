@@ -11,4 +11,5 @@
     delimiters
     matrix
     accents
-    bigops))
+    bigops
+    cases))

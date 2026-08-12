@@ -1,12 +1,13 @@
 (// language-only: SATySFi-inspired math package tree (Core records).)
 (import math/atoms only ord bin rel row class-ord)
-(import math/scripts only superscript)
+(import math/scripts only superscript underbrace overset)
 (import math/frac only fraction)
 (import math/sqrt only sqrt)
 (import math/delimiters only paren)
 (import math/matrix only bmatrix matrix-row)
 (import math/accents only hat)
-(import math/bigops only sum)
+(import math/bigops only sum lim withlimits)
+(import math/cases only cases case-arm otherwise)
 (val x (ord "x"))
 (val two (ord "2"))
 (val n (ord "n"))
@@ -20,6 +21,17 @@
         (hat x)
         (bin "+")
         (sum i n (ord "a"))
+        (bin "+")
+        (lim (ord "n→∞") (ord "a_n"))
+        (bin "+")
+        (underbrace (ord "x+y"))
+        (bin "+")
+        (overset (ord "*") (ord "A"))
+        (bin "+")
+        (cases
+          (list
+            (case-arm (ord "x") (rel ">0"))
+            (otherwise (ord "0"))))
         (bin "+")
         (bmatrix
           (list

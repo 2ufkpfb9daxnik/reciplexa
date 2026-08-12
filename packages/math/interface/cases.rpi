@@ -1,0 +1,6 @@
+(// math/cases — piecewise / cases exports.)
+(val case-arm)
+(val cases)
+(val cases-lr)
+(val piecewise)
+(val otherwise)
