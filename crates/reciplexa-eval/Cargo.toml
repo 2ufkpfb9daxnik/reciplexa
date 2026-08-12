@@ -10,6 +10,7 @@ publish = false
 reciplexa-core = { workspace = true }
 reciplexa-macro = { workspace = true }
 reciplexa-outcome = { workspace = true }
+reciplexa-scene = { workspace = true }
 reciplexa-syntax = { workspace = true }
 
 [dev-dependencies]
