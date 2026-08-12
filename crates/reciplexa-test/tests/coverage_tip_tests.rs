@@ -31,7 +31,16 @@ fn test_outcome_and_subject_helpers() {
         "sub",
         "msg",
     );
-    assert!(!TestOutcome::<()>::Defected(Box::new(report)).is_passed());
+    assert!(!TestOutcome::<()>::Defected(Box::new(report.clone())).is_passed());
+    // Force Debug/Clone/PartialEq region entries for all harness variants.
+    let passed = TestOutcome::Passed(7i32);
+    let failed = TestOutcome::<i32>::Failed("f".into());
+    let defected = TestOutcome::<i32>::Defected(Box::new(report));
+    assert!(format!("{passed:?}").contains("Passed"));
+    assert!(format!("{failed:?}").contains("Failed"));
+    assert!(format!("{defected:?}").contains("Defected"));
+    assert_eq!(passed.clone(), TestOutcome::Passed(7));
+    assert_ne!(passed, failed);
     let subject = TestSubject::new("CID", "SEC");
     assert!(subject.label().contains("CID"));
     assert_subject_success::<(), i32>(SubjectOutcome::Success(7), 7);
