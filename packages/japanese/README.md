@@ -28,6 +28,7 @@ Normative reference: [W3C JLReq](https://www.w3.org/TR/jlreq/) (JIS X 4051–bas
 
 - `examples/pkg_japanese_jlreq.rpx` — classes / linebreak / kihon smoke
 - `examples/pkg_markup_ja.rpx` — package-record mirror of `examples/markup_ja.rpx` `@`-markup (macros remain the GUI/preview path today)
+- `examples/pkg_japanese_vertical.rpx` — vertical-text / tategaki / `vertical-flow` graphics-bridge stubs
 
 ## Remaining gaps
 
