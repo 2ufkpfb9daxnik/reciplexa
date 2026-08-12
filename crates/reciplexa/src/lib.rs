@@ -10,6 +10,7 @@ pub mod document_pipeline;
 pub mod pipeline;
 
 pub use pipeline::{
-    document_for_export, document_from_source, document_from_source_with_snapshot, expand, lower,
-    run_effects, wants_package_graphics_path, PipelineDocument, PipelineError,
+    document_for_export, document_from_source, document_from_source_with_snapshot, expand,
+    is_package_shaped_graphics_source, lower, run_effects, wants_package_graphics_path,
+    PipelineDocument, PipelineError,
 };

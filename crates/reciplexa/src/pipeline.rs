@@ -8,7 +8,7 @@
 
 use std::path::{Path, PathBuf};
 
-use reciplexa_effect::{run_source_effects, EffectError, EffectHandler, Value};
+use reciplexa_effect::{list_head_ident, run_source_effects, EffectError, EffectHandler, Value};
 use reciplexa_lower::lower_source;
 use reciplexa_macro::expand_source;
 use reciplexa_package::{document_from_package_source, LocalPackageIndex};
@@ -68,7 +68,7 @@ pub fn lower(expanded: &str) -> Result<Document, PipelineError> {
 pub fn document_from_source(src: &str) -> Result<Document, PipelineError> {
     let expanded = expand(src)?;
     if wants_package_graphics_path(&expanded) {
-        return document_from_package_graphics(src);
+        return document_from_package_graphics(&expanded);
     }
     typecheck(&expanded)?;
     lower(&expanded)
@@ -76,8 +76,9 @@ pub fn document_from_source(src: &str) -> Result<Document, PipelineError> {
 
 /// Whether to route document ingest through package graphics eval instead of interim CST lower.
 ///
-/// Auto-detects `(import graphics` without a top-level `(page …)` head. Override with
-/// `RECIPLEXA_PACKAGE_GRAPHICS=1` (force on) or `=0` (force off).
+/// Auto-detects package-shaped sources: `(import graphics` + `(val main` without a top-level
+/// interim `(page …)` head. Override with `RECIPLEXA_PACKAGE_GRAPHICS=1` (force on) or `=0`
+/// (force off).
 pub fn wants_package_graphics_path(expanded: &str) -> bool {
     if !expanded.contains("(import graphics") {
         return false;
@@ -94,7 +95,12 @@ pub fn wants_package_graphics_path(expanded: &str) -> bool {
     {
         return true;
     }
-    !has_top_level_interim_page(expanded)
+    is_package_shaped_graphics_source(expanded)
+}
+
+/// Package-shaped graphics ingest: explicit `main` entry and no top-level interim `(page …)`.
+pub fn is_package_shaped_graphics_source(expanded: &str) -> bool {
+    expanded.contains("(val main") && !has_top_level_interim_page(expanded)
 }
 
 fn has_top_level_interim_page(src: &str) -> bool {
@@ -110,6 +116,9 @@ fn has_top_level_interim_page(src: &str) -> bool {
             if head.kind() == SyntaxKind::Ident && head.text() == "page" {
                 return true;
             }
+        }
+        if list_head_ident(&form).is_some_and(|h| h == "page") {
+            return true;
         }
     }
     false
@@ -138,13 +147,36 @@ fn package_search_roots() -> Vec<PathBuf> {
     roots
 }
 
-fn document_from_package_graphics(src: &str) -> Result<Document, PipelineError> {
+fn document_from_package_graphics(expanded: &str) -> Result<Document, PipelineError> {
+    let package_src = strip_top_level_effect_forms(expanded);
     let search_roots = package_search_roots();
     let roots: Vec<&Path> = search_roots.iter().map(PathBuf::as_path).collect();
     let idx = LocalPackageIndex::discover(&roots)
         .map_err(|e| PipelineError::new("package", e.to_string()))?;
-    document_from_package_source(src, "entry", &idx)
+    document_from_package_source(&package_src, "entry", &idx)
         .map_err(|e| PipelineError::new("package", format!("{e:?}")))
+}
+
+/// Drop top-level `(perform …)` / `(handle …)` / `(src …)` before package elaboration.
+fn strip_top_level_effect_forms(expanded: &str) -> String {
+    let Ok(root) = parse_source(expanded).into_result() else {
+        return expanded.to_string();
+    };
+    let mut kept = Vec::new();
+    for form in root.children() {
+        if form.kind() == SyntaxKind::StructuredComment {
+            continue;
+        }
+        if is_top_level_effect_form(&form) {
+            continue;
+        }
+        kept.push(form.to_string());
+    }
+    kept.join("\n")
+}
+
+fn is_top_level_effect_form(form: &reciplexa_syntax::SyntaxNode) -> bool {
+    list_head_ident(form).is_some_and(|h| h == "perform" || h == "handle" || h == "src")
 }
 
 /// Pipeline output with optional editable document snapshot (Phase 4).
@@ -161,7 +193,7 @@ pub fn document_from_source_with_snapshot(
 ) -> Result<PipelineDocument, PipelineError> {
     let expanded = expand(src)?;
     let scene = if wants_package_graphics_path(&expanded) {
-        document_from_package_graphics(src)?
+        document_from_package_graphics(&expanded)?
     } else {
         typecheck(&expanded)?;
         lower(&expanded)?
@@ -198,7 +230,7 @@ pub fn document_for_export(
     let expanded = expand(src)?;
     if wants_package_graphics_path(&expanded) {
         run_effects(handler, &expanded)?;
-        let doc = document_from_package_graphics(src)?;
+        let doc = document_from_package_graphics(&expanded)?;
         return Ok((doc, expanded));
     }
     typecheck(&expanded)?;
@@ -228,8 +260,73 @@ mod tests {
         let src = include_str!("../../../examples/shapes.rpx");
         let expanded = expand(src).unwrap();
         assert!(wants_package_graphics_path(&expanded));
+        assert!(is_package_shaped_graphics_source(&expanded));
         let interim = expand("(page a4 (circle 1 2 3))").unwrap();
         assert!(!wants_package_graphics_path(&interim));
+    }
+
+    #[test]
+    fn document_from_source_auto_detect_matches_interim_scene_bounds() {
+        use reciplexa_lower::lower_source;
+        use reciplexa_scene::Shape;
+
+        fn leaf_shape_count(shapes: &[Shape]) -> usize {
+            shapes
+                .iter()
+                .map(|s| match s {
+                    Shape::Group { children, .. } | Shape::Opacity { children, .. } => {
+                        leaf_shape_count(children)
+                    }
+                    _ => 1,
+                })
+                .sum()
+        }
+
+        let pkg_src = include_str!("../../../examples/text_line.rpx");
+        let from_pkg = document_from_source(pkg_src).expect("package auto-detect");
+        let interim = lower_source(
+            r#"(page a4
+  (text 30 260 8 "Reciplexa" black)
+  (line 30 250 180 250 (rgb 0.784 0.157 0.157) 1)
+  (translate 105 120
+    (circle 0 0 25 (rgb 0.118 0.353 0.706))))"#,
+        )
+        .expect("interim lower");
+        assert_eq!(from_pkg.pages.len(), 1);
+        assert_eq!(from_pkg.pages[0].paper, interim.pages[0].paper);
+        assert_eq!(
+            leaf_shape_count(&from_pkg.pages[0].shapes),
+            leaf_shape_count(&interim.pages[0].shapes),
+            "package auto-detect should match interim leaf count"
+        );
+    }
+
+    #[test]
+    fn document_from_source_effects_example_uses_package_bridge() {
+        let src = include_str!("../../../examples/effects.rpx");
+        let expanded = expand(src).unwrap();
+        assert!(wants_package_graphics_path(&expanded));
+        let doc = document_from_source(src).expect("effects package page");
+        assert_eq!(doc.pages.len(), 1);
+        assert!(doc.pages[0].paper.is_positive());
+    }
+
+    #[test]
+    fn document_from_source_macros_example_expands_then_packages() {
+        let src = include_str!("../../../examples/macros.rpx");
+        let expanded = expand(src).unwrap();
+        assert!(wants_package_graphics_path(&expanded));
+        let doc = document_from_source(src).expect("macros package page");
+        assert_eq!(doc.pages.len(), 1);
+    }
+
+    #[test]
+    fn strip_top_level_effect_forms_keeps_package_main() {
+        let expanded = expand(include_str!("../../../examples/effects.rpx")).unwrap();
+        let stripped = strip_top_level_effect_forms(&expanded);
+        assert!(!stripped.contains("(perform"));
+        assert!(stripped.contains("(val main"));
+        assert!(stripped.contains("(import graphics"));
     }
 
     #[test]
