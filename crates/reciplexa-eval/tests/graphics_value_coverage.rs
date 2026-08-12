@@ -383,7 +383,14 @@ fn color_and_error_matrix() {
                     ("tag", RuntimeValue::String("polygon".into())),
                     (
                         "points",
-                        cons_list(vec![num(0.0), num(0.0), num(1.0), num(0.0), num(0.0), num(1.0)]),
+                        cons_list(vec![
+                            num(0.0),
+                            num(0.0),
+                            num(1.0),
+                            num(0.0),
+                            num(0.0),
+                            num(1.0),
+                        ]),
                     ),
                 ]),
             ),
@@ -419,7 +426,10 @@ fn color_and_error_matrix() {
             ("color", rgb(0.0, 0.0, 0.0)),
         ]),
     ] {
-        assert!(shape_from_graphics_value(&tag_shape).is_ok(), "{tag_shape:?}");
+        assert!(
+            shape_from_graphics_value(&tag_shape).is_ok(),
+            "{tag_shape:?}"
+        );
     }
 
     // paint with both fill+stroke → group
