@@ -468,3 +468,41 @@ fn string_backslash_at_eof_yields_partial_string() {
     let tok = lx.bump_token().unwrap();
     assert_eq!(tok.kind, SyntaxKind::String);
 }
+
+#[test]
+fn radix_and_decimal_error_recovery_residuals() {
+    for src in ["0b", "0o", "0x", "0b_1", "1e", "1e+", "1e-", "1__0"] {
+        let ks = kinds(src);
+        assert!(
+            !ks.is_empty() && ks.iter().any(|k| *k == SyntaxKind::Error),
+            "{src} -> {ks:?}"
+        );
+    }
+    // Trailing `_` after hex digits: error token then leftover ident `_` depending on recovery.
+    assert!(kinds("0xff_").iter().any(|k| *k == SyntaxKind::Error));
+    assert_eq!(kinds("1e+2"), vec![SyntaxKind::Number]);
+    assert!(kinds("007e+1").iter().any(|k| *k == SyntaxKind::Error));
+    assert!(kinds("00.5").iter().any(|k| *k == SyntaxKind::Error));
+}
+
+#[test]
+fn multi_quote_string_extra_quotes_rewound() {
+    let src = "\"\"\"hi\"\"\"\""; // 3-open, 4-close → leftover one quote
+    let ks = kinds(src);
+    assert_eq!(ks[0], SyntaxKind::String);
+    assert!(ks.len() >= 2);
+}
+
+#[test]
+fn multi_quote_unterminated_at_eof() {
+    let mut lx = Lexer::new("\"\"\"abc");
+    let tok = lx.bump_token().unwrap();
+    assert_eq!(tok.kind, SyntaxKind::String);
+}
+
+#[test]
+fn short_string_closes_on_newline() {
+    let mut lx = Lexer::new("\"ab\n");
+    let tok = lx.bump_token().unwrap();
+    assert_eq!(tok.kind, SyntaxKind::String);
+}
