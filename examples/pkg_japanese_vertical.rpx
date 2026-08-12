@@ -1,0 +1,27 @@
+(// language-only: japanese vertical-text / tategaki graphics-bridge stubs (JLReq §3.1 partial).)
+(import japanese/kihon only
+  default-vertical-kihon vertical-flow vertical-stack tate-chu-yoko-span
+  vertical-text place-vertical-text vertical-text-stack
+  a5-trim margins place-hanmen)
+(import japanese/markup only tategaki-paragraph tategaki-text)
+(import graphics/shapes only text fill group)
+(import graphics/page only a4 page)
+(import graphics/color only black)
+(val vertical-page
+  (page a4
+    (group
+      (list
+        (vertical-text 30 200 6 "縦書き")
+        (place-vertical-text 50 200 6 "配置")
+        (fill (tategaki-text 70 200 6 "組み") black)))))
+(val main
+  (record (tag "ja-vertical-demo")
+    (vertical-page vertical-page)
+    (flow
+      (vertical-flow
+        (vertical-stack
+          (list
+            (tategaki-paragraph "縦組み段落")
+            (tate-chu-yoko-span "2026")))))
+    (stack (vertical-text-stack 30 40 6 (list "一" "二" "三")))
+    (layout (place-hanmen a5-trim (margins 20 20 20 20) default-vertical-kihon))))

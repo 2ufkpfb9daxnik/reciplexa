@@ -287,6 +287,35 @@ fn elaborate_and_eval_pkg_markup_ja_example() {
 }
 
 #[test]
+fn elaborate_and_eval_pkg_japanese_vertical_example() {
+    std::thread::Builder::new()
+        .name("ja-vertical-pkg-eval".into())
+        .stack_size(8 * 1024 * 1024)
+        .spawn(|| {
+            let idx = index();
+            let entry = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("../../examples/pkg_japanese_vertical.rpx");
+            let units = elaborate_with_packages(&entry, &idx).unwrap();
+            let demo = units
+                .iter()
+                .find(|u| u.name == "pkg_japanese_vertical")
+                .unwrap();
+            let v = eval_expr(&demo.expr, &primitive_env(), &mut UnitHost).unwrap();
+            let s = format!("{v}");
+            assert!(
+                s.contains("ja-vertical-demo")
+                    || s.contains("vertical-rl")
+                    || s.contains("tategaki")
+                    || s.contains("縦"),
+                "expected japanese vertical package tree, got {s}"
+            );
+        })
+        .expect("spawn ja-vertical-pkg-eval")
+        .join()
+        .expect("ja-vertical-pkg-eval thread");
+}
+
+#[test]
 fn elaborate_consumer_via_alias_import() {
     let consumer = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/pkg_consumer");
     let (idx, _) =
