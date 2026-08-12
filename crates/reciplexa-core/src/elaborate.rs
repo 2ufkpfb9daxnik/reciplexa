@@ -3775,4 +3775,46 @@ mod tests {
             let _ = elaborate_with_data(src);
         }
     }
+
+    #[test]
+    fn binder_name_and_literal_parse_err_edges() {
+        for src in [
+            "(val foo_bar 1)",
+            "(val FooBar 1)",
+            "(val x--y 1)",
+            "(val main (fn (a_b) a_b))",
+            "(val (f a_b) 1)",
+            "(data Bad (c))\n(val main 1)",
+            "(val main (bytes 1__0))",
+            "(val main (bytes 0b2))",
+            "(val main (unicode 0b2))",
+            "(type t (singleton 1__0))\n(val main 1)",
+            "(val main 1__0)",
+            "(val main 0b2)",
+            "(val main 0o9)",
+            "(type t color)\n(val t 1)\n(val main t)",
+            "(type t markup-fragment)\n(val t 1)\n(val main t)",
+            "(type t shape)\n(val main 1)",
+            "(as color 1)",
+        ] {
+            let _ = elaborate_source(src);
+            let _ = elaborate_with_data(src);
+        }
+        // Drive numeric_literal_from_token Err directly for every Number token
+        // the lexer emits for malformed numeral spellings.
+        for s in ["0b2", "0o9", "1__0", "0b", "0x", "1e", "0xG"] {
+            let p = parse_source(s);
+            for el in p.root.children_with_tokens() {
+                if let SyntaxElement::Token(tok) = el {
+                    if tok.kind() == SyntaxKind::Number {
+                        let _ = numeric_literal_from_token(&tok);
+                    }
+                }
+            }
+            let _ = elaborate_source(s);
+        }
+        let _ = elaborate_source("(val + (fn (a b) a))\n(val main 1)");
+        let _ = elaborate_source("(val main (fn (+) 1))");
+        let _ = elaborate_source("(val _ 1)\n(val main 1)");
+    }
 }
