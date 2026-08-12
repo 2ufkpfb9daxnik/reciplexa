@@ -29,6 +29,20 @@
       (if (= before 24)
         (if (= after 24) true false)
         false)))))
+(// Representative JLReq §C-inspired pair rules (subset stub, not the full matrix).)
+(val pair-rule (fn (before after kind note)
+  (record (tag "jlreq-pair-rule")
+    (before before) (after after) (kind kind) (note note))))
+(val sample-pair-rules
+  (list
+    (record (tag "jlreq-pair-rule") (before 1) (after 15) (kind "prohibited") (note "open + letter"))
+    (record (tag "jlreq-pair-rule") (before 15) (after 2) (kind "prohibited") (note "letter + close"))
+    (record (tag "jlreq-pair-rule") (before 15) (after 6) (kind "prohibited") (note "letter + full-stop"))
+    (record (tag "jlreq-pair-rule") (before 15) (after 7) (kind "prohibited") (note "letter + comma"))
+    (record (tag "jlreq-pair-rule") (before 8) (after 8) (kind "inseparable") (note "cl-08"))
+    (record (tag "jlreq-pair-rule") (before 19) (after 19) (kind "allowed") (note "ideograph run"))
+    (record (tag "jlreq-pair-rule") (before 27) (after 27) (kind "allowed") (note "western run"))
+    (record (tag "jlreq-pair-rule") (before 15) (after 27) (kind "allowed") (note "JP/western boundary"))))
 (// Simplified default table (not the full JLReq §C matrix).)
 (val break-between (fn (before after)
   (if (= before 8)
@@ -43,7 +57,15 @@
             (record (tag "jlreq-break-opportunity") (kind "prohibited") (before before) (after after) (note "line-head kinsoku"))
             (if (= after 7)
               (record (tag "jlreq-break-opportunity") (kind "prohibited") (before before) (after after) (note "line-head kinsoku"))
-              (record (tag "jlreq-break-opportunity") (kind "allowed") (before before) (after after) (note "default allow"))))))))))
+              (if (= after 9)
+                (record (tag "jlreq-break-opportunity") (kind "prohibited") (before before) (after after) (note "iteration mark head"))
+                (if (= after 10)
+                  (record (tag "jlreq-break-opportunity") (kind "prohibited") (before before) (after after) (note "prolonged-sound head"))
+                  (if (= after 11)
+                    (record (tag "jlreq-break-opportunity") (kind "prohibited") (before before) (after after) (note "small-kana head"))
+                    (if (= before 12)
+                      (record (tag "jlreq-break-opportunity") (kind "prohibited") (before before) (after after) (note "prefixed abbrev end"))
+                      (record (tag "jlreq-break-opportunity") (kind "allowed") (before before) (after after) (note "default allow"))))))))))))))
 (val hangable-class? (fn (class-id)
   (if (= class-id 6) true
     (if (= class-id 7) true false))))
@@ -60,10 +82,17 @@
 (val classify-sample (fn (glyph)
   (if (= glyph "「") 1
     (if (= glyph "」") 2
-      (if (= glyph "。") 6
-        (if (= glyph "、") 7
-          (if (= glyph "ー") 10
-            (if (= glyph "ぁ") 11
-              (if (= glyph "あ") 15
-                (if (= glyph "ア") 16
-                  (if (= glyph "＝") 17 19)))))))))))
+      (if (= glyph "—") 3
+        (if (= glyph "・") 5
+          (if (= glyph "。") 6
+            (if (= glyph "、") 7
+              (if (= glyph "…") 8
+                (if (= glyph "々") 9
+                  (if (= glyph "ー") 10
+                    (if (= glyph "ぁ") 11
+                      (if (= glyph "〒") 12
+                        (if (= glyph "あ") 15
+                          (if (= glyph "ア") 16
+                            (if (= glyph "＝") 17
+                              (if (= glyph "A") 27
+                                (if (= glyph "12") 30 19))))))))))))))))))

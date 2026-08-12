@@ -6,6 +6,8 @@
 (val line-head-prohibited-class?)
 (val line-end-prohibited-class?)
 (val inseparable-pair?)
+(val pair-rule)
+(val sample-pair-rules)
 (val break-between)
 (val hangable-class?)
 (val kinsoku-profile)
