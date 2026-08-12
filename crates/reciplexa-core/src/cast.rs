@@ -1240,4 +1240,28 @@ mod tests {
             &CoreType::Never,
         );
     }
+
+    #[test]
+    fn intersect_normalize_and_compose_residual_leaves() {
+        let flat = simplify_evidence(CastEvidence::Compose(vec![
+            CastEvidence::Compose(vec![
+                CastEvidence::Widen,
+                CastEvidence::Compose(vec![CastEvidence::TagCheck { tag: "int".into() }]),
+            ]),
+            CastEvidence::Identity,
+        ]));
+        assert!(matches!(
+            flat,
+            CastEvidence::Compose(_) | CastEvidence::TagCheck { .. } | CastEvidence::Widen
+        ));
+        assert!(types_disjoint_bases(&CoreType::Int, &CoreType::String));
+        assert!(!is_subtype(&CoreType::Any, &CoreType::Int));
+        assert!(matches!(
+            plan_cast_evidence(
+                &CoreType::Union(vec![CoreType::Int, CoreType::Bool]),
+                &CoreType::F64,
+            ),
+            Some(CastEvidence::Compose(_))
+        ));
+    }
 }

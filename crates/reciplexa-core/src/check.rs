@@ -2927,4 +2927,108 @@ mod coverage_helpers {
         };
         let _ = infer_binding_init("id", &id_lam, &env_ann, &mut subst_or, r, true);
     }
+
+    #[test]
+    fn infer_effectful_forms_and_coerce_insert_residuals() {
+        let r = TextRange::EMPTY;
+        let mut env = TypeEnv::new();
+        let mut subst = Subst::new();
+
+        let handle1 = CoreExpr::Handle {
+            op: "log".into(),
+            handler_params: vec!["m".into()],
+            handler_body: Box::new(CoreExpr::Var("m".into())),
+            body: Box::new(CoreExpr::Perform {
+                op: "log".into(),
+                arg: Box::new(CoreExpr::Lit(CoreLiteral::String("x".into()))),
+            }),
+        };
+        let _ = infer_with_effects(&handle1, &env, &mut subst, r);
+        let handler = CoreExpr::HandlerValue {
+            op: "ask".into(),
+            handler_params: vec!["m".into(), "k".into()],
+            handler_body: Box::new(CoreExpr::Var("m".into())),
+        };
+        let _ = infer_with_effects(&handler, &env, &mut subst, r);
+        let _ = infer_with_effects(
+            &CoreExpr::With {
+                handler: Box::new(handler),
+                body: Box::new(CoreExpr::Lit(CoreLiteral::Unit)),
+            },
+            &env,
+            &mut subst,
+            r,
+        );
+        let _ = infer_with_effects(
+            &CoreExpr::TryCast {
+                expr: Box::new(CoreExpr::Lit(CoreLiteral::Int(1))),
+                target: CoreType::Int,
+                cast_id: 1,
+            },
+            &env,
+            &mut subst,
+            r,
+        );
+        env.insert(
+            "r",
+            CoreType::Record {
+                fields: vec![("a".into(), CoreType::Int)],
+            },
+        );
+        let _ = infer_with_effects(
+            &CoreExpr::RecordUpdate {
+                record: Box::new(CoreExpr::Var("r".into())),
+                fields: vec![("a".into(), CoreExpr::Lit(CoreLiteral::Int(2)))],
+            },
+            &env,
+            &mut subst,
+            r,
+        );
+        bind_pattern(
+            &CorePattern::Variant {
+                tag: "none".into(),
+                payload: Some(Box::new(CorePattern::Bind("x".into()))),
+            },
+            &CoreType::Variant {
+                variants: vec![("none".into(), None)],
+            },
+            &mut TypeEnv::new(),
+        );
+        let _ = coerce_to_static(
+            CoreExpr::Lit(CoreLiteral::Int(1)),
+            &CoreType::dyn_any(),
+            &CoreType::Int,
+            10,
+        );
+        env.insert(
+            "+",
+            CoreType::Fun {
+                args: vec![CoreType::Number, CoreType::Number],
+                ret: Box::new(CoreType::Number),
+                effects: EffectRow::default(),
+            },
+        );
+        let _ = insert_implicit_casts(
+            &CoreExpr::App {
+                fun: Box::new(CoreExpr::Var("+".into())),
+                args: vec![
+                    CoreExpr::Lit(CoreLiteral::Int(1)),
+                    CoreExpr::Lit(CoreLiteral::Int(2)),
+                ],
+            },
+            &env,
+        );
+        assert!(infer_with_effects(
+            &CoreExpr::Handle {
+                op: "ask".into(),
+                handler_params: vec![],
+                handler_body: Box::new(CoreExpr::Lit(CoreLiteral::Unit)),
+                body: Box::new(CoreExpr::Lit(CoreLiteral::Unit)),
+            },
+            &env,
+            &mut subst,
+            r,
+        )
+        .is_err());
+    }
 }
