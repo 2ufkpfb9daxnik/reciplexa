@@ -1,0 +1,10 @@
+(// language-only: length package helpers (mm conversion; lexer units remain interim).)
+(import length/units only mm cm q to-mm add-mm zero)
+(val a (mm 10))
+(val b (cm 2))
+(val c (q 4))
+(val main
+  (record (tag "length-demo")
+    (sum-mm (to-mm (add-mm a b)))
+    (q-mm (to-mm c))
+    (zero zero)))
