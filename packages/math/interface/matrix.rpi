@@ -5,3 +5,8 @@
 (val vmatrix)
 (val matrix-row)
 (val smallmatrix)
+(val matrix-env)
+(val array-env)
+(val matrix-delim)
+(val bmatrix-env)
+(val pmatrix-env)

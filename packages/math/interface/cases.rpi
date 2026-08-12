@@ -2,5 +2,8 @@
 (val case-arm)
 (val cases)
 (val cases-lr)
+(val cases-delim)
+(val left-cases)
+(val right-cases)
 (val piecewise)
 (val otherwise)
