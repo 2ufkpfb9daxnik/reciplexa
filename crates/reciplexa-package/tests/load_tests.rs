@@ -134,16 +134,20 @@ fn resolve_japanese_jlreq_modules() {
     let (_, classes) = idx.resolve_import("japanese/classes").unwrap();
     assert!(classes.contains("cl-01") && classes.contains("all-class-ids"));
     assert!(classes.contains("cl-19") && classes.contains("class-name"));
+    assert!(classes.contains("cl-30") && classes.contains("is-punctuation-class?"));
     let (_, lb) = idx.resolve_import("japanese/linebreak").unwrap();
     assert!(lb.contains("break-between") && lb.contains("kinsoku-profile"));
+    assert!(lb.contains("sample-pair-rules"));
     let (_, kihon) = idx.resolve_import("japanese/kihon").unwrap();
     assert!(kihon.contains("kihon-hanmen") && kihon.contains("line-rate-default"));
+    assert!(kihon.contains("a5-trim") && kihon.contains("place-hanmen"));
     let exports = idx
         .resolve_import_detailed("japanese/classes")
         .unwrap()
         .interface_exports
         .unwrap();
     assert!(exports.contains(&"cl-19".into()));
+    assert!(exports.contains(&"cl-30".into()));
     assert!(exports.contains(&"advance-em".into()));
     assert!(exports.contains(&"all-class-ids".into()));
 }
@@ -202,22 +206,55 @@ fn elaborate_and_eval_japanese_jlreq_example() {
 
 #[test]
 fn elaborate_and_eval_math_package_example() {
+    // Linking many math modules nests Lets deeply; bump thread stack on Windows debug.
+    std::thread::Builder::new()
+        .name("math-pkg-eval".into())
+        .stack_size(8 * 1024 * 1024)
+        .spawn(|| {
+            let idx = index();
+            let entry =
+                PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/pkg_math.rpx");
+            let units = load_module_tree_with_packages(&entry, &idx).unwrap();
+            assert!(units.iter().any(|(n, _)| n == "math/atoms"));
+            assert!(units.iter().any(|(n, _)| n == "math/frac"));
+            assert!(units.iter().any(|(n, _)| n == "math/sqrt"));
+            assert!(units.iter().any(|(n, _)| n == "math/matrix"));
+            assert!(units.iter().any(|(n, _)| n == "math/accents"));
+            assert!(units.iter().any(|(n, _)| n == "math/bigops"));
+            let units = elaborate_with_packages(&entry, &idx).unwrap();
+            let demo = units.iter().find(|u| u.name == "pkg_math").unwrap();
+            let v = eval_expr(&demo.expr, &primitive_env(), &mut UnitHost).unwrap();
+            let s = format!("{v}");
+            assert!(
+                s.contains("math-demo")
+                    || s.contains("math-fraction")
+                    || s.contains("math-radical")
+                    || s.contains("math-delimiter")
+                    || s.contains("math-matrix")
+                    || s.contains("math-accent")
+                    || s.contains("math-bigop"),
+                "expected math package tree, got {s}"
+            );
+        })
+        .expect("spawn math-pkg-eval")
+        .join()
+        .expect("math-pkg-eval thread");
+}
+
+#[test]
+fn elaborate_and_eval_pkg_markup_ja_example() {
     let idx = index();
-    let entry = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/pkg_math.rpx");
-    let units = load_module_tree_with_packages(&entry, &idx).unwrap();
-    assert!(units.iter().any(|(n, _)| n == "math/atoms"));
-    assert!(units.iter().any(|(n, _)| n == "math/frac"));
-    assert!(units.iter().any(|(n, _)| n == "math/sqrt"));
+    let entry = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/pkg_markup_ja.rpx");
     let units = elaborate_with_packages(&entry, &idx).unwrap();
-    let demo = units.iter().find(|u| u.name == "pkg_math").unwrap();
+    let demo = units.iter().find(|u| u.name == "pkg_markup_ja").unwrap();
     let v = eval_expr(&demo.expr, &primitive_env(), &mut UnitHost).unwrap();
     let s = format!("{v}");
     assert!(
-        s.contains("math-demo")
-            || s.contains("math-fraction")
-            || s.contains("math-radical")
-            || s.contains("math-delimiter"),
-        "expected math package tree, got {s}"
+        s.contains("markup-ja-package-demo")
+            || s.contains("ja-doc")
+            || s.contains("jlreq")
+            || s.contains("ideographic"),
+        "expected markup_ja package tree, got {s}"
     );
 }
 

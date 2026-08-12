@@ -1,0 +1,30 @@
+(// language-only: japanese/markup tree mirroring markup_ja @-forms.
+ // SYN @heading/@note/... still expand via markup macros; this example shows
+ // the package-record path that will bind to Text IR later.)
+(import japanese/markup only heading section paragraph note warn todo ul ruby doc emphasis)
+(import japanese/classes only cl-01 cl-19 class-name)
+(import japanese/linebreak only break-between kinsoku-profile)
+(import japanese/kihon only default-horizontal-kihon a5-trim margins place-hanmen)
+(val draft
+  (doc "日本語レポート草稿"
+    (list
+      (heading "日本語レポート草稿")
+      (paragraph "これは禁則処理のごく初期スライスです。")
+      (note "JLReq の本格実装はこれから。")
+      (section "箇条書き")
+      (ul (list "第一項目です。" "第二項目（補足）です。"))
+      (emphasis "強調")
+      (ruby "漢字" "かんじ")
+      (todo "禁則をもう少し厚くする。")
+      (warn "まだフォントウェイトはない。"))))
+(val layout
+  (place-hanmen a5-trim (margins 20 20 20 20) default-horizontal-kihon))
+(val kinsoku-sample
+  (break-between (field cl-19 id) (field cl-01 id)))
+(val main
+  (record (tag "markup-ja-package-demo")
+    (draft draft)
+    (layout layout)
+    (kinsoku kinsoku-sample)
+    (kinsoku-profile kinsoku-profile)
+    (cl-19-name (class-name 19))))
