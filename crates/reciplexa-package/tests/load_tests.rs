@@ -147,9 +147,12 @@ fn resolve_japanese_jlreq_modules() {
         .interface_exports
         .unwrap();
     assert!(exports.contains(&"cl-19".into()));
+    assert!(exports.contains(&"cl-13".into()));
+    assert!(exports.contains(&"cl-20".into()));
     assert!(exports.contains(&"cl-30".into()));
     assert!(exports.contains(&"advance-em".into()));
     assert!(exports.contains(&"all-class-ids".into()));
+    assert!(exports.contains(&"is-kana-class?".into()));
 }
 
 #[test]
@@ -164,6 +167,7 @@ fn resolve_math_domain_modules() {
         "math/matrix",
         "math/accents",
         "math/bigops",
+        "math/cases",
     ] {
         let (name, src) = idx.resolve_import(mod_path).unwrap();
         assert_eq!(name, mod_path);
@@ -178,7 +182,11 @@ fn resolve_math_domain_modules() {
     let (_, accents) = idx.resolve_import("math/accents").unwrap();
     assert!(accents.contains("hat") && accents.contains("math-accent"));
     let (_, bigops) = idx.resolve_import("math/bigops").unwrap();
-    assert!(bigops.contains("sum") && bigops.contains("integral"));
+    assert!(bigops.contains("sum") && bigops.contains("integral") && bigops.contains("withlimits"));
+    let (_, cases) = idx.resolve_import("math/cases").unwrap();
+    assert!(cases.contains("piecewise") && cases.contains("math-cases"));
+    let (_, scripts) = idx.resolve_import("math/scripts").unwrap();
+    assert!(scripts.contains("underbrace") && scripts.contains("overset"));
     let exports = idx
         .resolve_import_detailed("math/delimiters")
         .unwrap()
@@ -230,6 +238,8 @@ fn elaborate_and_eval_math_package_example() {
             assert!(units.iter().any(|(n, _)| n == "math/matrix"));
             assert!(units.iter().any(|(n, _)| n == "math/accents"));
             assert!(units.iter().any(|(n, _)| n == "math/bigops"));
+            assert!(units.iter().any(|(n, _)| n == "math/cases"));
+            assert!(units.iter().any(|(n, _)| n == "math/scripts"));
             let units = elaborate_with_packages(&entry, &idx).unwrap();
             let demo = units.iter().find(|u| u.name == "pkg_math").unwrap();
             let v = eval_expr(&demo.expr, &primitive_env(), &mut UnitHost).unwrap();
@@ -470,6 +480,33 @@ fn graphics_value_bridge_grows_ellipse_text_transform_opacity() {
     )
     .expect("interim lower");
     assert_eq!(from_cst.pages[0].shapes.len(), 3);
+}
+
+#[test]
+fn document_from_package_entry_adapter_matches_bridge() {
+    // Thin opt-in adapter; GUI interim ingest stays default.
+    use reciplexa_package::document_from_package_entry;
+    use reciplexa_scene::Shape;
+
+    let idx = index();
+    let dir = tempfile_dir();
+    let entry = dir.join("adapter.rpx");
+    std::fs::write(
+        &entry,
+        r#"(import graphics/shapes only circle fill)
+(import graphics/page only a4 page)
+(import graphics/color only black)
+(val main
+  (page a4
+    (fill (circle 105 148.5 40) black)))
+"#,
+    )
+    .unwrap();
+    let doc = document_from_package_entry(&entry, &idx).expect("adapter");
+    match &doc.pages[0].shapes[0] {
+        Shape::Circle(c) => assert_eq!(c.radius_mm, 40.0),
+        other => panic!("expected circle, got {other:?}"),
+    }
 }
 
 #[test]

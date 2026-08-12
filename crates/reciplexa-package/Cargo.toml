@@ -10,11 +10,11 @@ publish = false
 reciplexa-identity = { workspace = true }
 reciplexa-bind = { workspace = true }
 reciplexa-syntax = { workspace = true }
+reciplexa-eval = { workspace = true }
+reciplexa-scene = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 
 [dev-dependencies]
-reciplexa-eval = { workspace = true }
 reciplexa-lower = { workspace = true }
-reciplexa-scene = { workspace = true }
 

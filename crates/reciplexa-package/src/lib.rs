@@ -3,6 +3,7 @@
 #![forbid(unsafe_code)]
 
 pub mod build;
+pub mod graphics_bridge;
 pub mod load;
 pub mod lockfile;
 pub mod manifest;
@@ -16,6 +17,7 @@ pub use build::{
     diagnose_manifest, BuildGraph, BuildNode, BuildNodeId, IncrementalCache, InvalidationKind,
     PackageDiagnostic,
 };
+pub use graphics_bridge::{document_from_package_entry, GraphicsBridgeError};
 pub use load::{
     elaborate_with_packages, load_module_tree_with_packages, LocalPackageIndex, PackageLoadError,
     ResolvedImport,

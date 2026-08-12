@@ -1,0 +1,54 @@
+//! Thin Slice D adapter: package-entry → scene document via graphics bridge.
+//!
+//! GUI preview keeps interim CST `(page)/(circle)` keyword lower by default.
+//! Call this path explicitly when ingesting package-built `main` page trees.
+
+use std::collections::HashMap;
+use std::path::Path;
+
+use reciplexa_eval::{document_from_graphics_value, eval_expr, GraphicsValueError, UnitHost};
+use reciplexa_scene::Document;
+
+use crate::load::{elaborate_with_packages, LocalPackageIndex, PackageLoadError};
+
+/// Errors from package load/eval or graphics bridge.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum GraphicsBridgeError {
+    Load(String),
+    Eval(String),
+    Bridge(String),
+}
+
+impl From<PackageLoadError> for GraphicsBridgeError {
+    fn from(e: PackageLoadError) -> Self {
+        Self::Load(e.to_string())
+    }
+}
+
+impl From<GraphicsValueError> for GraphicsBridgeError {
+    fn from(e: GraphicsValueError) -> Self {
+        Self::Bridge(e.message)
+    }
+}
+
+/// Elaborate `entry_path`, eval its entry `main`, bridge to a scene [`Document`].
+///
+/// Does **not** replace GUI interim ingest; it is an opt-in strangler adapter.
+pub fn document_from_package_entry(
+    entry_path: impl AsRef<Path>,
+    index: &LocalPackageIndex,
+) -> Result<Document, GraphicsBridgeError> {
+    let units = elaborate_with_packages(entry_path.as_ref(), index)?;
+    let stem = entry_path
+        .as_ref()
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("main");
+    let demo = units
+        .iter()
+        .find(|u| u.name == stem)
+        .ok_or_else(|| GraphicsBridgeError::Load(format!("missing elaborated unit `{stem}`")))?;
+    let v = eval_expr(&demo.expr, &HashMap::new(), &mut UnitHost)
+        .map_err(|e| GraphicsBridgeError::Eval(e.message))?;
+    document_from_graphics_value(&v).map_err(Into::into)
+}
