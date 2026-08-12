@@ -1,8 +1,8 @@
 (// japanese/classes — JLReq character classes (cl-01..cl-30).
  // Normative names follow W3C JLReq / JIS X 4051-oriented profiles.
  // Identity metadata for OPEN-TEXT-JA-001 — not a full UCS classifier.
- // Full cl-01..cl-30 names live in `class-name` / `class-name-ja`; frequent
- // aliases are concrete records for import convenience.)
+ // `class-name` is self-contained (MOD export linking does not close over siblings).
+ // Full per-class metadata also lives on `cl-NN` alias records.)
 (val class (fn (id code name name-ja)
   (record (tag "jlreq-class") (id id) (code code) (name name) (name-ja name-ja))))
 (val all-class-ids
@@ -17,33 +17,67 @@
             (if (= class-id 6) "full-stops"
               (if (= class-id 7) "commas"
                 (if (= class-id 8) "inseparable"
-                  (if (= class-id 15) "hiragana"
-                    (if (= class-id 16) "katakana"
-                      (if (= class-id 19) "ideographic"
-                        (if (= class-id 27) "western-characters"
-                          (if (= class-id 30) "tate-chu-yoko" "other")))))))))))))))
+                  (if (= class-id 9) "iteration-marks"
+                    (if (= class-id 10) "prolonged-sound-mark"
+                      (if (= class-id 11) "small-kana"
+                        (if (= class-id 12) "prefixed-abbreviations"
+                          (if (= class-id 15) "hiragana"
+                            (if (= class-id 16) "katakana"
+                              (if (= class-id 17) "math-symbols"
+                                (if (= class-id 19) "ideographic"
+                                  (if (= class-id 27) "western-characters"
+                                    (if (= class-id 30) "tate-chu-yoko" "other"))))))))))))))))))))
 (val class-name-ja (fn (class-id)
   (if (= class-id 1) "始め括弧類"
     (if (= class-id 2) "終わり括弧類"
-      (if (= class-id 6) "句点類"
-        (if (= class-id 7) "読点類"
-          (if (= class-id 15) "平仮名"
-            (if (= class-id 16) "片仮名"
-              (if (= class-id 19) "漢字等" "その他")))))))))
+      (if (= class-id 3) "ハイフン類"
+        (if (= class-id 6) "句点類"
+          (if (= class-id 7) "読点類"
+            (if (= class-id 15) "平仮名"
+              (if (= class-id 16) "片仮名"
+                (if (= class-id 19) "漢字等"
+                  (if (= class-id 27) "欧文用文字"
+                    (if (= class-id 30) "縦中横" "その他"))))))))))))
 (val cl-01
   (record (tag "jlreq-class") (id 1) (code "cl-01") (name "opening-brackets") (name-ja "始め括弧類")))
 (val cl-02
   (record (tag "jlreq-class") (id 2) (code "cl-02") (name "closing-brackets") (name-ja "終わり括弧類")))
+(val cl-03
+  (record (tag "jlreq-class") (id 3) (code "cl-03") (name "hyphens") (name-ja "ハイフン類")))
+(val cl-04
+  (record (tag "jlreq-class") (id 4) (code "cl-04") (name "dividing-punctuation") (name-ja "区切り約物")))
+(val cl-05
+  (record (tag "jlreq-class") (id 5) (code "cl-05") (name "middle-dots") (name-ja "中点類")))
 (val cl-06
   (record (tag "jlreq-class") (id 6) (code "cl-06") (name "full-stops") (name-ja "句点類")))
 (val cl-07
   (record (tag "jlreq-class") (id 7) (code "cl-07") (name "commas") (name-ja "読点類")))
+(val cl-08
+  (record (tag "jlreq-class") (id 8) (code "cl-08") (name "inseparable") (name-ja "分離禁止文字")))
+(val cl-09
+  (record (tag "jlreq-class") (id 9) (code "cl-09") (name "iteration-marks") (name-ja "繰返し記号")))
+(val cl-10
+  (record (tag "jlreq-class") (id 10) (code "cl-10") (name "prolonged-sound-mark") (name-ja "長音記号")))
+(val cl-11
+  (record (tag "jlreq-class") (id 11) (code "cl-11") (name "small-kana") (name-ja "小書きの仮名")))
+(val cl-12
+  (record (tag "jlreq-class") (id 12) (code "cl-12") (name "prefixed-abbreviations") (name-ja "前置省略記号")))
 (val cl-15
   (record (tag "jlreq-class") (id 15) (code "cl-15") (name "hiragana") (name-ja "平仮名")))
 (val cl-16
   (record (tag "jlreq-class") (id 16) (code "cl-16") (name "katakana") (name-ja "片仮名")))
+(val cl-17
+  (record (tag "jlreq-class") (id 17) (code "cl-17") (name "math-symbols") (name-ja "等号類")))
 (val cl-19
   (record (tag "jlreq-class") (id 19) (code "cl-19") (name "ideographic") (name-ja "漢字等")))
+(val cl-27
+  (record (tag "jlreq-class") (id 27) (code "cl-27") (name "western-characters") (name-ja "欧文用文字")))
+(val cl-28
+  (record (tag "jlreq-class") (id 28) (code "cl-28") (name "attached-western") (name-ja "添付欧文")))
+(val cl-29
+  (record (tag "jlreq-class") (id 29) (code "cl-29") (name "warichu-open") (name-ja "割注始め括弧類")))
+(val cl-30
+  (record (tag "jlreq-class") (id 30) (code "cl-30") (name "tate-chu-yoko") (name-ja "縦中横")))
 (val advance-em (fn (class-id)
   (if (= class-id 1) 0.5
     (if (= class-id 2) 0.5
@@ -55,3 +89,11 @@
   (if (= class-id 15) true
     (if (= class-id 16) true
       (if (= class-id 19) true false)))))
+(val is-punctuation-class? (fn (class-id)
+  (if (= class-id 1) true
+    (if (= class-id 2) true
+      (if (= class-id 3) true
+        (if (= class-id 4) true
+          (if (= class-id 5) true
+            (if (= class-id 6) true
+              (if (= class-id 7) true false)))))))))
