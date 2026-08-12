@@ -51,8 +51,8 @@ Goal: land local-path packages and std domain libraries after Part II conformanc
 - [x] `packages/length` — `mm`/`cm`/`pt`/`bp`/`inch`/`q`/`px`/`em` + `to-mm`/`add-mm`/`scale-length`; example `examples/pkg_length.rpx`
 - `packages/color` — deepen beyond stub (`rgb` / named colors) *(graphics/color already hosts rgb/rgba; shared `packages/color` still thin)*
 - [x] `packages/color` — `rgb`/`rgba`/`srgb` + named palette + `from-byte`/`with-alpha`; example `examples/pkg_color.rpx`
-- [x] `packages/math` — SATySFi-inspired atoms/scripts/frac/sqrt/delimiters **+ matrix / accents / bigops / align / stack** as Core records; example `examples/pkg_math.rpx`
-- [x] `packages/japanese` — JLReq layer deepened: extended `sample-pair-rules`, `numeric-before-close-prohibited?`, vertical-flow/stack/tategaki stubs, `markup-bridge`/`doc-with-markup` connecting to `examples/markup_ja.rpx`; **not** full JLReq / OPEN-TEXT-JA-001
+- [x] `packages/japanese` — JLReq layer deepened: extended `sample-pair-rules`, `numeric-before-close-prohibited?`, vertical-flow/stack/tategaki stubs **`vertical-text`/`place-vertical-text`/`tategaki-text` graphics bridge**, `markup-bridge`/`doc-with-markup` connecting to `examples/markup_ja.rpx`; **not** full JLReq / OPEN-TEXT-JA-001
+- [x] `packages/math` — SATySFi-inspired atoms/scripts/frac/sqrt/delimiters **+ matrix / accents / bigops / align / stack** as Core records; **`operatorname`/`mathrm`/`textop`**, **`matrix-env`/`bmatrix-env`**, **`cases-delim`/`left-cases`**; example `examples/pkg_math.rpx`
 
 ### Slice D — document migration (strangler)
 
@@ -62,8 +62,8 @@ Goal: land local-path packages and std domain libraries after Part II conformanc
 - **Graphics strangler progress:**
   1. [x] Map interim lower tags (`circle`/`rect`/`page`/`text`/…) 1:1 onto `graphics/*` package records (already tag-compatible).
   2. [x] Bridge: `reciplexa_eval::document_from_graphics_value` recognizes package `page`/`fill`/`circle`/`rgb` records (ShapeTag-aware); golden vs `lower_source` in package tests. CST keyword tables + GUI unchanged.
-  3. [x] Migrate `examples/*.rpx` that still use interim `(page …)(circle …)` to `(import graphics/…)` — `shapes`, `transforms`, `image`, `paths`, **`text_line`**, **`letter_opacity`**, **`two_pages`** → language-only package imports; **interim kept**: `black_circle` (GUI golden), `japanese_page`, `effects`, ….
-  4. [~] Flip GUI scene ingest to the same constructors; keep keyword parse as a thin compatibility adapter. *(auto-detect `(import graphics` + no top-level `(page` → package bridge in `document_from_source`; `RECIPLEXA_PACKAGE_GRAPHICS=0|1` override; GUI `pipeline_doc` inherits via shared pipeline; CST sync/edit still interim-only.)*
+  3. [x] Migrate `examples/*.rpx` that still use interim `(page …)(circle …)` to `(import graphics/…)` — `shapes`, `transforms`, `image`, `paths`, **`text_line`**, **`letter_opacity`**, **`two_pages`**, **`japanese_page`**, **`effects`**, **`macros`** → language-only or package bridge; **interim kept**: `black_circle` (GUI golden + CST sync), `markup_ja` (markup macro → interim expand).
+  4. [x] Flip GUI scene ingest to the same constructors; keep keyword parse as a thin compatibility adapter. *(auto-detect package-shaped `(import graphics` + `(val main` without top-level interim `(page` → package bridge in `document_from_source`; expanded source + effect-form strip before package elaboration; `RECIPLEXA_PACKAGE_GRAPHICS=0|1` override; GUI `pipeline_doc` inherits via shared pipeline; CST sync/edit still interim-only via `black_circle.rpx`.)*
   5. [ ] Delete interim keyword tables only after GUI + export golden paths stay green.
   6. [x] Grow bridge tags: `rect`/`ellipse`/transforms/`group`/stroke/paint/text/image/opacity (+ line/polyline/polygon/ring/frame).
   7. [x] Multipage package trees: `graphics/page.pages` + cons-list / `pages` record in `document_from_graphics_value`.

@@ -102,11 +102,11 @@ pre-PKG カーネルは計画上 **COMPLETE（意図的 defer 付き）**。各�
 | **`packages/graphics`** | Slice A + C static depth | `shapes`（circle/rect/ellipse/line/path/ring/frame/group + fill/stroke/paint）、`page`（a4/letter/a5/a3/legal/square/page-size）、`color`（rgb/rgba + named）＋`.rpi`；例 `examples/pkg_graphics_static.rpx` |
 | **`packages/length`** | Slice C | `mm`/`cm`/`pt`/`bp`/`inch`/`q`/`px`/`em` + `to-mm`/`add-mm`；例 `pkg_length.rpx`（Number+Ident 単位サフィックスは暫定のまま） |
 | **`packages/color`** | Slice C | `rgb`/`rgba`/`srgb` + 名前色 + `from-byte`/`with-alpha`；例 `pkg_color.rpx` |
-| **`packages/math`** | Slice C（SATySFi 志向） | `atoms` / `scripts`（under/over/limits） / `frac` / `sqrt` / `delimiters` + **`matrix` / `accents` / `bigops` / `cases`**；例 `examples/pkg_math.rpx` |
-| **`packages/japanese`** | Slice C（JLReq 志向・部分） | `classes`（cl-01..cl-30 + match 名表 + kana/western 述語）、`linebreak`（拡張 `sample-pair-rules`）、`kihon`（trim/placement stub）、`markup`；例 `pkg_japanese_jlreq` / **`pkg_markup_ja`**；**完全 JLReq ではない** |
+| **`packages/math`** | Slice C（SATySFi 志向） | `atoms` / `scripts` / `frac` / `sqrt` / `delimiters` + **`matrix`（env/delim） / `accents` / `bigops` / `cases`（delim） / `align` / `stack`**；`operatorname`/`mathrm`/`textop`；例 `examples/pkg_math.rpx` |
+| **`packages/japanese`** | Slice C（JLReq 志向・部分） | `classes`、`linebreak`（拡張 `sample-pair-rules`）、`kihon`（trim/placement + **`vertical-text`/`place-vertical-text` graphics bridge**）、`markup`（`tategaki-text`）；例 `pkg_japanese_jlreq` / **`pkg_markup_ja`**；**完全 JLReq ではない** |
 
 ローカル import（例: `(import graphics/shapes)`）、消費者 path-dep + alias、`workspace.rpxm` stub parse まで到達。**レジストリ・署名・git/URL dep・本番ビルドグラフ全体は未着手（OPEN-PKG-*）。**  
-文書パイプラインの CST `(page …)(circle …)` interim は **GUI 向けに残存**。Slice D: `document_from_graphics_value` が package 図形タグ（ellipse/transforms/group/stroke/paint/text/image/opacity 含む）を scene へ橋渡し；`document_from_package_entry` は opt-in アダプタ。キーワード表は未削除。
+文書パイプラインの CST `(page …)(circle …)` interim は **GUI CST sync 向けに `black_circle.rpx` 等で残存**。Slice D: `document_from_source` が package-shaped ソース（`(import graphics` + `(val main`、top-level interim `(page` なし）を自動検出し expanded バッファ経由で `document_from_graphics_value` へ橋渡し；effects prelude は strip して package elaboration。キーワード表は未削除（step 5）。
 
 ---
 
@@ -153,9 +153,9 @@ pre-PKG カーネルは計画上 **COMPLETE（意図的 defer 付き）**。各�
 
 1. **カバレッジ締め** — 特に `reciplexa-core`（check/elaborate）、続いて bind / syntax / eval / CLI・GUI の残リージョンを 99% 帯へ。
 2. **PKG 深化（Slice C–D）**
-   - `graphics` strangler: bridge grown (ellipse/transforms/group/stroke/paint/text/image/opacity); examples `shapes`/`transforms`/`image`/`paths` migrated to package imports; GUI interim retained; flip ingest via `document_from_package_entry` when ready
-   - `japanese` / jlreq: deepen UCS maps + §C matrix; Text IR bind for `pkg_markup_ja`
-   - `math`: layout on matrix/accents/bigops/cases trees (still Core records only)
+   - `graphics` strangler: package bridge default for package-shaped sources; examples `japanese_page`/`effects`/`macros` migrated; GUI interim retained for `black_circle` CST sync
+   - `japanese` / jlreq: vertical-text graphics bridge stubs; Text IR bind for `pkg_markup_ja`
+   - `math`: `operatorname`/matrix-env/delimited cases on Core records (layout still deferred)
 3. **PKG インフラ残り（Slice E 断片）** — workspace メンバー発見＋共有 lock、resource root；レジストリは stub のまま据え置き可。
 4. **意図的言語 defer の選択的解禁** — 必要になった時点でのみ EFF multi-shot、MOD functor、ROW multi-tail 等（カーネル「完成宣言」を崩さない範囲で）。
 5. **OPEN-TEXT-JA-001** — UCS 文字クラス表・§C 分割可否行列・Text IR 結合を japanese package へ段階追加。
