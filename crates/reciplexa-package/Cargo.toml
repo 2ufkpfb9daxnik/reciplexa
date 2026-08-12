@@ -15,4 +15,6 @@ serde_json = { workspace = true }
 
 [dev-dependencies]
 reciplexa-eval = { workspace = true }
+reciplexa-lower = { workspace = true }
+reciplexa-scene = { workspace = true }
 

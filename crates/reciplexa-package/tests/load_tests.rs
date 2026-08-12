@@ -329,6 +329,49 @@ fn elaborate_and_eval_static_graphics_surface() {
 }
 
 #[test]
+fn graphics_value_bridge_matches_interim_lower_source() {
+    // Slice D strangler: package-eval page tree → same scene as interim CST lower.
+    use reciplexa_eval::document_from_graphics_value;
+    use reciplexa_lower::lower_source;
+    use reciplexa_scene::Shape;
+
+    let idx = index();
+    let dir = tempfile_dir();
+    let entry = dir.join("bridge.rpx");
+    std::fs::write(
+        &entry,
+        r#"(import graphics/shapes only circle fill)
+(import graphics/page only a4 page)
+(import graphics/color only black)
+(val main
+  (page a4
+    (fill (circle 105 148.5 40) black)))
+"#,
+    )
+    .unwrap();
+    let units = elaborate_with_packages(&entry, &idx).unwrap();
+    let demo = units.iter().find(|u| u.name == "bridge").unwrap();
+    let v = eval_expr(&demo.expr, &HashMap::new(), &mut UnitHost).unwrap();
+    let from_pkg = document_from_graphics_value(&v).expect("package bridge");
+    let from_cst = lower_source("(page a4 (circle 105 148.5 40))").expect("interim lower");
+    assert_eq!(from_pkg.pages.len(), 1);
+    assert_eq!(from_cst.pages.len(), 1);
+    assert_eq!(from_pkg.pages[0].paper, from_cst.pages[0].paper);
+    match (
+        &from_pkg.pages[0].shapes[0],
+        &from_cst.pages[0].shapes[0],
+    ) {
+        (Shape::Circle(a), Shape::Circle(b)) => {
+            assert_eq!(a.x_mm, b.x_mm);
+            assert_eq!(a.y_mm, b.y_mm);
+            assert_eq!(a.radius_mm, b.radius_mm);
+            assert_eq!(a.fill, b.fill);
+        }
+        other => panic!("expected matching circles, got {other:?}"),
+    }
+}
+
+#[test]
 fn load_full_graphics_package_tree_and_eval_transforms() {
     let idx = index();
     for mod_path in ["graphics/shapes", "graphics/page", "graphics/color"] {
