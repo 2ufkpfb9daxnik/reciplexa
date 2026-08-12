@@ -2344,10 +2344,7 @@ mod coverage_helpers {
             let _ = refine_predicate(pred, &CoreType::String);
             let _ = refine_predicate(pred, &CoreType::dyn_any());
             let option = CoreType::Variant {
-                variants: vec![
-                    ("none".into(), None),
-                    ("some".into(), Some(CoreType::Int)),
-                ],
+                variants: vec![("none".into(), None), ("some".into(), Some(CoreType::Int))],
             };
             let _ = refine_predicate(pred, &option);
         }
@@ -2368,10 +2365,7 @@ mod coverage_helpers {
             Some(NumericClass::Int)
         );
         assert_eq!(
-            operand_numeric_class(&CoreType::Intersect(vec![
-                CoreType::Int,
-                CoreType::String,
-            ])),
+            operand_numeric_class(&CoreType::Intersect(vec![CoreType::Int, CoreType::String,])),
             Some(NumericClass::Int)
         );
         assert_eq!(
@@ -2405,16 +2399,10 @@ mod coverage_helpers {
     #[test]
     fn variant_tag_keep_strip_and_field_access() {
         let option = CoreType::Variant {
-            variants: vec![
-                ("none".into(), None),
-                ("some".into(), Some(CoreType::Int)),
-            ],
+            variants: vec![("none".into(), None), ("some".into(), Some(CoreType::Int))],
         };
         // strip leaving only `some` unwraps payload
-        assert_eq!(
-            strip_variant_tag(&option, "none"),
-            CoreType::Int
-        );
+        assert_eq!(strip_variant_tag(&option, "none"), CoreType::Int);
         // strip leaving empty → Dynamic
         let only_none = CoreType::Variant {
             variants: vec![("none".into(), None)],
@@ -2520,12 +2508,10 @@ mod coverage_helpers {
             "option".into(),
             vec![("none".into(), 0), ("some".into(), 1)],
         );
-        data.ctor_payloads
-            .insert("none".into(), vec![]);
+        data.ctor_payloads.insert("none".into(), vec![]);
         data.ctor_payloads
             .insert("some".into(), vec![CoreType::Name("a".into())]);
-        data.type_params
-            .insert("option".into(), vec!["a".into()]);
+        data.type_params.insert("option".into(), vec!["a".into()]);
         let expanded = expand_type_app(
             &CoreType::App {
                 ctor: "option".into(),
@@ -2579,10 +2565,7 @@ mod coverage_helpers {
                 CorePattern::Wildcard,
             ]),
             &CoreType::Record {
-                fields: vec![
-                    ("0".into(), CoreType::Int),
-                    ("1".into(), CoreType::String),
-                ],
+                fields: vec![("0".into(), CoreType::Int), ("1".into(), CoreType::String)],
             },
             &mut env,
         );
@@ -2680,10 +2663,7 @@ mod coverage_helpers {
         assert!(unify_ctor_payload(Some(&CoreType::Int), &[CoreType::Int], &mut subst).is_ok());
         assert!(unify_ctor_payload(
             Some(&CoreType::Record {
-                fields: vec![
-                    ("0".into(), CoreType::Int),
-                    ("1".into(), CoreType::String),
-                ],
+                fields: vec![("0".into(), CoreType::Int), ("1".into(), CoreType::String),],
             }),
             &[CoreType::Int, CoreType::String],
             &mut subst
@@ -2872,5 +2852,79 @@ mod coverage_helpers {
             ];
             let _ = try_infer_numeric_builtin(op, &args_f, &env, &mut subst, r);
         }
+        // OpenRecord RecordGet present/absent + OptionalField + binding-init residuals
+        let r = TextRange::EMPTY;
+        let mut env_or = TypeEnv::new();
+        let mut subst_or = Subst::new();
+        let row = CoreType::Var(subst_or.fresh_var());
+        env_or.insert(
+            "r",
+            CoreType::OpenRecord {
+                fields: vec![("a".into(), CoreType::Int)],
+                row: Box::new(row),
+            },
+        );
+        let _ = infer_with_effects(
+            &CoreExpr::RecordGet {
+                record: Box::new(CoreExpr::Var("r".into())),
+                field: "a".into(),
+            },
+            &env_or,
+            &mut subst_or,
+            r,
+        );
+        let _ = infer_with_effects(
+            &CoreExpr::RecordGet {
+                record: Box::new(CoreExpr::Var("r".into())),
+                field: "z".into(),
+            },
+            &env_or,
+            &mut subst_or,
+            r,
+        );
+        env_or.insert(
+            "ro",
+            CoreType::Record {
+                fields: vec![(
+                    "opt".into(),
+                    CoreType::OptionalField(Box::new(CoreType::String)),
+                )],
+            },
+        );
+        let _ = infer_with_effects(
+            &CoreExpr::RecordGet {
+                record: Box::new(CoreExpr::Var("ro".into())),
+                field: "opt".into(),
+            },
+            &env_or,
+            &mut subst_or,
+            r,
+        );
+        let mut env_ann = TypeEnv::new();
+        env_ann.data.type_aliases.insert(
+            "x".into(),
+            CoreType::Forall {
+                params: vec![("a".into(), "type".into())],
+                body: Box::new(CoreType::Name("a".into())),
+            },
+        );
+        let expansive = CoreExpr::App {
+            fun: Box::new(CoreExpr::Var("missing".into())),
+            args: vec![],
+        };
+        let _ = infer_binding_init("x", &expansive, &env_ann, &mut subst_or, r, true);
+        env_ann.data.type_aliases.insert(
+            "id".into(),
+            CoreType::Fun {
+                args: vec![CoreType::Int],
+                ret: Box::new(CoreType::Int),
+                effects: EffectRow::default(),
+            },
+        );
+        let id_lam = CoreExpr::Lambda {
+            params: vec!["x".into()],
+            body: Box::new(CoreExpr::Var("x".into())),
+        };
+        let _ = infer_binding_init("id", &id_lam, &env_ann, &mut subst_or, r, true);
     }
 }

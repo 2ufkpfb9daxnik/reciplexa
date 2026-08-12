@@ -3816,5 +3816,16 @@ mod tests {
         let _ = elaborate_source("(val + (fn (a b) a))\n(val main 1)");
         let _ = elaborate_source("(val main (fn (+) 1))");
         let _ = elaborate_source("(val _ 1)\n(val main 1)");
+        // Pattern literal Err: f64 ban + int parse fail + string decode
+        for src in [
+            "(val main (match 1.5 (1.5 -> 0) (_ -> 1)))",
+            "(val main (match 1.0e2 (1.0e2 -> 0) (_ -> 1)))",
+            "(val main (match 0b2 (0b2 -> 0) (_ -> 1)))",
+            "(val main (match 0o9 (0o9 -> 0) (_ -> 1)))",
+            "(val main (match 1__0 (1__0 -> 0) (_ -> 1)))",
+            "(val main (match 1.5 (1.5 x -> 0) (_ -> 1)))",
+        ] {
+            let _ = elaborate_source(src);
+        }
     }
 }
