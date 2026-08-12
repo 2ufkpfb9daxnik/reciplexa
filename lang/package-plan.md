@@ -48,7 +48,9 @@ Goal: land local-path packages and std domain libraries after Part II conformanc
 
 - [x] `packages/graphics` depth (static): shapes (`circle`/`rect`/`ellipse`/`line`/`path`/`polyline`/`polygon`/`ring`/`frame`/`group`), `text`/`text-box`/`image`, transforms (`translate`/`rotate`/`scale`), `opacity`, `fill`/`stroke`/`paint`, page sizes (`a4`/`letter`/`a5`/`a3`/`legal`/`square`/`page-size`), color `rgb`/`rgba` + named — aligned to `reciplexa-std` visual / interim tags; examples `pkg_graphics_static` / `pkg_graphics_shapes` / `pkg_graphics_transform`; package-tree load tests in `reciplexa-package`
 - `packages/length` — deepen beyond stub (`mm` / unit constructors; retire Number+Ident interim where safe)
+- [x] `packages/length` — `mm`/`cm`/`pt`/`bp`/`inch`/`q`/`px`/`em` + `to-mm`/`add-mm`/`scale-length`; example `examples/pkg_length.rpx`
 - `packages/color` — deepen beyond stub (`rgb` / named colors) *(graphics/color already hosts rgb/rgba; shared `packages/color` still thin)*
+- [x] `packages/color` — `rgb`/`rgba`/`srgb` + named palette + `from-byte`/`with-alpha`; example `examples/pkg_color.rpx`
 - [x] `packages/math` — SATySFi-inspired atoms/scripts/frac/sqrt/delimiters **+ matrix / accents / bigops** as Core records; example `examples/pkg_math.rpx`
 - [x] `packages/japanese` — JLReq layer deepened: more class aliases + name tables, `sample-pair-rules`, kihon trim/placement stubs, `examples/pkg_markup_ja.rpx` package-record path alongside SYN `@`-markup; **not** full JLReq / OPEN-TEXT-JA-001
 
@@ -60,10 +62,10 @@ Goal: land local-path packages and std domain libraries after Part II conformanc
 - **Graphics strangler progress:**
   1. [x] Map interim lower tags (`circle`/`rect`/`page`/`text`/…) 1:1 onto `graphics/*` package records (already tag-compatible).
   2. [x] Bridge: `reciplexa_eval::document_from_graphics_value` recognizes package `page`/`fill`/`circle`/`rgb` records (ShapeTag-aware); golden vs `lower_source` in package tests. CST keyword tables + GUI unchanged.
-  3. [ ] Migrate `examples/*.rpx` that still use interim `(page …)(circle …)` to `(import graphics/…)` — one example per commit.
-  4. [ ] Flip GUI scene ingest to the same constructors; keep keyword parse as a thin compatibility adapter.
+  3. [x] Migrate `examples/*.rpx` that still use interim `(page …)(circle …)` to `(import graphics/…)` — one example per commit (`shapes`, `transforms`, `image`, `paths` → language-only package imports; **interim kept**: `black_circle`, `text_line`, `two_pages`, `letter_opacity`, `japanese_page`, `effects`, …).
+  4. [ ] Flip GUI scene ingest to the same constructors; keep keyword parse as a thin compatibility adapter. *(opt-in `document_from_package_entry` adapter landed in `reciplexa-package`; GUI still uses interim CST lower.)*
   5. [ ] Delete interim keyword tables only after GUI + export golden paths stay green.
-  6. [ ] Grow bridge tags: `rect`/`ellipse`/transforms/`group`/stroke/paint.
+  6. [x] Grow bridge tags: `rect`/`ellipse`/transforms/`group`/stroke/paint/text/image/opacity (+ line/polyline/polygon/ring/frame).
 ### Slice E — workspace / resources / OPEN stubs
 
 - [x] `workspace.rpxm` stub parse (`parse_workspace_rpxm` / format-version + members)
