@@ -102,11 +102,11 @@ pre-PKG カーネルは計画上 **COMPLETE（意図的 defer 付き）**。各�
 | **`packages/graphics`** | Slice A + C static depth | `shapes`（circle/rect/ellipse/line/path/ring/frame/group + fill/stroke/paint）、`page`（a4/letter/a5/a3/legal/square/page-size）、`color`（rgb/rgba + named）＋`.rpi`；例 `examples/pkg_graphics_static.rpx` |
 | **`packages/length`** | Slice A | `mm`/`cm`/`pt`/`inch`（Number+Ident 単位サフィックスは暫定のまま） |
 | **`packages/color`** | Slice A | `srgb` + 名前色 |
-| **`packages/math`** | Slice C（SATySFi 志向） | `atoms`（ord/op/bin/rel/open/close/punct/fence + row）、`scripts`、`frac`、`sqrt`、`delimiters`；`reciplexa-std::math` の class 文字列に整列；例 `examples/pkg_math.rpx` |
-| **`packages/japanese`** | Slice C（JLReq 志向・部分） | `classes`（cl-01..cl-30 id + 主要別名）、`linebreak`（禁則スタブ / `break-between`）、`kihon`（基本版面 + line-rate）、`markup`；**完全 JLReq ではない**（OPEN-TEXT-JA-001）；例 `examples/pkg_japanese_jlreq.rpx` |
+| **`packages/math`** | Slice C（SATySFi 志向） | `atoms` / `scripts` / `frac` / `sqrt` / `delimiters` + **`matrix` / `accents` / `bigops`**；例 `examples/pkg_math.rpx` |
+| **`packages/japanese`** | Slice C（JLReq 志向・部分） | `classes`（別名拡充 + name 表）、`linebreak`（`sample-pair-rules`）、`kihon`（trim/placement stub）、`markup`；例 `pkg_japanese_jlreq` / **`pkg_markup_ja`**；**完全 JLReq ではない** |
 
 ローカル import（例: `(import graphics/shapes)`）、消費者 path-dep + alias、`workspace.rpxm` stub parse まで到達。**レジストリ・署名・git/URL dep・本番ビルドグラフ全体は未着手（OPEN-PKG-*）。**  
-文書パイプライン側の `(page …)(circle …)` interim は **まだ残存**（strangler 移行は Slice D）。
+文書パイプラインの CST `(page …)(circle …)` interim は **GUI 向けに残存**。Slice D: `document_from_graphics_value` が package `page`/`fill`/`circle` を scene へ橋渡し（キーワード表は未削除）。
 
 ---
 
@@ -153,13 +153,13 @@ pre-PKG カーネルは計画上 **COMPLETE（意図的 defer 付き）**。各�
 
 1. **カバレッジ締め** — 特に `reciplexa-core`（check/elaborate）、続いて bind / syntax / eval / CLI・GUI の残リージョンを 99% 帯へ。
 2. **PKG 深化（Slice C–D）**
-   - `graphics` / `length` / `color` を文書 lower・eval から本消費（interim `page`/`circle` の strangler 引退；手順は `package-plan.md` Slice D）
-   - ~~**`japanese` / jlreq 相当**（組版・markup）をスタブから仕様面へ~~ → 第一層を上陸（完全 JLReq は未）
-   - ~~**`math`（数式）** を `reciplexa-std::math` と揃えて深化~~ → atoms/scripts/frac/sqrt/delimiters 上陸
+   - `graphics` strangler: bridge v1 (`page`/`fill`/`circle`) landed; grow tags + migrate examples + GUI ingest
+   - `japanese` / jlreq: deepen UCS maps + §C matrix; Text IR bind for `pkg_markup_ja`
+   - `math`: layout on matrix/accents/bigops trees (still Core records only)
 3. **PKG インフラ残り（Slice E 断片）** — workspace メンバー発見＋共有 lock、resource root；レジストリは stub のまま据え置き可。
 4. **意図的言語 defer の選択的解禁** — 必要になった時点でのみ EFF multi-shot、MOD functor、ROW multi-tail 等（カーネル「完成宣言」を崩さない範囲で）。
 5. **OPEN-TEXT-JA-001** — UCS 文字クラス表・§C 分割可否行列・Text IR 結合を japanese package へ段階追加。
-6. **math layout** — 現 record 木の上に stretchy fence / script 配置（まだ木の構築のみ）。
+6. **math layout** — stretchy fence / script / matrix alignment（現は木の構築のみ）。
 ---
 
 ## 付記: クレート一覧の見取り図

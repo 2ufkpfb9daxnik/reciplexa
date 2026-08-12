@@ -49,20 +49,21 @@ Goal: land local-path packages and std domain libraries after Part II conformanc
 - [x] `packages/graphics` depth (static): shapes (`circle`/`rect`/`ellipse`/`line`/`path`/`polyline`/`polygon`/`ring`/`frame`/`group`), `text`/`text-box`/`image`, transforms (`translate`/`rotate`/`scale`), `opacity`, `fill`/`stroke`/`paint`, page sizes (`a4`/`letter`/`a5`/`a3`/`legal`/`square`/`page-size`), color `rgb`/`rgba` + named — aligned to `reciplexa-std` visual / interim tags; examples `pkg_graphics_static` / `pkg_graphics_shapes` / `pkg_graphics_transform`; package-tree load tests in `reciplexa-package`
 - `packages/length` — deepen beyond stub (`mm` / unit constructors; retire Number+Ident interim where safe)
 - `packages/color` — deepen beyond stub (`rgb` / named colors) *(graphics/color already hosts rgb/rgba; shared `packages/color` still thin)*
-- [x] `packages/math` — SATySFi-inspired atoms/scripts/frac/sqrt/delimiters as Core records; aligned with `reciplexa-std::math` class strings; example `examples/pkg_math.rpx`
-- [x] `packages/japanese` — JLReq-oriented first solid layer: `classes` (cl-01..cl-30 ids + frequent aliases), `linebreak` (kinsoku stubs + `break-between`), `kihon` (hanmen + line-rate constants), `markup`; **not** full JLReq / OPEN-TEXT-JA-001; example `examples/pkg_japanese_jlreq.rpx`
+- [x] `packages/math` — SATySFi-inspired atoms/scripts/frac/sqrt/delimiters **+ matrix / accents / bigops** as Core records; example `examples/pkg_math.rpx`
+- [x] `packages/japanese` — JLReq layer deepened: more class aliases + name tables, `sample-pair-rules`, kihon trim/placement stubs, `examples/pkg_markup_ja.rpx` package-record path alongside SYN `@`-markup; **not** full JLReq / OPEN-TEXT-JA-001
 
 ### Slice D — document migration (strangler)
 
 - Package-defined shape/page constructors consumed by lower/eval
 - Keep interim surface until GUI + examples migrate atomically *(GUI interim retained; package import path live for examples, now covering interim text/image/transform/opacity tags as package constructors)*
 - Retire hard-coded `"circle"` / `"page"` keyword tables gradually
-- **Graphics strangler next steps (document only; low-risk implement later):**
-  1. Map interim lower tags (`circle`/`rect`/`page`/`text`/…) 1:1 onto `graphics/*` package records (already tag-compatible).
-  2. Teach eval/lower to accept package-built records without keyword tables (prefer tag + fields).
-  3. Migrate `examples/*.rpx` that still use interim `(page …)(circle …)` to `(import graphics/…)` — one example per commit.
-  4. Flip GUI scene ingest to the same constructors; keep keyword parse as a thin compatibility adapter.
-  5. Delete interim keyword tables only after GUI + export golden paths stay green.
+- **Graphics strangler progress:**
+  1. [x] Map interim lower tags (`circle`/`rect`/`page`/`text`/…) 1:1 onto `graphics/*` package records (already tag-compatible).
+  2. [x] Bridge: `reciplexa_eval::document_from_graphics_value` recognizes package `page`/`fill`/`circle`/`rgb` records (ShapeTag-aware); golden vs `lower_source` in package tests. CST keyword tables + GUI unchanged.
+  3. [ ] Migrate `examples/*.rpx` that still use interim `(page …)(circle …)` to `(import graphics/…)` — one example per commit.
+  4. [ ] Flip GUI scene ingest to the same constructors; keep keyword parse as a thin compatibility adapter.
+  5. [ ] Delete interim keyword tables only after GUI + export golden paths stay green.
+  6. [ ] Grow bridge tags: `rect`/`ellipse`/transforms/`group`/stroke/paint.
 ### Slice E — workspace / resources / OPEN stubs
 
 - [x] `workspace.rpxm` stub parse (`parse_workspace_rpxm` / format-version + members)

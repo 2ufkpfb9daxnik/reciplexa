@@ -34,7 +34,7 @@ Prefer **eliminate** over documenting when reachable. Items below are either sti
 
 1. **`elaborate.rs` (~274)** — Round10–11 exhaustive Err matrices + binder/numeric probes landed; remaining are largely `?` Err-only region ends after syntax-kind guards where the lexer does not emit a failing `Number`/`String` spelling (or only via exotic CST shapes). Thin cfg(test) token walks help some; keep expanding before holdout promotion.
 2. **`check.rs` (~123)** — Helper matrices hit variant keep/strip, occurrence, bind_pattern, letrec, numeric ambiguous/`Dynamic`. Leftover `?` / soft edges on Handle/With/Match happy-path region ends and cast insert tails.
-3. **`unify.rs` (~54) / `cast.rs` (~33)** — Open-row / lacks / evidence / decidable-fragment tails; many partially exercised. Prefer more `occurs`/`plan_structural_check` leaves over new public API.
+3. **`unify.rs` / `cast.rs`** — Open-row / lacks / Any-left / Variant∩ / nested Compose residuals exercised this wave; remasure before promoting leftovers.
 4. **`eval.rs` Cont other (~83)** — Leftover Cont results during deep-resume re-perform / builtin edges (workspace table).
 5. **`resolve.rs` (~79)** — Soft `continue` on malformed atoms / structured-comment skips / rare pattern shapes.
 
@@ -45,9 +45,10 @@ Prefer **eliminate** over documenting when reachable. Items below are either sti
 3. **`expr.rs` `variant_payload_irrefutable` region ends** — Helper is cfg(test)-exercised; llvm still reports a handful of region entries around the match / `#[cfg(test)]` boundary (instrumentation noise). Prefer leave rather than API churn.
 4. **Cast/unify exotic fragments** — Open-row / forall / gradual stubs and evidence algebra tails; many `Unknown` decide paths. Fill when TYP semantic subtyping deepens; until then partial.
 5. **Elaborate `?` after kind guard (candidate)** — When a token is already `SyntaxKind::Number`/`String`/`Ident` and the subsequent `parse_*`/`decode_*` Err arm is unreachable for any spelling the current lexer emits, document the arm rather than inventing green-tree fixtures. Do not promote wholesale until a failing Number/String corpus is exhausted.
+6. **Deep package-module Let nesting** — Elaborating many linked math modules can overflow default Windows debug stacks; package tests bump thread stack. Prefer eventual iterative nesting over documenting forever.
 
 ## Non-goals this pass
 
-- jlreq / math package depth (graphics static surface now includes text/image/transforms/opacity — Slice C graphics checkbox can proceed when strangler ready; still defer jlreq/math package depth per plan).
 - Push / publish.
-- Treating CLI / syntax / gui / view under-99 as blockers for graphics Slice C (those crates remain below 99% in the workspace table; separate waves).
+- Treating CLI / syntax / gui / view under-99 as blockers for graphics Slice D bridge growth.
+- Full JLReq UCS maps / math glyph layout.
