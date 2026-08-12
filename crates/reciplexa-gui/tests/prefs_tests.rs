@@ -141,6 +141,10 @@ fn prefs_boolean_equivalence_and_legacy_dark() {
     assert_eq!(prefs.theme, UiTheme::Dark);
 
     let mut prefs = GuiPrefs::default_prefs();
+    prefs.apply_prefs_text("dark");
+    assert_eq!(prefs.theme, UiTheme::Dark);
+
+    let mut prefs = GuiPrefs::default_prefs();
     prefs.apply_prefs_text("theme=LIGHT\nzoom=0.01\nzoom=not-a-number\npan_x=abc\npan_y=\n");
     assert_eq!(prefs.theme, UiTheme::Light);
     assert!((prefs.zoom - 0.2).abs() < 1e-4);

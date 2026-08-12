@@ -56,3 +56,12 @@ fn color_byte_expand_still_editable() {
     let out = nudge_authoring_layers(authoring, &expanded, 0, &[0], 1.0, 0.0).unwrap();
     assert!(out.contains("(translate 1 0 (text"), "{out}");
 }
+
+#[test]
+fn authoring_parse_error_with_divergent_expanded_is_soft_false() {
+    let authoring = "(page";
+    let expanded = "(page a4 (text 1 2 3 \"x\" black))";
+    assert!(!authoring_layers_align(authoring, expanded, 0).unwrap());
+    let err = nudge_authoring_layers(authoring, expanded, 0, &[0], 1.0, 0.0).unwrap_err();
+    assert!(!err.message.is_empty());
+}

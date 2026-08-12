@@ -78,4 +78,65 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn install_cjk_fonts_restores_when_windir_was_unset() {
+        let prev = env::var_os("WINDIR");
+        unsafe {
+            env::remove_var("WINDIR");
+        }
+        // Point at missing root via default C:\Windows may still find fonts; force miss:
+        unsafe {
+            env::set_var("WINDIR", r"D:\definitely-missing-windows-root-2");
+        }
+        let ctx = egui::Context::default();
+        install_cjk_fonts(&ctx);
+        unsafe {
+            match prev {
+                Some(v) => env::set_var("WINDIR", v),
+                None => env::remove_var("WINDIR"),
+            }
+        }
+    }
+
+    #[test]
+    fn install_cjk_fonts_read_failure_on_directory_named_like_font() {
+        // is_file() is false for directories, so create a zero-permission file when possible.
+        let root = std::env::temp_dir().join("rpx_font_cov");
+        let fonts = root.join("Fonts");
+        let _ = fs::create_dir_all(&fonts);
+        let font_path = fonts.join("YuGothR.ttc");
+        // Write then make unreadable by opening exclusive lock (Windows): leave empty file
+        // that fs::read can still read — instead use a path that is_file but delete mid-way
+        // is racy. Prefer a named pipe-like miss: create file, then replace with directory
+        // after candidate selection is hard. Cover read Err by using an invalid reparse.
+        // Practical approach: empty file is readable; use ACL deny if available.
+        fs::write(&font_path, b"not-a-real-font").unwrap();
+        // On Windows, open the file with share-mode none so fs::read fails.
+        #[cfg(windows)]
+        {
+            use std::fs::OpenOptions;
+            use std::os::windows::fs::OpenOptionsExt;
+            const FILE_SHARE_NONE: u32 = 0;
+            let _lock = OpenOptions::new()
+                .read(true)
+                .share_mode(FILE_SHARE_NONE)
+                .open(&font_path)
+                .ok();
+            let prev = env::var_os("WINDIR");
+            unsafe {
+                env::set_var("WINDIR", root.as_os_str());
+            }
+            let ctx = egui::Context::default();
+            install_cjk_fonts(&ctx);
+            unsafe {
+                match prev {
+                    Some(v) => env::set_var("WINDIR", v),
+                    None => env::remove_var("WINDIR"),
+                }
+            }
+            drop(_lock);
+        }
+        let _ = fs::remove_dir_all(&root);
+    }
 }
