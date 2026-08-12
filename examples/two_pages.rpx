@@ -1,10 +1,20 @@
-(// Two A4 pages.)
-(page a4
-  (text 30 260 8 "Page 1" black)
-  (circle 105 148.5 40 red))
-
-(page a4
-  (text 30 260 8 "Page 2" black)
-  (group
-    (frame 40 60 130 160 1.5 blue)
-    (ellipse 105 140 50 30 green)))
+(// language-only: two A4 pages via package `pages` list (multipage bridge).)
+(import graphics/shapes only circle text frame ellipse group fill)
+(import graphics/page only a4 page pages)
+(import graphics/color only black red blue green)
+(val main
+  (pages
+    (list
+      (page a4
+        (group
+          (list
+            (fill (text 30 260 8 "Page 1") black)
+            (fill (circle 105 148.5 40) red))))
+      (page a4
+        (group
+          (list
+            (fill (text 30 260 8 "Page 2") black)
+            (group
+              (list
+                (frame 40 60 130 160 1.5 blue)
+                (fill (ellipse 105 140 50 30) green)))))))))

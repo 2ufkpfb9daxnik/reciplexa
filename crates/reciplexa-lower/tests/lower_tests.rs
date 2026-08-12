@@ -214,7 +214,16 @@ fn lowers_polyline() {
 
 #[test]
 fn lowers_group_and_multipage() {
-    let src = include_str!("../../../examples/two_pages.rpx");
+    let src = r#"(// Two A4 pages.)
+(page a4
+  (text 30 260 8 "Page 1" black)
+  (circle 105 148.5 40 red))
+
+(page a4
+  (text 30 260 8 "Page 2" black)
+  (group
+    (frame 40 60 130 160 1.5 blue)
+    (ellipse 105 140 50 30 green)))"#;
     let doc = lower_source(src).unwrap();
     assert_eq!(doc.pages.len(), 2);
     match &doc.pages[1].shapes[1] {
@@ -234,7 +243,11 @@ fn lowers_group_and_multipage() {
 
 #[test]
 fn lowers_letter_and_opacity() {
-    let src = include_str!("../../../examples/letter_opacity.rpx");
+    let src = r#"(// US Letter page with semi-transparent overlapping circles.)
+(page letter
+  (circle 80 140 50 red)
+  (opacity 0.45
+    (circle 120 160 55 blue)))"#;
     let doc = lower_source(src).unwrap();
     assert_eq!(doc.pages[0].paper, PaperSize::letter());
     match &doc.pages[0].shapes[1] {

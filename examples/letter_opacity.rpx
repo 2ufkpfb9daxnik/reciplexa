@@ -1,5 +1,11 @@
-(// US Letter page with semi-transparent overlapping circles.)
-(page letter
-  (circle 80 140 50 red)
-  (opacity 0.45
-    (circle 120 160 55 blue)))
+(// language-only: US Letter page with semi-transparent overlapping circles (package graphics).)
+(import graphics/shapes only circle opacity fill)
+(import graphics/page only letter page)
+(import graphics/color only red blue)
+(val main
+  (page letter
+    (group
+      (list
+        (fill (circle 80 140 50) red)
+        (opacity 0.45
+          (fill (circle 120 160 55) blue))))))

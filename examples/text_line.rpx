@@ -1,6 +1,12 @@
-(// Latin text, stroked line, rgb / color-byte fills.)
-(page a4
-  (text 30 260 8 "Reciplexa" black)
-  (line 30 250 180 250 (color-byte 200 40 40) 1)
-  (translate 105 120
-    (circle 0 0 25 (color-byte 30 90 180))))
+(// language-only: Slice D — package graphics text/line/translate (GUI interim kept for color-byte sync tests).)
+(import graphics/shapes only circle line text translate fill stroke)
+(import graphics/page only a4 page)
+(import graphics/color only black rgb)
+(val main
+  (page a4
+    (group
+      (list
+        (fill (text 30 260 8 "Reciplexa") black)
+        (stroke (line 30 250 180 250) 1 (rgb 0.784 0.157 0.157))
+        (translate 105 120
+          (fill (circle 0 0 25) (rgb 0.118 0.353 0.706)))))))

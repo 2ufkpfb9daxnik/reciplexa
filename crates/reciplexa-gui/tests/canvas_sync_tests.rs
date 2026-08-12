@@ -49,7 +49,12 @@ fn markup_expanded_paint_align_false_nudge_soft() {
 
 #[test]
 fn color_byte_expand_still_editable() {
-    let authoring = include_str!("../../../examples/text_line.rpx");
+    let authoring = r#"(// Latin text, stroked line, rgb / color-byte fills.)
+(page a4
+  (text 30 260 8 "Reciplexa" black)
+  (line 30 250 180 250 (color-byte 200 40 40) 1)
+  (translate 105 120
+    (circle 0 0 25 (color-byte 30 90 180))))"#;
     let expanded = reciplexa_macro::expand_source(authoring).expect("expand");
     assert_ne!(authoring, expanded);
     assert!(authoring_layers_align(authoring, &expanded, 0).unwrap());
