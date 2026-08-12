@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use reciplexa_eval::{eval_expr, UnitHost};
+use reciplexa_eval::{eval_expr, primitive_env, UnitHost};
 use reciplexa_package::{
     elaborate_with_packages, load_module_tree_with_packages, parse_rpxm, LocalPackageIndex,
     Lockfile,
@@ -116,6 +116,109 @@ fn resolve_math_and_japanese_stubs() {
     assert!(math.contains("math-symbol") || math.contains("symbol"));
     let (_, ja) = idx.resolve_import("japanese/markup").unwrap();
     assert!(ja.contains("ja-heading") || ja.contains("heading"));
+}
+
+#[test]
+fn resolve_japanese_jlreq_modules() {
+    let idx = index();
+    for mod_path in [
+        "japanese/classes",
+        "japanese/linebreak",
+        "japanese/kihon",
+        "japanese/markup",
+    ] {
+        let (name, src) = idx.resolve_import(mod_path).unwrap();
+        assert_eq!(name, mod_path);
+        assert!(!src.is_empty(), "{mod_path} empty");
+    }
+    let (_, classes) = idx.resolve_import("japanese/classes").unwrap();
+    assert!(classes.contains("cl-01") && classes.contains("all-class-ids"));
+    assert!(classes.contains("cl-19") && classes.contains("class-name"));
+    let (_, lb) = idx.resolve_import("japanese/linebreak").unwrap();
+    assert!(lb.contains("break-between") && lb.contains("kinsoku-profile"));
+    let (_, kihon) = idx.resolve_import("japanese/kihon").unwrap();
+    assert!(kihon.contains("kihon-hanmen") && kihon.contains("line-rate-default"));
+    let exports = idx
+        .resolve_import_detailed("japanese/classes")
+        .unwrap()
+        .interface_exports
+        .unwrap();
+    assert!(exports.contains(&"cl-19".into()));
+    assert!(exports.contains(&"advance-em".into()));
+    assert!(exports.contains(&"all-class-ids".into()));
+}
+
+#[test]
+fn resolve_math_domain_modules() {
+    let idx = index();
+    for mod_path in [
+        "math/atoms",
+        "math/scripts",
+        "math/frac",
+        "math/sqrt",
+        "math/delimiters",
+    ] {
+        let (name, src) = idx.resolve_import(mod_path).unwrap();
+        assert_eq!(name, mod_path);
+        assert!(!src.is_empty(), "{mod_path} empty");
+    }
+    let (_, atoms) = idx.resolve_import("math/atoms").unwrap();
+    assert!(atoms.contains("class-ord") && atoms.contains("(val bin"));
+    let (_, sqrt) = idx.resolve_import("math/sqrt").unwrap();
+    assert!(sqrt.contains("radical-indexed"));
+    let exports = idx
+        .resolve_import_detailed("math/delimiters")
+        .unwrap()
+        .interface_exports
+        .unwrap();
+    assert!(exports.contains(&"paren".into()));
+    assert!(exports.contains(&"delimiter".into()));
+}
+
+#[test]
+fn elaborate_and_eval_japanese_jlreq_example() {
+    let idx = index();
+    let entry = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../examples/pkg_japanese_jlreq.rpx");
+    let units = load_module_tree_with_packages(&entry, &idx).unwrap();
+    assert!(units.iter().any(|(n, _)| n == "japanese/classes"));
+    assert!(units.iter().any(|(n, _)| n == "japanese/linebreak"));
+    assert!(units.iter().any(|(n, _)| n == "japanese/kihon"));
+    let units = elaborate_with_packages(&entry, &idx).unwrap();
+    let demo = units
+        .iter()
+        .find(|u| u.name == "pkg_japanese_jlreq")
+        .unwrap();
+    let v = eval_expr(&demo.expr, &primitive_env(), &mut UnitHost).unwrap();
+    let s = format!("{v}");
+    assert!(
+        s.contains("ja-jlreq-demo")
+            || s.contains("ja-doc")
+            || s.contains("kihon-hanmen")
+            || s.contains("jlreq"),
+        "expected japanese jlreq tree, got {s}"
+    );
+}
+
+#[test]
+fn elaborate_and_eval_math_package_example() {
+    let idx = index();
+    let entry = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/pkg_math.rpx");
+    let units = load_module_tree_with_packages(&entry, &idx).unwrap();
+    assert!(units.iter().any(|(n, _)| n == "math/atoms"));
+    assert!(units.iter().any(|(n, _)| n == "math/frac"));
+    assert!(units.iter().any(|(n, _)| n == "math/sqrt"));
+    let units = elaborate_with_packages(&entry, &idx).unwrap();
+    let demo = units.iter().find(|u| u.name == "pkg_math").unwrap();
+    let v = eval_expr(&demo.expr, &primitive_env(), &mut UnitHost).unwrap();
+    let s = format!("{v}");
+    assert!(
+        s.contains("math-demo")
+            || s.contains("math-fraction")
+            || s.contains("math-radical")
+            || s.contains("math-delimiter"),
+        "expected math package tree, got {s}"
+    );
 }
 
 #[test]
