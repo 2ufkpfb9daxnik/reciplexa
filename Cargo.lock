@@ -2935,6 +2935,7 @@ dependencies = [
  "reciplexa-core",
  "reciplexa-macro",
  "reciplexa-outcome",
+ "reciplexa-scene",
  "reciplexa-syntax",
 ]
 
@@ -3050,6 +3051,8 @@ dependencies = [
  "reciplexa-bind",
  "reciplexa-eval",
  "reciplexa-identity",
+ "reciplexa-lower",
+ "reciplexa-scene",
  "reciplexa-syntax",
  "serde",
  "serde_json",
