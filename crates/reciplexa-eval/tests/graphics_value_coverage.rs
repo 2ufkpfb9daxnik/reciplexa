@@ -344,4 +344,122 @@ fn color_and_error_matrix() {
         ),
     ]))
     .is_err());
+
+    // fill on rect/ellipse/polygon/text + stroke polyline + paint dual group
+    for tag_shape in [
+        rec(vec![
+            ("tag", RuntimeValue::String("fill".into())),
+            (
+                "shape",
+                rec(vec![
+                    ("tag", RuntimeValue::String("rect".into())),
+                    ("x", num(0.0)),
+                    ("y", num(0.0)),
+                    ("w", num(2.0)),
+                    ("h", num(3.0)),
+                ]),
+            ),
+            ("color", rgb(0.5, 0.5, 0.5)),
+        ]),
+        rec(vec![
+            ("tag", RuntimeValue::String("fill".into())),
+            (
+                "shape",
+                rec(vec![
+                    ("tag", RuntimeValue::String("ellipse".into())),
+                    ("x", num(0.0)),
+                    ("y", num(0.0)),
+                    ("rx", num(2.0)),
+                    ("ry", num(3.0)),
+                ]),
+            ),
+            ("color", rgb(0.5, 0.5, 0.5)),
+        ]),
+        rec(vec![
+            ("tag", RuntimeValue::String("fill".into())),
+            (
+                "shape",
+                rec(vec![
+                    ("tag", RuntimeValue::String("polygon".into())),
+                    (
+                        "points",
+                        cons_list(vec![num(0.0), num(0.0), num(1.0), num(0.0), num(0.0), num(1.0)]),
+                    ),
+                ]),
+            ),
+            ("color", rgb(0.5, 0.5, 0.5)),
+        ]),
+        rec(vec![
+            ("tag", RuntimeValue::String("fill".into())),
+            (
+                "shape",
+                rec(vec![
+                    ("tag", RuntimeValue::String("text".into())),
+                    ("x", num(0.0)),
+                    ("y", num(0.0)),
+                    ("size", num(8.0)),
+                    ("content", RuntimeValue::String("x".into())),
+                ]),
+            ),
+            ("color", rgb(0.5, 0.5, 0.5)),
+        ]),
+        rec(vec![
+            ("tag", RuntimeValue::String("stroke".into())),
+            (
+                "shape",
+                rec(vec![
+                    ("tag", RuntimeValue::String("polyline".into())),
+                    (
+                        "points",
+                        cons_list(vec![num(0.0), num(0.0), num(1.0), num(1.0)]),
+                    ),
+                ]),
+            ),
+            ("width", num(0.5)),
+            ("color", rgb(0.0, 0.0, 0.0)),
+        ]),
+    ] {
+        assert!(shape_from_graphics_value(&tag_shape).is_ok(), "{tag_shape:?}");
+    }
+
+    // paint with both fill+stroke → group
+    let paint_both = rec(vec![
+        ("tag", RuntimeValue::String("paint".into())),
+        (
+            "shape",
+            rec(vec![
+                ("tag", RuntimeValue::String("rect".into())),
+                ("x", num(0.0)),
+                ("y", num(0.0)),
+                ("w", num(10.0)),
+                ("h", num(5.0)),
+            ]),
+        ),
+        ("fill", rgba(1.0, 0.0, 0.0, 1.0)),
+        ("stroke-width", num(1.0)),
+        ("stroke-color", rgb(0.0, 0.0, 0.0)),
+    ]);
+    assert!(matches!(
+        shape_from_graphics_value(&paint_both).unwrap(),
+        Shape::Group { children, .. } if children.len() == 2
+    ));
+
+    // missing fill/stroke fields
+    assert!(shape_from_graphics_value(&rec(vec![
+        ("tag", RuntimeValue::String("fill".into())),
+        ("shape", circle(0.0, 0.0, 1.0)),
+    ]))
+    .is_err());
+    assert!(shape_from_graphics_value(&rec(vec![
+        ("tag", RuntimeValue::String("stroke".into())),
+        ("shape", circle(0.0, 0.0, 1.0)),
+        ("width", num(1.0)),
+    ]))
+    .is_err());
+    assert!(shape_from_graphics_value(&rec(vec![
+        ("tag", RuntimeValue::String("stroke".into())),
+        ("shape", circle(0.0, 0.0, 1.0)),
+        ("color", rgb(0.0, 0.0, 0.0)),
+    ]))
+    .is_err());
 }
