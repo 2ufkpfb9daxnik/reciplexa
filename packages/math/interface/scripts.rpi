@@ -1,0 +1,7 @@
+(// math/scripts — script exports.)
+(val absent)
+(val superscript)
+(val subscript)
+(val scripts)
+(val super)
+(val sub)
