@@ -1,0 +1,26 @@
+(// language-only: japanese JLReq-oriented package surface (not full JLReq).)
+(import japanese/classes only cl-01 cl-19 advance-em is-square-letter?)
+(import japanese/linebreak only break-between kinsoku-profile line-head-prohibited-class?)
+(import japanese/kihon only
+  kihon-hanmen line-rate-default writing-mode-horizontal indent-em)
+(import japanese/markup only heading note ruby doc)
+(val hanmen
+  (kihon-hanmen 1.0 42 28 line-rate-default writing-mode-horizontal))
+(val break-rule (break-between 19 6))
+(val main
+  (record
+    (tag "ja-jlreq-demo")
+    (doc (doc "jlreq-japanese-draft"
+      (list
+        (heading "kihon-and-kinsoku")
+        (note "not-full-jlreq")
+        (ruby "layout" "kumi"))))
+    (hanmen hanmen)
+    (indent (indent-em hanmen 1))
+    (cl-01 cl-01)
+    (cl-19 cl-19)
+    (advance (advance-em 6))
+    (square (is-square-letter? 19))
+    (line-head (line-head-prohibited-class? 6))
+    (break-rule break-rule)
+    (kinsoku kinsoku-profile)))
