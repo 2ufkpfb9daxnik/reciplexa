@@ -8,4 +8,7 @@
     scripts
     frac
     sqrt
-    delimiters))
+    delimiters
+    matrix
+    accents
+    bigops))

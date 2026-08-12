@@ -1,0 +1,7 @@
+(// math/matrix — matrix constructor exports.)
+(val matrix)
+(val bmatrix)
+(val pmatrix)
+(val vmatrix)
+(val matrix-row)
+(val smallmatrix)
