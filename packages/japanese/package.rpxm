@@ -4,4 +4,7 @@
   source-root "src"
   interface-root "interface"
   (public-modules
+    classes
+    linebreak
+    kihon
     markup))
