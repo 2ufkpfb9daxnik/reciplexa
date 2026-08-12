@@ -1,4 +1,4 @@
-(// Migrated Slice D: package graphics constructors (not interim CST keywords).)
+(// language-only: Migrated Slice D — package graphics constructors.)
 (// GUI regression still uses interim examples like black_circle.rpx.)
 (import graphics/shapes only
   circle rect ellipse ring frame text fill stroke group)

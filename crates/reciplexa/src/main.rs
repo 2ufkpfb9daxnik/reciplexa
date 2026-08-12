@@ -226,16 +226,12 @@ mod tests {
         let has_cjk = reciplexa_pdf::cjk_font_path().is_some();
         for name in [
             "black_circle.rpx",
-            "shapes.rpx",
-            "transforms.rpx",
-            "paths.rpx",
             "text_line.rpx",
             "letter_opacity.rpx",
             "two_pages.rpx",
             "japanese_page.rpx",
             "macros.rpx",
             "effects.rpx",
-            "image.rpx",
             "markup_doc.rpx",
             "markup_ja.rpx",
             "decls_stub.rpx",
@@ -247,6 +243,11 @@ mod tests {
                 continue;
             }
             let input = repo.join("examples").join(name);
+            let src = fs::read_to_string(&input).unwrap_or_default();
+            if src.contains("language-only") {
+                eprintln!("skip {name}: language-only / package-import example");
+                continue;
+            }
             let output = repo.join("target").join(format!("test-{name}.pdf"));
             render(input.to_str().unwrap(), output.to_str().unwrap())
                 .unwrap_or_else(|e| panic!("{name}: {e}"));

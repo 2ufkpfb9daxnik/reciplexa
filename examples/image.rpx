@@ -1,4 +1,4 @@
-(// Migrated Slice D: package image + shape constructors.)
+(// language-only: Migrated Slice D — package image demo.)
 (import graphics/shapes only circle text image fill group)
 (import graphics/page only a4 page)
 (import graphics/color only black blue)

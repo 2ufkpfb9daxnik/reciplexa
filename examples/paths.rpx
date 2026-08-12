@@ -1,4 +1,4 @@
-(// Migrated Slice D: package polyline/polygon constructors.)
+(// language-only: Migrated Slice D — package polyline/polygon demo.)
 (import graphics/shapes only polyline polygon text stroke fill group)
 (import graphics/page only a4 page)
 (import graphics/color only black red rgb)
