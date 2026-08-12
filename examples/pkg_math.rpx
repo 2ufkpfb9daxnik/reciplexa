@@ -1,43 +1,59 @@
-(// language-only: SATySFi-inspired math package tree (Core records).)
-(import math/atoms only ord bin rel row class-ord)
-(import math/scripts only superscript underbrace overset)
-(import math/frac only fraction)
-(import math/sqrt only sqrt)
-(import math/delimiters only paren)
-(import math/matrix only bmatrix matrix-row)
-(import math/accents only hat)
-(import math/bigops only sum lim withlimits)
-(import math/cases only cases case-arm otherwise)
-(val x (ord "x"))
-(val two (ord "2"))
-(val n (ord "n"))
-(val i (ord "i"))
-(val expr
-  (paren
-    (row
-      (list
-        (fraction (superscript x two) (sqrt (ord "a")))
-        (rel "=")
-        (hat x)
-        (bin "+")
-        (sum i n (ord "a"))
-        (bin "+")
-        (lim (ord "n→∞") (ord "a_n"))
-        (bin "+")
-        (underbrace (ord "x+y"))
-        (bin "+")
-        (overset (ord "*") (ord "A"))
-        (bin "+")
-        (cases
-          (list
-            (case-arm (ord "x") (rel ">0"))
-            (otherwise (ord "0"))))
-        (bin "+")
-        (bmatrix
-          (list
-            (matrix-row (list (ord "1") (ord "0")))
-            (matrix-row (list (ord "0") (ord "1")))))))))
-(val main
-  (record (tag "math-demo")
-    (class-ord class-ord)
-    (tree expr)))
+(// language-only: SATySFi-inspired math package tree (Core records).)
+(import math/atoms only ord bin rel row class-ord)
+(import math/scripts only superscript underbrace overset)
+(import math/frac only fraction)
+(import math/sqrt only sqrt)
+(import math/delimiters only paren)
+(import math/matrix only bmatrix matrix-row)
+(import math/accents only hat)
+(import math/bigops only sum lim withlimits sum-scripts)
+(import math/cases only cases case-arm otherwise)
+(import math/align only align-eq align-row aligned)
+(import math/stack only stack stackrel substack)
+(val x (ord "x"))
+(val two (ord "2"))
+(val n (ord "n"))
+(val i (ord "i"))
+(val expr
+  (paren
+    (row
+      (list
+        (fraction (superscript x two) (sqrt (ord "a")))
+        (rel "=")
+        (hat x)
+        (bin "+")
+        (sum i n (ord "a"))
+        (bin "+")
+        (sum-scripts (ord "k=1") (ord "n") (ord "a_k"))
+        (bin "+")
+        (lim (ord "n→∞") (ord "a_n"))
+        (bin "+")
+        (underbrace (ord "x+y"))
+        (bin "+")
+        (overset (ord "*") (ord "A"))
+        (bin "+")
+        (stackrel (rel "=") (ord "x"))
+        (bin "+")
+        (cases
+          (list
+            (case-arm (ord "x") (rel ">0"))
+            (otherwise (ord "0"))))
+        (bin "+")
+        (align-eq
+          (list
+            (align-row (list (ord "x") (rel "=") (ord "1")))
+            (align-row (list (ord "y") (rel "=") (ord "2")))))
+        (bin "+")
+        (substack
+          (list
+            (align-row (list (ord "a")))
+            (align-row (list (ord "b")))))
+        (bin "+")
+        (bmatrix
+          (list
+            (matrix-row (list (ord "1") (ord "0")))
+            (matrix-row (list (ord "0") (ord "1")))))))))
+(val main
+  (record (tag "math-demo")
+    (class-ord class-ord)
+    (tree expr)))

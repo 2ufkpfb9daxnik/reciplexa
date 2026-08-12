@@ -12,4 +12,6 @@
     matrix
     accents
     bigops
-    cases))
+    cases
+    align
+    stack))

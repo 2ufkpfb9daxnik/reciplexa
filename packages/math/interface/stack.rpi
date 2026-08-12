@@ -1,0 +1,7 @@
+(// math/stack — vertical stack exports.)
+(val stack)
+(val stackrel)
+(val overset-rel)
+(val underset-rel)
+(val atop)
+(val substack)

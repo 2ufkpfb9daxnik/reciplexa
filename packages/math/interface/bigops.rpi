@@ -13,3 +13,8 @@
 (val nolimits)
 (val sum-nolimits)
 (val integral-nolimits)
+(val bigop-scripts)
+(val sum-scripts)
+(val prod-scripts)
+(val integral-scripts)
+(val oint-scripts)
