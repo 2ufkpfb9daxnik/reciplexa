@@ -474,15 +474,15 @@ fn radix_and_decimal_error_recovery_residuals() {
     for src in ["0b", "0o", "0x", "0b_1", "1e", "1e+", "1e-", "1__0"] {
         let ks = kinds(src);
         assert!(
-            !ks.is_empty() && ks.iter().any(|k| *k == SyntaxKind::Error),
+            !ks.is_empty() && ks.contains(&SyntaxKind::Error),
             "{src} -> {ks:?}"
         );
     }
     // Trailing `_` after hex digits: error token then leftover ident `_` depending on recovery.
-    assert!(kinds("0xff_").iter().any(|k| *k == SyntaxKind::Error));
+    assert!(kinds("0xff_").contains(&SyntaxKind::Error));
     assert_eq!(kinds("1e+2"), vec![SyntaxKind::Number]);
-    assert!(kinds("007e+1").iter().any(|k| *k == SyntaxKind::Error));
-    assert!(kinds("00.5").iter().any(|k| *k == SyntaxKind::Error));
+    assert!(kinds("007e+1").contains(&SyntaxKind::Error));
+    assert!(kinds("00.5").contains(&SyntaxKind::Error));
 }
 
 #[test]
