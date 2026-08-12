@@ -1,0 +1,6 @@
+(// math/sqrt — radical exports.)
+(val absent-index)
+(val sqrt)
+(val radical)
+(val radical-indexed)
+(val root)
