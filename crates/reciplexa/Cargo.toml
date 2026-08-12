@@ -32,3 +32,4 @@ reciplexa-scene = { workspace = true }
 reciplexa-visual-ir = { workspace = true }
 reciplexa-backend = { workspace = true }
 reciplexa-eval = { workspace = true }
+reciplexa-package = { path = "../reciplexa-package" }

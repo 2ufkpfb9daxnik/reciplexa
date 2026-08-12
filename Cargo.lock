@@ -2851,6 +2851,7 @@ dependencies = [
  "reciplexa-identity",
  "reciplexa-lower",
  "reciplexa-macro",
+ "reciplexa-package",
  "reciplexa-pdf",
  "reciplexa-pptx",
  "reciplexa-scene",

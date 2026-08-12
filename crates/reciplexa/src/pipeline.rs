@@ -2,11 +2,18 @@
 //!
 //! Keeping these as small functions (instead of one monolith) lets the GUI
 //! preview without performing I/O, while the CLI/export path injects a handler.
+//!
+//! Slice D: when source imports `graphics/*` and has no top-level interim `(page …)`,
+//! the pipeline can opt into package eval + `document_from_graphics_value` instead.
+
+use std::path::{Path, PathBuf};
 
 use reciplexa_effect::{run_source_effects, EffectError, EffectHandler, Value};
 use reciplexa_lower::lower_source;
 use reciplexa_macro::expand_source;
+use reciplexa_package::{document_from_package_source, LocalPackageIndex};
 use reciplexa_scene::Document;
+use reciplexa_syntax::{parse_source, SyntaxKind};
 use reciplexa_types::typecheck_source;
 
 use crate::document_pipeline::document_snapshot_from_source;
@@ -56,10 +63,88 @@ pub fn lower(expanded: &str) -> Result<Document, PipelineError> {
 }
 
 /// Expand + typecheck + lower — **no** effect execution (safe for live preview).
+///
+/// Uses the package graphics bridge when [`wants_package_graphics_path`] is true.
 pub fn document_from_source(src: &str) -> Result<Document, PipelineError> {
     let expanded = expand(src)?;
+    if wants_package_graphics_path(&expanded) {
+        return document_from_package_graphics(src);
+    }
     typecheck(&expanded)?;
     lower(&expanded)
+}
+
+/// Whether to route document ingest through package graphics eval instead of interim CST lower.
+///
+/// Auto-detects `(import graphics` without a top-level `(page …)` head. Override with
+/// `RECIPLEXA_PACKAGE_GRAPHICS=1` (force on) or `=0` (force off).
+pub fn wants_package_graphics_path(expanded: &str) -> bool {
+    if !expanded.contains("(import graphics") {
+        return false;
+    }
+    if std::env::var("RECIPLEXA_PACKAGE_GRAPHICS")
+        .map(|v| v == "0" || v.eq_ignore_ascii_case("false"))
+        .unwrap_or(false)
+    {
+        return false;
+    }
+    if std::env::var("RECIPLEXA_PACKAGE_GRAPHICS")
+        .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+        .unwrap_or(false)
+    {
+        return true;
+    }
+    !has_top_level_interim_page(expanded)
+}
+
+fn has_top_level_interim_page(src: &str) -> bool {
+    let Ok(root) = parse_source(src).into_result() else {
+        return false;
+    };
+    for form in root.children() {
+        if form.kind() == SyntaxKind::StructuredComment {
+            continue;
+        }
+        let items: Vec<_> = form.children().collect();
+        if let Some(head) = items.first() {
+            if head.kind() == SyntaxKind::Ident && head.text() == "page" {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+fn package_search_roots() -> Vec<PathBuf> {
+    if let Ok(p) = std::env::var("RECIPLEXA_PACKAGE_ROOT") {
+        return vec![PathBuf::from(p)];
+    }
+    let mut roots = Vec::new();
+    if let Ok(mut dir) = std::env::current_dir() {
+        for _ in 0..8 {
+            let packages = dir.join("packages");
+            if packages.is_dir() {
+                roots.push(packages);
+                break;
+            }
+            if !dir.pop() {
+                break;
+            }
+        }
+    }
+    if roots.is_empty() {
+        roots.push(PathBuf::from("packages"));
+    }
+    roots
+}
+
+fn document_from_package_graphics(src: &str) -> Result<Document, PipelineError> {
+    let search_roots = package_search_roots();
+    let roots: Vec<&Path> = search_roots.iter().map(PathBuf::as_path).collect();
+    let idx = LocalPackageIndex::discover(&roots)
+        .map_err(|e| PipelineError::new("package", e.to_string()))?;
+    document_from_package_source(src, "entry", &idx)
+        .map_err(|e| PipelineError::new("package", format!("{e:?}")))
 }
 
 /// Pipeline output with optional editable document snapshot (Phase 4).
@@ -75,8 +160,12 @@ pub fn document_from_source_with_snapshot(
     with_editable: bool,
 ) -> Result<PipelineDocument, PipelineError> {
     let expanded = expand(src)?;
-    typecheck(&expanded)?;
-    let scene = lower(&expanded)?;
+    let scene = if wants_package_graphics_path(&expanded) {
+        document_from_package_graphics(src)?
+    } else {
+        typecheck(&expanded)?;
+        lower(&expanded)?
+    };
     let editable = if with_editable {
         Some(
             document_snapshot_from_source(
@@ -107,6 +196,11 @@ pub fn document_for_export(
     src: &str,
 ) -> Result<(Document, String), PipelineError> {
     let expanded = expand(src)?;
+    if wants_package_graphics_path(&expanded) {
+        run_effects(handler, &expanded)?;
+        let doc = document_from_package_graphics(src)?;
+        return Ok((doc, expanded));
+    }
     typecheck(&expanded)?;
     run_effects(handler, &expanded)?;
     let doc = lower(&expanded)?;
@@ -120,6 +214,23 @@ mod tests {
     use reciplexa_scene::Shape;
 
     // --- validity ---
+
+    #[test]
+    fn document_from_source_package_graphics_shapes_example() {
+        let src = include_str!("../../../examples/shapes.rpx");
+        let doc = document_from_source(src).expect("package graphics ingest");
+        assert_eq!(doc.pages.len(), 1);
+        assert!(doc.pages[0].paper.is_positive());
+    }
+
+    #[test]
+    fn wants_package_graphics_path_detects_import_without_top_level_page() {
+        let src = include_str!("../../../examples/shapes.rpx");
+        let expanded = expand(src).unwrap();
+        assert!(wants_package_graphics_path(&expanded));
+        let interim = expand("(page a4 (circle 1 2 3))").unwrap();
+        assert!(!wants_package_graphics_path(&interim));
+    }
 
     #[test]
     fn document_from_source_expands_doc_title() {

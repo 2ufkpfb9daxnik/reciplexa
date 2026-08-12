@@ -99,6 +99,9 @@ fn print_usage() {
     eprintln!("  reciplexa inspect-syntax <input.rpx>");
     eprintln!("  reciplexa inspect-document <input.rpx>");
     eprintln!("  reciplexa eval <input.rpx>");
+    eprintln!();
+    eprintln!("env: RECIPLEXA_PACKAGE_GRAPHICS=1 forces package graphics ingest;");
+    eprintln!("     RECIPLEXA_PACKAGE_ROOT=<packages-dir> overrides search path.");
 }
 
 struct CliHandler {

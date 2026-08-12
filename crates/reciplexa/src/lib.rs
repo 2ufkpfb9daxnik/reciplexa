@@ -11,5 +11,5 @@ pub mod pipeline;
 
 pub use pipeline::{
     document_for_export, document_from_source, document_from_source_with_snapshot, expand, lower,
-    run_effects, PipelineDocument, PipelineError,
+    run_effects, wants_package_graphics_path, PipelineDocument, PipelineError,
 };

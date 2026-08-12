@@ -52,3 +52,17 @@ pub fn document_from_package_entry(
         .map_err(|e| GraphicsBridgeError::Eval(e.message))?;
     document_from_graphics_value(&v).map_err(Into::into)
 }
+
+/// Write `source` to a temp entry file, then [`document_from_package_entry`].
+pub fn document_from_package_source(
+    source: &str,
+    entry_stem: &str,
+    index: &LocalPackageIndex,
+) -> Result<Document, GraphicsBridgeError> {
+    let dir =
+        std::env::temp_dir().join(format!("reciplexa-pkg-{}-{entry_stem}", std::process::id()));
+    std::fs::create_dir_all(&dir).map_err(|e| GraphicsBridgeError::Load(e.to_string()))?;
+    let entry = dir.join(format!("{entry_stem}.rpx"));
+    std::fs::write(&entry, source).map_err(|e| GraphicsBridgeError::Load(e.to_string()))?;
+    document_from_package_entry(&entry, index)
+}
