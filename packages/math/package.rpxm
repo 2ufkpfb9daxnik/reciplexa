@@ -4,4 +4,8 @@
   source-root "src"
   interface-root "interface"
   (public-modules
-    atoms))
+    atoms
+    scripts
+    frac
+    sqrt
+    delimiters))
