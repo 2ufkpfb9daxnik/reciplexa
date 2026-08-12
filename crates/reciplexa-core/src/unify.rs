@@ -490,7 +490,10 @@ mod coverage_helpers {
             v,
             &CoreType::OptionalField(Box::new(CoreType::Var(v)))
         ));
-        assert!(!occurs(v, &CoreType::OptionalField(Box::new(CoreType::Int))));
+        assert!(!occurs(
+            v,
+            &CoreType::OptionalField(Box::new(CoreType::Int))
+        ));
         assert!(!occurs(v, &CoreType::Dynamic(Box::new(CoreType::Int))));
         assert!(occurs(v, &CoreType::Dynamic(Box::new(CoreType::Var(v)))));
         assert!(!occurs(v, &CoreType::Intersect(vec![CoreType::Int])));
@@ -723,10 +726,7 @@ mod coverage_helpers {
 
         let mut subst = Subst::new();
         let closed = CoreType::Record {
-            fields: vec![
-                ("a".into(), CoreType::Int),
-                ("b".into(), CoreType::String),
-            ],
+            fields: vec![("a".into(), CoreType::Int), ("b".into(), CoreType::String)],
         };
         let open = CoreType::OpenRecord {
             fields: vec![("a".into(), CoreType::Int)],

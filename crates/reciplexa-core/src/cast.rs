@@ -1016,10 +1016,7 @@ mod tests {
             fields: vec![("a".into(), CoreType::Var(crate::ty::TypeVarId(0)))],
         }));
         assert!(is_fully_decidable_fragment(&CoreType::Variant {
-            variants: vec![
-                ("none".into(), None),
-                ("some".into(), Some(CoreType::Int)),
-            ],
+            variants: vec![("none".into(), None), ("some".into(), Some(CoreType::Int)),],
         }));
         assert!(!is_fully_decidable_fragment(&CoreType::Variant {
             variants: vec![("x".into(), Some(CoreType::Var(crate::ty::TypeVarId(1))))],

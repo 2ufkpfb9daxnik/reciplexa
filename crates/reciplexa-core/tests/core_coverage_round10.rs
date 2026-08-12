@@ -110,9 +110,7 @@ fn check_round10_core_expr_err_and_ok_matrix() {
     );
     // ADT for parameterized ctor inference
     env.data.ctor_type.insert("mk".into(), "box".into());
-    env.data
-        .type_params
-        .insert("box".into(), vec!["a".into()]);
+    env.data.type_params.insert("box".into(), vec!["a".into()]);
     env.data
         .ctor_payloads
         .insert("mk".into(), vec![CoreType::Name("a".into())]);
@@ -407,10 +405,7 @@ fn cast_unify_round10_residuals() {
                 row: Box::new(CoreType::Var(subst.fresh_var())),
             },
         ),
-        (
-            CoreType::Singleton(SingletonValue::Unit),
-            CoreType::Unit,
-        ),
+        (CoreType::Singleton(SingletonValue::Unit), CoreType::Unit),
         (
             CoreType::Singleton(SingletonValue::String("z".into())),
             CoreType::String,
