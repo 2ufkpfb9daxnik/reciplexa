@@ -12,10 +12,16 @@ fn nudge_text_on_authoring_page_updates_xy_via_translate() {
 
 #[test]
 fn japanese_page_text_nudge_keeps_sibling() {
-    let src = include_str!("../../../examples/japanese_page.rpx");
+    // Interim CST golden for CJK nudge; package path lives in examples/japanese_page.rpx.
+    let src = r#"(page a4
+  (text 25 270 8 "レポート草稿" black)
+  (text 25 250 4 "本文。ページ上の text として置く現行の書き方です。" black)
+  (rotate 18 (circle 140 140 42 blue))
+  (opacity 0.35
+    (rect 40 60 90 50 red)))"#;
     assert!(
         authoring_layers_align(src, src, 0).unwrap(),
-        "japanese_page authoring layers should self-align"
+        "interim CJK page authoring layers should self-align"
     );
     let out = nudge_authoring_layers(src, src, 0, &[0], 3.0, -2.0).unwrap();
     assert!(

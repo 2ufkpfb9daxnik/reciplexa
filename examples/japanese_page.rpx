@@ -1,7 +1,14 @@
-(// Japanese text as page shapes (CJK font via RECIPLEXA_CJK_FONT / system fonts).)
-(page a4
-  (text 25 270 8 "レポート草稿" black)
-  (text 25 250 4 "本文。ページ上の text として置く現行の書き方です。" black)
-  (rotate 18 (circle 140 140 42 blue))
-  (opacity 0.35
-    (rect 40 60 90 50 red)))
+(// language-only: Slice D — CJK page via package graphics (GUI CST sync uses black_circle.rpx).)
+(import graphics/shapes only circle rect text rotate opacity fill)
+(import graphics/page only a4 page)
+(import graphics/color only black blue red)
+(val main
+  (page a4
+    (group
+      (list
+        (fill (text 25 270 8 "レポート草稿") black)
+        (fill (text 25 250 4 "本文。ページ上の text として置く現行の書き方です。" black) black)
+        (rotate 18
+          (fill (circle 140 140 42) blue))
+        (opacity 0.35
+          (fill (rect 40 60 90 50) red))))))
