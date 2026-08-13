@@ -2,8 +2,8 @@
 
 use reciplexa_std::japanese::{
     break_line, break_line_vertical, break_opportunity, break_opportunity_chars, char_em_width,
-    classify_char, is_hangable, is_line_end_prohibited, is_line_head_prohibited, vertical_advance_em,
-    BreakOpportunity, CharClass,
+    classify_char, is_hangable, is_line_end_prohibited, is_line_head_prohibited, justify_line,
+    vertical_advance_em, BreakOpportunity, CharClass,
 };
 
 #[test]
@@ -596,6 +596,28 @@ fn break_line_vertical_wraps_on_vertical_advance() {
         break_line_vertical("東京。", 2.0),
         vec!["東京。".to_string()]
     );
+}
+
+#[test]
+fn justify_line_distributes_at_allowed_breaks() {
+    // Ideographs: natural 3em; target 5em → +2em at two Allowed gaps (漢|字, 字|列).
+    let chars: Vec<char> = "漢字列".chars().collect();
+    let placed = justify_line(&chars, 5.0);
+    assert_eq!(placed.len(), 3);
+    assert_eq!(placed[0], ('漢', 0.0));
+    assert!((placed[1].1 - 2.0).abs() < 1e-9); // 1em glyph + 1em gap
+    assert!((placed[2].1 - 4.0).abs() < 1e-9);
+    // No stretch when target ≤ natural.
+    let tight = justify_line(&chars, 3.0);
+    assert_eq!(tight[0].1, 0.0);
+    assert!((tight[1].1 - 1.0).abs() < 1e-9);
+    assert!((tight[2].1 - 2.0).abs() < 1e-9);
+    assert!(justify_line(&[], 10.0).is_empty());
+    // Western run: inseparable → no Allowed gaps → pack left even if target wider.
+    let ab: Vec<char> = "AB".chars().collect();
+    let west = justify_line(&ab, 4.0);
+    assert_eq!(west[0].1, 0.0);
+    assert!((west[1].1 - 0.5).abs() < 1e-9);
 }
 
 #[test]

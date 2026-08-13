@@ -693,6 +693,45 @@ pub fn break_line(text: &str, max_em_units: f64) -> Vec<String> {
     out
 }
 
+/// Naive horizontal justification: place glyphs so the line spans `target_em`.
+///
+/// Extra space (`target_em − Σ char_em_width`) is split evenly across gaps where
+/// [`break_opportunity`] is [`BreakOpportunity::Allowed`]. If there are no such
+/// gaps (or `target_em` ≤ natural width), glyphs pack left with natural advances.
+/// Returns `(char, x_em)` left edges from 0. Not CSS/`text-justify` / JLReq.
+pub fn justify_line(chars: &[char], target_em: f64) -> Vec<(char, f64)> {
+    if chars.is_empty() {
+        return Vec::new();
+    }
+    let widths: Vec<f64> = chars.iter().copied().map(char_em_width).collect();
+    let natural: f64 = widths.iter().sum();
+    let mut gap_extra = vec![0.0_f64; chars.len().saturating_sub(1)];
+    if target_em > natural && chars.len() > 1 {
+        let mut allowed_idx = Vec::new();
+        for i in 0..chars.len() - 1 {
+            if break_opportunity_chars(chars[i], chars[i + 1]).may_break() {
+                allowed_idx.push(i);
+            }
+        }
+        if !allowed_idx.is_empty() {
+            let each = (target_em - natural) / allowed_idx.len() as f64;
+            for &i in &allowed_idx {
+                gap_extra[i] = each;
+            }
+        }
+    }
+    let mut out = Vec::with_capacity(chars.len());
+    let mut x = 0.0_f64;
+    for (i, &ch) in chars.iter().enumerate() {
+        out.push((ch, x));
+        x += widths[i];
+        if i < gap_extra.len() {
+            x += gap_extra[i];
+        }
+    }
+    out
+}
+
 /// Approximate vertical advance (em) for `vertical-rl` line budgeting.
 ///
 /// Fontless stub by [`CharClass`]: ideograph-like / kana / fullwidth punctuation

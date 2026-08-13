@@ -22,10 +22,10 @@ pub use core::{Angle, Color, Length, Point, Range, Rect, Size};
 pub use document::{Block, Figure, Flow, Heading, List, ListItem, Page, Section, Table};
 pub use japanese::{
     break_line, break_line_to_text_shapes, break_line_vertical, break_opportunity,
-    break_opportunity_chars, char_em_width, classify_char, is_hangable, lines_to_text_shapes,
-    ruby_estimate_box, tate_chu_yoko_estimate_box, vertical_advance_em, BreakOpportunity, CharClass,
-    KihonHanmen, Ruby, RubyBox, RubyKind, TateChuYoko, TateChuYokoBox, TategakiParagraph,
-    WritingMode,
+    break_opportunity_chars, char_em_width, classify_char, is_hangable, justify_line,
+    lines_to_text_shapes, ruby_estimate_box, tate_chu_yoko_estimate_box, vertical_advance_em,
+    BreakOpportunity, CharClass, KihonHanmen, Ruby, RubyBox, RubyKind, TateChuYoko, TateChuYokoBox,
+    TategakiParagraph, WritingMode,
 };
 pub use layout::{Align, Axis, Column, LayoutChild, Padding, Row, Stack};
 pub use math::{MathAccentKind, MathAtom, MathBox, MathClass, MathMatrixKind, MathStackKind};

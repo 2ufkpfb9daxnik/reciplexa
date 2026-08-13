@@ -267,7 +267,7 @@ When package path touched (Y2): also `cargo test -p reciplexa-package --offline`
 | Y0 — Broader UCS-ish `classify_char` tables | **done** |
 | Y1 — Vertical metrics stub | **done** |
 | Y2 — Auto-materialize `package-resource` in package document path | **done** |
-| Y3 — Justification stub | **pending** |
+| Y3 — Justification stub | **done** |
 | Y4 — Math scripts position stub | **pending** |
 | Y5 — Docs + `implemented-features` | **pending** |
 
