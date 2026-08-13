@@ -538,3 +538,39 @@ fn package_document_indent_em_offsets_first_paragraph_text() {
         .expect("title text");
     assert!((title.x_mm - 20.0).abs() < 1e-9);
 }
+
+/// Indent example → PDF smoke (CJK font gated).
+#[test]
+fn package_document_indent_pdf_smoke() {
+    if reciplexa_pdf::system_cjk_font_path().is_none() {
+        return;
+    }
+    let entry =
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/pkg_document_indent.rpx");
+    let doc = document_from_package_entry(&entry, &index()).expect("indent bridge");
+    let bytes = reciplexa_pdf::document_to_pdf(&doc).expect("indent pdf");
+    let pdf = String::from_utf8_lossy(&bytes);
+    let tj = pdf.matches(" Tj\n").count();
+    assert!(
+        tj >= 1,
+        "expected at least one PDF text op from indent example, got {tj}"
+    );
+}
+
+/// Indent example → SVG smoke (content strings embedded).
+#[test]
+fn package_document_indent_svg_smoke() {
+    let entry =
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/pkg_document_indent.rpx");
+    let doc = document_from_package_entry(&entry, &index()).expect("indent bridge");
+    let svg = reciplexa_svg::document_to_svg(&doc).expect("indent svg");
+    assert!(
+        svg.contains("インデント付き段落。") || svg.contains("<text"),
+        "expected indented body in SVG"
+    );
+    assert!(
+        svg.matches("<text").count() >= 2,
+        "expected title + body text elements, got {}",
+        svg.matches("<text").count()
+    );
+}
