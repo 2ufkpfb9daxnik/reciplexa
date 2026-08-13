@@ -1774,6 +1774,14 @@ pub fn typecheck_language_source(src: &str) -> Result<CoreType, CheckError> {
         },
     );
     env.insert(
+        "vertical-orientation",
+        CoreType::Fun {
+            args: vec![CoreType::String],
+            ret: Box::new(CoreType::String),
+            effects: EffectRow::default(),
+        },
+    );
+    env.insert(
         "math-box",
         CoreType::Fun {
             args: vec![CoreType::dyn_any()],

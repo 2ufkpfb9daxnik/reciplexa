@@ -89,6 +89,10 @@ pub fn primitive_env() -> HashMap<String, RuntimeValue> {
         RuntimeValue::Builtin(BuiltinOp::HangWidth),
     );
     env.insert(
+        "vertical-orientation".into(),
+        RuntimeValue::Builtin(BuiltinOp::VerticalOrientation),
+    );
+    env.insert(
         "math-box".into(),
         RuntimeValue::Builtin(BuiltinOp::MathBox),
     );
@@ -1569,6 +1573,29 @@ fn apply_builtin(op: BuiltinOp, args: Vec<RuntimeValue>) -> Result<Outcome, Eval
             })?;
             let w = reciplexa_std::japanese::hang_width_em_char(ch);
             Ok(Outcome::Value(RuntimeValue::Number(w)))
+        }
+        BuiltinOp::VerticalOrientation => {
+            if args.len() != 1 {
+                return Err(EvalError {
+                    message: format!(
+                        "builtin `vertical-orientation` expects 1 arg, got {}",
+                        args.len()
+                    ),
+                });
+            }
+            let s = match &args[0] {
+                RuntimeValue::String(text) => text.as_str(),
+                _ => {
+                    return Err(EvalError {
+                        message: "builtin `vertical-orientation` expects string argument".into(),
+                    });
+                }
+            };
+            let ch = s.chars().next().ok_or_else(|| EvalError {
+                message: "builtin `vertical-orientation` expects non-empty string".into(),
+            })?;
+            let orient = reciplexa_std::japanese::vertical_glyph_orientation(ch);
+            Ok(Outcome::Value(RuntimeValue::String(orient.as_str().into())))
         }
         BuiltinOp::MathBox => {
             if args.len() != 1 {
