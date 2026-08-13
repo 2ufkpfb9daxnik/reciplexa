@@ -1,13 +1,28 @@
 (// language-only: ker builtin math-box demo.
- // Fontless width/height/depth via math_value + estimate_box — not OpenType MATH.)
+ // Fontless width/height/depth via math_value + estimate_box — not OpenType MATH.
+ // Optional record field `style` ("text" | "display") selects EstimateStyle;
+ // `"text"` string lit may arrive as a shape tag — math-box accepts both.)
 
 (val from-record
   (math-box (record (tag "math-symbol") (glyph "x") (class "ord"))))
 
 (val from-string (math-box "Σ"))
 
+(val scripts-display
+  (math-box (record (tag "math-scripts")
+    (base (record (tag "math-symbol") (glyph "x") (class "ord")))
+    (superscript (record (tag "math-symbol") (glyph "2") (class "ord"))))))
+
+(val scripts-text
+  (math-box (record (tag "math-scripts")
+    (base (record (tag "math-symbol") (glyph "x") (class "ord")))
+    (superscript (record (tag "math-symbol") (glyph "2") (class "ord")))
+    (style "text"))))
+
 (val main
   (record
     (tag "math-box-demo")
     (from-record from-record)
-    (from-string from-string)))
+    (from-string from-string)
+    (scripts-display scripts-display)
+    (scripts-text scripts-text)))

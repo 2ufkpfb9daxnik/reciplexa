@@ -49,4 +49,15 @@ fn pkg_math_box_example_elaborates_and_eval() {
         RuntimeValue::Number(w) => assert!(*w > 0.0),
         other => panic!("from-string width, got {other}"),
     }
+
+    let display = field(&v, "scripts-display");
+    let text = field(&v, "scripts-text");
+    assert_eq!(field(display, "style"), &RuntimeValue::String("display".into()));
+    assert_eq!(field(text, "style"), &RuntimeValue::String("text".into()));
+    match (field(display, "width"), field(text, "width")) {
+        (RuntimeValue::Number(dw), RuntimeValue::Number(tw)) => {
+            assert!(tw < dw, "text scripts narrower than display: {tw} vs {dw}");
+        }
+        other => panic!("script widths, got {other:?}"),
+    }
 }
