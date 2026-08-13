@@ -1146,3 +1146,32 @@ pub fn break_line_to_text_shapes(
     let lines = break_line(text, max_em_units);
     lines_to_text_shapes(&lines, x_mm, y_mm, size_mm, leading_mm, fill)
 }
+
+/// Justify one line with [`justify_line`], then place each glyph as a scene [`Text`].
+///
+/// `em_mm` converts abstract em x-offsets to millimeters (`x_mm + x_em * em_mm`).
+/// One Text per glyph — host scaffolding only, not CSS/`text-justify` / JLReq.
+pub fn justify_line_to_text_shapes(
+    text: &str,
+    target_em: f64,
+    x_mm: f64,
+    y_mm: f64,
+    size_mm: f64,
+    em_mm: f64,
+    fill: reciplexa_scene::Color,
+) -> Vec<reciplexa_scene::Text> {
+    let chars: Vec<char> = text.chars().collect();
+    let placed = justify_line(&chars, target_em);
+    placed
+        .into_iter()
+        .map(|(ch, x_em)| reciplexa_scene::Text {
+            x_mm: x_mm + x_em * em_mm,
+            y_mm,
+            size_mm,
+            width_mm: None,
+            height_mm: None,
+            content: ch.to_string(),
+            fill,
+        })
+        .collect()
+}

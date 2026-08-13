@@ -643,3 +643,25 @@ fn lines_to_text_shapes_from_break_line() {
     assert_eq!(via.len(), shapes.len());
     assert_eq!(via[0].content, shapes[0].content);
 }
+
+#[test]
+fn justify_line_to_text_shapes_positions_glyphs() {
+    use reciplexa_scene::Color;
+    use reciplexa_std::japanese::{justify_line, justify_line_to_text_shapes};
+
+    let text = "漢字列";
+    let target = 5.0;
+    let em_mm = 10.0;
+    let shapes = justify_line_to_text_shapes(text, target, 5.0, 12.0, 11.0, em_mm, Color::BLACK);
+    let chars: Vec<char> = text.chars().collect();
+    let placed = justify_line(&chars, target);
+    assert_eq!(shapes.len(), placed.len());
+    for (shape, (ch, x_em)) in shapes.iter().zip(placed.iter()) {
+        assert_eq!(shape.content, ch.to_string());
+        assert!((shape.x_mm - (5.0 + x_em * em_mm)).abs() < 1e-9);
+        assert!((shape.y_mm - 12.0).abs() < 1e-9);
+        assert!(shape.is_drawable());
+    }
+    // Last glyph left edge near end of target span.
+    assert!((shapes.last().unwrap().x_mm - (5.0 + 4.0 * em_mm)).abs() < 1e-6);
+}
