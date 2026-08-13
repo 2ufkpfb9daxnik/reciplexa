@@ -20,7 +20,7 @@ Constructors follow the **SATySFi math model** (atom classes, scripts, fractions
 | `align` / `aligned` | `MathAtom::Aligned` |
 | `stack` / `atop` / `substack` | `MathAtom::Stack` |
 
-This package builds **trees**, not laid-out glyphs. Std offers fontless `MathAtom::estimate_box()` heuristics plus `scripts_attachment_offsets`, `matrix_column_widths` / `aligned_column_x` / cases left-align, `bigop_limit_offsets`, `fraction_rule_metrics`, `radical_vinculum_index_offsets`, and `stackrel_spacing_offsets` / `underbrace_spacing` (scaffolding only). Language builtin `math-box` lowers a math tag record (or symbol string) via `math_value` → `estimate_box`. Line breaking, stretchy fences, real matrix alignment, and OpenType MATH tables remain future layout work (`lang/ja-math-deepen-plan.md`).
+This package builds **trees**, not laid-out glyphs. Std offers fontless `MathAtom::estimate_box()` heuristics plus `scripts_attachment_offsets`, `matrix_column_widths` / `aligned_column_x` / cases left-align, `bigop_limit_offsets`, `fraction_rule_metrics`, `radical_vinculum_index_offsets`, and `stackrel_spacing_offsets` / `underbrace_spacing` (scaffolding only). Language builtin `math-box` lowers a math tag record (or symbol string) via `math_value` → `estimate_box`. Optional `stretch-factor` on `math-delimiter` records and builtin `stretchy-delim` expose the stretchy fence heuristic. Line breaking, real OpenType MATH stretchy fences, real matrix alignment, and MATH tables remain future layout work (`lang/ja-math-deepen-plan.md`).
 
 ## Import
 

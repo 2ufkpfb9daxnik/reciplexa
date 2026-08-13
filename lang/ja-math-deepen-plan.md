@@ -578,3 +578,58 @@ cargo test -p reciplexa-std -p reciplexa-eval -p reciplexa-core -p reciplexa-pac
 - Font-backed ruby / tate-chu-yoko / vertical glyph orientation / real vertical metrics / bou placement.
 - OpenType MATH stretchy fences, accent/script/stackrel attachment, real matrix column alignment / big-op / fraction/radical metrics.
 - Document/GUI pipeline consuming boxes as production layout (beyond soft-wrapped Text shapes / estimate_box / math-box); load-time resource rewrite beyond fail-soft attach; registry resolve + checksum verification (OPEN-PKG-001).
+
+---
+
+## Wave 11 — doc-heading wrap + vertical-ruby/bou builtins + stretchy surface + PKG004 (E0–E5)
+
+Honest scope: soft-wrap long `doc-heading` like paragraphs; thin language wrappers for vertical ruby / bou; package-bridge integration test for long JA paragraph → multiple Text; expose `stretch-factor` / `stretchy-delim`; diagnose missing listed resources (PKG004). Not production JLReq heading layout, OpenType MATH stretchy fences, or lock checksum verification.
+
+Gate:
+
+```bat
+set CARGO_TARGET_DIR=d:\reciplexa\target
+set TEMP=d:\reciplexa\.tmp
+set TMP=d:\reciplexa\.tmp
+cargo test -p reciplexa-std -p reciplexa-eval -p reciplexa-core -p reciplexa-package --offline
+```
+
+| Unit | Status |
+|------|--------|
+| E0 — `doc-heading` soft-wrap via `break_line` | **done** |
+| E1 — Builtins `vertical-ruby-box` / `bou-box` | **done** |
+| E2 — Package document long JA paragraph → multiple Text (bridge) | **done** |
+| E3 — `stretch-factor` field + `stretchy-delim` builtin | **done** |
+| E4 — `diagnose_manifest_with_root` PKG004 missing resource | **done** |
+| E5 — Docs + implemented-features | **done** |
+
+### E0 — Document heading soft-wrap
+
+- When lowering `doc-heading`, soft-wrap via `break_line` (shared helper with `doc-paragraph`). **Commit.**
+
+### E1 — Vertical ruby / bou builtins
+
+- `(vertical-ruby-box base annotation)` / `(bou-box body)` → estimate records. **Commit.**
+
+### E2 — Bridge integration
+
+- Package `document/page` with long JA paragraph → multiple scene Text shapes after graphics bridge. **Commit.**
+
+### E3 — Stretchy delimiter language surface
+
+- Optional `stretch-factor` on `math-delimiter` records; `(stretchy-delim left right body-height)` builtin. **Commit.**
+
+### E4 — Resource diagnose
+
+- Lock checksum remains write-None / read-accept stub (no empty-checksum warning). `diagnose_manifest_with_root` emits PKG004 for missing listed resources (same existence rules as `check_resources_exist`). **Commit.**
+
+### E5 — Docs
+
+- Mark Wave 11 done; update `lang/implemented-features.md` / package READMEs. **Commit.**
+
+## Remains after Wave 11
+
+- Full UCS membership + normative JLReq §C break matrix + real hanging/justification.
+- Font-backed ruby / tate-chu-yoko / vertical glyph orientation / real vertical metrics / bou placement.
+- OpenType MATH stretchy fences, accent/script/stackrel attachment, real matrix column alignment / big-op / fraction/radical metrics.
+- Document/GUI pipeline consuming boxes as production layout (beyond soft-wrapped Text shapes / estimate_box / math-box / stretchy-delim); load-time resource rewrite beyond fail-soft attach; registry resolve + checksum verification (OPEN-PKG-001).
