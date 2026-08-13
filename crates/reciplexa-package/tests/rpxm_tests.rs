@@ -320,3 +320,55 @@ fn listed_resources_must_exist_under_resource_root() {
     .unwrap();
     ok.check_resources_exist(&root).unwrap();
 }
+
+#[test]
+fn resolve_package_resource_under_resource_root() {
+    use std::fs;
+    use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    use reciplexa_package::{resolve_package_resource, ResourceResolveError};
+
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../.tmp")
+        .join(format!("pkg-resolve-res-{nanos}"));
+    let _ = fs::remove_dir_all(&root);
+    fs::create_dir_all(root.join("resources/images")).unwrap();
+    fs::write(root.join("resources/images/logo.png"), b"png").unwrap();
+
+    let m = parse_rpxm(
+        r#"(package demo
+  format-version 1
+  version "1.0.0"
+  (public-modules main)
+  (resources "images/logo.png"))"#,
+    )
+    .unwrap();
+
+    let path = resolve_package_resource(&root, &m, "images/logo.png").unwrap();
+    assert_eq!(path, root.join("resources/images/logo.png"));
+    assert_eq!(
+        m.resolve_package_resource(&root, r"images\logo.png").unwrap(),
+        path
+    );
+
+    let err = resolve_package_resource(&root, &m, "images/other.png").unwrap_err();
+    match err {
+        ResourceResolveError::NotListed { resource } => {
+            assert_eq!(resource, "images/other.png");
+        }
+        other => panic!("expected NotListed, got {other:?}"),
+    }
+
+    let err = resolve_package_resource(&root, &m, "../escape.txt").unwrap_err();
+    match err {
+        ResourceResolveError::InvalidPath(msg) => {
+            assert!(msg.contains("escapes the package resource root"));
+        }
+        other => panic!("expected InvalidPath, got {other:?}"),
+    }
+}

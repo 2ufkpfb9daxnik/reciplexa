@@ -168,6 +168,19 @@ impl PackageManifest {
         Ok(path)
     }
 
+    /// Resolve `rel` to an absolute path under this package's `resource_root`.
+    ///
+    /// Validates normalization (no escape) **and** membership in the manifest
+    /// `resources` list (E0/E5). Language `(resource …)` / `package-resource`
+    /// typing remains OPEN — this is the package-API host helper only.
+    pub fn resolve_package_resource(
+        &self,
+        package_root: &std::path::Path,
+        rel: &str,
+    ) -> Result<std::path::PathBuf, ResourceResolveError> {
+        resolve_package_resource(package_root, self, rel)
+    }
+
     /// Optional FS check: every listed resource must exist under `resource_root`
     /// (static prep for PKG-12; no language `(resource …)` yet).
     pub fn check_resources_exist(
@@ -188,6 +201,49 @@ impl PackageManifest {
         Ok(())
     }
 }
+
+/// Resolve a package resource path relative to `package_root` / `resource_root`.
+///
+/// Requires `rel` to normalize cleanly and appear in `manifest.resources`.
+/// Does **not** implement language `(resource "path")` evaluation.
+pub fn resolve_package_resource(
+    package_root: &std::path::Path,
+    manifest: &PackageManifest,
+    rel: &str,
+) -> Result<std::path::PathBuf, ResourceResolveError> {
+    let normalized = normalize_resource_path(rel).map_err(ResourceResolveError::InvalidPath)?;
+    if !manifest.resources.iter().any(|r| r == &normalized) {
+        return Err(ResourceResolveError::NotListed {
+            resource: normalized,
+        });
+    }
+    manifest
+        .resource_fs_path(package_root, &normalized)
+        .map_err(ResourceResolveError::InvalidPath)
+}
+
+/// Error from [`resolve_package_resource`] (package API helper; not language eval).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ResourceResolveError {
+    InvalidPath(String),
+    NotListed { resource: String },
+}
+
+impl std::fmt::Display for ResourceResolveError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::InvalidPath(s) => write!(f, "{s}"),
+            Self::NotListed { resource } => {
+                write!(
+                    f,
+                    "package resource `{resource}` is not listed in manifest resources"
+                )
+            }
+        }
+    }
+}
+
+impl std::error::Error for ResourceResolveError {}
 
 /// Error from optional listed-resource existence checks (PKG §21.10 / PKG-12 prep).
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -18,3 +18,12 @@
 Language `(resource …)` / `package-resource` type; real registry network; content hashes.
 
 **Status:** complete (E0–E5)
+
+## Follow-on (PKG leftover)
+
+| ID | Unit | Status |
+|----|------|--------|
+| R0 | Package API `resolve_package_resource` under `resource_root` + listed resources | **done** |
+| R1 | Document language `(resource …)` still OPEN / deferred | **done** (this note + `package-plan.md`) |
+
+Language `(resource "path")` parse/elaborate/host value remains **OPEN** — R0 is host/manifest only.

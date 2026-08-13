@@ -53,8 +53,8 @@ pub use load::{
 };
 pub use lockfile::{LockedPackage, Lockfile};
 pub use manifest::{
-    normalize_resource_path, DependencySpec, OPEN_PKG_001_REGISTRY, PackageManifest,
-    ResourceCheckError,
+    normalize_resource_path, resolve_package_resource, DependencySpec, OPEN_PKG_001_REGISTRY,
+    PackageManifest, ResourceCheckError, ResourceResolveError,
 };
 pub use resolver::{resolve_packages, ResolveError, ResolvedGraph};
 pub use rpi::parse_rpi_exports;

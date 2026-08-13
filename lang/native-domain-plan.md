@@ -171,4 +171,6 @@ Document / page constructors stay package-shaped (`graphics/page` or later `docu
 
 **N6 done:** 7-crate BEST-ENTRY **≥99%** (N6 q). Soft residuals remain on check/cast/eval/load/document (see `coverage-holdouts.md`).
 
-**N5 complete (N5.1–N5.3):** dual-path document surface + coverage tips. Follow-on writable package sync: [`gui-cst-sync-v2-plan.md`](gui-cst-sync-v2-plan.md) (S0–S6b done).
+**N5 complete (N5.1–N5.3):** dual-path document surface + coverage tips. Follow-on writable package sync: [`gui-cst-sync-v2-plan.md`](gui-cst-sync-v2-plan.md) (S0–S6b **complete**).
+
+**Follow-ons outside N*:** JA/math deepen wave 2 ([`ja-math-deepen-plan.md`](ja-math-deepen-plan.md) J5–J7); package resource path helper R0 ([`pkg-slice-e-plan.md`](pkg-slice-e-plan.md)); language `(resource …)` still OPEN.

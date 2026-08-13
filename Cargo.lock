@@ -3054,6 +3054,7 @@ dependencies = [
  "reciplexa-identity",
  "reciplexa-lower",
  "reciplexa-scene",
+ "reciplexa-std",
  "reciplexa-syntax",
  "serde",
  "serde_json",

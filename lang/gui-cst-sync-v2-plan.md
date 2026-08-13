@@ -1,6 +1,6 @@
 # GUI CST sync v2 (package AST rewrite)
 
-**Status:** active (S6a–S6b done)
+**Status:** complete (S0–S6b done)
 **Goal:** Make package-shaped authoring (`(import …)(val main (page …))`) writable in the GUI (nudge/size), then migrate goldens and **retire interim keyword tables**.
 
 **Normative context:** N5 dual-path left interim `(page)/(circle)` for writable CST sync. This phase closes that holdout.
