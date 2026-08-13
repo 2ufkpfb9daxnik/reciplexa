@@ -87,6 +87,32 @@ fn math_accent_and_big_op() {
 }
 
 #[test]
+fn math_estimate_box_relative_sizes() {
+    use reciplexa_std::math::MathBox;
+    let a = MathAtom::symbol(id(1), "a", MathClass::Ordinary);
+    let b = MathAtom::symbol(id(2), "b", MathClass::Ordinary);
+    let sym = a.estimate_box();
+    assert!(sym.width >= 0.5);
+    assert!(sym.total_height() > 0.0);
+
+    let frac = MathAtom::fraction(id(3), a.clone(), b.clone());
+    let fb = frac.estimate_box();
+    assert!(fb.total_height() > sym.total_height());
+    assert!(fb.width >= sym.width);
+
+    let scripts = MathAtom::scripts(
+        id(4),
+        a.clone(),
+        Some(MathAtom::symbol(id(5), "2", MathClass::Ordinary)),
+        None,
+    );
+    assert!(scripts.estimate_box().width > a.estimate_box().width);
+
+    let empty = MathBox::new(0.0, 0.0, 0.0);
+    assert_eq!(empty.total_height(), 0.0);
+}
+
+#[test]
 fn theme_master_slide() {
     assert!(Theme::light(id(1), "L").to_string().contains("L"));
     assert_eq!(Theme::dark(id(2), "D").background, Color::BLACK);

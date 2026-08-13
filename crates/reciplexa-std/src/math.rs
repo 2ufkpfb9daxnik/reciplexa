@@ -332,3 +332,147 @@ impl fmt::Display for MathAtom {
         f.write_str(&self.linearize())
     }
 }
+
+/// Fontless axis-aligned math box (abstract em units).
+///
+/// `height` is above the baseline; `depth` is below. Not OpenType MATH metrics.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct MathBox {
+    pub width: f64,
+    pub height: f64,
+    pub depth: f64,
+}
+
+impl MathBox {
+    pub const fn new(width: f64, height: f64, depth: f64) -> Self {
+        Self {
+            width,
+            height,
+            depth,
+        }
+    }
+
+    pub fn total_height(self) -> f64 {
+        self.height + self.depth
+    }
+
+    fn combine_row(parts: &[MathBox]) -> Self {
+        let width = parts.iter().map(|b| b.width).sum();
+        let height = parts.iter().map(|b| b.height).fold(0.0_f64, f64::max);
+        let depth = parts.iter().map(|b| b.depth).fold(0.0_f64, f64::max);
+        Self::new(width, height, depth)
+    }
+}
+
+/// Script-size shrink factor used by `estimate_box` (fontless heuristic).
+pub const SCRIPT_SCALE: f64 = 0.7;
+
+impl MathAtom {
+    /// Rough width/height/depth estimate without fonts (layout scaffolding only).
+    pub fn estimate_box(&self) -> MathBox {
+        match self {
+            Self::Symbol { glyph, .. } => {
+                let w = (glyph.chars().count() as f64).max(0.5);
+                MathBox::new(w, 0.7, 0.2)
+            }
+            Self::Row { children, .. } => {
+                let boxes: Vec<_> = children.iter().map(|c| c.estimate_box()).collect();
+                MathBox::combine_row(&boxes)
+            }
+            Self::Fraction {
+                numerator,
+                denominator,
+                ..
+            } => {
+                let num = numerator.estimate_box();
+                let den = denominator.estimate_box();
+                let width = num.width.max(den.width) + 0.2;
+                // Stack: num above rule, den below; baseline at rule.
+                MathBox::new(width, num.total_height() + 0.15, den.total_height() + 0.15)
+            }
+            Self::Radical {
+                index, radicand, ..
+            } => {
+                let body = radicand.estimate_box();
+                let mut width = body.width + 0.55;
+                let mut height = body.height + 0.25;
+                let depth = body.depth;
+                if let Some(idx) = index {
+                    let ib = idx.estimate_box();
+                    let scaled_w = ib.width * SCRIPT_SCALE;
+                    width += scaled_w * 0.5;
+                    height = height.max(ib.height * SCRIPT_SCALE + 0.1);
+                }
+                MathBox::new(width, height, depth)
+            }
+            Self::Scripts {
+                base,
+                superscript,
+                subscript,
+                ..
+            } => {
+                let b = base.estimate_box();
+                let mut width = b.width;
+                let mut height = b.height;
+                let mut depth = b.depth;
+                let mut script_w = 0.0_f64;
+                if let Some(sup) = superscript {
+                    let s = sup.estimate_box();
+                    script_w = script_w.max(s.width * SCRIPT_SCALE);
+                    height = height.max(b.height * 0.5 + s.height * SCRIPT_SCALE);
+                }
+                if let Some(sub) = subscript {
+                    let s = sub.estimate_box();
+                    script_w = script_w.max(s.width * SCRIPT_SCALE);
+                    depth = depth.max(b.depth * 0.5 + s.depth * SCRIPT_SCALE + 0.15);
+                }
+                width += script_w;
+                MathBox::new(width, height, depth)
+            }
+            Self::Delimiter {
+                left, right, body, ..
+            } => {
+                let inner = body.estimate_box();
+                let pad = 0.35 * (left.chars().count() + right.chars().count()) as f64;
+                MathBox::new(
+                    inner.width + pad,
+                    inner.height.max(0.9),
+                    inner.depth.max(0.3),
+                )
+            }
+            Self::Accent { base, .. } => {
+                let b = base.estimate_box();
+                MathBox::new(b.width.max(0.8), b.height + 0.35, b.depth)
+            }
+            Self::BigOp {
+                operator,
+                lower,
+                upper,
+                body,
+                ..
+            } => {
+                let op_w = (operator.chars().count() as f64).max(1.0);
+                let mut width = op_w;
+                let mut height = 0.9;
+                let mut depth = 0.3;
+                if let Some(lo) = lower {
+                    let lb = lo.estimate_box();
+                    width = width.max(lb.width * SCRIPT_SCALE);
+                    depth += lb.total_height() * SCRIPT_SCALE;
+                }
+                if let Some(up) = upper {
+                    let ub = up.estimate_box();
+                    width = width.max(ub.width * SCRIPT_SCALE);
+                    height += ub.total_height() * SCRIPT_SCALE;
+                }
+                if let Some(b) = body {
+                    let bb = b.estimate_box();
+                    width += bb.width + 0.2;
+                    height = height.max(bb.height);
+                    depth = depth.max(bb.depth);
+                }
+                MathBox::new(width, height, depth)
+            }
+        }
+    }
+}
