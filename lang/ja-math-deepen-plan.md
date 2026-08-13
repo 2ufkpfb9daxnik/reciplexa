@@ -723,3 +723,48 @@ cargo test -p reciplexa-std -p reciplexa-eval -p reciplexa-core -p reciplexa-pac
 - Font-backed ruby / tate-chu-yoko / real vertical metrics / bou placement; OpenType `vert`/`vrt2` / CSS `text-orientation`.
 - OpenType MATH stretchy fences, accent/script/stackrel attachment, real matrix column alignment / big-op / fraction/radical / muskip metrics.
 - Document/GUI pipeline consuming boxes as production layout (beyond soft-wrapped Text shapes / estimate_box / math-box / stretchy-delim); load-time resource rewrite beyond fail-soft attach; registry resolve + checksum verification (OPEN-PKG-001).
+
+---
+
+## Wave 14 — orientation builtin + vertical metrics + spacing expand (H0–H3)
+
+Honest scope: language builtin over Wave 13 orientation; `vertical_advance_em` taller/wider swap via `needs_tate_rotation`; denser TeX-ish `class_spacing_em` pairs. Not OpenType `vert` / full TeX `\mskip` style table / production layout.
+
+Gate:
+
+```bat
+set CARGO_TARGET_DIR=d:\reciplexa\target
+set TEMP=d:\reciplexa\.tmp
+set TMP=d:\reciplexa\.tmp
+cargo test -p reciplexa-std -p reciplexa-eval -p reciplexa-core -p reciplexa-package --offline
+```
+
+| Unit | Status |
+|------|--------|
+| H0 — Builtin `vertical-orientation` | **done** |
+| H1 — `needs_tate_rotation` in `vertical_advance_em` | **done** |
+| H2 — Math `class_spacing_em` expand | **done** |
+| H3 — Docs / tip | **done** |
+
+### H0 — Orientation builtin
+
+- `(vertical-orientation body)` → String `"upright"` / `"rotated"` (first char). **Commit.**
+
+### H1 — Vertical metrics swap
+
+- `vertical_advance_em` uses taller/wider extents + `needs_tate_rotation` (rotated → width; upright → height). **Commit.**
+
+### H2 — Spacing table
+
+- More Op/Bin/Rel/Punct/Fence class pairs in `class_spacing_em`. **Commit.**
+
+### H3 — Docs
+
+- Mark Wave 14 done; tip + package / implemented-features notes. **Commit.**
+
+## Remains after Wave 14
+
+- Full UCS membership + normative JLReq §C break matrix + real hanging/justification / word-break.
+- Font-backed ruby / tate-chu-yoko / real vertical metrics / bou placement; OpenType `vert`/`vrt2` / CSS `text-orientation`.
+- OpenType MATH stretchy fences, accent/script/stackrel attachment, real matrix column alignment / big-op / fraction/radical / full muskip style table.
+- Document/GUI pipeline consuming boxes as production layout (beyond soft-wrapped Text shapes / estimate_box / math-box / stretchy-delim); load-time resource rewrite beyond fail-soft attach; registry resolve + checksum verification (OPEN-PKG-001).
