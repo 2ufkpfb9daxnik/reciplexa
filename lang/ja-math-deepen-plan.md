@@ -310,3 +310,67 @@ When package path touched (Y2): also `cargo test -p reciplexa-package --offline`
 - Font-backed ruby / tate-chu-yoko / vertical glyph orientation / real vertical metrics.
 - OpenType MATH stretchy fences, accent/script attachment, matrix column alignment.
 - Document/GUI pipeline consuming boxes as production layout; load-time resource rewrite beyond fail-soft attach.
+
+---
+
+## Wave 6 — language builtins + host consume stubs (Z0–Z5)
+
+Honest scope: **shipping-quality stubs** — wire existing Wave 5 Rust helpers as ker builtins / light host APIs. Not full JLReq justification, ruby-box layout, or OpenType MATH script attachment.
+
+Gate:
+
+```bat
+set CARGO_TARGET_DIR=d:\reciplexa\target
+set TEMP=d:\reciplexa\.tmp
+set TMP=d:\reciplexa\.tmp
+cargo test -p reciplexa-std -p reciplexa-eval -p reciplexa-core --offline
+```
+
+When package path touched: also `cargo test -p reciplexa-package --offline`.
+
+| Unit | Status |
+|------|--------|
+| Z0 — Ker builtins `break-line-vertical` / `justify-line` | **done** |
+| Z1 — Justified line → Text shapes composition helper | **done** |
+| Z2 — Vertical break example / builtin test | **done** |
+| Z3 — `scripts_attachment_offsets` via math_value / scripts tag | **done** |
+| Z4 — Hangable EOL policy stub (`hang_width_em`) | **done** |
+| Z5 — Docs | **done** |
+
+### Z0 — Language builtins for new layout helpers
+
+- Prefer `justify-line` (string × target-em → cons/nil of `{char, x}` records) over a complex `ruby-box` builtin.
+- Also wire `break-line-vertical` (string × max-em → cons/nil strings), mirroring std.
+- Tests. **Commit.**
+
+### Z1 — Scene helper: justified Japanese line → Text shapes
+
+- Compose `justify_line` + positioned glyphs / `lines_to_text_shapes`-style Text shapes.
+- Test. **Commit.**
+
+### Z2 — Vertical break example
+
+- `examples/pkg_ja_vertical_break.rpx` and/or Rust eval test using the builtin.
+- **Commit.**
+
+### Z3 — Math scripts attachment from math_value
+
+- Use `scripts_attachment_offsets` from `math_value` or a public API test with package `math-scripts` tag.
+- **Commit.**
+
+### Z4 — Hangable end-of-line policy stub
+
+- Document + simple API `hang_width_em` (not full JLReq hanging measure).
+- **Commit.**
+
+### Z5 — Docs
+
+- Mark Wave 6 done in this plan; update `lang/implemented-features.md` / package READMEs.
+- **Commit.**
+
+## Remains after Wave 6
+
+- Full UCS membership + normative JLReq §C break matrix + real hanging/justification.
+- Font-backed ruby / tate-chu-yoko / vertical glyph orientation / real vertical metrics.
+- OpenType MATH stretchy fences, accent/script attachment, matrix column alignment.
+- Document/GUI pipeline consuming boxes as production layout; load-time resource rewrite beyond fail-soft attach.
