@@ -1,0 +1,17 @@
+(// language-only: break-line + hang-width (+ justify-line) hangable demo.
+ // Soft-wrap stub; hang-width is the 0.5em EOL policy for 。/、 — not full JLReq.)
+
+(val lines (break-line "今日はいい天気です。東京タワーへ行こう。" 5.0))
+
+(val hang-stop (hang-width "。"))
+(val hang-ideograph (hang-width "あ"))
+
+(val justified (justify-line "漢字列" 5.0))
+
+(val main
+  (record
+    (tag "ja-hang-demo")
+    (lines lines)
+    (hang-stop hang-stop)
+    (hang-ideograph hang-ideograph)
+    (justified justified)))
