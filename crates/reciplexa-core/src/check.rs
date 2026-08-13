@@ -1774,6 +1774,14 @@ pub fn typecheck_language_source(src: &str) -> Result<CoreType, CheckError> {
         },
     );
     env.insert(
+        "trimming-width",
+        CoreType::Fun {
+            args: vec![CoreType::String],
+            ret: Box::new(CoreType::Number),
+            effects: EffectRow::default(),
+        },
+    );
+    env.insert(
         "vertical-orientation",
         CoreType::Fun {
             args: vec![CoreType::String],

@@ -83,6 +83,10 @@ pub fn primitive_env() -> HashMap<String, RuntimeValue> {
         RuntimeValue::Builtin(BuiltinOp::HangWidth),
     );
     env.insert(
+        "trimming-width".into(),
+        RuntimeValue::Builtin(BuiltinOp::TrimmingWidth),
+    );
+    env.insert(
         "vertical-orientation".into(),
         RuntimeValue::Builtin(BuiltinOp::VerticalOrientation),
     );
@@ -1559,6 +1563,29 @@ fn apply_builtin(op: BuiltinOp, args: Vec<RuntimeValue>) -> Result<Outcome, Eval
                 message: "builtin `hang-width` expects non-empty string".into(),
             })?;
             let w = reciplexa_std::japanese::hang_width_em_char(ch);
+            Ok(Outcome::Value(RuntimeValue::Number(w)))
+        }
+        BuiltinOp::TrimmingWidth => {
+            if args.len() != 1 {
+                return Err(EvalError {
+                    message: format!(
+                        "builtin `trimming-width` expects 1 arg, got {}",
+                        args.len()
+                    ),
+                });
+            }
+            let s = match &args[0] {
+                RuntimeValue::String(text) => text.as_str(),
+                _ => {
+                    return Err(EvalError {
+                        message: "builtin `trimming-width` expects string argument".into(),
+                    });
+                }
+            };
+            let ch = s.chars().next().ok_or_else(|| EvalError {
+                message: "builtin `trimming-width` expects non-empty string".into(),
+            })?;
+            let w = reciplexa_std::japanese::trimming_width_em_char(ch);
             Ok(Outcome::Value(RuntimeValue::Number(w)))
         }
         BuiltinOp::VerticalOrientation => {

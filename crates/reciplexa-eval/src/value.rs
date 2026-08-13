@@ -105,6 +105,8 @@ pub enum BuiltinOp {
     TateChuYokoWidth,
     /// Hangable EOL policy stub — string (first char) → Number hang width (em).
     HangWidth,
+    /// Line-head/end trimming stub — string (first char) → Number trim width (em).
+    TrimmingWidth,
     /// Vertical glyph orientation stub — string (first char) → `"upright"` / `"rotated"`.
     VerticalOrientation,
     /// Math box estimate stub — math tag record or symbol string → `{tag, width, height, depth}`.
