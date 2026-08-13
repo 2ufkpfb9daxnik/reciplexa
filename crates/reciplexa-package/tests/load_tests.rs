@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use reciplexa_eval::{eval_expr, primitive_env, UnitHost};
+use reciplexa_eval::{
+    estimate_math_box_from_value, eval_expr, primitive_env, RuntimeValue, UnitHost,
+};
 use reciplexa_package::{
     elaborate_with_packages, load_module_tree_with_packages, parse_rpxm, LocalPackageIndex,
     Lockfile,
@@ -263,6 +265,71 @@ fn elaborate_and_eval_math_package_example() {
         .expect("spawn math-pkg-eval")
         .join()
         .expect("math-pkg-eval thread");
+}
+
+#[test]
+fn pkg_math_main_tree_estimates_box_via_math_value() {
+    // Document `inspect-document` is a graphics/document snapshot path — not
+    // package math mains. Hosts should lower math trees via `math_value`.
+    // Full pkg_math demos still include tags not yet bridged (under/over/cases/…);
+    // estimate a supported subtree from the loaded main.
+    std::thread::Builder::new()
+        .name("math-pkg-box".into())
+        .stack_size(8 * 1024 * 1024)
+        .spawn(|| {
+            let idx = index();
+            let entry =
+                PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/pkg_math.rpx");
+            let units = elaborate_with_packages(&entry, &idx).unwrap();
+            let demo = units.iter().find(|u| u.name == "pkg_math").unwrap();
+            let v = eval_expr(&demo.expr, &primitive_env(), &mut UnitHost).unwrap();
+            let RuntimeValue::Record(fields) = &v else {
+                panic!("pkg_math main should be a record, got {v}");
+            };
+            let tree = fields
+                .iter()
+                .find(|(k, _)| k == "tree")
+                .map(|(_, val)| val)
+                .expect("math-demo tree field");
+            let frac = find_math_tag(tree, "math-fraction").expect("fraction in pkg_math tree");
+            let mbox = estimate_math_box_from_value(frac).expect("estimate_box for fraction");
+            assert!(
+                mbox.width > 0.0 && mbox.height + mbox.depth > 0.0,
+                "expected non-empty MathBox, got {mbox:?}"
+            );
+            // Also exercise bigop-scripts bridge present in the same demo tree.
+            let scripts =
+                find_math_tag(tree, "math-bigop-scripts").expect("sum-scripts in pkg_math tree");
+            let sb = estimate_math_box_from_value(scripts).expect("estimate_box for bigop-scripts");
+            assert!(sb.width > 0.0);
+        })
+        .expect("spawn math-pkg-box")
+        .join()
+        .expect("math-pkg-box thread");
+}
+
+fn find_math_tag<'a>(v: &'a RuntimeValue, want: &str) -> Option<&'a RuntimeValue> {
+    match v {
+        RuntimeValue::Record(fields) => {
+            if fields
+                .iter()
+                .any(|(k, val)| k == "tag" && matches!(val, RuntimeValue::String(s) if s == want))
+            {
+                return Some(v);
+            }
+            for (_, child) in fields {
+                if let Some(found) = find_math_tag(child, want) {
+                    return Some(found);
+                }
+            }
+            None
+        }
+        RuntimeValue::Variant {
+            payload: Some(inner),
+            ..
+        } => find_math_tag(inner, want),
+        _ => None,
+    }
 }
 
 #[test]

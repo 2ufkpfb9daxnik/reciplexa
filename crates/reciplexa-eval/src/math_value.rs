@@ -116,6 +116,18 @@ fn math_atom_from_value_with_ids(
             let body = optional_child(fields, "body", ids)?;
             Ok(MathAtom::big_op(ids.mint(), glyph, lower, upper, body))
         }
+        "math-bigop-scripts" => {
+            // Side-script form of a large op (package `sum-scripts` / `bigop-scripts`).
+            let glyph = string_field(fields, "glyph")?;
+            let base = MathAtom::symbol(ids.mint(), glyph, MathClass::Operator);
+            let superscript = optional_child(fields, "superscript", ids)?;
+            let subscript = optional_child(fields, "subscript", ids)?;
+            let scripts = MathAtom::scripts(ids.mint(), base, superscript, subscript);
+            match optional_child(fields, "body", ids)? {
+                Some(body) => Ok(MathAtom::row(ids.mint(), vec![scripts, body])),
+                None => Ok(scripts),
+            }
+        }
         "math-matrix" => {
             let kind = matrix_kind_field(fields)?;
             let rows = matrix_rows_field(fields, ids)?;

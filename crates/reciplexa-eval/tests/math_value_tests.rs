@@ -204,6 +204,19 @@ fn accent_matrix_bigop_stack_bridge() {
         }
     ));
 
+    let bigop_scripts = rec(vec![
+        ("tag", RuntimeValue::String("math-bigop-scripts".into())),
+        ("glyph", RuntimeValue::String("∑".into())),
+        ("superscript", sym("n", "ord")),
+        ("subscript", sym("k=1", "ord")),
+        ("body", sym("a_k", "ord")),
+    ]);
+    assert!(matches!(
+        math_atom_from_value(&bigop_scripts).unwrap(),
+        MathAtom::Row { .. }
+    ));
+    assert!(estimate_math_box_from_value(&bigop_scripts).unwrap().width > 0.0);
+
     let stack = rec(vec![
         ("tag", RuntimeValue::String("math-stack".into())),
         ("kind", RuntimeValue::String("atop".into())),
