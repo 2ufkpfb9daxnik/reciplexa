@@ -1267,3 +1267,41 @@ cargo test -p reciplexa-std -p reciplexa-eval -p reciplexa-core -p reciplexa-pac
 - Font-backed ruby / tate-chu-yoko / real vertical metrics / bou placement; OpenType `vert`/`vrt2` / CSS `text-orientation`.
 - OpenType MATH stretchy fences, accent/script/stackrel attachment, real matrix column alignment / big-op / fraction/radical / full muskip style table / real phantom atoms.
 - Document/GUI pipeline consuming boxes as production layout; load-time resource rewrite beyond fail-soft attach; registry resolve + checksum verification (OPEN-PKG-001).
+
+## Wave 28 — math accent clearance table expand (V0–V2)
+
+Honest scope: per-kind `(above, below)` clearance table + more TeX-ish accent names (`check`/`breve`/`acute`/`grave`/`ring`/`underbar`); `estimate_box` consults the table. Not OpenType MATH accent attachment.
+
+Gate:
+
+```bat
+set CARGO_TARGET_DIR=d:\reciplexa\target
+set TEMP=d:\reciplexa\.tmp
+set TMP=d:\reciplexa\.tmp
+cargo test -p reciplexa-std -p reciplexa-eval -p reciplexa-core -p reciplexa-package --offline
+```
+
+| Unit | Status |
+|------|--------|
+| V0 — Accent clearance table + more names | **done** |
+| V1 — Test | **done** |
+| V2 — Docs | **done** |
+
+### V0 — Table + names
+
+- `accent_clearance_em` / `accent_clearance_em_named` / `ACCENT_WIDE_EXTRA_EM`; kinds `check`/`breve`/`acute`/`grave`/`ring`/`underbar`; package `math/accents` exports. **Commit.**
+
+### V1 — Test
+
+- `math_accent_clearance_table_covers_named_accents`. **Commit.**
+
+### V2 — Docs
+
+- Mark Wave 28 done; math package / implemented-features notes. **Commit.**
+
+## Remains after Wave 28
+
+- Full UCS membership + normative JLReq §C break matrix + real hanging/justification / word-break / paragraph composition (punctuation packing / trimming not wired into `break_line` / `char_em_width`).
+- Font-backed ruby / tate-chu-yoko / real vertical metrics / bou placement; OpenType `vert`/`vrt2` / CSS `text-orientation`.
+- OpenType MATH stretchy fences, real accent/script/stackrel attachment, real matrix column alignment / big-op / fraction/radical / full muskip style table / real phantom atoms.
+- Document/GUI pipeline consuming boxes as production layout; load-time resource rewrite beyond fail-soft attach; registry resolve + checksum verification (OPEN-PKG-001).
