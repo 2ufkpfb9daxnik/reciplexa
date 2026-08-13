@@ -156,5 +156,5 @@ No push unless asked. Fine-grained commits (one unit ≈ one commit).
 | LL8 — BigOp limits | **done** (`bigop_limit_offsets`) |
 | LL9 — Fraction Line rule | **done** |
 | LL10 — Docs + tip tests | **done** |
-| LL11 — Radical vinculum Line | pending |
-| LL12 — Docs after radical | pending |
+| LL11 — Radical vinculum Line | **done** |
+| LL12 — Docs after radical | **done** |
