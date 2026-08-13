@@ -906,13 +906,39 @@ pub fn break_line(text: &str, max_em_units: f64) -> Vec<String> {
 /// Extra space (`target_em − Σ char_em_width`) is split evenly across gaps where
 /// [`break_opportunity`] is [`BreakOpportunity::Allowed`]. If there are no such
 /// gaps (or `target_em` ≤ natural width), glyphs pack left with natural advances.
-/// Returns `(char, x_em)` left edges from 0. Not CSS/`text-justify` / JLReq.
+///
+/// **Trimming stub:** natural width subtracts [`trimming_width_em`] for a
+/// line-head opening bracket and/or a line-end closer/stop/comma (JLReq-inspired
+/// 詰め). Not full proportional aki / CSS `text-justify`.
+///
+/// Returns `(char, x_em)` left edges from 0.
 pub fn justify_line(chars: &[char], target_em: f64) -> Vec<(char, f64)> {
     if chars.is_empty() {
         return Vec::new();
     }
     let widths: Vec<f64> = chars.iter().copied().map(char_em_width).collect();
-    let natural: f64 = widths.iter().sum();
+    let mut natural: f64 = widths.iter().sum();
+    // Light line-head / line-end trimming (Wave 26).
+    if let Some(&first) = chars.first() {
+        let class = classify_char(first);
+        if is_trimmable_line_head(class) {
+            natural = (natural - trimming_width_em(class)).max(0.0);
+        }
+    }
+    if chars.len() > 1 {
+        if let Some(&last) = chars.last() {
+            let class = classify_char(last);
+            if is_trimmable_line_end(class) {
+                natural = (natural - trimming_width_em(class)).max(0.0);
+            }
+        }
+    } else if let Some(&only) = chars.first() {
+        // Single glyph: apply end trim only when not already head-trimmed as open.
+        let class = classify_char(only);
+        if is_trimmable_line_end(class) && !is_trimmable_line_head(class) {
+            natural = (natural - trimming_width_em(class)).max(0.0);
+        }
+    }
     let mut gap_extra = vec![0.0_f64; chars.len().saturating_sub(1)];
     if target_em > natural && chars.len() > 1 {
         let mut allowed_idx = Vec::new();

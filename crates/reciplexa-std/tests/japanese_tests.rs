@@ -919,6 +919,35 @@ fn justify_line_distributes_at_allowed_breaks() {
 }
 
 #[test]
+fn justify_line_applies_trimming_width_at_head_and_end() {
+    // 「漢字。 — 4em solid; head open + end stop trim → natural 3.
+    // Ideograph×ideograph gap is Allowed; target 5 → +2em there (vs +1em without trim).
+    let chars: Vec<char> = "「漢字。".chars().collect();
+    let placed = justify_line(&chars, 5.0);
+    assert_eq!(placed.len(), 4);
+    assert_eq!(placed[0].0, '「');
+    assert!((placed[0].1 - 0.0).abs() < 1e-9);
+    assert!((placed[1].1 - 1.0).abs() < 1e-9); // after 「 (no stretch before 漢)
+    // 漢|字 gets the trimmed slack (+2em).
+    assert!(
+        (placed[2].1 - 4.0).abs() < 1e-9,
+        "expected 漢 + 2em trim stretch before 字, got {}",
+        placed[2].1
+    );
+    assert!((placed[3].1 - 5.0).abs() < 1e-9, "got {}", placed[3].1);
+
+    let no_punct: Vec<char> = "あ漢字い".chars().collect();
+    let plain = justify_line(&no_punct, 5.0);
+    // Same target over 4em natural without trim → only +1em total stretch.
+    assert!(
+        plain[2].1 < placed[2].1,
+        "trim should increase stretch vs untrimmed: plain={} trimmed={}",
+        plain[2].1,
+        placed[2].1
+    );
+}
+
+#[test]
 fn lines_to_text_shapes_from_break_line() {
     use reciplexa_scene::{Color, Shape};
     use reciplexa_std::japanese::{break_line_to_text_shapes, lines_to_text_shapes};
