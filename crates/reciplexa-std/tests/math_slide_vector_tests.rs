@@ -190,6 +190,42 @@ fn math_scripts_attachment_offsets_heuristic() {
 }
 
 #[test]
+fn math_matrix_column_widths_and_cases_left_align() {
+    use reciplexa_std::math::{
+        cases_column_align, matrix_cell_x_in_column, matrix_column_widths, MatrixColumnAlign,
+    };
+
+    let a = MathAtom::symbol(id(1), "a", MathClass::Ordinary);
+    let bb = MathAtom::symbol(id(2), "bb", MathClass::Ordinary);
+    let c = MathAtom::symbol(id(3), "c", MathClass::Ordinary);
+    let d = MathAtom::symbol(id(4), "dddd", MathClass::Ordinary);
+    let rows = vec![vec![a.clone(), bb.clone()], vec![c.clone(), d.clone()]];
+    let widths = matrix_column_widths(&rows);
+    assert_eq!(widths.len(), 2);
+    assert!((widths[0] - a.estimate_box().width.max(c.estimate_box().width)).abs() < 1e-9);
+    assert!((widths[1] - bb.estimate_box().width.max(d.estimate_box().width)).abs() < 1e-9);
+
+    assert_eq!(cases_column_align(0), MatrixColumnAlign::Left);
+    assert_eq!(cases_column_align(1), MatrixColumnAlign::Left);
+    assert_eq!(
+        matrix_cell_x_in_column(1.0, 3.0, MatrixColumnAlign::Left),
+        0.0
+    );
+    assert!((matrix_cell_x_in_column(1.0, 3.0, MatrixColumnAlign::Center) - 1.0).abs() < 1e-9);
+    assert!((matrix_cell_x_in_column(1.0, 3.0, MatrixColumnAlign::Right) - 2.0).abs() < 1e-9);
+
+    let m = MathAtom::matrix(
+        id(5),
+        reciplexa_std::math::MathMatrixKind::Plain,
+        rows.clone(),
+    );
+    let aligned = MathAtom::aligned(id(6), rows);
+    let expected_inner: f64 = widths.iter().sum::<f64>() + 0.25 * widths.len() as f64;
+    assert!((m.estimate_box().width - expected_inner.max(0.5)).abs() < 1e-9);
+    assert!((aligned.estimate_box().width - expected_inner.max(0.5)).abs() < 1e-9);
+}
+
+#[test]
 fn math_delimiter_stretchy_grows_with_body() {
     let a = MathAtom::symbol(id(1), "a", MathClass::Ordinary);
     let b = MathAtom::symbol(id(2), "b", MathClass::Ordinary);

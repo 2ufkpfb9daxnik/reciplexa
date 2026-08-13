@@ -592,6 +592,51 @@ pub fn scripts_attachment_offsets(
     (sub_x, sub_y, sup_x, sup_y)
 }
 
+/// Horizontal packing of a cell inside its column (fontless matrix stub).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MatrixColumnAlign {
+    Left,
+    Center,
+    Right,
+}
+
+/// Max cell width per column for matrix / aligned / cases grids.
+///
+/// Used by [`MathAtom::estimate_box`] for [`MathAtom::Matrix`] and
+/// [`MathAtom::Aligned`]. Not real TeX column templates / `array` `*{c}`.
+pub fn matrix_column_widths(rows: &[Vec<MathAtom>]) -> Vec<f64> {
+    let mut col_widths: Vec<f64> = Vec::new();
+    for row in rows {
+        for (ci, cell) in row.iter().enumerate() {
+            let w = cell.estimate_box().width;
+            if col_widths.len() <= ci {
+                col_widths.resize(ci + 1, 0.0);
+            }
+            col_widths[ci] = col_widths[ci].max(w);
+        }
+    }
+    col_widths
+}
+
+/// Cases / piecewise columns are left-aligned (TeX-like heuristic stub).
+pub fn cases_column_align(_column: usize) -> MatrixColumnAlign {
+    MatrixColumnAlign::Left
+}
+
+/// X offset of a cell within its column band (`0` = left edge of the column).
+pub fn matrix_cell_x_in_column(
+    cell_width: f64,
+    col_width: f64,
+    align: MatrixColumnAlign,
+) -> f64 {
+    let slack = (col_width - cell_width).max(0.0);
+    match align {
+        MatrixColumnAlign::Left => 0.0,
+        MatrixColumnAlign::Center => slack * 0.5,
+        MatrixColumnAlign::Right => slack,
+    }
+}
+
 impl MathAtom {
     /// Rough width/height/depth estimate without fonts (layout scaffolding only).
     pub fn estimate_box(&self) -> MathBox {
@@ -729,17 +774,12 @@ impl MathAtom {
 }
 
 fn estimate_grid_box(rows: &[Vec<MathAtom>], left: Option<&str>, right: Option<&str>) -> MathBox {
-    let mut col_widths: Vec<f64> = Vec::new();
+    let col_widths = matrix_column_widths(rows);
     let mut total_h = 0.0_f64;
     for row in rows {
         let mut row_h = 0.0_f64;
-        for (ci, cell) in row.iter().enumerate() {
-            let b = cell.estimate_box();
-            if col_widths.len() <= ci {
-                col_widths.resize(ci + 1, 0.0);
-            }
-            col_widths[ci] = col_widths[ci].max(b.width);
-            row_h = row_h.max(b.total_height());
+        for cell in row {
+            row_h = row_h.max(cell.estimate_box().total_height());
         }
         total_h += row_h + 0.2;
     }

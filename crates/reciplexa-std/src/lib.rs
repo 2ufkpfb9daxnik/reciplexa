@@ -30,8 +30,9 @@ pub use japanese::{
 };
 pub use layout::{Align, Axis, Column, LayoutChild, Padding, Row, Stack};
 pub use math::{
-    scripts_attachment_offsets, MathAccentKind, MathAtom, MathBox, MathClass, MathMatrixKind,
-    MathStackKind, ACCENT_CLEARANCE_EM, ACCENT_UNDER_CLEARANCE_EM, SCRIPT_SCALE,
+    cases_column_align, matrix_cell_x_in_column, matrix_column_widths, scripts_attachment_offsets,
+    MathAccentKind, MathAtom, MathBox, MathClass, MathMatrixKind, MathStackKind, MatrixColumnAlign,
+    ACCENT_CLEARANCE_EM, ACCENT_UNDER_CLEARANCE_EM, SCRIPT_SCALE,
 };
 pub use motion::{
     keyframe_track, DurationMs, Easing, Keyframe, MotionTimeline, MotionTrack, TemporalPlacement,
