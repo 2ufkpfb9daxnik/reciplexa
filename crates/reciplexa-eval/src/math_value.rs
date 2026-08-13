@@ -369,21 +369,9 @@ fn case_arm_cells(
 
 fn accent_kind_field(fields: &[(String, RuntimeValue)]) -> Result<MathAccentKind, MathValueError> {
     let s = string_field(fields, "kind")?;
-    match s.as_str() {
-        "hat" => Ok(MathAccentKind::Hat),
-        "bar" => Ok(MathAccentKind::Bar),
-        "vec" => Ok(MathAccentKind::Vec),
-        "tilde" => Ok(MathAccentKind::Tilde),
-        "dot" => Ok(MathAccentKind::Dot),
-        "ddot" => Ok(MathAccentKind::Ddot),
-        "overline" => Ok(MathAccentKind::Overline),
-        "underline" => Ok(MathAccentKind::Underline),
-        "widehat" => Ok(MathAccentKind::WideHat),
-        "widetilde" => Ok(MathAccentKind::WideTilde),
-        other => Err(MathValueError::new(format!(
-            "unknown accent kind `{other}`"
-        ))),
-    }
+    MathAccentKind::from_str_name(s.as_str()).ok_or_else(|| {
+        MathValueError::new(format!("unknown accent kind `{s}`"))
+    })
 }
 
 fn matrix_kind_field(fields: &[(String, RuntimeValue)]) -> Result<MathMatrixKind, MathValueError> {

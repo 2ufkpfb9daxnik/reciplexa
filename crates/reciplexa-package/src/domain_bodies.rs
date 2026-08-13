@@ -613,8 +613,14 @@ pub fn math_accents_module() -> DomainNativeModule {
             "tilde".into(),
             "dot".into(),
             "ddot".into(),
+            "check".into(),
+            "breve".into(),
+            "acute".into(),
+            "grave".into(),
+            "ring".into(),
             "overline".into(),
             "underline".into(),
+            "underbar".into(),
             "widehat".into(),
             "widetilde".into(),
         ],
@@ -638,10 +644,22 @@ pub fn math_accents_source() -> &'static str {
   (record (tag "math-accent") (kind "dot") (base base))))
 (val ddot (fn (base)
   (record (tag "math-accent") (kind "ddot") (base base))))
+(val check (fn (base)
+  (record (tag "math-accent") (kind "check") (base base))))
+(val breve (fn (base)
+  (record (tag "math-accent") (kind "breve") (base base))))
+(val acute (fn (base)
+  (record (tag "math-accent") (kind "acute") (base base))))
+(val grave (fn (base)
+  (record (tag "math-accent") (kind "grave") (base base))))
+(val ring (fn (base)
+  (record (tag "math-accent") (kind "ring") (base base))))
 (val overline (fn (base)
   (record (tag "math-accent") (kind "overline") (base base))))
 (val underline (fn (base)
   (record (tag "math-accent") (kind "underline") (base base))))
+(val underbar (fn (base)
+  (record (tag "math-accent") (kind "underbar") (base base))))
 (val widehat (fn (base)
   (record (tag "math-accent") (kind "widehat") (base base))))
 (val widetilde (fn (base)

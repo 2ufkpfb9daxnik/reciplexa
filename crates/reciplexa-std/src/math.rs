@@ -100,8 +100,20 @@ pub enum MathAccentKind {
     Tilde,
     Dot,
     Ddot,
+    /// TeX-ish `\check` (caron).
+    Check,
+    /// TeX-ish `\breve`.
+    Breve,
+    /// TeX-ish `\acute`.
+    Acute,
+    /// TeX-ish `\grave`.
+    Grave,
+    /// TeX-ish `\mathring` / ring.
+    Ring,
     Overline,
     Underline,
+    /// Compact under-bar (distinct from roomier underline/underbrace).
+    Underbar,
     WideHat,
     WideTilde,
 }
@@ -115,11 +127,40 @@ impl MathAccentKind {
             Self::Tilde => "tilde",
             Self::Dot => "dot",
             Self::Ddot => "ddot",
+            Self::Check => "check",
+            Self::Breve => "breve",
+            Self::Acute => "acute",
+            Self::Grave => "grave",
+            Self::Ring => "ring",
             Self::Overline => "overline",
             Self::Underline => "underline",
+            Self::Underbar => "underbar",
             Self::WideHat => "widehat",
             Self::WideTilde => "widetilde",
         }
+    }
+
+    /// Parse package / `math-accent` kind string.
+    pub fn from_str_name(name: &str) -> Option<Self> {
+        Some(match name {
+            "hat" => Self::Hat,
+            "bar" => Self::Bar,
+            "vec" => Self::Vec,
+            "tilde" => Self::Tilde,
+            "dot" => Self::Dot,
+            "ddot" => Self::Ddot,
+            "check" => Self::Check,
+            "breve" => Self::Breve,
+            "acute" => Self::Acute,
+            "grave" => Self::Grave,
+            "ring" => Self::Ring,
+            "overline" => Self::Overline,
+            "underline" => Self::Underline,
+            "underbar" => Self::Underbar,
+            "widehat" => Self::WideHat,
+            "widetilde" => Self::WideTilde,
+            _ => return None,
+        })
     }
 }
 
@@ -681,8 +722,11 @@ impl fmt::Display for EstimateStyle {
 /// Extra height (em) above the base for over-accents (hat/bar/…); stub clearance.
 pub const ACCENT_CLEARANCE_EM: f64 = 0.35;
 
-/// Extra depth (em) below the base for underline-style accents.
+/// Extra depth (em) below the base for compact under accents (underbar).
 pub const ACCENT_UNDER_CLEARANCE_EM: f64 = 0.35;
+
+/// Extra height (em) on top of [`ACCENT_CLEARANCE_EM`] for wide over marks.
+pub const ACCENT_WIDE_EXTRA_EM: f64 = 0.1;
 
 /// Gap (em) between stackrel / overset / underset bands — fontless stub.
 pub const STACKREL_GAP_EM: f64 = 0.15;
@@ -690,6 +734,35 @@ pub const STACKREL_GAP_EM: f64 = 0.15;
 /// Extra depth (em) for underbrace-style under marks (package `underbrace` → underline /
 /// labeled under → stackrel). Slightly roomier than compact [`ACCENT_UNDER_CLEARANCE_EM`].
 pub const UNDERBRACE_CLEARANCE_EM: f64 = 0.5;
+
+/// Fontless under/over accent clearance table: `(above_em, below_em)`.
+///
+/// Heuristic only — not OpenType MATH accent attachment / TeX `\fontdimen`.
+pub fn accent_clearance_em(kind: MathAccentKind) -> (f64, f64) {
+    match kind {
+        MathAccentKind::Hat
+        | MathAccentKind::Bar
+        | MathAccentKind::Vec
+        | MathAccentKind::Tilde
+        | MathAccentKind::Dot
+        | MathAccentKind::Ddot
+        | MathAccentKind::Check
+        | MathAccentKind::Breve
+        | MathAccentKind::Acute
+        | MathAccentKind::Grave
+        | MathAccentKind::Ring => (ACCENT_CLEARANCE_EM, 0.0),
+        MathAccentKind::Overline | MathAccentKind::WideHat | MathAccentKind::WideTilde => {
+            (ACCENT_CLEARANCE_EM + ACCENT_WIDE_EXTRA_EM, 0.0)
+        }
+        MathAccentKind::Underline => (0.0, UNDERBRACE_CLEARANCE_EM),
+        MathAccentKind::Underbar => (0.0, ACCENT_UNDER_CLEARANCE_EM),
+    }
+}
+
+/// [`accent_clearance_em`] for a package kind name (`"hat"`, `"check"`, …).
+pub fn accent_clearance_em_named(name: &str) -> Option<(f64, f64)> {
+    MathAccentKind::from_str_name(name).map(accent_clearance_em)
+}
 
 /// Fraction rule (vinculum) thickness in em — fontless stub, not TeX `\fontdimen8`.
 pub const FRAC_RULE_THICKNESS_EM: f64 = 0.04;
@@ -1006,20 +1079,8 @@ impl MathAtom {
             Self::Accent { kind, base, .. } => {
                 let b = base.estimate_box_with_style(style);
                 let width = b.width.max(0.8);
-                match kind {
-                    MathAccentKind::Underline => {
-                        // Package `underbrace` (no label) lowers to underline; use
-                        // underbrace-style clearance (roomier than compact bar).
-                        MathBox::new(width, b.height, b.depth + underbrace_spacing())
-                    }
-                    MathAccentKind::Overline
-                    | MathAccentKind::WideHat
-                    | MathAccentKind::WideTilde => {
-                        // Wide marks get a touch more clearance than compact accents.
-                        MathBox::new(width, b.height + ACCENT_CLEARANCE_EM + 0.1, b.depth)
-                    }
-                    _ => MathBox::new(width, b.height + ACCENT_CLEARANCE_EM, b.depth),
-                }
+                let (above, below) = accent_clearance_em(*kind);
+                MathBox::new(width, b.height + above, b.depth + below)
             }
             Self::BigOp {
                 operator,
