@@ -33,20 +33,22 @@ pub use japanese::{
     wrap_text_shape_content, BouBox, BreakOpportunity, CharClass, KihonHanmen, Ruby, RubyBox,
     RubyKind, TateChuYoko, TateChuYokoBox, TategakiParagraph, VerticalGlyphOrientation,
     VerticalRubyBox, WritingMode, BOU_MARK_SIZE_EM, BOU_SIDE_OFFSET_EM, BREAK_PAIR_MATRIX,
-    BREAK_PAIR_MATRIX_DIM, DOC_TEXT_MAX_EM, HANG_WIDTH_EM, TRIMMING_WIDTH_EM, VERTICAL_RUBY_SIDE_EM,
+    BREAK_PAIR_MATRIX_DIM, DOC_TEXT_MAX_EM, HANG_WIDTH_EM, TRIMMING_WIDTH_EM,
+    VERTICAL_RUBY_SIDE_EM,
 };
 pub use layout::{Align, Axis, Column, LayoutChild, Padding, Row, Stack};
 pub use math::{
     accent_clearance_em, accent_clearance_em_named, aligned_column_x, bigop_limit_offsets,
-    cases_brace_total_height_em, cases_column_align, class_spacing_em, fraction_rule_metrics,
-    layout_math_atom_to_shapes, matrix_cell_x_in_column, matrix_column_widths, phantom_box,
-    radical_vinculum_index_offsets, scripts_attachment_offsets, smash_box, stackrel_spacing_offsets,
-    underbrace_spacing, EstimateStyle, MathAccentKind, MathAtom, MathBox, MathClass, MathMatrixKind,
-    MathStackKind, MatrixColumnAlign, ACCENT_CLEARANCE_EM, ACCENT_UNDER_CLEARANCE_EM,
-    ACCENT_WIDE_EXTRA_EM, ALIGNED_COLUMN_GUTTER_EM, CASES_ROW_HEIGHT_EM, FRAC_DEN_CLEARANCE_EM,
-    FRAC_NUM_CLEARANCE_EM, FRAC_RULE_THICKNESS_EM, MATH_LAYOUT_EM_TO_MM, MED_MUSKIP_EM,
-    RADICAL_SURD_PAD_EM, RADICAL_VINCULUM_CLEARANCE_EM, RADICAL_VINCULUM_THICKNESS_EM, SCRIPT_SCALE,
-    SCRIPT_SCALE_TEXT, STACKREL_GAP_EM, THICK_MUSKIP_EM, THIN_MUSKIP_EM, UNDERBRACE_CLEARANCE_EM,
+    cases_brace_total_height_em, cases_column_align, class_spacing_em, delimiter_fence_extent_em,
+    fraction_rule_metrics, layout_math_atom_to_shapes, matrix_cell_x_in_column,
+    matrix_column_widths, phantom_box, radical_vinculum_index_offsets, scripts_attachment_offsets,
+    smash_box, stackrel_spacing_offsets, underbrace_spacing, EstimateStyle, MathAccentKind,
+    MathAtom, MathBox, MathClass, MathMatrixKind, MathStackKind, MatrixColumnAlign,
+    ACCENT_CLEARANCE_EM, ACCENT_UNDER_CLEARANCE_EM, ACCENT_WIDE_EXTRA_EM, ALIGNED_COLUMN_GUTTER_EM,
+    CASES_ROW_HEIGHT_EM, FRAC_DEN_CLEARANCE_EM, FRAC_NUM_CLEARANCE_EM, FRAC_RULE_THICKNESS_EM,
+    MATH_LAYOUT_EM_TO_MM, MED_MUSKIP_EM, RADICAL_SURD_PAD_EM, RADICAL_VINCULUM_CLEARANCE_EM,
+    RADICAL_VINCULUM_THICKNESS_EM, SCRIPT_SCALE, SCRIPT_SCALE_TEXT, STACKREL_GAP_EM,
+    THICK_MUSKIP_EM, THIN_MUSKIP_EM, UNDERBRACE_CLEARANCE_EM,
 };
 pub use motion::{
     keyframe_track, DurationMs, Easing, Keyframe, MotionTimeline, MotionTrack, TemporalPlacement,

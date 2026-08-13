@@ -206,9 +206,7 @@ fn math_accent_clearance_table_covers_named_accents() {
 
 #[test]
 fn math_stackrel_spacing_offsets() {
-    use reciplexa_std::math::{
-        stackrel_spacing_offsets, MathBox, MathStackKind, STACKREL_GAP_EM,
-    };
+    use reciplexa_std::math::{stackrel_spacing_offsets, MathBox, MathStackKind, STACKREL_GAP_EM};
 
     let upper = MathBox::new(0.8, 0.5, 0.1);
     let lower = MathBox::new(1.0, 0.7, 0.2);
@@ -219,7 +217,11 @@ fn math_stackrel_spacing_offsets() {
 
     let rel = MathAtom::symbol(id(1), "=", MathClass::Relation);
     let base = MathAtom::symbol(id(2), "x", MathClass::Ordinary);
-    let st = MathAtom::stack(id(3), MathStackKind::Stackrel, vec![rel.clone(), base.clone()]);
+    let st = MathAtom::stack(
+        id(3),
+        MathStackKind::Stackrel,
+        vec![rel.clone(), base.clone()],
+    );
     let sb = st.estimate_box();
     let (euy, ely) = stackrel_spacing_offsets(rel.estimate_box(), base.estimate_box());
     assert!((sb.height - (euy + rel.estimate_box().height)).abs() < 1e-9);
@@ -275,7 +277,9 @@ fn math_radical_vinculum_index_offsets() {
     );
     let pb = plain.estimate_box();
     let ib = indexed.estimate_box();
-    assert!(pb.height >= 0.7 + RADICAL_VINCULUM_CLEARANCE_EM + RADICAL_VINCULUM_THICKNESS_EM - 1e-9);
+    assert!(
+        pb.height >= 0.7 + RADICAL_VINCULUM_CLEARANCE_EM + RADICAL_VINCULUM_THICKNESS_EM - 1e-9
+    );
     assert!(ib.width > pb.width);
     let _ = SCRIPT_SCALE;
 }
@@ -336,7 +340,10 @@ fn estimate_style_text_shrinks_scripts_more_than_display() {
     assert!((EstimateStyle::Text.script_scale() - SCRIPT_SCALE_TEXT).abs() < 1e-9);
     assert!(SCRIPT_SCALE_TEXT < SCRIPT_SCALE);
     assert_eq!(EstimateStyle::parse("text"), Some(EstimateStyle::Text));
-    assert_eq!(EstimateStyle::parse("display"), Some(EstimateStyle::Display));
+    assert_eq!(
+        EstimateStyle::parse("display"),
+        Some(EstimateStyle::Display)
+    );
     assert_eq!(EstimateStyle::parse("weird"), None);
     assert_eq!(EstimateStyle::Text.as_str(), "text");
     assert_eq!(EstimateStyle::Display.to_string(), "display");
@@ -346,26 +353,47 @@ fn estimate_style_text_shrinks_scripts_more_than_display() {
     let scripts = MathAtom::scripts(id(3), base, Some(sup), None);
     let display = scripts.estimate_box();
     let text = scripts.estimate_box_with_style(EstimateStyle::Text);
-    assert_eq!(display, scripts.estimate_box_with_style(EstimateStyle::Display));
+    assert_eq!(
+        display,
+        scripts.estimate_box_with_style(EstimateStyle::Display)
+    );
     assert!(text.width < display.width);
     assert!(text.height < display.height);
 }
 
 #[test]
 fn class_spacing_em_texish_ord_op_and_row_width() {
-    use reciplexa_std::math::{
-        class_spacing_em, MED_MUSKIP_EM, THICK_MUSKIP_EM, THIN_MUSKIP_EM,
-    };
+    use reciplexa_std::math::{class_spacing_em, MED_MUSKIP_EM, THICK_MUSKIP_EM, THIN_MUSKIP_EM};
 
-    assert!((class_spacing_em(MathClass::Ordinary, MathClass::Operator) - THIN_MUSKIP_EM).abs() < 1e-9);
-    assert!((class_spacing_em(MathClass::Operator, MathClass::Ordinary) - THIN_MUSKIP_EM).abs() < 1e-9);
-    assert!((class_spacing_em(MathClass::Operator, MathClass::Operator) - THIN_MUSKIP_EM).abs() < 1e-9);
-    assert!((class_spacing_em(MathClass::Ordinary, MathClass::Binary) - MED_MUSKIP_EM).abs() < 1e-9);
-    assert!((class_spacing_em(MathClass::Operator, MathClass::Binary) - MED_MUSKIP_EM).abs() < 1e-9);
-    assert!((class_spacing_em(MathClass::Ordinary, MathClass::Relation) - THICK_MUSKIP_EM).abs() < 1e-9);
-    assert!((class_spacing_em(MathClass::Binary, MathClass::Relation) - THICK_MUSKIP_EM).abs() < 1e-9);
-    assert!((class_spacing_em(MathClass::Ordinary, MathClass::Punctuation) - THIN_MUSKIP_EM).abs() < 1e-9);
-    assert_eq!(class_spacing_em(MathClass::Ordinary, MathClass::Ordinary), 0.0);
+    assert!(
+        (class_spacing_em(MathClass::Ordinary, MathClass::Operator) - THIN_MUSKIP_EM).abs() < 1e-9
+    );
+    assert!(
+        (class_spacing_em(MathClass::Operator, MathClass::Ordinary) - THIN_MUSKIP_EM).abs() < 1e-9
+    );
+    assert!(
+        (class_spacing_em(MathClass::Operator, MathClass::Operator) - THIN_MUSKIP_EM).abs() < 1e-9
+    );
+    assert!(
+        (class_spacing_em(MathClass::Ordinary, MathClass::Binary) - MED_MUSKIP_EM).abs() < 1e-9
+    );
+    assert!(
+        (class_spacing_em(MathClass::Operator, MathClass::Binary) - MED_MUSKIP_EM).abs() < 1e-9
+    );
+    assert!(
+        (class_spacing_em(MathClass::Ordinary, MathClass::Relation) - THICK_MUSKIP_EM).abs() < 1e-9
+    );
+    assert!(
+        (class_spacing_em(MathClass::Binary, MathClass::Relation) - THICK_MUSKIP_EM).abs() < 1e-9
+    );
+    assert!(
+        (class_spacing_em(MathClass::Ordinary, MathClass::Punctuation) - THIN_MUSKIP_EM).abs()
+            < 1e-9
+    );
+    assert_eq!(
+        class_spacing_em(MathClass::Ordinary, MathClass::Ordinary),
+        0.0
+    );
     assert_eq!(class_spacing_em(MathClass::Open, MathClass::Ordinary), 0.0);
     assert_eq!(class_spacing_em(MathClass::Close, MathClass::Fence), 0.0);
 
@@ -388,8 +416,7 @@ fn math_scripts_attachment_offsets_heuristic() {
     let base = MathBox::new(1.0, 0.7, 0.2);
     let sub = MathBox::new(0.5, 0.4, 0.1);
     let sup = MathBox::new(0.5, 0.4, 0.1);
-    let (sub_x, sub_y, sup_x, sup_y) =
-        scripts_attachment_offsets(base, Some(sub), Some(sup));
+    let (sub_x, sub_y, sup_x, sup_y) = scripts_attachment_offsets(base, Some(sub), Some(sup));
     assert!((sub_x - 1.0).abs() < 1e-9);
     assert!((sup_x - 1.0).abs() < 1e-9);
     assert!(sub_y < 0.0, "subscript below baseline: {sub_y}");
@@ -458,7 +485,9 @@ fn math_bigop_limit_offsets_heuristic() {
 #[test]
 fn layout_math_fraction_draws_rule_line() {
     use reciplexa_scene::Shape;
-    use reciplexa_std::math::{fraction_rule_metrics, layout_math_atom_to_shapes, MATH_LAYOUT_EM_TO_MM};
+    use reciplexa_std::math::{
+        fraction_rule_metrics, layout_math_atom_to_shapes, MATH_LAYOUT_EM_TO_MM,
+    };
 
     let num = MathAtom::symbol(id(1), "a", MathClass::Ordinary);
     let den = MathAtom::symbol(id(2), "b", MathClass::Ordinary);
@@ -488,6 +517,54 @@ fn layout_math_fraction_draws_rule_line() {
     let (rule_em, _, _) = fraction_rule_metrics();
     assert!(line.width_mm >= (rule_em * MATH_LAYOUT_EM_TO_MM).min(0.15) - 1e-9);
     assert!(line.x2_mm > line.x1_mm);
+}
+
+/// LL13: Delimiter layout draws taller left/right fence glyphs from stretch heuristic.
+#[test]
+fn layout_math_delimiter_tall_fence_font_size() {
+    use reciplexa_scene::Shape;
+    use reciplexa_std::math::{
+        delimiter_fence_extent_em, layout_math_atom_to_shapes, MATH_LAYOUT_EM_TO_MM,
+    };
+
+    let body = MathAtom::fraction(
+        id(1),
+        MathAtom::symbol(id(2), "a", MathClass::Ordinary),
+        MathAtom::symbol(id(3), "b", MathClass::Ordinary),
+    );
+    let atom = MathAtom::delimiter_with_stretch(id(4), "(", ")", body.clone(), 2.0);
+    let origin = (12.0, 160.0);
+    let shapes = layout_math_atom_to_shapes(&atom, origin);
+    let texts: Vec<_> = shapes
+        .iter()
+        .filter_map(|s| match s {
+            Shape::Text(t) => Some(t),
+            _ => None,
+        })
+        .collect();
+    let left = texts.iter().find(|t| t.content == "(").expect("left fence");
+    let right = texts
+        .iter()
+        .find(|t| t.content == ")")
+        .expect("right fence");
+    let a = texts.iter().find(|t| t.content == "a").expect("num");
+    assert!((left.x_mm - origin.0).abs() < 1e-9);
+    assert!(a.x_mm > left.x_mm, "body to the right of left fence");
+    assert!(right.x_mm > a.x_mm, "right fence after body");
+    let inner = body.estimate_box();
+    let (fh, fd) = delimiter_fence_extent_em(inner, 2.0);
+    let expected_size = (fh + fd).max(0.5) * MATH_LAYOUT_EM_TO_MM;
+    assert!(
+        (left.size_mm - expected_size).abs() < 1e-9,
+        "left fence size_mm from stretch: got {} want {}",
+        left.size_mm,
+        expected_size
+    );
+    assert!((right.size_mm - expected_size).abs() < 1e-9);
+    assert!(
+        left.size_mm > MATH_LAYOUT_EM_TO_MM,
+        "stretched fence taller than default glyph size"
+    );
 }
 
 /// LL11: Radical layout draws vinculum Line above the radicand.
@@ -529,7 +606,10 @@ fn layout_math_radical_draws_vinculum_line() {
     let (vy, _, _) = radical_vinculum_index_offsets(body_box, Some(idx.estimate_box()));
     let expected_y = origin.1 - vy * MATH_LAYOUT_EM_TO_MM;
     assert!((line.y1_mm - expected_y).abs() < 1e-9);
-    assert!(line.y1_mm < x.y_mm, "vinculum above radicand in scene y-down");
+    assert!(
+        line.y1_mm < x.y_mm,
+        "vinculum above radicand in scene y-down"
+    );
     assert!(line.x2_mm > line.x1_mm);
 }
 
@@ -665,12 +745,12 @@ fn math_delimiter_stretchy_grows_with_body() {
 
 #[test]
 fn math_cases_left_brace_height_tracks_rows_times_row_height() {
-    use reciplexa_std::math::{
-        cases_brace_total_height_em, MathMatrixKind, CASES_ROW_HEIGHT_EM,
-    };
+    use reciplexa_std::math::{cases_brace_total_height_em, MathMatrixKind, CASES_ROW_HEIGHT_EM};
 
     assert!((cases_brace_total_height_em(3, 1.2) - 3.6).abs() < 1e-9);
-    assert!((cases_brace_total_height_em(0, CASES_ROW_HEIGHT_EM) - CASES_ROW_HEIGHT_EM).abs() < 1e-9);
+    assert!(
+        (cases_brace_total_height_em(0, CASES_ROW_HEIGHT_EM) - CASES_ROW_HEIGHT_EM).abs() < 1e-9
+    );
 
     let a = MathAtom::symbol(id(1), "a", MathClass::Ordinary);
     let b = MathAtom::symbol(id(2), "b", MathClass::Ordinary);

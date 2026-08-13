@@ -1212,12 +1212,38 @@ fn math_offset_to_scene_mm(origin: (f64, f64), dx_em: f64, dy_em: f64) -> (f64, 
 /// rule between them (LL9).
 /// [`MathAtom::Radical`]: radicand (+ optional index) with vinculum
 /// [`reciplexa_scene::Line`] via [`radical_vinculum_index_offsets`] (LL11).
+/// [`MathAtom::Delimiter`]: left/right fence Text glyphs with taller
+/// `size_mm` from the stretchy height/depth heuristic (LL13).
 /// Not OpenType MATH / glyph metrics.
 pub fn layout_math_atom_to_shapes(
     atom: &MathAtom,
     origin: (f64, f64),
 ) -> Vec<reciplexa_scene::Shape> {
     match atom {
+        MathAtom::Delimiter {
+            left,
+            right,
+            body,
+            stretch_factor,
+            ..
+        } => {
+            let inner = body.estimate_box();
+            let (fence_h, fence_d) = delimiter_fence_extent_em(inner, *stretch_factor);
+            let fence_size_em = fence_h + fence_d;
+            let left_w = delimiter_fence_pad_em(left);
+            let right_w = delimiter_fence_pad_em(right);
+            let mut shapes = layout_fence_chars(left, origin, fence_size_em, left_w);
+            let body_origin = math_offset_to_scene_mm(origin, left_w, 0.0);
+            shapes.extend(layout_math_atom_to_shapes(body, body_origin));
+            let right_origin = math_offset_to_scene_mm(origin, left_w + inner.width, 0.0);
+            shapes.extend(layout_fence_chars(
+                right,
+                right_origin,
+                fence_size_em,
+                right_w,
+            ));
+            shapes
+        }
         MathAtom::Scripts {
             base,
             superscript,
@@ -1314,8 +1340,7 @@ pub fn layout_math_atom_to_shapes(
         } => {
             let body = radicand.estimate_box();
             let idx_box = index.as_ref().map(|i| i.estimate_box());
-            let (vinculum_y, index_x, index_y) =
-                radical_vinculum_index_offsets(body, idx_box);
+            let (vinculum_y, index_x, index_y) = radical_vinculum_index_offsets(body, idx_box);
             // Radicand origin shifted right by surd pad (heuristic gutter).
             let rad_origin = math_offset_to_scene_mm(origin, RADICAL_SURD_PAD_EM, 0.0);
             let mut shapes = layout_math_atom_to_shapes(radicand, rad_origin);
@@ -1338,6 +1363,47 @@ pub fn layout_math_atom_to_shapes(
         }
         _ => layout_math_linearize_glyphs(atom, origin),
     }
+}
+
+/// Stretchy fence height/depth (em) matching [`MathAtom::estimate_box`] for
+/// [`MathAtom::Delimiter`].
+pub fn delimiter_fence_extent_em(inner: MathBox, stretch_factor: f64) -> (f64, f64) {
+    let factor = stretch_factor.max(0.0);
+    let height = (inner.height * factor).max(0.9);
+    let depth = (inner.depth * factor).max(0.3);
+    (height, depth)
+}
+
+fn delimiter_fence_pad_em(fence: &str) -> f64 {
+    0.35 * fence.chars().count().max(1) as f64
+}
+
+/// Place fence glyph(s) with an explicit em size (taller stretchy delimiters).
+fn layout_fence_chars(
+    fence: &str,
+    origin: (f64, f64),
+    size_em: f64,
+    total_width_em: f64,
+) -> Vec<reciplexa_scene::Shape> {
+    let (ox, oy) = origin;
+    let n = fence.chars().count().max(1) as f64;
+    let size_mm = size_em.max(0.5) * MATH_LAYOUT_EM_TO_MM;
+    let advance = (total_width_em.max(0.35) * MATH_LAYOUT_EM_TO_MM) / n;
+    fence
+        .chars()
+        .enumerate()
+        .map(|(i, ch)| {
+            reciplexa_scene::Shape::Text(reciplexa_scene::Text {
+                x_mm: ox + i as f64 * advance,
+                y_mm: oy,
+                size_mm,
+                width_mm: Some(advance),
+                height_mm: Some(size_mm),
+                content: ch.to_string(),
+                fill: reciplexa_scene::Color::BLACK,
+            })
+        })
+        .collect()
 }
 
 fn layout_math_linearize_glyphs(
