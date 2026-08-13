@@ -104,10 +104,10 @@ pre-PKG カーネルは計画上 **COMPLETE（意図的 defer 付き）**。各�
 | **`packages/color`** | **native**（N1） | srgb / named＋`.rpi`；例 `pkg_color.rpx` |
 | **`packages/math`** | **native**（N3） | atoms…stack＋`.rpi`；例 `pkg_math.rpx`；layout は後続 |
 | **`packages/japanese`** | **native**（N4・JLReq 志向・部分） | classes / linebreak / kihon / markup；**完全 JLReq ではない** |
-| **`packages/document`** | **native scaffold**（N5.1） | `page`＝flow/section/heading 等（`doc-*`）；例 `pkg_document.rpx`；interim CST は未退役 |
+| **`packages/document`** | **native scaffold**（N5.1–N5.2） | `page`＝flow/section/heading 等（`doc-*`）；例 `pkg_document.rpx`；pipeline 自動ルート済；**interim keyword 表は GUI CST 用に保持（N5 削除対象外）** |
 | **`crates/reciplexa-std`** | Rust ファサード（native 本文の主戦場） | `visual` / `text` / `document` / `math` / … |
 
-ローカル import・path-dep・`workspace.rpxm` stub まで到達。**レジストリ等は OPEN-PKG-***。CST interim は GUI golden 用に残存。Slice D bridge は package-shaped ソース向けに live。
+ローカル import・path-dep・`workspace.rpxm` stub まで到達。**レジストリ等は OPEN-PKG-***。**N5.2 dual-path:** package 文書＋markup→graphics package emit＋GUI 読取専用 scene layers。CST interim / `black_circle` は **writable GUI CST sync** 用に残存（keyword 表削除は GUI CST sync v2 待ち・N5 削除スコープ外）。
 
 ---
 
@@ -152,9 +152,9 @@ pre-PKG カーネルは計画上 **COMPLETE（意図的 defer 付き）**。各�
 
 推奨順序:
 
-1. **Native domain 移行** — [`native-domain-plan.md`](native-domain-plan.md) の単位 N0→N5（length/color → graphics → math → japanese → document）。`.rpx` 本文を廃し Rust 実装 + `.rpi`/`import` を維持。
-2. **カバレッジ締め（N6）** — 移行後に llvm-cov で filtered ~99%（core/eval/bind/syntax/cli）。
-3. **Slice D 残り** — GUI golden が native 経由で green になったら interim keyword 表削除。
+1. **Native domain 移行** — [`native-domain-plan.md`](native-domain-plan.md) N0→N5.2 dual-path **done**（length/color → graphics → math → japanese → document）。keyword 表削除は GUI CST sync v2（N5 外）。
+2. **カバレッジ締め（N6）** — **done**（7-crate BEST-ENTRY ≥99%）；N5.3 tip for document surface residuals。
+3. **GUI CST sync v2** — package AST 書き換えで interim keyword 表を退役（N5 完了後の別フェーズ）。
 4. **PKG インフラ（Slice E）** — workspace lock / resource root；レジストリは stub 可。
 5. **OPEN-TEXT-JA-001 / math layout** — UCS 表・glyph layout は native japanese/math 深化の後続。
 ---

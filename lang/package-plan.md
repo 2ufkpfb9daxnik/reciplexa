@@ -16,7 +16,7 @@ Goal: local-path package **API** (`package.rpxm`, `.rpi`, `import`) after Part I
 |---|---|
 | `crates/reciplexa-package` | Manifest / path dep / lock / workspace stub |
 | `crates/reciplexa-bind` | Module tree + package search path |
-| Document surface | Interim CST `(page …)(circle …)` retained for GUI golden; package-shaped sources use bridge; **N5.1** adds native `document/page` (`doc-*`) |
+| Document surface | **N5.2 dual-path done:** package `(import graphics\|document)` + markup→package emit + GUI read-only scene layers; interim CST `(page)/(circle)` **retained** for writable `black_circle` GUI golden (keyword-table delete = GUI CST sync v2, out of N5) |
 | `crates/reciplexa-std` | Rust typed façade (`visual` / `text` / `document` / `math` / …) — **authoritative body target** |
 | `packages/*/src/*.rpx` | **Interim portable bodies — migrate to native (see native-domain-plan)** |
 | `packages/*/interface/*.rpi` | Keep as public API surface |
@@ -35,11 +35,13 @@ Tracking: **`lang/native-domain-plan.md`** (units N0–N6).
 
 Interim RPX depth that already exists (`graphics` / `length` / `color` / `math` / `japanese`) remains until each unit’s native replacement is wired and examples pass; then delete the `.rpx` body only.
 
-### Slice D — document migration (strangler)
+### Slice D — document migration (strangler) — **N5.2 dual-path done**
 
-- Package-defined constructors consumed by lower/eval (bridge live)
-- GUI interim CST kept for `black_circle` until native + sync allow keyword-table deletion
-- See package-plan history / native-domain-plan Phase N2 / N5
+- Package-defined constructors consumed by lower/eval (bridge live); pipeline auto-routes `(import graphics|document`
+- Markup expand emits graphics package `page`/`text`/`line`/`image` (not interim keyword heads)
+- GUI: read-only layers from scene for package-shaped sources; nudge soft-refuses
+- **Keyword-table holdout (out of N5 delete scope):** interim CST + `black_circle.rpx` kept until GUI CST sync v2 can rewrite package AST. Package twin: `pkg_black_circle.rpx`
+- Tracking: `lang/native-domain-plan.md` Phase N5
 
 ### Slice E — workspace / resources / OPEN stubs
 

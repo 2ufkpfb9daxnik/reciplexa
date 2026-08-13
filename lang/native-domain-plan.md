@@ -137,10 +137,10 @@ Document / page constructors stay package-shaped (`graphics/page` or later `docu
 | N5.2b | Package twin for black_circle (keep interim CST golden) | **done** — `examples/pkg_black_circle.rpx`; parity vs interim paper + circle; `black_circle.rpx` untouched |
 | N5.2c | GUI read-only layers from scene when CST pages absent | **done** — scene-backed `resolve_preview_layers`; package nudge soft-refuse |
 | N5.2d | Markup expand → package native nodes | **done** — markup emits graphics `page`/`text`/`line`/`image` + imports; preview via package bridge |
-| N5.2e | Docs: keyword-table deletion blocked by GUI CST sync (out of N5 delete scope) | pending |
+| N5.2e | Docs: keyword-table deletion blocked by GUI CST sync (out of N5 delete scope) | **done** — dual-path complete; keyword tables retained; see honesty note below |
 | N5.3 | Coverage tip for document surface / pipeline / markup | pending |
 
-**N5.2 honesty:** Retiring interim `(page)/(circle)` keyword tables requires GUI CST sync v2 (rewrite package AST). N5 finishes the **dual path** (package document + markup native; interim retained for writable goldens).
+**N5.2 honesty (complete):** N5.2 finishes the **dual path** — package document + markup→graphics package emit + GUI read-only scene layers; interim `(page)/(circle)` keyword tables and `black_circle.rpx` stay for **writable GUI CST sync**. Deleting those tables is **out of N5 delete scope**: it requires GUI CST sync v2 that rewrites package AST (not just scene layers). Do not treat keyword-table retirement as an N5 leftover.
 
 ### Phase N6 — workspace coverage to ~99%
 
@@ -171,4 +171,4 @@ Document / page constructors stay package-shaped (`graphics/page` or later `docu
 
 **N6 done:** 7-crate BEST-ENTRY **≥99%** (N6 q). Soft residuals remain on check/cast/eval/load/document (see `coverage-holdouts.md`).
 
-**N5.1 done:** native `document/page` package scaffold (`doc-*` tagged records mirroring `reciplexa_std::document`). **N5.2a–d done:** dual-path pipeline/GUI/markup. **Next:** N5.2e docs (keyword-table holdout) + N5.3 coverage tip.
+**N5.2 dual-path done** (a–e). Keyword-table deletion blocked by GUI CST sync — out of N5. **Next:** N5.3 coverage tip.
