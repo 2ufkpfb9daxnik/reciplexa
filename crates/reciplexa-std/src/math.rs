@@ -1252,12 +1252,58 @@ fn math_offset_to_scene_mm(origin: (f64, f64), dx_em: f64, dy_em: f64) -> (f64, 
 /// [`aligned_column_x`] / [`matrix_cell_x_in_column`] (LL14).
 /// [`MathAtom::Accent`]: accent mark glyph via [`accent_clearance_em`] (LL15).
 /// [`MathAtom::Aligned`]: cells snapped to [`aligned_column_x`] bands (LL18).
+/// [`MathAtom::Stack`]: children via [`stackrel_spacing_offsets`] / vertical gap (LL19).
 /// Not OpenType MATH / glyph metrics.
 pub fn layout_math_atom_to_shapes(
     atom: &MathAtom,
     origin: (f64, f64),
 ) -> Vec<reciplexa_scene::Shape> {
     match atom {
+        MathAtom::Stack { kind, children, .. } => {
+            if children.is_empty() {
+                return Vec::new();
+            }
+            if *kind == MathStackKind::Stackrel && children.len() >= 2 {
+                let upper = &children[0];
+                let lower = &children[1];
+                let ub = upper.estimate_box();
+                let lb = lower.estimate_box();
+                let width = ub.width.max(lb.width);
+                let (uy, ly) = stackrel_spacing_offsets(ub, lb);
+                let mut shapes = Vec::new();
+                let uo = math_offset_to_scene_mm(origin, (width - ub.width) * 0.5, uy);
+                shapes.extend(layout_math_atom_to_shapes(upper, uo));
+                let lo = math_offset_to_scene_mm(origin, (width - lb.width) * 0.5, ly);
+                shapes.extend(layout_math_atom_to_shapes(lower, lo));
+                // Extra children (rare) stack further below the lower band.
+                let mut y = ly - lb.depth - 0.1;
+                for extra in children.iter().skip(2) {
+                    let eb = extra.estimate_box();
+                    y -= eb.height;
+                    let eo = math_offset_to_scene_mm(origin, (width - eb.width) * 0.5, y);
+                    shapes.extend(layout_math_atom_to_shapes(extra, eo));
+                    y -= eb.depth + 0.1;
+                }
+                return shapes;
+            }
+            let gap = match kind {
+                MathStackKind::Stackrel => STACKREL_GAP_EM,
+                _ => 0.1,
+            };
+            let boxes: Vec<_> = children.iter().map(|c| c.estimate_box()).collect();
+            let width = boxes.iter().map(|b| b.width).fold(0.0_f64, f64::max);
+            let total: f64 = boxes.iter().map(|b| b.total_height() + gap).sum::<f64>()
+                - if boxes.is_empty() { 0.0 } else { gap };
+            let mut y = total * 0.55;
+            let mut shapes = Vec::new();
+            for (child, b) in children.iter().zip(boxes.iter()) {
+                let baseline = y - b.height;
+                let o = math_offset_to_scene_mm(origin, (width - b.width) * 0.5, baseline);
+                shapes.extend(layout_math_atom_to_shapes(child, o));
+                y -= b.total_height() + gap;
+            }
+            shapes
+        }
         MathAtom::Aligned { rows, .. } => {
             layout_math_grid_to_shapes(rows, origin, None, None, /* left_align */ true)
         }

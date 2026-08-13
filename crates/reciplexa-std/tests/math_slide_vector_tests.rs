@@ -519,6 +519,46 @@ fn layout_math_fraction_draws_rule_line() {
     assert!(line.x2_mm > line.x1_mm);
 }
 
+/// LL19: Stack/stackrel layout places bands via stackrel_spacing_offsets.
+#[test]
+fn layout_math_stack_positions_stackrel_bands() {
+    use reciplexa_scene::Shape;
+    use reciplexa_std::math::{
+        layout_math_atom_to_shapes, stackrel_spacing_offsets, MathStackKind, MATH_LAYOUT_EM_TO_MM,
+    };
+
+    let upper = MathAtom::symbol(id(1), "f", MathClass::Ordinary);
+    let lower = MathAtom::symbol(id(2), "=", MathClass::Relation);
+    let atom = MathAtom::stack(
+        id(3),
+        MathStackKind::Stackrel,
+        vec![upper.clone(), lower.clone()],
+    );
+    let origin = (18.0, 110.0);
+    let shapes = layout_math_atom_to_shapes(&atom, origin);
+    let texts: Vec<_> = shapes
+        .iter()
+        .filter_map(|s| match s {
+            Shape::Text(t) => Some(t),
+            _ => None,
+        })
+        .collect();
+    let tf = texts.iter().find(|t| t.content == "f").expect("upper");
+    let teq = texts.iter().find(|t| t.content == "=").expect("lower");
+    let (uy, ly) = stackrel_spacing_offsets(upper.estimate_box(), lower.estimate_box());
+    let width = upper.estimate_box().width.max(lower.estimate_box().width);
+    let ux = (width - upper.estimate_box().width) * 0.5;
+    let lx = (width - lower.estimate_box().width) * 0.5;
+    assert!((tf.x_mm - (origin.0 + ux * MATH_LAYOUT_EM_TO_MM)).abs() < 1e-9);
+    assert!((tf.y_mm - (origin.1 - uy * MATH_LAYOUT_EM_TO_MM)).abs() < 1e-9);
+    assert!((teq.x_mm - (origin.0 + lx * MATH_LAYOUT_EM_TO_MM)).abs() < 1e-9);
+    assert!((teq.y_mm - (origin.1 - ly * MATH_LAYOUT_EM_TO_MM)).abs() < 1e-9);
+    assert!(
+        tf.y_mm < teq.y_mm,
+        "stackrel upper above lower in scene y-down"
+    );
+}
+
 /// LL18: Aligned layout snaps cells to aligned_column_x bands.
 #[test]
 fn layout_math_aligned_snaps_column_x() {
