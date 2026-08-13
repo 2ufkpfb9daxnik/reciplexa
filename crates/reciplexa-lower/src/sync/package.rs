@@ -147,6 +147,13 @@ pub fn find_main_expr_in_source(src: &str) -> Result<SyntaxNode, SyncError> {
     find_main_expr(&root)
 }
 
+/// Number of `(page …)` forms under `(val main …)`.
+pub fn count_package_pages(src: &str) -> Result<usize, SyncError> {
+    let root = parse_root(src)?;
+    let main = find_main_expr(&root)?;
+    Ok(collect_package_pages(&main)?.len())
+}
+
 /// Parse + [`find_package_page`] convenience.
 pub fn find_package_page_in_source(src: &str, page_index: usize) -> Result<SyntaxNode, SyncError> {
     let root = parse_root(src)?;
@@ -170,10 +177,12 @@ pub fn collect_layers_package(src: &str, page_index: usize) -> Result<Vec<LayerI
     Ok(out)
 }
 
-/// Nudge flattened package layer `flat_index` by rewriting leaf geometry numbers.
+/// Nudge flattened package layer `flat_index` by `(dx, dy)` in page mm.
 ///
-/// For bare leaves (circle/rect/…), patches `x`/`y` in place. Does not wrap with
-/// `(translate …)` yet (S3).
+/// Mirrors interim `nudge_layer_page` wrap rules on the page-content root:
+/// existing `(translate …)` (or opacity→translate) is edited in place; bare
+/// `(rotate …)` roots get a translate wrap. Paint-wrapped / bare leaves still
+/// patch geometry numbers in place (S1 circle behavior).
 pub fn nudge_layer_package(
     src: &str,
     page_index: usize,
@@ -189,13 +198,29 @@ pub fn nudge_layer_package(
         .get(flat_index)
         .ok_or_else(|| SyncError::new("layer index out of range"))?;
     let root = parse_root(src).expect("parse ok after collect_layers_package");
+    let root_node = find_list_covering(&root, layer.root_start, layer.root_end)
+        .ok_or_else(|| SyncError::new("layer root span missing after parse"))?;
+
+    if is_headed(&root_node, "translate") {
+        return nudge_xy_slots_of_list(&root_node, 1, 2, dx, dy);
+    }
+    if is_headed(&root_node, "opacity") {
+        if let Some(child) = first_package_shape_child(&root_node) {
+            if is_headed(&child, "translate") {
+                return nudge_xy_slots_of_list(&child, 1, 2, dx, dy);
+            }
+        }
+    }
+    if is_headed(&root_node, "rotate") || is_headed(&root_node, "scale") {
+        return wrap_span_with_translate(src, layer.root_start, layer.root_end, dx, dy);
+    }
+
     let leaf = find_list_covering(&root, layer.byte_start, layer.byte_end)
         .ok_or_else(|| SyncError::new("layer leaf span missing after parse"))?;
     let (x_slot, y_slot) = match layer.kind.as_str() {
         "circle" | "rect" | "ellipse" | "ring" | "frame" | "text" => (1usize, 2usize),
         "image" => (2, 3),
         "line" => {
-            // Nudge both endpoints by the same delta.
             let after = nudge_xy_slots_of_list(&leaf, 1, 2, dx, dy)?;
             let root2 = parse_root(&after).expect("parse ok after line p1 patch");
             let leaf2 = find_list_covering(&root2, layer.byte_start, layer.byte_end)
@@ -208,6 +233,12 @@ pub fn nudge_layer_package(
                 .ok_or_else(|| SyncError::new("line form missing after p1 patch"))?;
             return nudge_xy_slots_of_list(&leaf2, 3, 4, dx, dy);
         }
+        "polyline" | "polygon" | "path" => {
+            return Err(SyncError::new(format!(
+                "package nudge unsupported for kind `{}`",
+                layer.kind
+            )));
+        }
         other => {
             return Err(SyncError::new(format!(
                 "package nudge unsupported for kind `{other}`"
@@ -215,6 +246,52 @@ pub fn nudge_layer_package(
         }
     };
     nudge_xy_slots_of_list(&leaf, x_slot, y_slot, dx, dy)
+}
+
+fn first_package_shape_child(node: &SyntaxNode) -> Option<SyntaxNode> {
+    let items = list_atoms(node);
+    let skip = if is_headed(node, "translate") {
+        3
+    } else if is_headed(node, "scale") {
+        if items.len() >= 4
+            && matches!(&items[1], Child::Token(t) if t.kind() == SyntaxKind::Number)
+            && matches!(&items[2], Child::Token(t) if t.kind() == SyntaxKind::Number)
+        {
+            3
+        } else {
+            2
+        }
+    } else if is_headed(node, "group") || is_headed(node, "list") {
+        1
+    } else {
+        // opacity / rotate / paint wrappers
+        2
+    };
+    items.into_iter().skip(skip).find_map(|c| match c {
+        Child::Node(n) => Some(n),
+        _ => None,
+    })
+}
+
+fn wrap_span_with_translate(
+    src: &str,
+    start: usize,
+    end: usize,
+    tx: f64,
+    ty: f64,
+) -> Result<String, SyncError> {
+    let inner = &src[start..end];
+    let wrapped = format!(
+        "(translate {} {} {})",
+        format_drag_number(tx),
+        format_drag_number(ty),
+        inner
+    );
+    let mut out = String::with_capacity(src.len() + wrapped.len() - inner.len());
+    out.push_str(&src[..start]);
+    out.push_str(&wrapped);
+    out.push_str(&src[end..]);
+    Ok(out)
 }
 
 /// Collect one [`SizeTarget`] per flattened drawable under a package page.
@@ -620,6 +697,46 @@ mod tests {
         assert!(
             out.contains("(circle 105 148.5 80)"),
             "expected radius scale, got:\n{out}"
+        );
+    }
+
+    #[test]
+    fn nudge_rect_ellipse_text_line_and_translate_wrap() {
+        let multi = r#"(import graphics/shapes only circle fill rect ellipse text line stroke translate rotate)
+(import graphics/page only a4 page)
+(import graphics/color only black red)
+(val main
+  (page a4
+    (list
+      (fill (rect 10 20 30 40) black)
+      (fill (ellipse 50 60 7 8) red)
+      (text 1 2 12 "hi")
+      (stroke (line 0 0 10 10) 1 black)
+      (rotate 15 (fill (circle 0 0 5) black))
+      (translate 3 4 (fill (circle 0 0 2) black)))))
+"#;
+        let layers = collect_layers_package(multi, 0).unwrap();
+        assert_eq!(
+            layers.iter().map(|l| l.kind.as_str()).collect::<Vec<_>>(),
+            vec!["rect", "ellipse", "text", "line", "circle", "circle"]
+        );
+        let r = nudge_layer_package(multi, 0, 0, 1.0, 2.0).unwrap();
+        assert!(r.contains("(rect 11 22 30 40)"), "{r}");
+        let e = nudge_layer_package(multi, 0, 1, 1.0, -1.0).unwrap();
+        assert!(e.contains("(ellipse 51 59 7 8)"), "{e}");
+        let t = nudge_layer_package(multi, 0, 2, 5.0, 0.0).unwrap();
+        assert!(t.contains("(text 6 2 12 \"hi\")"), "{t}");
+        let line = nudge_layer_package(multi, 0, 3, 1.0, 1.0).unwrap();
+        assert!(line.contains("(line 1 1 11 11)"), "{line}");
+        let wrapped = nudge_layer_package(multi, 0, 4, 2.0, -3.0).unwrap();
+        assert!(
+            wrapped.contains("(translate 2 -3 (rotate 15 (fill (circle 0 0 5) black)))"),
+            "{wrapped}"
+        );
+        let tr = nudge_layer_package(multi, 0, 5, 1.0, 1.0).unwrap();
+        assert!(
+            tr.contains("(translate 4 5 (fill (circle 0 0 2) black))"),
+            "{tr}"
         );
     }
 }
