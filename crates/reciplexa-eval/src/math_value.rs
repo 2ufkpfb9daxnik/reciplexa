@@ -9,8 +9,8 @@ use std::cell::Cell;
 use reciplexa_identity::document::StableNodeId;
 use reciplexa_scene::Shape;
 use reciplexa_std::math::{
-    layout_math_atom_to_shapes, scripts_attachment_offsets, EstimateStyle, MathAccentKind, MathAtom,
-    MathBox, MathClass, MathMatrixKind, MathStackKind,
+    layout_math_atom_to_shapes, scripts_attachment_offsets, EstimateStyle, MathAccentKind,
+    MathAtom, MathBox, MathClass, MathMatrixKind, MathStackKind,
 };
 
 use crate::value::RuntimeValue;
@@ -99,11 +99,20 @@ pub fn math_atom_from_value(v: &RuntimeValue) -> Result<MathAtom, MathValueError
 /// (monospace heuristic) at `origin` (mm). Scripts / BigOp / Fraction / Radical
 /// use std attachment heuristics and Line rules (LL7–LL11).
 ///
+/// `math-phantom` / `math-smash` metric records produce **no ink** (empty
+/// shape list). Not TeX `\mathsm@sh` (smash still draws) or OpenType MATH
+/// phantom nodes — see `lang/live-layout-plan.md`.
+///
 /// Not OpenType MATH — see `lang/live-layout-plan.md`.
 pub fn layout_math_to_shapes(
     math_value: &RuntimeValue,
     origin: (f64, f64),
 ) -> Result<Vec<Shape>, MathValueError> {
+    if let Ok(fields) = record_fields(math_value) {
+        if matches!(tag_of(fields), Some("math-phantom" | "math-smash")) {
+            return Ok(Vec::new());
+        }
+    }
     let atom = math_atom_from_value(math_value)?;
     Ok(layout_math_atom_to_shapes(&atom, origin))
 }
@@ -271,7 +280,11 @@ fn math_atom_from_value_with_ids(
                 .into_iter()
                 .map(|cells| MathAtom::row(ids.mint(), cells))
                 .collect();
-            Ok(MathAtom::stack(ids.mint(), MathStackKind::Substack, children))
+            Ok(MathAtom::stack(
+                ids.mint(),
+                MathStackKind::Substack,
+                children,
+            ))
         }
         "math-align" => {
             // Single-body alignment wrapper → just the body.
@@ -302,11 +315,7 @@ fn over_under_from_fields(
     let body = required_child(fields, "body", ids)?;
     let label = optional_child(fields, "label", ids)?;
     match (over, kind) {
-        (true, "overline") => Ok(MathAtom::accent(
-            ids.mint(),
-            MathAccentKind::Overline,
-            body,
-        )),
+        (true, "overline") => Ok(MathAtom::accent(ids.mint(), MathAccentKind::Overline, body)),
         (false, "underline") => Ok(MathAtom::accent(
             ids.mint(),
             MathAccentKind::Underline,
@@ -318,11 +327,7 @@ fn over_under_from_fields(
                 MathStackKind::Stackrel,
                 vec![lab, body],
             )),
-            None => Ok(MathAtom::accent(
-                ids.mint(),
-                MathAccentKind::Overline,
-                body,
-            )),
+            None => Ok(MathAtom::accent(ids.mint(), MathAccentKind::Overline, body)),
         },
         (false, "underbrace" | "underset" | "under") => match label {
             Some(lab) => Ok(MathAtom::stack(
@@ -347,11 +352,7 @@ fn over_under_from_fields(
                 MathStackKind::Stack,
                 vec![body, lab],
             )),
-            None if over => Ok(MathAtom::accent(
-                ids.mint(),
-                MathAccentKind::Overline,
-                body,
-            )),
+            None if over => Ok(MathAtom::accent(ids.mint(), MathAccentKind::Overline, body)),
             None => Ok(MathAtom::accent(
                 ids.mint(),
                 MathAccentKind::Underline,
@@ -361,10 +362,7 @@ fn over_under_from_fields(
     }
 }
 
-fn case_arm_cells(
-    v: &RuntimeValue,
-    ids: &mut IdGen,
-) -> Result<Vec<MathAtom>, MathValueError> {
+fn case_arm_cells(v: &RuntimeValue, ids: &mut IdGen) -> Result<Vec<MathAtom>, MathValueError> {
     let fields = record_fields(v)?;
     match tag_of(fields) {
         Some("math-case-arm") => {
@@ -383,9 +381,8 @@ fn case_arm_cells(
 
 fn accent_kind_field(fields: &[(String, RuntimeValue)]) -> Result<MathAccentKind, MathValueError> {
     let s = string_field(fields, "kind")?;
-    MathAccentKind::from_str_name(s.as_str()).ok_or_else(|| {
-        MathValueError::new(format!("unknown accent kind `{s}`"))
-    })
+    MathAccentKind::from_str_name(s.as_str())
+        .ok_or_else(|| MathValueError::new(format!("unknown accent kind `{s}`")))
 }
 
 fn matrix_kind_field(fields: &[(String, RuntimeValue)]) -> Result<MathMatrixKind, MathValueError> {
@@ -719,7 +716,9 @@ mod tip_tests {
             ("body", frac),
         ]);
         let atom = math_atom_from_value(&delim).expect("delimiter");
-        assert!(matches!(atom, MathAtom::Delimiter { stretch_factor, .. } if (stretch_factor - 1.0).abs() < 1e-9));
+        assert!(
+            matches!(atom, MathAtom::Delimiter { stretch_factor, .. } if (stretch_factor - 1.0).abs() < 1e-9)
+        );
         let box_ = estimate_math_box_from_value(&delim).expect("box");
         assert!(box_.total_height() > 1.0);
 
@@ -731,7 +730,9 @@ mod tip_tests {
             ("stretch-factor", RuntimeValue::Number(2.0)),
         ]);
         let atom2 = math_atom_from_value(&stretched).expect("stretched delimiter");
-        assert!(matches!(atom2, MathAtom::Delimiter { stretch_factor, .. } if (stretch_factor - 2.0).abs() < 1e-9));
+        assert!(
+            matches!(atom2, MathAtom::Delimiter { stretch_factor, .. } if (stretch_factor - 2.0).abs() < 1e-9)
+        );
         let tall = estimate_math_box_from_value(&stretched).expect("tall");
         let flat = estimate_math_box_from_value(&rec(vec![
             ("tag", RuntimeValue::String("math-delimiter".into())),
@@ -814,5 +815,37 @@ mod tip_tests {
             .unwrap();
         assert!(a_y < 200.0, "numerator above baseline: {a_y}");
         assert!(b_y > 200.0, "denominator below baseline: {b_y}");
+    }
+
+    #[test]
+    fn layout_math_phantom_smash_produce_no_ink() {
+        let phantom = rec(vec![
+            ("tag", RuntimeValue::String("math-phantom".into())),
+            ("width", RuntimeValue::Number(0.0)),
+            ("height", RuntimeValue::Number(0.7)),
+            ("depth", RuntimeValue::Number(0.2)),
+        ]);
+        let smash = rec(vec![
+            ("tag", RuntimeValue::String("math-smash".into())),
+            ("width", RuntimeValue::Number(1.0)),
+            ("height", RuntimeValue::Number(0.0)),
+            ("depth", RuntimeValue::Number(0.0)),
+        ]);
+        let p = layout_math_to_shapes(&phantom, (10.0, 200.0)).expect("phantom");
+        let s = layout_math_to_shapes(&smash, (10.0, 200.0)).expect("smash");
+        assert!(p.is_empty(), "phantom must produce no ink: {p:?}");
+        assert!(s.is_empty(), "smash must produce no/zero ink: {s:?}");
+
+        let vis = rec(vec![
+            ("tag", RuntimeValue::String("math-symbol".into())),
+            ("glyph", RuntimeValue::String("x".into())),
+            ("class", RuntimeValue::String("ord".into())),
+        ]);
+        let ink = layout_math_to_shapes(&vis, (10.0, 200.0)).expect("symbol");
+        assert!(
+            ink.iter()
+                .any(|sh| matches!(sh, Shape::Text(t) if t.content == "x")),
+            "visible symbol still inks: {ink:?}"
+        );
     }
 }
