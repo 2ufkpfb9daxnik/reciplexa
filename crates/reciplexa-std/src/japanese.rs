@@ -1192,6 +1192,28 @@ pub fn break_line_to_text_shapes(
     lines_to_text_shapes(&lines, x_mm, y_mm, size_mm, leading_mm, fill)
 }
 
+/// Soft-wrap a scene [`Text`]'s `content` via [`break_line`].
+///
+/// Reuses `text.x_mm` / `y_mm` / `size_mm` / `fill`; subsequent lines step by
+/// `leading_mm`. `max_em_units` is the fontless break budget (same as
+/// [`break_line`]) — `width_mm` is not interpreted as an em budget.
+/// Host scaffolding only; not GUI text_box production layout.
+pub fn wrap_text_shape_content(
+    text: &reciplexa_scene::Text,
+    max_em_units: f64,
+    leading_mm: f64,
+) -> Vec<reciplexa_scene::Text> {
+    break_line_to_text_shapes(
+        &text.content,
+        max_em_units,
+        text.x_mm,
+        text.y_mm,
+        text.size_mm,
+        leading_mm,
+        text.fill,
+    )
+}
+
 /// Justify one line with [`justify_line`], then place each glyph as a scene [`Text`].
 ///
 /// `em_mm` converts abstract em x-offsets to millimeters (`x_mm + x_em * em_mm`).

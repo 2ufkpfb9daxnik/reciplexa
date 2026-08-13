@@ -766,6 +766,34 @@ fn lines_to_text_shapes_from_break_line() {
 }
 
 #[test]
+fn wrap_text_shape_content_via_break_line() {
+    use reciplexa_scene::{Color, Text};
+    use reciplexa_std::japanese::{break_line, wrap_text_shape_content};
+
+    let text = "今日はいい天気です。東京タワーへ行こう。";
+    let seed = Text {
+        x_mm: 8.0,
+        y_mm: 14.0,
+        size_mm: 11.0,
+        width_mm: Some(40.0),
+        height_mm: None,
+        content: text.into(),
+        fill: Color::BLACK,
+    };
+    let expected = break_line(&seed.content, 5.0);
+    assert!(expected.len() >= 2);
+    let wrapped = wrap_text_shape_content(&seed, 5.0, 13.0);
+    assert_eq!(wrapped.len(), expected.len());
+    for (i, (shape, line)) in wrapped.iter().zip(expected.iter()).enumerate() {
+        assert_eq!(shape.content, *line);
+        assert!((shape.x_mm - 8.0).abs() < 1e-9);
+        assert!((shape.y_mm - (14.0 + i as f64 * 13.0)).abs() < 1e-9);
+        assert!((shape.size_mm - 11.0).abs() < 1e-9);
+        assert!(shape.is_drawable());
+    }
+}
+
+#[test]
 fn justify_line_to_text_shapes_positions_glyphs() {
     use reciplexa_scene::Color;
     use reciplexa_std::japanese::{justify_line, justify_line_to_text_shapes};
