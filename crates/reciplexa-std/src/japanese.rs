@@ -384,23 +384,29 @@ impl fmt::Display for BreakOpportunity {
 }
 
 /// Classes that must not start a line (sample kinsoku / line-head prohibited).
+///
+/// Aligned with package `kinsoku-profile` / `sample-line-head-prohibited`
+/// character samples (still a class-level stub, not appendix C).
 pub fn is_line_head_prohibited(class: CharClass) -> bool {
     matches!(
         class,
         CharClass::ClosingBrackets
+            | CharClass::Hyphens
+            | CharClass::DividingPunctuation
+            | CharClass::MiddleDots
             | CharClass::FullStops
             | CharClass::Commas
             | CharClass::IterationMarks
             | CharClass::ProlongedSoundMark
             | CharClass::SmallKana
+            | CharClass::PostfixedAbbreviations
             | CharClass::WarichuClose
-            | CharClass::DividingPunctuation
-            | CharClass::MiddleDots
-            | CharClass::Hyphens
     )
 }
 
 /// Classes that must not end a line (sample line-end prohibited).
+///
+/// Aligned with package `sample-line-end-prohibited` (opens + prefixed abbrevs).
 pub fn is_line_end_prohibited(class: CharClass) -> bool {
     matches!(
         class,
@@ -419,28 +425,49 @@ pub fn break_opportunity(prev: CharClass, next: CharClass) -> BreakOpportunity {
     if prev == CharClass::Inseparable || next == CharClass::Inseparable {
         return BreakOpportunity::Inseparable;
     }
-    // Simple western / ASCII letter runs stay together (cl-24 / cl-27 style).
-    if (prev == CharClass::SimpleWestern || prev == CharClass::WesternCharacters)
-        && (next == CharClass::SimpleWestern || next == CharClass::WesternCharacters)
-    {
+    // Simple / complex / ASCII western letter runs stay together.
+    if is_western_run_class(prev) && is_western_run_class(next) {
         return BreakOpportunity::Inseparable;
     }
     if prev == CharClass::Numeric && next == CharClass::Numeric {
         return BreakOpportunity::Inseparable;
     }
+    if prev == CharClass::GroupedNumerals && next == CharClass::GroupedNumerals {
+        return BreakOpportunity::Inseparable;
+    }
     if is_line_end_prohibited(prev) || is_line_head_prohibited(next) {
         return BreakOpportunity::Prohibited;
     }
-    // Digit before close/open (package numeric-before-close stub).
+    // Digit before close/open/postfix (package numeric-before-close stub).
     if prev == CharClass::Numeric
         && matches!(
             next,
-            CharClass::ClosingBrackets | CharClass::OpeningBrackets | CharClass::PostfixedAbbreviations
+            CharClass::ClosingBrackets
+                | CharClass::OpeningBrackets
+                | CharClass::PostfixedAbbreviations
+                | CharClass::UnitSymbols
         )
     {
         return BreakOpportunity::Prohibited;
     }
+    // Prefixed abbrev + digit (package sample-pair-rules).
+    if prev == CharClass::PrefixedAbbreviations && next == CharClass::Numeric {
+        return BreakOpportunity::Prohibited;
+    }
+    // Full stop / comma before open — keep on same line (package samples).
+    if matches!(prev, CharClass::FullStops | CharClass::Commas)
+        && matches!(next, CharClass::OpeningBrackets)
+    {
+        return BreakOpportunity::Prohibited;
+    }
     BreakOpportunity::Allowed
+}
+
+fn is_western_run_class(class: CharClass) -> bool {
+    matches!(
+        class,
+        CharClass::SimpleWestern | CharClass::ComplexWestern | CharClass::WesternCharacters
+    )
 }
 
 /// Classify two chars and return the break opportunity between them.

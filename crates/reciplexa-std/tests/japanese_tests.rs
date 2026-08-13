@@ -127,6 +127,84 @@ fn break_opportunity_kinsoku_stub() {
     assert_eq!(BreakOpportunity::Inseparable.as_str(), "inseparable");
 }
 
+/// J6 — package kinsoku-profile sample strings ↔ break matrix.
+#[test]
+fn break_opportunity_kinsoku_profile_samples() {
+    // From japanese/linebreak `sample-line-head-prohibited`.
+    const LINE_HEAD: &str =
+        "」、。．，）〕］｝〉》』】！？ーぁぃぅぇぉっゃゅょァィゥェォッャュョヽヾゝゞ々";
+    for ch in LINE_HEAD.chars() {
+        let class = classify_char(ch);
+        assert!(
+            is_line_head_prohibited(class),
+            "expected line-head prohibited for {ch:?} ({class})"
+        );
+        assert_eq!(
+            break_opportunity_chars('あ', ch),
+            BreakOpportunity::Prohibited,
+            "letter + {ch:?} should be prohibited"
+        );
+    }
+
+    // From japanese/linebreak `sample-line-end-prohibited`.
+    const LINE_END: &str = "「『（〔［｛〈《￥＄￡＃";
+    for ch in LINE_END.chars() {
+        let class = classify_char(ch);
+        assert!(
+            is_line_end_prohibited(class),
+            "expected line-end prohibited for {ch:?} ({class})"
+        );
+        assert_eq!(
+            break_opportunity_chars(ch, 'あ'),
+            BreakOpportunity::Prohibited,
+            "{ch:?} + letter should be prohibited"
+        );
+    }
+
+    // Inseparable sample glyphs (ellipsis / vertical forms; em-dash is cl-03).
+    for ch in "…‥〳〴〵".chars() {
+        assert_eq!(
+            break_opportunity_chars(ch, 'あ'),
+            BreakOpportunity::Inseparable
+        );
+    }
+    assert_eq!(classify_char('—'), CharClass::Hyphens);
+    assert_eq!(
+        break_opportunity_chars('あ', '—'),
+        BreakOpportunity::Prohibited
+    );
+
+    // Extra prohibited pairs from package sample-pair-rules.
+    assert_eq!(
+        break_opportunity_chars('〒', '1'),
+        BreakOpportunity::Prohibited
+    );
+    assert_eq!(
+        break_opportunity_chars('1', '％'),
+        BreakOpportunity::Prohibited
+    );
+    assert_eq!(
+        break_opportunity_chars('。', '「'),
+        BreakOpportunity::Prohibited
+    );
+    assert_eq!(
+        break_opportunity_chars('、', '「'),
+        BreakOpportunity::Prohibited
+    );
+    assert_eq!(
+        break_opportunity_chars('ア', 'ー'),
+        BreakOpportunity::Prohibited
+    );
+    assert_eq!(
+        break_opportunity_chars('｟', '漢'),
+        BreakOpportunity::Prohibited
+    );
+    assert_eq!(
+        break_opportunity_chars('漢', '｠'),
+        BreakOpportunity::Prohibited
+    );
+}
+
 #[test]
 fn kihon_hanmen_size_helpers() {
     use reciplexa_std::japanese::{line_rate, KihonHanmen, WritingMode};
