@@ -1044,3 +1044,34 @@ cargo test -p reciplexa-std -p reciplexa-eval -p reciplexa-core -p reciplexa-pac
 - Font-backed ruby / tate-chu-yoko / real vertical metrics / bou placement; OpenType `vert`/`vrt2` / CSS `text-orientation`.
 - OpenType MATH stretchy fences, accent/script/stackrel attachment, real matrix column alignment / big-op / fraction/radical / full muskip style table / real phantom atoms.
 - Document/GUI pipeline consuming boxes as production layout; multi-column measure / JA reciprocal punctuation stubs; load-time resource rewrite beyond fail-soft attach; registry resolve + checksum verification (OPEN-PKG-001).
+
+## Wave 22 — JA multi-column measure stub (P0–P2)
+
+Honest scope: fontless `measure_columns(total_em, count, gutter_em) → (col_w, xs)` for kihon / package `multi-column` geometry. Optional thin `doc-columns` lower if clean; else tip coverage only. Not balanced newspaper columns / real book multi-column.
+
+Gate:
+
+```bat
+set CARGO_TARGET_DIR=d:\reciplexa\target
+set TEMP=d:\reciplexa\.tmp
+set TMP=d:\reciplexa\.tmp
+cargo test -p reciplexa-std -p reciplexa-eval -p reciplexa-core -p reciplexa-package --offline
+```
+
+| Unit | Status |
+|------|--------|
+| P0 — `measure_columns` | **done** |
+| P1 — Test + docs (kihon `multi-column` link) | **done** |
+| P2 — tip / optional `doc-columns` | pending |
+
+### P0 — Helper
+
+- `measure_columns(total_em, count, gutter_em) → (col_w, xs)`. **Commit.**
+
+### P1 — Tests + docs
+
+- Std + tip tests; README note linking `column-count-*` / `multi-column` / `jlreq-multi-column`. **Commit.**
+
+### P2 — Optional document lower
+
+- If clean: `doc-columns` tag places paragraphs via `measure_columns`. Else tip-only. **Commit.**

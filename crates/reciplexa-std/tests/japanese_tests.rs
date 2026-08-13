@@ -991,3 +991,30 @@ fn justify_line_to_text_shapes_positions_glyphs() {
     // Last glyph left edge near end of target span.
     assert!((shapes.last().unwrap().x_mm - (5.0 + 4.0 * em_mm)).abs() < 1e-6);
 }
+
+#[test]
+fn measure_columns_splits_total_with_gutters() {
+    use reciplexa_std::japanese::measure_columns;
+
+    // total 20em, 2 cols, 2em gutter → col_w 9, xs [0, 11]
+    let (w, xs) = measure_columns(20.0, 2, 2.0);
+    assert!((w - 9.0).abs() < 1e-9);
+    assert_eq!(xs.len(), 2);
+    assert!((xs[0] - 0.0).abs() < 1e-9);
+    assert!((xs[1] - 11.0).abs() < 1e-9);
+
+    // 3 cols, 1em gutter, total 32 → col_w 10, xs [0, 11, 22]
+    let (w3, xs3) = measure_columns(32.0, 3, 1.0);
+    assert!((w3 - 10.0).abs() < 1e-9);
+    assert_eq!(xs3, vec![0.0, 11.0, 22.0]);
+
+    // Links package kihon `column-count-two` / `multi-column` geometry stub.
+    let (one_w, one_xs) = measure_columns(40.0, 1, 0.0);
+    assert!((one_w - 40.0).abs() < 1e-9);
+    assert_eq!(one_xs, vec![0.0]);
+
+    assert_eq!(measure_columns(10.0, 0, 1.0), (0.0, vec![]));
+    let (zero_w, zero_xs) = measure_columns(1.0, 3, 1.0); // gutters alone exceed total
+    assert!((zero_w - 0.0).abs() < 1e-9);
+    assert_eq!(zero_xs.len(), 3);
+}
