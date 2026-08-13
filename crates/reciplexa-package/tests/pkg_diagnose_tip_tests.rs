@@ -1,9 +1,9 @@
 //! Tip coverage: diagnose codes PKG004 (missing resource) + PKG005 (registry dep)
-//! + PKG006 (path-dep lock checksum mismatch).
+//! + PKG006 (path-dep lock checksum mismatch) + `content_checksum` stub edges.
 
 use reciplexa_package::{
-    content_checksum, diagnose_lockfile_checksums, diagnose_manifest,
-    diagnose_manifest_with_root, DependencySpec, LockedPackage, Lockfile, PackageManifest,
+    content_checksum, diagnose_lockfile_checksums, diagnose_manifest, diagnose_manifest_with_root,
+    DependencySpec, LockedPackage, Lockfile, PackageManifest,
 };
 
 #[test]
@@ -140,15 +140,101 @@ fn tip_cs0_from_consumer_fills_rpxm_checksum() {
         ..Default::default()
     };
     let spec = &consumer.dependencies[0];
-    let lf = Lockfile::from_consumer_with_roots(
-        &consumer,
-        &[(spec, &dep, Some(dep_root.as_path()))],
-    );
+    let lf =
+        Lockfile::from_consumer_with_roots(&consumer, &[(spec, &dep, Some(dep_root.as_path()))]);
     let locked = lf.packages.iter().find(|p| p.name == "util").unwrap();
     assert_eq!(
         locked.checksum.as_deref(),
         Some(content_checksum(&rpxm).as_str())
     );
     assert!(diagnose_lockfile_checksums(&lf, &dir).is_empty());
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn tip_content_checksum_empty_file_and_missing_path() {
+    let dir = std::env::temp_dir().join(format!(
+        "reciplexa-checksum-empty-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0)
+    ));
+    std::fs::create_dir_all(&dir).unwrap();
+    let empty = dir.join("empty.bin");
+    std::fs::write(&empty, b"").unwrap();
+    let hash = content_checksum(&empty);
+    assert!(
+        hash.starts_with("stub-fnv1a64:"),
+        "empty file still uses OPEN stub prefix, got {hash}"
+    );
+    assert_eq!(hash.len(), "stub-fnv1a64:".len() + 16);
+    assert_eq!(hash, content_checksum(&empty), "empty-file hash is stable");
+
+    let missing = content_checksum(dir.join("no-such.bin"));
+    assert!(
+        missing.starts_with("stub-error:"),
+        "missing path → stub-error, got {missing}"
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn tip_pkg006_skips_workspace_source_even_with_checksum() {
+    let dir = std::env::temp_dir().join(format!(
+        "reciplexa-pkg006-ws-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0)
+    ));
+    std::fs::create_dir_all(&dir).unwrap();
+    let lock = Lockfile {
+        packages: vec![LockedPackage {
+            name: "core".into(),
+            version: "1".into(),
+            source: "workspace".into(),
+            dependencies: vec![],
+            checksum: Some("stub-fnv1a64:deadbeefdeadbeef".into()),
+        }],
+    };
+    assert!(
+        diagnose_lockfile_checksums(&lock, &dir).is_empty(),
+        "PKG006 is path-dep only; workspace checksums are recorded, not compared"
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn tip_pkg006_missing_rpxm_mismatches_stored_stub() {
+    let dir = std::env::temp_dir().join(format!(
+        "reciplexa-pkg006-miss-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0)
+    ));
+    std::fs::create_dir_all(dir.join("lib")).unwrap();
+    // No package.rpxm → content_checksum is stub-error:…
+    let lock = Lockfile {
+        packages: vec![LockedPackage {
+            name: "lib".into(),
+            version: "1".into(),
+            source: "path:lib".into(),
+            dependencies: vec![],
+            checksum: Some("stub-fnv1a64:ffffffffffffffff".into()),
+        }],
+    };
+    let diags = diagnose_lockfile_checksums(&lock, &dir);
+    let hit = diags.iter().find(|d| d.code == "PKG006").expect("PKG006");
+    assert!(hit.message.contains("lib"), "{}", hit.message);
+    assert!(
+        hit.message.contains("stub-error:") || hit.message.contains("stub-fnv1a64:"),
+        "mismatch should cite stub hashes: {}",
+        hit.message
+    );
     let _ = std::fs::remove_dir_all(&dir);
 }
