@@ -519,6 +519,52 @@ fn layout_math_fraction_draws_rule_line() {
     assert!(line.x2_mm > line.x1_mm);
 }
 
+/// LL15: Accent layout places mark glyph using accent_clearance_em.
+#[test]
+fn layout_math_accent_places_mark_via_clearance() {
+    use reciplexa_scene::Shape;
+    use reciplexa_std::math::{
+        accent_attachment_offset, accent_mark_glyph, layout_math_atom_to_shapes, MathAccentKind,
+        MATH_LAYOUT_EM_TO_MM,
+    };
+
+    let base = MathAtom::symbol(id(1), "x", MathClass::Ordinary);
+    let atom = MathAtom::accent(id(2), MathAccentKind::Hat, base.clone());
+    let origin = (14.0, 140.0);
+    let shapes = layout_math_atom_to_shapes(&atom, origin);
+    let texts: Vec<_> = shapes
+        .iter()
+        .filter_map(|s| match s {
+            Shape::Text(t) => Some(t),
+            _ => None,
+        })
+        .collect();
+    let base_t = texts.iter().find(|t| t.content == "x").expect("base");
+    let mark = accent_mark_glyph(MathAccentKind::Hat);
+    let mark_t = texts
+        .iter()
+        .find(|t| t.content == mark)
+        .expect("accent mark");
+    assert!((base_t.x_mm - origin.0).abs() < 1e-9);
+    assert!((base_t.y_mm - origin.1).abs() < 1e-9);
+    let (dx, dy) = accent_attachment_offset(MathAccentKind::Hat, base.estimate_box());
+    assert!((mark_t.x_mm - (origin.0 + dx * MATH_LAYOUT_EM_TO_MM)).abs() < 1e-9);
+    assert!((mark_t.y_mm - (origin.1 - dy * MATH_LAYOUT_EM_TO_MM)).abs() < 1e-9);
+    assert!(mark_t.y_mm < base_t.y_mm, "hat above base in scene y-down");
+
+    let under = MathAtom::accent(id(3), MathAccentKind::Underline, base.clone());
+    let ushapes = layout_math_atom_to_shapes(&under, origin);
+    let umark = accent_mark_glyph(MathAccentKind::Underline);
+    let ut = ushapes
+        .iter()
+        .find_map(|s| match s {
+            Shape::Text(t) if t.content == umark => Some(t),
+            _ => None,
+        })
+        .expect("underline mark");
+    assert!(ut.y_mm > origin.1, "underline below base in scene y-down");
+}
+
 /// LL14: Matrix layout places cells via matrix_column_widths / aligned_column_x.
 #[test]
 fn layout_math_matrix_places_cells_by_column_widths() {

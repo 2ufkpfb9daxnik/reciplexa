@@ -764,6 +764,40 @@ pub fn accent_clearance_em_named(name: &str) -> Option<(f64, f64)> {
     MathAccentKind::from_str_name(name).map(accent_clearance_em)
 }
 
+/// Unicode mark glyph used by live layout for an accent kind (heuristic stub).
+pub fn accent_mark_glyph(kind: MathAccentKind) -> &'static str {
+    match kind {
+        MathAccentKind::Hat | MathAccentKind::WideHat => "^",
+        MathAccentKind::Bar | MathAccentKind::Overline | MathAccentKind::Underbar => "¯",
+        MathAccentKind::Vec => "→",
+        MathAccentKind::Tilde | MathAccentKind::WideTilde => "~",
+        MathAccentKind::Dot => "˙",
+        MathAccentKind::Ddot => "¨",
+        MathAccentKind::Check => "ˇ",
+        MathAccentKind::Breve => "˘",
+        MathAccentKind::Acute => "´",
+        MathAccentKind::Grave => "`",
+        MathAccentKind::Ring => "˚",
+        MathAccentKind::Underline => "_",
+    }
+}
+
+/// Accent mark attachment offset (em; y upward) from the base origin.
+///
+/// Centers the mark on the base width and places it in the clearance band
+/// from [`accent_clearance_em`]. Heuristic only — not OpenType MATH accent
+/// attachment.
+pub fn accent_attachment_offset(kind: MathAccentKind, base: MathBox) -> (f64, f64) {
+    let (above, below) = accent_clearance_em(kind);
+    let mark_w = 0.8_f64;
+    let dx = (base.width - mark_w) * 0.5;
+    if above > 0.0 {
+        (dx, base.height + above * 0.5)
+    } else {
+        (dx, -(base.depth + below * 0.5))
+    }
+}
+
 /// Fraction rule (vinculum) thickness in em — fontless stub, not TeX `\fontdimen8`.
 pub const FRAC_RULE_THICKNESS_EM: f64 = 0.04;
 
@@ -1216,12 +1250,32 @@ fn math_offset_to_scene_mm(origin: (f64, f64), dx_em: f64, dy_em: f64) -> (f64, 
 /// `size_mm` from the stretchy height/depth heuristic (LL13).
 /// [`MathAtom::Matrix`]: cells placed via [`matrix_column_widths`] /
 /// [`aligned_column_x`] / [`matrix_cell_x_in_column`] (LL14).
+/// [`MathAtom::Accent`]: accent mark glyph via [`accent_clearance_em`] (LL15).
 /// Not OpenType MATH / glyph metrics.
 pub fn layout_math_atom_to_shapes(
     atom: &MathAtom,
     origin: (f64, f64),
 ) -> Vec<reciplexa_scene::Shape> {
     match atom {
+        MathAtom::Accent { kind, base, .. } => {
+            let base_box = base.estimate_box();
+            let (dx, dy) = accent_attachment_offset(*kind, base_box);
+            let mut shapes = layout_math_atom_to_shapes(base, origin);
+            let mark = accent_mark_glyph(*kind);
+            let mark_origin = math_offset_to_scene_mm(origin, dx, dy);
+            let size_mm = MATH_LAYOUT_EM_TO_MM;
+            let width_mm = 0.8 * MATH_LAYOUT_EM_TO_MM;
+            shapes.push(reciplexa_scene::Shape::Text(reciplexa_scene::Text {
+                x_mm: mark_origin.0,
+                y_mm: mark_origin.1,
+                size_mm,
+                width_mm: Some(width_mm),
+                height_mm: Some(size_mm),
+                content: mark.to_string(),
+                fill: reciplexa_scene::Color::BLACK,
+            }));
+            shapes
+        }
         MathAtom::Matrix {
             rows, left, right, ..
         } => layout_math_grid_to_shapes(
