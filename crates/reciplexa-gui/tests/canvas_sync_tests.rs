@@ -76,3 +76,19 @@ fn authoring_parse_error_with_divergent_expanded_is_soft_false() {
     let err = nudge_authoring_layers(authoring, expanded, 0, &[0], 1.0, 0.0).unwrap_err();
     assert!(!err.message.is_empty());
 }
+
+#[test]
+fn package_black_circle_nudge_soft_refuses() {
+    let authoring = include_str!("../../../examples/pkg_black_circle.rpx");
+    let expanded = reciplexa_macro::expand_source(authoring).expect("expand");
+    assert!(
+        !authoring_layers_align(authoring, &expanded, 0).unwrap(),
+        "package twin must not claim CST editability"
+    );
+    let err = nudge_authoring_layers(authoring, &expanded, 0, &[0], 2.0, -1.0).unwrap_err();
+    assert!(
+        err.message.contains("read-only") || err.message.contains("package"),
+        "{}",
+        err.message
+    );
+}

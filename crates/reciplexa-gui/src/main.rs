@@ -1,6 +1,8 @@
 //! Paper preview with drag → CST sync, plus a live `.rpx` source pane.
 
-use reciplexa_gui::canvas_sync::{nudge_authoring_layers, SyncRefuse};
+use reciplexa_gui::canvas_sync::{
+    nudge_authoring_layers, resolve_preview_layers, resolve_preview_size_targets, SyncRefuse,
+};
 use reciplexa_gui::document_state::DocumentPathState;
 use reciplexa_gui::fonts::install_cjk_fonts;
 use reciplexa_gui::preview_paint::{
@@ -978,24 +980,12 @@ impl PreviewApp {
         });
 
         let expanded = self.expanded_for_sync();
-        let size_bindings = match collect_size_targets_page(&expanded, self.page_index) {
-            Ok(b) => b,
-            Err(e) => {
-                ui.colored_label(egui::Color32::YELLOW, &e.message);
-                Vec::new()
-            }
-        };
-        let layers = match collect_layers_page(&expanded, self.page_index) {
-            Ok(l) => l,
-            Err(e) => {
-                ui.colored_label(egui::Color32::YELLOW, &e.message);
-                Vec::new()
-            }
-        };
         let Some((page, shapes)) = flatten_page(&doc, self.page_index) else {
             ui.colored_label(egui::Color32::RED, "Page not found.");
             return;
         };
+        let size_bindings = resolve_preview_size_targets(&expanded, self.page_index, shapes.len());
+        let layers = resolve_preview_layers(&expanded, self.page_index, &shapes);
         if layers.len() != shapes.len() || size_bindings.len() != shapes.len() {
             ui.colored_label(
                 egui::Color32::YELLOW,
@@ -3130,8 +3120,11 @@ impl eframe::App for PreviewApp {
         }
         if !source_focused && ctx.input(|i| i.modifiers.command && i.key_pressed(egui::Key::A)) {
             let expanded = self.expanded_for_sync();
-            if let Ok(layers) = collect_layers_page(&expanded, self.page_index) {
-                self.selected = (0..layers.len()).collect();
+            if let Ok(doc) = pipeline_doc(&self.source) {
+                if let Some((_, shapes)) = flatten_page(&doc, self.page_index) {
+                    let layers = resolve_preview_layers(&expanded, self.page_index, &shapes);
+                    self.selected = (0..layers.len()).collect();
+                }
             }
         }
         if !source_focused && !self.selected.is_empty() {
@@ -3366,8 +3359,15 @@ impl eframe::App for PreviewApp {
             });
         });
 
-        let layers_for_panel =
-            collect_layers_page(&self.expanded_for_sync(), self.page_index).unwrap_or_default();
+        let layers_for_panel = {
+            let expanded = self.expanded_for_sync();
+            match pipeline_doc(&self.source) {
+                Ok(doc) => flatten_page(&doc, self.page_index)
+                    .map(|(_, shapes)| resolve_preview_layers(&expanded, self.page_index, &shapes))
+                    .unwrap_or_default(),
+                Err(_) => collect_layers_page(&expanded, self.page_index).unwrap_or_default(),
+            }
+        };
 
         // --- Docked bento panes ---
         if self.show_source && !self.float_source {

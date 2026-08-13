@@ -135,7 +135,7 @@ Document / page constructors stay package-shaped (`graphics/page` or later `docu
 | N5.1b | Lower `doc-*` package values to scene (text layout stub) | **done** — `document_from_doc_value` + graphics bridge accepts `doc-page`; `pkg_document.rpx` elaborates+evals via bridge |
 | N5.2a | Pipeline auto-route `(import document` like graphics | **done** — `wants_package_graphics_path` treats `(import document` as package domain path; `pkg_document.rpx` via `document_from_source`; interim `black_circle` unchanged |
 | N5.2b | Package twin for black_circle (keep interim CST golden) | **done** — `examples/pkg_black_circle.rpx`; parity vs interim paper + circle; `black_circle.rpx` untouched |
-| N5.2c | GUI read-only layers from scene when CST pages absent | pending |
+| N5.2c | GUI read-only layers from scene when CST pages absent | **done** — scene-backed `resolve_preview_layers`; package nudge soft-refuse |
 | N5.2d | Markup expand → package native nodes | pending |
 | N5.2e | Docs: keyword-table deletion blocked by GUI CST sync (out of N5 delete scope) | pending |
 | N5.3 | Coverage tip for document surface / pipeline / markup | pending |
@@ -171,4 +171,4 @@ Document / page constructors stay package-shaped (`graphics/page` or later `docu
 
 **N6 done:** 7-crate BEST-ENTRY **≥99%** (N6 q). Soft residuals remain on check/cast/eval/load/document (see `coverage-holdouts.md`).
 
-**N5.1 done:** native `document/page` package scaffold (`doc-*` tagged records mirroring `reciplexa_std::document`). **N5.2a–b done:** pipeline document import + `pkg_black_circle` twin. **Next:** N5.2c GUI layers / markup native; keyword tables retained.
+**N5.1 done:** native `document/page` package scaffold (`doc-*` tagged records mirroring `reciplexa_std::document`). **N5.2a–c done:** pipeline document import, `pkg_black_circle` twin, GUI read-only scene layers. **Next:** N5.2d markup→package native; keyword tables retained.
