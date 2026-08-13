@@ -32,7 +32,9 @@ Normative reference: [W3C JLReq](https://www.w3.org/TR/jlreq/) (JIS X 4051–bas
 
 ## Remaining gaps
 
-- No UCS → class map (only `classify-sample` glyphs).
-- `break-between` / `sample-pair-rules` are **subset stubs**, not the normative JLReq appendix C matrix.
-- Kihon trim/margin records are not consumed by CST lower / GUI.
-- SYN `(markup @heading(…) …)` and `japanese/markup` records are parallel; unification waits on Text IR.
+- Full UCS → class map still incomplete; **Rust** `reciplexa_std::japanese::classify_char` covers a useful subset (authoritative for hosts; package `classify-sample` stays synthetic).
+- `break-between` / `sample-pair-rules` are **subset stubs**; Rust `break_opportunity` mirrors common kinsoku only — not the normative JLReq appendix C matrix.
+- Kihon trim/margin records are not consumed by CST lower / GUI (`KihonHanmen` helpers exist in std).
+- SYN `(markup @heading(…) …)` and `japanese/markup` records are parallel; std `Ruby` / `TateChuYoko` align with package tags for future Text IR.
+
+See also: [`lang/ja-math-deepen-plan.md`](../../lang/ja-math-deepen-plan.md).

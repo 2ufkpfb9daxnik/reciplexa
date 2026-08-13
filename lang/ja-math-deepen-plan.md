@@ -112,7 +112,7 @@ No push unless asked. Fine-grained commits (one unit ≈ one commit).
 | J1 | **done** |
 | J2 | **done** |
 | J3 | **done** |
-| J4 | pending |
+| J4 | **done** |
 | M0 | pending |
 | M1 | pending |
 | M2 | pending |

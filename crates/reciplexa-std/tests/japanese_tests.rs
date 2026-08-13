@@ -127,3 +127,32 @@ fn ruby_and_tate_chu_yoko_types() {
     assert_eq!(p.writing_mode, WritingMode::VerticalRl);
     assert_eq!(p.tag(), "ja-tategaki-paragraph");
 }
+
+/// Demo: classify + break over a short Japanese phrase (J4).
+#[test]
+fn classify_and_break_phrase_demo() {
+    let phrase: Vec<char> = "「東京。」AB".chars().collect();
+    let classes: Vec<_> = phrase.iter().copied().map(classify_char).collect();
+    assert_eq!(classes[0], CharClass::OpeningBrackets);
+    assert_eq!(classes[1], CharClass::Ideographic);
+    assert_eq!(classes[3], CharClass::FullStops);
+    assert_eq!(classes[4], CharClass::ClosingBrackets);
+    assert_eq!(classes[5], CharClass::WesternCharacters);
+
+    let mut breaks = Vec::new();
+    for w in phrase.windows(2) {
+        breaks.push(break_opportunity_chars(w[0], w[1]));
+    }
+    // 「東 — open forbids break after itself
+    assert_eq!(breaks[0], BreakOpportunity::Prohibited);
+    // 東京 — ideographs may break
+    assert_eq!(breaks[1], BreakOpportunity::Allowed);
+    // 京。 — full stop is line-head prohibited
+    assert_eq!(breaks[2], BreakOpportunity::Prohibited);
+    // 。」 — close is line-head prohibited
+    assert_eq!(breaks[3], BreakOpportunity::Prohibited);
+    // 」A — allowed after close
+    assert_eq!(breaks[4], BreakOpportunity::Allowed);
+    // AB — western run inseparable
+    assert_eq!(breaks[5], BreakOpportunity::Inseparable);
+}
