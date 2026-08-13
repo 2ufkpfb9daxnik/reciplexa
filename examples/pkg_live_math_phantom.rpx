@@ -1,0 +1,29 @@
+(// language-only: live-layout phantom — math-phantom metric record (same tag
+ // the ker builtin emits) nested in a row. Host inks "x" and skips Σ.
+ // Not TeX smash-still-draws / OpenType MATH.)
+
+(import document/page only
+  a4 page flow section heading paragraph
+  block-paragraph)
+
+(val title (heading 1 "Phantom"))
+(val body (paragraph "可視本文。ファントムは描かない。"))
+(val math
+  (record
+    (tag "math-row")
+    (children
+      (list
+        (record (tag "math-symbol") (glyph "x") (class "ord"))
+        (record (tag "math-phantom") (glyph "Σ") (width 0) (height 0.7) (depth 0.2))))))
+
+(val main
+  (record
+    (tag "live-layout-demo")
+    (page
+      (page a4
+        (flow
+          (list
+            (section title
+              (list
+                (block-paragraph body)))))))
+    (math math)))

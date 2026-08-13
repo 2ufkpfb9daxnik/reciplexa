@@ -962,3 +962,82 @@ fn live_layout_with_style_overrides_record_field() {
         "with_style(Text) should ignore demo style display: {display_h} vs {th}"
     );
 }
+
+fn live_math_phantom_entry() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/pkg_live_math_phantom.rpx")
+}
+
+fn page_text_contents(doc: &reciplexa_scene::Document) -> Vec<String> {
+    doc.pages[0]
+        .shapes
+        .iter()
+        .filter_map(|s| match s {
+            Shape::Text(t) => Some(t.content.clone()),
+            _ => None,
+        })
+        .collect()
+}
+
+/// Live-layout phantom example: visible glyph inks; builtin math-phantom does not.
+#[test]
+fn live_math_phantom_skips_sigma_ink() {
+    let doc = document_from_live_layout_entry(&live_math_phantom_entry(), &index())
+        .expect("live math phantom entry");
+    let texts = page_text_contents(&doc);
+    let joined: String = texts.concat();
+    assert!(
+        texts.iter().any(|t| t == "x"),
+        "expected visible math glyph among {texts:?}"
+    );
+    assert!(
+        texts.iter().all(|t| t != "Σ"),
+        "math-phantom Σ must not ink as its own glyph: {texts:?}"
+    );
+    assert!(
+        joined.contains("可視") || joined.contains("本文"),
+        "expected JA paragraph among {texts:?}"
+    );
+}
+
+/// pkg_live_math_phantom → SVG has paragraph/glyph text but not phantom Σ.
+#[test]
+fn live_math_phantom_svg_smoke_no_sigma() {
+    let doc = document_from_live_layout_entry(&live_math_phantom_entry(), &index())
+        .expect("live math phantom bridge");
+    let svg = reciplexa_svg::document_to_svg(&doc).expect("phantom svg");
+    assert!(
+        svg.matches("<text").count() >= 2,
+        "expected paragraph + visible glyph <text, got {}",
+        svg.matches("<text").count()
+    );
+    assert!(
+        svg.contains(">x<") || svg.contains(">x</text"),
+        "SVG should include visible glyph x"
+    );
+    assert!(
+        !svg.contains(">Σ<") && !svg.contains(">Σ</text"),
+        "SVG must not contain phantom Σ as its own text run"
+    );
+}
+
+/// pkg_live_math_phantom → PPTX has paragraph/glyph runs but not phantom Σ.
+#[test]
+fn live_math_phantom_pptx_smoke_no_sigma() {
+    let doc = document_from_live_layout_entry(&live_math_phantom_entry(), &index())
+        .expect("live math phantom bridge");
+    let bytes = reciplexa_pptx::document_to_pptx(&doc).expect("phantom pptx");
+    let slide = slide1_xml_from_pptx(&bytes);
+    assert!(
+        slide.matches("<a:t>").count() >= 2,
+        "expected paragraph + visible glyph <a:t>, got {}",
+        slide.matches("<a:t>").count()
+    );
+    assert!(
+        slide.contains("<a:t>x</a:t>"),
+        "PPTX should include visible glyph x"
+    );
+    assert!(
+        !slide.contains("<a:t>Σ</a:t>"),
+        "PPTX must not contain phantom Σ as its own run"
+    );
+}
