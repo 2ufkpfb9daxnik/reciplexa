@@ -93,7 +93,7 @@ No push unless asked. Fine-grained commits (one unit ≈ one commit).
 | HC1 — `preview_doc_text_metrics` | **done** |
 | HC2 — Tests (+ optional CLI) | **done** |
 | HC3 — GUI read-only text prefix | **done** |
-| HC4 — `estimate_package_math_main` | **pending** |
+| HC4 — `estimate_package_math_main` | **done** |
 | HC5 — Docs / implemented-features | **pending** |
 
 ## Follow-on (after HC5)

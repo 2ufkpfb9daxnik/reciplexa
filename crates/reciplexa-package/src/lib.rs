@@ -17,6 +17,7 @@ pub mod japanese_bridge;
 pub mod load;
 pub mod lockfile;
 pub mod manifest;
+pub mod math_bridge;
 pub mod resolver;
 pub mod resource_value;
 pub mod rpi;
@@ -62,6 +63,7 @@ pub use manifest::{
     normalize_resource_path, resolve_package_resource, DependencySpec, PackageManifest,
     ResourceCheckError, ResourceResolveError, OPEN_PKG_001_REGISTRY,
 };
+pub use math_bridge::{estimate_package_math_main, MathBridgeError};
 pub use resolver::{resolve_packages, ResolveError, ResolvedGraph};
 pub use resource_value::{
     find_enclosing_package_root, materialize_package_resource,
