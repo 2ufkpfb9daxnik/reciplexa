@@ -369,3 +369,51 @@ fn under_over_cases_operatorname_bridge() {
         MathAtom::Stack { .. }
     ));
 }
+
+#[test]
+fn scripts_attachment_offsets_from_package_scripts_tag() {
+    use reciplexa_eval::scripts_attachment_offsets_from_value;
+    use reciplexa_std::math::scripts_attachment_offsets;
+
+    let absent = rec(vec![("tag", RuntimeValue::String("math-absent".into()))]);
+    let scripts = rec(vec![
+        ("tag", RuntimeValue::String("math-scripts".into())),
+        ("base", sym("x", "ord")),
+        ("superscript", sym("2", "ord")),
+        ("subscript", sym("i", "ord")),
+    ]);
+    let (sub_x, sub_y, sup_x, sup_y) = scripts_attachment_offsets_from_value(&scripts).unwrap();
+    assert!(sub_x > 0.0 && sup_x > 0.0);
+    assert!(sub_y < 0.0, "subscript below baseline: {sub_y}");
+    assert!(sup_y > 0.0, "superscript above baseline: {sup_y}");
+
+    // Matches direct std call on the same estimate boxes.
+    let atom = math_atom_from_value(&scripts).unwrap();
+    let MathAtom::Scripts {
+        base,
+        superscript,
+        subscript,
+        ..
+    } = atom
+    else {
+        panic!("expected Scripts");
+    };
+    let expected = scripts_attachment_offsets(
+        base.estimate_box(),
+        subscript.as_ref().map(|s| s.estimate_box()),
+        superscript.as_ref().map(|s| s.estimate_box()),
+    );
+    assert_eq!((sub_x, sub_y, sup_x, sup_y), expected);
+
+    let err = scripts_attachment_offsets_from_value(&sym("a", "ord")).unwrap_err();
+    assert!(err.message.contains("math-scripts"));
+
+    let sup_only = rec(vec![
+        ("tag", RuntimeValue::String("math-scripts".into())),
+        ("base", sym("x", "ord")),
+        ("superscript", sym("n", "ord")),
+        ("subscript", absent),
+    ]);
+    let (_, _, sx, sy) = scripts_attachment_offsets_from_value(&sup_only).unwrap();
+    assert!(sx > 0.0 && sy > 0.0);
+}

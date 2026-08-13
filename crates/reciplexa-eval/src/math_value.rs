@@ -8,7 +8,8 @@ use std::cell::Cell;
 
 use reciplexa_identity::document::StableNodeId;
 use reciplexa_std::math::{
-    MathAccentKind, MathAtom, MathBox, MathClass, MathMatrixKind, MathStackKind,
+    scripts_attachment_offsets, MathAccentKind, MathAtom, MathBox, MathClass, MathMatrixKind,
+    MathStackKind,
 };
 
 use crate::value::RuntimeValue;
@@ -30,6 +31,33 @@ impl MathValueError {
 /// Lower a package math tagged record to a [`MathAtom`], then estimate a box.
 pub fn estimate_math_box_from_value(v: &RuntimeValue) -> Result<MathBox, MathValueError> {
     Ok(math_atom_from_value(v)?.estimate_box())
+}
+
+/// Fontless script attachment offsets from a package `math-scripts` tagged record.
+///
+/// Lowers via [`math_atom_from_value`], then applies [`scripts_attachment_offsets`]
+/// to base / sub / sup estimate boxes. Heuristic only — not OpenType MATH.
+pub fn scripts_attachment_offsets_from_value(
+    v: &RuntimeValue,
+) -> Result<(f64, f64, f64, f64), MathValueError> {
+    let atom = math_atom_from_value(v)?;
+    match atom {
+        MathAtom::Scripts {
+            base,
+            superscript,
+            subscript,
+            ..
+        } => {
+            let base_box = base.estimate_box();
+            let sub = subscript.as_ref().map(|s| s.estimate_box());
+            let sup = superscript.as_ref().map(|s| s.estimate_box());
+            Ok(scripts_attachment_offsets(base_box, sub, sup))
+        }
+        other => Err(MathValueError::new(format!(
+            "scripts_attachment_offsets_from_value expects math-scripts atom, got {:?}",
+            std::mem::discriminant(&other)
+        ))),
+    }
 }
 
 /// Lower a package math tagged record to a [`MathAtom`].
