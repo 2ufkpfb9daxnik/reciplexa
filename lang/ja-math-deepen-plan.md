@@ -151,8 +151,8 @@ Waves **4–28** form a **stub layer complete-enough for host layout experiments
 - Math: OpenType MATH / stretchy fences / real accent attachment / real matrix column alignment / linebreak in display math.
 - Document pipeline + GUI consuming kihon / ruby / math boxes as live page layout (not only trees / Text-shape helpers).
   - Light prep **done**: `reciplexa_eval::math_value` lowers package math tagged records → `MathAtom` → `estimate_box`.
-  - **Note:** CLI `inspect-document` is the graphics/document snapshot path; it does **not** print math `estimate_box`. Prefer eval/`math_value` on package math trees (see `pkg_math_main_tree_estimates_box_via_math_value` — **full** `pkg_math` demo tree estimates, including under/over/cases/operatorname).
-  - Host consume slice: [`host-layout-consume-plan.md`](host-layout-consume-plan.md) (HC0–HC5: preview metrics / math main estimate / GUI labels).
+  - **Note:** CLI `inspect-document` prints math box estimates for math-ish package mains (`estimate_package_math_main`, Display style). Prefer eval/`math_value` for full `pkg_math` demo trees (incl. under/over/cases/operatorname).
+  - Host consume slice: [`host-layout-consume-plan.md`](host-layout-consume-plan.md) (HC0–HC21: preview metrics / `debug_layout_summary` / math Display default / export smokes / OPEN-PKG workspace registry).
 - Wire `classify_char` / `break_opportunity` as language builtins.
   - **done**: ker builtins `classify-char` (→ Int class id) and `break-between` (→ `allowed`/`prohibited`/`inseparable` tags).
   - **done**: language-only example `examples/pkg_ja_classify.rpx` (+ eval test).

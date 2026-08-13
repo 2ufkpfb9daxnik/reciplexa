@@ -233,3 +233,56 @@ cargo test -p reciplexa-package --offline --test graphics_bridge_coverage --test
 | HC13 — PKG005 registry dep diagnose | **done** |
 | HC14 — Docs status | **done** |
 | HC15 — `pkg_ja_break` export integration | **skipped** (not a document page; redundant with HC7/HC9/HC11) |
+
+## Follow-on (HC16–HC21)
+
+### HC16 — `debug_layout_summary` (inspect + GUI tip)
+
+- Compact tooltip string from `preview_doc_text_metrics` (no status-bar chrome).
+- Wire into `inspect-document` for package docs; GUI unit test only (HC10 still skipped).
+- **Commit.**
+
+### HC17 — `pkg_document_indent` PDF/SVG smoke
+
+- Bridge indent example → PDF (≥1 `Tj`, CJK gated) / SVG (≥2 `<text`).
+- **Commit.**
+
+### HC18 — Workspace-level registry dep (OPEN-PKG fixture)
+
+- Optional `(dependencies …)` on `workspace.rpxm`; resolve refuses `source registry`.
+- Fixture moves registry dep to workspace level.
+- **Commit.**
+
+### HC19 — Display style default for `estimate_package_math_main`
+
+- Host package main always uses `EstimateStyle::Display` (ignores nested `style`).
+- **Commit.**
+
+### HC20 — Tip coverage PKG004 / PKG005
+
+- Dedicated tip tests for missing-resource + registry diagnose codes.
+- **Commit.**
+
+### HC21 — Vertical place PDF smoke
+
+- `lines_to_vertical_text_shapes` → PDF ≥2 `Tj` when CJK font available.
+- **Commit.**
+
+Gate (HC16–HC21):
+
+```bat
+set CARGO_TARGET_DIR=d:\reciplexa\target
+set TEMP=d:\reciplexa\.tmp
+set TMP=d:\reciplexa\.tmp
+cargo test -p reciplexa-package --offline --test graphics_bridge_coverage --test workspace_tests --test math_bridge_tests --test pkg_diagnose_tip_tests
+cargo test -p reciplexa-gui --offline --test layout_summary_tests
+```
+
+| Unit | Status |
+|------|--------|
+| HC16 — `debug_layout_summary` | **done** |
+| HC17 — indent PDF/SVG smoke | **done** |
+| HC18 — workspace-level registry dep | **done** |
+| HC19 — math Display default | **done** |
+| HC20 — PKG004/005 tip | **done** |
+| HC21 — vertical place PDF smoke | **done** |
