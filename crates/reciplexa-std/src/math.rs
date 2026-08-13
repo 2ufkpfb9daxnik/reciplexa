@@ -45,6 +45,43 @@ impl fmt::Display for MathClass {
     }
 }
 
+/// Thin muskip stub (TeX `\,` ≈ 3mu; 18mu = 1em).
+pub const THIN_MUSKIP_EM: f64 = 3.0 / 18.0;
+
+/// Medium muskip stub (TeX `\>` ≈ 4mu).
+pub const MED_MUSKIP_EM: f64 = 4.0 / 18.0;
+
+/// Thick muskip stub (TeX `\;` ≈ 5mu).
+pub const THICK_MUSKIP_EM: f64 = 5.0 / 18.0;
+
+/// TeX-ish inter-atom spacing (em) between adjacent math classes.
+///
+/// Fontless heuristic for row width estimates — not style-dependent `\scriptstyle`
+/// suppression, not OpenType MATH `MathItalicsCorrection` / `MathKern`. Covers the
+/// common Ord/Op/Bin/Rel/Open/Close/Punct pairs; unknown pairs → `0.0`.
+pub fn class_spacing_em(left: MathClass, right: MathClass) -> f64 {
+    use MathClass::*;
+    match (left, right) {
+        // Thin: Ord–Op, Op–Ord, Close–Op, …
+        (Ordinary, Operator) | (Operator, Ordinary) => THIN_MUSKIP_EM,
+        (Close, Operator) | (Operator, Open) => THIN_MUSKIP_EM,
+        (Punctuation, _) => THIN_MUSKIP_EM,
+        // Medium: Ord–Bin–Ord (Bin only when both sides look "inner").
+        (Ordinary, Binary) | (Binary, Ordinary) => MED_MUSKIP_EM,
+        (Close, Binary) | (Binary, Open) => MED_MUSKIP_EM,
+        // Thick: Ord–Rel–Ord.
+        (Ordinary, Relation) | (Relation, Ordinary) => THICK_MUSKIP_EM,
+        (Close, Relation) | (Relation, Open) => THICK_MUSKIP_EM,
+        (Operator, Relation) | (Relation, Operator) => THICK_MUSKIP_EM,
+        // Fence ≈ Open/Close for spacing purposes.
+        (Fence, Operator) | (Operator, Fence) => THIN_MUSKIP_EM,
+        (Fence, Binary) | (Binary, Fence) => MED_MUSKIP_EM,
+        (Fence, Relation) | (Relation, Fence) => THICK_MUSKIP_EM,
+        (Ordinary, Fence) | (Fence, Ordinary) => 0.0,
+        _ => 0.0,
+    }
+}
+
 /// Accent kind for `MathAtom::Accent` (package `math/accents`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum MathAccentKind {
@@ -222,6 +259,23 @@ impl MathAtom {
             | Self::Matrix { id, .. }
             | Self::Aligned { id, .. }
             | Self::Stack { id, .. } => *id,
+        }
+    }
+
+    /// Spacing class for [`class_spacing_em`] (symbols keep their class; compounds ≈ Ord).
+    pub fn spacing_class(&self) -> MathClass {
+        match self {
+            Self::Symbol { class, .. } => *class,
+            Self::Delimiter { .. } => MathClass::Fence,
+            Self::BigOp { .. } => MathClass::Operator,
+            Self::Row { .. }
+            | Self::Fraction { .. }
+            | Self::Radical { .. }
+            | Self::Scripts { .. }
+            | Self::Accent { .. }
+            | Self::Matrix { .. }
+            | Self::Aligned { .. }
+            | Self::Stack { .. } => MathClass::Ordinary,
         }
     }
 
@@ -765,7 +819,18 @@ impl MathAtom {
             }
             Self::Row { children, .. } => {
                 let boxes: Vec<_> = children.iter().map(|c| c.estimate_box()).collect();
-                MathBox::combine_row(&boxes)
+                let mut row = MathBox::combine_row(&boxes);
+                if children.len() >= 2 {
+                    let mut gap = 0.0_f64;
+                    for i in 0..children.len() - 1 {
+                        gap += class_spacing_em(
+                            children[i].spacing_class(),
+                            children[i + 1].spacing_class(),
+                        );
+                    }
+                    row.width += gap;
+                }
+                row
             }
             Self::Fraction {
                 numerator,

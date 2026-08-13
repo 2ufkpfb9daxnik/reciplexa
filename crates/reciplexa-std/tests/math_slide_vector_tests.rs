@@ -250,6 +250,31 @@ fn math_estimate_box_relative_sizes() {
 }
 
 #[test]
+fn class_spacing_em_texish_ord_op_and_row_width() {
+    use reciplexa_std::math::{
+        class_spacing_em, MED_MUSKIP_EM, THICK_MUSKIP_EM, THIN_MUSKIP_EM,
+    };
+
+    assert!((class_spacing_em(MathClass::Ordinary, MathClass::Operator) - THIN_MUSKIP_EM).abs() < 1e-9);
+    assert!((class_spacing_em(MathClass::Operator, MathClass::Ordinary) - THIN_MUSKIP_EM).abs() < 1e-9);
+    assert!((class_spacing_em(MathClass::Ordinary, MathClass::Binary) - MED_MUSKIP_EM).abs() < 1e-9);
+    assert!((class_spacing_em(MathClass::Ordinary, MathClass::Relation) - THICK_MUSKIP_EM).abs() < 1e-9);
+    assert_eq!(class_spacing_em(MathClass::Ordinary, MathClass::Ordinary), 0.0);
+    assert_eq!(class_spacing_em(MathClass::Open, MathClass::Ordinary), 0.0);
+
+    let a = MathAtom::symbol(id(1), "a", MathClass::Ordinary);
+    let plus = MathAtom::symbol(id(2), "+", MathClass::Binary);
+    let b = MathAtom::symbol(id(3), "b", MathClass::Ordinary);
+    let row = MathAtom::row(id(4), vec![a.clone(), plus.clone(), b.clone()]);
+    let expected = a.estimate_box().width
+        + plus.estimate_box().width
+        + b.estimate_box().width
+        + MED_MUSKIP_EM
+        + MED_MUSKIP_EM;
+    assert!((row.estimate_box().width - expected).abs() < 1e-9);
+}
+
+#[test]
 fn math_scripts_attachment_offsets_heuristic() {
     use reciplexa_std::math::{scripts_attachment_offsets, MathBox};
 
