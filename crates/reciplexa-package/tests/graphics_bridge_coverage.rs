@@ -784,3 +784,48 @@ fn live_math_pdf_smoke_when_cjk_font() {
     );
 }
 
+/// LL23: pkg_live_math → SVG with multiple `<text` elements.
+#[test]
+fn live_math_svg_smoke_multi_text() {
+    let entry = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/pkg_live_math.rpx");
+    let doc = document_from_live_layout_entry(&entry, &index()).expect("live math bridge");
+    let text_shape_count = doc.pages[0]
+        .shapes
+        .iter()
+        .filter(|s| matches!(s, Shape::Text(_)))
+        .count();
+    assert!(
+        text_shape_count >= 3,
+        "expected doc + delim/frac/script Text shapes before SVG, got {text_shape_count}"
+    );
+    let svg = reciplexa_svg::document_to_svg(&doc).expect("live math svg");
+    let text_elems = svg.matches("<text").count();
+    assert!(
+        text_elems >= 3,
+        "expected multiple SVG text elements from live-math page, got {text_elems} <text (shapes={text_shape_count})"
+    );
+}
+
+/// LL23: pkg_live_math → PPTX with multiple `<a:t>` runs.
+#[test]
+fn live_math_pptx_smoke_multi_text() {
+    let entry = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/pkg_live_math.rpx");
+    let doc = document_from_live_layout_entry(&entry, &index()).expect("live math bridge");
+    let text_shape_count = doc.pages[0]
+        .shapes
+        .iter()
+        .filter(|s| matches!(s, Shape::Text(_)))
+        .count();
+    assert!(
+        text_shape_count >= 3,
+        "expected doc + delim/frac/script Text shapes before PPTX, got {text_shape_count}"
+    );
+    let bytes = reciplexa_pptx::document_to_pptx(&doc).expect("live math pptx");
+    let slide = slide1_xml_from_pptx(&bytes);
+    let a_t = slide.matches("<a:t>").count();
+    assert!(
+        a_t >= 3,
+        "expected multiple PPTX text runs from live-math page, got {a_t} <a:t> (shapes={text_shape_count})"
+    );
+}
+
