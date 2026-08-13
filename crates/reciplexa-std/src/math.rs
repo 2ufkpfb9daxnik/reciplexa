@@ -565,6 +565,12 @@ impl MathBox {
 /// Script-size shrink factor used by `estimate_box` (fontless heuristic).
 pub const SCRIPT_SCALE: f64 = 0.7;
 
+/// Extra height (em) above the base for over-accents (hat/bar/…); stub clearance.
+pub const ACCENT_CLEARANCE_EM: f64 = 0.35;
+
+/// Extra depth (em) below the base for underline-style accents.
+pub const ACCENT_UNDER_CLEARANCE_EM: f64 = 0.35;
+
 impl MathAtom {
     /// Rough width/height/depth estimate without fonts (layout scaffolding only).
     pub fn estimate_box(&self) -> MathBox {
@@ -642,9 +648,21 @@ impl MathAtom {
                 let depth = (inner.depth * factor).max(0.3);
                 MathBox::new(inner.width + pad, height, depth)
             }
-            Self::Accent { base, .. } => {
+            Self::Accent { kind, base, .. } => {
                 let b = base.estimate_box();
-                MathBox::new(b.width.max(0.8), b.height + 0.35, b.depth)
+                let width = b.width.max(0.8);
+                match kind {
+                    MathAccentKind::Underline => {
+                        MathBox::new(width, b.height, b.depth + ACCENT_UNDER_CLEARANCE_EM)
+                    }
+                    MathAccentKind::Overline
+                    | MathAccentKind::WideHat
+                    | MathAccentKind::WideTilde => {
+                        // Wide marks get a touch more clearance than compact accents.
+                        MathBox::new(width, b.height + ACCENT_CLEARANCE_EM + 0.1, b.depth)
+                    }
+                    _ => MathBox::new(width, b.height + ACCENT_CLEARANCE_EM, b.depth),
+                }
             }
             Self::BigOp {
                 operator,

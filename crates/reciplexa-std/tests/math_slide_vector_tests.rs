@@ -122,6 +122,31 @@ fn math_accent_and_big_op() {
 }
 
 #[test]
+fn math_accent_clearance_above_and_below_base() {
+    use reciplexa_std::math::{
+        MathAccentKind, ACCENT_CLEARANCE_EM, ACCENT_UNDER_CLEARANCE_EM,
+    };
+    let a = MathAtom::symbol(id(1), "a", MathClass::Ordinary);
+    let base = a.estimate_box();
+    let hat = MathAtom::accent(id(2), MathAccentKind::Hat, a.clone()).estimate_box();
+    assert!(
+        (hat.height - (base.height + ACCENT_CLEARANCE_EM)).abs() < 1e-9,
+        "hat should add clearance above base"
+    );
+    assert!((hat.depth - base.depth).abs() < 1e-9);
+
+    let under = MathAtom::accent(id(3), MathAccentKind::Underline, a.clone()).estimate_box();
+    assert!((under.height - base.height).abs() < 1e-9);
+    assert!(
+        (under.depth - (base.depth + ACCENT_UNDER_CLEARANCE_EM)).abs() < 1e-9,
+        "underline should add clearance below base"
+    );
+
+    let wide = MathAtom::accent(id(4), MathAccentKind::WideHat, a).estimate_box();
+    assert!(wide.height > hat.height);
+}
+
+#[test]
 fn math_estimate_box_relative_sizes() {
     use reciplexa_std::math::MathBox;
     let a = MathAtom::symbol(id(1), "a", MathClass::Ordinary);
