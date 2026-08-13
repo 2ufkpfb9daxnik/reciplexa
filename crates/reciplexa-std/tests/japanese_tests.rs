@@ -337,6 +337,26 @@ fn ruby_estimate_box_advance_and_scale() {
     assert!((lb.advance_width - lb.annotation_width).abs() < 1e-9);
 }
 
+#[test]
+fn tate_chu_yoko_estimate_box_digits_and_latin() {
+    use reciplexa_std::japanese::{tate_chu_yoko_estimate_box, TateChuYoko};
+
+    // Two ASCII digits → 0.5 + 0.5 = 1.0 em horizontal advance in vertical context.
+    let digits = TateChuYoko::new("12");
+    let db = digits.estimate_box();
+    assert!((db.advance_width - 1.0).abs() < 1e-9);
+    assert!((db.block_em - 1.0).abs() < 1e-9);
+    assert_eq!(tate_chu_yoko_estimate_box(&digits), db);
+
+    // Latin run: "AB" → 1.0 em; longer than single half-width char.
+    let latin = TateChuYoko::new("AB");
+    assert!((latin.estimate_box().advance_width - 1.0).abs() < 1e-9);
+
+    // Mixed: "12A" → 1.5 em.
+    let mixed = TateChuYoko::new("12A");
+    assert!((mixed.estimate_box().advance_width - 1.5).abs() < 1e-9);
+}
+
 /// Demo: classify + break over a short Japanese phrase (J4).
 #[test]
 fn classify_and_break_phrase_demo() {

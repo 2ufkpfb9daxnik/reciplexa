@@ -898,6 +898,35 @@ impl TateChuYoko {
     pub fn tag(&self) -> &'static str {
         "ja-tate-chu-yoko"
     }
+
+    /// Horizontal run width of digits/latin set upright in vertical text (fontless).
+    pub fn estimate_box(&self) -> TateChuYokoBox {
+        tate_chu_yoko_estimate_box(self)
+    }
+}
+
+/// Fontless tate-chu-yoko metrics: inline advance of a horizontal span in vertical context.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct TateChuYokoBox {
+    /// Sum of [`char_em_width`] over the body (ASCII half-em, else full em).
+    pub advance_width: f64,
+    /// Vertical band occupied by the run (~1 em of the surrounding vertical measure).
+    pub block_em: f64,
+}
+
+impl TateChuYokoBox {
+    pub const fn new(advance_width: f64, block_em: f64) -> Self {
+        Self {
+            advance_width,
+            block_em,
+        }
+    }
+}
+
+/// Estimate tate-chu-yoko box (same as [`TateChuYoko::estimate_box`]).
+pub fn tate_chu_yoko_estimate_box(span: &TateChuYoko) -> TateChuYokoBox {
+    let advance_width: f64 = span.body.chars().map(char_em_width).sum();
+    TateChuYokoBox::new(advance_width, 1.0)
 }
 
 impl fmt::Display for TateChuYoko {

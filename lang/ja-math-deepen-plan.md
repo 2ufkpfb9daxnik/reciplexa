@@ -193,7 +193,7 @@ cargo test -p reciplexa-std -p reciplexa-eval -p reciplexa-package --offline
 | Unit | Status |
 |------|--------|
 | X0 — Ruby layout stub (`Ruby::estimate_box` / `ruby_estimate_box`) | **done** |
-| X1 — Tate-chu-yoko layout stub (horizontal run width in vertical context) | pending |
+| X1 — Tate-chu-yoko layout stub (horizontal run width in vertical context) | **done** |
 | X2 — Math stretchy delimiter stub (`Delimiter` grows with body; optional `stretch_factor`) | pending |
 | X3 — Math accent clearance stub (clearance above base) | pending |
 | X4 — Pipeline/host light consume (`lines_to_text_shapes` + break demo) | pending |
