@@ -8,7 +8,8 @@ Status tracking for deepening `packages/japanese` + `packages/math` **beyond** t
 |---------|------------------|
 | JLReq-inspired **character class enum** + `classify_char` for a **useful subset** of punctuation / kana / ideographs / western | Full UCS membership tables for cl-01..cl-30 |
 | Pair **break opportunity** stub (kinsoku-inspired forbidden starts/ends) | Normative JLReq appendix C pair matrix / streaming linebreak |
-| Naive **`break_line` / `char_em_width`** (em budget + break_opportunity) | Full justification / hangable punctuation / CSS `line-break` |
+| Naive **`break_line` / `char_em_width`** (em budget + break_opportunity + optional hangable stub) | Full justification / CSS `line-break` / normative hanging punctuation |
+| **`is_hangable`** (cl-06/07) used optionally by `break_line` | Full JLReq hanging / measure overhang model |
 | Kihon-hanmen / writing-mode / ruby / tate-chu-yoko **data types** | Live line layout, glyph positioning, Document lower consumption |
 | Deeper `MathAtom` tree + **fontless** box metric estimates + matrix/align/stack nodes | TeX/SATySFi glyph layout, stretchy fences, OpenType MATH tables |
 
@@ -170,4 +171,6 @@ No push unless asked. Fine-grained commits (one unit ≈ one commit).
 | **Wave 3** — `japanese::break_line` + `char_em_width` (naive em-width wrap via `break_opportunity` / kinsoku) | **done** |
 | **Wave 3** — `break_line` demo test (short Japanese phrase + mixed ASCII) | **done** |
 | **Wave 3** — `MathAtom::linearize` braces multi-char script/limit bodies | **done** |
+| Language builtin `break-line` (ker + eval + light typecheck → cons/nil strings) | **done** |
+| `is_hangable` (cl-06/07) + optional hang stub inside `break_line` | **done** (stub; not full hanging punctuation) |
 | Full UCS / §C / glyph layout / document consumption | **OPEN** |
