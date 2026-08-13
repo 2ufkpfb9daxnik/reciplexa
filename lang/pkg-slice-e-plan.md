@@ -8,7 +8,7 @@
 | ID | Unit | Done when |
 |----|------|-----------|
 | E0 | Parse `(resources …)` + reject escaping paths (PKG-10) | manifest stores list; `..` / absolute rejected | ✅ |
-| E1 | Workspace member discovery | load members’ `package.rpxm`; unique names; no nested workspace | |
+| E1 | Workspace member discovery | load members’ `package.rpxm`; unique names; no nested workspace | ✅ |
 | E2 | Shared workspace root `rpx.lock` | build/read one lock; reject member-local lock |
 | E3 | Member resolve uses root lock | walk to workspace root for lock |
 | E4 | Prefer workspace members when resolving | path-free dep → member; DAG; registry → stub error |

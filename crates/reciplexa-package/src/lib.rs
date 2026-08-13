@@ -47,4 +47,6 @@ pub use resolver::{resolve_packages, ResolveError, ResolvedGraph};
 pub use rpi::parse_rpi_exports;
 pub use rpxm::{parse_rpxm, RpxmError};
 pub use target::{BuildTarget, RuntimeProfile};
-pub use workspace::{parse_workspace_rpxm, WorkspaceManifest};
+pub use workspace::{
+    discover_workspace, parse_workspace_rpxm, WorkspaceError, WorkspaceIndex, WorkspaceManifest,
+};
