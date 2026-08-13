@@ -8,7 +8,7 @@ use reciplexa_syntax::{
     format_drag_number, replace_token_text, SyntaxKind, SyntaxNode, SyntaxToken,
 };
 
-use super::{is_headed, parse_root, LayerInfo, SyncError};
+use super::{is_headed, parse_root, LayerInfo, SizeTarget, SyncError};
 use crate::cst_walk::{find_list_covering, list_atoms, Child};
 
 /// Heads that wrap a single shape child at slot 1 (`fill`/`stroke`/`paint`).
@@ -215,6 +215,146 @@ pub fn nudge_layer_package(
         }
     };
     nudge_xy_slots_of_list(&leaf, x_slot, y_slot, dx, dy)
+}
+
+/// Collect one [`SizeTarget`] per flattened drawable under a package page.
+pub fn collect_size_targets_package(
+    src: &str,
+    page_index: usize,
+) -> Result<Vec<SizeTarget>, SyncError> {
+    let root = parse_root(src)?;
+    let page = find_package_page(&root, page_index)?;
+    let contents = package_page_content_nodes(&page)?;
+    let mut out = Vec::new();
+    let mut counters = PackageSizeCounters::default();
+    for content in contents {
+        collect_size_from_package_shape(&content, &mut counters, &mut out);
+    }
+    Ok(out)
+}
+
+#[derive(Default)]
+struct PackageSizeCounters {
+    circle: usize,
+    rect: usize,
+    ellipse: usize,
+    ring: usize,
+    frame: usize,
+    text: usize,
+    line: usize,
+    polyline: usize,
+    polygon: usize,
+    image: usize,
+}
+
+fn collect_size_from_package_shape(
+    node: &SyntaxNode,
+    counters: &mut PackageSizeCounters,
+    out: &mut Vec<SizeTarget>,
+) {
+    let items = list_atoms(node);
+    let Some(Child::Token(head)) = items.first() else {
+        return;
+    };
+    if head.kind() != SyntaxKind::Ident {
+        return;
+    }
+    let kind = head.text();
+    match kind {
+        "fill" | "stroke" | "paint" => {
+            if let Some(Child::Node(n)) = items.get(1) {
+                collect_size_from_package_shape(n, counters, out);
+            }
+        }
+        "list" | "group" => {
+            for item in items.iter().skip(1) {
+                if let Child::Node(n) = item {
+                    collect_size_from_package_shape(n, counters, out);
+                }
+            }
+        }
+        "translate" => {
+            for item in items.iter().skip(3) {
+                if let Child::Node(n) = item {
+                    collect_size_from_package_shape(n, counters, out);
+                }
+            }
+        }
+        "rotate" | "opacity" => {
+            for item in items.iter().skip(2) {
+                if let Child::Node(n) = item {
+                    collect_size_from_package_shape(n, counters, out);
+                }
+            }
+        }
+        "scale" => {
+            let skip = if items.len() >= 4
+                && matches!(&items[1], Child::Token(t) if t.kind() == SyntaxKind::Number)
+                && matches!(&items[2], Child::Token(t) if t.kind() == SyntaxKind::Number)
+            {
+                3
+            } else {
+                2
+            };
+            for item in items.iter().skip(skip) {
+                if let Child::Node(n) = item {
+                    collect_size_from_package_shape(n, counters, out);
+                }
+            }
+        }
+        "circle" => {
+            let idx = counters.circle;
+            counters.circle += 1;
+            out.push(SizeTarget::CircleR(idx));
+        }
+        "rect" => {
+            let idx = counters.rect;
+            counters.rect += 1;
+            out.push(SizeTarget::RectWh(idx));
+        }
+        "ellipse" => {
+            let idx = counters.ellipse;
+            counters.ellipse += 1;
+            out.push(SizeTarget::EllipseRxRy(idx));
+        }
+        "ring" => {
+            let idx = counters.ring;
+            counters.ring += 1;
+            out.push(SizeTarget::RingR(idx));
+        }
+        "frame" => {
+            let idx = counters.frame;
+            counters.frame += 1;
+            out.push(SizeTarget::FrameWh(idx));
+        }
+        "text" => {
+            let idx = counters.text;
+            counters.text += 1;
+            out.push(SizeTarget::TextSize(idx));
+        }
+        "line" => {
+            let idx = counters.line;
+            counters.line += 1;
+            out.push(SizeTarget::LineSeg(idx));
+        }
+        "polyline" => {
+            let idx = counters.polyline;
+            counters.polyline += 1;
+            out.push(SizeTarget::PolylinePoints(idx));
+        }
+        "polygon" => {
+            let idx = counters.polygon;
+            counters.polygon += 1;
+            out.push(SizeTarget::PolygonPoints(idx));
+        }
+        "image" => {
+            let idx = counters.image;
+            counters.image += 1;
+            out.push(SizeTarget::ImageWh(idx));
+        }
+        "path" => out.push(SizeTarget::Unsupported),
+        _ => {}
+    }
 }
 
 fn collect_layers_from_package_shape(
@@ -469,5 +609,17 @@ mod tests {
     #[test]
     fn nudge_bad_index_errors() {
         assert!(nudge_layer_package(PKG_CIRCLE, 0, 9, 1.0, 0.0).is_err());
+    }
+
+    #[test]
+    fn size_targets_circle_radius() {
+        use crate::sync::geometry::scale_size_target;
+        let targets = collect_size_targets_package(PKG_CIRCLE, 0).unwrap();
+        assert_eq!(targets, vec![SizeTarget::CircleR(0)]);
+        let out = scale_size_target(PKG_CIRCLE, SizeTarget::CircleR(0), 2.0).unwrap();
+        assert!(
+            out.contains("(circle 105 148.5 80)"),
+            "expected radius scale, got:\n{out}"
+        );
     }
 }

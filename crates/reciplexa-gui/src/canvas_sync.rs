@@ -10,9 +10,9 @@
 
 use reciplexa::wants_package_graphics_path;
 use reciplexa_lower::{
-    collect_layers_package, collect_layers_page, collect_size_targets_page,
-    is_package_shaped_authoring, nudge_layer_package, nudge_layer_page, LayerInfo, SizeTarget,
-    SyncError,
+    collect_layers_package, collect_layers_page, collect_size_targets_package,
+    collect_size_targets_page, is_package_shaped_authoring, nudge_layer_package, nudge_layer_page,
+    LayerInfo, SizeTarget, SyncError,
 };
 use reciplexa_view::WorldShape;
 
@@ -85,13 +85,19 @@ pub fn resolve_preview_layers(
     }
 }
 
-/// Prefer CST size targets; fall back to unsupported stubs for package / mismatch.
+/// Prefer CST size targets; fall back to unsupported stubs on mismatch.
 pub fn resolve_preview_size_targets(
     expanded: &str,
     page_index: usize,
     shape_count: usize,
 ) -> Vec<SizeTarget> {
-    if is_package_shaped_authoring(expanded) || wants_package_graphics_path(expanded) {
+    if is_package_shaped_authoring(expanded) {
+        return match collect_size_targets_package(expanded, page_index) {
+            Ok(targets) if targets.len() == shape_count => targets,
+            Ok(_) | Err(_) => readonly_size_targets(shape_count),
+        };
+    }
+    if wants_package_graphics_path(expanded) {
         return readonly_size_targets(shape_count);
     }
     match collect_size_targets_page(expanded, page_index) {
@@ -305,10 +311,9 @@ mod tests {
         assert_eq!(layers[0].kind, "circle");
         assert!(layers[0].byte_end > layers[0].byte_start);
         assert!(!layers[0].label.contains("read-only"));
-        // Size targets still unsupported until S2.
         assert_eq!(
             resolve_preview_size_targets(pkg, 0, shapes.len()),
-            vec![SizeTarget::Unsupported]
+            vec![SizeTarget::CircleR(0)]
         );
     }
 

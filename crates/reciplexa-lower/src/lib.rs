@@ -32,10 +32,10 @@ pub use props::{
 };
 pub use sync::{
     collect_drag_targets, collect_drag_targets_page, collect_layers_package, collect_layers_page,
-    collect_package_pages, collect_size_targets_page, count_pages, delete_layer_page, delete_page,
-    duplicate_layer_page, extent_with_leading_ws, find_main_expr, find_main_expr_in_source,
-    find_package_page, find_package_page_in_source, find_page, group_layers_page,
-    insert_layer_page, insert_page_after, is_headed, is_package_paint_wrapper,
+    collect_package_pages, collect_size_targets_package, collect_size_targets_page, count_pages,
+    delete_layer_page, delete_page, duplicate_layer_page, extent_with_leading_ws, find_main_expr,
+    find_main_expr_in_source, find_package_page, find_package_page_in_source, find_page,
+    group_layers_page, insert_layer_page, insert_page_after, is_headed, is_package_paint_wrapper,
     is_package_shaped_authoring, is_package_transparent_wrapper, layer_opacity, layer_rotation_deg,
     nudge_drag_target, nudge_first_translate, nudge_layer_package, nudge_layer_page,
     package_page_content_nodes, page_body_start, paint_wrapper_shape, parse_root,

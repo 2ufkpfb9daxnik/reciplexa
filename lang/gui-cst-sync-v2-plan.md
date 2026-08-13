@@ -18,7 +18,7 @@
 |----|------|-----------|
 | S0 | Package page locator + paint wrappers (`fill`/`stroke`/`paint`/`list`) | **done** — `sync/package.rs` + unit tests |
 | S1 | Circle nudge + layers for package (`pkg_black_circle`) | **done** — GUI nudge updates authoring numbers; keyword tables kept |
-| S2 | Package size targets (circle radius) | scale radius on package circle |
+| S2 | Package size targets (circle radius) | **done** — scale radius on package circle |
 | S3 | More shapes + translate wrap parity | rect/ellipse/text/line (+ wrap rules) |
 | S4 | Multipage + align rules (markup stays refuse) | multipage package; markup soft-refuse |
 | S5 | Migrate GUI golden to package; audit interim examples | `black_circle` → package twin as golden |
