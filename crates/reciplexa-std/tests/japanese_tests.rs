@@ -1,8 +1,8 @@
 //! Coverage for `reciplexa_std::japanese` (OPEN-TEXT-JA-001 deepen J0+).
 
 use reciplexa_std::japanese::{
-    break_opportunity, break_opportunity_chars, classify_char, is_line_end_prohibited,
-    is_line_head_prohibited, BreakOpportunity, CharClass,
+    break_line, break_opportunity, break_opportunity_chars, char_em_width, classify_char,
+    is_line_end_prohibited, is_line_head_prohibited, BreakOpportunity, CharClass,
 };
 
 #[test]
@@ -372,4 +372,55 @@ fn tip_char_class_display_and_edge_classify() {
     assert_eq!(classify_char('\u{0001}'), CharClass::Other);
     assert_eq!(classify_char('♠'), CharClass::Ornaments);
     assert_eq!(classify_char('ß'), CharClass::ComplexWestern);
+}
+
+#[test]
+fn char_em_width_ascii_half_ideograph_full() {
+    assert_eq!(char_em_width('A'), 0.5);
+    assert_eq!(char_em_width('9'), 0.5);
+    assert_eq!(char_em_width(' '), 0.5);
+    assert_eq!(char_em_width('あ'), 1.0);
+    assert_eq!(char_em_width('漢'), 1.0);
+    assert_eq!(char_em_width('。'), 1.0);
+}
+
+#[test]
+fn break_line_kinsoku_no_period_at_line_start() {
+    // Without kinsoku, max=3em on "あああ。" would yield ["あああ", "。"].
+    let lines = break_line("あああ。", 3.0);
+    assert!(
+        lines.iter().all(|l| !l.starts_with('。')),
+        "period must not start a line: {lines:?}"
+    );
+    assert_eq!(lines, vec!["ああ".to_string(), "あ。".to_string()]);
+}
+
+#[test]
+fn break_line_avoids_open_at_line_end() {
+    let lines = break_line("あ「いう", 2.0);
+    assert!(
+        lines.iter().all(|l| !l.ends_with('「')),
+        "'「' must not end a line: {lines:?}"
+    );
+    assert_eq!(
+        lines,
+        vec!["あ".to_string(), "「い".to_string(), "う".to_string()]
+    );
+}
+
+#[test]
+fn break_line_edges_and_ascii_half_width() {
+    assert!(break_line("", 4.0).is_empty());
+    assert_eq!(break_line("東京", 0.0), vec!["東京".to_string()]);
+    // Lone head-kinsoku char still emits.
+    assert_eq!(break_line("。", 1.0), vec!["。".to_string()]);
+    // ASCII letters are half-em → four fit in 2.0 em.
+    assert_eq!(
+        break_line("ABCD", 2.0),
+        vec!["ABCD".to_string()]
+    );
+    assert_eq!(
+        break_line("ABCDEF", 2.0),
+        vec!["ABCD".to_string(), "EF".to_string()]
+    );
 }

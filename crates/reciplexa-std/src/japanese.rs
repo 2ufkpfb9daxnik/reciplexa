@@ -567,6 +567,92 @@ pub fn break_opportunity_chars(prev: char, next: char) -> BreakOpportunity {
     break_opportunity(classify_char(prev), classify_char(next))
 }
 
+/// Approximate advance width in em for linebreak budgeting.
+///
+/// Naive heuristic: ASCII ≈ 0.5 em, everything else (ideograph-like) ≈ 1 em.
+pub fn char_em_width(c: char) -> f64 {
+    if c.is_ascii() {
+        0.5
+    } else {
+        1.0
+    }
+}
+
+/// Soft-wrap `text` into lines of at most `max_em_units` em (fontless).
+///
+/// Uses [`break_opportunity`] between adjacent characters and [`char_em_width`].
+/// Applies class-level kinsoku so e.g. `。` does not start a line when an earlier
+/// break exists. Not a full JLReq / CSS line breaker.
+///
+/// `max_em_units <= 0` returns the whole string as one line (empty input → empty vec).
+pub fn break_line(text: &str, max_em_units: f64) -> Vec<String> {
+    let chars: Vec<char> = text.chars().collect();
+    if chars.is_empty() {
+        return Vec::new();
+    }
+    if !(max_em_units > 0.0) {
+        return vec![text.to_string()];
+    }
+
+    let mut out = Vec::new();
+    let mut start = 0;
+    while start < chars.len() {
+        // Greedy fit: take as many chars as fit (at least one, even if over-wide).
+        let mut end = start;
+        let mut used = 0.0;
+        while end < chars.len() {
+            let w = char_em_width(chars[end]);
+            if end > start && used + w > max_em_units {
+                break;
+            }
+            used += w;
+            end += 1;
+        }
+
+        if end >= chars.len() {
+            out.push(chars[start..].iter().collect());
+            break;
+        }
+
+        // Rightmost allowed break in (start, end]: cut index starts the next line.
+        let mut cut = end;
+        let mut found = false;
+        for cand in (start + 1..=end).rev() {
+            if cand < chars.len()
+                && break_opportunity_chars(chars[cand - 1], chars[cand]).may_break()
+            {
+                cut = cand;
+                found = true;
+                break;
+            }
+        }
+        if !found {
+            cut = end;
+        }
+
+        // Line-end kinsoku: don't finish on opening brackets / prefixed abbrevs.
+        while cut > start + 1 && is_line_end_prohibited(classify_char(chars[cut - 1])) {
+            cut -= 1;
+        }
+        // Line-start kinsoku: don't leave 。 etc. at the head of the remainder.
+        while cut > start + 1
+            && cut < chars.len()
+            && is_line_head_prohibited(classify_char(chars[cut]))
+        {
+            cut -= 1;
+        }
+
+        // Ensure progress even if the whole window is kinsoku-stuck.
+        if cut <= start {
+            cut = start + 1;
+        }
+
+        out.push(chars[start..cut].iter().collect());
+        start = cut;
+    }
+    out
+}
+
 /// Writing mode for kihon-hanmen / vertical stubs.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum WritingMode {
