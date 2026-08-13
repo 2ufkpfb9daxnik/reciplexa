@@ -82,6 +82,42 @@ fn classify_char_expanded_class_samples() {
     assert_eq!(classify_char('\u{00A0}'), CharClass::Spaces); // NBSP
 }
 
+/// Ideographic punctuation (CJK Symbols block) + more fullwidth forms.
+#[test]
+fn classify_char_ideographic_punct_and_fullwidth() {
+    // CJK quotation / ditto / closing mark / wavy dash.
+    assert_eq!(classify_char('〝'), CharClass::OpeningBrackets);
+    assert_eq!(classify_char('〞'), CharClass::ClosingBrackets);
+    assert_eq!(classify_char('〟'), CharClass::ClosingBrackets);
+    assert_eq!(classify_char('〃'), CharClass::Inseparable);
+    assert_eq!(classify_char('〆'), CharClass::DividingPunctuation);
+    assert_eq!(classify_char('〰'), CharClass::Hyphens);
+    assert_eq!(classify_char('゠'), CharClass::Hyphens);
+    assert_eq!(classify_char('〓'), CharClass::Ornaments);
+    assert_eq!(classify_char('〽'), CharClass::Ornaments);
+    assert_eq!(classify_char('〇'), CharClass::Ornaments);
+
+    // Halfwidth CJK punctuation (FF61–FF65).
+    assert_eq!(classify_char('｡'), CharClass::FullStops);
+    assert_eq!(classify_char('､'), CharClass::Commas);
+
+    // Fullwidth operators / signs (FF01–FF5E / FFE0+).
+    assert_eq!(classify_char('＋'), CharClass::MathSymbols);
+    assert_eq!(classify_char('＜'), CharClass::MathSymbols);
+    assert_eq!(classify_char('＞'), CharClass::MathSymbols);
+    assert_eq!(classify_char('＆'), CharClass::MathSymbols);
+    assert_eq!(classify_char('＠'), CharClass::PrefixedAbbreviations);
+    assert_eq!(classify_char('／'), CharClass::DividingPunctuation);
+    assert_eq!(classify_char('＼'), CharClass::DividingPunctuation);
+    assert_eq!(classify_char('＿'), CharClass::SimpleWestern);
+    assert_eq!(classify_char('｜'), CharClass::Ornaments);
+    assert_eq!(classify_char('￣'), CharClass::Ornaments);
+
+    // Residual CJK Symbols and Punctuation → ideographic bucket.
+    assert_eq!(classify_char('\u{3030}'), CharClass::Hyphens); // 〰 already above
+    assert_eq!(classify_char('\u{303E}'), CharClass::Ideographic); // 〾
+}
+
 #[test]
 fn break_opportunity_kinsoku_stub() {
     assert!(is_line_head_prohibited(CharClass::FullStops));
