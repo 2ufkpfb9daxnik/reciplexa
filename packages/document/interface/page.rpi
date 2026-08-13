@@ -10,6 +10,7 @@
 (val section)
 (val heading)
 (val paragraph)
+(val paragraph-indented)
 (val unordered-list)
 (val ordered-list)
 (val list-item)

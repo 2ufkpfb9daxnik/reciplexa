@@ -226,3 +226,35 @@ fn package_document_long_ja_paragraph_emits_multiple_text_shapes() {
         "expected consecutive break_line lines among shapes {texts:?}, want {expected:?}"
     );
 }
+
+/// Wave 15 I2: `paragraph-indented` → first Text x offset via indent-em.
+#[test]
+fn package_document_indent_em_offsets_first_paragraph_text() {
+    let entry =
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/pkg_document_indent.rpx");
+    let idx = index();
+    let doc = document_from_package_entry(&entry, &idx).expect("indent example bridge");
+    let texts: Vec<_> = doc.pages[0]
+        .shapes
+        .iter()
+        .filter_map(|s| match s {
+            Shape::Text(t) => Some(t),
+            _ => None,
+        })
+        .collect();
+    let body = texts
+        .iter()
+        .find(|t| t.content == "インデント付き段落。")
+        .expect("indented body text");
+    // BASE_X 20 + 1em * paragraph size 4.0 = 24.0
+    assert!(
+        (body.x_mm - 24.0).abs() < 1e-9,
+        "expected indent x=24, got {}",
+        body.x_mm
+    );
+    let title = texts
+        .iter()
+        .find(|t| t.content == "字下げ")
+        .expect("title text");
+    assert!((title.x_mm - 20.0).abs() < 1e-9);
+}

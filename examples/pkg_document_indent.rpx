@@ -1,0 +1,13 @@
+(// language-only: doc-paragraph indent-em via paragraph-indented.)
+(import document/page only
+  a4 page flow section heading paragraph-indented
+  block-paragraph)
+(val title (heading 1 "字下げ"))
+(val body (paragraph-indented "インデント付き段落。" 1))
+(val main
+  (page a4
+    (flow
+      (list
+        (section title
+          (list
+            (block-paragraph body)))))))

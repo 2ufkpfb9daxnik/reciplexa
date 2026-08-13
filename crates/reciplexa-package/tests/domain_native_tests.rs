@@ -282,7 +282,14 @@ fn n5_1_document_page_is_native() {
     assert!(page.source.contains("native: document/page"));
     assert!(page.source.contains("(tag \"doc-page\")"));
     let exports = page.interface_exports.unwrap();
-    for name in ["page", "flow", "section", "heading", "paragraph"] {
+    for name in [
+        "page",
+        "flow",
+        "section",
+        "heading",
+        "paragraph",
+        "paragraph-indented",
+    ] {
         assert!(exports.iter().any(|e| e == name), "missing export {name}");
     }
     assert!(!workspace_packages().join("document/src/page.rpx").is_file());

@@ -1497,6 +1497,7 @@ pub fn document_page_module() -> DomainNativeModule {
             "section".into(),
             "heading".into(),
             "paragraph".into(),
+            "paragraph-indented".into(),
             "unordered-list".into(),
             "ordered-list".into(),
             "list-item".into(),
@@ -1531,6 +1532,8 @@ pub fn document_page_source() -> &'static str {
   (record (tag "doc-heading") (level level) (text text))))
 (val paragraph (fn (text)
   (record (tag "doc-paragraph") (text text))))
+(val paragraph-indented (fn (text em)
+  (record (tag "doc-paragraph") (text text) (indent-em em))))
 (val unordered-list (fn (items)
   (record (tag "doc-list") (ordered false) (items items))))
 (val ordered-list (fn (items)
