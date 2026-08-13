@@ -21,20 +21,16 @@ fn tip(src: &str) {
 #[test]
 fn core_round33_check_cast_elaborate_wave() {
     // Open-record missing field → unify row (check L462)
-    tip(
-        r#"
+    tip(r#"
 (type R (record (a int) (row r)))
 (val main (fn (x)
   (field (as R x) z)))
-"#,
-    );
-    tip(
-        r#"
+"#);
+    tip(r#"
 (val main (fn (r)
   (let ((x (as (record (row rho)) r)))
     (field x missing))))
-"#,
-    );
+"#);
 
     // Failure handler with resume → Err (check L189-193)
     tip("(val main (handle failure (fn (e k) 0) (perform failure \"x\")))");
@@ -42,12 +38,10 @@ fn core_round33_check_cast_elaborate_wave() {
     tip("(val main (handler ask (fn (a b c) a)))");
 
     // Local-state escape via Fun effects in result
-    tip(
-        r#"
+    tip(r#"
 (val main (local (var c 1)
   (fn (x) (set c x))))
-"#,
-    );
+"#);
 
     // Record-update / extend error paths
     tip("(val main (record-update 1 (a 2)))");
@@ -56,29 +50,23 @@ fn core_round33_check_cast_elaborate_wave() {
     tip("(val main (record-extend (record (a 1)) (a 2)))");
 
     // Match / occurrence / is-some
-    tip(
-        r#"
+    tip(r#"
 (data opt (none) (some int))
 (val main (fn (x)
   (if (is-some x) 1 0)))
-"#,
-    );
-    tip(
-        r#"
+"#);
+    tip(r#"
 (data opt (none) (some int))
 (val main (match (some 1)
   (none -> 0)
   (some x -> x)))
-"#,
-    );
+"#);
 
     // Dynamic refine Never else
-    tip(
-        r#"
+    tip(r#"
 (val main (let ((d (as (dynamic int) 1)))
   (if (string? d) 1 0)))
-"#,
-    );
+"#);
 
     // Cast / try / check nests + ascription
     tip("(val main (as (union int string) 1))");
@@ -193,10 +181,7 @@ fn core_round33_check_cast_elaborate_wave() {
         CoreType::Any,
         CoreType::Int,
     ]));
-    let _ = normalize_type(&CoreType::Intersect(vec![
-        CoreType::Color,
-        CoreType::Shape,
-    ]));
+    let _ = normalize_type(&CoreType::Intersect(vec![CoreType::Color, CoreType::Shape]));
     let _ = normalize_type(&CoreType::Union(vec![
         CoreType::Union(vec![CoreType::Int, CoreType::String]),
         CoreType::Int,

@@ -3251,9 +3251,7 @@ mod coverage_helpers {
                 ],
             },
             &CoreType::Record {
-                fields: vec![
-                    ("a".into(), CoreType::OptionalField(Box::new(CoreType::Int))),
-                ],
+                fields: vec![("a".into(), CoreType::OptionalField(Box::new(CoreType::Int)))],
             },
             &mut env,
         );
@@ -3417,10 +3415,7 @@ mod coverage_helpers {
             CoreType::Union(vec![CoreType::Int, CoreType::F64]),
             CoreType::Number,
         ]));
-        let _ = operand_numeric_class(&CoreType::Intersect(vec![
-            CoreType::Int,
-            CoreType::String,
-        ]));
+        let _ = operand_numeric_class(&CoreType::Intersect(vec![CoreType::Int, CoreType::String]));
         let _ = operand_numeric_class(&CoreType::Union(vec![CoreType::Int, CoreType::F64]));
         let _ = numeric_union_class(&CoreType::Int);
         let _ = numeric_union_class(&CoreType::F64);
@@ -3502,10 +3497,10 @@ mod coverage_helpers {
         let mut env_d = TypeEnv::new();
         env_d.data.ctor_type.insert("none".into(), "opt".into());
         env_d.data.ctor_type.insert("some".into(), "opt".into());
-        env_d.data.data_ctors.insert(
-            "opt".into(),
-            vec![("none".into(), 0), ("some".into(), 1)],
-        );
+        env_d
+            .data
+            .data_ctors
+            .insert("opt".into(), vec![("none".into(), 0), ("some".into(), 1)]);
         env_d
             .data
             .ctor_payloads
@@ -3523,7 +3518,10 @@ mod coverage_helpers {
         // generalize App with free unification vars as type params
         let v = subst.fresh_var();
         let mut env_g = TypeEnv::new();
-        env_g.data.type_params.insert("box".into(), vec!["a".into()]);
+        env_g
+            .data
+            .type_params
+            .insert("box".into(), vec!["a".into()]);
         let _ = generalize_type(
             CoreType::App {
                 ctor: "box".into(),
@@ -3548,13 +3546,7 @@ mod coverage_helpers {
         let mut env_p = TypeEnv::new();
         env_p.data.ctor_type.insert("wrap".into(), "box".into());
         env_p.data.type_params.insert("box".into(), vec![]);
-        let _ = try_infer_parameterized_ctor(
-            "wrap",
-            Some(&CoreType::Int),
-            &env_p,
-            &mut subst,
-            r,
-        );
+        let _ = try_infer_parameterized_ctor("wrap", Some(&CoreType::Int), &env_p, &mut subst, r);
 
         // unify_ctor_payload Some(act) + empty schemas
         let _ = unify_ctor_payload(Some(&CoreType::Int), &[], &mut subst);

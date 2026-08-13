@@ -43,10 +43,7 @@ fn pipeline_n6q3_env_force_and_roots() {
     let pkg = r#"(import graphics/shapes)
 (val main (circle 1 2 3))"#;
     let packages = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../packages");
-    let _root_ok = EnvGuard::set(
-        "RECIPLEXA_PACKAGE_ROOT",
-        packages.to_str().expect("utf8"),
-    );
+    let _root_ok = EnvGuard::set("RECIPLEXA_PACKAGE_ROOT", packages.to_str().expect("utf8"));
 
     // Force off via "false" / "0"
     {

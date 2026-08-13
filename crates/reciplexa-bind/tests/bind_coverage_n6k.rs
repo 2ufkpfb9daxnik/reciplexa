@@ -41,11 +41,7 @@ fn module_n6k_skeleton_and_missing_import_file() {
     let dir = std::env::temp_dir().join("rpx_bind_n6k_miss");
     let _ = fs::remove_dir_all(&dir);
     fs::create_dir_all(&dir).unwrap();
-    fs::write(
-        dir.join("main.rpx"),
-        "(import missinglib)\n(val main 1)\n",
-    )
-    .unwrap();
+    fs::write(dir.join("main.rpx"), "(import missinglib)\n(val main 1)\n").unwrap();
     let err = load_module_tree(dir.join("main.rpx")).expect_err("missing sibling");
     assert!(
         err.message.contains("failed to read module"),
@@ -93,11 +89,7 @@ fn module_n6k_exclusive_lock_read_err_arms() {
     let locked = dir2.join("locked.rpx");
     let _guard2 = exclusive_lock(&locked);
     let err = load_module_tree(&dir2).expect_err("locked dir unit");
-    assert!(
-        err.message.contains("failed to read"),
-        "{}",
-        err.message
-    );
+    assert!(err.message.contains("failed to read"), "{}", err.message);
 }
 
 #[cfg(windows)]

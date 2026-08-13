@@ -1,8 +1,6 @@
 //! Round-35 core: residual check/cast/elaborate toward 99%.
 
-use reciplexa_core::cast::{
-    normalize_type, plan_cast_evidence, types_disjoint, CastEvidence,
-};
+use reciplexa_core::cast::{normalize_type, plan_cast_evidence, types_disjoint, CastEvidence};
 use reciplexa_core::check::{insert_implicit_casts, typecheck_language_source, TypeEnv};
 use reciplexa_core::elaborate::{elaborate_source, elaborate_with_data};
 use reciplexa_core::expr::CoreExpr;
@@ -78,10 +76,7 @@ fn core_round35_check_cast_elaborate_push() {
     let _ = insert_implicit_casts(
         &CoreExpr::App {
             fun: Box::new(CoreExpr::Var("f".into())),
-            args: vec![
-                CoreExpr::Var("x".into()),
-                CoreExpr::Var("x".into()),
-            ],
+            args: vec![CoreExpr::Var("x".into()), CoreExpr::Var("x".into())],
         },
         &env,
     );

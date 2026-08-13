@@ -3,7 +3,7 @@
 use std::path::PathBuf;
 use std::sync::{Mutex, OnceLock};
 
-use reciplexa::{document_from_source, document_for_export, wants_package_graphics_path};
+use reciplexa::{document_for_export, document_from_source, wants_package_graphics_path};
 use reciplexa_effect::TestHandler;
 
 fn env_lock() -> std::sync::MutexGuard<'static, ()> {

@@ -29,16 +29,8 @@ fn module_tree_import_rename_and_directory() {
     let _ = elaborate_module_tree(&dir);
 
     // Transitive + duplicate pending name (seen.continue)
-    fs::write(
-        dir.join("cycle_a.rpx"),
-        "(import cycle_b)\n(val main 1)\n",
-    )
-    .unwrap();
-    fs::write(
-        dir.join("cycle_b.rpx"),
-        "(import cycle_a)\n(val main 2)\n",
-    )
-    .unwrap();
+    fs::write(dir.join("cycle_a.rpx"), "(import cycle_b)\n(val main 1)\n").unwrap();
+    fs::write(dir.join("cycle_b.rpx"), "(import cycle_a)\n(val main 2)\n").unwrap();
     let _ = load_module_tree(dir.join("cycle_a.rpx"));
 
     // Self-import reject
@@ -67,10 +59,7 @@ fn module_tree_import_rename_and_directory() {
             "(import lib only a as aa)\n(import lib only b)\n(val main (+ aa b))",
         ),
     ]);
-    let _ = elaborate_units(&[
-        ("lib", "(val a 1)"),
-        ("main", "(import lib)\n(val main a)"),
-    ]);
+    let _ = elaborate_units(&[("lib", "(val a 1)"), ("main", "(import lib)\n(val main a)")]);
 }
 
 #[test]

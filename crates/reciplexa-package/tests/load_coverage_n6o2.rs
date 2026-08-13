@@ -5,9 +5,7 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use reciplexa_package::{
-    elaborate_with_packages, DomainNativeModule, LocalPackageIndex,
-};
+use reciplexa_package::{elaborate_with_packages, DomainNativeModule, LocalPackageIndex};
 
 fn scratch() -> PathBuf {
     let n = SystemTime::now()

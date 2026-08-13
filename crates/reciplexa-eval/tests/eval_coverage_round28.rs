@@ -32,10 +32,7 @@ fn eval_round28_record_rest_field_perform_after_value_resume() {
     let env = HashMap::new();
     let _ = eval_expr(
         &handle(CoreExpr::Record {
-            fields: vec![
-                ("a".into(), perform_ask(1)),
-                ("b".into(), perform_ask(2)),
-            ],
+            fields: vec![("a".into(), perform_ask(1)), ("b".into(), perform_ask(2))],
         }),
         &env,
         &mut UnitHost,

@@ -24,10 +24,7 @@ fn elaborate_round17_quarantine_comments_and_data_rec() {
 
 #[test]
 fn elaborate_round17_top_token_and_unsupported_form() {
-    let cases = [
-        "1\n(val main 1)",
-        "(val main 1) extra",
-    ];
+    let cases = ["1\n(val main 1)", "(val main 1) extra"];
     for src in cases {
         let _ = elaborate_source(src);
     }

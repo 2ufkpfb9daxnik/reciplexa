@@ -3,8 +3,8 @@
 use std::path::PathBuf;
 use std::sync::{Mutex, OnceLock};
 
-use reciplexa_effect::TestHandler;
 use reciplexa::{document_for_export, document_from_source, PipelineError};
+use reciplexa_effect::TestHandler;
 
 fn env_lock() -> std::sync::MutexGuard<'static, ()> {
     static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
@@ -60,8 +60,8 @@ fn pipeline_round9_export_package_and_search_roots() {
     assert!(err.is_err());
 
     // Empty PACKAGE_ROOT → discover miss; also clear force flag
-    let missing = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../.tmp/rpx_pipeline_n6n_missing");
+    let missing =
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../.tmp/rpx_pipeline_n6n_missing");
     let _root = EnvGuard::set(
         "RECIPLEXA_PACKAGE_ROOT",
         missing.to_str().unwrap_or("missing"),

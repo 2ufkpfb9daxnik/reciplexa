@@ -230,13 +230,13 @@ fn eval_round21_cont_forward_rest_loops() {
             CoreLiteral::Int(1),
         ),
         (
-            CastEvidence::TagCheck { tag: "string".into() },
+            CastEvidence::TagCheck {
+                tag: "string".into(),
+            },
             CoreLiteral::Int(1),
         ),
         (
-            CastEvidence::NominalCheck {
-                name: "ok".into(),
-            },
+            CastEvidence::NominalCheck { name: "ok".into() },
             CoreLiteral::Unit,
         ),
         (
@@ -245,10 +245,7 @@ fn eval_round21_cont_forward_rest_loops() {
             },
             CoreLiteral::Int(3),
         ),
-        (
-            CastEvidence::NumericPromote,
-            CoreLiteral::Int(1),
-        ),
+        (CastEvidence::NumericPromote, CoreLiteral::Int(1)),
         (
             CastEvidence::Compose(vec![
                 CastEvidence::TagCheck { tag: "int".into() },

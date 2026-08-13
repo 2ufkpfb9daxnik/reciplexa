@@ -15,20 +15,16 @@ fn tip(src: &str) {
 #[test]
 fn core_round32_open_record_handle_letrec_casts() {
     // Open-record unify via ascription + field
-    tip(
-        r#"
+    tip(r#"
 (val main (fn (r)
   (let ((x (as (record (a int) (row rho)) r)))
     (+ (field x a) (field x b)))))
-"#,
-    );
-    tip(
-        r#"
+"#);
+    tip(r#"
 (type Point (record (x int) (y int) (row r)))
 (val main (fn (p)
   (field (as Point p) z)))
-"#,
-    );
+"#);
 
     // Failure handle 1-param + ask 2-param
     tip("(val main (handle failure (fn (e) 0) (perform failure \"x\")))");

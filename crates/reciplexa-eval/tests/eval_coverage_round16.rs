@@ -53,10 +53,7 @@ fn cont_other_through_local_set_if_seq_app() {
             alive,
         },
     );
-    env.insert(
-        "k".into(),
-        oneshot(Rc::new(|_, _| Ok(Outcome::Forward))),
-    );
+    env.insert("k".into(), oneshot(Rc::new(|_, _| Ok(Outcome::Forward))));
     let expr = CoreExpr::Set {
         name: "c".into(),
         value: Box::new(CoreExpr::App {
@@ -339,12 +336,8 @@ fn match_pattern_and_builtin_residual_edges() {
     let _ = eval_source("(val main (number? 1))");
     let _ = eval_source("(val main (string? \"x\"))");
     let _ = eval_source("(val main (bool? true))");
-    let _ = eval_source(
-        "(data opt (none) (some x))\n(val main (is-none none))",
-    );
-    let _ = eval_source(
-        "(data opt (none) (some x))\n(val main (is-some (some 1)))",
-    );
+    let _ = eval_source("(data opt (none) (some x))\n(val main (is-none none))");
+    let _ = eval_source("(data opt (none) (some x))\n(val main (is-some (some 1)))");
     let _ = eval_source("(val main (= 1 1))");
     let _ = eval_source("(val main (!= 1 2))");
     let _ = eval_source("(val main (decode-utf8 (bytes 255)))");
@@ -424,9 +417,7 @@ fn runtime_cast_evidence_matrix_via_cast_expr() {
             CoreExpr::Lit(CoreLiteral::Int(1)),
         ),
         (
-            CastEvidence::NominalCheck {
-                name: "int".into(),
-            },
+            CastEvidence::NominalCheck { name: "int".into() },
             CoreExpr::Lit(CoreLiteral::Int(1)),
         ),
     ];

@@ -6,8 +6,7 @@ use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use reciplexa_package::{
-    elaborate_with_packages, load_module_tree_with_packages, DomainNativeModule,
-    LocalPackageIndex,
+    elaborate_with_packages, load_module_tree_with_packages, DomainNativeModule, LocalPackageIndex,
 };
 
 fn scratch(tag: &str) -> PathBuf {
@@ -77,7 +76,11 @@ fn load_n6p_discover_dup_and_interface() {
   (public-modules shapes))"#,
     )
     .unwrap();
-    fs::write(pkg.join("src/shapes.rpx"), "(val circle 1)\n(val hidden 2)\n").unwrap();
+    fs::write(
+        pkg.join("src/shapes.rpx"),
+        "(val circle 1)\n(val hidden 2)\n",
+    )
+    .unwrap();
     fs::write(pkg.join("interface/shapes.rpi"), "(val circle)\n").unwrap();
 
     let idx = LocalPackageIndex::discover(&[root2.as_path()]).expect("discover");

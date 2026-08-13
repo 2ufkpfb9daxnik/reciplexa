@@ -4,11 +4,11 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::{Mutex, OnceLock};
 
-use reciplexa_effect::TestHandler;
 use reciplexa::{
     document_for_export, document_from_source, document_from_source_with_snapshot, expand,
     is_package_shaped_graphics_source, lower, run_effects, wants_package_graphics_path,
 };
+use reciplexa_effect::TestHandler;
 
 fn env_lock() -> std::sync::MutexGuard<'static, ()> {
     static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
@@ -66,23 +66,20 @@ fn pipeline_round11_discover_fail_strip_export() {
     let _ = is_package_shaped_graphics_source(shapes);
 
     // Strip top-level perform/handle/src before package path
-    let with_fx = format!(
-        "{shapes}\n(perform log \"x\")\n(handle ask (fn (m) m) 1)\n(src \"y\")\n"
-    );
+    let with_fx =
+        format!("{shapes}\n(perform log \"x\")\n(handle ask (fn (m) m) 1)\n(src \"y\")\n");
     let _ = document_from_source(&with_fx);
     let _ = document_from_source_with_snapshot(&with_fx, false);
 
     // Structured comment + page detect
     let _ = wants_package_graphics_path("(// note)\n(import graphics/shapes)\n(val main 1)\n");
-    let _ = is_package_shaped_graphics_source("(import graphics/shapes)\n(page a4 (circle 1 2 3))\n");
+    let _ =
+        is_package_shaped_graphics_source("(import graphics/shapes)\n(page a4 (circle 1 2 3))\n");
     let _ = is_package_shaped_graphics_source("(import graphics/shapes)\n(val main 1)\n");
 
     // Discover fail: PACKAGE_ROOT points at a *file* (read_dir Io)
     drop(_root);
-    let bad = std::env::temp_dir().join(format!(
-        "rpx_pipe_n6p_bad_{}",
-        std::process::id()
-    ));
+    let bad = std::env::temp_dir().join(format!("rpx_pipe_n6p_bad_{}", std::process::id()));
     fs::write(&bad, b"not-a-dir").unwrap();
     let _bad_root = EnvGuard::set("RECIPLEXA_PACKAGE_ROOT", bad.to_str().unwrap_or("x"));
     let _ = document_from_source(shapes);
@@ -110,14 +107,10 @@ fn pipeline_round11_discover_fail_strip_export() {
     drop(_gone);
     let _walk = EnvGuard::remove("RECIPLEXA_PACKAGE_ROOT");
     let _auto = EnvGuard::remove("RECIPLEXA_PACKAGE_GRAPHICS");
-    let _ = wants_package_graphics_path(
-        "(import graphics/shapes)\n(val main 1)\n(// c)\n",
-    );
+    let _ = wants_package_graphics_path("(import graphics/shapes)\n(val main 1)\n(// c)\n");
     let _ = document_from_source(shapes);
     // Interim page + import graphics → not package-shaped
-    let _ = document_from_source(
-        "(import graphics/shapes)\n(page a4 (circle 1 2 3))\n",
-    );
+    let _ = document_from_source("(import graphics/shapes)\n(page a4 (circle 1 2 3))\n");
     // Snapshot editable true on interim
     let _ = document_from_source_with_snapshot("(page a4 (text 1 2 3 \"x\"))\n", true);
     let mut h4 = TestHandler::default();
@@ -127,9 +120,8 @@ fn pipeline_round11_discover_fail_strip_export() {
 
     // StructuredComment skip in has_top_level_interim_page + Opacity leaf walk
     let _auto2 = EnvGuard::remove("RECIPLEXA_PACKAGE_GRAPHICS");
-    let _ = is_package_shaped_graphics_source(
-        "(// note)\n(import graphics/shapes)\n(val main 1)\n",
-    );
+    let _ =
+        is_package_shaped_graphics_source("(// note)\n(import graphics/shapes)\n(val main 1)\n");
     let _ = wants_package_graphics_path(
         "(// note)\n(import graphics/shapes)\n(page a4 (circle 1 2 3))\n",
     );

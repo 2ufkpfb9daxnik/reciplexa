@@ -198,10 +198,7 @@ fn eval_round23_handle_resume_cont_matrix() {
     let _ = eval_expr(
         &handle(CoreExpr::Record {
             fields: vec![
-                (
-                    "a".into(),
-                    perform_ask(CoreExpr::Lit(CoreLiteral::Int(1))),
-                ),
+                ("a".into(), perform_ask(CoreExpr::Lit(CoreLiteral::Int(1)))),
                 ("b".into(), CoreExpr::Lit(CoreLiteral::Int(2))),
             ],
         }),
@@ -224,10 +221,7 @@ fn eval_round23_handle_resume_cont_matrix() {
     let _ = eval_expr(
         &handle(CoreExpr::RecordUpdate {
             record: Box::new(base.clone()),
-            fields: vec![(
-                "a".into(),
-                perform_ask(CoreExpr::Lit(CoreLiteral::Int(2))),
-            )],
+            fields: vec![("a".into(), perform_ask(CoreExpr::Lit(CoreLiteral::Int(2))))],
         }),
         &env,
         &mut UnitHost,
@@ -325,10 +319,7 @@ fn eval_round23_oneshot_err_forward_match_lits() {
             }),
             arms: vec![
                 MatchArm {
-                    pattern: CorePattern::Tuple(vec![
-                        CorePattern::Wildcard,
-                        CorePattern::Wildcard,
-                    ]),
+                    pattern: CorePattern::Tuple(vec![CorePattern::Wildcard, CorePattern::Wildcard]),
                     body: CoreExpr::Lit(CoreLiteral::Int(0)),
                 },
                 MatchArm {

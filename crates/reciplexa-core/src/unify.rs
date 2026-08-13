@@ -1032,10 +1032,7 @@ mod coverage_helpers {
                 fields: vec![("a".into(), CoreType::Int)],
             },
             &CoreType::Record {
-                fields: vec![
-                    ("a".into(), CoreType::Int),
-                    ("b".into(), CoreType::Int),
-                ],
+                fields: vec![("a".into(), CoreType::Int), ("b".into(), CoreType::Int),],
             },
             &mut Subst::new()
         )
@@ -1087,10 +1084,7 @@ mod coverage_helpers {
             row: Box::new(CoreType::Var(v)),
         });
         let _ = subst.apply(&CoreType::Variant {
-            variants: vec![
-                ("n".into(), None),
-                ("s".into(), Some(CoreType::Var(v))),
-            ],
+            variants: vec![("n".into(), None), ("s".into(), Some(CoreType::Var(v)))],
         });
         let _ = subst.apply(&CoreType::Lacks {
             label: "a".into(),

@@ -157,12 +157,7 @@ fn check_round28_insert_casts_and_open_record() {
     let _ = coerce_to_static(lit.clone(), &CoreType::Int, &CoreType::Int, 1);
     let _ = coerce_to_static(lit.clone(), &CoreType::Int, &CoreType::Number, 2);
     let _ = coerce_to_static(lit.clone(), &CoreType::dyn_any(), &CoreType::Int, 3);
-    let _ = coerce_to_static(
-        lit.clone(),
-        &CoreType::String,
-        &CoreType::Int,
-        4,
-    );
+    let _ = coerce_to_static(lit.clone(), &CoreType::String, &CoreType::Int, 4);
     let _ = coerce_to_static(
         lit,
         &CoreType::Union(vec![CoreType::Int, CoreType::String]),
@@ -258,8 +253,5 @@ fn cast_round28_numeric_union_singleton_decidable() {
         &CoreType::Singleton(SingletonValue::Int(1)),
         &CoreType::Union(vec![CoreType::Int, CoreType::String]),
     );
-    let _ = intersect_types(
-        &CoreType::Singleton(SingletonValue::Int(1)),
-        &CoreType::F64,
-    );
+    let _ = intersect_types(&CoreType::Singleton(SingletonValue::Int(1)), &CoreType::F64);
 }

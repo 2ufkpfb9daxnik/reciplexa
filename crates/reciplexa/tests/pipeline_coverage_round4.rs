@@ -154,7 +154,10 @@ fn interim_export_and_effects_then_package_force() {
 #[test]
 fn package_discover_bad_root_and_macro_errors() {
     let _g = env_lock();
-    let _root = EnvGuard::set("RECIPLEXA_PACKAGE_ROOT", r"C:\Windows\Temp\rpx_no_such_pkgs_n6g");
+    let _root = EnvGuard::set(
+        "RECIPLEXA_PACKAGE_ROOT",
+        r"C:\Windows\Temp\rpx_no_such_pkgs_n6g",
+    );
     let _force = EnvGuard::set("RECIPLEXA_PACKAGE_GRAPHICS", "1");
     let err = document_from_source(
         r#"(import graphics/shapes only circle)

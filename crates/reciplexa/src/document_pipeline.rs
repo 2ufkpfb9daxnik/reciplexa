@@ -331,8 +331,7 @@ mod tests {
         .unwrap_err();
         assert!(!err.is_empty());
         // parse error with valid expand but bad syntax after expand-like form
-        let err2 =
-            document_snapshot_from_source("(page a4 (circle))", DocumentIdentity::new(13));
+        let err2 = document_snapshot_from_source("(page a4 (circle))", DocumentIdentity::new(13));
         let _ = err2;
     }
 }

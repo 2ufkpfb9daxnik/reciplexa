@@ -21,10 +21,7 @@ fn oneshot(cont: ResumeCont) -> RuntimeValue {
 fn eval_round17_cont_other_and_escaped_cell() {
     // Perform arg Cont → resume returns Forward (other)
     let mut env = primitive_env();
-    env.insert(
-        "k".into(),
-        oneshot(Rc::new(|_, _| Ok(Outcome::Forward))),
-    );
+    env.insert("k".into(), oneshot(Rc::new(|_, _| Ok(Outcome::Forward))));
     let expr = CoreExpr::Perform {
         op: "log".into(),
         arg: Box::new(CoreExpr::App {

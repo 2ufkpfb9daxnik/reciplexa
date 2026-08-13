@@ -5,7 +5,9 @@ use reciplexa_syntax::{parse_source, validate_package_path};
 
 #[test]
 fn number_lit_n6k_sign_radix_and_separators() {
-    for bad in ["", "+", "-", "0x", "0b", "0o", "0x_", "0b_", "0o_", "_1", "1_", "1__2"] {
+    for bad in [
+        "", "+", "-", "0x", "0b", "0o", "0x_", "0b_", "0o_", "_1", "1_", "1__2",
+    ] {
         let _ = parse_int_literal(bad);
         let _ = parse_number_literal(bad);
         let _ = is_f64_literal_form(bad);

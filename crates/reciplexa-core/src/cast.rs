@@ -1289,10 +1289,8 @@ mod tests {
             &CoreType::Union(vec![CoreType::Int, CoreType::F64]),
             &CoreType::F64,
         );
-        let _ = plan_numeric_promote_evidence(
-            &CoreType::Union(vec![CoreType::String]),
-            &CoreType::F64,
-        );
+        let _ =
+            plan_numeric_promote_evidence(&CoreType::Union(vec![CoreType::String]), &CoreType::F64);
         let _ = plan_numeric_promote_evidence(&CoreType::F64, &CoreType::F64);
         let _ = plan_numeric_promote_evidence(
             &CoreType::Singleton(crate::ty::SingletonValue::Int(1)),
@@ -1449,10 +1447,7 @@ mod tests {
             fields: vec![("a".into(), CoreType::Color)],
         }));
         assert!(is_fully_decidable_fragment(&CoreType::Variant {
-            variants: vec![
-                ("a".into(), None),
-                ("b".into(), Some(CoreType::Shape)),
-            ],
+            variants: vec![("a".into(), None), ("b".into(), Some(CoreType::Shape)),],
         }));
         assert!(is_fully_decidable_fragment(&CoreType::Fun {
             args: vec![CoreType::Color],
@@ -1539,9 +1534,7 @@ mod tests {
             &CoreType::Singleton(crate::ty::SingletonValue::Unit),
             &CoreType::Any,
         );
-        let _ = type_tag_name(&CoreType::Singleton(crate::ty::SingletonValue::Bool(
-            true,
-        )));
+        let _ = type_tag_name(&CoreType::Singleton(crate::ty::SingletonValue::Bool(true)));
         let _ = type_tag_name(&CoreType::Singleton(crate::ty::SingletonValue::String(
             "x".into(),
         )));
@@ -1563,16 +1556,10 @@ mod tests {
         // Variant ∩ with (None, Some) mismatch → skip arm L527
         let _ = intersect_types(
             &CoreType::Variant {
-                variants: vec![
-                    ("a".into(), None),
-                    ("b".into(), Some(CoreType::Int)),
-                ],
+                variants: vec![("a".into(), None), ("b".into(), Some(CoreType::Int))],
             },
             &CoreType::Variant {
-                variants: vec![
-                    ("a".into(), Some(CoreType::Int)),
-                    ("b".into(), None),
-                ],
+                variants: vec![("a".into(), Some(CoreType::Int)), ("b".into(), None)],
             },
         );
         // Record ∩ missing key → Never L504

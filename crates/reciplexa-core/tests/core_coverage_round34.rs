@@ -79,7 +79,10 @@ fn core_round34_dense_residual_matrix() {
                 },
                 body: CoreExpr::App {
                     fun: Box::new(CoreExpr::Var("f".into())),
-                    args: vec![CoreExpr::Var("y".into()), CoreExpr::Lit(CoreLiteral::Int(1))],
+                    args: vec![
+                        CoreExpr::Var("y".into()),
+                        CoreExpr::Lit(CoreLiteral::Int(1)),
+                    ],
                 },
             },
             MatchArm {

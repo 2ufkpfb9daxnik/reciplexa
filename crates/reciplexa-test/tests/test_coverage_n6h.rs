@@ -2,9 +2,7 @@
 
 use reciplexa_outcome::defect::{DefectCode, DefectReport, DefectScope};
 use reciplexa_outcome::subject::SubjectOutcome;
-use reciplexa_test::{
-    assert_subject_failure, assert_subject_success, TestOutcome, TestSubject,
-};
+use reciplexa_test::{assert_subject_failure, assert_subject_success, TestOutcome, TestSubject};
 
 #[test]
 fn outcome_n6h_variants_and_labels() {

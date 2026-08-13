@@ -4,11 +4,11 @@
 use std::path::PathBuf;
 use std::sync::{Mutex, OnceLock};
 
-use reciplexa_effect::TestHandler;
 use reciplexa::{
     document_for_export, document_from_source, document_from_source_with_snapshot,
     wants_package_graphics_path,
 };
+use reciplexa_effect::TestHandler;
 
 fn env_lock() -> std::sync::MutexGuard<'static, ()> {
     static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
@@ -90,7 +90,8 @@ fn pipeline_round10_package_root_and_export_matrix() {
     drop(_root);
     let _gone = EnvGuard::remove("RECIPLEXA_PACKAGE_ROOT");
     let _ = document_from_source(shapes);
-    let missing = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../.tmp/rpx_pipeline_n6o_missing2");
+    let missing =
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../.tmp/rpx_pipeline_n6o_missing2");
     let _miss = EnvGuard::set(
         "RECIPLEXA_PACKAGE_ROOT",
         missing.to_str().unwrap_or("missing"),

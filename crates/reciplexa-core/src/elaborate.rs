@@ -201,7 +201,10 @@ fn elaborate_file(root: &SyntaxNode) -> Result<(CoreExpr, ElabCtx), ElaborateErr
                 _ => None,
             })
             .or_else(|| {
-                match bindings.last().expect("bindings non-empty when trailing empty") {
+                match bindings
+                    .last()
+                    .expect("bindings non-empty when trailing empty")
+                {
                     TopBinding::Single(name, _) => Some(name.clone()),
                     TopBinding::Rec(bs) => bs.last().map(|(n, _)| n.clone()),
                 }
@@ -1364,10 +1367,7 @@ fn elaborate_unicode(
         ));
     };
     let code = unicode_code_from_lit(lit).ok_or_else(|| {
-        ElaborateError::at_node(
-            "`unicode` code point must be a compile-time number",
-            parent,
-        )
+        ElaborateError::at_node("`unicode` code point must be a compile-time number", parent)
     })?;
     let value = unicode_scalar_value(code).map_err(|msg| ElaborateError::at_node(msg, parent))?;
     Ok(CoreExpr::Lit(CoreLiteral::String(value)))
@@ -2061,8 +2061,7 @@ fn elaborate_pattern_atoms(
         if let Atom::Token(t) = &atoms[0] {
             if matches!(t.kind(), SyntaxKind::Number | SyntaxKind::String) {
                 // Number/String arms of `pattern_literal_token` always yield Some or Err.
-                let lit = pattern_literal_token(t)?
-                    .expect("number/string pattern literal");
+                let lit = pattern_literal_token(t)?.expect("number/string pattern literal");
                 return Ok(CorePattern::Lit(lit));
             }
         }
@@ -2083,8 +2082,7 @@ fn elaborate_pattern_atoms(
                 head,
             ));
         }
-        let lit = pattern_literal_token(head)?
-            .expect("number/string pattern literal");
+        let lit = pattern_literal_token(head)?.expect("number/string pattern literal");
         return Ok(CorePattern::Lit(lit));
     }
 
@@ -3997,7 +3995,12 @@ mod tests {
             }
         }
         // Direct register_data_rec_group on empty / token / mixed entries.
-        for src in ["(rec)", "(rec foo)", "(rec (data t (c)) foo)", "(rec (val x 1))"] {
+        for src in [
+            "(rec)",
+            "(rec foo)",
+            "(rec (data t (c)) foo)",
+            "(rec (val x 1))",
+        ] {
             let p = parse_source(src);
             for el in p.root.children_with_tokens() {
                 if let SyntaxElement::Node(n) = el {
@@ -4151,7 +4154,15 @@ mod tests {
             let _ = elaborate_with_data(src);
         }
         // Direct elaborate_pattern_atoms / parse_byte_atom / parse_rec_val_bindings
-        for frag in ["()", "(1 x)", "(true x)", "(\"a\" x)", "(_)", "(bind x)", "(tuple a b)"] {
+        for frag in [
+            "()",
+            "(1 x)",
+            "(true x)",
+            "(\"a\" x)",
+            "(_)",
+            "(bind x)",
+            "(tuple a b)",
+        ] {
             let p = parse_source(frag);
             for el in p.root.children_with_tokens() {
                 if let SyntaxElement::Node(n) = el {
@@ -4184,10 +4195,13 @@ mod tests {
                 if let SyntaxElement::Node(n) = el {
                     if n.kind() == SyntaxKind::List {
                         let atoms = list_atoms(&n);
-                        if atoms.first().and_then(|a| match a {
-                            Atom::Token(t) if t.text() == "rec" => Some(()),
-                            _ => None,
-                        }).is_some()
+                        if atoms
+                            .first()
+                            .and_then(|a| match a {
+                                Atom::Token(t) if t.text() == "rec" => Some(()),
+                                _ => None,
+                            })
+                            .is_some()
                         {
                             let mut ctx = ElabCtx::default();
                             let decls = &atoms[1..atoms.len().saturating_sub(1).max(1)];
@@ -4238,8 +4252,7 @@ mod tests {
                         }
                         // Force pattern_atoms Number/String head path (2081–2083).
                         let p3 = parse_source("(match 1)");
-                        if let Some(n) = p3.root.children().find(|c| c.kind() == SyntaxKind::List)
-                        {
+                        if let Some(n) = p3.root.children().find(|c| c.kind() == SyntaxKind::List) {
                             let _ = elaborate_pattern_atoms(&[Atom::Token(tok.clone())], &n);
                             // literal pattern arity Err (extra atom)
                             let one = parse_source("1");
@@ -4269,17 +4282,14 @@ mod tests {
                         let binders = HashSet::new();
                         let _ = parse_type_syntax_in(&Atom::Token(tok.clone()), &mut ctx, &binders);
                         let p3 = parse_source("(match 1)");
-                        if let Some(n) = p3.root.children().find(|c| c.kind() == SyntaxKind::List)
-                        {
+                        if let Some(n) = p3.root.children().find(|c| c.kind() == SyntaxKind::List) {
                             let _ = elaborate_pattern_atoms(&[Atom::Token(tok)], &n);
                         }
                     }
                 }
             }
             let _ = elaborate_source(&format!("(type t {s})\n(val main 1)"));
-            let _ = elaborate_source(&format!(
-                "(val main (match 1 ({s} -> 0) (_ -> 1)))"
-            ));
+            let _ = elaborate_source(&format!("(val main (match 1 ({s} -> 0) (_ -> 1)))"));
         }
         // Drive walk_param_polarity empty / non-ident / catch-all arms.
         for frag in ["()", "(1 a)", "(\"x\" a)", "(foo/bar a)", "([a] b)"] {
@@ -4317,10 +4327,13 @@ mod tests {
                         let _ = elaborate_list(&n, &mut ctx);
                         let _ = try_top_decl(&n, &mut ctx);
                         let atoms = list_atoms(&n);
-                        if atoms.first().and_then(|a| match a {
-                            Atom::Token(t) if t.text() == "val" => Some(()),
-                            _ => None,
-                        }).is_some()
+                        if atoms
+                            .first()
+                            .and_then(|a| match a {
+                                Atom::Token(t) if t.text() == "val" => Some(()),
+                                _ => None,
+                            })
+                            .is_some()
                         {
                             let _ = elaborate_val(&atoms[1..], &n, &mut ctx);
                         }
@@ -4355,18 +4368,15 @@ mod tests {
         let err_frags = ["(", "(val x 1)", "(data t (c))", "1e9999", "\"unterminated"];
         for frag in err_frags {
             let p = parse_source(frag);
-            let err_atom = p
-                .root
-                .children_with_tokens()
-                .find_map(|el| match el {
-                    SyntaxElement::Node(n) => Some(Atom::Node(n)),
-                    SyntaxElement::Token(t)
-                        if matches!(t.kind(), SyntaxKind::Number | SyntaxKind::String) =>
-                    {
-                        Some(Atom::Token(t))
-                    }
-                    _ => None,
-                });
+            let err_atom = p.root.children_with_tokens().find_map(|el| match el {
+                SyntaxElement::Node(n) => Some(Atom::Node(n)),
+                SyntaxElement::Token(t)
+                    if matches!(t.kind(), SyntaxKind::Number | SyntaxKind::String) =>
+                {
+                    Some(Atom::Token(t))
+                }
+                _ => None,
+            });
             let Some(bad) = err_atom else { continue };
             let parent = parse_source("(record)")
                 .root
@@ -4381,12 +4391,14 @@ mod tests {
                 let _ = elaborate_record(&[Atom::Node(pair.clone())], &parent, &mut ctx);
                 let _ = elaborate_record_update(
                     &[
-                        Atom::Node(parse_source("(record (a 1))")
-                            .root
-                            .children()
-                            .find(|c| c.kind() == SyntaxKind::List)
-                            .expect("rec")
-                            .clone()),
+                        Atom::Node(
+                            parse_source("(record (a 1))")
+                                .root
+                                .children()
+                                .find(|c| c.kind() == SyntaxKind::List)
+                                .expect("rec")
+                                .clone(),
+                        ),
                         Atom::Node(pair.clone()),
                     ],
                     &parent,
@@ -4394,12 +4406,14 @@ mod tests {
                 );
                 let _ = elaborate_record_extend(
                     &[
-                        Atom::Node(parse_source("(record (a 1))")
-                            .root
-                            .children()
-                            .find(|c| c.kind() == SyntaxKind::List)
-                            .expect("rec")
-                            .clone()),
+                        Atom::Node(
+                            parse_source("(record (a 1))")
+                                .root
+                                .children()
+                                .find(|c| c.kind() == SyntaxKind::List)
+                                .expect("rec")
+                                .clone(),
+                        ),
                         Atom::Node(pair),
                     ],
                     &parent,
@@ -4435,11 +4449,7 @@ mod tests {
             let _ = elaborate_ambient_perform("log", &[bad.clone()], &parent, &mut ctx);
             let _ = elaborate_match(&[bad.clone()], &parent, &mut ctx);
             let _ = elaborate_with(&[bad.clone(), bad.clone()], &parent, &mut ctx);
-            let _ = elaborate_handle(
-                &[bad.clone(), bad.clone(), bad.clone()],
-                &parent,
-                &mut ctx,
-            );
+            let _ = elaborate_handle(&[bad.clone(), bad.clone(), bad.clone()], &parent, &mut ctx);
             let _ = elaborate_let(&[bad.clone(), bad.clone()], &parent, &mut ctx);
             let _ = elaborate_letrec(&[bad.clone(), bad.clone()], &parent, &mut ctx);
             let _ = elaborate_local_decls(&[bad.clone()], &bad, &parent, &mut ctx);
@@ -4453,7 +4463,14 @@ mod tests {
             );
         }
         // ErrorNode via incomplete parse; pattern payload + is_param_list BracketList
-        for frag in ["(", ")", "[a type]", "((a type))", "(tuple 1e9999 b)", "(record (a 1e9999))"] {
+        for frag in [
+            "(",
+            ")",
+            "[a type]",
+            "((a type))",
+            "(tuple 1e9999 b)",
+            "(record (a 1e9999))",
+        ] {
             let p = parse_source(frag);
             for el in p.root.children_with_tokens() {
                 if let SyntaxElement::Node(n) = el {
@@ -4486,14 +4503,15 @@ mod tests {
                 .children()
                 .find(|c| c.kind() == SyntaxKind::List)
                 .expect("p");
-            let one = parse_source("1").root.descendants_with_tokens().find_map(|el| {
-                match el {
+            let one = parse_source("1")
+                .root
+                .descendants_with_tokens()
+                .find_map(|el| match el {
                     SyntaxElement::Token(t) if t.kind() == SyntaxKind::Number => {
                         Some(Atom::Token(t))
                     }
                     _ => None,
-                }
-            });
+                });
             let Some(one) = one else { continue };
             let mut ctx = ElabCtx::default();
             let _ = elaborate_try_cast(&[one.clone(), bad.clone()], &parent, &mut ctx);

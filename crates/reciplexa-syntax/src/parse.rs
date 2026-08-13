@@ -145,7 +145,7 @@ impl<'a> Parser<'a> {
             "structured comment without //"
         );
         self.bump(); // //
-        // Body: track paren depth; strings are single tokens from the lexer.
+                     // Body: track paren depth; strings are single tokens from the lexer.
         let mut depth = 1usize;
         loop {
             let Some(tok) = self.current.clone() else {

@@ -1465,10 +1465,7 @@ mod coverage_helpers {
         assert!(matches!(keep, RuntimeValue::String(_)));
         let composed = apply_cast_evidence(
             int,
-            &CastEvidence::Compose(vec![
-                CastEvidence::NumericPromote,
-                CastEvidence::Identity,
-            ]),
+            &CastEvidence::Compose(vec![CastEvidence::NumericPromote, CastEvidence::Identity]),
         );
         assert!(matches!(composed, RuntimeValue::F64(_)));
     }
@@ -1487,11 +1484,7 @@ mod coverage_helpers {
             BuiltinOp::DecodeUtf8,
         ] {
             assert!(apply_builtin(op, vec![]).is_err());
-            assert!(apply_builtin(
-                op,
-                vec![RuntimeValue::Int(1), RuntimeValue::Int(2)]
-            )
-            .is_err());
+            assert!(apply_builtin(op, vec![RuntimeValue::Int(1), RuntimeValue::Int(2)]).is_err());
         }
         // Predicate matrix
         let _ = apply_builtin(BuiltinOp::IsNumber, vec![RuntimeValue::Int(1)]);
@@ -1524,7 +1517,10 @@ mod coverage_helpers {
             vec![RuntimeValue::String("hi".into())],
         );
         assert!(apply_builtin(BuiltinOp::DecodeUtf8, vec![RuntimeValue::Int(1)]).is_err());
-        let _ = apply_builtin(BuiltinOp::DecodeUtf8, vec![RuntimeValue::Bytes(b"ok".to_vec())]);
+        let _ = apply_builtin(
+            BuiltinOp::DecodeUtf8,
+            vec![RuntimeValue::Bytes(b"ok".to_vec())],
+        );
         let _ = apply_builtin(
             BuiltinOp::DecodeUtf8,
             vec![RuntimeValue::Bytes(vec![0xff, 0xfe])],
@@ -1594,12 +1590,10 @@ mod coverage_helpers {
         )
         .is_err());
         // Former unreachable! arms now return Err — tip them.
-        assert!(apply_numeric_binop(
-            BuiltinOp::Eq,
-            &RuntimeValue::Int(1),
-            &RuntimeValue::Int(2)
-        )
-        .is_err());
+        assert!(
+            apply_numeric_binop(BuiltinOp::Eq, &RuntimeValue::Int(1), &RuntimeValue::Int(2))
+                .is_err()
+        );
         assert!(apply_numeric_binop(
             BuiltinOp::IsNumber,
             &RuntimeValue::Int(1),

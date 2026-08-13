@@ -18,54 +18,40 @@ fn tip(src: &str) {
 #[test]
 fn core_round31_check_cast_elaborate_push() {
     // Open-record field access → unify row with expected OpenRecord (check L462)
-    tip(
-        r#"
+    tip(r#"
 (type R (record (a int) (row r)))
 (val main (fn (x)
   (let ((y (as R x)))
     (field y missing))))
-"#,
-    );
-    tip(
-        r#"
+"#);
+    tip(r#"
 (val main (fn (r)
   (field (as (record (row r)) r) z)))
-"#,
-    );
+"#);
 
     // Dynamic + number? refine → else Never when bound is Number (L1312)
-    tip(
-        r#"
+    tip(r#"
 (val main (let ((d (as (dynamic number) 1.0)))
   (if (number? d) 1 0)))
-"#,
-    );
-    tip(
-        r#"
+"#);
+    tip(r#"
 (val main (let ((d (as (dynamic string) "x")))
   (if (string? d) 1 0)))
-"#,
-    );
-    tip(
-        r#"
+"#);
+    tip(r#"
 (val main (let ((d (as (dynamic bool) true)))
   (if (bool? d) 1 0)))
-"#,
-    );
+"#);
 
     // Occurrence Intersect + numeric binop (L1502 / 1556)
-    tip(
-        r#"
+    tip(r#"
 (val main (fn (x)
   (if (number? x) (+ x 1) 0)))
-"#,
-    );
-    tip(
-        r#"
+"#);
+    tip(r#"
 (val main (fn (x)
   (if (number? x) (+ 1 x) 0)))
-"#,
-    );
+"#);
 
     // Handle / With effects (handler_body infer L203)
     tip("(val main (handle ask (fn (m k) (k m)) (perform ask 1)))");
@@ -77,13 +63,11 @@ fn core_round31_check_cast_elaborate_push() {
     tip("(val main (local (rec (val f (fn (x) x))) (f 1)))");
 
     // Match expansive / is-none occurrence
-    tip(
-        r#"
+    tip(r#"
 (data opt (none) (some int))
 (val main (fn (x)
   (if (is-none x) 0 1)))
-"#,
-    );
+"#);
 
     // insert_implicit_casts App with Int→Number coerce
     let mut env = TypeEnv::new();
@@ -140,10 +124,7 @@ fn core_round31_check_cast_elaborate_push() {
     let _ = intersect_types(&CoreType::Number, &s);
     let _ = intersect_types(&s, &CoreType::Int);
     let _ = intersect_types(&s, &CoreType::String);
-    let _ = intersect_types(
-        &s,
-        &CoreType::Union(vec![CoreType::Int, CoreType::String]),
-    );
+    let _ = intersect_types(&s, &CoreType::Union(vec![CoreType::Int, CoreType::String]));
     let _ = intersect_types(
         &s,
         &CoreType::Diff(Box::new(CoreType::Number), Box::new(CoreType::F64)),

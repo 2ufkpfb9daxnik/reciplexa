@@ -462,7 +462,7 @@ impl<'a> Lexer<'a> {
                 self.advance_char(); // 0
                 let radix_ch = self.peek_char().expect("checked");
                 self.advance_char(); // b|o|x
-                // Matched `b|o|x` above; `x` is the remaining case.
+                                     // Matched `b|o|x` above; `x` is the remaining case.
                 let radix = if radix_ch == 'b' {
                     2
                 } else if radix_ch == 'o' {

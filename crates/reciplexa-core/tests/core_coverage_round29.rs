@@ -65,12 +65,8 @@ fn elaborate_round29_expr_position_err_nests() {
             tip(&t.replace("{b}", b));
         }
         // ctor arity nests
-        tip(&format!(
-            "(data t (b int))\n(val main (b {b}))"
-        ));
-        tip(&format!(
-            "(data t (c int string))\n(val main (c 1 {b}))"
-        ));
+        tip(&format!("(data t (b int))\n(val main (b {b}))"));
+        tip(&format!("(data t (c int string))\n(val main (c 1 {b}))"));
         tip(&format!(
             "(data t (c int string))\n(val main (c {b} \"x\"))"
         ));

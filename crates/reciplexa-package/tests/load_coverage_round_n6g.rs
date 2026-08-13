@@ -56,5 +56,7 @@ fn portable_module_with_rpi_reads_exports() {
     )
     .unwrap();
     let units = elaborate_with_packages(&entry, &idx).unwrap();
-    assert!(units.iter().any(|u| u.name.contains("shapes") || u.name == "entry"));
+    assert!(units
+        .iter()
+        .any(|u| u.name.contains("shapes") || u.name == "entry"));
 }

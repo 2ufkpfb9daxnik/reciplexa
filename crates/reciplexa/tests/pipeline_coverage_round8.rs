@@ -57,8 +57,8 @@ fn pipeline_round8_strip_and_page_residuals() {
     let _ = document_from_source("(");
 
     // Package discover miss via bogus PACKAGE_ROOT
-    let missing = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../.tmp/rpx_pipeline_n6m_missing");
+    let missing =
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../.tmp/rpx_pipeline_n6m_missing");
     let _root = EnvGuard::set(
         "RECIPLEXA_PACKAGE_ROOT",
         missing.to_str().unwrap_or("missing"),

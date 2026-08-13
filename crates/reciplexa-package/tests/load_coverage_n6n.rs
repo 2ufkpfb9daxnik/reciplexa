@@ -40,8 +40,8 @@ fn load_n6n_discover_skip_and_interface_exports() {
     fs::write(pkg.join("interface/shapes.rpi"), "(val circle)\n").unwrap();
 
     // Discover with mix of file + dir roots
-    let idx = LocalPackageIndex::discover(&[file_root.as_path(), root.as_path()])
-        .expect("discover");
+    let idx =
+        LocalPackageIndex::discover(&[file_root.as_path(), root.as_path()]).expect("discover");
     let entry = scratch().join("entry.rpx");
     fs::write(
         &entry,

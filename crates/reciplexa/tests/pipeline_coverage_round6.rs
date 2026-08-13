@@ -4,11 +4,11 @@
 use std::path::PathBuf;
 use std::sync::{Mutex, OnceLock};
 
+use reciplexa::pipeline::typecheck;
 use reciplexa::{
     document_for_export, document_from_source, document_from_source_with_snapshot, expand, lower,
     run_effects, wants_package_graphics_path, PipelineError,
 };
-use reciplexa::pipeline::typecheck;
 use reciplexa_effect::TestHandler;
 
 fn env_lock() -> std::sync::MutexGuard<'static, ()> {
