@@ -109,3 +109,21 @@ fn kihon_hanmen_size_helpers() {
     assert!((line_rate::DEFAULT - 1.5).abs() < 1e-9);
     assert!((line_rate::SOLID - 1.0).abs() < 1e-9);
 }
+
+#[test]
+fn ruby_and_tate_chu_yoko_types() {
+    use reciplexa_std::japanese::{Ruby, RubyKind, TateChuYoko, TategakiParagraph, WritingMode};
+
+    let r = Ruby::simple("漢", "かん");
+    assert_eq!(r.kind, RubyKind::Simple);
+    assert_eq!(r.tag(), "ja-ruby");
+    assert_eq!(r.to_string(), "漢(かん)");
+    let j = Ruby::jukugo("東京", "とうきょう");
+    assert_eq!(j.kind.as_str(), "jukugo");
+    let t = TateChuYoko::new("12");
+    assert_eq!(t.tag(), "ja-tate-chu-yoko");
+    assert!(t.to_string().contains("12"));
+    let p = TategakiParagraph::new("縦書き");
+    assert_eq!(p.writing_mode, WritingMode::VerticalRl);
+    assert_eq!(p.tag(), "ja-tategaki-paragraph");
+}

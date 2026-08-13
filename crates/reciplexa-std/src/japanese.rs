@@ -493,3 +493,103 @@ pub mod line_rate {
     pub const RELAXED: f64 = 1.7;
     pub const LOOSE: f64 = 2.0;
 }
+
+/// Ruby annotation kind — aligns with `japanese/markup` `ruby` / `jukugo-ruby`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum RubyKind {
+    Simple,
+    Jukugo,
+}
+
+impl RubyKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Simple => "simple",
+            Self::Jukugo => "jukugo",
+        }
+    }
+}
+
+impl fmt::Display for RubyKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+/// Ruby (振り仮名) data — package tag `ja-ruby`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Ruby {
+    pub base: String,
+    pub annotation: String,
+    pub kind: RubyKind,
+}
+
+impl Ruby {
+    pub fn simple(base: impl Into<String>, annotation: impl Into<String>) -> Self {
+        Self {
+            base: base.into(),
+            annotation: annotation.into(),
+            kind: RubyKind::Simple,
+        }
+    }
+
+    pub fn jukugo(base: impl Into<String>, annotation: impl Into<String>) -> Self {
+        Self {
+            base: base.into(),
+            annotation: annotation.into(),
+            kind: RubyKind::Jukugo,
+        }
+    }
+
+    pub fn tag(&self) -> &'static str {
+        "ja-ruby"
+    }
+}
+
+impl fmt::Display for Ruby {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}({})", self.base, self.annotation)
+    }
+}
+
+/// Tate-chu-yoko (縦中横) inline span — package tag `ja-tate-chu-yoko`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TateChuYoko {
+    pub body: String,
+}
+
+impl TateChuYoko {
+    pub fn new(body: impl Into<String>) -> Self {
+        Self { body: body.into() }
+    }
+
+    pub fn tag(&self) -> &'static str {
+        "ja-tate-chu-yoko"
+    }
+}
+
+impl fmt::Display for TateChuYoko {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "tate-chu-yoko({})", self.body)
+    }
+}
+
+/// Tategaki paragraph stub — package tag `ja-tategaki-paragraph`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TategakiParagraph {
+    pub body: String,
+    pub writing_mode: WritingMode,
+}
+
+impl TategakiParagraph {
+    pub fn new(body: impl Into<String>) -> Self {
+        Self {
+            body: body.into(),
+            writing_mode: WritingMode::VerticalRl,
+        }
+    }
+
+    pub fn tag(&self) -> &'static str {
+        "ja-tategaki-paragraph"
+    }
+}
