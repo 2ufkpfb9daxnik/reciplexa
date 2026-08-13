@@ -255,3 +255,117 @@ fn accent_matrix_bigop_stack_bridge() {
         MathAtom::Stack { .. }
     ));
 }
+
+#[test]
+fn under_over_cases_operatorname_bridge() {
+    let underbrace = rec(vec![
+        ("tag", RuntimeValue::String("math-under".into())),
+        ("kind", RuntimeValue::String("underbrace".into())),
+        ("body", sym("x+y", "ord")),
+    ]);
+    assert!(matches!(
+        math_atom_from_value(&underbrace).unwrap(),
+        MathAtom::Accent { .. }
+    ));
+    assert!(estimate_math_box_from_value(&underbrace).unwrap().width > 0.0);
+
+    let overset = rec(vec![
+        ("tag", RuntimeValue::String("math-over".into())),
+        ("kind", RuntimeValue::String("overset".into())),
+        ("label", sym("*", "ord")),
+        ("body", sym("A", "ord")),
+    ]);
+    assert!(matches!(
+        math_atom_from_value(&overset).unwrap(),
+        MathAtom::Stack { .. }
+    ));
+    let over_box = estimate_math_box_from_value(&overset).unwrap();
+    assert!(over_box.height + over_box.depth > 0.0);
+
+    let overline = rec(vec![
+        ("tag", RuntimeValue::String("math-over".into())),
+        ("kind", RuntimeValue::String("overline".into())),
+        ("body", sym("x", "ord")),
+    ]);
+    assert!(matches!(
+        math_atom_from_value(&overline).unwrap(),
+        MathAtom::Accent { .. }
+    ));
+
+    let arm = rec(vec![
+        ("tag", RuntimeValue::String("math-case-arm".into())),
+        ("body", sym("x", "ord")),
+        ("guard", sym(">0", "rel")),
+    ]);
+    let cases = rec(vec![
+        ("tag", RuntimeValue::String("math-cases".into())),
+        ("left", RuntimeValue::String("{".into())),
+        ("right", RuntimeValue::String("".into())),
+        ("arms", cons_list(vec![arm.clone()])),
+    ]);
+    assert!(matches!(
+        math_atom_from_value(&cases).unwrap(),
+        MathAtom::Matrix { .. }
+    ));
+    assert!(estimate_math_box_from_value(&cases).unwrap().width > 0.0);
+    assert!(matches!(
+        math_atom_from_value(&arm).unwrap(),
+        MathAtom::Row { .. }
+    ));
+
+    let opname = rec(vec![
+        ("tag", RuntimeValue::String("math-operatorname".into())),
+        ("name", RuntimeValue::String("sin".into())),
+    ]);
+    assert!(matches!(
+        math_atom_from_value(&opname).unwrap(),
+        MathAtom::Symbol { .. }
+    ));
+    assert!(estimate_math_box_from_value(&opname).unwrap().width >= 3.0);
+
+    let env = rec(vec![
+        ("tag", RuntimeValue::String("math-matrix-env".into())),
+        ("kind", RuntimeValue::String("matrix".into())),
+        (
+            "rows",
+            cons_list(vec![rec(vec![
+                ("tag", RuntimeValue::String("math-matrix-row".into())),
+                ("cells", cons_list(vec![sym("a", "ord"), sym("b", "ord")])),
+            ])]),
+        ),
+    ]);
+    assert!(matches!(
+        math_atom_from_value(&env).unwrap(),
+        MathAtom::Matrix { .. }
+    ));
+
+    let align_eq = rec(vec![
+        ("tag", RuntimeValue::String("math-align-eq".into())),
+        (
+            "rows",
+            cons_list(vec![rec(vec![
+                ("tag", RuntimeValue::String("math-align-row".into())),
+                ("cells", cons_list(vec![sym("x", "ord"), sym("=", "rel")])),
+            ])]),
+        ),
+    ]);
+    assert!(matches!(
+        math_atom_from_value(&align_eq).unwrap(),
+        MathAtom::Aligned { .. }
+    ));
+
+    let substack = rec(vec![
+        ("tag", RuntimeValue::String("math-substack".into())),
+        (
+            "rows",
+            cons_list(vec![rec(vec![
+                ("tag", RuntimeValue::String("math-align-row".into())),
+                ("cells", cons_list(vec![sym("a", "ord")])),
+            ])]),
+        ),
+    ]);
+    assert!(matches!(
+        math_atom_from_value(&substack).unwrap(),
+        MathAtom::Stack { .. }
+    ));
+}

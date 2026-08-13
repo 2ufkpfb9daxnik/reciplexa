@@ -271,8 +271,6 @@ fn elaborate_and_eval_math_package_example() {
 fn pkg_math_main_tree_estimates_box_via_math_value() {
     // Document `inspect-document` is a graphics/document snapshot path — not
     // package math mains. Hosts should lower math trees via `math_value`.
-    // Full pkg_math demos still include tags not yet bridged (under/over/cases/…);
-    // estimate a supported subtree from the loaded main.
     std::thread::Builder::new()
         .name("math-pkg-box".into())
         .stack_size(8 * 1024 * 1024)
@@ -291,17 +289,21 @@ fn pkg_math_main_tree_estimates_box_via_math_value() {
                 .find(|(k, _)| k == "tree")
                 .map(|(_, val)| val)
                 .expect("math-demo tree field");
-            let frac = find_math_tag(tree, "math-fraction").expect("fraction in pkg_math tree");
-            let mbox = estimate_math_box_from_value(frac).expect("estimate_box for fraction");
+            // Full demo tree (under/over/cases/operatorname/matrix-env/…) via bridge.
+            let full = estimate_math_box_from_value(tree).expect("estimate_box for full pkg_math tree");
             assert!(
-                mbox.width > 0.0 && mbox.height + mbox.depth > 0.0,
-                "expected non-empty MathBox, got {mbox:?}"
+                full.width > 0.0 && full.height + full.depth > 0.0,
+                "expected non-empty MathBox, got {full:?}"
             );
-            // Also exercise bigop-scripts bridge present in the same demo tree.
-            let scripts =
-                find_math_tag(tree, "math-bigop-scripts").expect("sum-scripts in pkg_math tree");
-            let sb = estimate_math_box_from_value(scripts).expect("estimate_box for bigop-scripts");
-            assert!(sb.width > 0.0);
+            let under = find_math_tag(tree, "math-under").expect("underbrace in pkg_math tree");
+            assert!(estimate_math_box_from_value(under).unwrap().width > 0.0);
+            let over = find_math_tag(tree, "math-over").expect("overset in pkg_math tree");
+            assert!(estimate_math_box_from_value(over).unwrap().height > 0.0);
+            let cases = find_math_tag(tree, "math-cases").expect("cases in pkg_math tree");
+            assert!(estimate_math_box_from_value(cases).unwrap().width > 0.0);
+            let opname =
+                find_math_tag(tree, "math-operatorname").expect("operatorname in pkg_math tree");
+            assert!(estimate_math_box_from_value(opname).unwrap().width > 0.0);
         })
         .expect("spawn math-pkg-box")
         .join()

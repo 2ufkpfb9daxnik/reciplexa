@@ -159,9 +159,148 @@ fn math_atom_from_value_with_ids(
                 vec![relation, base],
             ))
         }
+        // Package `math/scripts` under / over (brace, set, plain).
+        "math-over" => over_under_from_fields(fields, ids, /* over */ true),
+        "math-under" => over_under_from_fields(fields, ids, /* over */ false),
+        // Package `math/cases` piecewise / delimited cases.
+        "math-cases" => {
+            let left = string_field(fields, "left").unwrap_or_else(|_| "{".into());
+            let right = string_field(fields, "right").unwrap_or_else(|_| "".into());
+            let arms_v = field(fields, "arms")
+                .ok_or_else(|| MathValueError::new("math-cases missing arms"))?;
+            let mut rows = Vec::new();
+            for arm in cons_items(arms_v)? {
+                rows.push(case_arm_cells(arm, ids)?);
+            }
+            Ok(MathAtom::matrix_delimited(ids.mint(), left, right, rows))
+        }
+        "math-case-arm" => {
+            let cells = case_arm_cells(v, ids)?;
+            Ok(MathAtom::row(ids.mint(), cells))
+        }
+        // Env / align / substack tags used by `examples/pkg_math.rpx`.
+        "math-matrix-env" => {
+            let kind = matrix_kind_field(fields).unwrap_or(MathMatrixKind::Plain);
+            let rows = matrix_rows_field(fields, ids)?;
+            Ok(MathAtom::matrix(ids.mint(), kind, rows))
+        }
+        "math-align-eq" => {
+            let rows = matrix_rows_field(fields, ids)?;
+            Ok(MathAtom::aligned(ids.mint(), rows))
+        }
+        "math-substack" => {
+            let rows = matrix_rows_field(fields, ids)?;
+            let children: Vec<_> = rows
+                .into_iter()
+                .map(|cells| MathAtom::row(ids.mint(), cells))
+                .collect();
+            Ok(MathAtom::stack(ids.mint(), MathStackKind::Substack, children))
+        }
+        "math-align" => {
+            // Single-body alignment wrapper → just the body.
+            required_child(fields, "body", ids)
+        }
+        "math-align-at" => required_child(fields, "body", ids),
         other => Err(MathValueError::new(format!(
             "unsupported math tag `{other}`"
         ))),
+    }
+}
+
+fn over_under_from_fields(
+    fields: &[(String, RuntimeValue)],
+    ids: &mut IdGen,
+    over: bool,
+) -> Result<MathAtom, MathValueError> {
+    let kind = match field(fields, "kind") {
+        Some(RuntimeValue::String(s)) => s.as_str(),
+        _ => {
+            if over {
+                "over"
+            } else {
+                "under"
+            }
+        }
+    };
+    let body = required_child(fields, "body", ids)?;
+    let label = optional_child(fields, "label", ids)?;
+    match (over, kind) {
+        (true, "overline") => Ok(MathAtom::accent(
+            ids.mint(),
+            MathAccentKind::Overline,
+            body,
+        )),
+        (false, "underline") => Ok(MathAtom::accent(
+            ids.mint(),
+            MathAccentKind::Underline,
+            body,
+        )),
+        (true, "overbrace" | "overset" | "over") => match label {
+            Some(lab) => Ok(MathAtom::stack(
+                ids.mint(),
+                MathStackKind::Stackrel,
+                vec![lab, body],
+            )),
+            None => Ok(MathAtom::accent(
+                ids.mint(),
+                MathAccentKind::Overline,
+                body,
+            )),
+        },
+        (false, "underbrace" | "underset" | "under") => match label {
+            Some(lab) => Ok(MathAtom::stack(
+                ids.mint(),
+                MathStackKind::Stackrel,
+                vec![body, lab],
+            )),
+            None => Ok(MathAtom::accent(
+                ids.mint(),
+                MathAccentKind::Underline,
+                body,
+            )),
+        },
+        _ => match label {
+            Some(lab) if over => Ok(MathAtom::stack(
+                ids.mint(),
+                MathStackKind::Stack,
+                vec![lab, body],
+            )),
+            Some(lab) => Ok(MathAtom::stack(
+                ids.mint(),
+                MathStackKind::Stack,
+                vec![body, lab],
+            )),
+            None if over => Ok(MathAtom::accent(
+                ids.mint(),
+                MathAccentKind::Overline,
+                body,
+            )),
+            None => Ok(MathAtom::accent(
+                ids.mint(),
+                MathAccentKind::Underline,
+                body,
+            )),
+        },
+    }
+}
+
+fn case_arm_cells(
+    v: &RuntimeValue,
+    ids: &mut IdGen,
+) -> Result<Vec<MathAtom>, MathValueError> {
+    let fields = record_fields(v)?;
+    match tag_of(fields) {
+        Some("math-case-arm") => {
+            let body = required_child(fields, "body", ids)?;
+            let guard = optional_child(fields, "guard", ids)?;
+            let mut cells = vec![body];
+            if let Some(g) = guard {
+                cells.push(g);
+            }
+            Ok(cells)
+        }
+        // Bare atom as a single-cell arm.
+        _ => Ok(vec![math_atom_from_value_with_ids(v, ids)?]),
     }
 }
 
@@ -191,7 +330,7 @@ fn matrix_kind_field(fields: &[(String, RuntimeValue)]) -> Result<MathMatrixKind
         None => "matrix",
     };
     match s {
-        "matrix" => Ok(MathMatrixKind::Plain),
+        "matrix" | "array" => Ok(MathMatrixKind::Plain),
         "bmatrix" | "delimited-bmatrix" => Ok(MathMatrixKind::BMatrix),
         "pmatrix" | "delimited-pmatrix" => Ok(MathMatrixKind::PMatrix),
         "vmatrix" => Ok(MathMatrixKind::VMatrix),
