@@ -115,6 +115,8 @@ pub enum BuiltinOp {
     MathSmash,
     /// Stretchy delimiter stub — left × right × body-height → stretchy-delim record with box metrics.
     StretchyDelim,
+    /// Multi-column measure stub — total-em × count × gutter-em → `{tag, col-w, xs}` record.
+    MeasureColumns,
 }
 
 impl fmt::Debug for RuntimeValue {

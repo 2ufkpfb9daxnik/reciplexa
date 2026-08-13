@@ -99,6 +99,10 @@ pub fn primitive_env() -> HashMap<String, RuntimeValue> {
         "stretchy-delim".into(),
         RuntimeValue::Builtin(BuiltinOp::StretchyDelim),
     );
+    env.insert(
+        "measure-columns".into(),
+        RuntimeValue::Builtin(BuiltinOp::MeasureColumns),
+    );
     env
 }
 
@@ -1704,6 +1708,54 @@ fn apply_builtin(op: BuiltinOp, args: Vec<RuntimeValue>) -> Result<Outcome, Eval
                 ("depth".into(), RuntimeValue::Number(box_.depth)),
             ])))
         }
+        BuiltinOp::MeasureColumns => {
+            if args.len() != 3 {
+                return Err(EvalError {
+                    message: format!(
+                        "builtin `measure-columns` expects 3 args, got {}",
+                        args.len()
+                    ),
+                });
+            }
+            let total_em = match as_numeric(&args[0]) {
+                Ok((_, n)) => n,
+                Err(_) => {
+                    return Err(EvalError {
+                        message: "builtin `measure-columns` expects numeric total-em".into(),
+                    });
+                }
+            };
+            let count = match as_numeric(&args[1]) {
+                Ok((_, n)) => {
+                    if n < 0.0 || !n.is_finite() {
+                        return Err(EvalError {
+                            message: "builtin `measure-columns` expects non-negative count".into(),
+                        });
+                    }
+                    n as u32
+                }
+                Err(_) => {
+                    return Err(EvalError {
+                        message: "builtin `measure-columns` expects numeric count".into(),
+                    });
+                }
+            };
+            let gutter_em = match as_numeric(&args[2]) {
+                Ok((_, n)) => n,
+                Err(_) => {
+                    return Err(EvalError {
+                        message: "builtin `measure-columns` expects numeric gutter-em".into(),
+                    });
+                }
+            };
+            let (col_w, xs) =
+                reciplexa_std::japanese::measure_columns(total_em, count, gutter_em);
+            Ok(Outcome::Value(RuntimeValue::Record(vec![
+                ("tag".into(), RuntimeValue::String("measure-columns".into())),
+                ("col-w".into(), RuntimeValue::Number(col_w)),
+                ("xs".into(), numbers_to_cons_list(xs)),
+            ])))
+        }
     }
 }
 
@@ -1718,6 +1770,24 @@ fn strings_to_cons_list(lines: Vec<String>) -> RuntimeValue {
             tag: "cons".into(),
             payload: Some(Box::new(RuntimeValue::Record(vec![
                 ("head".into(), RuntimeValue::String(s)),
+                ("tail".into(), acc),
+            ]))),
+        };
+    }
+    acc
+}
+
+/// Number list as surface `cons`/`nil` (for `measure-columns` `xs`).
+fn numbers_to_cons_list(nums: Vec<f64>) -> RuntimeValue {
+    let mut acc = RuntimeValue::Variant {
+        tag: "nil".into(),
+        payload: None,
+    };
+    for n in nums.into_iter().rev() {
+        acc = RuntimeValue::Variant {
+            tag: "cons".into(),
+            payload: Some(Box::new(RuntimeValue::Record(vec![
+                ("head".into(), RuntimeValue::Number(n)),
                 ("tail".into(), acc),
             ]))),
         };
