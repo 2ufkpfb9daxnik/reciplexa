@@ -1,4 +1,8 @@
-//! `rpx.std.math` — editable math tree (not text decoration).
+//! `rpx.std.math` — editable math tree (not text decoration / glyph layout).
+//!
+//! Aligns with `packages/math` SATySFi-shaped constructors. Honest scope:
+//! trees + light metric stubs for hosts — not OpenType MATH layout.
+//! See `lang/ja-math-deepen-plan.md`.
 
 use std::fmt;
 
@@ -38,6 +42,44 @@ impl fmt::Display for MathClass {
     }
 }
 
+/// Accent kind for `MathAtom::Accent` (package `math/accents`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum MathAccentKind {
+    Hat,
+    Bar,
+    Vec,
+    Tilde,
+    Dot,
+    Ddot,
+    Overline,
+    Underline,
+    WideHat,
+    WideTilde,
+}
+
+impl MathAccentKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Hat => "hat",
+            Self::Bar => "bar",
+            Self::Vec => "vec",
+            Self::Tilde => "tilde",
+            Self::Dot => "dot",
+            Self::Ddot => "ddot",
+            Self::Overline => "overline",
+            Self::Underline => "underline",
+            Self::WideHat => "widehat",
+            Self::WideTilde => "widetilde",
+        }
+    }
+}
+
+impl fmt::Display for MathAccentKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
 /// Leaf or internal math node.
 #[derive(Debug, Clone, PartialEq)]
 pub enum MathAtom {
@@ -72,6 +114,18 @@ pub enum MathAtom {
         right: String,
         body: Box<MathAtom>,
     },
+    Accent {
+        id: StableNodeId,
+        kind: MathAccentKind,
+        base: Box<MathAtom>,
+    },
+    BigOp {
+        id: StableNodeId,
+        operator: String,
+        lower: Option<Box<MathAtom>>,
+        upper: Option<Box<MathAtom>>,
+        body: Option<Box<MathAtom>>,
+    },
 }
 
 impl MathAtom {
@@ -82,7 +136,9 @@ impl MathAtom {
             | Self::Fraction { id, .. }
             | Self::Radical { id, .. }
             | Self::Scripts { id, .. }
-            | Self::Delimiter { id, .. } => *id,
+            | Self::Delimiter { id, .. }
+            | Self::Accent { id, .. }
+            | Self::BigOp { id, .. } => *id,
         }
     }
 
@@ -136,6 +192,14 @@ impl MathAtom {
         }
     }
 
+    pub fn superscript(id: StableNodeId, base: MathAtom, script: MathAtom) -> Self {
+        Self::scripts(id, base, Some(script), None)
+    }
+
+    pub fn subscript(id: StableNodeId, base: MathAtom, script: MathAtom) -> Self {
+        Self::scripts(id, base, None, Some(script))
+    }
+
     pub fn delimiter(
         id: StableNodeId,
         left: impl Into<String>,
@@ -147,6 +211,34 @@ impl MathAtom {
             left: left.into(),
             right: right.into(),
             body: Box::new(body),
+        }
+    }
+
+    pub fn paren(id: StableNodeId, body: MathAtom) -> Self {
+        Self::delimiter(id, "(", ")", body)
+    }
+
+    pub fn accent(id: StableNodeId, kind: MathAccentKind, base: MathAtom) -> Self {
+        Self::Accent {
+            id,
+            kind,
+            base: Box::new(base),
+        }
+    }
+
+    pub fn big_op(
+        id: StableNodeId,
+        operator: impl Into<String>,
+        lower: Option<MathAtom>,
+        upper: Option<MathAtom>,
+        body: Option<MathAtom>,
+    ) -> Self {
+        Self::BigOp {
+            id,
+            operator: operator.into(),
+            lower: lower.map(Box::new),
+            upper: upper.map(Box::new),
+            body: body.map(Box::new),
         }
     }
 
@@ -162,6 +254,12 @@ impl MathAtom {
                 ..
             } => 1 + usize::from(superscript.is_some()) + usize::from(subscript.is_some()),
             Self::Delimiter { .. } => 1,
+            Self::Accent { .. } => 1,
+            Self::BigOp {
+                lower, upper, body, ..
+            } => {
+                usize::from(lower.is_some()) + usize::from(upper.is_some()) + usize::from(body.is_some())
+            }
         }
     }
 
@@ -201,6 +299,30 @@ impl MathAtom {
             Self::Delimiter {
                 left, right, body, ..
             } => format!("{left}{}{right}", body.linearize()),
+            Self::Accent { kind, base, .. } => format!("{}{{{}}}", kind.as_str(), base.linearize()),
+            Self::BigOp {
+                operator,
+                lower,
+                upper,
+                body,
+                ..
+            } => {
+                let mut s = operator.clone();
+                if let Some(lo) = lower {
+                    s.push('_');
+                    s.push_str(&lo.linearize());
+                }
+                if let Some(up) = upper {
+                    s.push('^');
+                    s.push_str(&up.linearize());
+                }
+                if let Some(b) = body {
+                    s.push('{');
+                    s.push_str(&b.linearize());
+                    s.push('}');
+                }
+                s
+            }
         }
     }
 }

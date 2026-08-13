@@ -60,6 +60,33 @@ fn math_class_and_tree() {
 }
 
 #[test]
+fn math_accent_and_big_op() {
+    use reciplexa_std::math::MathAccentKind;
+    let a = MathAtom::symbol(id(1), "a", MathClass::Ordinary);
+    let n = MathAtom::symbol(id(2), "n", MathClass::Ordinary);
+    let hat = MathAtom::accent(id(3), MathAccentKind::Hat, a.clone());
+    assert_eq!(hat.child_count(), 1);
+    assert_eq!(hat.linearize(), "hat{a}");
+    assert_eq!(MathAccentKind::Vec.as_str(), "vec");
+    let i = MathAtom::symbol(id(4), "i", MathClass::Ordinary);
+    let sum = MathAtom::big_op(
+        id(5),
+        "∑",
+        Some(i),
+        Some(n),
+        Some(a),
+    );
+    assert_eq!(sum.child_count(), 3);
+    assert!(sum.linearize().contains('∑'));
+    assert_eq!(MathAtom::paren(id(6), MathAtom::symbol(id(7), "x", MathClass::Ordinary)).linearize(), "(x)");
+    assert_eq!(
+        MathAtom::superscript(id(8), MathAtom::symbol(id(9), "x", MathClass::Ordinary), MathAtom::symbol(id(10), "2", MathClass::Ordinary))
+            .linearize(),
+        "x^2"
+    );
+}
+
+#[test]
 fn theme_master_slide() {
     assert!(Theme::light(id(1), "L").to_string().contains("L"));
     assert_eq!(Theme::dark(id(2), "D").background, Color::BLACK);
