@@ -490,6 +490,49 @@ fn layout_math_fraction_draws_rule_line() {
     assert!(line.x2_mm > line.x1_mm);
 }
 
+/// LL11: Radical layout draws vinculum Line above the radicand.
+#[test]
+fn layout_math_radical_draws_vinculum_line() {
+    use reciplexa_scene::Shape;
+    use reciplexa_std::math::{
+        layout_math_atom_to_shapes, radical_vinculum_index_offsets, MATH_LAYOUT_EM_TO_MM,
+        RADICAL_SURD_PAD_EM,
+    };
+
+    let body = MathAtom::symbol(id(1), "x", MathClass::Ordinary);
+    let idx = MathAtom::symbol(id(2), "3", MathClass::Ordinary);
+    let atom = MathAtom::radical_indexed(id(3), idx.clone(), body.clone());
+    let origin = (15.0, 180.0);
+    let shapes = layout_math_atom_to_shapes(&atom, origin);
+    let texts: Vec<_> = shapes
+        .iter()
+        .filter_map(|s| match s {
+            Shape::Text(t) => Some(t),
+            _ => None,
+        })
+        .collect();
+    assert!(
+        texts.iter().any(|t| t.content == "x") && texts.iter().any(|t| t.content == "3"),
+        "{:?}",
+        texts.iter().map(|t| t.content.as_str()).collect::<Vec<_>>()
+    );
+    let x = texts.iter().find(|t| t.content == "x").unwrap();
+    assert!((x.x_mm - (origin.0 + RADICAL_SURD_PAD_EM * MATH_LAYOUT_EM_TO_MM)).abs() < 1e-9);
+    let line = shapes
+        .iter()
+        .find_map(|s| match s {
+            Shape::Line(l) => Some(l),
+            _ => None,
+        })
+        .expect("vinculum Line");
+    let body_box = body.estimate_box();
+    let (vy, _, _) = radical_vinculum_index_offsets(body_box, Some(idx.estimate_box()));
+    let expected_y = origin.1 - vy * MATH_LAYOUT_EM_TO_MM;
+    assert!((line.y1_mm - expected_y).abs() < 1e-9);
+    assert!(line.y1_mm < x.y_mm, "vinculum above radicand in scene y-down");
+    assert!(line.x2_mm > line.x1_mm);
+}
+
 /// LL8: BigOp layout places limits via bigop_limit_offsets.
 #[test]
 fn layout_math_bigop_positions_limits() {

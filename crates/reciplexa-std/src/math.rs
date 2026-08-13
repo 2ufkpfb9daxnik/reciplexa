@@ -1209,7 +1209,10 @@ fn math_offset_to_scene_mm(origin: (f64, f64), dx_em: f64, dy_em: f64) -> (f64, 
 /// [`MathAtom::BigOp`]: operator at `origin`, limits via
 /// [`bigop_limit_offsets`] (LL8).
 /// [`MathAtom::Fraction`]: num/den stacked with a [`reciplexa_scene::Line`]
-/// rule between them (LL9). Not OpenType MATH / glyph metrics.
+/// rule between them (LL9).
+/// [`MathAtom::Radical`]: radicand (+ optional index) with vinculum
+/// [`reciplexa_scene::Line`] via [`radical_vinculum_index_offsets`] (LL11).
+/// Not OpenType MATH / glyph metrics.
 pub fn layout_math_atom_to_shapes(
     atom: &MathAtom,
     origin: (f64, f64),
@@ -1304,6 +1307,33 @@ pub fn layout_math_atom_to_shapes(
                 denominator,
                 math_offset_to_scene_mm(origin, den_dx, den_dy),
             ));
+            shapes
+        }
+        MathAtom::Radical {
+            index, radicand, ..
+        } => {
+            let body = radicand.estimate_box();
+            let idx_box = index.as_ref().map(|i| i.estimate_box());
+            let (vinculum_y, index_x, index_y) =
+                radical_vinculum_index_offsets(body, idx_box);
+            // Radicand origin shifted right by surd pad (heuristic gutter).
+            let rad_origin = math_offset_to_scene_mm(origin, RADICAL_SURD_PAD_EM, 0.0);
+            let mut shapes = layout_math_atom_to_shapes(radicand, rad_origin);
+            if let Some(idx) = index {
+                let o = math_offset_to_scene_mm(origin, index_x, index_y);
+                shapes.extend(layout_math_atom_to_shapes(idx, o));
+            }
+            let (ox, oy) = rad_origin;
+            let bar_y = oy - vinculum_y * MATH_LAYOUT_EM_TO_MM;
+            let bar_w_mm = (RADICAL_VINCULUM_THICKNESS_EM * MATH_LAYOUT_EM_TO_MM).max(0.15);
+            shapes.push(reciplexa_scene::Shape::Line(reciplexa_scene::Line {
+                x1_mm: ox,
+                y1_mm: bar_y,
+                x2_mm: ox + body.width * MATH_LAYOUT_EM_TO_MM,
+                y2_mm: bar_y,
+                stroke: reciplexa_scene::Color::BLACK,
+                width_mm: bar_w_mm,
+            }));
             shapes
         }
         _ => layout_math_linearize_glyphs(atom, origin),
