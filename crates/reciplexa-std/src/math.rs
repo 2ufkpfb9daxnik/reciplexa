@@ -1110,16 +1110,17 @@ fn estimate_grid_box(
     if let Some(r) = right {
         width += 0.35 * r.chars().count() as f64;
     }
-    // Content-based height/depth split (prior grid stub).
+    // Content-based height/depth split (prior grid stub for undelimited matrices).
     let mut height = total_h * 0.55;
     let mut depth = total_h * 0.45;
     // Cases / choice left brace: stretchy-delimiter heuristic —
     // brace total height = rows × row_height (measured max row, floor CASES_ROW_HEIGHT_EM).
+    // Replaces the content+gap split so the fence tracks row count explicitly.
     if left.is_some() {
         let row_h = max_row_h.max(CASES_ROW_HEIGHT_EM);
         let brace_total = cases_brace_total_height_em(rows.len(), row_h);
-        height = (brace_total * 0.55).max(height);
-        depth = (brace_total * 0.45).max(depth);
+        height = brace_total * 0.55;
+        depth = brace_total * 0.45;
     }
     MathBox::new(width.max(0.5), height, depth)
 }

@@ -428,6 +428,60 @@ fn math_delimiter_stretchy_grows_with_body() {
 }
 
 #[test]
+fn math_cases_left_brace_height_tracks_rows_times_row_height() {
+    use reciplexa_std::math::{
+        cases_brace_total_height_em, MathMatrixKind, CASES_ROW_HEIGHT_EM,
+    };
+
+    assert!((cases_brace_total_height_em(3, 1.2) - 3.6).abs() < 1e-9);
+    assert!((cases_brace_total_height_em(0, CASES_ROW_HEIGHT_EM) - CASES_ROW_HEIGHT_EM).abs() < 1e-9);
+
+    let a = MathAtom::symbol(id(1), "a", MathClass::Ordinary);
+    let b = MathAtom::symbol(id(2), "b", MathClass::Ordinary);
+    let row_h = a.estimate_box().total_height().max(CASES_ROW_HEIGHT_EM);
+
+    let one = MathAtom::matrix_delimited(id(10), "{", "", vec![vec![a.clone()]]);
+    let three = MathAtom::matrix_delimited(
+        id(11),
+        "{",
+        "",
+        vec![vec![a.clone()], vec![b.clone()], vec![a.clone()]],
+    );
+    let plain = MathAtom::matrix(
+        id(12),
+        MathMatrixKind::Plain,
+        vec![vec![a.clone()], vec![b.clone()], vec![a]],
+    );
+
+    let one_box = one.estimate_box();
+    let three_box = three.estimate_box();
+    let plain_box = plain.estimate_box();
+
+    let expect_one = cases_brace_total_height_em(1, row_h);
+    let expect_three = cases_brace_total_height_em(3, row_h);
+    assert!(
+        (one_box.total_height() - expect_one).abs() < 1e-9,
+        "1-row cases brace: got {} want {expect_one}",
+        one_box.total_height()
+    );
+    assert!(
+        (three_box.total_height() - expect_three).abs() < 1e-9,
+        "3-row cases brace: got {} want {expect_three}",
+        three_box.total_height()
+    );
+    assert!(
+        three_box.total_height() > one_box.total_height(),
+        "more rows → taller brace"
+    );
+    // Plain matrix keeps content+gap; cases uses rows×row_height (stretchy heuristic).
+    assert!(
+        (three_box.total_height() - 3.0 * one_box.total_height()).abs() < 1e-9,
+        "brace height should scale linearly with row count"
+    );
+    let _ = plain_box; // plain path remains content+gap (no left brace stretch)
+}
+
+#[test]
 fn math_matrix_align_stack_nodes() {
     use reciplexa_std::math::{MathMatrixKind, MathStackKind};
     let a = MathAtom::symbol(id(1), "a", MathClass::Ordinary);
