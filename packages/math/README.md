@@ -20,7 +20,7 @@ Constructors follow the **SATySFi math model** (atom classes, scripts, fractions
 | `align` / `aligned` | `MathAtom::Aligned` |
 | `stack` / `atop` / `substack` | `MathAtom::Stack` |
 
-This package builds **trees**, not laid-out glyphs. Std offers fontless `MathAtom::estimate_box()` heuristics and `scripts_attachment_offsets` (also via eval `scripts_attachment_offsets_from_value` on `math-scripts` tags) for scaffolding. Line breaking, stretchy fences, real matrix alignment, and OpenType MATH tables remain future layout work (`lang/ja-math-deepen-plan.md`).
+This package builds **trees**, not laid-out glyphs. Std offers fontless `MathAtom::estimate_box()` heuristics plus `scripts_attachment_offsets`, `matrix_column_widths` / cases left-align, and `bigop_limit_offsets` (scaffolding only). Line breaking, stretchy fences, real matrix alignment, and OpenType MATH tables remain future layout work (`lang/ja-math-deepen-plan.md`).
 
 ## Import
 

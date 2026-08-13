@@ -424,9 +424,56 @@ cargo test -p reciplexa-std -p reciplexa-eval -p reciplexa-core -p reciplexa-pac
 
 - Mark Wave 7 done in this plan; update `lang/implemented-features.md` / package READMEs. **Commit.**
 
-## Remains after Wave 7
+## Wave 8 — matrix/bigop stubs + ruby example + wrap helper + lock checksum (B0–B5)
+
+Honest scope: fontless math column/limit offset stubs; language example for `ruby-box`; std Text soft-wrap helper; optional lockfile checksum field **without** verification. Not production matrix alignment / OpenType MATH / registry.
+
+Gate:
+
+```bat
+set CARGO_TARGET_DIR=d:\reciplexa\target
+set TEMP=d:\reciplexa\.tmp
+set TMP=d:\reciplexa\.tmp
+cargo test -p reciplexa-std -p reciplexa-eval -p reciplexa-core -p reciplexa-package --offline
+```
+
+| Unit | Status |
+|------|--------|
+| B0 — `matrix_column_widths` + cases left-align stub | **done** |
+| B1 — `bigop_limit_offsets` | **done** |
+| B2 — Example `pkg_ruby.rpx` | **done** |
+| B3 — `wrap_text_shape_content` via `break_line` | **done** |
+| B4 — Lockfile `LockedPackage.checksum` optional stub | **done** |
+| B5 — Docs + implemented-features | **done** |
+
+### B0 — Math cases / matrix column alignment stub
+
+- `matrix_column_widths(rows) -> Vec<f64>`; used by `estimate_box` for Matrix/Aligned.
+- Cases left-align columns heuristically (`cases_column_align` / `matrix_cell_x_in_column`). **Commit.**
+
+### B1 — BigOp limits placement stub
+
+- `bigop_limit_offsets(op_box, lower, upper) -> (lower_x, lower_y, upper_x, upper_y)`. **Commit.**
+
+### B2 — Example `pkg_ruby.rpx`
+
+- `ruby-box` builtin + `document/page` surface demo. **Commit.**
+
+### B3 — Soft-wrap Text content helper
+
+- Prefer std helper `wrap_text_shape_content` (uses `break_line`); no GUI text_box hook required. **Commit.**
+
+### B4 — OPEN-PKG lock checksum stub
+
+- Optional `checksum: Option<String>` on `LockedPackage` (serde skip if none); **not verified**. **Commit.**
+
+### B5 — Docs
+
+- Mark Wave 8 done; update `lang/implemented-features.md` / package READMEs. **Commit.**
+
+## Remains after Wave 8
 
 - Full UCS membership + normative JLReq §C break matrix + real hanging/justification.
 - Font-backed ruby / tate-chu-yoko / vertical glyph orientation / real vertical metrics.
-- OpenType MATH stretchy fences, accent/script attachment, matrix column alignment.
-- Document/GUI pipeline consuming boxes as production layout (beyond soft-wrapped Text shapes / estimate_box); load-time resource rewrite beyond fail-soft attach.
+- OpenType MATH stretchy fences, accent/script attachment, real matrix column alignment / big-op metrics.
+- Document/GUI pipeline consuming boxes as production layout (beyond soft-wrapped Text shapes / estimate_box); load-time resource rewrite beyond fail-soft attach; registry resolve + checksum verification (OPEN-PKG-001).
