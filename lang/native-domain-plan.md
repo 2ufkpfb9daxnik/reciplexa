@@ -171,4 +171,4 @@ Document / page constructors stay package-shaped (`graphics/page` or later `docu
 
 **N6 done:** 7-crate BEST-ENTRY **≥99%** (N6 q). Soft residuals remain on check/cast/eval/load/document (see `coverage-holdouts.md`).
 
-**N5 complete (N5.1–N5.3):** dual-path document surface + coverage tips. Keyword-table deletion remains GUI CST sync v2 (out of N5).
+**N5 complete (N5.1–N5.3):** dual-path document surface + coverage tips. Keyword-table deletion remains GUI CST sync v2 (out of N5) — track in [`gui-cst-sync-v2-plan.md`](gui-cst-sync-v2-plan.md).

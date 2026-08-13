@@ -154,7 +154,7 @@ pre-PKG カーネルは計画上 **COMPLETE（意図的 defer 付き）**。各�
 
 1. **Native domain 移行** — [`native-domain-plan.md`](native-domain-plan.md) N0→N5.2 dual-path **done**（length/color → graphics → math → japanese → document）。keyword 表削除は GUI CST sync v2（N5 外）。
 2. **カバレッジ締め（N6）** — **done**（7-crate BEST-ENTRY ≥99%）；N5.3 tip for document surface residuals。
-3. **GUI CST sync v2** — package AST 書き換えで interim keyword 表を退役（N5 完了後の別フェーズ）。
+3. **GUI CST sync v2** — active: [`gui-cst-sync-v2-plan.md`](gui-cst-sync-v2-plan.md)（S0 package locator done；S1+ writable package nudge → migrate golden → retire keyword tables）。
 4. **PKG インフラ（Slice E）** — workspace lock / resource root；レジストリは stub 可。
 5. **OPEN-TEXT-JA-001 / math layout** — UCS 表・glyph layout は native japanese/math 深化の後続。
 ---

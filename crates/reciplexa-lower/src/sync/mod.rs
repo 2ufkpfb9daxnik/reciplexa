@@ -9,6 +9,7 @@ use crate::cst_walk::{list_atoms, Child};
 
 mod geometry;
 mod layers;
+mod package;
 mod pages;
 
 pub use geometry::{
@@ -21,6 +22,11 @@ pub use geometry::{
 pub use layers::{
     collect_layers_from_root, collect_layers_page, delete_layer_page, duplicate_layer_page,
     group_layers_page, insert_layer_page, reorder_layer_page, ungroup_layer_page,
+};
+pub use package::{
+    collect_package_pages, find_main_expr, find_main_expr_in_source, find_package_page,
+    find_package_page_in_source, is_package_paint_wrapper, is_package_shaped_authoring,
+    is_package_transparent_wrapper, package_page_content_nodes, paint_wrapper_shape,
 };
 pub use pages::{count_pages, delete_page, find_page, insert_page_after, page_body_start};
 
