@@ -1121,6 +1121,11 @@ fn resolve_token(
     });
 }
 
+/// Surface heads that are not unbound identifiers (bind skip list).
+///
+/// Graphics heads (`page`/`circle`/…) are **deprecated interim** keywords (S6a);
+/// package imports supply the product constructors. Keep listed until S6b removes
+/// keyword type/lower arms and fixture audit is clean.
 fn is_surface_keyword(name: &str) -> bool {
     matches!(
         name,

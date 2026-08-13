@@ -16,7 +16,7 @@ Goal: local-path package **API** (`package.rpxm`, `.rpi`, `import`) after Part I
 |---|---|
 | `crates/reciplexa-package` | Manifest / path dep / lock / workspace stub |
 | `crates/reciplexa-bind` | Module tree + package search path |
-| Document surface | **N5.2 dual-path done** + **GUI CST sync v2 S5:** `black_circle.rpx` is package-shaped GUI golden; interim keyword tables retained for remaining interim examples (`interim_black_circle.rpx`, …) until S6 |
+| Document surface | **N5.2 dual-path done** + **GUI CST sync v2 S5b/S6a:** product `examples/` package-shaped; keyword fixture quarantined; `RECIPLEXA_REQUIRE_PACKAGE` gate; keyword tables retained until S6b |
 | `crates/reciplexa-std` | Rust typed façade (`visual` / `text` / `document` / `math` / …) — **authoritative body target** |
 | `packages/*/src/*.rpx` | **Interim portable bodies — migrate to native (see native-domain-plan)** |
 | `packages/*/interface/*.rpi` | Keep as public API surface |
@@ -40,7 +40,7 @@ Interim RPX depth that already exists (`graphics` / `length` / `color` / `math` 
 - Package-defined constructors consumed by lower/eval (bridge live); pipeline auto-routes `(import graphics|document`
 - Markup expand emits graphics package `page`/`text`/`line`/`image` (not interim keyword heads)
 - GUI: package-shaped sources writable (nudge/size); markup expand soft-refuses; golden `black_circle.rpx` is package AST
-- **Keyword-table holdout:** interim CST retained for remaining interim examples (`interim_black_circle.rpx`, …) until sync v2 S6; see `gui-cst-sync-v2-plan.md`
+- **Keyword-table holdout:** interim CST retained for crate fixtures / coverage until sync v2 **S6b**; S6a deprecate gate is `RECIPLEXA_REQUIRE_PACKAGE`; see `gui-cst-sync-v2-plan.md`
 - Tracking: `lang/native-domain-plan.md` Phase N5
 
 ### Slice E — workspace / resources / OPEN stubs

@@ -4,10 +4,10 @@
 //! document pipeline. Language semantics typecheck lives on Core via
 //! `reciplexa_core::typecheck_language_source` (TYP-001).
 //!
-//! This is intentionally a **slice** of the eventual package surface: fixed
-//! builtin signatures, no polymorphism, thin effect rows via `perform`.
-//! Fail-fast: the first error aborts (SATySFi-style for this milestone).
-
+//! **Deprecated interim:** top-level keyword forms `(page)/(circle)/…` remain for
+//! fixture and legacy ingest (S6a). Product authoring uses package imports; set
+//! `RECIPLEXA_REQUIRE_PACKAGE=1` to refuse bare `(page …)` at the pipeline gate.
+//! Full keyword-arm removal is S6b.
 #![forbid(unsafe_code)]
 
 use reciplexa_effect::EffectOp;
@@ -102,6 +102,7 @@ pub fn typecheck_syntax(root: &SyntaxNode) -> Result<Type, TypeError> {
 fn check_form(node: &SyntaxNode) -> Result<Type, TypeError> {
     let (head, args, span) = split_list(node)?;
     match head.as_str() {
+        // Deprecated interim keyword arms (S6a). Prefer package graphics constructors.
         "page" => {
             if args.is_empty() {
                 return Err(TypeError::at(

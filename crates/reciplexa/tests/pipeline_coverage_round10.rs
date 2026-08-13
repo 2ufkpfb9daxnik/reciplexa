@@ -65,9 +65,10 @@ fn pipeline_round10_package_root_and_export_matrix() {
     assert_eq!(doc.pages.len(), 1);
     let _ = wants_package_graphics_path(shapes);
 
-    // Snapshot path: package graphics scene without editable (editable parse rejects import)
+    // Snapshot path: package graphics scene; editable optional (scene-backed, no CST layers)
     let snap = document_from_source_with_snapshot(shapes, false).expect("snap package");
     assert_eq!(snap.scene.pages.len(), 1);
+    let _ = document_from_source_with_snapshot(shapes, true);
     let _ = document_from_source_with_snapshot("(page a4 (circle 1 2 3))\n", true);
 
     // Flag "true" / "false" / "0" branches

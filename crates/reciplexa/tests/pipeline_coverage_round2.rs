@@ -151,13 +151,14 @@ fn document_for_export_and_snapshot_use_package_bridge() {
     assert!(!h.logs.is_empty());
     assert!(!h.writes.is_empty());
 
-    // Package bridge scene ok; editable snapshot still expects interim CST heads.
+    // Package bridge scene ok; editable snapshot is scene-backed (no interim CST layers).
     let no_snap = document_from_source_with_snapshot(shapes_src(), false).expect("no snap");
     assert_eq!(no_snap.scene.pages.len(), 1);
     assert!(no_snap.editable.is_none());
 
-    let err = document_from_source_with_snapshot(shapes_src(), true).expect_err("doc stage");
-    assert_eq!(err.stage, "document");
+    let with_snap = document_from_source_with_snapshot(shapes_src(), true).expect("package editable");
+    assert_eq!(with_snap.scene.pages.len(), 1);
+    assert!(with_snap.editable.is_some());
 }
 
 #[test]

@@ -28,12 +28,29 @@ pub fn document_snapshot_from_lowered(
 }
 
 /// Expand, resolve, parse, lower, and build an editable document snapshot with provenance.
+///
+/// Package-shaped sources (after expand) lower via the package domain bridge and
+/// build a scene-backed snapshot **without** interim CST layer provenance.
 pub fn document_snapshot_from_source(
     source: &str,
     identity: DocumentIdentity,
 ) -> Result<DocumentSnapshot, String> {
     // Expand-first: markup / macros must become page forms before bind/lower.
     let expanded = reciplexa_macro::expand_source(source).map_err(|e| e.message)?;
+    if crate::pipeline::wants_package_graphics_path(&expanded) {
+        let scene = crate::pipeline::document_from_source(source).map_err(|e| e.display())?;
+        let page = scene
+            .pages
+            .first()
+            .ok_or_else(|| "document has no pages".to_string())?;
+        return Ok(document_from_scene_page_with_layers(
+            identity,
+            page,
+            &[],
+            SourceResourceId::new(1),
+            &[],
+        ));
+    }
     let source = expanded.as_str();
     let resolve = resolve_source(source);
     if !resolve.is_ok() {

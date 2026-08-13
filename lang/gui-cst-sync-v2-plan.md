@@ -1,6 +1,6 @@
 # GUI CST sync v2 (package AST rewrite)
 
-**Status:** active  
+**Status:** active (S6a done; S6b open)  
 **Goal:** Make package-shaped authoring (`(import …)(val main (page …))`) writable in the GUI (nudge/size), then migrate goldens and **retire interim keyword tables**.
 
 **Normative context:** N5 dual-path left interim `(page)/(circle)` for writable CST sync. This phase closes that holdout.
@@ -21,8 +21,10 @@
 | S2 | Package size targets (circle radius) | **done** — scale radius on package circle |
 | S3 | More shapes + translate wrap parity | **done** — rect/ellipse/text/line (+ wrap rules) |
 | S4 | Multipage + align rules (markup stays refuse) | **done** — multipage package; markup soft-refuse |
-| S5 | Migrate GUI golden to package; audit interim examples | **done** — `black_circle.rpx` is package-shaped; interim twin `interim_black_circle.rpx` |
-| S6 | Retire interim keyword tables | **blocked** — interim examples remain (`interim_black_circle`, `text_line`, `two_pages`, `letter_opacity`, `shapes`, `transforms`, `paths`, `image`, …); do not delete tables yet |
+| S5 | Migrate GUI golden to package; audit interim examples | **done** — `black_circle.rpx` is package-shaped; interim twin quarantined |
+| S5b | Migrate remaining graphics examples; quarantine fixtures | **done** — product `examples/` package-shaped; keyword fixture at `crates/reciplexa-lower/tests/fixtures/interim_page.rpx` |
+| S6a | Deprecate interim ingest (require-package gate) | **done** — `RECIPLEXA_REQUIRE_PACKAGE=1` rejects bare top-level `(page …)`; keyword tables still in types/lower/bind |
+| S6b | Delete production keyword arms (or `#[cfg(test)]` quarantine) | **open** — after fixture/coverage audit; keep interim lower for fixtures if needed |
 
 ## Approach
 
@@ -42,6 +44,6 @@ cargo check --offline -p reciplexa-gui
 
 ## S6 status
 
-**Blocked** until remaining interim examples migrate off bare `(page)/(circle)` keyword surfaces. Critical GUI golden (`black_circle.rpx`) is package-shaped as of S5; keyword tables stay for `interim_black_circle.rpx`, `text_line.rpx`, `two_pages.rpx`, `letter_opacity.rpx`, and other interim CST examples.
+**S6a done.** Product `examples/` GUI/render surface is package-shaped. Interim keyword lower remains for crate test fixtures and coverage tips. Opt-in gate: `RECIPLEXA_REQUIRE_PACKAGE=1`.
 
-Do **not** delete types/lower/bind keyword arms while those examples remain.
+**S6b open:** remove or `#[cfg(test)]`-quarantine `reciplexa-types` / `reciplexa-lower` keyword arms and trim `is_surface_keyword` graphics heads once fixture audit is clean.

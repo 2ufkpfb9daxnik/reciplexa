@@ -104,10 +104,10 @@ pre-PKG カーネルは計画上 **COMPLETE（意図的 defer 付き）**。各�
 | **`packages/color`** | **native**（N1） | srgb / named＋`.rpi`；例 `pkg_color.rpx` |
 | **`packages/math`** | **native**（N3） | atoms…stack＋`.rpi`；例 `pkg_math.rpx`；layout は後続 |
 | **`packages/japanese`** | **native**（N4・JLReq 志向・部分） | classes / linebreak / kihon / markup；**完全 JLReq ではない** |
-| **`packages/document`** | **native scaffold**（N5.1–N5.2） | `page`＝flow/section/heading 等（`doc-*`）；例 `pkg_document.rpx`；pipeline 自動ルート済；**interim keyword 表は GUI CST 用に保持（N5 削除対象外）** |
+| **`packages/document`** | **native scaffold**（N5.1–N5.2） | `page`＝flow/section/heading 等（`doc-*`）；例 `pkg_document.rpx`；pipeline 自動ルート済；**interim keyword 表は S6a で deprecate（`RECIPLEXA_REQUIRE_PACKAGE`）；S6b で削除予定** |
 | **`crates/reciplexa-std`** | Rust ファサード（native 本文の主戦場） | `visual` / `text` / `document` / `math` / … |
 
-ローカル import・path-dep・`workspace.rpxm` stub まで到達。**レジストリ等は OPEN-PKG-***。**N5.2 dual-path:** package 文書＋markup→graphics package emit＋GUI 読取専用 scene layers。CST interim / `black_circle` は **writable GUI CST sync** 用に残存（keyword 表削除は GUI CST sync v2 待ち・N5 削除スコープ外）。
+ローカル import・path-dep・`workspace.rpxm` stub まで到達。**レジストリ等は OPEN-PKG-***。**N5.2 dual-path:** package 文書＋markup→graphics package emit＋GUI writable package sync（v2 S0–S5b）。interim keyword 表は fixture／coverage 向けに残存（S6a deprecate gate；S6b 削除）。
 
 ---
 
@@ -152,9 +152,9 @@ pre-PKG カーネルは計画上 **COMPLETE（意図的 defer 付き）**。各�
 
 推奨順序:
 
-1. **Native domain 移行** — [`native-domain-plan.md`](native-domain-plan.md) N0→N5.2 dual-path **done**（length/color → graphics → math → japanese → document）。keyword 表削除は GUI CST sync v2（N5 外）。
+1. **Native domain 移行** — [`native-domain-plan.md`](native-domain-plan.md) N0→N5.2 dual-path **done**（length/color → graphics → math → japanese → document）。keyword 表削除は GUI CST sync v2 S6b。
 2. **カバレッジ締め（N6）** — **done**（7-crate BEST-ENTRY ≥99%）；N5.3 tip for document surface residuals。
-3. **GUI CST sync v2** — [`gui-cst-sync-v2-plan.md`](gui-cst-sync-v2-plan.md) S0–S5 **done**（package writable sync + `black_circle.rpx` package golden）。S6 keyword 表退役は interim 例の移行待ち。
+3. **GUI CST sync v2** — [`gui-cst-sync-v2-plan.md`](gui-cst-sync-v2-plan.md) S0–S5b + **S6a done**（package writable sync、examples package 化、`RECIPLEXA_REQUIRE_PACKAGE`）。**S6b** keyword 表 production 削除／`cfg(test)` 隔離が次。
 4. **PKG インフラ（Slice E）** — workspace lock / resource root；レジストリは stub 可。
 5. **OPEN-TEXT-JA-001 / math layout** — UCS 表・glyph layout は native japanese/math 深化の後続。
 ---

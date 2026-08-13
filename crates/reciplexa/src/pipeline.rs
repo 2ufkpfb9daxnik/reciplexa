@@ -6,6 +6,10 @@
 //! Package domain path: when source imports `graphics/*` or `document/*` and has
 //! no top-level interim `(page …)`, the pipeline opts into package eval +
 //! graphics/document value bridge instead of interim CST lower.
+//!
+//! Interim keyword `(page)/(circle)/…` ingest remains available by default for
+//! fixtures and legacy sources. Set `RECIPLEXA_REQUIRE_PACKAGE=1` to reject bare
+//! top-level `(page …)` (S6a deprecation gate).
 
 use std::path::{Path, PathBuf};
 
@@ -71,8 +75,33 @@ pub fn document_from_source(src: &str) -> Result<Document, PipelineError> {
     if wants_package_graphics_path(&expanded) {
         return document_from_package_domain(&expanded);
     }
+    refuse_interim_if_required(&expanded)?;
     typecheck(&expanded)?;
     lower(&expanded)
+}
+
+fn env_flag_true(name: &str) -> bool {
+    std::env::var(name)
+        .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+        .unwrap_or(false)
+}
+
+/// When `RECIPLEXA_REQUIRE_PACKAGE=1`, reject top-level interim `(page …)` sources.
+///
+/// Package-shaped ingest (`(import graphics|document …)(val main …)`) is unaffected.
+/// Default off so keyword-table fixtures and coverage tips keep working until S6b.
+pub fn refuse_interim_if_required(expanded: &str) -> Result<(), PipelineError> {
+    if !env_flag_true("RECIPLEXA_REQUIRE_PACKAGE") {
+        return Ok(());
+    }
+    if has_top_level_interim_page(expanded) {
+        return Err(PipelineError::new(
+            "package",
+            "interim top-level `(page …)` is deprecated; author with \
+             `(import graphics/…)(val main (page …))` or unset RECIPLEXA_REQUIRE_PACKAGE",
+        ));
+    }
+    Ok(())
 }
 
 /// Whether to route ingest through the package domain bridge instead of interim CST lower.
@@ -90,10 +119,7 @@ pub fn wants_package_graphics_path(expanded: &str) -> bool {
     {
         return false;
     }
-    if std::env::var("RECIPLEXA_PACKAGE_GRAPHICS")
-        .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
-        .unwrap_or(false)
-    {
+    if env_flag_true("RECIPLEXA_PACKAGE_GRAPHICS") {
         return true;
     }
     is_package_shaped_graphics_source(expanded)
@@ -196,6 +222,7 @@ pub fn document_from_source_with_snapshot(
     let scene = if wants_package_graphics_path(&expanded) {
         document_from_package_domain(&expanded)?
     } else {
+        refuse_interim_if_required(&expanded)?;
         typecheck(&expanded)?;
         lower(&expanded)?
     };
@@ -234,6 +261,7 @@ pub fn document_for_export(
         let doc = document_from_package_domain(&expanded)?;
         return Ok((doc, expanded));
     }
+    refuse_interim_if_required(&expanded)?;
     typecheck(&expanded)?;
     run_effects(handler, &expanded)?;
     let doc = lower(&expanded)?;
@@ -305,11 +333,10 @@ mod tests {
 
     #[test]
     fn pkg_black_circle_parity_with_interim_lower() {
-        let interim =
-            document_from_source(include_str!(
-                "../../reciplexa-lower/tests/fixtures/interim_page.rpx"
-            ))
-            .expect("interim page fixture");
+        let interim = document_from_source(include_str!(
+            "../../reciplexa-lower/tests/fixtures/interim_page.rpx"
+        ))
+        .expect("interim page fixture");
         let pkg = document_from_source(include_str!("../../../examples/black_circle.rpx"))
             .expect("package black_circle golden");
         assert!(wants_package_graphics_path(

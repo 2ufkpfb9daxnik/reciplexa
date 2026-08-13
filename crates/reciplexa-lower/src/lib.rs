@@ -1,5 +1,10 @@
 //! Minimal CST → scene lowering for pages, shapes, and Glisp-like transforms.
 //!
+//! **Deprecated interim keyword tables** (`page`/`circle`/…): retained for test
+//! fixtures (`tests/fixtures/interim_page.rpx`) and legacy ingest until S6b.
+//! Product `examples/` are package-shaped; pipeline gate
+//! `RECIPLEXA_REQUIRE_PACKAGE=1` refuses bare top-level `(page …)`.
+//!
 //! Supported forms (Lisp mode):
 //!
 //! ```text

@@ -91,11 +91,12 @@ fn package_then_editable_and_interim_editable_ok() {
     );
     let _force = EnvGuard::remove("RECIPLEXA_PACKAGE_GRAPHICS");
     let src = include_str!("../../../examples/shapes.rpx");
-    // Package scene builds, then editable snapshot rejects `import` heads.
-    let err = document_from_source_with_snapshot(src, true).expect_err("editable on package");
-    assert_eq!(err.stage, "document");
+    // Package scene + scene-backed editable snapshot (no interim CST provenance).
+    let pkg = document_from_source_with_snapshot(src, true).expect("package+editable");
+    assert_eq!(pkg.scene.pages.len(), 1);
+    assert!(pkg.editable.is_some());
 
-    // Interim path covers with_editable Ok.
+    // Interim path covers with_editable Ok with CST provenance.
     let out = document_from_source_with_snapshot("(page a4 (circle 1 2 3))", true)
         .expect("interim+editable");
     assert_eq!(out.scene.pages.len(), 1);

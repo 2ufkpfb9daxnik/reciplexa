@@ -43,8 +43,8 @@ Prefer **eliminate** over documenting when reachable. Items below are either sti
 
 ## N5 document-surface holdouts (not coverage gaps)
 
-1. **Interim keyword tables (`page`/`circle`/…)** — **retained** until S6; GUI golden `black_circle.rpx` is now package-shaped. Keyword lower still used by interim examples (`interim_black_circle.rpx`, `text_line.rpx`, …). Track retire in [`gui-cst-sync-v2-plan.md`](gui-cst-sync-v2-plan.md).
-2. **Package-shaped GUI edits** — S1–S5: package nudge/size/multipage + golden migrated; markup soft-refuse; S6 keyword-table delete blocked while many examples remain interim.
+1. **Interim keyword tables (`page`/`circle`/…)** — **S6a:** product `examples/` are package-shaped; fixture quarantined at `crates/reciplexa-lower/tests/fixtures/interim_page.rpx`. Keyword type/lower/bind arms **retained** (deprecated). Opt-in refuse: `RECIPLEXA_REQUIRE_PACKAGE=1`. **S6b** deletes/quarantines production arms. Track in [`gui-cst-sync-v2-plan.md`](gui-cst-sync-v2-plan.md).
+2. **Package-shaped GUI edits** — S0–S5b done (package nudge/size/multipage + golden + example migration); markup soft-refuse; S6b keyword-table delete still open.
 
 ## Non-goals this pass
 
