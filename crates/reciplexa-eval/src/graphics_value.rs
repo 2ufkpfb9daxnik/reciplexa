@@ -429,6 +429,9 @@ fn shape_text(fields: &[(String, RuntimeValue)], fill: Color) -> Result<Shape, G
     let content = string_field(fields, "content")?;
     let width_mm = optional_number_field(fields, "w")?;
     let height_mm = optional_number_field(fields, "h")?;
+    // Optional soft-wrap budget (em). Absent → no wrap unless content has newlines.
+    let wrap_em = optional_number_field(fields, "wrap-em")?;
+    let leading_mm = optional_number_field(fields, "leading")?.unwrap_or(size);
     let text = Text {
         x_mm: x,
         y_mm: y,
@@ -441,7 +444,72 @@ fn shape_text(fields: &[(String, RuntimeValue)], fill: Color) -> Result<Shape, G
     if !text.is_drawable() {
         return Err(GraphicsValueError::new("text is not drawable"));
     }
-    Ok(Shape::Text(text))
+
+    let has_newlines = text.content.contains('\n');
+    if wrap_em.is_none() && !has_newlines {
+        return Ok(Shape::Text(text));
+    }
+
+    let wrapped = soft_wrap_graphics_text(&text, wrap_em, leading_mm);
+    if wrapped.len() <= 1 {
+        return Ok(Shape::Text(wrapped.into_iter().next().unwrap_or(text)));
+    }
+    Ok(Shape::Group {
+        transform: Affine::identity(),
+        children: wrapped.into_iter().map(Shape::Text).collect(),
+    })
+}
+
+/// Soft-wrap a graphics Text via [`reciplexa_std::japanese::wrap_text_shape_content`].
+///
+/// When `wrap_em` is set, each hard-newline segment is passed through `break_line`.
+/// When only newlines are present (no `wrap-em`), hard breaks become separate Text shapes.
+fn soft_wrap_graphics_text(
+    text: &Text,
+    wrap_em: Option<f64>,
+    leading_mm: f64,
+) -> Vec<Text> {
+    use reciplexa_std::japanese::{lines_to_text_shapes, wrap_text_shape_content};
+
+    if let Some(max_em) = wrap_em {
+        if !text.content.contains('\n') {
+            return wrap_text_shape_content(text, max_em, leading_mm);
+        }
+        let mut out = Vec::new();
+        let mut y = text.y_mm;
+        for segment in text.content.split('\n') {
+            let seed = Text {
+                x_mm: text.x_mm,
+                y_mm: y,
+                size_mm: text.size_mm,
+                width_mm: text.width_mm,
+                height_mm: text.height_mm,
+                content: segment.to_string(),
+                fill: text.fill,
+            };
+            let lines = wrap_text_shape_content(&seed, max_em, leading_mm);
+            if lines.is_empty() {
+                out.push(seed);
+                y += leading_mm;
+            } else {
+                if let Some(last) = lines.last() {
+                    y = last.y_mm + leading_mm;
+                }
+                out.extend(lines);
+            }
+        }
+        out
+    } else {
+        let lines: Vec<String> = text.content.split('\n').map(str::to_string).collect();
+        lines_to_text_shapes(
+            &lines,
+            text.x_mm,
+            text.y_mm,
+            text.size_mm,
+            leading_mm,
+            text.fill,
+        )
+    }
 }
 
 fn shape_image(fields: &[(String, RuntimeValue)]) -> Result<Shape, GraphicsValueError> {
