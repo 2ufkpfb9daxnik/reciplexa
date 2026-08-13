@@ -519,6 +519,57 @@ fn layout_math_fraction_draws_rule_line() {
     assert!(line.x2_mm > line.x1_mm);
 }
 
+/// LL14: Matrix layout places cells via matrix_column_widths / aligned_column_x.
+#[test]
+fn layout_math_matrix_places_cells_by_column_widths() {
+    use reciplexa_scene::Shape;
+    use reciplexa_std::math::{
+        aligned_column_x, layout_math_atom_to_shapes, matrix_cell_x_in_column,
+        matrix_column_widths, MathMatrixKind, MatrixColumnAlign, MATH_LAYOUT_EM_TO_MM,
+    };
+
+    let a = MathAtom::symbol(id(1), "a", MathClass::Ordinary);
+    let bb = MathAtom::symbol(id(2), "ww", MathClass::Ordinary);
+    let c = MathAtom::symbol(id(3), "c", MathClass::Ordinary);
+    let d = MathAtom::symbol(id(4), "d", MathClass::Ordinary);
+    let rows = vec![vec![a.clone(), bb.clone()], vec![c.clone(), d.clone()]];
+    let atom = MathAtom::Matrix {
+        id: id(5),
+        kind: MathMatrixKind::Delimited,
+        rows: rows.clone(),
+        left: None,
+        right: None,
+    };
+    let origin = (8.0, 120.0);
+    let shapes = layout_math_atom_to_shapes(&atom, origin);
+    let texts: Vec<_> = shapes
+        .iter()
+        .filter_map(|s| match s {
+            Shape::Text(t) => Some(t),
+            _ => None,
+        })
+        .collect();
+    let ta = texts.iter().find(|t| t.content == "a").expect("a");
+    let tw = texts
+        .iter()
+        .find(|t| t.content == "w")
+        .expect("first w of ww");
+    let widths = matrix_column_widths(&rows);
+    let a_dx =
+        matrix_cell_x_in_column(a.estimate_box().width, widths[0], MatrixColumnAlign::Center);
+    let bb_dx = aligned_column_x(&rows, 1)
+        + matrix_cell_x_in_column(
+            bb.estimate_box().width,
+            widths[1],
+            MatrixColumnAlign::Center,
+        );
+    assert!((ta.x_mm - (origin.0 + a_dx * MATH_LAYOUT_EM_TO_MM)).abs() < 1e-9);
+    assert!((tw.x_mm - (origin.0 + bb_dx * MATH_LAYOUT_EM_TO_MM)).abs() < 1e-9);
+    assert!(tw.x_mm > ta.x_mm, "col1 right of col0");
+    let tc = texts.iter().find(|t| t.content == "c").expect("c");
+    assert!(tc.y_mm > ta.y_mm, "row1 below row0 in scene y-down");
+}
+
 /// LL13: Delimiter layout draws taller left/right fence glyphs from stretch heuristic.
 #[test]
 fn layout_math_delimiter_tall_fence_font_size() {

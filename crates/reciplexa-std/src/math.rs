@@ -1214,12 +1214,23 @@ fn math_offset_to_scene_mm(origin: (f64, f64), dx_em: f64, dy_em: f64) -> (f64, 
 /// [`reciplexa_scene::Line`] via [`radical_vinculum_index_offsets`] (LL11).
 /// [`MathAtom::Delimiter`]: left/right fence Text glyphs with taller
 /// `size_mm` from the stretchy height/depth heuristic (LL13).
+/// [`MathAtom::Matrix`]: cells placed via [`matrix_column_widths`] /
+/// [`aligned_column_x`] / [`matrix_cell_x_in_column`] (LL14).
 /// Not OpenType MATH / glyph metrics.
 pub fn layout_math_atom_to_shapes(
     atom: &MathAtom,
     origin: (f64, f64),
 ) -> Vec<reciplexa_scene::Shape> {
     match atom {
+        MathAtom::Matrix {
+            rows, left, right, ..
+        } => layout_math_grid_to_shapes(
+            rows,
+            origin,
+            left.as_deref(),
+            right.as_deref(),
+            /* cases-style left brace ⇒ left-align cells */ left.is_some(),
+        ),
         MathAtom::Delimiter {
             left,
             right,
@@ -1404,6 +1415,88 @@ fn layout_fence_chars(
             })
         })
         .collect()
+}
+
+/// Matrix / cases grid → scene shapes using column-width bands (LL14).
+///
+/// When `left_align` is true (delimited / cases), cells use
+/// [`cases_column_align`]; otherwise columns are centered.
+fn layout_math_grid_to_shapes(
+    rows: &[Vec<MathAtom>],
+    origin: (f64, f64),
+    left: Option<&str>,
+    right: Option<&str>,
+    left_align: bool,
+) -> Vec<reciplexa_scene::Shape> {
+    let col_widths = matrix_column_widths(rows);
+    let row_heights: Vec<f64> = rows
+        .iter()
+        .map(|row| {
+            row.iter()
+                .map(|c| c.estimate_box().total_height())
+                .fold(0.0_f64, f64::max)
+                .max(0.5)
+        })
+        .collect();
+    let gaps = 0.2_f64;
+    let content_h: f64 = if row_heights.is_empty() {
+        0.5
+    } else {
+        row_heights.iter().sum::<f64>() + gaps * (row_heights.len().saturating_sub(1) as f64)
+    };
+    let left_pad = left.map(delimiter_fence_pad_em).unwrap_or(0.0);
+    let right_pad = right.map(delimiter_fence_pad_em).unwrap_or(0.0);
+    let grid_w: f64 = if col_widths.is_empty() {
+        0.0
+    } else {
+        col_widths.iter().sum::<f64>() + ALIGNED_COLUMN_GUTTER_EM * col_widths.len() as f64
+    };
+
+    let mut shapes = Vec::new();
+    if let Some(l) = left {
+        let max_row = row_heights
+            .iter()
+            .copied()
+            .fold(0.0_f64, f64::max)
+            .max(CASES_ROW_HEIGHT_EM);
+        let brace_total = cases_brace_total_height_em(rows.len(), max_row);
+        shapes.extend(layout_fence_chars(l, origin, brace_total, left_pad));
+    }
+
+    // Top of first row sits `content_h * 0.55` above the shared baseline (matches
+    // undelimited grid estimate height/depth split).
+    let mut y_cursor = content_h * 0.55;
+    for (ri, row) in rows.iter().enumerate() {
+        let rh = row_heights.get(ri).copied().unwrap_or(0.5);
+        let row_baseline = y_cursor - rh * 0.55;
+        for (ci, cell) in row.iter().enumerate() {
+            let cell_box = cell.estimate_box();
+            let col_w = col_widths.get(ci).copied().unwrap_or(cell_box.width);
+            let align = if left_align {
+                cases_column_align(ci)
+            } else {
+                MatrixColumnAlign::Center
+            };
+            let dx = left_pad
+                + aligned_column_x(rows, ci)
+                + matrix_cell_x_in_column(cell_box.width, col_w, align);
+            let o = math_offset_to_scene_mm(origin, dx, row_baseline);
+            shapes.extend(layout_math_atom_to_shapes(cell, o));
+        }
+        y_cursor -= rh + gaps;
+    }
+
+    if let Some(r) = right {
+        let max_row = row_heights
+            .iter()
+            .copied()
+            .fold(0.0_f64, f64::max)
+            .max(CASES_ROW_HEIGHT_EM);
+        let brace_total = cases_brace_total_height_em(rows.len(), max_row);
+        let right_origin = math_offset_to_scene_mm(origin, left_pad + grid_w, 0.0);
+        shapes.extend(layout_fence_chars(r, right_origin, brace_total, right_pad));
+    }
+    shapes
 }
 
 fn layout_math_linearize_glyphs(
