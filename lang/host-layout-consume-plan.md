@@ -128,3 +128,55 @@ cargo test -p reciplexa-package --offline --test graphics_bridge_coverage
 | HC6 — Plan: PDF smoke units | **done** |
 | HC7 — Long JA → PDF multiple `Tj` | **done** |
 | HC8 — Docs status | **done** |
+
+## Follow-on (HC9–HC10 + host PKG/math)
+
+### HC9 — Long JA paragraph SVG smoke test
+
+- Mirror HC7: package document long JA `paragraph` → bridge → `document_to_svg`.
+- Assert ≥2 SVG `<text` elements (no CJK font gate — SVG embeds content strings).
+- **Commit.**
+
+### HC10 — GUI preview metrics in status / debug
+
+- Prefer a status-bar or debug line from `preview_doc_text_metrics` when the
+  live preview already has a clear chrome hook.
+- **Skip** if the GUI only has page/zoom chrome without a dedicated status/
+  debug strip (do not invent a new panel).
+- **Commit or skip.**
+
+### OPEN-PKG — deepen registry refusal
+
+- Structured machine-facing code (`OPEN-PKG-001`) on
+  [`WorkspaceError::RegistryUnavailable`] plus a checked-in workspace fixture
+  that refuses `source registry` without network I/O.
+- **Commit.**
+
+### Inspect-document math main
+
+- When `inspect-document` cannot build a document snapshot and the source looks
+  math-ish (`import math/…`), call `estimate_package_math_main` and print a
+  one-line fontless box estimate.
+- **Commit.**
+
+Gate (HC9 / OPEN-PKG):
+
+```bat
+set CARGO_TARGET_DIR=d:\reciplexa\target
+set TEMP=d:\reciplexa\.tmp
+set TMP=d:\reciplexa\.tmp
+cargo test -p reciplexa-package --offline --test graphics_bridge_coverage --test workspace_tests
+```
+
+Gate (inspect math):
+
+```bat
+cargo test -p reciplexa --offline --lib inspect_document
+```
+
+| Unit | Status |
+|------|--------|
+| HC9 — Long JA → SVG multiple `<text` | pending |
+| HC10 — GUI metrics status/debug | pending (skip if no hook) |
+| OPEN-PKG — structured registry refusal | pending |
+| Inspect-document math main | pending |
