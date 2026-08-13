@@ -1153,3 +1153,41 @@ cargo test -p reciplexa-std -p reciplexa-eval -p reciplexa-core -p reciplexa-pac
 - Font-backed ruby / tate-chu-yoko / real vertical metrics / bou placement; OpenType `vert`/`vrt2` / CSS `text-orientation`.
 - OpenType MATH stretchy fences, accent/script/stackrel attachment, real matrix column alignment / big-op / fraction/radical / full muskip style table / real phantom atoms; cases brace stretch.
 - Document/GUI pipeline consuming boxes as production layout; load-time resource rewrite beyond fail-soft attach; registry resolve + checksum verification (OPEN-PKG-001).
+
+## Wave 25 — cases / choice left brace stretch (S0–S2)
+
+Honest scope: `math-cases` / delimited matrix left brace uses stretchy-delimiter-inspired height `nrows × row_height` (`cases_brace_total_height_em`, floor `CASES_ROW_HEIGHT_EM`). Not OpenType MATH stretchy fences.
+
+Gate:
+
+```bat
+set CARGO_TARGET_DIR=d:\reciplexa\target
+set TEMP=d:\reciplexa\.tmp
+set TMP=d:\reciplexa\.tmp
+cargo test -p reciplexa-std -p reciplexa-eval -p reciplexa-core -p reciplexa-package --offline
+```
+
+| Unit | Status |
+|------|--------|
+| S0 — Strengthen cases brace height | **done** |
+| S1 — Test | **done** |
+| S2 — Docs | **done** |
+
+### S0 — Heuristic
+
+- Delimiter atoms already stretched with body; grid `estimate_box` only padded width. Strengthen left-delimited cases: brace total = `rows × max(max_row_h, CASES_ROW_HEIGHT_EM)`. **Commit.**
+
+### S1 — Test
+
+- `math_cases_left_brace_height_tracks_rows_times_row_height`. **Commit.**
+
+### S2 — Docs
+
+- Mark Wave 25 done; math package / implemented-features notes. **Commit.**
+
+## Remains after Wave 25
+
+- Full UCS membership + normative JLReq §C break matrix + real hanging/justification / word-break / paragraph composition (punctuation packing not wired into `break_line` / `char_em_width`); JA line-head/end trimming stubs.
+- Font-backed ruby / tate-chu-yoko / real vertical metrics / bou placement; OpenType `vert`/`vrt2` / CSS `text-orientation`.
+- OpenType MATH stretchy fences, accent/script/stackrel attachment, real matrix column alignment / big-op / fraction/radical / full muskip style table / real phantom atoms.
+- Document/GUI pipeline consuming boxes as production layout; load-time resource rewrite beyond fail-soft attach; registry resolve + checksum verification (OPEN-PKG-001).
