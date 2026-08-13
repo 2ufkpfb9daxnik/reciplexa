@@ -11,6 +11,8 @@ reciplexa-core = { workspace = true }
 reciplexa-macro = { workspace = true }
 reciplexa-outcome = { workspace = true }
 reciplexa-scene = { workspace = true }
+reciplexa-std = { workspace = true }
 reciplexa-syntax = { workspace = true }
+reciplexa-identity = { workspace = true }
 
 [dev-dependencies]

@@ -2934,9 +2934,11 @@ name = "reciplexa-eval"
 version = "0.1.0"
 dependencies = [
  "reciplexa-core",
+ "reciplexa-identity",
  "reciplexa-macro",
  "reciplexa-outcome",
  "reciplexa-scene",
+ "reciplexa-std",
  "reciplexa-syntax",
 ]
 
