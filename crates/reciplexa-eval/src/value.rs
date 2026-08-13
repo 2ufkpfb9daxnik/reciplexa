@@ -99,6 +99,8 @@ pub enum BuiltinOp {
     RubyBox,
     /// Tate-chu-yoko width stub — body string → Number advance width (em).
     TateChuYokoWidth,
+    /// Hangable EOL policy stub — string (first char) → Number hang width (em).
+    HangWidth,
 }
 
 impl fmt::Debug for RuntimeValue {

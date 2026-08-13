@@ -76,6 +76,10 @@ pub fn primitive_env() -> HashMap<String, RuntimeValue> {
         "tate-chu-yoko-width".into(),
         RuntimeValue::Builtin(BuiltinOp::TateChuYokoWidth),
     );
+    env.insert(
+        "hang-width".into(),
+        RuntimeValue::Builtin(BuiltinOp::HangWidth),
+    );
     env
 }
 
@@ -1458,6 +1462,29 @@ fn apply_builtin(op: BuiltinOp, args: Vec<RuntimeValue>) -> Result<Outcome, Eval
             let w = reciplexa_std::japanese::TateChuYoko::new(body)
                 .estimate_box()
                 .advance_width;
+            Ok(Outcome::Value(RuntimeValue::Number(w)))
+        }
+        BuiltinOp::HangWidth => {
+            if args.len() != 1 {
+                return Err(EvalError {
+                    message: format!(
+                        "builtin `hang-width` expects 1 arg, got {}",
+                        args.len()
+                    ),
+                });
+            }
+            let s = match &args[0] {
+                RuntimeValue::String(text) => text.as_str(),
+                _ => {
+                    return Err(EvalError {
+                        message: "builtin `hang-width` expects string argument".into(),
+                    });
+                }
+            };
+            let ch = s.chars().next().ok_or_else(|| EvalError {
+                message: "builtin `hang-width` expects non-empty string".into(),
+            })?;
+            let w = reciplexa_std::japanese::hang_width_em_char(ch);
             Ok(Outcome::Value(RuntimeValue::Number(w)))
         }
     }
