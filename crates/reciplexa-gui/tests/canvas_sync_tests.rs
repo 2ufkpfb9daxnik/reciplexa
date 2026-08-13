@@ -40,14 +40,16 @@ fn japanese_page_text_nudge_keeps_sibling() {
 fn markup_expanded_paint_align_false_nudge_soft() {
     let authoring = include_str!("../../../examples/markup_ja.rpx");
     let expanded = reciplexa_macro::expand_source(authoring).expect("markup expands");
-    // Expanded buffer is drawable (has page layers); authoring is markup-only.
+    // Expanded buffer is package-shaped; authoring is markup-only — not CST-editable.
     assert!(
         !authoring_layers_align(authoring, &expanded, 0).unwrap(),
-        "synthetic markup layers must not claim authoring editability"
+        "package-emitted markup layers must not claim authoring editability"
     );
     let err = nudge_authoring_layers(authoring, &expanded, 0, &[0], 2.0, -1.0).unwrap_err();
     assert!(
-        err.message.contains("read-only") || err.message.contains("skipped"),
+        err.message.contains("read-only")
+            || err.message.contains("skipped")
+            || err.message.contains("package"),
         "{}",
         err.message
     );

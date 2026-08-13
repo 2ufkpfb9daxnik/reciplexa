@@ -35,7 +35,7 @@ impl ExpandError {
     }
 }
 
-/// Document-pipeline surface macros (`color-byte`, `markup`→`page`, …).
+/// Document-pipeline surface macros (`color-byte`, `markup`→package graphics, …).
 ///
 /// Known surface macros always rewrite to forms without the same heads, so the
 /// loop is guaranteed to terminate without an artificial iteration cap.
@@ -254,7 +254,7 @@ fn find_rule(root: &SyntaxNode) -> Option<(usize, usize, String)> {
 fn find_markup(root: &SyntaxNode) -> Option<(usize, usize, String)> {
     use reciplexa_syntax::markup_parts;
 
-    use crate::doc_layout::{place_items, DocFrame, PlacedItem};
+    use crate::doc_layout::{place_items, DocFrame};
 
     for child in root.children() {
         if child.kind() != SyntaxKind::List {
@@ -272,76 +272,102 @@ fn find_markup(root: &SyntaxNode) -> Option<(usize, usize, String)> {
         let range = child.text_range();
         let start: usize = range.start().into();
         let end: usize = range.end().into();
-        let replacement = if laid.is_empty() {
+        let placed = place_items(&laid, DocFrame::A4);
+        // Empty / pagebreak-only markup stays interim CST (no drawable package content).
+        let replacement = if placed.is_empty() {
             "(page a4)".to_string()
         } else {
-            let placed = place_items(&laid, DocFrame::A4);
-            let page_count = placed
-                .iter()
-                .map(PlacedItem::page_index)
-                .max()
-                .map(|p| p + 1)
-                .unwrap_or(1);
-            let mut repl = String::new();
-            for page in 0..page_count {
-                if page > 0 {
-                    repl.push('\n');
-                }
-                repl.push_str("(page a4");
-                for p in placed.iter().filter(|p| p.page_index() == page) {
-                    match p {
-                        PlacedItem::Text(t) => {
-                            repl.push_str(&format!(
-                                " (text {} {} {} {} black)",
-                                format_frac(t.x_mm),
-                                format_frac(t.y_mm),
-                                format_frac(t.size_mm),
-                                escape_lisp_string(&t.content)
-                            ));
-                        }
-                        PlacedItem::Line {
-                            x1_mm,
-                            y1_mm,
-                            x2_mm,
-                            y2_mm,
-                            width_mm,
-                            ..
-                        } => {
-                            repl.push_str(&format!(
-                                " (line {} {} {} {} black {})",
-                                format_frac(*x1_mm),
-                                format_frac(*y1_mm),
-                                format_frac(*x2_mm),
-                                format_frac(*y2_mm),
-                                format_frac(*width_mm)
-                            ));
-                        }
-                        PlacedItem::Image {
-                            path,
-                            x_mm,
-                            y_mm,
-                            width_mm,
-                            height_mm,
-                            ..
-                        } => {
-                            repl.push_str(&format!(
-                                " (image {} {} {} {} {})",
-                                escape_lisp_string(path),
-                                format_frac(*x_mm),
-                                format_frac(*y_mm),
-                                format_frac(*width_mm),
-                                format_frac(*height_mm)
-                            ));
-                        }
-                    }
-                }
-                repl.push(')');
-            }
-            repl
+            emit_markup_as_package_graphics(&placed)
         };
         return Some((start, end, replacement));
     }
     None
+}
+
+/// Emit layout-preserving graphics package constructors (`text` / `line` / `image` + `page`).
+///
+/// Routes through the package domain bridge (`(import graphics` + `(val main`) so PDF /
+/// GUI preview stay close to the former interim `(page …)` emit without keyword tables.
+fn emit_markup_as_package_graphics(placed: &[crate::doc_layout::PlacedItem]) -> String {
+    use crate::doc_layout::PlacedItem;
+
+    let page_count = placed
+        .iter()
+        .map(PlacedItem::page_index)
+        .max()
+        .map(|p| p + 1)
+        .unwrap_or(1);
+
+    let mut body = String::new();
+    body.push_str(
+        "(import graphics/shapes only text line image stroke)\n\
+(import graphics/page only a4 page)\n\
+(import graphics/color only black)\n\
+(val main ",
+    );
+    if page_count > 1 {
+        body.push_str("(list");
+    }
+    for page in 0..page_count {
+        if page_count > 1 {
+            body.push('\n');
+            body.push_str("  ");
+        }
+        body.push_str("(page a4 (list");
+        for p in placed.iter().filter(|p| p.page_index() == page) {
+            match p {
+                PlacedItem::Text(t) => {
+                    body.push_str(&format!(
+                        "\n    (text {} {} {} {})",
+                        format_frac(t.x_mm),
+                        format_frac(t.y_mm),
+                        format_frac(t.size_mm),
+                        escape_lisp_string(&t.content)
+                    ));
+                }
+                PlacedItem::Line {
+                    x1_mm,
+                    y1_mm,
+                    x2_mm,
+                    y2_mm,
+                    width_mm,
+                    ..
+                } => {
+                    body.push_str(&format!(
+                        "\n    (stroke (line {} {} {} {}) {} black)",
+                        format_frac(*x1_mm),
+                        format_frac(*y1_mm),
+                        format_frac(*x2_mm),
+                        format_frac(*y2_mm),
+                        format_frac(*width_mm)
+                    ));
+                }
+                PlacedItem::Image {
+                    path,
+                    x_mm,
+                    y_mm,
+                    width_mm,
+                    height_mm,
+                    ..
+                } => {
+                    body.push_str(&format!(
+                        "\n    (image {} {} {} {} {})",
+                        escape_lisp_string(path),
+                        format_frac(*x_mm),
+                        format_frac(*y_mm),
+                        format_frac(*width_mm),
+                        format_frac(*height_mm)
+                    ));
+                }
+            }
+        }
+        body.push_str("))");
+    }
+    if page_count > 1 {
+        body.push(')');
+    }
+    body.push(')');
+    body
 }
 
 pub fn escape_lisp_string(s: &str) -> String {

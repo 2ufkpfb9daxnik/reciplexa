@@ -1,7 +1,6 @@
-//! Markup preview: expand-first pipeline keeps layer sync aligned with shapes.
+//! Markup preview: expand → package domain bridge (N5.2d).
 
-use reciplexa::pipeline::{document_from_source, expand};
-use reciplexa_lower::collect_layers_page;
+use reciplexa::pipeline::{document_from_source, expand, wants_package_graphics_path};
 use reciplexa_scene::Shape;
 
 fn leaf_shape_count(shapes: &[Shape]) -> usize {
@@ -23,16 +22,25 @@ fn assert_markup_preview(path: &str) {
     });
     let expanded =
         expand(&src).unwrap_or_else(|e| panic!("expand failed for {path}: {}", e.display()));
-    let layers = collect_layers_page(&expanded, 0)
-        .unwrap_or_else(|e| panic!("collect_layers_page failed for {path}: {}", e.message));
+    assert!(
+        wants_package_graphics_path(&expanded),
+        "{path}: markup expand should emit package graphics path\n{expanded}"
+    );
+    assert!(
+        expanded.contains("(import graphics"),
+        "{path}: expected graphics package imports"
+    );
+    assert!(
+        expanded.contains("(val main"),
+        "{path}: expected package main entry"
+    );
     let page = doc
         .pages
         .first()
-        .unwrap_or_else(|| panic!("{path}: no pages after lower"));
-    assert_eq!(
-        layers.len(),
-        leaf_shape_count(&page.shapes),
-        "{path}: layer/shape mismatch after expand"
+        .unwrap_or_else(|| panic!("{path}: no pages after package bridge"));
+    assert!(
+        leaf_shape_count(&page.shapes) > 0,
+        "{path}: expected drawable shapes after bridge"
     );
 }
 
