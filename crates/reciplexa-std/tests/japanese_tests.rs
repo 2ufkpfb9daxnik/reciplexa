@@ -424,3 +424,32 @@ fn break_line_edges_and_ascii_half_width() {
         vec!["ABCD".to_string(), "EF".to_string()]
     );
 }
+
+/// Demo: wrap a short Japanese sentence with mixed ASCII via `break_line`.
+#[test]
+fn break_line_short_japanese_phrase_demo() {
+    // 「今日は良い天気です。」 — ideographs ≈ 1em; kinsoku keeps 。 with です.
+    let text = "「今日は良い天気です。」";
+    let lines = break_line(text, 5.0);
+    assert!(
+        lines.len() >= 2,
+        "expected wrap into ≥2 lines: {lines:?}"
+    );
+    assert!(
+        lines.iter().all(|l| !l.starts_with('。')),
+        "kinsoku: 。 must not start a line: {lines:?}"
+    );
+    assert!(
+        lines.iter().all(|l| !l.ends_with('「')),
+        "kinsoku: 「 must not end a line: {lines:?}"
+    );
+    // Reassemble without inserted breaks.
+    let joined: String = lines.concat();
+    assert_eq!(joined, text);
+    // Mixed ASCII half-width: "AB東京CD" at 3em → AB(1) + 東京(2) = 3, then CD.
+    let mixed = break_line("AB東京CD", 3.0);
+    assert_eq!(
+        mixed,
+        vec!["AB東京".to_string(), "CD".to_string()]
+    );
+}
