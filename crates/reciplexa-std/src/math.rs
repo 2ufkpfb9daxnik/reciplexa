@@ -1189,12 +1189,55 @@ fn estimate_grid_box(
 /// Millimeters per em for naive math → Text glyph placement (matches doc paragraph size).
 pub const MATH_LAYOUT_EM_TO_MM: f64 = 4.0;
 
-/// Very naive math atom → scene Text glyphs from [`MathAtom::linearize`].
+/// Convert math-space offset (em; **y upward** from baseline) to scene mm
+/// (y downward). `origin` is the baseline point in scene mm.
+fn math_offset_to_scene_mm(origin: (f64, f64), dx_em: f64, dy_em: f64) -> (f64, f64) {
+    (
+        origin.0 + dx_em * MATH_LAYOUT_EM_TO_MM,
+        origin.1 - dy_em * MATH_LAYOUT_EM_TO_MM,
+    )
+}
+
+/// Very naive math atom → scene Text glyphs (and occasional Line rules).
 ///
-/// Places one [`reciplexa_scene::Text`] per Unicode scalar in the linearized
-/// string at `origin`, advancing by `estimate_box().width / n` (monospace
-/// heuristic). Not OpenType MATH / glyph metrics / script placement.
+/// Default: one [`reciplexa_scene::Text`] per Unicode scalar in
+/// [`MathAtom::linearize`], advancing by `estimate_box().width / n`
+/// (monospace heuristic).
+///
+/// [`MathAtom::Scripts`]: base at `origin`, sub/sup placed via
+/// [`scripts_attachment_offsets`] (LL7). Not OpenType MATH / glyph metrics.
 pub fn layout_math_atom_to_shapes(
+    atom: &MathAtom,
+    origin: (f64, f64),
+) -> Vec<reciplexa_scene::Shape> {
+    match atom {
+        MathAtom::Scripts {
+            base,
+            superscript,
+            subscript,
+            ..
+        } => {
+            let base_box = base.estimate_box();
+            let sub_box = subscript.as_ref().map(|s| s.estimate_box());
+            let sup_box = superscript.as_ref().map(|s| s.estimate_box());
+            let (sub_x, sub_y, sup_x, sup_y) =
+                scripts_attachment_offsets(base_box, sub_box, sup_box);
+            let mut shapes = layout_math_atom_to_shapes(base, origin);
+            if let Some(sub) = subscript {
+                let o = math_offset_to_scene_mm(origin, sub_x, sub_y);
+                shapes.extend(layout_math_atom_to_shapes(sub, o));
+            }
+            if let Some(sup) = superscript {
+                let o = math_offset_to_scene_mm(origin, sup_x, sup_y);
+                shapes.extend(layout_math_atom_to_shapes(sup, o));
+            }
+            shapes
+        }
+        _ => layout_math_linearize_glyphs(atom, origin),
+    }
+}
+
+fn layout_math_linearize_glyphs(
     atom: &MathAtom,
     origin: (f64, f64),
 ) -> Vec<reciplexa_scene::Shape> {

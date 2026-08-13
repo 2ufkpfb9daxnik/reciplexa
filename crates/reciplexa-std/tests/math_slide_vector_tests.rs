@@ -398,6 +398,47 @@ fn math_scripts_attachment_offsets_heuristic() {
     assert_eq!(none, (0.0, 0.0, 0.0, 0.0));
 }
 
+/// LL7: Scripts layout places sub/sup via scripts_attachment_offsets (not flat linearize).
+#[test]
+fn layout_math_scripts_positions_sub_sup() {
+    use reciplexa_scene::Shape;
+    use reciplexa_std::math::{
+        layout_math_atom_to_shapes, scripts_attachment_offsets, MATH_LAYOUT_EM_TO_MM,
+    };
+
+    let base = MathAtom::symbol(id(1), "x", MathClass::Ordinary);
+    let sub = MathAtom::symbol(id(2), "i", MathClass::Ordinary);
+    let sup = MathAtom::symbol(id(3), "2", MathClass::Ordinary);
+    let atom = MathAtom::scripts(id(4), base.clone(), Some(sup.clone()), Some(sub.clone()));
+    let origin = (10.0, 100.0);
+    let shapes = layout_math_atom_to_shapes(&atom, origin);
+    let texts: Vec<_> = shapes
+        .iter()
+        .filter_map(|s| match s {
+            Shape::Text(t) => Some(t),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(texts.len(), 3, "base + sub + sup glyphs: {texts:?}");
+    let base_t = texts.iter().find(|t| t.content == "x").expect("base");
+    let sub_t = texts.iter().find(|t| t.content == "i").expect("sub");
+    let sup_t = texts.iter().find(|t| t.content == "2").expect("sup");
+    assert!((base_t.x_mm - origin.0).abs() < 1e-9);
+    assert!((base_t.y_mm - origin.1).abs() < 1e-9);
+
+    let (sub_x, sub_y, sup_x, sup_y) = scripts_attachment_offsets(
+        base.estimate_box(),
+        Some(sub.estimate_box()),
+        Some(sup.estimate_box()),
+    );
+    assert!((sub_t.x_mm - (origin.0 + sub_x * MATH_LAYOUT_EM_TO_MM)).abs() < 1e-9);
+    assert!((sub_t.y_mm - (origin.1 - sub_y * MATH_LAYOUT_EM_TO_MM)).abs() < 1e-9);
+    assert!((sup_t.x_mm - (origin.0 + sup_x * MATH_LAYOUT_EM_TO_MM)).abs() < 1e-9);
+    assert!((sup_t.y_mm - (origin.1 - sup_y * MATH_LAYOUT_EM_TO_MM)).abs() < 1e-9);
+    assert!(sub_t.y_mm > base_t.y_mm, "sub below base in scene y-down");
+    assert!(sup_t.y_mm < base_t.y_mm, "sup above base in scene y-down");
+}
+
 #[test]
 fn math_bigop_limit_offsets_heuristic() {
     use reciplexa_std::math::{bigop_limit_offsets, MathBox, SCRIPT_SCALE};
