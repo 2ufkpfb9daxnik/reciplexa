@@ -243,35 +243,44 @@ impl fmt::Display for CharClass {
 /// through to coarse buckets (ideographic / western / other). Coverage is
 /// intentionally broader than the package `classify-sample` glyph list, still
 /// a subset of JLReq appendix A.
+///
+/// **Gaps (Wave 5 Y0 still open):** full JLReq appendix A membership for every
+/// scalar; cl-18 grouped numerals / cl-28 attached western / cl-30 tate-chu-yoko
+/// detection; most Enclosed CJK Letters (U+3200–32FF) beyond a sample; full
+/// CJK Compatibility (U+3300–33FF) unit/square set; vertical presentation forms;
+/// emoji / pictographs; and normative pair-matrix class nuance beyond coarse
+/// buckets.
 pub fn classify_char(c: char) -> CharClass {
     // Specific punctuation / symbols first (mirrors package classify-sample +
-    // common JLReq appendix A samples).
+    // common JLReq appendix A samples + Wave 5 UCS-ish expansions).
     match c {
-        // cl-01 — opening brackets (fullwidth + halfwidth + CJK quotation).
+        // cl-01 — opening brackets (fullwidth + halfwidth + CJK / general punct quotes).
         '「' | '『' | '（' | '〔' | '［' | '｛' | '〈' | '《' | '【' | '〖' | '〘' | '〚' | '｢'
-        | '〝' | '‘' | '“' | '(' | '[' | '{' => {
+        | '〝' | '‘' | '“' | '‚' | '‛' | '‟' | '‹' | '«' | '(' | '[' | '{' => {
             return CharClass::OpeningBrackets;
         }
         // cl-02 — closing brackets.
         '」' | '』' | '）' | '〕' | '］' | '｝' | '〉' | '》' | '】' | '〗' | '〙' | '〛' | '｣'
-        | '〞' | '〟' | '’' | '”' | ')' | ']' | '}' => {
+        | '〞' | '〟' | '’' | '”' | '„' | '›' | '»' | ')' | ']' | '}' => {
             return CharClass::ClosingBrackets;
         }
         // cl-29 / cl-26 — warichu brackets (subset).
         '｟' | '⸨' => return CharClass::WarichuOpen,
         '｠' | '⸩' => return CharClass::WarichuClose,
-        // cl-03 — hyphens / wave dashes / wavy overlines / swung dash.
+        // cl-03 — hyphens / wave dashes / wavy overlines / swung dash / general punct.
         '—' | '–' | '‐' | '‑' | '‒' | '―' | '−' | '-' | '－' | '﹣' | '〜' | '～' | '〰'
-        | '゠' | '⁓' | '∿' | '﹏' | '﹋' | '﹌' => {
+        | '゠' | '⁓' | '∿' | '﹏' | '﹋' | '﹌' | '⁃' => {
             return CharClass::Hyphens;
         }
-        // cl-04 — dividing punctuation (incl. ideographic closing mark / fraction slash).
-        '！' | '？' | '‼' | '⁇' | '⁈' | '⁉' | '!' | '?' | '〆' | '／' | '＼' | '⁄' | '⧸' | '⧹' =>
-        {
+        // cl-04 — dividing punctuation (incl. ideographic closing mark / fraction slash /
+        // general punctuation double marks / fullwidth reverse solidus family).
+        '！' | '？' | '‼' | '⁇' | '⁈' | '⁉' | '!' | '?' | '〆' | '／' | '＼' | '⁄' | '⧸' | '⧹'
+        | '†' | '‡' | '‽' | '⁎' | '⁕' => {
             return CharClass::DividingPunctuation;
         }
-        // cl-05 — middle dots / colon-like separators.
-        '・' | '·' | '･' | '∶' | '︰' | ':' | '：' | ';' | '；' | '⁚' | '⁝' => {
+        // cl-05 — middle dots / colon-like separators / bullet-ish general punct.
+        '・' | '·' | '･' | '∶' | '︰' | ':' | '：' | ';' | '；' | '⁚' | '⁝' | '•' | '‣' | '․'
+        | '⁏' | '﹕' | '﹔' => {
             return CharClass::MiddleDots;
         }
         // cl-06 / cl-07 — stops and commas (fullwidth + halfwidth CJK forms).
@@ -285,16 +294,16 @@ pub fn classify_char(c: char) -> CharClass {
         '々' | 'ゝ' | 'ゞ' | 'ヽ' | 'ヾ' | '〻' => return CharClass::IterationMarks,
         'ー' | 'ｰ' | 'ㅡ' => return CharClass::ProlongedSoundMark,
         // cl-12 / cl-13 — prefixed / postfixed abbreviations (fullwidth currency/sign).
-        '〒' | '￥' | '＄' | '￡' | '＃' | '№' | '＠' | '#' | '$' | '¥' | '£' | '€' | '₩' | '@' =>
-        {
+        '〒' | '￥' | '＄' | '￡' | '￦' | '＃' | '№' | '＠' | '#' | '$' | '¥' | '£' | '€' | '₩'
+        | '@' | '〠' | '〶' => {
             return CharClass::PrefixedAbbreviations;
         }
-        '％' | '%' | '‰' | '℃' | '°' | '′' | '″' | '㌫' | '￠' => {
+        '％' | '%' | '‰' | '‱' | '℃' | '℉' | '°' | '′' | '″' | '‴' | '㌫' | '￠' => {
             return CharClass::PostfixedAbbreviations;
         }
         // cl-17 — math / equality-like symbols (ASCII + fullwidth operators).
         '＝' | '=' | '≠' | '≦' | '≧' | '≤' | '≥' | '≈' | '+' | '＋' | '±' | '×' | '÷' | '＜'
-        | '＞' | '<' | '>' | '＆' | '&' => {
+        | '＞' | '<' | '>' | '＆' | '&' | '￤' | '￢' | '￩' | '￪' | '￫' | '￬' => {
             return CharClass::MathSymbols;
         }
         // cl-21 — unit symbols (squared/cubed metric forms + litre + CJK compatibility).
@@ -302,7 +311,7 @@ pub fn classify_char(c: char) -> CharClass {
         | '㌢' | '㍗' | '㌘' | '㌧' | '㌃' | '㌶' | '㍑' | '㍊' | '㌻' => {
             return CharClass::UnitSymbols;
         }
-        // cl-22 — enclosed alphanumerics / circled forms (common subset).
+        // cl-22 — enclosed alphanumerics / circled forms (common subset + CJK circled).
         '①'..='⑳'
         | '⑴'..='⒇'
         | '⒈'..='⒛'
@@ -311,6 +320,8 @@ pub fn classify_char(c: char) -> CharClass {
         | '❶'..='❿'
         | '➀'..='➉'
         | '⓵'..='⓾'
+        | '㈠'..='㈩'
+        | '㊀'..='㊉'
         | '㈱'
         | '㈲'
         | '㈹'
@@ -321,10 +332,11 @@ pub fn classify_char(c: char) -> CharClass {
         | '㊨' => {
             return CharClass::EnclosedAlphanumerics;
         }
-        // cl-23 — ornaments / reference marks / geta / part alternation / masu.
+        // cl-23 — ornaments / reference marks / geta / part alternation / masu /
+        // CJK symbols leftovers that map cleanly as decoration.
         '※' | '＊' | '*' | '☆' | '★' | '○' | '●' | '◎' | '◇' | '◆' | '□' | '■' | '△' | '▲'
         | '▽' | '▼' | '♠' | '♣' | '♥' | '♦' | '〓' | '〽' | '〇' | '￣' | '＾' | '｀' | '｜'
-        | '|' | '^' | '`' | '〄' | '〼' | '✦' | '✧' => {
+        | '|' | '^' | '`' | '〄' | '〼' | '✦' | '✧' | '〷' | '〹' | '〺' => {
             return CharClass::Ornaments;
         }
         // Additional corner / angle brackets (math-ish forms).
@@ -345,6 +357,8 @@ pub fn classify_char(c: char) -> CharClass {
                 | '\u{1680}' // Ogham space
                 | '\u{2000}'..='\u{200A}' // en/em/thin/hair/… spaces
                 | '\u{200B}' // ZWSP (treat as space for linebreak stubs)
+                | '\u{200C}' // ZWNJ
+                | '\u{200D}' // ZWJ
                 | '\u{202F}' // narrow NBSP
                 | '\u{205F}' // medium mathematical space
                 | '\u{3000}' // ideographic space
@@ -354,7 +368,8 @@ pub fn classify_char(c: char) -> CharClass {
         return CharClass::Spaces;
     }
 
-    // cl-11 — small kana (hiragana + katakana + halfwidth small katakana).
+    // cl-11 — small kana (hiragana + katakana + halfwidth small + phonetic extensions).
+    // Complete common small set; vertical presentation forms remain a gap.
     if matches!(
         c,
         'ぁ' | 'ぃ'
@@ -389,16 +404,17 @@ pub fn classify_char(c: char) -> CharClass {
             | 'ｭ'
             | 'ｮ'
             | 'ｯ'
+            // Katakana Phonetic Extensions (U+31F0–31FF) — all small.
+            | 'ㇰ'..='ㇿ'
     ) {
         return CharClass::SmallKana;
     }
 
     match c {
-        // cl-15 / cl-16 — kana blocks (fullwidth + halfwidth katakana).
+        // cl-15 / cl-16 — kana blocks (fullwidth + halfwidth katakana; phonetic
+        // extensions handled as SmallKana above).
         '\u{3040}'..='\u{309F}' => CharClass::Hiragana,
-        '\u{30A0}'..='\u{30FF}' | '\u{31F0}'..='\u{31FF}' | '\u{FF66}'..='\u{FF9D}' => {
-            CharClass::Katakana
-        }
+        '\u{30A0}'..='\u{30FF}' | '\u{FF66}'..='\u{FF9D}' => CharClass::Katakana,
         // cl-20 — ASCII, fullwidth, and common superscript/subscript digits.
         '0'..='9'
         | '０'..='９'
@@ -425,10 +441,16 @@ pub fn classify_char(c: char) -> CharClass {
         // cl-27 — ASCII / fullwidth Latin (package classify-sample maps "A" → 27).
         'A'..='Z' | 'a'..='z' | 'Ａ'..='Ｚ' | 'ａ'..='ｚ' => CharClass::WesternCharacters,
         // cl-24 — underscore / apostrophe-like simple western connectors (subset).
-        '_' | '＿' | '\'' => CharClass::SimpleWestern,
+        '_' | '＿' | '\'' | '＇' | '¨' => CharClass::SimpleWestern,
+        // More Halfwidth and Fullwidth Forms punctuation chunks (U+FF00–FF60)
+        // not matched above → coarse western / ornament-ish.
+        '\u{FF01}'..='\u{FF0F}' | '\u{FF1A}'..='\u{FF20}' | '\u{FF3B}'..='\u{FF40}'
+        | '\u{FF5B}'..='\u{FF65}' => CharClass::DividingPunctuation,
         // Residual CJK Symbols and Punctuation (U+3000–303F) not matched above —
         // treat as ideographic punctuation / square letters.
         '\u{3001}'..='\u{303F}' => CharClass::Ideographic,
+        // General Punctuation leftovers (U+2000–206F) not matched → ornaments.
+        '\u{2010}'..='\u{2027}' | '\u{2030}'..='\u{205E}' => CharClass::Ornaments,
         // cl-25 — Latin-1 / Extended-A letters + combining marks (complex western).
         '\u{00C0}'..='\u{00D6}'
         | '\u{00D8}'..='\u{00F6}'

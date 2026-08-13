@@ -244,3 +244,69 @@ cargo test -p reciplexa-std -p reciplexa-eval -p reciplexa-package --offline
 - Font-backed ruby / tate-chu-yoko / vertical glyph orientation.
 - OpenType MATH stretchy fences, accent attachment, matrix column alignment.
 - Document/GUI pipeline consuming boxes as production layout (beyond light Text shapes / estimate_box).
+
+---
+
+## Wave 5 — UCS broaden + vertical / justify / scripts stubs (Y0–Y5)
+
+Honest scope: **still stubs / subset tables** — not full JLReq UCS, not real vertical metrics, not production justification or OpenType MATH script attachment.
+
+Gate:
+
+```bat
+set CARGO_TARGET_DIR=d:\reciplexa\target
+set TEMP=d:\reciplexa\.tmp
+set TMP=d:\reciplexa\.tmp
+cargo test -p reciplexa-std --offline
+```
+
+When package path touched (Y2): also `cargo test -p reciplexa-package --offline`.
+
+| Unit | Status |
+|------|--------|
+| Y0 — Broader UCS-ish `classify_char` tables | **done** |
+| Y1 — Vertical metrics stub | **pending** |
+| Y2 — Auto-materialize `package-resource` in package document path | **pending** |
+| Y3 — Justification stub | **pending** |
+| Y4 — Math scripts position stub | **pending** |
+| Y5 — Docs + `implemented-features` | **pending** |
+
+### Y0 — Broader UCS-ish classify tables
+
+- Expand `classify_char` with more Unicode ranges that map cleanly (CJK symbols block chunks, more fullwidth, complete small-kana set incl. phonetic extensions, general punctuation).
+- Still a **subset** — document remaining gaps in module/fn docs.
+- Tests. **Commit.**
+
+### Y1 — Vertical metrics stub
+
+- `vertical_advance_em(c)` / line advance for `vertical-rl` using char classes.
+- Optional simple `break_line_vertical` stub.
+- Tests. **Commit.**
+
+### Y2 — Auto-materialize package-resource in package eval path
+
+- When `document_from_package_entry` / a small helper evaluates and finds `package-resource` records in the value tree, materialize paths (or attach a resolved path field).
+- Fail-soft if not listed / no package root.
+- Tests. **Commit:** `Auto-materialize package-resource records in package document path.`
+
+### Y3 — Justification stub
+
+- `justify_line(chars, target_em) -> Vec<(char, x_em)>` — naive distribute extra space at `Allowed` breaks only.
+- Tests. **Commit.**
+
+### Y4 — Math scripts position stub
+
+- `scripts_attachment_offsets(base_box, sub_box, sup_box) -> (sub_x, sub_y, sup_x, sup_y)` heuristic.
+- **Commit.**
+
+### Y5 — Docs + implemented-features
+
+- Mark Wave 5 done in this plan; update `lang/implemented-features.md` next-steps.
+- **Commit.**
+
+## Remains after Wave 5
+
+- Full UCS membership + normative JLReq §C break matrix + real hanging/justification.
+- Font-backed ruby / tate-chu-yoko / vertical glyph orientation / real vertical metrics.
+- OpenType MATH stretchy fences, accent/script attachment, matrix column alignment.
+- Document/GUI pipeline consuming boxes as production layout; load-time resource rewrite beyond fail-soft attach.

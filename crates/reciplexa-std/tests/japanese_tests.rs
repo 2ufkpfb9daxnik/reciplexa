@@ -151,6 +151,43 @@ fn classify_char_cjk_symbols_spaces_wave_dash() {
     assert_eq!(classify_char('㊤'), CharClass::EnclosedAlphanumerics);
 }
 
+/// Wave 5 Y0 — broader UCS-ish tables (still a documented subset).
+#[test]
+fn classify_char_wave5_ucs_ish_expansions() {
+    // General punctuation quotes / guillemets.
+    assert_eq!(classify_char('«'), CharClass::OpeningBrackets);
+    assert_eq!(classify_char('»'), CharClass::ClosingBrackets);
+    assert_eq!(classify_char('‹'), CharClass::OpeningBrackets);
+    assert_eq!(classify_char('›'), CharClass::ClosingBrackets);
+    assert_eq!(classify_char('†'), CharClass::DividingPunctuation);
+    assert_eq!(classify_char('•'), CharClass::MiddleDots);
+    assert_eq!(classify_char('‰'), CharClass::PostfixedAbbreviations);
+    assert_eq!(classify_char('‱'), CharClass::PostfixedAbbreviations);
+    assert_eq!(classify_char('\u{200C}'), CharClass::Spaces); // ZWNJ
+    assert_eq!(classify_char('\u{200D}'), CharClass::Spaces); // ZWJ
+
+    // CJK symbols block chunks.
+    assert_eq!(classify_char('〠'), CharClass::PrefixedAbbreviations);
+    assert_eq!(classify_char('〶'), CharClass::PrefixedAbbreviations);
+    assert_eq!(classify_char('〷'), CharClass::Ornaments);
+    assert_eq!(classify_char('㈠'), CharClass::EnclosedAlphanumerics);
+    assert_eq!(classify_char('㊀'), CharClass::EnclosedAlphanumerics);
+
+    // More fullwidth / currency / math-ish.
+    assert_eq!(classify_char('￦'), CharClass::PrefixedAbbreviations);
+    assert_eq!(classify_char('￢'), CharClass::MathSymbols);
+    assert_eq!(classify_char('＇'), CharClass::SimpleWestern);
+    assert_eq!(classify_char('％'), CharClass::PostfixedAbbreviations);
+
+    // Complete small kana set: phonetic extensions were Katakana before Y0.
+    assert_eq!(classify_char('ㇰ'), CharClass::SmallKana);
+    assert_eq!(classify_char('ㇱ'), CharClass::SmallKana);
+    assert_eq!(classify_char('ッ'), CharClass::SmallKana);
+    assert_eq!(classify_char('ゃ'), CharClass::SmallKana);
+    assert_eq!(classify_char('ﾛ'), CharClass::Katakana); // halfwidth letter, not small
+    assert_eq!(classify_char('ㇿ'), CharClass::SmallKana); // U+31FF
+}
+
 #[test]
 fn break_opportunity_kinsoku_stub() {
     assert!(is_line_head_prohibited(CharClass::FullStops));
