@@ -13,6 +13,7 @@ use reciplexa_eval::{document_from_graphics_value, eval_expr, GraphicsValueError
 use reciplexa_scene::Document;
 
 use crate::load::{elaborate_with_packages, LocalPackageIndex, PackageLoadError};
+use crate::resource_value::maybe_materialize_package_resources_for_entry;
 
 /// Seq for unique temp dirs; module-level so llvm-cov marks static init covered.
 static TEMP_SEQ: AtomicU64 = AtomicU64::new(0);
@@ -97,6 +98,7 @@ pub fn document_from_package_entry(
         .ok_or_else(|| GraphicsBridgeError::Load(format!("missing elaborated unit `{stem}`")))?;
     let v = eval_expr(&demo.expr, &HashMap::new(), &mut UnitHost)
         .map_err(|e| GraphicsBridgeError::Eval(e.message))?;
+    let v = maybe_materialize_package_resources_for_entry(&v, entry_path.as_ref());
     document_from_graphics_value(&v).map_err(Into::into)
 }
 

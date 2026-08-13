@@ -59,7 +59,9 @@ pub use manifest::{
 };
 pub use resolver::{resolve_packages, ResolveError, ResolvedGraph};
 pub use resource_value::{
-    materialize_package_resource, resolve_resource_value, ResourceValueError,
+    find_enclosing_package_root, materialize_package_resource,
+    materialize_package_resources_in_tree, maybe_materialize_package_resources_for_entry,
+    resolve_resource_value, ResourceValueError,
 };
 pub use rpi::parse_rpi_exports;
 pub use rpxm::{parse_rpxm, RpxmError};

@@ -447,3 +447,90 @@ fn language_resource_path_resolves_when_package_root_available() {
     assert!(matches!(err, ResourceValueError::Resolve(_)));
     assert!(!err.to_string().is_empty());
 }
+
+#[test]
+fn auto_materialize_package_resource_tree_and_entry_helper() {
+    use std::fs;
+    use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    use reciplexa_eval::{eval_source, RuntimeValue};
+    use reciplexa_package::{
+        find_enclosing_package_root, materialize_package_resources_in_tree,
+        maybe_materialize_package_resources_for_entry, parse_rpxm,
+    };
+
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../.tmp")
+        .join(format!("pkg-auto-mat-{nanos}"));
+    let _ = fs::remove_dir_all(&root);
+    fs::create_dir_all(root.join("resources/images")).unwrap();
+    fs::write(root.join("resources/images/logo.png"), b"png").unwrap();
+    fs::write(
+        root.join("package.rpxm"),
+        r#"(package demo
+  format-version 1
+  version "1.0.0"
+  (public-modules main)
+  (resources "images/logo.png"))"#,
+    )
+    .unwrap();
+    let entry = root.join("main.rpx");
+    fs::write(&entry, "(val main 1)").unwrap();
+
+    assert_eq!(find_enclosing_package_root(&entry).as_deref(), Some(root.as_path()));
+
+    let m = parse_rpxm(&fs::read_to_string(root.join("package.rpxm")).unwrap()).unwrap();
+    let listed = eval_source(r#"(val main (resource "images/logo.png"))"#).unwrap();
+    let unlisted = eval_source(r#"(val main (resource "images/missing.png"))"#).unwrap();
+    let nested = RuntimeValue::Record(vec![
+        ("ok".into(), listed.clone()),
+        ("bad".into(), unlisted.clone()),
+    ]);
+    let out = materialize_package_resources_in_tree(&nested, &root, &m);
+    let RuntimeValue::Record(fields) = &out else {
+        panic!("record");
+    };
+    let ok = fields.iter().find(|(k, _)| k == "ok").unwrap().1.clone();
+    let RuntimeValue::Record(okf) = ok else {
+        panic!("ok");
+    };
+    let resolved = okf
+        .iter()
+        .find(|(k, _)| k == "resolved-path")
+        .and_then(|(_, v)| match v {
+            RuntimeValue::String(s) => Some(s.as_str()),
+            _ => None,
+        })
+        .expect("resolved-path");
+    assert!(resolved.replace('\\', "/").ends_with("resources/images/logo.png"));
+
+    let bad = fields.iter().find(|(k, _)| k == "bad").unwrap().1.clone();
+    let RuntimeValue::Record(badf) = bad else {
+        panic!("bad");
+    };
+    assert!(!badf.iter().any(|(k, _)| k == "resolved-path"));
+
+    // Entry helper finds package root and materializes.
+    let via_entry = maybe_materialize_package_resources_for_entry(&listed, &entry);
+    let RuntimeValue::Record(ef) = via_entry else {
+        panic!("entry");
+    };
+    assert!(ef.iter().any(|(k, _)| k == "resolved-path"));
+
+    // Outside any package → unchanged.
+    let orphan = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../.tmp")
+        .join(format!("pkg-orphan-{nanos}/x.rpx"));
+    fs::create_dir_all(orphan.parent().unwrap()).unwrap();
+    fs::write(&orphan, "x").unwrap();
+    let same = maybe_materialize_package_resources_for_entry(&listed, &orphan);
+    let RuntimeValue::Record(sf) = same else {
+        panic!("orphan");
+    };
+    assert!(!sf.iter().any(|(k, _)| k == "resolved-path"));
+}
