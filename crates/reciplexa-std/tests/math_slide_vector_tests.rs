@@ -148,6 +148,63 @@ fn math_accent_clearance_above_and_below_base() {
 }
 
 #[test]
+fn math_accent_clearance_table_covers_named_accents() {
+    use reciplexa_std::math::{
+        accent_clearance_em, accent_clearance_em_named, MathAccentKind, ACCENT_CLEARANCE_EM,
+        ACCENT_UNDER_CLEARANCE_EM, ACCENT_WIDE_EXTRA_EM, UNDERBRACE_CLEARANCE_EM,
+    };
+
+    let compact = [
+        MathAccentKind::Hat,
+        MathAccentKind::Check,
+        MathAccentKind::Breve,
+        MathAccentKind::Acute,
+        MathAccentKind::Grave,
+        MathAccentKind::Ring,
+    ];
+    for kind in compact {
+        assert_eq!(accent_clearance_em(kind), (ACCENT_CLEARANCE_EM, 0.0));
+        assert_eq!(
+            accent_clearance_em_named(kind.as_str()),
+            Some((ACCENT_CLEARANCE_EM, 0.0))
+        );
+        assert_eq!(MathAccentKind::from_str_name(kind.as_str()), Some(kind));
+    }
+
+    let wide = [
+        MathAccentKind::Overline,
+        MathAccentKind::WideHat,
+        MathAccentKind::WideTilde,
+    ];
+    let wide_above = ACCENT_CLEARANCE_EM + ACCENT_WIDE_EXTRA_EM;
+    for kind in wide {
+        assert_eq!(accent_clearance_em(kind), (wide_above, 0.0));
+        assert_eq!(
+            accent_clearance_em_named(kind.as_str()),
+            Some((wide_above, 0.0))
+        );
+    }
+
+    assert_eq!(
+        accent_clearance_em(MathAccentKind::Underline),
+        (0.0, UNDERBRACE_CLEARANCE_EM)
+    );
+    assert_eq!(
+        accent_clearance_em(MathAccentKind::Underbar),
+        (0.0, ACCENT_UNDER_CLEARANCE_EM)
+    );
+    assert!(ACCENT_UNDER_CLEARANCE_EM < UNDERBRACE_CLEARANCE_EM);
+    assert_eq!(accent_clearance_em_named("nope"), None);
+
+    let a = MathAtom::symbol(id(1), "x", MathClass::Ordinary);
+    let base = a.estimate_box();
+    let check = MathAtom::accent(id(2), MathAccentKind::Check, a.clone()).estimate_box();
+    assert!((check.height - (base.height + ACCENT_CLEARANCE_EM)).abs() < 1e-9);
+    let underbar = MathAtom::accent(id(3), MathAccentKind::Underbar, a).estimate_box();
+    assert!((underbar.depth - (base.depth + ACCENT_UNDER_CLEARANCE_EM)).abs() < 1e-9);
+}
+
+#[test]
 fn math_stackrel_spacing_offsets() {
     use reciplexa_std::math::{
         stackrel_spacing_offsets, MathBox, MathStackKind, STACKREL_GAP_EM,
