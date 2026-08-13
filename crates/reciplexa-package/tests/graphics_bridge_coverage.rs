@@ -631,3 +631,30 @@ fn live_layout_doc_plus_math_sibling_shapes() {
         .expect("live layout source");
     assert!(!via_src.pages[0].shapes.is_empty());
 }
+
+/// LL4: live-layout demo → PDF text ops when CJK font available.
+#[test]
+fn live_layout_pdf_smoke_when_cjk_font() {
+    if reciplexa_pdf::system_cjk_font_path().is_none() {
+        return;
+    }
+    let entry =
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/pkg_live_layout.rpx");
+    let doc = document_from_live_layout_entry(&entry, &index()).expect("live layout bridge");
+    let text_shape_count = doc.pages[0]
+        .shapes
+        .iter()
+        .filter(|s| matches!(s, Shape::Text(_)))
+        .count();
+    assert!(
+        text_shape_count >= 2,
+        "expected doc + math Text shapes before PDF, got {text_shape_count}"
+    );
+    let bytes = reciplexa_pdf::document_to_pdf(&doc).expect("live layout pdf");
+    let pdf = String::from_utf8_lossy(&bytes);
+    let tj = pdf.matches(" Tj\n").count();
+    assert!(
+        tj >= 1,
+        "expected ≥1 PDF text op from live-layout page, got {tj} Tj (shapes={text_shape_count})"
+    );
+}
