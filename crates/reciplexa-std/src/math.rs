@@ -1251,12 +1251,16 @@ fn math_offset_to_scene_mm(origin: (f64, f64), dx_em: f64, dy_em: f64) -> (f64, 
 /// [`MathAtom::Matrix`]: cells placed via [`matrix_column_widths`] /
 /// [`aligned_column_x`] / [`matrix_cell_x_in_column`] (LL14).
 /// [`MathAtom::Accent`]: accent mark glyph via [`accent_clearance_em`] (LL15).
+/// [`MathAtom::Aligned`]: cells snapped to [`aligned_column_x`] bands (LL18).
 /// Not OpenType MATH / glyph metrics.
 pub fn layout_math_atom_to_shapes(
     atom: &MathAtom,
     origin: (f64, f64),
 ) -> Vec<reciplexa_scene::Shape> {
     match atom {
+        MathAtom::Aligned { rows, .. } => {
+            layout_math_grid_to_shapes(rows, origin, None, None, /* left_align */ true)
+        }
         MathAtom::Accent { kind, base, .. } => {
             let base_box = base.estimate_box();
             let (dx, dy) = accent_attachment_offset(*kind, base_box);

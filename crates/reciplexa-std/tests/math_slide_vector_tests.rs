@@ -519,6 +519,42 @@ fn layout_math_fraction_draws_rule_line() {
     assert!(line.x2_mm > line.x1_mm);
 }
 
+/// LL18: Aligned layout snaps cells to aligned_column_x bands.
+#[test]
+fn layout_math_aligned_snaps_column_x() {
+    use reciplexa_scene::Shape;
+    use reciplexa_std::math::{
+        aligned_column_x, layout_math_atom_to_shapes, matrix_cell_x_in_column,
+        matrix_column_widths, MatrixColumnAlign, MATH_LAYOUT_EM_TO_MM,
+    };
+
+    let a = MathAtom::symbol(id(1), "x", MathClass::Ordinary);
+    let eq = MathAtom::symbol(id(2), "=", MathClass::Relation);
+    let bb = MathAtom::symbol(id(3), "yy", MathClass::Ordinary);
+    let rows = vec![vec![a.clone(), eq.clone()], vec![bb.clone(), eq.clone()]];
+    let atom = MathAtom::aligned(id(4), rows.clone());
+    let origin = (5.0, 90.0);
+    let shapes = layout_math_atom_to_shapes(&atom, origin);
+    let texts: Vec<_> = shapes
+        .iter()
+        .filter_map(|s| match s {
+            Shape::Text(t) => Some(t),
+            _ => None,
+        })
+        .collect();
+    let tx = texts.iter().find(|t| t.content == "x").expect("x");
+    let teq = texts.iter().find(|t| t.content == "=").expect("=");
+    let widths = matrix_column_widths(&rows);
+    let x0 = matrix_cell_x_in_column(a.estimate_box().width, widths[0], MatrixColumnAlign::Left);
+    let x1 = aligned_column_x(&rows, 1)
+        + matrix_cell_x_in_column(eq.estimate_box().width, widths[1], MatrixColumnAlign::Left);
+    assert!((tx.x_mm - (origin.0 + x0 * MATH_LAYOUT_EM_TO_MM)).abs() < 1e-9);
+    assert!((teq.x_mm - (origin.0 + x1 * MATH_LAYOUT_EM_TO_MM)).abs() < 1e-9);
+    assert!(teq.x_mm > tx.x_mm);
+    let ty = texts.iter().find(|t| t.content == "y").expect("y of yy");
+    assert!(ty.y_mm > tx.y_mm, "second aligned row below first");
+}
+
 /// LL15: Accent layout places mark glyph using accent_clearance_em.
 #[test]
 fn layout_math_accent_places_mark_via_clearance() {
