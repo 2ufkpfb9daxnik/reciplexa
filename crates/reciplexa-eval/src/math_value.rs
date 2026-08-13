@@ -8,8 +8,8 @@ use std::cell::Cell;
 
 use reciplexa_identity::document::StableNodeId;
 use reciplexa_std::math::{
-    scripts_attachment_offsets, MathAccentKind, MathAtom, MathBox, MathClass, MathMatrixKind,
-    MathStackKind,
+    scripts_attachment_offsets, EstimateStyle, MathAccentKind, MathAtom, MathBox, MathClass,
+    MathMatrixKind, MathStackKind,
 };
 
 use crate::value::RuntimeValue;
@@ -29,8 +29,36 @@ impl MathValueError {
 }
 
 /// Lower a package math tagged record to a [`MathAtom`], then estimate a box.
+///
+/// Optional record field `style` (`"text"` / `"display"`) selects
+/// [`EstimateStyle`]; missing / unknown → [`EstimateStyle::Display`].
 pub fn estimate_math_box_from_value(v: &RuntimeValue) -> Result<MathBox, MathValueError> {
-    Ok(math_atom_from_value(v)?.estimate_box())
+    estimate_math_box_from_value_with_style(v, estimate_style_from_value(v))
+}
+
+/// Estimate with an explicit [`EstimateStyle`] (ignores record `style` field).
+pub fn estimate_math_box_from_value_with_style(
+    v: &RuntimeValue,
+    style: EstimateStyle,
+) -> Result<MathBox, MathValueError> {
+    Ok(math_atom_from_value(v)?.estimate_box_with_style(style))
+}
+
+/// Read optional `style` field (`"text"` / `"display"`) from a math record.
+///
+/// Accepts [`RuntimeValue::String`] or [`RuntimeValue::ShapeTag`] (kernel surface
+/// maps the `"text"` string literal to a shape tag). Unknown / missing → display.
+pub fn estimate_style_from_value(v: &RuntimeValue) -> EstimateStyle {
+    let Ok(fields) = record_fields(v) else {
+        return EstimateStyle::Display;
+    };
+    let raw = match field(fields, "style") {
+        Some(RuntimeValue::String(s)) => Some(s.as_str()),
+        Some(RuntimeValue::ShapeTag(s)) => Some(s.as_str()),
+        _ => None,
+    };
+    raw.and_then(EstimateStyle::parse)
+        .unwrap_or(EstimateStyle::Display)
 }
 
 /// Fontless script attachment offsets from a package `math-scripts` tagged record.
@@ -547,6 +575,34 @@ mod tip_tests {
                 .map(|(k, v)| (k.to_string(), v))
                 .collect(),
         )
+    }
+
+    #[test]
+    fn estimate_style_from_value_reads_style_field() {
+        let base = rec(vec![
+            ("tag", RuntimeValue::String("math-symbol".into())),
+            ("glyph", RuntimeValue::String("x".into())),
+            ("class", RuntimeValue::String("ord".into())),
+        ]);
+        let scripts = rec(vec![
+            ("tag", RuntimeValue::String("math-scripts".into())),
+            ("base", base.clone()),
+            ("superscript", base),
+            ("style", RuntimeValue::String("text".into())),
+        ]);
+        assert_eq!(estimate_style_from_value(&scripts), EstimateStyle::Text);
+        // Kernel surface maps `"text"` string lit → ShapeTag.
+        let via_tag = rec(vec![
+            ("tag", RuntimeValue::String("math-symbol".into())),
+            ("glyph", RuntimeValue::String("x".into())),
+            ("style", RuntimeValue::ShapeTag("text".into())),
+        ]);
+        assert_eq!(estimate_style_from_value(&via_tag), EstimateStyle::Text);
+        let display_w = estimate_math_box_from_value_with_style(&scripts, EstimateStyle::Display)
+            .unwrap()
+            .width;
+        let text_w = estimate_math_box_from_value(&scripts).unwrap().width;
+        assert!(text_w < display_w);
     }
 
     #[test]

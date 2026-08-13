@@ -1606,6 +1606,12 @@ fn apply_builtin(op: BuiltinOp, args: Vec<RuntimeValue>) -> Result<Outcome, Eval
                     ),
                 });
             }
+            let style = match &args[0] {
+                RuntimeValue::Record(_) => {
+                    crate::math_value::estimate_style_from_value(&args[0])
+                }
+                _ => reciplexa_std::math::EstimateStyle::Display,
+            };
             let box_ = match &args[0] {
                 RuntimeValue::String(glyph) => {
                     // Bare symbol string → ordinary math-symbol estimate.
@@ -1614,14 +1620,13 @@ fn apply_builtin(op: BuiltinOp, args: Vec<RuntimeValue>) -> Result<Outcome, Eval
                         glyph.as_str(),
                         reciplexa_std::math::MathClass::Ordinary,
                     );
-                    atom.estimate_box()
+                    atom.estimate_box_with_style(style)
                 }
                 RuntimeValue::Record(_) => {
-                    crate::math_value::estimate_math_box_from_value(&args[0]).map_err(|e| {
-                        EvalError {
+                    crate::math_value::estimate_math_box_from_value_with_style(&args[0], style)
+                        .map_err(|e| EvalError {
                             message: format!("builtin `math-box`: {}", e.message),
-                        }
-                    })?
+                        })?
                 }
                 _ => {
                     return Err(EvalError {
@@ -1634,6 +1639,10 @@ fn apply_builtin(op: BuiltinOp, args: Vec<RuntimeValue>) -> Result<Outcome, Eval
                 ("width".into(), RuntimeValue::Number(box_.width)),
                 ("height".into(), RuntimeValue::Number(box_.height)),
                 ("depth".into(), RuntimeValue::Number(box_.depth)),
+                (
+                    "style".into(),
+                    RuntimeValue::String(style.as_str().into()),
+                ),
             ])))
         }
         BuiltinOp::StretchyDelim => {

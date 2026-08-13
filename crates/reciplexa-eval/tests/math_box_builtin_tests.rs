@@ -41,6 +41,26 @@ fn math_box_builtin_from_symbol_record() {
         }
         other => panic!("expected width/height/depth numbers, got {other:?}"),
     }
+    assert_eq!(field(&v, "style"), &RuntimeValue::String("display".into()));
+}
+
+#[test]
+fn math_box_honors_style_text_field_on_scripts() {
+    let display = eval_source(
+        r#"(val main (math-box (record (tag "math-scripts") (base (record (tag "math-symbol") (glyph "x") (class "ord"))) (superscript (record (tag "math-symbol") (glyph "2") (class "ord"))))))"#,
+    )
+    .unwrap();
+    let text = eval_source(
+        r#"(val main (math-box (record (tag "math-scripts") (base (record (tag "math-symbol") (glyph "x") (class "ord"))) (superscript (record (tag "math-symbol") (glyph "2") (class "ord"))) (style "text"))))"#,
+    )
+    .unwrap();
+    assert_eq!(field(&text, "style"), &RuntimeValue::String("text".into()));
+    match (field(&display, "width"), field(&text, "width")) {
+        (RuntimeValue::Number(dw), RuntimeValue::Number(tw)) => {
+            assert!(tw < dw, "text style scripts should be narrower: text={tw} display={dw}");
+        }
+        other => panic!("widths, got {other:?}"),
+    }
 }
 
 #[test]
