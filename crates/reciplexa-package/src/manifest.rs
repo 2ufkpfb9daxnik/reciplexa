@@ -268,6 +268,9 @@ impl std::fmt::Display for ResourceCheckError {
     }
 }
 
+/// Machine-facing code for OPEN-PKG-001 registry refusal (no network).
+pub const OPEN_PKG_001_CODE: &str = "OPEN-PKG-001";
+
 /// OPEN-PKG-001: package registry protocol is not implemented.
 ///
 /// Path-free dependencies that do not match a workspace member, or that set

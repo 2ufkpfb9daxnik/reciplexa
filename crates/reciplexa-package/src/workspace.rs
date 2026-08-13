@@ -57,6 +57,25 @@ impl std::fmt::Display for WorkspaceError {
     }
 }
 
+impl WorkspaceError {
+    /// Structured error code when applicable (e.g. [`crate::OPEN_PKG_001_CODE`]).
+    pub fn code(&self) -> Option<&'static str> {
+        match self {
+            Self::RegistryUnavailable(_) => Some(crate::manifest::OPEN_PKG_001_CODE),
+            _ => None,
+        }
+    }
+
+    /// OPEN-PKG-001 refusal with a human detail (no network I/O).
+    pub fn registry_unavailable(detail: impl Into<String>) -> Self {
+        let detail = detail.into();
+        Self::RegistryUnavailable(format!(
+            "{}: {detail}",
+            crate::manifest::OPEN_PKG_001_REGISTRY
+        ))
+    }
+}
+
 impl From<RpxmError> for WorkspaceError {
     fn from(e: RpxmError) -> Self {
         Self::Manifest(e)
@@ -366,16 +385,14 @@ pub fn resolve_workspace_dependencies(ws: &WorkspaceIndex) -> Result<Lockfile, W
             let formal = formal_dep_name(dep).to_string();
             let source = dep.source.as_deref().unwrap_or("");
             if source == "registry" {
-                return Err(WorkspaceError::RegistryUnavailable(format!(
-                    "{}: cannot resolve `{formal}` via registry",
-                    crate::manifest::OPEN_PKG_001_REGISTRY
+                return Err(WorkspaceError::registry_unavailable(format!(
+                    "cannot resolve `{formal}` via registry"
                 )));
             }
             if source == "workspace" || source.is_empty() {
                 let Some((_, member)) = ws.members.get(&formal) else {
-                    return Err(WorkspaceError::RegistryUnavailable(format!(
-                        "{}: no workspace member matches `{formal}`",
-                        crate::manifest::OPEN_PKG_001_REGISTRY
+                    return Err(WorkspaceError::registry_unavailable(format!(
+                        "no workspace member matches `{formal}`"
                     )));
                 };
                 if !version_satisfies(&dep.version_req, &member.version) {
@@ -387,9 +404,8 @@ pub fn resolve_workspace_dependencies(ws: &WorkspaceIndex) -> Result<Lockfile, W
                 deps.push(formal);
                 continue;
             }
-            return Err(WorkspaceError::RegistryUnavailable(format!(
-                "{}: unknown dependency source `{source}` for `{formal}`",
-                crate::manifest::OPEN_PKG_001_REGISTRY
+            return Err(WorkspaceError::registry_unavailable(format!(
+                "unknown dependency source `{source}` for `{formal}`"
             )));
         }
         edges.insert(name.clone(), deps);

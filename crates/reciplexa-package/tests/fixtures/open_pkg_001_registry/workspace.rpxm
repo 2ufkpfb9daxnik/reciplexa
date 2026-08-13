@@ -1,0 +1,3 @@
+(workspace
+  format-version 1
+  (members "app"))

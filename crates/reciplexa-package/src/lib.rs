@@ -61,7 +61,7 @@ pub use load::{
 pub use lockfile::{LockedPackage, Lockfile};
 pub use manifest::{
     normalize_resource_path, resolve_package_resource, DependencySpec, PackageManifest,
-    ResourceCheckError, ResourceResolveError, OPEN_PKG_001_REGISTRY,
+    ResourceCheckError, ResourceResolveError, OPEN_PKG_001_CODE, OPEN_PKG_001_REGISTRY,
 };
 pub use math_bridge::{estimate_package_math_main, MathBridgeError};
 pub use resolver::{resolve_packages, ResolveError, ResolvedGraph};

@@ -311,11 +311,30 @@ fn resolve_registry_source_is_open_stub() {
     .unwrap();
     let idx = discover_workspace(&root).unwrap();
     let err = resolve_workspace_dependencies(&idx).unwrap_err();
-    match err {
+    assert_eq!(err.code(), Some(reciplexa_package::OPEN_PKG_001_CODE));
+    match &err {
         WorkspaceError::RegistryUnavailable(msg) => {
             assert!(msg.contains("OPEN-PKG-001"));
             assert!(msg.contains("no network"));
         }
         other => panic!("expected RegistryUnavailable, got {other:?}"),
     }
+}
+
+/// Checked-in fixture: `source registry` refuses with structured OPEN-PKG-001.
+#[test]
+fn open_pkg_001_registry_fixture_refuses_with_code() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/fixtures/open_pkg_001_registry");
+    let idx = discover_workspace(&root).expect("fixture workspace");
+    let err = resolve_workspace_dependencies(&idx).expect_err("registry must refuse");
+    assert_eq!(
+        err.code(),
+        Some(reciplexa_package::OPEN_PKG_001_CODE),
+        "expected structured OPEN-PKG-001, got {err}"
+    );
+    let msg = err.to_string();
+    assert!(msg.contains("OPEN-PKG-001"));
+    assert!(msg.contains("no network"));
+    assert!(msg.contains("remote-kit") || msg.contains("registry"));
 }
