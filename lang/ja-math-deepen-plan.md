@@ -1229,3 +1229,41 @@ cargo test -p reciplexa-std -p reciplexa-eval -p reciplexa-core -p reciplexa-pac
 - Font-backed ruby / tate-chu-yoko / real vertical metrics / bou placement; OpenType `vert`/`vrt2` / CSS `text-orientation`.
 - OpenType MATH stretchy fences, accent/script/stackrel attachment, real matrix column alignment / big-op / fraction/radical / full muskip style table / real phantom atoms.
 - Document/GUI pipeline consuming boxes as production layout; load-time resource rewrite beyond fail-soft attach; registry resolve + checksum verification (OPEN-PKG-001).
+
+## Wave 27 — trimming-width builtin + hang/trim example (U0–U2)
+
+Honest scope: language surface for Wave 26 `trimming_width_em_char`; combined hang+trim demo. Not full JLReq 詰め / hanging wired into `break_line` / `char_em_width`.
+
+Gate:
+
+```bat
+set CARGO_TARGET_DIR=d:\reciplexa\target
+set TEMP=d:\reciplexa\.tmp
+set TMP=d:\reciplexa\.tmp
+cargo test -p reciplexa-std -p reciplexa-eval -p reciplexa-core -p reciplexa-package --offline
+```
+
+| Unit | Status |
+|------|--------|
+| U0 — Builtin `trimming-width` | **done** |
+| U1 — Example/test hang-width + trimming-width | **done** |
+| U2 — Docs | **done** |
+
+### U0 — `trimming-width` builtin
+
+- `(trimming-width s)` → Number via `trimming_width_em_char` (first char). **Commit.**
+
+### U1 — Example
+
+- `examples/pkg_ja_hang_trim.rpx`: `break-line` + `hang-width` + `trimming-width` + `justify-line`. **Commit.**
+
+### U2 — Docs
+
+- Mark Wave 27 done; package / implemented-features notes. **Commit.**
+
+## Remains after Wave 27
+
+- Full UCS membership + normative JLReq §C break matrix + real hanging/justification / word-break / paragraph composition (punctuation packing / trimming not wired into `break_line` / `char_em_width`).
+- Font-backed ruby / tate-chu-yoko / real vertical metrics / bou placement; OpenType `vert`/`vrt2` / CSS `text-orientation`.
+- OpenType MATH stretchy fences, accent/script/stackrel attachment, real matrix column alignment / big-op / fraction/radical / full muskip style table / real phantom atoms.
+- Document/GUI pipeline consuming boxes as production layout; load-time resource rewrite beyond fail-soft attach; registry resolve + checksum verification (OPEN-PKG-001).
