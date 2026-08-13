@@ -179,3 +179,50 @@ fn document_package_entry_lowers_doc_page() {
         "expected paragraph text, got {texts:?}"
     );
 }
+
+/// Wave 11 E2: long JA `doc-paragraph` soft-wraps to multiple Text shapes via bridge.
+#[test]
+fn package_document_long_ja_paragraph_emits_multiple_text_shapes() {
+    let long = "あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをん";
+    assert!(long.chars().count() > 40);
+    let expected = reciplexa_std::japanese::break_line(long, 40.0);
+    assert!(
+        expected.len() > 1,
+        "fixture must soft-wrap to multiple lines"
+    );
+
+    let source = format!(
+        r#"(import document/page only
+  a4 page flow section heading paragraph
+  block-paragraph)
+(val title (heading 1 "題"))
+(val body (paragraph "{long}"))
+(val main
+  (page a4
+    (flow
+      (list
+        (section title
+          (list
+            (block-paragraph body)))))))
+"#
+    );
+    let idx = index();
+    let doc = document_from_package_source(&source, "ja_long_para", &idx)
+        .expect("long JA paragraph bridge");
+    let texts: Vec<_> = doc.pages[0]
+        .shapes
+        .iter()
+        .filter_map(|s| match s {
+            Shape::Text(t) => Some(t.content.clone()),
+            _ => None,
+        })
+        .collect();
+    // Section title is one Text; wrapped paragraph must appear as consecutive shapes.
+    let found = texts
+        .windows(expected.len())
+        .any(|w| w == expected.as_slice());
+    assert!(
+        found,
+        "expected consecutive break_line lines among shapes {texts:?}, want {expected:?}"
+    );
+}
