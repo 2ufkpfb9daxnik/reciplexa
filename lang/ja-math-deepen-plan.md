@@ -853,3 +853,46 @@ cargo test -p reciplexa-std -p reciplexa-eval -p reciplexa-core -p reciplexa-pac
 - Font-backed ruby / tate-chu-yoko / real vertical metrics / bou placement; OpenType `vert`/`vrt2` / CSS `text-orientation`.
 - OpenType MATH stretchy fences, accent/script/stackrel attachment, real matrix column alignment / big-op / fraction/radical / full muskip style table.
 - Document/GUI pipeline consuming boxes as production layout (beyond soft-wrapped Text shapes / estimate_box / math-box / stretchy-delim / first-line indent / place_lines stubs); load-time resource rewrite beyond fail-soft attach; registry resolve + checksum verification (OPEN-PKG-001).
+
+## Wave 17 — math display vs text EstimateStyle (K0–K3)
+
+Honest scope: fontless `EstimateStyle { Text, Display }` on `estimate_box` (scripts shrink more in text); optional record `style` field for `math-box`. Not TeX `\textstyle` / OpenType MATH style table.
+
+Gate:
+
+```bat
+set CARGO_TARGET_DIR=d:\reciplexa\target
+set TEMP=d:\reciplexa\.tmp
+set TMP=d:\reciplexa\.tmp
+cargo test -p reciplexa-std -p reciplexa-eval -p reciplexa-core -p reciplexa-package --offline
+```
+
+| Unit | Status |
+|------|--------|
+| K0 — `EstimateStyle` + `estimate_box_with_style` | **done** |
+| K1 — `math-box` optional `style` field | **done** |
+| K2 — Example / test | **done** |
+| K3 — Docs | **done** |
+
+### K0 — EstimateStyle
+
+- `EstimateStyle::{Text,Display}`; `SCRIPT_SCALE_TEXT` (0.5) vs `SCRIPT_SCALE` (0.7); `estimate_box` defaults to Display. **Commit.**
+
+### K1 — math-box style
+
+- Optional record field `style` (`"text"` / `"display"`); accepts String or ShapeTag (`"text"` lit). Result includes `style`. **Commit.**
+
+### K2 — Example
+
+- `examples/pkg_math_box.rpx` scripts-display vs scripts-text. **Commit.**
+
+### K3 — Docs
+
+- Mark Wave 17 done; tip + package / implemented-features notes. **Commit.**
+
+## Remains after Wave 17
+
+- Full UCS membership + normative JLReq §C break matrix + real hanging/justification / word-break / paragraph composition.
+- Font-backed ruby / tate-chu-yoko / real vertical metrics / bou placement; OpenType `vert`/`vrt2` / CSS `text-orientation`.
+- OpenType MATH stretchy fences, accent/script/stackrel attachment, real matrix column alignment / big-op / fraction/radical / full muskip style table.
+- Document/GUI pipeline consuming boxes as production layout (beyond soft-wrapped Text shapes / estimate_box / math-box / stretchy-delim / first-line indent / place_lines / EstimateStyle stubs); load-time resource rewrite beyond fail-soft attach; registry resolve + checksum verification (OPEN-PKG-001).
