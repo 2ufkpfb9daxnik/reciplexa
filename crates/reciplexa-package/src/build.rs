@@ -1,8 +1,9 @@
 //! Build graph and incremental cache (Phase 10).
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::path::Path;
 
-use crate::manifest::PackageManifest;
+use crate::manifest::{PackageManifest, ResourceCheckError};
 use crate::target::BuildTarget;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -138,7 +139,25 @@ pub struct PackageDiagnostic {
     pub package: Option<String>,
 }
 
+/// Static manifest diagnostics (PKG001–PKG003). Does not touch the filesystem.
 pub fn diagnose_manifest(m: &PackageManifest) -> Vec<PackageDiagnostic> {
+    diagnose_manifest_inner(m, None)
+}
+
+/// Like [`diagnose_manifest`], plus PKG004 when a listed resource is missing under
+/// `package_root` / `resource_root` (reuses the same existence rules as
+/// [`PackageManifest::check_resources_exist`]).
+pub fn diagnose_manifest_with_root(
+    m: &PackageManifest,
+    package_root: &Path,
+) -> Vec<PackageDiagnostic> {
+    diagnose_manifest_inner(m, Some(package_root))
+}
+
+fn diagnose_manifest_inner(
+    m: &PackageManifest,
+    package_root: Option<&Path>,
+) -> Vec<PackageDiagnostic> {
     let mut diags = Vec::new();
     if m.name.is_empty() {
         diags.push(PackageDiagnostic {
@@ -163,6 +182,30 @@ pub fn diagnose_manifest(m: &PackageManifest) -> Vec<PackageDiagnostic> {
                 message: format!("duplicate dependency {}", d.name),
                 package: Some(m.name.clone()),
             });
+        }
+    }
+    if let Some(root) = package_root {
+        for rel in &m.resources {
+            match m.resource_fs_path(root, rel) {
+                Err(msg) => diags.push(PackageDiagnostic {
+                    code: "PKG004".into(),
+                    message: msg,
+                    package: Some(m.name.clone()),
+                }),
+                Ok(path) if !path.exists() => {
+                    // Same wording as ResourceCheckError::Missing.
+                    let err = ResourceCheckError::Missing {
+                        resource: rel.clone(),
+                        path: path.display().to_string(),
+                    };
+                    diags.push(PackageDiagnostic {
+                        code: "PKG004".into(),
+                        message: err.to_string(),
+                        package: Some(m.name.clone()),
+                    });
+                }
+                Ok(_) => {}
+            }
         }
     }
     diags

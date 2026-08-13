@@ -24,8 +24,8 @@ pub mod target;
 pub mod workspace;
 
 pub use build::{
-    diagnose_manifest, BuildGraph, BuildNode, BuildNodeId, IncrementalCache, InvalidationKind,
-    PackageDiagnostic,
+    diagnose_manifest, diagnose_manifest_with_root, BuildGraph, BuildNode, BuildNodeId,
+    IncrementalCache, InvalidationKind, PackageDiagnostic,
 };
 pub use domain_bodies::{
     color_srgb_module, color_srgb_source, document_page_module, document_page_source,

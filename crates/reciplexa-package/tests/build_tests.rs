@@ -1,6 +1,6 @@
 use reciplexa_package::{
-    diagnose_manifest, BuildGraph, BuildNodeId, BuildTarget, DependencySpec, IncrementalCache,
-    InvalidationKind, PackageManifest,
+    diagnose_manifest, diagnose_manifest_with_root, BuildGraph, BuildNodeId, BuildTarget,
+    DependencySpec, IncrementalCache, InvalidationKind, PackageManifest,
 };
 
 #[test]
@@ -143,4 +143,46 @@ fn diagnose_pkg003_duplicate_dependency() {
     };
     let diags = diagnose_manifest(&m);
     assert!(diags.iter().any(|d| d.code == "PKG003"));
+}
+
+#[test]
+fn diagnose_pkg004_missing_listed_resource() {
+    let dir = std::env::temp_dir().join(format!(
+        "reciplexa-pkg004-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0)
+    ));
+    std::fs::create_dir_all(dir.join("resources")).unwrap();
+    let m = PackageManifest {
+        name: "app".into(),
+        version: "1".into(),
+        dependencies: vec![],
+        entry: "main.rpx".into(),
+        targets: vec![],
+        resources: vec!["images/missing.png".into()],
+        ..Default::default()
+    };
+    // Without root: no PKG004 (filesystem-free path).
+    assert!(!diagnose_manifest(&m).iter().any(|d| d.code == "PKG004"));
+    let diags = diagnose_manifest_with_root(&m, &dir);
+    assert!(
+        diags
+            .iter()
+            .any(|d| d.code == "PKG004" && d.message.contains("missing.png")),
+        "expected PKG004, got {diags:?}"
+    );
+    // Present resource → no PKG004.
+    std::fs::create_dir_all(dir.join("resources/images")).unwrap();
+    std::fs::write(dir.join("resources/images/logo.png"), b"png").unwrap();
+    let ok = PackageManifest {
+        resources: vec!["images/logo.png".into()],
+        ..m
+    };
+    assert!(!diagnose_manifest_with_root(&ok, &dir)
+        .iter()
+        .any(|d| d.code == "PKG004"));
+    let _ = std::fs::remove_dir_all(&dir);
 }
