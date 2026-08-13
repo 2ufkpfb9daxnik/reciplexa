@@ -56,6 +56,10 @@ pub fn primitive_env() -> HashMap<String, RuntimeValue> {
         "break-between".into(),
         RuntimeValue::Builtin(BuiltinOp::BreakBetween),
     );
+    env.insert(
+        "break-line".into(),
+        RuntimeValue::Builtin(BuiltinOp::BreakLine),
+    );
     env
 }
 
@@ -1295,7 +1299,53 @@ fn apply_builtin(op: BuiltinOp, args: Vec<RuntimeValue>) -> Result<Outcome, Eval
                 payload: None,
             }))
         }
+        BuiltinOp::BreakLine => {
+            if args.len() != 2 {
+                return Err(EvalError {
+                    message: format!(
+                        "builtin `break-line` expects 2 args, got {}",
+                        args.len()
+                    ),
+                });
+            }
+            let text = match &args[0] {
+                RuntimeValue::String(s) => s.as_str(),
+                _ => {
+                    return Err(EvalError {
+                        message: "builtin `break-line` expects string as first argument".into(),
+                    });
+                }
+            };
+            let max_em = match as_numeric(&args[1]) {
+                Ok((_, n)) => n,
+                Err(_) => {
+                    return Err(EvalError {
+                        message: "builtin `break-line` expects numeric max-em".into(),
+                    });
+                }
+            };
+            let lines = reciplexa_std::japanese::break_line(text, max_em);
+            Ok(Outcome::Value(strings_to_cons_list(lines)))
+        }
     }
+}
+
+/// Build a surface `(list …)` value: `cons`/`nil` variants with `head`/`tail` records.
+fn strings_to_cons_list(lines: Vec<String>) -> RuntimeValue {
+    let mut acc = RuntimeValue::Variant {
+        tag: "nil".into(),
+        payload: None,
+    };
+    for s in lines.into_iter().rev() {
+        acc = RuntimeValue::Variant {
+            tag: "cons".into(),
+            payload: Some(Box::new(RuntimeValue::Record(vec![
+                ("head".into(), RuntimeValue::String(s)),
+                ("tail".into(), acc),
+            ]))),
+        };
+    }
+    acc
 }
 
 fn eval_lit(lit: &CoreLiteral) -> EvalResult {

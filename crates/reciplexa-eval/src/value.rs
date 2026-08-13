@@ -89,6 +89,8 @@ pub enum BuiltinOp {
     ClassifyChar,
     /// JLReq-oriented `break-between` — two strings (first chars) → break opportunity tag.
     BreakBetween,
+    /// JLReq-oriented `break-line` — string × max-em → cons/nil list of strings.
+    BreakLine,
 }
 
 impl fmt::Debug for RuntimeValue {
