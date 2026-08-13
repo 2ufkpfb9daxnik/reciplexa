@@ -154,3 +154,28 @@ fn elaborate_with_packages_populates_interface_exports_for_graphics() {
     assert!(units.iter().any(|u| u.name == "graphics/shapes"));
     assert!(units.iter().any(|u| u.name == "iface"));
 }
+
+#[test]
+fn document_package_entry_lowers_doc_page() {
+    let entry = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/pkg_document.rpx");
+    let idx = index();
+    let doc = document_from_package_entry(&entry, &idx).expect("pkg_document bridge");
+    assert_eq!(doc.pages.len(), 1);
+    assert_eq!(doc.pages[0].paper.width_mm, 210.0);
+    let texts: Vec<_> = doc.pages[0]
+        .shapes
+        .iter()
+        .filter_map(|s| match s {
+            Shape::Text(t) => Some(t.content.as_str()),
+            _ => None,
+        })
+        .collect();
+    assert!(
+        texts.iter().any(|t| t.contains("Document surface")),
+        "expected heading text, got {texts:?}"
+    );
+    assert!(
+        texts.iter().any(|t| t.contains("Native document")),
+        "expected paragraph text, got {texts:?}"
+    );
+}

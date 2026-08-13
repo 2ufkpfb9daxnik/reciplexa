@@ -18,7 +18,7 @@ pub struct GraphicsValueError {
 }
 
 impl GraphicsValueError {
-    fn new(message: impl Into<String>) -> Self {
+    pub(crate) fn new(message: impl Into<String>) -> Self {
         Self {
             message: message.into(),
         }
@@ -28,8 +28,14 @@ impl GraphicsValueError {
 /// Lower a package-built graphics value to a [`Document`].
 ///
 /// Accepts a single `page` record, a `pages` record (list of pages), or a cons-list of
-/// `page` records (multipage package `main` trees).
+/// `page` records (multipage package `main` trees). Also accepts N5.1 `doc-page` trees
+/// via [`crate::document_value::document_from_doc_value`].
 pub fn document_from_graphics_value(v: &RuntimeValue) -> Result<Document, GraphicsValueError> {
+    if let Ok(fields) = record_fields(v, "document") {
+        if tag_of(fields) == Some("doc-page") {
+            return crate::document_value::document_from_doc_value(v);
+        }
+    }
     if is_cons_or_nil(v) {
         let pages: Vec<Page> = cons_items(v)?
             .into_iter()

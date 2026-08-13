@@ -132,6 +132,7 @@ Document / page constructors stay package-shaped (`graphics/page` or later `docu
 | ID | Unit | Status |
 |----|------|--------|
 | N5.1 | Map `reciplexa-std::document` constructors onto native package paths | **done** — `packages/document` + native `document/page` (`doc-*` tags); interim CST untouched |
+| N5.1b | Lower `doc-*` package values to scene (text layout stub) | **done** — `document_from_doc_value` + graphics bridge accepts `doc-page`; `pkg_document.rpx` elaborates+evals via bridge |
 | N5.2 | Markup expand → native document nodes (retire interim page keyword tables when goldens allow) | pending (GUI `black_circle` stays interim) |
 | N5.3 | Coverage tip | pending |
 
