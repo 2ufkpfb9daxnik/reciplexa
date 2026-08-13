@@ -127,13 +127,14 @@ fn push_heading_or_paragraph(
                 _ => 5.5,
             };
             // Soft-wrap long headings via std `break_line` (same budget as paragraphs).
-            push_soft_wrapped_text(&text, size, cursor_y, shapes);
+            push_soft_wrapped_text(&text, size, 0.0, cursor_y, shapes);
             Ok(())
         }
         "doc-paragraph" => {
             let text = string_field(fields, "text")?;
             let size = 4.0;
-            push_soft_wrapped_text(&text, size, cursor_y, shapes);
+            let indent_em = field(fields, "indent-em").and_then(as_f64).unwrap_or(0.0);
+            push_soft_wrapped_text(&text, size, indent_em, cursor_y, shapes);
             Ok(())
         }
         other => Err(GraphicsValueError::new(format!(
@@ -143,27 +144,40 @@ fn push_heading_or_paragraph(
 }
 
 /// Soft-wrap `text` via [`reciplexa_std::japanese::break_line`] into scene Text shapes.
+///
+/// Optional `indent_em` offsets the first line's x via [`indent_first_line`]
+/// (1em ≈ `size_mm` for this stub).
 fn push_soft_wrapped_text(
     text: &str,
     size_mm: f64,
+    indent_em: f64,
     cursor_y: &mut f64,
     shapes: &mut Vec<Shape>,
 ) {
+    const BASE_X_MM: f64 = 20.0;
     let lines = reciplexa_std::japanese::break_line(text, DOC_TEXT_MAX_EM);
     if lines.is_empty() {
-        push_text(String::new(), size_mm, cursor_y, shapes);
+        push_text_at(String::new(), size_mm, BASE_X_MM, cursor_y, shapes);
         *cursor_y -= size_mm + 3.0;
     } else {
-        for line in lines {
-            push_text(line, size_mm, cursor_y, shapes);
+        let indented = reciplexa_std::japanese::indent_first_line(&lines, indent_em);
+        for (x_em, line) in indented {
+            let x_mm = BASE_X_MM + x_em * size_mm;
+            push_text_at(line, size_mm, x_mm, cursor_y, shapes);
             *cursor_y -= size_mm + 3.0;
         }
     }
 }
 
-fn push_text(content: String, size_mm: f64, cursor_y: &mut f64, shapes: &mut Vec<Shape>) {
+fn push_text_at(
+    content: String,
+    size_mm: f64,
+    x_mm: f64,
+    cursor_y: &mut f64,
+    shapes: &mut Vec<Shape>,
+) {
     shapes.push(Shape::Text(Text {
-        x_mm: 20.0,
+        x_mm,
         y_mm: *cursor_y,
         size_mm,
         width_mm: None,
@@ -245,6 +259,7 @@ fn as_f64(v: &RuntimeValue) -> Option<f64> {
     match v {
         RuntimeValue::Int(n) => Some(*n as f64),
         RuntimeValue::F64(n) => Some(*n),
+        RuntimeValue::Number(n) => Some(*n),
         _ => None,
     }
 }
@@ -370,6 +385,64 @@ mod tests {
             .collect();
         assert!(texts.contains(&"Title"));
         assert!(texts.contains(&"Body"));
+    }
+
+    #[test]
+    fn doc_paragraph_indent_em_offsets_first_text_x() {
+        let paragraph = rec(vec![
+            ("tag", RuntimeValue::String("doc-paragraph".into())),
+            ("text", RuntimeValue::String("字下げ本文".into())),
+            ("indent-em", RuntimeValue::Number(1.0)),
+        ]);
+        let blocks = cons(vec![rec(vec![
+            ("tag", RuntimeValue::String("doc-block".into())),
+            ("kind", RuntimeValue::String("paragraph".into())),
+            ("paragraph", paragraph),
+        ])]);
+        let section = rec(vec![
+            ("tag", RuntimeValue::String("doc-section".into())),
+            (
+                "title",
+                rec(vec![
+                    ("tag", RuntimeValue::String("doc-heading".into())),
+                    ("level", RuntimeValue::Int(2)),
+                    ("text", RuntimeValue::String("H".into())),
+                ]),
+            ),
+            ("blocks", blocks),
+        ]);
+        let flow = rec(vec![
+            ("tag", RuntimeValue::String("doc-flow".into())),
+            ("sections", cons(vec![section])),
+        ]);
+        let page = rec(vec![
+            ("tag", RuntimeValue::String("doc-page".into())),
+            (
+                "paper",
+                rec(vec![
+                    ("width", RuntimeValue::Int(210)),
+                    ("height", RuntimeValue::Int(297)),
+                ]),
+            ),
+            ("flow", flow),
+        ]);
+        let doc = document_from_doc_value(&page).expect("doc lower");
+        let texts: Vec<_> = doc.pages[0]
+            .shapes
+            .iter()
+            .filter_map(|s| match s {
+                Shape::Text(t) => Some(t),
+                _ => None,
+            })
+            .collect();
+        let body = texts
+            .iter()
+            .find(|t| t.content == "字下げ本文")
+            .expect("indented paragraph text");
+        // BASE_X 20 + 1em * size 4.0 = 24.0
+        assert!((body.x_mm - 24.0).abs() < 1e-9);
+        let heading = texts.iter().find(|t| t.content == "H").expect("heading");
+        assert!((heading.x_mm - 20.0).abs() < 1e-9);
     }
 
     #[test]
