@@ -1249,7 +1249,9 @@ fn math_offset_to_scene_mm(origin: (f64, f64), dx_em: f64, dy_em: f64) -> (f64, 
 /// [`MathAtom::Delimiter`]: left/right fence Text glyphs with taller
 /// `size_mm` from the stretchy height/depth heuristic (LL13).
 /// [`MathAtom::Matrix`]: cells placed via [`matrix_column_widths`] /
-/// [`aligned_column_x`] / [`matrix_cell_x_in_column`] (LL14).
+/// [`aligned_column_x`] / [`matrix_cell_x_in_column`] (LL14); delimited /
+/// cases also draw left/right fence glyphs sized by
+/// [`cases_brace_total_height_em`] (LL21).
 /// [`MathAtom::Accent`]: accent mark glyph via [`accent_clearance_em`] (LL15).
 /// [`MathAtom::Aligned`]: cells snapped to [`aligned_column_x`] bands (LL18).
 /// [`MathAtom::Stack`]: children via [`stackrel_spacing_offsets`] / vertical gap (LL19).
@@ -1521,10 +1523,13 @@ fn layout_fence_chars(
         .collect()
 }
 
-/// Matrix / cases grid → scene shapes using column-width bands (LL14).
+/// Matrix / cases grid → scene shapes using column-width bands (LL14 / LL21).
 ///
 /// When `left_align` is true (delimited / cases), cells use
 /// [`cases_column_align`]; otherwise columns are centered.
+/// Delimited / cases also draw left/right fence glyphs with
+/// [`cases_brace_total_height_em`] stretch, and row bands share that brace
+/// vertical extent so the brace covers the rows.
 fn layout_math_grid_to_shapes(
     rows: &[Vec<MathAtom>],
     origin: (f64, f64),
@@ -1548,6 +1553,18 @@ fn layout_math_grid_to_shapes(
     } else {
         row_heights.iter().sum::<f64>() + gaps * (row_heights.len().saturating_sub(1) as f64)
     };
+    let max_row = row_heights
+        .iter()
+        .copied()
+        .fold(0.0_f64, f64::max)
+        .max(CASES_ROW_HEIGHT_EM);
+    // Cases / delimited: vertical stack shares the brace stretch height so the
+    // left `{` covers all rows (LL21). Plain matrices keep content_h.
+    let stack_h = if left.is_some() || right.is_some() {
+        cases_brace_total_height_em(rows.len(), max_row).max(content_h)
+    } else {
+        content_h
+    };
     let left_pad = left.map(delimiter_fence_pad_em).unwrap_or(0.0);
     let right_pad = right.map(delimiter_fence_pad_em).unwrap_or(0.0);
     let grid_w: f64 = if col_widths.is_empty() {
@@ -1558,18 +1575,20 @@ fn layout_math_grid_to_shapes(
 
     let mut shapes = Vec::new();
     if let Some(l) = left {
-        let max_row = row_heights
-            .iter()
-            .copied()
-            .fold(0.0_f64, f64::max)
-            .max(CASES_ROW_HEIGHT_EM);
         let brace_total = cases_brace_total_height_em(rows.len(), max_row);
         shapes.extend(layout_fence_chars(l, origin, brace_total, left_pad));
     }
 
-    // Top of first row sits `content_h * 0.55` above the shared baseline (matches
-    // undelimited grid estimate height/depth split).
-    let mut y_cursor = content_h * 0.55;
+    // Top of first row sits `stack_h * 0.55` above the shared baseline (matches
+    // estimate_box height/depth split for delimited grids).
+    let mut y_cursor = stack_h * 0.55;
+    // When brace is taller than content, pad evenly between rows.
+    let extra = (stack_h - content_h).max(0.0);
+    let row_gap = if rows.len() > 1 {
+        gaps + extra / (rows.len().saturating_sub(1) as f64)
+    } else {
+        gaps
+    };
     for (ri, row) in rows.iter().enumerate() {
         let rh = row_heights.get(ri).copied().unwrap_or(0.5);
         let row_baseline = y_cursor - rh * 0.55;
@@ -1587,15 +1606,10 @@ fn layout_math_grid_to_shapes(
             let o = math_offset_to_scene_mm(origin, dx, row_baseline);
             shapes.extend(layout_math_atom_to_shapes(cell, o));
         }
-        y_cursor -= rh + gaps;
+        y_cursor -= rh + row_gap;
     }
 
     if let Some(r) = right {
-        let max_row = row_heights
-            .iter()
-            .copied()
-            .fold(0.0_f64, f64::max)
-            .max(CASES_ROW_HEIGHT_EM);
         let brace_total = cases_brace_total_height_em(rows.len(), max_row);
         let right_origin = math_offset_to_scene_mm(origin, left_pad + grid_w, 0.0);
         shapes.extend(layout_fence_chars(r, right_origin, brace_total, right_pad));

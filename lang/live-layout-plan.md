@@ -198,6 +198,47 @@ No push unless asked. Fine-grained commits (one unit ≈ one commit).
 
 ---
 
+## Follow-ons (LL21–LL25)
+
+### LL21 — Cases: draw left brace + row placement
+
+- For delimited / `math-cases` grids, draw the left `{` (and optional right
+  fence) as scene `Text` sized by `cases_brace_total_height_em`; place rows
+  inside that brace vertical extent (left-align cells).
+- Tip test: brace `size_mm` matches heuristic; row-1 below row-0; cells right
+  of brace.
+- **Commit.**
+
+### LL22 — Underbrace / overset spacing visual
+
+- Wire live layout so underline / underbrace clearance uses
+  `underbrace_spacing`, and labeled overset/underbrace (Stackrel) keeps
+  `stackrel_spacing_offsets` placement visible in tip tests.
+- Tip test when applicable; skip new machinery if already covered.
+- **Commit.**
+
+### LL23 — SVG + PPTX smoke for `pkg_live_math`
+
+- Mirror LL6 for `pkg_live_math.rpx` → `document_to_svg` / `document_to_pptx`.
+- Assert multiple `<text` / `<a:t>`.
+- **Commit.**
+
+### LL24 — GUI: open live-layout demos via package path
+
+- Ensure `pkg_live_layout` / `pkg_live_math` route through
+  `wants_package_graphics_path` and produce a scene via the package bridge
+  (dispatch `live-layout-demo` from `document_from_package_entry`).
+- Tip test `wants_package` + package ingest shapes.
+- **Commit.**
+
+### LL25 — Docs: heuristic engine vs OpenType MATH / JLReq
+
+- Summarize live-layout status honestly vs full OpenType MATH / JLReq.
+- Mark LL21–LL25 done; refresh `implemented-features.md`.
+- **Commit.**
+
+---
+
 ## Status
 
 | Unit | Status |
@@ -223,3 +264,8 @@ No push unless asked. Fine-grained commits (one unit ≈ one commit).
 | LL18 — Aligned column snap | **done** |
 | LL19 — Stack placement | **done** |
 | LL20 — Docs after aligned/stack | **done** |
+| LL21 — Cases left brace + rows | **done** |
+| LL22 — Underbrace/overset visual | pending |
+| LL23 — `pkg_live_math` SVG/PPTX | pending |
+| LL24 — GUI package path open | pending |
+| LL25 — Heuristic vs OpenType/JLReq docs | pending |

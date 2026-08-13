@@ -692,6 +692,64 @@ fn layout_math_matrix_places_cells_by_column_widths() {
     assert!(tc.y_mm > ta.y_mm, "row1 below row0 in scene y-down");
 }
 
+/// LL21: Cases draw left `{` sized by cases_brace_total_height_em; rows stacked.
+#[test]
+fn layout_math_cases_draws_left_brace_and_places_rows() {
+    use reciplexa_scene::Shape;
+    use reciplexa_std::math::{
+        cases_brace_total_height_em, layout_math_atom_to_shapes, CASES_ROW_HEIGHT_EM,
+        MATH_LAYOUT_EM_TO_MM,
+    };
+
+    let a = MathAtom::symbol(id(1), "a", MathClass::Ordinary);
+    let b = MathAtom::symbol(id(2), "b", MathClass::Ordinary);
+    let c = MathAtom::symbol(id(3), "c", MathClass::Ordinary);
+    let d = MathAtom::symbol(id(4), "d", MathClass::Ordinary);
+    // Two rows × two cells — cases left-align + left brace.
+    let rows = vec![vec![a.clone(), b.clone()], vec![c.clone(), d.clone()]];
+    let atom = MathAtom::matrix_delimited(id(5), "{", "", rows);
+    let origin = (10.0, 140.0);
+    let shapes = layout_math_atom_to_shapes(&atom, origin);
+    let texts: Vec<_> = shapes
+        .iter()
+        .filter_map(|s| match s {
+            Shape::Text(t) => Some(t),
+            _ => None,
+        })
+        .collect();
+    let brace = texts
+        .iter()
+        .find(|t| t.content == "{")
+        .expect("cases left brace");
+    let max_row = a
+        .estimate_box()
+        .total_height()
+        .max(b.estimate_box().total_height())
+        .max(c.estimate_box().total_height())
+        .max(d.estimate_box().total_height())
+        .max(0.5)
+        .max(CASES_ROW_HEIGHT_EM);
+    let expect_size = cases_brace_total_height_em(2, max_row) * MATH_LAYOUT_EM_TO_MM;
+    assert!(
+        (brace.size_mm - expect_size).abs() < 1e-9,
+        "brace size_mm={} expect {}",
+        brace.size_mm,
+        expect_size
+    );
+    assert!((brace.x_mm - origin.0).abs() < 1e-9, "brace at origin x");
+    let ta = texts.iter().find(|t| t.content == "a").expect("a");
+    let tc = texts.iter().find(|t| t.content == "c").expect("c");
+    let tb = texts.iter().find(|t| t.content == "b").expect("b");
+    assert!(tc.y_mm > ta.y_mm, "row1 below row0 in scene y-down");
+    assert!(tb.x_mm > ta.x_mm, "col1 right of col0");
+    assert!(
+        ta.x_mm > brace.x_mm,
+        "cells to the right of left brace: a={} brace={}",
+        ta.x_mm,
+        brace.x_mm
+    );
+}
+
 /// LL13: Delimiter layout draws taller left/right fence glyphs from stretch heuristic.
 #[test]
 fn layout_math_delimiter_tall_fence_font_size() {
