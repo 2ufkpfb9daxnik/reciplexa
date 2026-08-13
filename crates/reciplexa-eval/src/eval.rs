@@ -48,6 +48,10 @@ pub fn primitive_env() -> HashMap<String, RuntimeValue> {
     );
     env.insert("int-div".into(), RuntimeValue::Builtin(BuiltinOp::IntDiv));
     env.insert("mod".into(), RuntimeValue::Builtin(BuiltinOp::Mod));
+    env.insert(
+        "classify-char".into(),
+        RuntimeValue::Builtin(BuiltinOp::ClassifyChar),
+    );
     env
 }
 
@@ -1226,6 +1230,29 @@ fn apply_builtin(op: BuiltinOp, args: Vec<RuntimeValue>) -> Result<Outcome, Eval
                     x % y
                 },
             )))
+        }
+        BuiltinOp::ClassifyChar => {
+            if args.len() != 1 {
+                return Err(EvalError {
+                    message: format!(
+                        "builtin `classify-char` expects 1 arg, got {}",
+                        args.len()
+                    ),
+                });
+            }
+            let s = match &args[0] {
+                RuntimeValue::String(text) => text.as_str(),
+                _ => {
+                    return Err(EvalError {
+                        message: "builtin `classify-char` expects string argument".into(),
+                    });
+                }
+            };
+            let ch = s.chars().next().ok_or_else(|| EvalError {
+                message: "builtin `classify-char` expects non-empty string".into(),
+            })?;
+            let id = reciplexa_std::japanese::classify_char(ch).id();
+            Ok(Outcome::Value(RuntimeValue::Int(i128::from(id))))
         }
     }
 }

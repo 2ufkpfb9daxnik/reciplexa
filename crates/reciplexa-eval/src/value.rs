@@ -85,6 +85,8 @@ pub enum BuiltinOp {
     IntDiv,
     /// DD-TYP-NUM-002: remainder `mod : int × int -> int`.
     Mod,
+    /// JLReq-oriented `classify-char` — string (first char) → Int class id (`cl-NN` / Other=0).
+    ClassifyChar,
 }
 
 impl fmt::Debug for RuntimeValue {
