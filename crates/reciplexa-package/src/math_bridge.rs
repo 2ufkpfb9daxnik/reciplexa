@@ -7,9 +7,9 @@
 use std::path::Path;
 
 use reciplexa_eval::{
-    estimate_math_box_from_value, eval_expr, primitive_env, RuntimeValue, UnitHost,
+    estimate_math_box_from_value_with_style, eval_expr, primitive_env, RuntimeValue, UnitHost,
 };
-use reciplexa_std::math::MathBox;
+use reciplexa_std::math::{EstimateStyle, MathBox};
 
 use crate::load::{elaborate_with_packages, LocalPackageIndex, PackageLoadError};
 
@@ -35,7 +35,11 @@ impl std::fmt::Display for MathBridgeError {
     }
 }
 
-/// Elaborate/eval `entry_path` unit `main`, then [`estimate_math_box_from_value`].
+/// Elaborate/eval `entry_path` unit `main`, then estimate a fontless [`MathBox`].
+///
+/// Host package mains use [`EstimateStyle::Display`] by default (display math),
+/// ignoring any nested `style` field on the tree — inline text style is for
+/// language `math-box` / record surfaces, not host inspect estimates.
 ///
 /// When `main` is a `math-demo`-style record with a `tree` field, estimates that
 /// subtree; otherwise estimates the whole value if it is a math tagged record.
@@ -56,7 +60,8 @@ pub fn estimate_package_math_main(
     let v = eval_expr(&demo.expr, &primitive_env(), &mut UnitHost)
         .map_err(|e| MathBridgeError::Eval(e.message))?;
     let target = math_estimate_target(&v);
-    estimate_math_box_from_value(target).map_err(|e| MathBridgeError::Estimate(e.message))
+    estimate_math_box_from_value_with_style(target, EstimateStyle::Display)
+        .map_err(|e| MathBridgeError::Estimate(e.message))
 }
 
 fn math_estimate_target(v: &RuntimeValue) -> &RuntimeValue {
