@@ -1006,3 +1006,41 @@ cargo test -p reciplexa-std -p reciplexa-eval -p reciplexa-core -p reciplexa-pac
 - Font-backed ruby / tate-chu-yoko / real vertical metrics / bou placement; OpenType `vert`/`vrt2` / CSS `text-orientation`.
 - OpenType MATH stretchy fences, accent/script/stackrel attachment, real matrix column alignment / big-op / fraction/radical / full muskip style table / real phantom atoms.
 - Document/GUI pipeline consuming boxes as production layout (beyond soft-wrapped Text shapes / estimate_box / math-box / stretchy-delim / first-line indent / place_lines / EstimateStyle / vertical place / phantom-smash / emoji-Other stubs); load-time resource rewrite beyond fail-soft attach; registry resolve + checksum verification (OPEN-PKG-001).
+
+## Wave 21 — math-phantom / math-smash builtins (O0–O2)
+
+Honest scope: language builtins that wrap Wave 19 `phantom_box` / `smash_box` over a math tag record, symbol string, or already-estimated math-box metrics record. Not `MathAtom` variants / OpenType MATH phantoms.
+
+Gate:
+
+```bat
+set CARGO_TARGET_DIR=d:\reciplexa\target
+set TEMP=d:\reciplexa\.tmp
+set TMP=d:\reciplexa\.tmp
+cargo test -p reciplexa-std -p reciplexa-eval -p reciplexa-core -p reciplexa-package --offline
+```
+
+| Unit | Status |
+|------|--------|
+| O0 — builtins `math-phantom` / `math-smash` | **done** |
+| O1 — Example | **done** |
+| O2 — Docs | **done** |
+
+### O0 — Builtins
+
+- `math-phantom` / `math-smash`: same inputs as `math-box` (math record / symbol string) plus math-box-like metrics records → `{tag, width, height, depth}` after `phantom_box` / `smash_box`. **Commit.**
+
+### O1 — Example
+
+- `examples/pkg_math_phantom.rpx`. **Commit.**
+
+### O2 — Docs
+
+- Mark Wave 21 done; package / implemented-features notes. **Commit.**
+
+## Remains after Wave 21
+
+- Full UCS membership + normative JLReq §C break matrix + real hanging/justification / word-break / paragraph composition.
+- Font-backed ruby / tate-chu-yoko / real vertical metrics / bou placement; OpenType `vert`/`vrt2` / CSS `text-orientation`.
+- OpenType MATH stretchy fences, accent/script/stackrel attachment, real matrix column alignment / big-op / fraction/radical / full muskip style table / real phantom atoms.
+- Document/GUI pipeline consuming boxes as production layout; multi-column measure / JA reciprocal punctuation stubs; load-time resource rewrite beyond fail-soft attach; registry resolve + checksum verification (OPEN-PKG-001).
