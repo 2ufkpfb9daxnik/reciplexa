@@ -8,7 +8,8 @@
 //!
 //! [`content_checksum`]: lockfile content hash is a **non-crypto FNV-1a stub**
 //! (`stub-fnv1a64:…`) until blake3/sha256 lands in the workspace. Path-dep writers
-//! may fill `LockedPackage.checksum` from `package.rpxm` only (CS0).
+//! may fill `LockedPackage.checksum` from `package.rpxm` only (CS0); mismatch is
+//! reported as PKG006 via [`diagnose_lockfile_checksums`] (CS1).
 
 #![forbid(unsafe_code)]
 
@@ -31,8 +32,8 @@ pub mod target;
 pub mod workspace;
 
 pub use build::{
-    diagnose_manifest, diagnose_manifest_with_root, BuildGraph, BuildNode, BuildNodeId,
-    IncrementalCache, InvalidationKind, PackageDiagnostic,
+    diagnose_lockfile_checksums, diagnose_manifest, diagnose_manifest_with_root, BuildGraph,
+    BuildNode, BuildNodeId, IncrementalCache, InvalidationKind, PackageDiagnostic,
 };
 pub use doc_preview::{
     count_ruby_tate_in_value, debug_layout_summary, preview_doc_text_metrics,

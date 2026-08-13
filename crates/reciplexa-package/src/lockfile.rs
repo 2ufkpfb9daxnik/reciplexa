@@ -20,7 +20,8 @@ pub struct LockedPackage {
     ///
     /// For path deps, writers may fill via [`content_checksum`] of that
     /// package's `package.rpxm` (not the full tree). Stub hash — see OPEN
-    /// note on [`content_checksum`].
+    /// note on [`content_checksum`]. Diagnose mismatch with
+    /// [`crate::diagnose_lockfile_checksums`] (PKG006).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub checksum: Option<String>,
 }

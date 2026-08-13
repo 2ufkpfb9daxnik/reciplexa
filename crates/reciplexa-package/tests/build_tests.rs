@@ -223,3 +223,68 @@ fn diagnose_pkg005_registry_dependency() {
         .iter()
         .any(|d| d.code == "PKG005"));
 }
+
+#[test]
+fn diagnose_pkg006_path_checksum_mismatch() {
+    use reciplexa_package::{
+        content_checksum, diagnose_lockfile_checksums, LockedPackage, Lockfile,
+    };
+
+    let dir = std::env::temp_dir().join(format!(
+        "reciplexa-pkg006-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0)
+    ));
+    let dep = dir.join("util");
+    std::fs::create_dir_all(&dep).unwrap();
+    let rpxm = dep.join("package.rpxm");
+    std::fs::write(&rpxm, "(package util format-version 1 version \"1\")\n").unwrap();
+    let actual = content_checksum(&rpxm);
+
+    let matching = Lockfile {
+        packages: vec![LockedPackage {
+            name: "util".into(),
+            version: "1".into(),
+            source: "path:util".into(),
+            dependencies: vec![],
+            checksum: Some(actual.clone()),
+        }],
+    };
+    assert!(
+        diagnose_lockfile_checksums(&matching, &dir).is_empty(),
+        "matching checksum should be quiet"
+    );
+
+    let mismatch = Lockfile {
+        packages: vec![LockedPackage {
+            name: "util".into(),
+            version: "1".into(),
+            source: "path:util".into(),
+            dependencies: vec![],
+            checksum: Some("stub-fnv1a64:0000000000000000".into()),
+        }],
+    };
+    let diags = diagnose_lockfile_checksums(&mismatch, &dir);
+    let hit = diags.iter().find(|d| d.code == "PKG006").expect("PKG006");
+    assert!(hit.message.contains("util"));
+    assert!(hit.message.contains(&actual));
+
+    // No checksum → no PKG006.
+    let bare = Lockfile {
+        packages: vec![LockedPackage {
+            name: "util".into(),
+            version: "1".into(),
+            source: "path:util".into(),
+            dependencies: vec![],
+            checksum: None,
+        }],
+    };
+    assert!(!diagnose_lockfile_checksums(&bare, &dir)
+        .iter()
+        .any(|d| d.code == "PKG006"));
+
+    let _ = std::fs::remove_dir_all(&dir);
+}

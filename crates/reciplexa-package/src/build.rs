@@ -154,6 +154,39 @@ pub fn diagnose_manifest_with_root(
     diagnose_manifest_inner(m, Some(package_root))
 }
 
+/// PKG006: when a locked path dep carries a `checksum`, compare it to
+/// [`crate::content_checksum`] of `{resolve_root}/{path}/package.rpxm`.
+///
+/// Missing checksums are skipped (pre-CS0 locks). Mismatch → error-severity
+/// diagnostic (hosts may treat any non-empty diagnose list as failure).
+pub fn diagnose_lockfile_checksums(
+    lock: &crate::lockfile::Lockfile,
+    resolve_root: &Path,
+) -> Vec<PackageDiagnostic> {
+    let mut diags = Vec::new();
+    for pkg in &lock.packages {
+        let Some(expected) = &pkg.checksum else {
+            continue;
+        };
+        let Some(rel) = pkg.source.strip_prefix("path:") else {
+            continue;
+        };
+        let rpxm = resolve_root.join(rel).join("package.rpxm");
+        let actual = crate::content_checksum(&rpxm);
+        if &actual != expected {
+            diags.push(PackageDiagnostic {
+                code: "PKG006".into(),
+                message: format!(
+                    "path dependency `{}` checksum mismatch: lock has `{expected}`, package.rpxm has `{actual}`",
+                    pkg.name
+                ),
+                package: Some(pkg.name.clone()),
+            });
+        }
+    }
+    diags
+}
+
 fn diagnose_manifest_inner(
     m: &PackageManifest,
     package_root: Option<&Path>,
