@@ -65,6 +65,31 @@ impl DocTextPreviewMetrics {
         }
         note
     }
+
+    /// Compact tooltip-like summary (no UI chrome required).
+    pub fn tooltip_summary(&self) -> String {
+        let mut s = format!(
+            "{} line(s), {} text shape(s), {} char(s)",
+            self.line_count, self.text_shape_count, self.total_content_chars
+        );
+        if self.ruby_count > 0 || self.tate_chu_yoko_count > 0 {
+            s.push_str(&format!(
+                "; ruby={}, tate={}",
+                self.ruby_count, self.tate_chu_yoko_count
+            ));
+        }
+        s
+    }
+}
+
+/// Fail-soft layout summary for inspect / GUI tooltips (HC10 follow-on).
+///
+/// Uses [`preview_doc_text_metrics`]; does not invent status-bar chrome.
+pub fn debug_layout_summary(
+    source: &str,
+    index: &LocalPackageIndex,
+) -> Result<String, GraphicsBridgeError> {
+    Ok(preview_doc_text_metrics(source, index)?.tooltip_summary())
 }
 
 /// Count ruby / tate-chu-yoko tagged records in an eval value tree (HC12).

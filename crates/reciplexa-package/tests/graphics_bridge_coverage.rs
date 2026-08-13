@@ -5,8 +5,9 @@ use std::path::PathBuf;
 
 use reciplexa_eval::{document_from_graphics_value, RuntimeValue};
 use reciplexa_package::{
-    document_from_package_entry, document_from_package_source, elaborate_with_packages,
-    preview_doc_text_metrics, GraphicsBridgeError, LocalPackageIndex, PackageLoadError,
+    debug_layout_summary, document_from_package_entry, document_from_package_source,
+    elaborate_with_packages, preview_doc_text_metrics, GraphicsBridgeError, LocalPackageIndex,
+    PackageLoadError,
 };
 use reciplexa_scene::Shape;
 
@@ -295,6 +296,38 @@ fn preview_doc_text_metrics_counts_ruby_and_tate() {
     assert!(m.line_count >= 1);
     assert!(m.diagnostic_note().contains("ruby=1"));
     assert!(m.diagnostic_note().contains("tate-chu-yoko=1"));
+}
+
+/// HC10 follow-on: compact layout summary for inspect / GUI tooltips.
+#[test]
+fn debug_layout_summary_long_ja_paragraph() {
+    let long = "あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをん";
+    let source = format!(
+        r#"(import document/page only
+  a4 page flow section heading paragraph
+  block-paragraph)
+(val title (heading 1 "題"))
+(val body (paragraph "{long}"))
+(val main
+  (page a4
+    (flow
+      (list
+        (section title
+          (list
+            (block-paragraph body)))))))
+"#
+    );
+    let summary = debug_layout_summary(&source, &index()).expect("layout summary");
+    assert!(
+        summary.contains("line(s)") && summary.contains("text shape(s)"),
+        "unexpected summary: {summary}"
+    );
+    let line_n: usize = summary
+        .split_whitespace()
+        .next()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(0);
+    assert!(line_n > 1, "expected multi-line summary, got {summary}");
 }
 
 /// HC7: bridged long JA paragraph PDF emits multiple text showing ops (CJK font).

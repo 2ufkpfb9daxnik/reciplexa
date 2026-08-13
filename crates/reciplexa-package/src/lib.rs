@@ -45,8 +45,9 @@ pub use domain_bodies::{
 };
 pub use domain_native::{DomainNativeModule, DomainNativeRegistry};
 pub use doc_preview::{
-    count_ruby_tate_in_value, preview_doc_text_metrics, preview_doc_text_metrics_from_document,
-    preview_doc_text_metrics_from_entry, DocTextPreviewMetrics, DOC_TEXT_MAX_EM,
+    count_ruby_tate_in_value, debug_layout_summary, preview_doc_text_metrics,
+    preview_doc_text_metrics_from_document, preview_doc_text_metrics_from_entry,
+    DocTextPreviewMetrics, DOC_TEXT_MAX_EM,
 };
 pub use graphics_bridge::{
     document_from_package_entry, document_from_package_source, GraphicsBridgeError,

@@ -61,18 +61,23 @@ pub fn cmd_inspect_document(path: &str) -> Result<(), String> {
             for node in snap.nodes.iter() {
                 println!("  {:?} id={}", node.kind, node.id.get());
             }
-            // HC2: optional host note when the snapshot carries Text shapes (e.g. JA wrap).
-            let shapes = crate::document_pipeline::preview_shapes(&snap);
-            if shapes
-                .iter()
-                .any(|s| matches!(s, reciplexa_scene::Shape::Text(_)))
-            {
-                let doc = reciplexa_scene::Document::single_page(reciplexa_scene::Page {
-                    paper: reciplexa_scene::PaperSize::a4(),
-                    shapes,
-                });
-                let metrics = reciplexa_package::preview_doc_text_metrics_from_document(&doc);
-                println!("{}", metrics.diagnostic_note());
+            // Prefer package-bridge layout summary (ruby/tate + soft-wrap counts).
+            if let Some(note) = try_debug_layout_summary(path, &src) {
+                println!("layout: {note}");
+            } else {
+                // HC2: scene-only fallback when package metrics are unavailable.
+                let shapes = crate::document_pipeline::preview_shapes(&snap);
+                if shapes
+                    .iter()
+                    .any(|s| matches!(s, reciplexa_scene::Shape::Text(_)))
+                {
+                    let doc = reciplexa_scene::Document::single_page(reciplexa_scene::Page {
+                        paper: reciplexa_scene::PaperSize::a4(),
+                        shapes,
+                    });
+                    let metrics = reciplexa_package::preview_doc_text_metrics_from_document(&doc);
+                    println!("{}", metrics.diagnostic_note());
+                }
             }
             Ok(())
         }
@@ -94,6 +99,21 @@ pub fn cmd_inspect_document(path: &str) -> Result<(), String> {
 
 fn source_looks_math_ish(src: &str) -> bool {
     src.contains("(import math/")
+}
+
+fn try_debug_layout_summary(path: &str, src: &str) -> Option<String> {
+    use std::path::Path;
+
+    use reciplexa_package::{debug_layout_summary, LocalPackageIndex};
+
+    if !(src.contains("(import document") || src.contains("(import graphics")) {
+        return None;
+    }
+    let entry = Path::new(path);
+    let search_roots = crate::pipeline::package_search_roots_near(Some(entry));
+    let roots: Vec<&Path> = search_roots.iter().map(|p| p.as_path()).collect();
+    let idx = LocalPackageIndex::discover(&roots).ok()?;
+    debug_layout_summary(src, &idx).ok()
 }
 
 fn try_inspect_math_main(path: &str) -> Result<String, String> {
@@ -503,6 +523,19 @@ mod tests {
         std::fs::write(&path, "(val main 1)").unwrap();
         let err = cmd_inspect_document(path.to_str().unwrap()).unwrap_err();
         assert!(!err.is_empty());
+    }
+
+    #[test]
+    fn try_debug_layout_summary_for_package_document() {
+        let entry = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../examples/pkg_document.rpx");
+        let src = std::fs::read_to_string(&entry).expect("pkg_document");
+        let note = super::try_debug_layout_summary(entry.to_str().unwrap(), &src)
+            .expect("layout summary for package doc");
+        assert!(
+            note.contains("line(s)") && note.contains("text shape(s)"),
+            "unexpected note: {note}"
+        );
     }
 
     #[test]
