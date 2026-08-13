@@ -260,7 +260,41 @@ fn preview_doc_text_metrics_long_ja_paragraph() {
     assert!(m.line_count >= expected_lines.len());
     assert!(m.max_line_width_em > 0.0);
     assert!(m.approx_block_height_em > 0.0);
+    assert_eq!(m.ruby_count, 0);
+    assert_eq!(m.tate_chu_yoko_count, 0);
     assert!(m.diagnostic_note().contains("line"));
+}
+
+/// HC12: preview metrics count ruby / tate nodes when present in the eval tree.
+#[test]
+fn preview_doc_text_metrics_counts_ruby_and_tate() {
+    let source = r#"(import document/page only
+  a4 page flow section heading paragraph
+  block-paragraph)
+(val ruby (ruby-box "漢" "かん"))
+(val tate (record (tag "ja-tate-chu-yoko") (body "12")))
+(val title (heading 1 "題"))
+(val body (paragraph "本文"))
+(val main
+  (record
+    (tag "ja-host-preview")
+    (ruby ruby)
+    (tate tate)
+    (page
+      (page a4
+        (flow
+          (list
+            (section title
+              (list
+                (block-paragraph body)))))))))
+"#;
+    let idx = index();
+    let m = preview_doc_text_metrics(source, &idx).expect("preview with ruby/tate");
+    assert_eq!(m.ruby_count, 1, "expected one ruby-box, got {m:?}");
+    assert_eq!(m.tate_chu_yoko_count, 1, "expected one tate node, got {m:?}");
+    assert!(m.line_count >= 1);
+    assert!(m.diagnostic_note().contains("ruby=1"));
+    assert!(m.diagnostic_note().contains("tate-chu-yoko=1"));
 }
 
 /// HC7: bridged long JA paragraph PDF emits multiple text showing ops (CJK font).
