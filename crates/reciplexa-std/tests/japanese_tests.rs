@@ -484,6 +484,40 @@ fn ruby_estimate_box_advance_and_scale() {
 }
 
 #[test]
+fn vertical_ruby_and_bou_placement_stubs() {
+    use reciplexa_std::japanese::{
+        bou_estimate_box, bou_mark_offsets, vertical_advance_em, vertical_ruby_estimate_box, Ruby,
+        BOU_MARK_SIZE_EM, BOU_SIDE_OFFSET_EM, RUBY_ANNOTATION_SCALE, VERTICAL_RUBY_SIDE_EM,
+    };
+
+    let r = Ruby::simple("漢", "かん");
+    let vb = r.estimate_vertical_box();
+    assert!((vb.base_advance - vertical_advance_em('漢')).abs() < 1e-9);
+    let ann: f64 = "かん".chars().map(vertical_advance_em).sum::<f64>() * RUBY_ANNOTATION_SCALE;
+    assert!((vb.annotation_advance - ann).abs() < 1e-9);
+    assert!((vb.advance - vb.base_advance.max(vb.annotation_advance)).abs() < 1e-9);
+    assert!((vb.annotation_side_x - VERTICAL_RUBY_SIDE_EM).abs() < 1e-9);
+    assert!((vb.inline_em - (1.0 + VERTICAL_RUBY_SIDE_EM)).abs() < 1e-9);
+    assert_eq!(vertical_ruby_estimate_box(&r), vb);
+
+    let bou = bou_estimate_box("重要");
+    let expected_adv: f64 = "重要".chars().map(vertical_advance_em).sum();
+    assert!((bou.advance - expected_adv).abs() < 1e-9);
+    assert!((bou.mark_size - BOU_MARK_SIZE_EM).abs() < 1e-9);
+    assert!((bou.side_em - (BOU_SIDE_OFFSET_EM + BOU_MARK_SIZE_EM * 0.5)).abs() < 1e-9);
+
+    let marks = bou_mark_offsets("あいう");
+    assert_eq!(marks.len(), 3);
+    assert!((marks[0].1 - BOU_SIDE_OFFSET_EM).abs() < 1e-9);
+    assert!(marks[0].0 > 0.0);
+    assert!(marks[2].0 > marks[0].0);
+
+    let empty = bou_estimate_box("");
+    assert!((empty.advance - 0.0).abs() < 1e-9);
+    assert!(bou_mark_offsets("").is_empty());
+}
+
+#[test]
 fn tate_chu_yoko_estimate_box_digits_and_latin() {
     use reciplexa_std::japanese::{tate_chu_yoko_estimate_box, TateChuYoko};
 

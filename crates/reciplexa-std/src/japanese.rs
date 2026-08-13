@@ -1074,6 +1074,124 @@ pub fn ruby_estimate_box(ruby: &Ruby) -> RubyBox {
     RubyBox::new(base_width, annotation_width, advance_width, height)
 }
 
+/// Side offset (em) of vertical-ruby annotation from the base glyph axis.
+///
+/// In `vertical-rl`, furigana sits toward the line-start side; this stub uses a
+/// fixed positive offset (host may mirror for rl). Not JLReq ruby placement.
+pub const VERTICAL_RUBY_SIDE_EM: f64 = 0.55;
+
+/// Fontless vertical-ruby metrics — annotation beside the base in vertical text.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct VerticalRubyBox {
+    /// Sum of [`vertical_advance_em`] over the base.
+    pub base_advance: f64,
+    /// Scaled annotation advance along the vertical measure.
+    pub annotation_advance: f64,
+    /// Combined vertical advance: `max(base_advance, annotation_advance)`.
+    pub advance: f64,
+    /// Inline (perpendicular) extent: ~1 em base + side ruby band.
+    pub inline_em: f64,
+    /// Annotation axis offset from the base (positive = annotation side).
+    pub annotation_side_x: f64,
+}
+
+impl VerticalRubyBox {
+    pub const fn new(
+        base_advance: f64,
+        annotation_advance: f64,
+        advance: f64,
+        inline_em: f64,
+        annotation_side_x: f64,
+    ) -> Self {
+        Self {
+            base_advance,
+            annotation_advance,
+            advance,
+            inline_em,
+            annotation_side_x,
+        }
+    }
+}
+
+/// Estimate vertical-ruby metrics (annotation to the side — estimate only).
+pub fn vertical_ruby_estimate_box(ruby: &Ruby) -> VerticalRubyBox {
+    let base_advance: f64 = ruby.base.chars().map(vertical_advance_em).sum();
+    let annotation_advance: f64 = ruby
+        .annotation
+        .chars()
+        .map(vertical_advance_em)
+        .sum::<f64>()
+        * RUBY_ANNOTATION_SCALE;
+    let advance = base_advance.max(annotation_advance);
+    let inline_em = 1.0 + VERTICAL_RUBY_SIDE_EM;
+    VerticalRubyBox::new(
+        base_advance,
+        annotation_advance,
+        advance,
+        inline_em,
+        VERTICAL_RUBY_SIDE_EM,
+    )
+}
+
+impl Ruby {
+    /// Vertical-writing ruby estimate (side annotation); see [`vertical_ruby_estimate_box`].
+    pub fn estimate_vertical_box(&self) -> VerticalRubyBox {
+        vertical_ruby_estimate_box(self)
+    }
+}
+
+/// Bou (傍点) mark size (em) — sesame/emphasis dots beside glyphs (fontless stub).
+pub const BOU_MARK_SIZE_EM: f64 = 0.25;
+
+/// Side offset (em) of bou marks from the glyph axis in vertical text.
+pub const BOU_SIDE_OFFSET_EM: f64 = 0.55;
+
+/// Fontless bou / emphasis placement estimate — package `ja-emphasis` companion.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct BouBox {
+    /// Vertical (or inline) advance of the marked body.
+    pub advance: f64,
+    /// Inline pad reserved for marks.
+    pub side_em: f64,
+    /// Mark glyph size (em).
+    pub mark_size: f64,
+}
+
+impl BouBox {
+    pub const fn new(advance: f64, side_em: f64, mark_size: f64) -> Self {
+        Self {
+            advance,
+            side_em,
+            mark_size,
+        }
+    }
+}
+
+/// Estimate bou (傍点) band metrics for an emphasis body string.
+pub fn bou_estimate_box(body: &str) -> BouBox {
+    let advance: f64 = body.chars().map(vertical_advance_em).sum();
+    BouBox::new(
+        advance,
+        BOU_SIDE_OFFSET_EM + BOU_MARK_SIZE_EM * 0.5,
+        BOU_MARK_SIZE_EM,
+    )
+}
+
+/// Per-glyph bou mark centers: `(advance_along, side_x)` from the start of `body`.
+///
+/// Marks sit at mid-glyph along the advance axis and at [`BOU_SIDE_OFFSET_EM`]
+/// to the side. Heuristic only — not JLReq / CSS `text-emphasis` positioning.
+pub fn bou_mark_offsets(body: &str) -> Vec<(f64, f64)> {
+    let mut along = 0.0_f64;
+    let mut out = Vec::new();
+    for c in body.chars() {
+        let adv = vertical_advance_em(c);
+        out.push((along + adv * 0.5, BOU_SIDE_OFFSET_EM));
+        along += adv;
+    }
+    out
+}
+
 impl fmt::Display for Ruby {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}({})", self.base, self.annotation)
