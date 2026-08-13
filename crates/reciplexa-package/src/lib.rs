@@ -7,7 +7,8 @@
 //! dependencies without network I/O.
 //!
 //! [`content_checksum`]: lockfile content hash is a **non-crypto FNV-1a stub**
-//! (`stub-fnv1a64:…`) until blake3/sha256 lands in the workspace; not verified.
+//! (`stub-fnv1a64:…`) until blake3/sha256 lands in the workspace. Path-dep writers
+//! may fill `LockedPackage.checksum` from `package.rpxm` only (CS0).
 
 #![forbid(unsafe_code)]
 
@@ -33,6 +34,11 @@ pub use build::{
     diagnose_manifest, diagnose_manifest_with_root, BuildGraph, BuildNode, BuildNodeId,
     IncrementalCache, InvalidationKind, PackageDiagnostic,
 };
+pub use doc_preview::{
+    count_ruby_tate_in_value, debug_layout_summary, preview_doc_text_metrics,
+    preview_doc_text_metrics_from_document, preview_doc_text_metrics_from_entry,
+    DocTextPreviewMetrics, DOC_TEXT_MAX_EM,
+};
 pub use domain_bodies::{
     color_srgb_module, color_srgb_source, document_page_module, document_page_source,
     graphics_color_module, graphics_color_source, graphics_page_module, graphics_page_source,
@@ -48,11 +54,6 @@ pub use domain_bodies::{
     std_domain_natives,
 };
 pub use domain_native::{DomainNativeModule, DomainNativeRegistry};
-pub use doc_preview::{
-    count_ruby_tate_in_value, debug_layout_summary, preview_doc_text_metrics,
-    preview_doc_text_metrics_from_document, preview_doc_text_metrics_from_entry,
-    DocTextPreviewMetrics, DOC_TEXT_MAX_EM,
-};
 pub use graphics_bridge::{
     document_from_package_entry, document_from_package_source, GraphicsBridgeError,
 };

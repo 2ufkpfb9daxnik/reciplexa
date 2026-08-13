@@ -16,10 +16,11 @@ pub struct LockedPackage {
     /// Direct dependency edges (formal package names), for path-dep graphs.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub dependencies: Vec<String>,
-    /// Optional registry content checksum stub (OPEN-PKG-001).
+    /// Optional content checksum stub (OPEN-PKG-001 / path-dep CS0).
     ///
-    /// Carried for future lockfile round-trips; **not verified** today.
-    /// Populate via [`content_checksum`] (stub hash — see OPEN note there).
+    /// For path deps, writers may fill via [`content_checksum`] of that
+    /// package's `package.rpxm` (not the full tree). Stub hash — see OPEN
+    /// note on [`content_checksum`].
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub checksum: Option<String>,
 }
@@ -84,21 +85,47 @@ impl Lockfile {
     ///
     /// Records `path:<rel>` sources and dependency edges; suitable as a
     /// root `rpx.lock` for a single-package consumer or workspace root.
+    /// Does **not** fill checksums (no package roots). Prefer
+    /// [`Self::from_consumer_with_roots`] when writing a lock that should
+    /// carry path-dep `package.rpxm` stubs (CS0).
     pub fn from_consumer(
         consumer: &PackageManifest,
         deps: &[(&DependencySpec, &PackageManifest)],
+    ) -> Self {
+        let triples: Vec<(&DependencySpec, &PackageManifest, Option<&Path>)> =
+            deps.iter().map(|(s, m)| (*s, *m, None)).collect();
+        Self::from_consumer_with_roots(consumer, &triples)
+    }
+
+    /// Like [`Self::from_consumer`], and for each path dep whose package root
+    /// is provided, fills `checksum` from [`content_checksum`] of
+    /// `{root}/package.rpxm` (manifest file only — not the full tree).
+    ///
+    /// Always fills the stub when a root is given (no feature gate). Missing
+    /// roots leave `checksum: None` (same as pre-CS0 writers).
+    pub fn from_consumer_with_roots(
+        consumer: &PackageManifest,
+        deps: &[(&DependencySpec, &PackageManifest, Option<&Path>)],
     ) -> Self {
         let mut packages = vec![LockedPackage {
             name: consumer.name.clone(),
             version: consumer.version.clone(),
             source: "workspace".into(),
-            dependencies: deps.iter().map(|(_, m)| m.name.clone()).collect::<Vec<_>>(),
+            dependencies: deps
+                .iter()
+                .map(|(_, m, _)| m.name.clone())
+                .collect::<Vec<_>>(),
             checksum: None,
         }];
-        for (spec, manifest) in deps {
+        for (spec, manifest, root) in deps {
             let source = match &spec.path {
                 Some(p) => format!("path:{p}"),
                 None => "workspace".into(),
+            };
+            let checksum = if spec.path.is_some() {
+                root.map(|r| content_checksum(r.join("package.rpxm")))
+            } else {
+                None
             };
             packages.push(LockedPackage {
                 name: manifest.name.clone(),
@@ -110,7 +137,7 @@ impl Lockfile {
                     .filter(|d| d.path.is_some())
                     .map(|d| d.package.clone().unwrap_or_else(|| d.name.clone()))
                     .collect(),
-                checksum: None,
+                checksum,
             });
         }
         packages.sort_by(|a, b| a.name.cmp(&b.name));

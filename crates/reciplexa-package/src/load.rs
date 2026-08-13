@@ -323,27 +323,34 @@ impl LocalPackageIndex {
     }
 
     /// Build a path-dep lockfile for a consumer package root.
+    ///
+    /// Fills each path dep's `checksum` from `content_checksum(package.rpxm)`
+    /// under that package's root (CS0; stub hash, not full tree).
     pub fn lock_consumer(
         &self,
         consumer: &PackageManifest,
     ) -> Result<crate::lockfile::Lockfile, PackageLoadError> {
-        let mut dep_manifests: Vec<(DependencySpec, PackageManifest)> = Vec::new();
+        let mut dep_triples: Vec<(DependencySpec, PackageManifest, PathBuf)> = Vec::new();
         for spec in &consumer.dependencies {
             if spec.path.is_none() {
                 continue;
             }
             let formal = self.resolve_alias(&spec.name);
-            let (_, manifest) = self.packages.get(formal).ok_or_else(|| {
+            let (root, manifest) = self.packages.get(formal).ok_or_else(|| {
                 PackageLoadError::NotFound(format!(
                     "cannot lock missing path dependency `{}`",
                     spec.name
                 ))
             })?;
-            dep_manifests.push((spec.clone(), manifest.clone()));
+            dep_triples.push((spec.clone(), manifest.clone(), root.clone()));
         }
-        let refs: Vec<(&DependencySpec, &PackageManifest)> =
-            dep_manifests.iter().map(|(s, m)| (s, m)).collect();
-        Ok(crate::lockfile::Lockfile::from_consumer(consumer, &refs))
+        let refs: Vec<(&DependencySpec, &PackageManifest, Option<&Path>)> = dep_triples
+            .iter()
+            .map(|(s, m, r)| (s, m, Some(r.as_path())))
+            .collect();
+        Ok(crate::lockfile::Lockfile::from_consumer_with_roots(
+            consumer, &refs,
+        ))
     }
 }
 
