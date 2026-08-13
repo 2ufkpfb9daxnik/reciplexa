@@ -658,3 +658,50 @@ fn live_layout_pdf_smoke_when_cjk_font() {
         "expected ≥1 PDF text op from live-layout page, got {tj} Tj (shapes={text_shape_count})"
     );
 }
+
+/// LL6: live-layout demo → SVG with multiple `<text` elements (doc + math).
+#[test]
+fn live_layout_svg_smoke_multi_text() {
+    let entry =
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/pkg_live_layout.rpx");
+    let doc = document_from_live_layout_entry(&entry, &index()).expect("live layout bridge");
+    let text_shape_count = doc.pages[0]
+        .shapes
+        .iter()
+        .filter(|s| matches!(s, Shape::Text(_)))
+        .count();
+    assert!(
+        text_shape_count >= 2,
+        "expected doc + math Text shapes before SVG, got {text_shape_count}"
+    );
+    let svg = reciplexa_svg::document_to_svg(&doc).expect("live layout svg");
+    let text_elems = svg.matches("<text").count();
+    assert!(
+        text_elems >= 2,
+        "expected multiple SVG text elements from live-layout page, got {text_elems} <text (shapes={text_shape_count})"
+    );
+}
+
+/// LL6: live-layout demo → PPTX with multiple `<a:t>` runs (doc + math).
+#[test]
+fn live_layout_pptx_smoke_multi_text() {
+    let entry =
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/pkg_live_layout.rpx");
+    let doc = document_from_live_layout_entry(&entry, &index()).expect("live layout bridge");
+    let text_shape_count = doc.pages[0]
+        .shapes
+        .iter()
+        .filter(|s| matches!(s, Shape::Text(_)))
+        .count();
+    assert!(
+        text_shape_count >= 2,
+        "expected doc + math Text shapes before PPTX, got {text_shape_count}"
+    );
+    let bytes = reciplexa_pptx::document_to_pptx(&doc).expect("live layout pptx");
+    let slide = slide1_xml_from_pptx(&bytes);
+    let a_t = slide.matches("<a:t>").count();
+    assert!(
+        a_t >= 2,
+        "expected multiple PPTX text runs from live-layout page, got {a_t} <a:t> (shapes={text_shape_count})"
+    );
+}
