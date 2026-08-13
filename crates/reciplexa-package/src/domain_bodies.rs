@@ -1498,6 +1498,7 @@ pub fn document_page_module() -> DomainNativeModule {
             "heading".into(),
             "paragraph".into(),
             "paragraph-indented".into(),
+            "columns".into(),
             "unordered-list".into(),
             "ordered-list".into(),
             "list-item".into(),
@@ -1506,6 +1507,7 @@ pub fn document_page_module() -> DomainNativeModule {
             "spacer".into(),
             "block-heading".into(),
             "block-paragraph".into(),
+            "block-columns".into(),
             "block-list".into(),
             "block-table".into(),
             "block-figure".into(),
@@ -1534,6 +1536,9 @@ pub fn document_page_source() -> &'static str {
   (record (tag "doc-paragraph") (text text))))
 (val paragraph-indented (fn (text em)
   (record (tag "doc-paragraph") (text text) (indent-em em))))
+(val columns (fn (count gutter-em total-em paragraphs)
+  (record (tag "doc-columns")
+    (count count) (gutter-em gutter-em) (total-em total-em) (paragraphs paragraphs))))
 (val unordered-list (fn (items)
   (record (tag "doc-list") (ordered false) (items items))))
 (val ordered-list (fn (items)
@@ -1550,6 +1555,8 @@ pub fn document_page_source() -> &'static str {
   (record (tag "doc-block") (kind "heading") (heading heading))))
 (val block-paragraph (fn (paragraph)
   (record (tag "doc-block") (kind "paragraph") (paragraph paragraph))))
+(val block-columns (fn (columns)
+  (record (tag "doc-block") (kind "columns") (columns columns))))
 (val block-list (fn (list)
   (record (tag "doc-block") (kind "list") (list list))))
 (val block-table (fn (table)

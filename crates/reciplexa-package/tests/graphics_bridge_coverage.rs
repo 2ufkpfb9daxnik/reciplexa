@@ -227,6 +227,38 @@ fn package_document_long_ja_paragraph_emits_multiple_text_shapes() {
     );
 }
 
+/// Wave 24 R1: `columns` / `block-columns` → side-by-side Text via measure_columns.
+#[test]
+fn package_document_columns_places_side_by_side_texts() {
+    let entry = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/pkg_columns.rpx");
+    let idx = index();
+    let doc = document_from_package_entry(&entry, &idx).expect("pkg_columns bridge");
+    let texts: Vec<_> = doc.pages[0]
+        .shapes
+        .iter()
+        .filter_map(|s| match s {
+            Shape::Text(t) => Some(t),
+            _ => None,
+        })
+        .collect();
+    let left = texts
+        .iter()
+        .find(|t| t.content == "左カラム本文")
+        .expect("left column");
+    let right = texts
+        .iter()
+        .find(|t| t.content == "右カラム本文")
+        .expect("right column");
+    // total-em 21, gutter 1 → col_w 10, xs [0, 11]; size_mm 4 → Δx = 44mm
+    assert!(
+        (right.x_mm - left.x_mm - 11.0 * 4.0).abs() < 1e-6,
+        "expected Δx=44, left={} right={}",
+        left.x_mm,
+        right.x_mm
+    );
+    assert!((left.y_mm - right.y_mm).abs() < 1e-9);
+}
+
 /// Wave 15 I2: `paragraph-indented` → first Text x offset via indent-em.
 #[test]
 fn package_document_indent_em_offsets_first_paragraph_text() {

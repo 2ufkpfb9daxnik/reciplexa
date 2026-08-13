@@ -1,0 +1,17 @@
+(// language-only: document columns via measure_columns / doc-columns stub.
+ // Not balanced newspaper columns / jlreq-multi-column books.)
+(import document/page only
+  a4 page flow section heading paragraph columns
+  block-heading block-columns)
+(val title (heading 1 "段組"))
+(val left (paragraph "左カラム本文"))
+(val right (paragraph "右カラム本文"))
+(val cols (columns 2 1 21 (list left right)))
+(val main
+  (page a4
+    (flow
+      (list
+        (section title
+          (list
+            (block-heading title)
+            (block-columns cols)))))))
