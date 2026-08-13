@@ -374,3 +374,59 @@ When package path touched: also `cargo test -p reciplexa-package --offline`.
 - Font-backed ruby / tate-chu-yoko / vertical glyph orientation / real vertical metrics.
 - OpenType MATH stretchy fences, accent/script attachment, matrix column alignment.
 - Document/GUI pipeline consuming boxes as production layout; load-time resource rewrite beyond fail-soft attach.
+
+---
+
+## Wave 7 — denser break matrix + ruby/tate builtins + doc flow (A0–A5)
+
+Honest scope: denser **subset** class×class break table (not full JLReq appendix C); language builtins for existing fontless ruby/tate stubs; light `doc-paragraph` soft-wrap into scene Text. Not production JLReq / font-backed layout.
+
+Gate:
+
+```bat
+set CARGO_TARGET_DIR=d:\reciplexa\target
+set TEMP=d:\reciplexa\.tmp
+set TMP=d:\reciplexa\.tmp
+cargo test -p reciplexa-std -p reciplexa-eval -p reciplexa-core -p reciplexa-package --offline
+```
+
+| Unit | Status |
+|------|--------|
+| A0 — §C-inspired pair matrix expansion | **done** |
+| A1 — Ruby language builtin `ruby-box` | **done** |
+| A2 — Tate-chu-yoko builtin `tate-chu-yoko-width` | **done** |
+| A3 — Document flow: doc-paragraph → `break_line` → Text shapes | **done** |
+| A4 — Tip coverage | **done** |
+| A5 — Docs + implemented-features | **done** |
+
+### A0 — §C-inspired pair matrix expansion
+
+- Replace/extend ad-hoc `break_opportunity` with denser class×class [`BREAK_PAIR_MATRIX`] covering inseparable, prohibited head/end, digit-open quirks already in package.
+- Tests for matrix corners. **Commit:** `Expand japanese break pair matrix toward JLReq appendix C subset.`
+
+### A1 — Ruby language builtin `ruby-box`
+
+- `(ruby-box base annotation)` → record with width/height estimates using `Ruby::estimate_box`. **Commit.**
+
+### A2 — Tate-chu-yoko builtin `tate-chu-yoko-width`
+
+- `(tate-chu-yoko-width body)` → Number advance width (em). **Commit.**
+
+### A3 — Document flow stub
+
+- When lowering `doc-paragraph`, soft-wrap via `break_line` into multiple scene Text shapes. **Commit.**
+
+### A4 — Tip coverage
+
+- Tip tests for new builtins / matrix / doc wrap. **Commit.**
+
+### A5 — Docs
+
+- Mark Wave 7 done in this plan; update `lang/implemented-features.md` / package READMEs. **Commit.**
+
+## Remains after Wave 7
+
+- Full UCS membership + normative JLReq §C break matrix + real hanging/justification.
+- Font-backed ruby / tate-chu-yoko / vertical glyph orientation / real vertical metrics.
+- OpenType MATH stretchy fences, accent/script attachment, matrix column alignment.
+- Document/GUI pipeline consuming boxes as production layout (beyond soft-wrapped Text shapes / estimate_box); load-time resource rewrite beyond fail-soft attach.
