@@ -17,7 +17,7 @@ OpenType MATH.
 |---------|------------------|
 | `layout_doc_page_to_scene` over `doc-page` (break_line + place_lines + indent + columns) | Production document pipeline / editable layout engine |
 | Refactor `document_from_doc_value` → shared layout module | New markup / CST layout surface |
-| `layout_math_to_shapes` from `linearize` + `estimate_box` width (monospace heuristic); Scripts / BigOp / Matrix / Aligned / Stack / Accent / Delimiter placement stubs; Fraction / Radical Line rules | Full OpenType MATH / stretchy |
+| `layout_math_to_shapes(math_value, origin, layout_style)` from `linearize` + `estimate_box_with_style` width (monospace heuristic); Scripts / BigOp / Matrix / Aligned / Stack / Accent / Delimiter placement stubs; Fraction / Radical Line rules; phantom/smash → no ink | Full OpenType MATH / stretchy; TeX smash-still-draws |
 | Scripts / BigOp / Fraction / Radical / Delimiter / Matrix / Accent / Aligned / Stack placement stubs (offsets + Line rules) | Glyph metrics / TeX `\fontdimen` fidelity |
 | Package page mixing doc paragraph + math sibling (or math-only graphics text fallback) | Math embedded as first-class `doc-block` kind |
 | PDF / SVG / PPTX smoke for the mixed / math page | Guaranteed CJK embedding without system fonts |
@@ -62,7 +62,7 @@ No push unless asked. Fine-grained commits (one unit ≈ one commit).
 
 ### LL2 — `layout_math_to_shapes`
 
-- `layout_math_to_shapes(math_value, origin) -> Vec<Shape>`: very naive.
+- `layout_math_to_shapes(math_value, origin, layout_style) -> Vec<Shape>`: very naive (`EstimateStyle::Display` / `Text`).
 - Text glyph(s) from `MathAtom::linearize`, placed at `origin`, sized / advanced
   by `estimate_box` width (monospace em heuristic).
 - If weak, still ship and document honestly (not OpenType MATH).
@@ -254,14 +254,14 @@ No push unless asked. Fine-grained commits (one unit ≈ one commit).
 
 ## Status vs full engines (honest)
 
-Live layout (LL0–LL27) is a **fontless heuristic consume layer**:
+Live layout (LL0–LL29) is a **fontless heuristic consume layer**:
 
 | Area | What this engine does | Not claimed (full target) |
 |------|----------------------|---------------------------|
 | JA text | `break_line` / `place_lines` / indent / columns → scene Text | Full JLReq UCS catalog, normative §C, hanging/justification with real glyph metrics, OpenType `vert` |
-| Math place | `layout_math_to_shapes`: Scripts / BigOp / Fraction·Radical Line / Delimiter stretch-by-`size_mm` / Matrix·Cases brace / Accent (incl. overline/underline) / Aligned / Stack / underbrace·overset offsets | OpenType MATH table, stretchy assembly, TeX `\fontdimen`, real glyph advances |
-| Host | `pkg_live_layout` / `pkg_live_math` → PDF/SVG/PPTX smoke; GUI opens via `wants_package_graphics_path` | Production document pipeline with editable math boxes / JA layout chrome |
-| Lock checksum | Path-dep writers fill `checksum` from `package.rpxm` stub (CS0); PKG006 on mismatch (CS1) | Registry artifact integrity / blake3·sha256 (OPEN crypto) |
+| Math place | `layout_math_to_shapes(..., layout_style)`: Scripts / BigOp / Fraction·Radical Line / Delimiter stretch-by-`size_mm` / Matrix·Cases brace / Accent (incl. overline/underline) / Aligned / Stack / underbrace·overset offsets; `math-phantom`/`math-smash` → **no ink** | OpenType MATH table, stretchy assembly, TeX `\fontdimen` / `\mathsm@sh` (smash still draws), real glyph advances |
+| Host | `pkg_live_layout` / `pkg_live_math` → PDF/SVG/PPTX smoke; GUI opens via `wants_package_graphics_path`; markup authoring still soft-refuses (package sync v2) | Production document pipeline with editable math boxes / JA layout chrome / markup CST |
+| Lock checksum | Path-dep + **workspace member** writers fill `checksum` from `package.rpxm` stub (CS0); PKG006 on `path:` mismatch (CS1); see `crates/reciplexa-package/README.md` | Registry artifact integrity / blake3·sha256; PKG006 does not compare `source: workspace` |
 
 Keep pointing hosts at this file; do **not** close OPEN-TEXT-JA-001 from LL alone.
 
@@ -299,3 +299,5 @@ Keep pointing hosts at this file; do **not** close OPEN-TEXT-JA-001 from LL alon
 | LL25 — Heuristic vs OpenType/JLReq docs | **done** |
 | LL26 — Overline/underline visual stubs | **done** |
 | LL27 — Docs (CS0–CS2 + LL26) | **done** |
+| LL28 — phantom/smash no ink | **done** (`math-phantom`/`math-smash` → empty shapes; not TeX smash-still-draws) |
+| LL29 — `layout_style` Display/Text | **done** (`layout_math_to_shapes` third param; live-layout demos pass Display) |
