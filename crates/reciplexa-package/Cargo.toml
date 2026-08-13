@@ -19,4 +19,5 @@ serde_json = { workspace = true }
 [dev-dependencies]
 reciplexa-lower = { workspace = true }
 reciplexa-pdf = { workspace = true }
+reciplexa-svg = { workspace = true }
 

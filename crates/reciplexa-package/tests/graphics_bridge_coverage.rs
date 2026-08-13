@@ -309,6 +309,49 @@ fn package_long_ja_paragraph_pdf_emits_multiple_text_ops() {
     );
 }
 
+/// HC9: bridged long JA paragraph SVG emits multiple `<text` elements.
+#[test]
+fn package_long_ja_paragraph_svg_emits_multiple_text_elements() {
+    let long = "あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをん";
+    let expected = reciplexa_std::japanese::break_line(long, 40.0);
+    assert!(expected.len() > 1);
+
+    let source = format!(
+        r#"(import document/page only
+  a4 page flow section heading paragraph
+  block-paragraph)
+(val title (heading 1 "題"))
+(val body (paragraph "{long}"))
+(val main
+  (page a4
+    (flow
+      (list
+        (section title
+          (list
+            (block-paragraph body)))))))
+"#
+    );
+    let idx = index();
+    let doc = document_from_package_source(&source, "ja_long_svg", &idx)
+        .expect("long JA paragraph bridge");
+    let text_shape_count = doc.pages[0]
+        .shapes
+        .iter()
+        .filter(|s| matches!(s, Shape::Text(_)))
+        .count();
+    assert!(
+        text_shape_count > 1,
+        "expected multiple Text shapes before SVG, got {text_shape_count}"
+    );
+
+    let svg = reciplexa_svg::document_to_svg(&doc).expect("svg from package scene");
+    let text_elems = svg.matches("<text").count();
+    assert!(
+        text_elems >= 2,
+        "expected multiple SVG text elements from wrapped JA paragraph, got {text_elems} <text (shapes={text_shape_count})"
+    );
+}
+
 /// Wave 24 R1: `columns` / `block-columns` → side-by-side Text via measure_columns.
 #[test]
 fn package_document_columns_places_side_by_side_texts() {
