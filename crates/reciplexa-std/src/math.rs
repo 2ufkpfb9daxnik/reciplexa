@@ -58,26 +58,35 @@ pub const THICK_MUSKIP_EM: f64 = 5.0 / 18.0;
 ///
 /// Fontless heuristic for row width estimates — not style-dependent `\scriptstyle`
 /// suppression, not OpenType MATH `MathItalicsCorrection` / `MathKern`. Covers the
-/// common Ord/Op/Bin/Rel/Open/Close/Punct pairs; unknown pairs → `0.0`.
+/// common Ord/Op/Bin/Rel/Open/Close/Punct/Fence pairs; unknown pairs → `0.0`.
 pub fn class_spacing_em(left: MathClass, right: MathClass) -> f64 {
     use MathClass::*;
     match (left, right) {
-        // Thin: Ord–Op, Op–Ord, Close–Op, …
+        // Thin: Ord–Op, Op–Ord, Op–Op, Close–Op, …
         (Ordinary, Operator) | (Operator, Ordinary) => THIN_MUSKIP_EM,
+        (Operator, Operator) => THIN_MUSKIP_EM,
         (Close, Operator) | (Operator, Open) => THIN_MUSKIP_EM,
         (Punctuation, _) => THIN_MUSKIP_EM,
-        // Medium: Ord–Bin–Ord (Bin only when both sides look "inner").
+        (Ordinary, Punctuation)
+        | (Operator, Punctuation)
+        | (Close, Punctuation)
+        | (Relation, Punctuation)
+        | (Fence, Punctuation) => THIN_MUSKIP_EM,
+        // Medium: Ord–Bin–Ord; Bin with Op; Close–Bin / Bin–Open.
         (Ordinary, Binary) | (Binary, Ordinary) => MED_MUSKIP_EM,
         (Close, Binary) | (Binary, Open) => MED_MUSKIP_EM,
-        // Thick: Ord–Rel–Ord.
+        (Operator, Binary) | (Binary, Operator) => MED_MUSKIP_EM,
+        // Thick: Ord–Rel–Ord; Bin–Rel; Op–Rel.
         (Ordinary, Relation) | (Relation, Ordinary) => THICK_MUSKIP_EM,
         (Close, Relation) | (Relation, Open) => THICK_MUSKIP_EM,
         (Operator, Relation) | (Relation, Operator) => THICK_MUSKIP_EM,
+        (Binary, Relation) | (Relation, Binary) => THICK_MUSKIP_EM,
         // Fence ≈ Open/Close for spacing purposes.
         (Fence, Operator) | (Operator, Fence) => THIN_MUSKIP_EM,
         (Fence, Binary) | (Binary, Fence) => MED_MUSKIP_EM,
         (Fence, Relation) | (Relation, Fence) => THICK_MUSKIP_EM,
         (Ordinary, Fence) | (Fence, Ordinary) => 0.0,
+        (Close, Fence) | (Fence, Open) => 0.0,
         _ => 0.0,
     }
 }

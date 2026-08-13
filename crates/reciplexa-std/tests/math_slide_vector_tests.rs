@@ -257,10 +257,15 @@ fn class_spacing_em_texish_ord_op_and_row_width() {
 
     assert!((class_spacing_em(MathClass::Ordinary, MathClass::Operator) - THIN_MUSKIP_EM).abs() < 1e-9);
     assert!((class_spacing_em(MathClass::Operator, MathClass::Ordinary) - THIN_MUSKIP_EM).abs() < 1e-9);
+    assert!((class_spacing_em(MathClass::Operator, MathClass::Operator) - THIN_MUSKIP_EM).abs() < 1e-9);
     assert!((class_spacing_em(MathClass::Ordinary, MathClass::Binary) - MED_MUSKIP_EM).abs() < 1e-9);
+    assert!((class_spacing_em(MathClass::Operator, MathClass::Binary) - MED_MUSKIP_EM).abs() < 1e-9);
     assert!((class_spacing_em(MathClass::Ordinary, MathClass::Relation) - THICK_MUSKIP_EM).abs() < 1e-9);
+    assert!((class_spacing_em(MathClass::Binary, MathClass::Relation) - THICK_MUSKIP_EM).abs() < 1e-9);
+    assert!((class_spacing_em(MathClass::Ordinary, MathClass::Punctuation) - THIN_MUSKIP_EM).abs() < 1e-9);
     assert_eq!(class_spacing_em(MathClass::Ordinary, MathClass::Ordinary), 0.0);
     assert_eq!(class_spacing_em(MathClass::Open, MathClass::Ordinary), 0.0);
+    assert_eq!(class_spacing_em(MathClass::Close, MathClass::Fence), 0.0);
 
     let a = MathAtom::symbol(id(1), "a", MathClass::Ordinary);
     let plus = MathAtom::symbol(id(2), "+", MathClass::Binary);
