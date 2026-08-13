@@ -115,7 +115,7 @@ No push unless asked. Fine-grained commits (one unit ≈ one commit).
 | J4 | **done** |
 | M0 | **done** |
 | M1 | **done** |
-| M2 | pending |
+| M2 | **done** |
 | M3 | pending |
 
 ## Remains after this deepen (full OPEN-TEXT-JA-001)

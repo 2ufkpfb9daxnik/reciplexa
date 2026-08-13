@@ -25,7 +25,9 @@ pub use japanese::{
     KihonHanmen, Ruby, RubyKind, TateChuYoko, TategakiParagraph, WritingMode,
 };
 pub use layout::{Align, Axis, Column, LayoutChild, Padding, Row, Stack};
-pub use math::{MathAccentKind, MathAtom, MathBox, MathClass};
+pub use math::{
+    MathAccentKind, MathAtom, MathBox, MathClass, MathMatrixKind, MathStackKind,
+};
 pub use motion::{
     keyframe_track, DurationMs, Easing, Keyframe, MotionTimeline, MotionTrack, TemporalPlacement,
     TimeMs, Timeline, TimelineTrack,

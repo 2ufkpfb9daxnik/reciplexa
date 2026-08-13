@@ -113,6 +113,35 @@ fn math_estimate_box_relative_sizes() {
 }
 
 #[test]
+fn math_matrix_align_stack_nodes() {
+    use reciplexa_std::math::{MathMatrixKind, MathStackKind};
+    let a = MathAtom::symbol(id(1), "a", MathClass::Ordinary);
+    let b = MathAtom::symbol(id(2), "b", MathClass::Ordinary);
+    let c = MathAtom::symbol(id(3), "c", MathClass::Ordinary);
+    let d = MathAtom::symbol(id(4), "d", MathClass::Ordinary);
+    let m = MathAtom::matrix(
+        id(5),
+        MathMatrixKind::BMatrix,
+        vec![vec![a.clone(), b.clone()], vec![c.clone(), d.clone()]],
+    );
+    assert_eq!(m.child_count(), 4);
+    assert!(m.linearize().starts_with('['));
+    assert!(m.estimate_box().width > a.estimate_box().width);
+
+    let al = MathAtom::aligned(id(6), vec![vec![a.clone(), b.clone()]]);
+    assert!(al.linearize().contains("align"));
+    assert_eq!(MathMatrixKind::PMatrix.as_str(), "pmatrix");
+
+    let st = MathAtom::atop(id(7), a.clone(), b.clone());
+    assert_eq!(st.child_count(), 2);
+    assert!(st.linearize().contains("atop"));
+    assert_eq!(MathStackKind::Substack.to_string(), "substack");
+
+    let delim = MathAtom::matrix_delimited(id(8), "{", "}", vec![vec![a]]);
+    assert!(delim.linearize().starts_with('{'));
+}
+
+#[test]
 fn theme_master_slide() {
     assert!(Theme::light(id(1), "L").to_string().contains("L"));
     assert_eq!(Theme::dark(id(2), "D").background, Color::BLACK);

@@ -126,6 +126,81 @@ pub enum MathAtom {
         upper: Option<Box<MathAtom>>,
         body: Option<Box<MathAtom>>,
     },
+    /// Matrix / bmatrix / pmatrix-style grid (`math/matrix`).
+    Matrix {
+        id: StableNodeId,
+        kind: MathMatrixKind,
+        rows: Vec<Vec<MathAtom>>,
+        left: Option<String>,
+        right: Option<String>,
+    },
+    /// Alignment environment rows (`math/align`).
+    Aligned {
+        id: StableNodeId,
+        rows: Vec<Vec<MathAtom>>,
+    },
+    /// Vertical stack / atop / substack (`math/stack`).
+    Stack {
+        id: StableNodeId,
+        kind: MathStackKind,
+        children: Vec<MathAtom>,
+    },
+}
+
+/// Matrix delimiter flavor (package `math/matrix` kinds).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum MathMatrixKind {
+    Plain,
+    BMatrix,
+    PMatrix,
+    VMatrix,
+    Small,
+    Delimited,
+}
+
+impl MathMatrixKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Plain => "matrix",
+            Self::BMatrix => "bmatrix",
+            Self::PMatrix => "pmatrix",
+            Self::VMatrix => "vmatrix",
+            Self::Small => "smallmatrix",
+            Self::Delimited => "delimited",
+        }
+    }
+}
+
+impl fmt::Display for MathMatrixKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+/// Vertical stack flavor (package `math/stack`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum MathStackKind {
+    Stack,
+    Atop,
+    Substack,
+    Stackrel,
+}
+
+impl MathStackKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Stack => "stack",
+            Self::Atop => "atop",
+            Self::Substack => "substack",
+            Self::Stackrel => "stackrel",
+        }
+    }
+}
+
+impl fmt::Display for MathStackKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
 }
 
 impl MathAtom {
@@ -138,7 +213,10 @@ impl MathAtom {
             | Self::Scripts { id, .. }
             | Self::Delimiter { id, .. }
             | Self::Accent { id, .. }
-            | Self::BigOp { id, .. } => *id,
+            | Self::BigOp { id, .. }
+            | Self::Matrix { id, .. }
+            | Self::Aligned { id, .. }
+            | Self::Stack { id, .. } => *id,
         }
     }
 
@@ -242,6 +320,53 @@ impl MathAtom {
         }
     }
 
+    pub fn matrix(id: StableNodeId, kind: MathMatrixKind, rows: Vec<Vec<MathAtom>>) -> Self {
+        let (left, right) = match kind {
+            MathMatrixKind::BMatrix => (Some("[".into()), Some("]".into())),
+            MathMatrixKind::PMatrix => (Some("(".into()), Some(")".into())),
+            MathMatrixKind::VMatrix => (Some("|".into()), Some("|".into())),
+            _ => (None, None),
+        };
+        Self::Matrix {
+            id,
+            kind,
+            rows,
+            left,
+            right,
+        }
+    }
+
+    pub fn matrix_delimited(
+        id: StableNodeId,
+        left: impl Into<String>,
+        right: impl Into<String>,
+        rows: Vec<Vec<MathAtom>>,
+    ) -> Self {
+        Self::Matrix {
+            id,
+            kind: MathMatrixKind::Delimited,
+            rows,
+            left: Some(left.into()),
+            right: Some(right.into()),
+        }
+    }
+
+    pub fn aligned(id: StableNodeId, rows: Vec<Vec<MathAtom>>) -> Self {
+        Self::Aligned { id, rows }
+    }
+
+    pub fn stack(id: StableNodeId, kind: MathStackKind, children: Vec<MathAtom>) -> Self {
+        Self::Stack {
+            id,
+            kind,
+            children,
+        }
+    }
+
+    pub fn atop(id: StableNodeId, top: MathAtom, bottom: MathAtom) -> Self {
+        Self::stack(id, MathStackKind::Atop, vec![top, bottom])
+    }
+
     pub fn child_count(&self) -> usize {
         match self {
             Self::Symbol { .. } => 0,
@@ -260,6 +385,10 @@ impl MathAtom {
             } => {
                 usize::from(lower.is_some()) + usize::from(upper.is_some()) + usize::from(body.is_some())
             }
+            Self::Matrix { rows, .. } | Self::Aligned { rows, .. } => {
+                rows.iter().map(|r| r.len()).sum()
+            }
+            Self::Stack { children, .. } => children.len(),
         }
     }
 
@@ -322,6 +451,46 @@ impl MathAtom {
                     s.push('}');
                 }
                 s
+            }
+            Self::Matrix {
+                kind,
+                rows,
+                left,
+                right,
+                ..
+            } => {
+                let body: Vec<String> = rows
+                    .iter()
+                    .map(|row| {
+                        row.iter()
+                            .map(|c| c.linearize())
+                            .collect::<Vec<_>>()
+                            .join("&")
+                    })
+                    .collect();
+                let inner = body.join("\\\\");
+                match (left.as_deref(), right.as_deref()) {
+                    (Some(l), Some(r)) => format!("{l}{inner}{r}"),
+                    _ => format!("{}{{{}}}", kind.as_str(), inner),
+                }
+            }
+            Self::Aligned { rows, .. } => {
+                let body: Vec<String> = rows
+                    .iter()
+                    .map(|row| {
+                        row.iter()
+                            .map(|c| c.linearize())
+                            .collect::<Vec<_>>()
+                            .join("&")
+                    })
+                    .collect();
+                format!("align{{{}}}", body.join("\\\\"))
+            }
+            Self::Stack {
+                kind, children, ..
+            } => {
+                let inner: String = children.iter().map(|c| c.linearize()).collect::<Vec<_>>().join(",");
+                format!("{}{{{}}}", kind.as_str(), inner)
             }
         }
     }
@@ -473,6 +642,38 @@ impl MathAtom {
                 }
                 MathBox::new(width, height, depth)
             }
+            Self::Matrix {
+                rows, left, right, ..
+            } => estimate_grid_box(rows, left.as_deref(), right.as_deref()),
+            Self::Aligned { rows, .. } => estimate_grid_box(rows, None, None),
+            Self::Stack { children, .. } => {
+                let boxes: Vec<_> = children.iter().map(|c| c.estimate_box()).collect();
+                let width = boxes.iter().map(|b| b.width).fold(0.0_f64, f64::max);
+                let total: f64 = boxes.iter().map(|b| b.total_height() + 0.1).sum();
+                MathBox::new(width, total * 0.55, total * 0.45)
+            }
         }
     }
+}
+
+fn estimate_grid_box(rows: &[Vec<MathAtom>], left: Option<&str>, right: Option<&str>) -> MathBox {
+    let mut col_widths: Vec<f64> = Vec::new();
+    let mut total_h = 0.0_f64;
+    for row in rows {
+        let mut row_h = 0.0_f64;
+        for (ci, cell) in row.iter().enumerate() {
+            let b = cell.estimate_box();
+            if col_widths.len() <= ci {
+                col_widths.resize(ci + 1, 0.0);
+            }
+            col_widths[ci] = col_widths[ci].max(b.width);
+            row_h = row_h.max(b.total_height());
+        }
+        total_h += row_h + 0.2;
+    }
+    let mut width: f64 = col_widths.iter().sum::<f64>() + 0.25 * col_widths.len() as f64;
+    if let (Some(l), Some(r)) = (left, right) {
+        width += 0.35 * (l.chars().count() + r.chars().count()) as f64;
+    }
+    MathBox::new(width.max(0.5), total_h * 0.55, total_h * 0.45)
 }
