@@ -1185,3 +1185,40 @@ fn estimate_grid_box(
     }
     MathBox::new(width.max(0.5), height, depth)
 }
+
+/// Millimeters per em for naive math → Text glyph placement (matches doc paragraph size).
+pub const MATH_LAYOUT_EM_TO_MM: f64 = 4.0;
+
+/// Very naive math atom → scene Text glyphs from [`MathAtom::linearize`].
+///
+/// Places one [`reciplexa_scene::Text`] per Unicode scalar in the linearized
+/// string at `origin`, advancing by `estimate_box().width / n` (monospace
+/// heuristic). Not OpenType MATH / glyph metrics / script placement.
+pub fn layout_math_atom_to_shapes(
+    atom: &MathAtom,
+    origin: (f64, f64),
+) -> Vec<reciplexa_scene::Shape> {
+    let content = atom.linearize();
+    let mbox = atom.estimate_box();
+    let (ox, oy) = origin;
+    let size_mm = MATH_LAYOUT_EM_TO_MM;
+    let n = content.chars().count().max(1) as f64;
+    let total_w_mm = mbox.width.max(0.5) * MATH_LAYOUT_EM_TO_MM;
+    let advance = total_w_mm / n;
+    let height_mm = Some(mbox.total_height().max(0.5) * MATH_LAYOUT_EM_TO_MM);
+    content
+        .chars()
+        .enumerate()
+        .map(|(i, ch)| {
+            reciplexa_scene::Shape::Text(reciplexa_scene::Text {
+                x_mm: ox + i as f64 * advance,
+                y_mm: oy,
+                size_mm,
+                width_mm: Some(advance),
+                height_mm,
+                content: ch.to_string(),
+                fill: reciplexa_scene::Color::BLACK,
+            })
+        })
+        .collect()
+}

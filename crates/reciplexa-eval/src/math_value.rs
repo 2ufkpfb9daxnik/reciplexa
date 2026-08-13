@@ -7,9 +7,10 @@
 use std::cell::Cell;
 
 use reciplexa_identity::document::StableNodeId;
+use reciplexa_scene::Shape;
 use reciplexa_std::math::{
-    scripts_attachment_offsets, EstimateStyle, MathAccentKind, MathAtom, MathBox, MathClass,
-    MathMatrixKind, MathStackKind,
+    layout_math_atom_to_shapes, scripts_attachment_offsets, EstimateStyle, MathAccentKind, MathAtom,
+    MathBox, MathClass, MathMatrixKind, MathStackKind,
 };
 
 use crate::value::RuntimeValue;
@@ -92,6 +93,18 @@ pub fn scripts_attachment_offsets_from_value(
 pub fn math_atom_from_value(v: &RuntimeValue) -> Result<MathAtom, MathValueError> {
     let mut ids = IdGen::default();
     math_atom_from_value_with_ids(v, &mut ids)
+}
+
+/// Very naive: Text glyphs from `linearize`, placed by `estimate_box` width
+/// (monospace heuristic) at `origin` (mm).
+///
+/// Not OpenType MATH — see `lang/live-layout-plan.md` LL2.
+pub fn layout_math_to_shapes(
+    math_value: &RuntimeValue,
+    origin: (f64, f64),
+) -> Result<Vec<Shape>, MathValueError> {
+    let atom = math_atom_from_value(math_value)?;
+    Ok(layout_math_atom_to_shapes(&atom, origin))
 }
 
 #[derive(Default)]
@@ -740,5 +753,42 @@ mod tip_tests {
         ]))
         .unwrap();
         assert!(ab.height > bare.height);
+    }
+
+    #[test]
+    fn layout_math_to_shapes_places_linearize_glyphs() {
+        let a = rec(vec![
+            ("tag", RuntimeValue::String("math-symbol".into())),
+            ("glyph", RuntimeValue::String("a".into())),
+            ("class", RuntimeValue::String("ord".into())),
+        ]);
+        let b = rec(vec![
+            ("tag", RuntimeValue::String("math-symbol".into())),
+            ("glyph", RuntimeValue::String("b".into())),
+            ("class", RuntimeValue::String("ord".into())),
+        ]);
+        let frac = rec(vec![
+            ("tag", RuntimeValue::String("math-fraction".into())),
+            ("numerator", a),
+            ("denominator", b),
+        ]);
+        let shapes = layout_math_to_shapes(&frac, (10.0, 200.0)).expect("math shapes");
+        let texts: Vec<_> = shapes
+            .iter()
+            .filter_map(|s| match s {
+                Shape::Text(t) => Some(t.content.as_str()),
+                _ => None,
+            })
+            .collect();
+        let joined: String = texts.concat();
+        assert_eq!(joined, "(a/b)");
+        assert_eq!(texts.len(), joined.chars().count());
+        match &shapes[0] {
+            Shape::Text(t) => {
+                assert!((t.x_mm - 10.0).abs() < 1e-9);
+                assert!((t.y_mm - 200.0).abs() < 1e-9);
+            }
+            _ => panic!("expected Text shape"),
+        }
     }
 }

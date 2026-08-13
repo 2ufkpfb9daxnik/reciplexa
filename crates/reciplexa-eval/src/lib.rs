@@ -18,7 +18,7 @@ pub use graphics_value::{
 };
 pub use math_value::{
     estimate_math_box_from_value, estimate_math_box_from_value_with_style, estimate_style_from_value,
-    math_atom_from_value, scripts_attachment_offsets_from_value,
+    layout_math_to_shapes, math_atom_from_value, scripts_attachment_offsets_from_value,
     MathValueError,
 };
 pub use value::{BuiltinOp, RuntimeValue};
