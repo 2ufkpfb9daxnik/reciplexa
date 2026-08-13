@@ -813,3 +813,43 @@ cargo test -p reciplexa-std -p reciplexa-eval -p reciplexa-core -p reciplexa-pac
 - Font-backed ruby / tate-chu-yoko / real vertical metrics / bou placement; OpenType `vert`/`vrt2` / CSS `text-orientation`.
 - OpenType MATH stretchy fences, accent/script/stackrel attachment, real matrix column alignment / big-op / fraction/radical / full muskip style table.
 - Document/GUI pipeline consuming boxes as production layout (beyond soft-wrapped Text shapes / estimate_box / math-box / stretchy-delim / first-line indent stub); load-time resource rewrite beyond fail-soft attach; registry resolve + checksum verification (OPEN-PKG-001).
+
+## Wave 16 — line gap / kihon place_lines (J0–J2)
+
+Honest scope: fontless `place_lines_horizontal` / `place_lines_vertical` + `KihonHanmen::line_pitch_em`; wire horizontal into `lines_to_text_shapes`. Not full JLReq hanmen composition / CSS line-height.
+
+Gate:
+
+```bat
+set CARGO_TARGET_DIR=d:\reciplexa\target
+set TEMP=d:\reciplexa\.tmp
+set TMP=d:\reciplexa\.tmp
+cargo test -p reciplexa-std -p reciplexa-eval -p reciplexa-core -p reciplexa-package --offline
+```
+
+| Unit | Status |
+|------|--------|
+| J0 — `place_lines_vertical` / `place_lines_horizontal` | **done** |
+| J1 — `lines_to_text_shapes` uses `place_lines_horizontal` | **done** |
+| J2 — Docs | **done** |
+
+### J0 — Place lines
+
+- `place_lines_horizontal(lines, start_y, pitch_em) -> Vec<(String, y)>` (horizontal-tb block axis).
+- `place_lines_vertical(lines, start_x, pitch_em) -> Vec<(String, x)>` (vertical-rl block axis).
+- `KihonHanmen::line_pitch_em` = `char_size_em × line_rate`. **Commit.**
+
+### J1 — Text shapes
+
+- `lines_to_text_shapes` places y via `place_lines_horizontal`. **Commit.**
+
+### J2 — Docs
+
+- Mark Wave 16 done; tip + package / implemented-features notes. **Commit.**
+
+## Remains after Wave 16
+
+- Full UCS membership + normative JLReq §C break matrix + real hanging/justification / word-break / paragraph composition.
+- Font-backed ruby / tate-chu-yoko / real vertical metrics / bou placement; OpenType `vert`/`vrt2` / CSS `text-orientation`.
+- OpenType MATH stretchy fences, accent/script/stackrel attachment, real matrix column alignment / big-op / fraction/radical / full muskip style table.
+- Document/GUI pipeline consuming boxes as production layout (beyond soft-wrapped Text shapes / estimate_box / math-box / stretchy-delim / first-line indent / place_lines stubs); load-time resource rewrite beyond fail-soft attach; registry resolve + checksum verification (OPEN-PKG-001).
