@@ -693,6 +693,96 @@ pub fn break_line(text: &str, max_em_units: f64) -> Vec<String> {
     out
 }
 
+/// Approximate vertical advance (em) for `vertical-rl` line budgeting.
+///
+/// Fontless stub by [`CharClass`]: ideograph-like / kana / fullwidth punctuation
+/// ≈ 1 em; ASCII western / numeric ≈ 0.5 em (half-width upright); spaces ≈ 0.5;
+/// hangable punctuation still advances 1 em (no special vertical hang).
+/// Not glyph orientation / tate-chu-yoko / OpenType `vmtx`.
+pub fn vertical_advance_em(c: char) -> f64 {
+    match classify_char(c) {
+        CharClass::WesternCharacters
+        | CharClass::SimpleWestern
+        | CharClass::ComplexWestern
+        | CharClass::Numeric
+        | CharClass::GroupedNumerals
+        | CharClass::AttachedWestern
+        | CharClass::Spaces => 0.5,
+        CharClass::Other if c.is_ascii() => 0.5,
+        _ => 1.0,
+    }
+}
+
+/// Soft-wrap for `vertical-rl` using [`vertical_advance_em`] + [`break_opportunity`].
+///
+/// Same kinsoku / hangable stubs as [`break_line`], but the measure is vertical
+/// advance along the line. Optional scaffolding only — not JLReq vertical layout.
+pub fn break_line_vertical(text: &str, max_em_units: f64) -> Vec<String> {
+    let chars: Vec<char> = text.chars().collect();
+    if chars.is_empty() {
+        return Vec::new();
+    }
+    if !(max_em_units > 0.0) {
+        return vec![text.to_string()];
+    }
+
+    let mut out = Vec::new();
+    let mut start = 0;
+    while start < chars.len() {
+        let mut end = start;
+        let mut used = 0.0;
+        while end < chars.len() {
+            let w = vertical_advance_em(chars[end]);
+            if end > start && used + w > max_em_units {
+                if is_hangable(classify_char(chars[end])) {
+                    end += 1;
+                }
+                break;
+            }
+            used += w;
+            end += 1;
+        }
+
+        if end >= chars.len() {
+            out.push(chars[start..].iter().collect());
+            break;
+        }
+
+        let mut cut = end;
+        let mut found = false;
+        for cand in (start + 1..=end).rev() {
+            if cand < chars.len()
+                && break_opportunity_chars(chars[cand - 1], chars[cand]).may_break()
+            {
+                cut = cand;
+                found = true;
+                break;
+            }
+        }
+        if !found {
+            cut = end;
+        }
+
+        while cut > start + 1 && is_line_end_prohibited(classify_char(chars[cut - 1])) {
+            cut -= 1;
+        }
+        while cut > start + 1
+            && cut < chars.len()
+            && is_line_head_prohibited(classify_char(chars[cut]))
+        {
+            cut -= 1;
+        }
+
+        if cut <= start {
+            cut = start + 1;
+        }
+
+        out.push(chars[start..cut].iter().collect());
+        start = cut;
+    }
+    out
+}
+
 /// Writing mode for kihon-hanmen / vertical stubs.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum WritingMode {

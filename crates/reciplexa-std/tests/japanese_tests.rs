@@ -1,8 +1,9 @@
 //! Coverage for `reciplexa_std::japanese` (OPEN-TEXT-JA-001 deepen J0+).
 
 use reciplexa_std::japanese::{
-    break_line, break_opportunity, break_opportunity_chars, char_em_width, classify_char,
-    is_hangable, is_line_end_prohibited, is_line_head_prohibited, BreakOpportunity, CharClass,
+    break_line, break_line_vertical, break_opportunity, break_opportunity_chars, char_em_width,
+    classify_char, is_hangable, is_line_end_prohibited, is_line_head_prohibited, vertical_advance_em,
+    BreakOpportunity, CharClass,
 };
 
 #[test]
@@ -568,6 +569,32 @@ fn break_line_short_japanese_phrase_demo() {
     assert_eq!(
         mixed,
         vec!["AB東京".to_string(), "CD".to_string()]
+    );
+}
+
+#[test]
+fn vertical_advance_em_by_class() {
+    assert_eq!(vertical_advance_em('漢'), 1.0);
+    assert_eq!(vertical_advance_em('あ'), 1.0);
+    assert_eq!(vertical_advance_em('。'), 1.0);
+    assert_eq!(vertical_advance_em('A'), 0.5);
+    assert_eq!(vertical_advance_em('7'), 0.5);
+    assert_eq!(vertical_advance_em(' '), 0.5);
+}
+
+#[test]
+fn break_line_vertical_wraps_on_vertical_advance() {
+    // Four ideographs at 3em vertical measure → wrap.
+    let lines = break_line_vertical("一二三四", 3.0);
+    assert_eq!(lines, vec!["一二三".to_string(), "四".to_string()]);
+    // ASCII half advance: "ABCD" fits in 2.0 em.
+    assert_eq!(break_line_vertical("ABCD", 2.0), vec!["ABCD".to_string()]);
+    assert!(break_line_vertical("", 4.0).is_empty());
+    assert_eq!(break_line_vertical("東京", 0.0), vec!["東京".to_string()]);
+    // Hangable period may stick past measure (same stub as horizontal).
+    assert_eq!(
+        break_line_vertical("東京。", 2.0),
+        vec!["東京。".to_string()]
     );
 }
 
