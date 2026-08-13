@@ -355,4 +355,173 @@ mod tests {
         let v = rec(vec![("tag", RuntimeValue::String("page".into()))]);
         assert!(document_from_doc_value(&v).is_err());
     }
+
+    #[test]
+    fn n5_3_tips_block_stubs_levels_and_error_arms() {
+        // list/table/figure stubs (no visual)
+        for kind in ["list", "table", "figure"] {
+            let block = rec(vec![
+                ("tag", RuntimeValue::String("doc-block".into())),
+                ("kind", RuntimeValue::String(kind.into())),
+            ]);
+            let section = rec(vec![
+                ("tag", RuntimeValue::String("doc-section".into())),
+                ("blocks", cons(vec![block])),
+            ]);
+            let flow = rec(vec![
+                ("tag", RuntimeValue::String("doc-flow".into())),
+                ("sections", cons(vec![section])),
+            ]);
+            let page = rec(vec![
+                ("tag", RuntimeValue::String("doc-page".into())),
+                (
+                    "paper",
+                    rec(vec![
+                        ("width", RuntimeValue::Int(210)),
+                        ("height", RuntimeValue::Int(297)),
+                    ]),
+                ),
+                ("flow", flow),
+            ]);
+            let doc = document_from_doc_value(&page).expect(kind);
+            assert!(doc.pages[0].shapes.is_empty(), "{kind} stub draws nothing");
+        }
+
+        // heading levels 2 / default + missing kind / unknown kind / bad text node
+        let h2 = rec(vec![
+            ("tag", RuntimeValue::String("doc-heading".into())),
+            ("level", RuntimeValue::Int(2)),
+            ("text", RuntimeValue::String("H2".into())),
+        ]);
+        let h3 = rec(vec![
+            ("tag", RuntimeValue::String("doc-heading".into())),
+            ("level", RuntimeValue::Int(9)),
+            ("text", RuntimeValue::String("Hn".into())),
+        ]);
+        let blocks = cons(vec![
+            rec(vec![
+                ("tag", RuntimeValue::String("doc-block".into())),
+                ("kind", RuntimeValue::String("heading".into())),
+                ("heading", h2),
+            ]),
+            rec(vec![
+                ("tag", RuntimeValue::String("doc-block".into())),
+                ("kind", RuntimeValue::String("heading".into())),
+                ("heading", h3),
+            ]),
+            rec(vec![
+                ("tag", RuntimeValue::String("doc-block".into())),
+                ("kind", RuntimeValue::String("spacer".into())),
+                (
+                    "spacer",
+                    rec(vec![
+                        ("tag", RuntimeValue::String("doc-spacer".into())),
+                        // missing length → default 4.0
+                    ]),
+                ),
+            ]),
+        ]);
+        let section = rec(vec![
+            ("tag", RuntimeValue::String("doc-section".into())),
+            ("blocks", blocks),
+        ]);
+        let flow = rec(vec![
+            ("tag", RuntimeValue::String("doc-flow".into())),
+            ("sections", cons(vec![section])),
+        ]);
+        let page = rec(vec![
+            ("tag", RuntimeValue::String("doc-page".into())),
+            (
+                "paper",
+                rec(vec![
+                    ("width", RuntimeValue::F64(100.0)),
+                    ("height", RuntimeValue::F64(200.0)),
+                ]),
+            ),
+            ("flow", flow),
+        ]);
+        let doc = document_from_doc_value(&page).expect("levels");
+        assert!(doc.pages[0]
+            .shapes
+            .iter()
+            .any(|s| matches!(s, Shape::Text(t) if t.content == "H2")));
+
+        assert!(document_from_doc_value(&rec(vec![(
+            "tag",
+            RuntimeValue::String("doc-page".into())
+        ),]))
+        .is_err());
+        let bad_block = rec(vec![
+            ("tag", RuntimeValue::String("doc-block".into())),
+            ("kind", RuntimeValue::Int(1)),
+        ]);
+        let bad_section = rec(vec![
+            ("tag", RuntimeValue::String("doc-section".into())),
+            ("blocks", cons(vec![bad_block])),
+        ]);
+        let bad_flow = rec(vec![
+            ("tag", RuntimeValue::String("doc-flow".into())),
+            ("sections", cons(vec![bad_section])),
+        ]);
+        let bad_page = rec(vec![
+            ("tag", RuntimeValue::String("doc-page".into())),
+            (
+                "paper",
+                rec(vec![
+                    ("width", RuntimeValue::Int(210)),
+                    ("height", RuntimeValue::Int(297)),
+                ]),
+            ),
+            ("flow", bad_flow),
+        ]);
+        assert!(document_from_doc_value(&bad_page).is_err());
+
+        let unk = rec(vec![
+            ("tag", RuntimeValue::String("doc-block".into())),
+            ("kind", RuntimeValue::String("mystery".into())),
+        ]);
+        let unk_section = rec(vec![
+            ("tag", RuntimeValue::String("doc-section".into())),
+            ("blocks", cons(vec![unk])),
+        ]);
+        let unk_flow = rec(vec![
+            ("tag", RuntimeValue::String("doc-flow".into())),
+            ("sections", cons(vec![unk_section])),
+        ]);
+        let unk_page = rec(vec![
+            ("tag", RuntimeValue::String("doc-page".into())),
+            (
+                "paper",
+                rec(vec![
+                    ("width", RuntimeValue::Int(210)),
+                    ("height", RuntimeValue::Int(297)),
+                ]),
+            ),
+            ("flow", unk_flow),
+        ]);
+        assert!(document_from_doc_value(&unk_page)
+            .unwrap_err()
+            .message
+            .contains("unsupported"));
+
+        // non-positive paper
+        let zero_paper = rec(vec![
+            ("tag", RuntimeValue::String("doc-page".into())),
+            (
+                "paper",
+                rec(vec![
+                    ("width", RuntimeValue::Int(0)),
+                    ("height", RuntimeValue::Int(297)),
+                ]),
+            ),
+            (
+                "flow",
+                rec(vec![
+                    ("tag", RuntimeValue::String("doc-flow".into())),
+                    ("sections", cons(vec![])),
+                ]),
+            ),
+        ]);
+        assert!(document_from_doc_value(&zero_paper).is_err());
+    }
 }

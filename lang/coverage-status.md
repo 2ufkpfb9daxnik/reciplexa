@@ -78,3 +78,4 @@ Last remasure (N6 tip q): scoped `cargo llvm-cov --offline --json` for the 7 cra
 - Domain packages (`length`, `color`, `graphics`, `math`, `japanese`) are **Rust native** via `DomainNativeRegistry` / `domain_bodies` (see `lang/native-domain-plan.md`).
 - N6 tip (2026-08-13 p): 7-crate BEST-ENTRY **98.60% → 98.76%**; **≥98.75% crossed**; **99% not crossed**.
 - N6 tip (2026-08-13 q): dead-arm deletes + Cont/pipeline/cli/syntax tips + OR-live thr 98.2%. 7-crate BEST-ENTRY **98.76% → 99.01%** (25614/25870; missed 319→256); 4-crate **98.96%**; `cli`/`string_lit`/`markup`/`lexer`/`parse` **→ ≥99%**; `pipeline` or-live restored **99.38%**. **≥99% crossed.**
+- N5.3 tip (2026-08-13): added tip tests for `document_value` (block stubs / levels / error arms), pipeline document+markup package paths, GUI `resolve_preview_layers` world kinds. Full 7-crate remasure not re-run this unit (N6 q BEST-ENTRY **99.01%** still stands); new paths covered by targeted tests.

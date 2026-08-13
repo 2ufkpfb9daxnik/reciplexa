@@ -268,4 +268,68 @@ mod tests {
             vec![SizeTarget::Unsupported]
         );
     }
+
+    #[test]
+    fn n5_3_resolve_preview_layers_interim_and_world_kinds() {
+        use reciplexa_scene::{
+            Color, Document, Image, Line, Page, PaperSize, Polygon, Shape, Text,
+        };
+        use reciplexa_view::flatten_page;
+
+        let interim = "(page a4 (circle 1 2 3))";
+        let doc = Document::single_page(Page {
+            paper: PaperSize::a4(),
+            shapes: vec![
+                Shape::Circle(reciplexa_scene::Circle {
+                    x_mm: 1.0,
+                    y_mm: 2.0,
+                    radius_mm: 3.0,
+                    fill: Color::BLACK,
+                }),
+                Shape::Text(Text {
+                    x_mm: 10.0,
+                    y_mm: 20.0,
+                    size_mm: 8.0,
+                    width_mm: None,
+                    height_mm: None,
+                    content: "hi".into(),
+                    fill: Color::BLACK,
+                }),
+                Shape::Line(Line {
+                    x1_mm: 0.0,
+                    y1_mm: 0.0,
+                    x2_mm: 10.0,
+                    y2_mm: 0.0,
+                    stroke: Color::BLACK,
+                    width_mm: 0.5,
+                }),
+                Shape::Polygon(Polygon {
+                    points_mm: vec![(0.0, 0.0), (1.0, 0.0), (0.5, 1.0)],
+                    fill: Color::BLACK,
+                }),
+                Shape::Image(Image {
+                    path: "figures/demo.png".into(),
+                    x_mm: 0.0,
+                    y_mm: 0.0,
+                    width_mm: 10.0,
+                    height_mm: 10.0,
+                }),
+            ],
+        });
+        let (_, shapes) = flatten_page(&doc, 0).unwrap();
+        // Interim CST: prefer collect_layers when counts match; mismatch → scene fallback.
+        let layers = resolve_preview_layers(interim, 0, &shapes);
+        assert_eq!(layers.len(), shapes.len());
+        let kinds: Vec<_> = layers_from_world_shapes(&shapes)
+            .into_iter()
+            .map(|l| l.kind)
+            .collect();
+        assert!(kinds.contains(&"circle".into()));
+        assert!(kinds.contains(&"text".into()));
+        assert!(kinds.contains(&"path".into()) || kinds.contains(&"polygon".into()));
+        assert!(kinds.contains(&"image".into()));
+        assert_eq!(readonly_size_targets(3).len(), 3);
+        let sizes = resolve_preview_size_targets(interim, 0, shapes.len());
+        assert_eq!(sizes.len(), shapes.len());
+    }
 }
