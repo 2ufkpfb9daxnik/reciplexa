@@ -571,6 +571,13 @@ pub const ACCENT_CLEARANCE_EM: f64 = 0.35;
 /// Extra depth (em) below the base for underline-style accents.
 pub const ACCENT_UNDER_CLEARANCE_EM: f64 = 0.35;
 
+/// Gap (em) between stackrel / overset / underset bands — fontless stub.
+pub const STACKREL_GAP_EM: f64 = 0.15;
+
+/// Extra depth (em) for underbrace-style under marks (package `underbrace` → underline /
+/// labeled under → stackrel). Slightly roomier than compact [`ACCENT_UNDER_CLEARANCE_EM`].
+pub const UNDERBRACE_CLEARANCE_EM: f64 = 0.5;
+
 /// Fraction rule (vinculum) thickness in em — fontless stub, not TeX `\fontdimen8`.
 pub const FRAC_RULE_THICKNESS_EM: f64 = 0.04;
 
@@ -665,6 +672,22 @@ pub fn bigop_limit_offsets(
         .map(|up| op_box.height + up.depth * SCRIPT_SCALE + 0.1)
         .unwrap_or(0.0);
     (lower_x, lower_y, upper_x, upper_y)
+}
+
+/// Stackrel / overset / underset vertical placement stub.
+///
+/// Returns `(upper_y, lower_y)` with `y` upward from a shared baseline between
+/// the two bands, separated by [`STACKREL_GAP_EM`]. Heuristic only — not TeX
+/// `\stackrel` / `\overset` metrics.
+pub fn stackrel_spacing_offsets(upper: MathBox, lower: MathBox) -> (f64, f64) {
+    let upper_y = STACKREL_GAP_EM * 0.5 + upper.depth;
+    let lower_y = -(STACKREL_GAP_EM * 0.5 + lower.height);
+    (upper_y, lower_y)
+}
+
+/// Underbrace-style clearance below the body (em). Heuristic only.
+pub fn underbrace_spacing() -> f64 {
+    UNDERBRACE_CLEARANCE_EM
 }
 
 /// Horizontal packing of a cell inside its column (fontless matrix stub).
@@ -802,7 +825,9 @@ impl MathAtom {
                 let width = b.width.max(0.8);
                 match kind {
                     MathAccentKind::Underline => {
-                        MathBox::new(width, b.height, b.depth + ACCENT_UNDER_CLEARANCE_EM)
+                        // Package `underbrace` (no label) lowers to underline; use
+                        // underbrace-style clearance (roomier than compact bar).
+                        MathBox::new(width, b.height, b.depth + underbrace_spacing())
                     }
                     MathAccentKind::Overline
                     | MathAccentKind::WideHat
@@ -846,11 +871,24 @@ impl MathAtom {
                 rows, left, right, ..
             } => estimate_grid_box(rows, left.as_deref(), right.as_deref()),
             Self::Aligned { rows, .. } => estimate_grid_box(rows, None, None),
-            Self::Stack { children, .. } => {
+            Self::Stack { kind, children, .. } => {
                 let boxes: Vec<_> = children.iter().map(|c| c.estimate_box()).collect();
                 let width = boxes.iter().map(|b| b.width).fold(0.0_f64, f64::max);
-                let total: f64 = boxes.iter().map(|b| b.total_height() + 0.1).sum();
-                MathBox::new(width, total * 0.55, total * 0.45)
+                if *kind == MathStackKind::Stackrel && boxes.len() >= 2 {
+                    let upper = boxes[0];
+                    let lower = boxes[1];
+                    let (uy, ly) = stackrel_spacing_offsets(upper, lower);
+                    let height = uy + upper.height;
+                    let depth = (-ly) + lower.depth;
+                    MathBox::new(width, height, depth)
+                } else {
+                    let gap = match kind {
+                        MathStackKind::Stackrel => STACKREL_GAP_EM,
+                        _ => 0.1,
+                    };
+                    let total: f64 = boxes.iter().map(|b| b.total_height() + gap).sum();
+                    MathBox::new(width, total * 0.55, total * 0.45)
+                }
             }
         }
     }

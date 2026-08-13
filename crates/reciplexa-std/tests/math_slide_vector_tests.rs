@@ -124,7 +124,7 @@ fn math_accent_and_big_op() {
 #[test]
 fn math_accent_clearance_above_and_below_base() {
     use reciplexa_std::math::{
-        MathAccentKind, ACCENT_CLEARANCE_EM, ACCENT_UNDER_CLEARANCE_EM,
+        underbrace_spacing, MathAccentKind, ACCENT_CLEARANCE_EM, UNDERBRACE_CLEARANCE_EM,
     };
     let a = MathAtom::symbol(id(1), "a", MathClass::Ordinary);
     let base = a.estimate_box();
@@ -138,12 +138,36 @@ fn math_accent_clearance_above_and_below_base() {
     let under = MathAtom::accent(id(3), MathAccentKind::Underline, a.clone()).estimate_box();
     assert!((under.height - base.height).abs() < 1e-9);
     assert!(
-        (under.depth - (base.depth + ACCENT_UNDER_CLEARANCE_EM)).abs() < 1e-9,
-        "underline should add clearance below base"
+        (under.depth - (base.depth + UNDERBRACE_CLEARANCE_EM)).abs() < 1e-9,
+        "underline/underbrace should add underbrace-style clearance below base"
     );
+    assert!((underbrace_spacing() - UNDERBRACE_CLEARANCE_EM).abs() < 1e-9);
 
     let wide = MathAtom::accent(id(4), MathAccentKind::WideHat, a).estimate_box();
     assert!(wide.height > hat.height);
+}
+
+#[test]
+fn math_stackrel_spacing_offsets() {
+    use reciplexa_std::math::{
+        stackrel_spacing_offsets, MathBox, MathStackKind, STACKREL_GAP_EM,
+    };
+
+    let upper = MathBox::new(0.8, 0.5, 0.1);
+    let lower = MathBox::new(1.0, 0.7, 0.2);
+    let (uy, ly) = stackrel_spacing_offsets(upper, lower);
+    assert!((uy - (STACKREL_GAP_EM * 0.5 + upper.depth)).abs() < 1e-9);
+    assert!((ly - (-(STACKREL_GAP_EM * 0.5 + lower.height))).abs() < 1e-9);
+    assert!(uy > 0.0 && ly < 0.0);
+
+    let rel = MathAtom::symbol(id(1), "=", MathClass::Relation);
+    let base = MathAtom::symbol(id(2), "x", MathClass::Ordinary);
+    let st = MathAtom::stack(id(3), MathStackKind::Stackrel, vec![rel.clone(), base.clone()]);
+    let sb = st.estimate_box();
+    let (euy, ely) = stackrel_spacing_offsets(rel.estimate_box(), base.estimate_box());
+    assert!((sb.height - (euy + rel.estimate_box().height)).abs() < 1e-9);
+    assert!((sb.depth - ((-ely) + base.estimate_box().depth)).abs() < 1e-9);
+    assert!(sb.total_height() > base.estimate_box().total_height());
 }
 
 #[test]
