@@ -147,9 +147,10 @@ No push unless asked. Fine-grained commits (one unit ≈ one commit).
 - Math: OpenType MATH / stretchy fences / real matrix column alignment / linebreak in display math.
 - Document pipeline + GUI consuming kihon / ruby / math boxes (not only trees).
   - Light prep **done**: `reciplexa_eval::math_value` lowers package math tagged records → `MathAtom` → `estimate_box`.
-  - **Note:** CLI `inspect-document` is the graphics/document snapshot path; it does **not** print math `estimate_box`. Prefer eval/`math_value` on package math trees (see `pkg_math_main_tree_estimates_box_via_math_value` — supported subtrees; full demo tree still has under/over/cases gaps).
+  - **Note:** CLI `inspect-document` is the graphics/document snapshot path; it does **not** print math `estimate_box`. Prefer eval/`math_value` on package math trees (see `pkg_math_main_tree_estimates_box_via_math_value` — **full** `pkg_math` demo tree estimates, including under/over/cases/operatorname).
 - Wire `classify_char` / `break_opportunity` as language builtins.
   - **done**: ker builtins `classify-char` (→ Int class id) and `break-between` (→ `allowed`/`prohibited`/`inseparable` tags).
+  - **done**: language-only example `examples/pkg_ja_classify.rpx` (+ eval test).
 
 ## Follow-on slices (post J*/M*)
 
@@ -157,9 +158,12 @@ No push unless asked. Fine-grained commits (one unit ≈ one commit).
 |-------|--------|
 | Eval `math_value` bridge: symbol/row/frac/scripts/radical/delimiter | **done** |
 | Eval `math_value`: accent / matrix / bigop / stack / aligned | **done** |
+| Eval `math_value`: under / over / cases / operatorname (+ matrix-env / align-eq / substack) | **done** |
 | JA `classify_char` ideographic punctuation + fullwidth expansions | **done** (still subset, not full UCS) |
+| JA `classify_char` more CJK symbols / Unicode spaces / wave-dash family | **done** (still subset) |
 | Language builtins `classify-char` / `break-between` | **done** |
-| Package `pkg_math` tree → `estimate_box` via `math_value` (not `inspect-document`) | **done** |
+| Example `pkg_ja_classify.rpx` (builtins demo) | **done** |
+| Package `pkg_math` tree → `estimate_box` via `math_value` (not `inspect-document`) | **done** (full demo tree) |
 | Package `materialize_package_resource` / `resolve_resource_value` when root known | **done** (helper + tests; full load-time rewrite deferred) |
 | Tip tests for math_value / japanese / resource | **done** |
 | Full UCS / §C / glyph layout / document consumption | **OPEN** |
