@@ -96,10 +96,35 @@ No push unless asked. Fine-grained commits (one unit ≈ one commit).
 | HC4 — `estimate_package_math_main` | **done** |
 | HC5 — Docs / implemented-features | **done** |
 
-## Follow-on (after HC5)
+## Follow-on (HC6–HC8)
+
+### HC6 — Plan: PDF smoke units
+
+- Expand this section with HC6–HC8 gate notes (package bridge → `document_to_pdf` → multiple `Tj`).
+- **Commit.**
+
+### HC7 — Long JA paragraph PDF smoke test
+
+- Package (or reciplexa) test: pkg_document-like source with long JA `paragraph` → bridge → PDF.
+- Assert ≥2 PDF text showing operators (`Tj`) when a system/env CJK font is available; otherwise skip.
+- **Commit.**
+
+### HC8 — Docs status for HC6–HC8
+
+- Mark HC6–HC8 done; refresh `implemented-features.md` next-steps line.
+- **Commit.**
+
+Gate (HC7):
+
+```bat
+set CARGO_TARGET_DIR=d:\reciplexa\target
+set TEMP=d:\reciplexa\.tmp
+set TMP=d:\reciplexa\.tmp
+cargo test -p reciplexa-package --offline --test graphics_bridge_coverage
+```
 
 | Unit | Status |
 |------|--------|
-| HC6–HC8 — scene PDF smoke: long JA paragraph → multiple PDF text ops | **pending** |
-
-Host PDF / scene smoke over long JA paragraphs (multiple text ops) continues as HC6+ once HC0–HC5 land.
+| HC6 — Plan: PDF smoke units | **pending** |
+| HC7 — Long JA → PDF multiple `Tj` | **pending** |
+| HC8 — Docs status | **pending** |
