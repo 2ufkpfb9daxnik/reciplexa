@@ -574,3 +574,29 @@ fn package_document_indent_svg_smoke() {
         svg.matches("<text").count()
     );
 }
+
+/// Wave 18 follow-on: vertical place → PDF multiple Tj when CJK fonts allow.
+#[test]
+fn vertical_place_pdf_smoke_when_cjk_font() {
+    if reciplexa_pdf::system_cjk_font_path().is_none() {
+        return;
+    }
+    use reciplexa_scene::{Color, Document, Page, PaperSize, Shape};
+    use reciplexa_std::japanese::{break_line_vertical, lines_to_vertical_text_shapes, KihonHanmen};
+
+    let lines = break_line_vertical("春夏秋冬一二三四", 4.0);
+    assert!(lines.len() >= 2, "vertical wrap: {lines:?}");
+    let pitch = KihonHanmen::default_vertical().line_pitch_em() * 12.0;
+    let texts = lines_to_vertical_text_shapes(&lines, 100.0, 40.0, 12.0, pitch, Color::BLACK);
+    let doc = Document::single_page(Page {
+        paper: PaperSize::a4(),
+        shapes: texts.into_iter().map(Shape::Text).collect(),
+    });
+    let bytes = reciplexa_pdf::document_to_pdf(&doc).expect("vertical place pdf");
+    let pdf = String::from_utf8_lossy(&bytes);
+    let tj = pdf.matches(" Tj\n").count();
+    assert!(
+        tj >= 2,
+        "expected multiple PDF text ops from vertical columns, got {tj}"
+    );
+}
