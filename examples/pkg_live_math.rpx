@@ -1,0 +1,36 @@
+(// language-only: live-layout math demo — frac + scripts + delimiter (LL16).
+ // Host composes via document_from_live_layout_* ; not OpenType MATH.)
+
+(import document/page only
+  a4 page flow section heading paragraph
+  block-paragraph)
+
+(val title (heading 1 "Live math layout"))
+(val body (paragraph "括弧付き分数と添字。"))
+(val math
+  (record
+    (tag "math-delimiter")
+    (left "(")
+    (right ")")
+    (stretch-factor 1.5)
+    (body
+      (record
+        (tag "math-scripts")
+        (base
+          (record
+            (tag "math-fraction")
+            (numerator (record (tag "math-symbol") (glyph "a") (class "ord")))
+            (denominator (record (tag "math-symbol") (glyph "b") (class "ord")))))
+        (subscript (record (tag "math-symbol") (glyph "i") (class "ord")))))))
+
+(val main
+  (record
+    (tag "live-layout-demo")
+    (page
+      (page a4
+        (flow
+          (list
+            (section title
+              (list
+                (block-paragraph body)))))))
+    (math math)))

@@ -712,3 +712,49 @@ fn live_layout_pptx_smoke_multi_text() {
         "expected multiple PPTX text runs from live-layout page, got {a_t} <a:t> (shapes={text_shape_count})"
     );
 }
+
+/// LL16: frac + scripts + delimiter live-math example → scene shapes.
+#[test]
+fn live_math_frac_scripts_delim_shapes() {
+    let entry = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/pkg_live_math.rpx");
+    let doc = document_from_live_layout_entry(&entry, &index()).expect("live math entry");
+    let texts: Vec<_> = doc.pages[0]
+        .shapes
+        .iter()
+        .filter_map(|s| match s {
+            Shape::Text(t) => Some(t.content.as_str()),
+            _ => None,
+        })
+        .collect();
+    let joined: String = texts.concat();
+    assert!(
+        texts.iter().any(|t| t.contains('括') || t.contains("括弧")),
+        "expected JA paragraph among {texts:?}"
+    );
+    assert!(
+        joined.contains('(') && joined.contains(')') && joined.contains('a') && joined.contains('b'),
+        "expected delim + frac glyphs among {texts:?}"
+    );
+    assert!(
+        joined.contains('i'),
+        "expected script subscript among {texts:?}"
+    );
+    assert!(
+        doc.pages[0]
+            .shapes
+            .iter()
+            .any(|s| matches!(s, Shape::Line(_))),
+        "expected fraction rule Line"
+    );
+    let left = doc.pages[0].shapes.iter().find_map(|s| match s {
+        Shape::Text(t) if t.content == "(" => Some(t),
+        _ => None,
+    });
+    let left = left.expect("left fence Text");
+    assert!(
+        left.size_mm > 4.0,
+        "stretched delimiter fence should be taller than default em, got {}",
+        left.size_mm
+    );
+}
+
