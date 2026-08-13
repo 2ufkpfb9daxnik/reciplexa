@@ -1777,3 +1777,93 @@ pub fn measure_columns(total_em: f64, count: u32, gutter_em: f64) -> (f64, Vec<f
     let xs: Vec<f64> = (0..count).map(|i| i as f64 * step).collect();
     (col_w, xs)
 }
+
+/// Soft-wrap budget (em) shared by document live layout — ~A4 content width stub.
+pub const DOC_TEXT_MAX_EM: f64 = 40.0;
+
+/// Soft-wrap + first-line indent + [`place_lines_horizontal`] → scene Text shapes.
+///
+/// `pitch_mm` is signed: hosts that place top-down on paper (y decreasing) pass a
+/// negative pitch. Heuristic em layout only — not JLReq / glyph shaping.
+pub fn layout_wrapped_paragraph_shapes(
+    text: &str,
+    max_em: f64,
+    indent_em: f64,
+    base_x_mm: f64,
+    start_y_mm: f64,
+    size_mm: f64,
+    pitch_mm: f64,
+    fill: reciplexa_scene::Color,
+) -> Vec<reciplexa_scene::Text> {
+    let lines = break_line(text, max_em);
+    if lines.is_empty() {
+        return vec![reciplexa_scene::Text {
+            x_mm: base_x_mm,
+            y_mm: start_y_mm,
+            size_mm,
+            width_mm: None,
+            height_mm: None,
+            content: String::new(),
+            fill,
+        }];
+    }
+    let indented = indent_first_line(&lines, indent_em);
+    let line_strs: Vec<String> = indented.iter().map(|(_, s)| s.clone()).collect();
+    let placed = place_lines_horizontal(&line_strs, start_y_mm, pitch_mm);
+    indented
+        .into_iter()
+        .zip(placed)
+        .map(|((x_em, content), (_, y_mm))| reciplexa_scene::Text {
+            x_mm: base_x_mm + x_em * size_mm,
+            y_mm,
+            size_mm,
+            width_mm: None,
+            height_mm: None,
+            content,
+            fill,
+        })
+        .collect()
+}
+
+/// Place one paragraph string per column via [`measure_columns`] + soft-wrap.
+///
+/// Returns `(shapes, min_y_mm)` where `min_y_mm` is the lowest baseline used
+/// (useful when `pitch_mm` is negative). One paragraph per column; extras ignored.
+/// Fontless stub — not balanced multi-column book layout.
+pub fn layout_column_paragraph_shapes(
+    paragraphs: &[String],
+    total_em: f64,
+    count: u32,
+    gutter_em: f64,
+    base_x_mm: f64,
+    start_y_mm: f64,
+    size_mm: f64,
+    pitch_mm: f64,
+    fill: reciplexa_scene::Color,
+) -> (Vec<reciplexa_scene::Text>, f64) {
+    let (col_w, xs) = measure_columns(total_em, count, gutter_em);
+    let budget = if col_w > 0.0 { col_w } else { DOC_TEXT_MAX_EM };
+    let n = count as usize;
+    let mut shapes = Vec::new();
+    let mut min_y = start_y_mm;
+    for (i, text) in paragraphs.iter().enumerate().take(n) {
+        let x_em = xs.get(i).copied().unwrap_or(0.0);
+        let col_shapes = layout_wrapped_paragraph_shapes(
+            text,
+            budget,
+            0.0,
+            base_x_mm + x_em * size_mm,
+            start_y_mm,
+            size_mm,
+            pitch_mm,
+            fill,
+        );
+        for t in &col_shapes {
+            if t.y_mm < min_y {
+                min_y = t.y_mm;
+            }
+        }
+        shapes.extend(col_shapes);
+    }
+    (shapes, min_y)
+}

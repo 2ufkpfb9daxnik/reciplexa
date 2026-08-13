@@ -1,17 +1,35 @@
 //! N5.1b — lower package `document/page` (`doc-*`) eval records to scene documents.
 //!
 //! Flow-oriented constructors from `packages/document` become a simple text layout on
-//! paper. Interim CST `(page)/(circle)` keyword tables stay untouched.
+//! paper via shared std live-layout helpers (`break_line` / `place_lines` / indent /
+//! columns). Interim CST `(page)/(circle)` keyword tables stay untouched.
 
-use reciplexa_scene::{Color, Document, Page, PaperSize, Shape, Text};
+use reciplexa_scene::{Color, Document, Page, PaperSize, Shape};
+use reciplexa_std::japanese::{
+    layout_column_paragraph_shapes, layout_wrapped_paragraph_shapes, DOC_TEXT_MAX_EM,
+};
 
 use crate::graphics_value::GraphicsValueError;
 use crate::value::RuntimeValue;
 
-/// Lower a `tag: "doc-page"` package value to a scene [`Document`].
-pub fn document_from_doc_value(v: &RuntimeValue) -> Result<Document, GraphicsValueError> {
+/// Soft-wrap + place pitch (mm): negative so baselines step down the page.
+const DOC_LINE_PITCH_EXTRA_MM: f64 = 3.0;
+const DOC_BASE_X_MM: f64 = 20.0;
+
+/// Lower a `tag: "doc-page"` package value to a scene [`Document`] (live layout).
+///
+/// Uses std `break_line` + `place_lines_horizontal` + `indent_first_line` +
+/// `measure_columns` heuristics — not production JLReq layout.
+pub fn layout_doc_page_to_scene(v: &RuntimeValue) -> Result<Document, GraphicsValueError> {
     let page = page_from_doc_value(v)?;
     Ok(Document::single_page(page))
+}
+
+/// Lower a `tag: "doc-page"` package value to a scene [`Document`].
+///
+/// Thin alias of [`layout_doc_page_to_scene`] for the graphics bridge.
+pub fn document_from_doc_value(v: &RuntimeValue) -> Result<Document, GraphicsValueError> {
+    layout_doc_page_to_scene(v)
 }
 
 /// Lower a `doc-page` record to a scene [`Page`] with a naive top-down text layout.
@@ -112,9 +130,6 @@ fn collect_block_shapes(
     }
 }
 
-/// Soft-wrap budget (em) for document text nodes — ~A4 content width stub.
-const DOC_TEXT_MAX_EM: f64 = 40.0;
-
 fn push_heading_or_paragraph(
     v: &RuntimeValue,
     cursor_y: &mut f64,
@@ -131,7 +146,6 @@ fn push_heading_or_paragraph(
                 2 => 6.5,
                 _ => 5.5,
             };
-            // Soft-wrap long headings via std `break_line` (same budget as paragraphs).
             push_soft_wrapped_text(&text, size, 0.0, cursor_y, shapes);
             Ok(())
         }
@@ -149,11 +163,7 @@ fn push_heading_or_paragraph(
     }
 }
 
-/// Place paragraph texts into columns via [`measure_columns`] (Wave 22 stub).
-///
-/// Record fields: `count`, `gutter-em`, optional `total-em`, `paragraphs` (cons of
-/// strings or `doc-paragraph`). One paragraph per column (extras ignored). Not
-/// balanced multi-column / `jlreq-multi-column` book layout.
+/// Place paragraph texts into columns via std [`layout_column_paragraph_shapes`].
 fn push_doc_columns(
     fields: &[(String, RuntimeValue)],
     cursor_y: &mut f64,
@@ -170,13 +180,8 @@ fn push_doc_columns(
     let paragraphs = field(fields, "paragraphs")
         .ok_or_else(|| GraphicsValueError::new("doc-columns missing paragraphs"))?;
     let items = cons_items(paragraphs)?;
-    let (col_w, xs) = reciplexa_std::japanese::measure_columns(total_em, count, gutter_em);
-    let size_mm = 4.0;
-    const BASE_X_MM: f64 = 20.0;
-    let start_y = *cursor_y;
-    let mut min_y = start_y;
-    let n = count as usize;
-    for (i, item) in items.iter().enumerate().take(n) {
+    let mut texts = Vec::new();
+    for item in items.iter().take(count as usize) {
         let text = match item {
             RuntimeValue::String(s) => s.clone(),
             RuntimeValue::Record(pf) => {
@@ -189,43 +194,32 @@ fn push_doc_columns(
                 ));
             }
         };
-        let x_em = xs.get(i).copied().unwrap_or(0.0);
-        let budget = if col_w > 0.0 { col_w } else { DOC_TEXT_MAX_EM };
-        let lines = reciplexa_std::japanese::break_line(&text, budget);
-        let mut col_y = start_y;
-        if lines.is_empty() {
-            push_text_at(
-                String::new(),
-                size_mm,
-                BASE_X_MM + x_em * size_mm,
-                &mut col_y,
-                shapes,
-            );
-            col_y -= size_mm + 3.0;
-        } else {
-            for line in lines {
-                push_text_at(
-                    line,
-                    size_mm,
-                    BASE_X_MM + x_em * size_mm,
-                    &mut col_y,
-                    shapes,
-                );
-                col_y -= size_mm + 3.0;
-            }
-        }
-        if col_y < min_y {
-            min_y = col_y;
-        }
+        texts.push(text);
     }
-    *cursor_y = min_y;
+    let size_mm = 4.0;
+    let pitch = -(size_mm + DOC_LINE_PITCH_EXTRA_MM);
+    let (col_shapes, min_y) = layout_column_paragraph_shapes(
+        &texts,
+        total_em,
+        count,
+        gutter_em,
+        DOC_BASE_X_MM,
+        *cursor_y,
+        size_mm,
+        pitch,
+        Color::BLACK,
+    );
+    shapes.extend(col_shapes.into_iter().map(Shape::Text));
+    // After a block of lines, advance past the last baseline by one pitch step.
+    *cursor_y = if texts.is_empty() {
+        *cursor_y
+    } else {
+        min_y + pitch
+    };
     Ok(())
 }
 
-/// Soft-wrap `text` via [`reciplexa_std::japanese::break_line`] into scene Text shapes.
-///
-/// Optional `indent_em` offsets the first line's x via [`indent_first_line`]
-/// (1em ≈ `size_mm` for this stub).
+/// Soft-wrap via std [`layout_wrapped_paragraph_shapes`] (break_line + place_lines + indent).
 fn push_soft_wrapped_text(
     text: &str,
     size_mm: f64,
@@ -233,37 +227,20 @@ fn push_soft_wrapped_text(
     cursor_y: &mut f64,
     shapes: &mut Vec<Shape>,
 ) {
-    const BASE_X_MM: f64 = 20.0;
-    let lines = reciplexa_std::japanese::break_line(text, DOC_TEXT_MAX_EM);
-    if lines.is_empty() {
-        push_text_at(String::new(), size_mm, BASE_X_MM, cursor_y, shapes);
-        *cursor_y -= size_mm + 3.0;
-    } else {
-        let indented = reciplexa_std::japanese::indent_first_line(&lines, indent_em);
-        for (x_em, line) in indented {
-            let x_mm = BASE_X_MM + x_em * size_mm;
-            push_text_at(line, size_mm, x_mm, cursor_y, shapes);
-            *cursor_y -= size_mm + 3.0;
-        }
-    }
-}
-
-fn push_text_at(
-    content: String,
-    size_mm: f64,
-    x_mm: f64,
-    cursor_y: &mut f64,
-    shapes: &mut Vec<Shape>,
-) {
-    shapes.push(Shape::Text(Text {
-        x_mm,
-        y_mm: *cursor_y,
+    let pitch = -(size_mm + DOC_LINE_PITCH_EXTRA_MM);
+    let texts = layout_wrapped_paragraph_shapes(
+        text,
+        DOC_TEXT_MAX_EM,
+        indent_em,
+        DOC_BASE_X_MM,
+        *cursor_y,
         size_mm,
-        width_mm: None,
-        height_mm: None,
-        content,
-        fill: Color::BLACK,
-    }));
+        pitch,
+        Color::BLACK,
+    );
+    let n = texts.len().max(1);
+    shapes.extend(texts.into_iter().map(Shape::Text));
+    *cursor_y += pitch * n as f64;
 }
 
 fn paper_from_size_value(v: &RuntimeValue) -> Result<PaperSize, GraphicsValueError> {
@@ -451,7 +428,7 @@ mod tests {
             ),
             ("flow", flow),
         ]);
-        let doc = document_from_doc_value(&page).expect("doc lower");
+        let doc = layout_doc_page_to_scene(&page).expect("doc lower");
         assert_eq!(doc.pages.len(), 1);
         assert_eq!(doc.pages[0].paper.width_mm, 210.0);
         let texts: Vec<_> = doc.pages[0]
