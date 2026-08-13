@@ -48,5 +48,6 @@ pub use rpi::parse_rpi_exports;
 pub use rpxm::{parse_rpxm, RpxmError};
 pub use target::{BuildTarget, RuntimeProfile};
 pub use workspace::{
-    discover_workspace, parse_workspace_rpxm, WorkspaceError, WorkspaceIndex, WorkspaceManifest,
+    check_package_lock_consistency, discover_workspace, find_enclosing_workspace,
+    parse_workspace_rpxm, read_lock_for_package, WorkspaceError, WorkspaceIndex, WorkspaceManifest,
 };

@@ -236,4 +236,96 @@ impl WorkspaceIndex {
         self.reject_member_local_locks()?;
         Lockfile::read_rpx_lock(self.lock_path()).map_err(WorkspaceError::Lock)
     }
+
+    /// True if `package_root` is one of this workspace's member directories.
+    pub fn contains_member_root(&self, package_root: &Path) -> bool {
+        self.members
+            .values()
+            .any(|(root, _)| roots_equal(root, package_root))
+    }
+}
+
+fn roots_equal(a: &Path, b: &Path) -> bool {
+    match (fs::canonicalize(a), fs::canonicalize(b)) {
+        (Ok(ca), Ok(cb)) => ca == cb,
+        _ => a == b,
+    }
+}
+
+/// Walk ancestors of `start` for `workspace.rpxm` and discover that workspace (PKG §21.2).
+///
+/// Returns `Ok(None)` when no enclosing workspace exists.
+pub fn find_enclosing_workspace(
+    start: impl AsRef<Path>,
+) -> Result<Option<WorkspaceIndex>, WorkspaceError> {
+    let mut cur = start.as_ref().to_path_buf();
+    if cur.is_file() {
+        if let Some(parent) = cur.parent() {
+            cur = parent.to_path_buf();
+        }
+    }
+    loop {
+        let candidate = cur.join("workspace.rpxm");
+        if candidate.is_file() {
+            return discover_workspace(&cur).map(Some);
+        }
+        match cur.parent() {
+            Some(parent) if parent != cur => cur = parent.to_path_buf(),
+            _ => return Ok(None),
+        }
+    }
+}
+
+/// Resolve the lockfile path and contents for a package root (PKG §21.2).
+///
+/// When the package is a workspace member, uses the workspace-root `rpx.lock`
+/// (and rejects a member-local lock). Otherwise reads `package_root/rpx.lock`.
+pub fn read_lock_for_package(
+    package_root: impl AsRef<Path>,
+) -> Result<(PathBuf, Lockfile), WorkspaceError> {
+    let package_root = package_root.as_ref();
+    if let Some(ws) = find_enclosing_workspace(package_root)? {
+        if ws.contains_member_root(package_root) {
+            let lock = ws.read_lock()?;
+            return Ok((ws.lock_path(), lock));
+        }
+    }
+    let path = package_root.join("rpx.lock");
+    let lock = Lockfile::read_rpx_lock(&path).map_err(WorkspaceError::Lock)?;
+    Ok((path, lock))
+}
+
+/// Check that the package's manifest is consistent with the lock resolved for
+/// its root (workspace root lock when in a workspace).
+pub fn check_package_lock_consistency(
+    package_root: impl AsRef<Path>,
+) -> Result<(), WorkspaceError> {
+    let package_root = package_root.as_ref();
+    let manifest_path = package_root.join("package.rpxm");
+    let src = fs::read_to_string(&manifest_path).map_err(|e| {
+        WorkspaceError::Io(format!("read `{}`: {e}", manifest_path.display()))
+    })?;
+    let manifest = parse_rpxm(&src).map_err(WorkspaceError::Manifest)?;
+    let (_lock_path, lock) = read_lock_for_package(package_root)?;
+
+    // Member itself must appear in the workspace lock with matching version.
+    if let Some(ws) = find_enclosing_workspace(package_root)? {
+        if ws.contains_member_root(package_root) {
+            let Some(locked) = lock.packages.iter().find(|p| p.name == manifest.name) else {
+                return Err(WorkspaceError::Lock(format!(
+                    "lockfile is not consistent with the package manifest: missing `{}`",
+                    manifest.name
+                )));
+            };
+            if locked.version != manifest.version {
+                return Err(WorkspaceError::Lock(format!(
+                    "lockfile is not consistent with the package manifest: `{}` locked as `{}` but package is `{}`",
+                    manifest.name, locked.version, manifest.version
+                )));
+            }
+        }
+    }
+
+    lock.is_consistent_with_consumer(&manifest)
+        .map_err(WorkspaceError::Lock)
 }

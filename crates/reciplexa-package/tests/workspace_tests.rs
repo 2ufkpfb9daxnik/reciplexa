@@ -2,7 +2,10 @@ use std::fs;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use reciplexa_package::{discover_workspace, parse_workspace_rpxm, RpxmError, WorkspaceError};
+use reciplexa_package::{
+    check_package_lock_consistency, discover_workspace, find_enclosing_workspace,
+    parse_workspace_rpxm, read_lock_for_package, RpxmError, WorkspaceError,
+};
 
 fn tmp_dir(label: &str) -> PathBuf {
     let nanos = SystemTime::now()
@@ -162,4 +165,48 @@ fn workspace_rejects_member_local_lock() {
     assert!(matches!(err, WorkspaceError::MemberLocalLock(_)));
     let err = idx.read_lock().unwrap_err();
     assert!(matches!(err, WorkspaceError::MemberLocalLock(_)));
+}
+
+#[test]
+fn member_uses_workspace_root_lock() {
+    let root = tmp_dir("e3");
+    write_pkg(&root.join("core"), "core", "1.0.0");
+    write_pkg(&root.join("render"), "render", "0.1.0");
+    fs::write(
+        root.join("workspace.rpxm"),
+        r#"(workspace format-version 1 (members "core" "render"))"#,
+    )
+    .unwrap();
+    let idx = discover_workspace(&root).unwrap();
+    idx.write_lock().unwrap();
+
+    let found = find_enclosing_workspace(root.join("core")).unwrap().unwrap();
+    assert_eq!(found.root, idx.root);
+
+    let (lock_path, lock) = read_lock_for_package(root.join("core")).unwrap();
+    assert_eq!(lock_path, root.join("rpx.lock"));
+    assert_eq!(lock.packages.len(), 2);
+
+    check_package_lock_consistency(root.join("core")).unwrap();
+    check_package_lock_consistency(root.join("render")).unwrap();
+}
+
+#[test]
+fn member_lock_consistency_detects_version_mismatch() {
+    let root = tmp_dir("e3bad");
+    write_pkg(&root.join("core"), "core", "1.0.0");
+    fs::write(
+        root.join("workspace.rpxm"),
+        r#"(workspace format-version 1 (members "core"))"#,
+    )
+    .unwrap();
+    let idx = discover_workspace(&root).unwrap();
+    idx.write_lock().unwrap();
+    // Mutate package version without refreshing the lock.
+    write_pkg(&root.join("core"), "core", "9.9.9");
+    let err = check_package_lock_consistency(root.join("core")).unwrap_err();
+    match err {
+        WorkspaceError::Lock(msg) => assert!(msg.contains("not consistent")),
+        other => panic!("expected Lock consistency error, got {other:?}"),
+    }
 }
