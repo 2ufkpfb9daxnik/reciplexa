@@ -774,3 +774,28 @@ fn tip_pkg_math_ja_layout_stubs_integration() {
         .join()
         .expect("join");
 }
+
+/// Wave 7 A4 tip: ruby-box / tate-chu-yoko-width / break pair matrix corners.
+#[test]
+fn tip_wave7_ja_builtins_and_break_matrix() {
+    use reciplexa_eval::{eval_source, RuntimeValue};
+    use reciplexa_std::japanese::{
+        break_opportunity, break_pair_matrix_cell, BreakOpportunity, CharClass,
+        BREAK_PAIR_MATRIX_DIM,
+    };
+
+    assert_eq!(BREAK_PAIR_MATRIX_DIM, 31);
+    assert_eq!(
+        break_pair_matrix_cell(20, 1),
+        BreakOpportunity::Prohibited
+    );
+    assert_eq!(
+        break_opportunity(CharClass::Numeric, CharClass::OpeningBrackets),
+        BreakOpportunity::Prohibited
+    );
+
+    let ruby = eval_source(r#"(val main (ruby-box "漢" "かん"))"#).unwrap();
+    assert!(matches!(ruby, RuntimeValue::Record(_)));
+    let tcy = eval_source(r#"(val main (tate-chu-yoko-width "12"))"#).unwrap();
+    assert!(matches!(tcy, RuntimeValue::Number(n) if (n - 1.0).abs() < 1e-9));
+}
