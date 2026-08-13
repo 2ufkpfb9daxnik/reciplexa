@@ -1082,3 +1082,36 @@ cargo test -p reciplexa-std -p reciplexa-eval -p reciplexa-core -p reciplexa-pac
 - Font-backed ruby / tate-chu-yoko / real vertical metrics / bou placement; OpenType `vert`/`vrt2` / CSS `text-orientation`.
 - OpenType MATH stretchy fences, accent/script/stackrel attachment, real matrix column alignment / big-op / fraction/radical / full muskip style table / real phantom atoms.
 - Document/GUI pipeline consuming boxes as production layout; JA reciprocal punctuation stubs; load-time resource rewrite beyond fail-soft attach; registry resolve + checksum verification (OPEN-PKG-001).
+
+## Wave 23 — reciprocal punctuation mirror width (Q0–Q1)
+
+Honest scope: fontless `reciprocal_punctuation_widths_em` / `reciprocal_punctuation_mirror_em` for cl-01/02/05/06/07 — fullwidth solid+mirror 0.5+0.5 vs halfwidth/ASCII solid 0.5 + mirror 0. Not full JLReq 詰め / aki / proportional metrics.
+
+Gate:
+
+```bat
+set CARGO_TARGET_DIR=d:\reciplexa\target
+set TEMP=d:\reciplexa\.tmp
+set TMP=d:\reciplexa\.tmp
+cargo test -p reciplexa-std -p reciplexa-eval -p reciplexa-core -p reciplexa-package --offline
+```
+
+| Unit | Status |
+|------|--------|
+| Q0 — mirror width stub | **done** |
+| Q1 — Docs | **done** |
+
+### Q0 — Helper
+
+- `reciprocal_punctuation_widths_em(c) → Option<(solid, mirror)>`; `reciprocal_punctuation_mirror_em`. **Commit.**
+
+### Q1 — Docs
+
+- Mark Wave 23 done; package / implemented-features notes. **Commit.**
+
+## Remains after Wave 23
+
+- Full UCS membership + normative JLReq §C break matrix + real hanging/justification / word-break / paragraph composition (punctuation packing not wired into `break_line` / `char_em_width`).
+- Font-backed ruby / tate-chu-yoko / real vertical metrics / bou placement; OpenType `vert`/`vrt2` / CSS `text-orientation`.
+- OpenType MATH stretchy fences, accent/script/stackrel attachment, real matrix column alignment / big-op / fraction/radical / full muskip style table / real phantom atoms.
+- Document/GUI pipeline consuming boxes as production layout; load-time resource rewrite beyond fail-soft attach; registry resolve + checksum verification (OPEN-PKG-001).
