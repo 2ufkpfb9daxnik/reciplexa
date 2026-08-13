@@ -571,6 +571,24 @@ pub const ACCENT_CLEARANCE_EM: f64 = 0.35;
 /// Extra depth (em) below the base for underline-style accents.
 pub const ACCENT_UNDER_CLEARANCE_EM: f64 = 0.35;
 
+/// Fraction rule (vinculum) thickness in em — fontless stub, not TeX `\fontdimen8`.
+pub const FRAC_RULE_THICKNESS_EM: f64 = 0.04;
+
+/// Clearance (em) between numerator box and the fraction rule.
+pub const FRAC_NUM_CLEARANCE_EM: f64 = 0.15;
+
+/// Clearance (em) between the fraction rule and denominator box.
+pub const FRAC_DEN_CLEARANCE_EM: f64 = 0.15;
+
+/// Fraction rule thickness + num/den clearance (em). Heuristic only.
+pub fn fraction_rule_metrics() -> (f64, f64, f64) {
+    (
+        FRAC_RULE_THICKNESS_EM,
+        FRAC_NUM_CLEARANCE_EM,
+        FRAC_DEN_CLEARANCE_EM,
+    )
+}
+
 /// Fontless script attachment offsets relative to the base box origin.
 ///
 /// Returns `(sub_x, sub_y, sup_x, sup_y)` where `x` grows rightward and `y` grows
@@ -683,8 +701,13 @@ impl MathAtom {
                 let num = numerator.estimate_box();
                 let den = denominator.estimate_box();
                 let width = num.width.max(den.width) + 0.2;
-                // Stack: num above rule, den below; baseline at rule.
-                MathBox::new(width, num.total_height() + 0.15, den.total_height() + 0.15)
+                let (rule, num_clr, den_clr) = fraction_rule_metrics();
+                // Stack: num + clearance + rule above baseline; den + clearance below.
+                MathBox::new(
+                    width,
+                    num.total_height() + num_clr + rule,
+                    den.total_height() + den_clr,
+                )
             }
             Self::Radical {
                 index, radicand, ..

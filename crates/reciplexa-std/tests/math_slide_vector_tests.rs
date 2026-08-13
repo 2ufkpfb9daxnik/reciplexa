@@ -147,6 +147,28 @@ fn math_accent_clearance_above_and_below_base() {
 }
 
 #[test]
+fn math_fraction_rule_thickness_and_clearance() {
+    use reciplexa_std::math::{
+        fraction_rule_metrics, FRAC_DEN_CLEARANCE_EM, FRAC_NUM_CLEARANCE_EM, FRAC_RULE_THICKNESS_EM,
+    };
+    let (rule, num_clr, den_clr) = fraction_rule_metrics();
+    assert!((rule - FRAC_RULE_THICKNESS_EM).abs() < 1e-9);
+    assert!((num_clr - FRAC_NUM_CLEARANCE_EM).abs() < 1e-9);
+    assert!((den_clr - FRAC_DEN_CLEARANCE_EM).abs() < 1e-9);
+
+    let a = MathAtom::symbol(id(1), "a", MathClass::Ordinary);
+    let b = MathAtom::symbol(id(2), "b", MathClass::Ordinary);
+    let num = a.estimate_box();
+    let den = b.estimate_box();
+    let fb = MathAtom::fraction(id(3), a, b).estimate_box();
+    assert!(
+        (fb.height - (num.total_height() + FRAC_NUM_CLEARANCE_EM + FRAC_RULE_THICKNESS_EM)).abs()
+            < 1e-9
+    );
+    assert!((fb.depth - (den.total_height() + FRAC_DEN_CLEARANCE_EM)).abs() < 1e-9);
+}
+
+#[test]
 fn math_estimate_box_relative_sizes() {
     use reciplexa_std::math::MathBox;
     let a = MathAtom::symbol(id(1), "a", MathClass::Ordinary);
