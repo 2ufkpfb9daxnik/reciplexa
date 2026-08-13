@@ -268,8 +268,8 @@ pub fn classify_char(c: char) -> CharClass {
         '｟' | '⸨' => return CharClass::WarichuOpen,
         '｠' | '⸩' => return CharClass::WarichuClose,
         // cl-03 — hyphens / wave dashes / wavy overlines / swung dash / general punct.
-        '—' | '–' | '‐' | '‑' | '‒' | '―' | '−' | '-' | '－' | '﹣' | '〜' | '～' | '〰'
-        | '゠' | '⁓' | '∿' | '﹏' | '﹋' | '﹌' | '⁃' => {
+        '—' | '–' | '‐' | '‑' | '‒' | '―' | '−' | '-' | '－' | '﹣' | '〜' | '～' | '〰' | '゠'
+        | '⁓' | '∿' | '﹏' | '﹋' | '﹌' | '⁃' => {
             return CharClass::Hyphens;
         }
         // cl-04 — dividing punctuation (incl. ideographic closing mark / fraction slash /
@@ -294,11 +294,12 @@ pub fn classify_char(c: char) -> CharClass {
         '々' | 'ゝ' | 'ゞ' | 'ヽ' | 'ヾ' | '〻' => return CharClass::IterationMarks,
         'ー' | 'ｰ' | 'ㅡ' => return CharClass::ProlongedSoundMark,
         // cl-12 / cl-13 — prefixed / postfixed abbreviations (fullwidth currency/sign).
-        '〒' | '￥' | '＄' | '￡' | '￦' | '＃' | '№' | '＠' | '#' | '$' | '¥' | '£' | '€' | '₩'
-        | '@' | '〠' | '〶' => {
+        '〒' | '￥' | '＄' | '￡' | '￦' | '＃' | '№' | '＠' | '#' | '$' | '¥' | '£' | '€'
+        | '₩' | '@' | '〠' | '〶' => {
             return CharClass::PrefixedAbbreviations;
         }
-        '％' | '%' | '‰' | '‱' | '℃' | '℉' | '°' | '′' | '″' | '‴' | '㌫' | '￠' => {
+        '％' | '%' | '‰' | '‱' | '℃' | '℉' | '°' | '′' | '″' | '‴' | '㌫' | '￠' =>
+        {
             return CharClass::PostfixedAbbreviations;
         }
         // cl-17 — math / equality-like symbols (ASCII + fullwidth operators).
@@ -355,7 +356,8 @@ pub fn classify_char(c: char) -> CharClass {
             c,
             '\u{00A0}' // NBSP
                 | '\u{1680}' // Ogham space
-                | '\u{2000}'..='\u{200A}' // en/em/thin/hair/… spaces
+                | '\u{2000}'
+                ..='\u{200A}' // en/em/thin/hair/… spaces
                 | '\u{200B}' // ZWSP (treat as space for linebreak stubs)
                 | '\u{200C}' // ZWNJ
                 | '\u{200D}' // ZWJ
@@ -444,7 +446,9 @@ pub fn classify_char(c: char) -> CharClass {
         '_' | '＿' | '\'' | '＇' | '¨' => CharClass::SimpleWestern,
         // More Halfwidth and Fullwidth Forms punctuation chunks (U+FF00–FF60)
         // not matched above → coarse western / ornament-ish.
-        '\u{FF01}'..='\u{FF0F}' | '\u{FF1A}'..='\u{FF20}' | '\u{FF3B}'..='\u{FF40}'
+        '\u{FF01}'..='\u{FF0F}'
+        | '\u{FF1A}'..='\u{FF20}'
+        | '\u{FF3B}'..='\u{FF40}'
         | '\u{FF5B}'..='\u{FF65}' => CharClass::DividingPunctuation,
         // Residual CJK Symbols and Punctuation (U+3000–303F) not matched above —
         // treat as ideographic punctuation / square letters.
@@ -694,9 +698,7 @@ fn choose_soft_wrap_cut(chars: &[char], start: usize, end: usize) -> usize {
     let mut found = false;
     let mut space_cut: Option<usize> = None;
     for cand in (start + 1..=end).rev() {
-        if cand < chars.len()
-            && break_opportunity_chars(chars[cand - 1], chars[cand]).may_break()
-        {
+        if cand < chars.len() && break_opportunity_chars(chars[cand - 1], chars[cand]).may_break() {
             if !found {
                 cut = cand;
                 found = true;
@@ -1218,8 +1220,8 @@ impl Ruby {
 /// Estimate ruby box metrics from [`Ruby`] (same as [`Ruby::estimate_box`]).
 pub fn ruby_estimate_box(ruby: &Ruby) -> RubyBox {
     let base_width: f64 = ruby.base.chars().map(char_em_width).sum();
-    let annotation_width: f64 = ruby.annotation.chars().map(char_em_width).sum::<f64>()
-        * RUBY_ANNOTATION_SCALE;
+    let annotation_width: f64 =
+        ruby.annotation.chars().map(char_em_width).sum::<f64>() * RUBY_ANNOTATION_SCALE;
     let advance_width = base_width.max(annotation_width);
     // Base character band (~1 em) + optional ruby-overhang bump.
     // `kind` is reserved for future jukugo distribution heuristics.
@@ -1476,6 +1478,34 @@ pub fn lines_to_text_shapes<S: AsRef<str>>(
         .map(|(content, y)| reciplexa_scene::Text {
             x_mm,
             y_mm: y,
+            size_mm,
+            width_mm: None,
+            height_mm: None,
+            content,
+            fill,
+        })
+        .collect()
+}
+
+/// Place each line as a scene [`reciplexa_scene::Text`] for vertical-rl columns.
+///
+/// Uses [`place_lines_vertical`] for **x** placement from `(x_mm, y_mm)` with
+/// column pitch `leading_mm` (same unit as coordinates). Shared `y_mm` per
+/// column; positive pitch steps rightward (hosts may negate for vertical-rl).
+/// Fontless stub — not OpenType `vert` / full tategaki composition.
+pub fn lines_to_vertical_text_shapes<S: AsRef<str>>(
+    lines: &[S],
+    x_mm: f64,
+    y_mm: f64,
+    size_mm: f64,
+    leading_mm: f64,
+    fill: reciplexa_scene::Color,
+) -> Vec<reciplexa_scene::Text> {
+    place_lines_vertical(lines, x_mm, leading_mm)
+        .into_iter()
+        .map(|(content, x)| reciplexa_scene::Text {
+            x_mm: x,
+            y_mm,
             size_mm,
             width_mm: None,
             height_mm: None,

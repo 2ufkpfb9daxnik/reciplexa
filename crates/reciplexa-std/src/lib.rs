@@ -21,28 +21,28 @@ pub mod visual;
 pub use core::{Angle, Color, Length, Point, Range, Rect, Size};
 pub use document::{Block, Figure, Flow, Heading, List, ListItem, Page, Section, Table};
 pub use japanese::{
-    bou_estimate_box, bou_mark_offsets, break_line, break_line_to_text_shapes,
-    break_line_vertical, break_opportunity, break_opportunity_chars, break_pair_matrix_cell,
-    char_em_width, classify_char, hang_width_em, hang_width_em_char, indent_first_line, is_hangable,
-    justify_line, justify_line_to_text_shapes, lines_to_text_shapes, needs_tate_rotation,
-    place_lines_horizontal, place_lines_vertical, ruby_estimate_box, tate_chu_yoko_estimate_box,
-    vertical_advance_em, vertical_glyph_orientation, vertical_ruby_estimate_box,
-    wrap_text_shape_content, BouBox, BreakOpportunity, CharClass, KihonHanmen, Ruby, RubyBox,
-    RubyKind, TateChuYoko, TateChuYokoBox, TategakiParagraph, VerticalGlyphOrientation,
-    VerticalRubyBox, WritingMode, BOU_MARK_SIZE_EM, BOU_SIDE_OFFSET_EM, BREAK_PAIR_MATRIX,
-    BREAK_PAIR_MATRIX_DIM, HANG_WIDTH_EM, VERTICAL_RUBY_SIDE_EM,
+    bou_estimate_box, bou_mark_offsets, break_line, break_line_to_text_shapes, break_line_vertical,
+    break_opportunity, break_opportunity_chars, break_pair_matrix_cell, char_em_width,
+    classify_char, hang_width_em, hang_width_em_char, indent_first_line, is_hangable, justify_line,
+    justify_line_to_text_shapes, lines_to_text_shapes, lines_to_vertical_text_shapes,
+    needs_tate_rotation, place_lines_horizontal, place_lines_vertical, ruby_estimate_box,
+    tate_chu_yoko_estimate_box, vertical_advance_em, vertical_glyph_orientation,
+    vertical_ruby_estimate_box, wrap_text_shape_content, BouBox, BreakOpportunity, CharClass,
+    KihonHanmen, Ruby, RubyBox, RubyKind, TateChuYoko, TateChuYokoBox, TategakiParagraph,
+    VerticalGlyphOrientation, VerticalRubyBox, WritingMode, BOU_MARK_SIZE_EM, BOU_SIDE_OFFSET_EM,
+    BREAK_PAIR_MATRIX, BREAK_PAIR_MATRIX_DIM, HANG_WIDTH_EM, VERTICAL_RUBY_SIDE_EM,
 };
 pub use layout::{Align, Axis, Column, LayoutChild, Padding, Row, Stack};
 pub use math::{
     aligned_column_x, bigop_limit_offsets, cases_column_align, class_spacing_em,
     fraction_rule_metrics, matrix_cell_x_in_column, matrix_column_widths,
     radical_vinculum_index_offsets, scripts_attachment_offsets, stackrel_spacing_offsets,
-    underbrace_spacing, EstimateStyle, MathAccentKind, MathAtom, MathBox, MathClass, MathMatrixKind,
-    MathStackKind, MatrixColumnAlign, ACCENT_CLEARANCE_EM, ACCENT_UNDER_CLEARANCE_EM,
-    ALIGNED_COLUMN_GUTTER_EM, FRAC_DEN_CLEARANCE_EM, FRAC_NUM_CLEARANCE_EM, FRAC_RULE_THICKNESS_EM,
-    MED_MUSKIP_EM, RADICAL_SURD_PAD_EM, RADICAL_VINCULUM_CLEARANCE_EM, RADICAL_VINCULUM_THICKNESS_EM,
-    SCRIPT_SCALE, SCRIPT_SCALE_TEXT, STACKREL_GAP_EM, THICK_MUSKIP_EM, THIN_MUSKIP_EM,
-    UNDERBRACE_CLEARANCE_EM,
+    underbrace_spacing, EstimateStyle, MathAccentKind, MathAtom, MathBox, MathClass,
+    MathMatrixKind, MathStackKind, MatrixColumnAlign, ACCENT_CLEARANCE_EM,
+    ACCENT_UNDER_CLEARANCE_EM, ALIGNED_COLUMN_GUTTER_EM, FRAC_DEN_CLEARANCE_EM,
+    FRAC_NUM_CLEARANCE_EM, FRAC_RULE_THICKNESS_EM, MED_MUSKIP_EM, RADICAL_SURD_PAD_EM,
+    RADICAL_VINCULUM_CLEARANCE_EM, RADICAL_VINCULUM_THICKNESS_EM, SCRIPT_SCALE, SCRIPT_SCALE_TEXT,
+    STACKREL_GAP_EM, THICK_MUSKIP_EM, THIN_MUSKIP_EM, UNDERBRACE_CLEARANCE_EM,
 };
 pub use motion::{
     keyframe_track, DurationMs, Easing, Keyframe, MotionTimeline, MotionTrack, TemporalPlacement,

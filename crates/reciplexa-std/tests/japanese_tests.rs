@@ -321,10 +321,7 @@ fn break_pair_matrix_corners() {
     assert_eq!(BREAK_PAIR_MATRIX[0].len(), BREAK_PAIR_MATRIX_DIM);
 
     // Corner (0,0): Other×Other allowed.
-    assert_eq!(
-        break_pair_matrix_cell(0, 0),
-        BreakOpportunity::Allowed
-    );
+    assert_eq!(break_pair_matrix_cell(0, 0), BreakOpportunity::Allowed);
     // Corner (30,30): TateChuYoko×TateChuYoko allowed (not western-run).
     assert_eq!(
         break_opportunity(CharClass::TateChuYoko, CharClass::TateChuYoko),
@@ -688,10 +685,7 @@ fn break_line_edges_and_ascii_half_width() {
     // Lone head-kinsoku char still emits.
     assert_eq!(break_line("。", 1.0), vec!["。".to_string()]);
     // ASCII letters are half-em → four fit in 2.0 em.
-    assert_eq!(
-        break_line("ABCD", 2.0),
-        vec!["ABCD".to_string()]
-    );
+    assert_eq!(break_line("ABCD", 2.0), vec!["ABCD".to_string()]);
     assert_eq!(
         break_line("ABCDEF", 2.0),
         vec!["ABCD".to_string(), "EF".to_string()]
@@ -706,7 +700,9 @@ fn break_line_keeps_cl08_inseparable_run_together() {
     // Mixed: ellipsis run stays intact; wrap before the run when possible.
     let lines = break_line("ああ……いい", 3.0);
     assert!(
-        lines.iter().all(|l| !l.contains("…") || l.matches('…').count() == 2),
+        lines
+            .iter()
+            .all(|l| !l.contains("…") || l.matches('…').count() == 2),
         "must not split …… mid-run: {lines:?}"
     );
     let joined: String = lines.concat();
@@ -736,10 +732,7 @@ fn break_line_short_japanese_phrase_demo() {
     // 「今日は良い天気です。」 — ideographs ≈ 1em; kinsoku keeps 。 with です.
     let text = "「今日は良い天気です。」";
     let lines = break_line(text, 5.0);
-    assert!(
-        lines.len() >= 2,
-        "expected wrap into ≥2 lines: {lines:?}"
-    );
+    assert!(lines.len() >= 2, "expected wrap into ≥2 lines: {lines:?}");
     assert!(
         lines.iter().all(|l| !l.starts_with('。')),
         "kinsoku: 。 must not start a line: {lines:?}"
@@ -753,10 +746,7 @@ fn break_line_short_japanese_phrase_demo() {
     assert_eq!(joined, text);
     // Mixed ASCII half-width: "AB東京CD" at 3em → AB(1) + 東京(2) = 3, then CD.
     let mixed = break_line("AB東京CD", 3.0);
-    assert_eq!(
-        mixed,
-        vec!["AB東京".to_string(), "CD".to_string()]
-    );
+    assert_eq!(mixed, vec!["AB東京".to_string(), "CD".to_string()]);
 }
 
 #[test]
@@ -854,6 +844,27 @@ fn place_lines_horizontal_and_vertical_pitch() {
     assert!((via_kihon[1].1 - 1.5).abs() < 1e-9);
     assert!(place_lines_horizontal::<&str>(&[], 0.0, 1.0).is_empty());
     assert!(place_lines_vertical::<&str>(&[], 0.0, 1.0).is_empty());
+}
+
+#[test]
+fn lines_to_vertical_text_shapes_uses_place_lines_vertical() {
+    use reciplexa_scene::Color;
+    use reciplexa_std::japanese::{lines_to_vertical_text_shapes, place_lines_vertical};
+
+    let lines = ["縦", "書"];
+    let pitch = 1.5;
+    let placed = place_lines_vertical(&lines, 5.0, pitch);
+    let shapes = lines_to_vertical_text_shapes(&lines, 5.0, 20.0, 12.0, pitch, Color::BLACK);
+    assert_eq!(shapes.len(), 2);
+    assert!((shapes[0].x_mm - placed[0].1).abs() < 1e-9);
+    assert!((shapes[1].x_mm - placed[1].1).abs() < 1e-9);
+    assert!((shapes[0].y_mm - 20.0).abs() < 1e-9);
+    assert!((shapes[1].y_mm - 20.0).abs() < 1e-9);
+    assert_eq!(shapes[0].content, "縦");
+    assert_eq!(shapes[1].content, "書");
+    assert!(
+        lines_to_vertical_text_shapes::<&str>(&[], 0.0, 0.0, 10.0, 1.0, Color::BLACK).is_empty()
+    );
 }
 
 #[test]
