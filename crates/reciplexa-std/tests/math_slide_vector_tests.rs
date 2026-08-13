@@ -641,6 +641,48 @@ fn layout_math_accent_places_mark_via_clearance() {
     assert!(ut.y_mm > origin.1, "underline below base in scene y-down");
 }
 
+/// LL26: Overline / underline accent tags place mark glyphs via Accent layout.
+#[test]
+fn layout_math_overline_underline_visual_stubs() {
+    use reciplexa_scene::Shape;
+    use reciplexa_std::math::{
+        accent_attachment_offset, accent_mark_glyph, layout_math_atom_to_shapes, MathAccentKind,
+        MATH_LAYOUT_EM_TO_MM,
+    };
+
+    let base = MathAtom::symbol(id(1), "x", MathClass::Ordinary);
+    let origin = (20.0, 100.0);
+
+    let over = MathAtom::accent(id(2), MathAccentKind::Overline, base.clone());
+    let shapes = layout_math_atom_to_shapes(&over, origin);
+    let omark = accent_mark_glyph(MathAccentKind::Overline);
+    assert_eq!(omark, "¯");
+    let ot = shapes
+        .iter()
+        .find_map(|s| match s {
+            Shape::Text(t) if t.content == omark => Some(t),
+            _ => None,
+        })
+        .expect("overline mark");
+    let (dx, dy) = accent_attachment_offset(MathAccentKind::Overline, base.estimate_box());
+    assert!((ot.x_mm - (origin.0 + dx * MATH_LAYOUT_EM_TO_MM)).abs() < 1e-9);
+    assert!((ot.y_mm - (origin.1 - dy * MATH_LAYOUT_EM_TO_MM)).abs() < 1e-9);
+    assert!(ot.y_mm < origin.1, "overline above base in scene y-down");
+
+    let under = MathAtom::accent(id(3), MathAccentKind::Underline, base.clone());
+    let ushapes = layout_math_atom_to_shapes(&under, origin);
+    let umark = accent_mark_glyph(MathAccentKind::Underline);
+    assert_eq!(umark, "_");
+    let ut = ushapes
+        .iter()
+        .find_map(|s| match s {
+            Shape::Text(t) if t.content == umark => Some(t),
+            _ => None,
+        })
+        .expect("underline mark");
+    assert!(ut.y_mm > origin.1, "underline below base in scene y-down");
+}
+
 /// LL14: Matrix layout places cells via matrix_column_widths / aligned_column_x.
 #[test]
 fn layout_math_matrix_places_cells_by_column_widths() {

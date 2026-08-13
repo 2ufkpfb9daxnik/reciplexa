@@ -1260,7 +1260,8 @@ fn math_offset_to_scene_mm(origin: (f64, f64), dx_em: f64, dy_em: f64) -> (f64, 
 /// cases also draw left/right fence glyphs sized by
 /// [`cases_brace_total_height_em`] (LL21).
 /// [`MathAtom::Accent`]: accent mark glyph via [`accent_clearance_em`] (LL15);
-/// underline / underbrace clearance via [`underbrace_spacing`] (LL22).
+/// underline / underbrace clearance via [`underbrace_spacing`] (LL22);
+/// overline / underline tags share the same Accent visual path (LL26).
 /// [`MathAtom::Aligned`]: cells snapped to [`aligned_column_x`] bands (LL18).
 /// [`MathAtom::Stack`]: children via [`stackrel_spacing_offsets`] / vertical gap
 /// (LL19; labeled overset / underbrace Stackrel) (LL22).
