@@ -655,6 +655,35 @@ pub fn char_em_width(c: char) -> f64 {
     }
 }
 
+/// Extend `end` through a contiguous cl-08 run (may overrun the em budget).
+///
+/// Keeps ellipsis / ditto / vertical-kana-repeat sequences intact so soft-wrap
+/// does not open a cut between two [`CharClass::Inseparable`] glyphs.
+fn extend_end_through_cl08_run(chars: &[char], start: usize, mut end: usize) -> usize {
+    if end <= start || end == 0 {
+        return end;
+    }
+    while end < chars.len()
+        && classify_char(chars[end]) == CharClass::Inseparable
+        && classify_char(chars[end - 1]) == CharClass::Inseparable
+    {
+        end += 1;
+    }
+    end
+}
+
+/// Walk `cut` left when it would split a cl-08×cl-08 pair (after kinsoku / force).
+fn snap_cut_off_cl08_run(chars: &[char], start: usize, mut cut: usize) -> usize {
+    while cut > start + 1
+        && cut < chars.len()
+        && classify_char(chars[cut - 1]) == CharClass::Inseparable
+        && classify_char(chars[cut]) == CharClass::Inseparable
+    {
+        cut -= 1;
+    }
+    cut
+}
+
 /// Soft-wrap `text` into lines of at most `max_em_units` em (fontless).
 ///
 /// Uses [`break_opportunity`] between adjacent characters and [`char_em_width`].
@@ -664,6 +693,9 @@ pub fn char_em_width(c: char) -> f64 {
 /// **Hangable stub:** if the next character would overflow but its class is
 /// [`is_hangable`] (cl-06/07), it may still be appended past the measure. This
 /// is not full JLReq hanging punctuation or justification.
+///
+/// **Inseparable run glue:** contiguous cl-08 sequences are kept together
+/// (budget overrun stub) and cuts are snapped off cl-08×cl-08 pairs.
 ///
 /// `max_em_units <= 0` returns the whole string as one line (empty input → empty vec).
 pub fn break_line(text: &str, max_em_units: f64) -> Vec<String> {
@@ -693,6 +725,8 @@ pub fn break_line(text: &str, max_em_units: f64) -> Vec<String> {
             used += w;
             end += 1;
         }
+        // cl-08 glue: finish an inseparable run even if past measure.
+        end = extend_end_through_cl08_run(&chars, start, end);
 
         if end >= chars.len() {
             out.push(chars[start..].iter().collect());
@@ -726,6 +760,7 @@ pub fn break_line(text: &str, max_em_units: f64) -> Vec<String> {
         {
             cut -= 1;
         }
+        cut = snap_cut_off_cl08_run(&chars, start, cut);
 
         // Ensure progress even if the whole window is kinsoku-stuck.
         if cut <= start {
@@ -799,8 +834,9 @@ pub fn vertical_advance_em(c: char) -> f64 {
 
 /// Soft-wrap for `vertical-rl` using [`vertical_advance_em`] + [`break_opportunity`].
 ///
-/// Same kinsoku / hangable stubs as [`break_line`], but the measure is vertical
-/// advance along the line. Optional scaffolding only — not JLReq vertical layout.
+/// Same kinsoku / hangable / cl-08 glue stubs as [`break_line`], but the measure
+/// is vertical advance along the line. Optional scaffolding only — not JLReq
+/// vertical layout.
 pub fn break_line_vertical(text: &str, max_em_units: f64) -> Vec<String> {
     let chars: Vec<char> = text.chars().collect();
     if chars.is_empty() {
@@ -826,6 +862,7 @@ pub fn break_line_vertical(text: &str, max_em_units: f64) -> Vec<String> {
             used += w;
             end += 1;
         }
+        end = extend_end_through_cl08_run(&chars, start, end);
 
         if end >= chars.len() {
             out.push(chars[start..].iter().collect());
@@ -856,6 +893,7 @@ pub fn break_line_vertical(text: &str, max_em_units: f64) -> Vec<String> {
         {
             cut -= 1;
         }
+        cut = snap_cut_off_cl08_run(&chars, start, cut);
 
         if cut <= start {
             cut = start + 1;

@@ -698,6 +698,21 @@ fn break_line_edges_and_ascii_half_width() {
     );
 }
 
+#[test]
+fn break_line_keeps_cl08_inseparable_run_together() {
+    // Without glue, a 2em budget would cut "………" into "……"+"…".
+    assert_eq!(break_line("………", 2.0), vec!["………".to_string()]);
+    assert_eq!(break_line_vertical("………", 2.0), vec!["………".to_string()]);
+    // Mixed: ellipsis run stays intact; wrap before the run when possible.
+    let lines = break_line("ああ……いい", 3.0);
+    assert!(
+        lines.iter().all(|l| !l.contains("…") || l.matches('…').count() == 2),
+        "must not split …… mid-run: {lines:?}"
+    );
+    let joined: String = lines.concat();
+    assert_eq!(joined, "ああ……いい");
+}
+
 /// Demo: wrap a short Japanese sentence with mixed ASCII via `break_line`.
 #[test]
 fn break_line_short_japanese_phrase_demo() {
