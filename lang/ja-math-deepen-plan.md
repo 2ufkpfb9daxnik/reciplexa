@@ -1115,3 +1115,41 @@ cargo test -p reciplexa-std -p reciplexa-eval -p reciplexa-core -p reciplexa-pac
 - Font-backed ruby / tate-chu-yoko / real vertical metrics / bou placement; OpenType `vert`/`vrt2` / CSS `text-orientation`.
 - OpenType MATH stretchy fences, accent/script/stackrel attachment, real matrix column alignment / big-op / fraction/radical / full muskip style table / real phantom atoms.
 - Document/GUI pipeline consuming boxes as production layout; load-time resource rewrite beyond fail-soft attach; registry resolve + checksum verification (OPEN-PKG-001).
+
+## Wave 24 — measure-columns builtin + document columns example (R0–R2)
+
+Honest scope: language `(measure-columns total count gutter)` → `{tag, col-w, xs}` record; `document/page` `columns` / `block-columns` + example `pkg_columns.rpx`. Not balanced newspaper columns / real book multi-column.
+
+Gate:
+
+```bat
+set CARGO_TARGET_DIR=d:\reciplexa\target
+set TEMP=d:\reciplexa\.tmp
+set TMP=d:\reciplexa\.tmp
+cargo test -p reciplexa-std -p reciplexa-eval -p reciplexa-core -p reciplexa-package --offline
+```
+
+| Unit | Status |
+|------|--------|
+| R0 — Builtin `measure-columns` | **done** |
+| R1 — Example `pkg_columns.rpx` | **done** |
+| R2 — Docs | **done** |
+
+### R0 — Builtin
+
+- `(measure-columns total-em count gutter-em)` → `{tag: "measure-columns", col-w, xs}` via std `measure_columns`. **Commit.**
+
+### R1 — Example
+
+- Package `columns` / `block-columns`; example places two paragraphs side-by-side. **Commit.**
+
+### R2 — Docs
+
+- Mark Wave 24 done; package / implemented-features notes. **Commit.**
+
+## Remains after Wave 24
+
+- Full UCS membership + normative JLReq §C break matrix + real hanging/justification / word-break / paragraph composition (punctuation packing not wired into `break_line` / `char_em_width`).
+- Font-backed ruby / tate-chu-yoko / real vertical metrics / bou placement; OpenType `vert`/`vrt2` / CSS `text-orientation`.
+- OpenType MATH stretchy fences, accent/script/stackrel attachment, real matrix column alignment / big-op / fraction/radical / full muskip style table / real phantom atoms; cases brace stretch.
+- Document/GUI pipeline consuming boxes as production layout; load-time resource rewrite beyond fail-soft attach; registry resolve + checksum verification (OPEN-PKG-001).
