@@ -95,6 +95,10 @@ pub enum BuiltinOp {
     BreakLineVertical,
     /// Naive justify stub — string × target-em → cons/nil of `{char, x}` records.
     JustifyLine,
+    /// Ruby layout stub — base × annotation → `{tag, base-width, annotation-width, advance-width, height}` record.
+    RubyBox,
+    /// Tate-chu-yoko width stub — body string → Number advance width (em).
+    TateChuYokoWidth,
 }
 
 impl fmt::Debug for RuntimeValue {

@@ -68,6 +68,10 @@ pub fn primitive_env() -> HashMap<String, RuntimeValue> {
         "justify-line".into(),
         RuntimeValue::Builtin(BuiltinOp::JustifyLine),
     );
+    env.insert(
+        "ruby-box".into(),
+        RuntimeValue::Builtin(BuiltinOp::RubyBox),
+    );
     env
 }
 
@@ -1392,6 +1396,43 @@ fn apply_builtin(op: BuiltinOp, args: Vec<RuntimeValue>) -> Result<Outcome, Eval
             let chars: Vec<char> = text.chars().collect();
             let placed = reciplexa_std::japanese::justify_line(&chars, target_em);
             Ok(Outcome::Value(justify_placements_to_cons_list(placed)))
+        }
+        BuiltinOp::RubyBox => {
+            if args.len() != 2 {
+                return Err(EvalError {
+                    message: format!(
+                        "builtin `ruby-box` expects 2 args, got {}",
+                        args.len()
+                    ),
+                });
+            }
+            let base = match &args[0] {
+                RuntimeValue::String(s) => s.as_str(),
+                _ => {
+                    return Err(EvalError {
+                        message: "builtin `ruby-box` expects string base".into(),
+                    });
+                }
+            };
+            let annotation = match &args[1] {
+                RuntimeValue::String(s) => s.as_str(),
+                _ => {
+                    return Err(EvalError {
+                        message: "builtin `ruby-box` expects string annotation".into(),
+                    });
+                }
+            };
+            let b = reciplexa_std::japanese::Ruby::simple(base, annotation).estimate_box();
+            Ok(Outcome::Value(RuntimeValue::Record(vec![
+                ("tag".into(), RuntimeValue::String("ruby-box".into())),
+                ("base-width".into(), RuntimeValue::Number(b.base_width)),
+                (
+                    "annotation-width".into(),
+                    RuntimeValue::Number(b.annotation_width),
+                ),
+                ("advance-width".into(), RuntimeValue::Number(b.advance_width)),
+                ("height".into(), RuntimeValue::Number(b.height)),
+            ])))
         }
     }
 }

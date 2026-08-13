@@ -1733,6 +1733,14 @@ pub fn typecheck_language_source(src: &str) -> Result<CoreType, CheckError> {
             effects: EffectRow::default(),
         },
     );
+    env.insert(
+        "ruby-box",
+        CoreType::Fun {
+            args: vec![CoreType::String, CoreType::String],
+            ret: Box::new(CoreType::dyn_any()),
+            effects: EffectRow::default(),
+        },
+    );
     let ty = infer_expr(&expr, &env, &mut subst, TextRange::EMPTY)?;
     Ok(subst.apply(&ty))
 }
