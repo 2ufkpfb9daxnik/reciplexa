@@ -1,0 +1,26 @@
+(// language-only: hang-width + trimming-width (+ break-line / justify-line).
+ // Soft-wrap / policy stubs — not full JLReq hanging or 詰め.)
+
+(val lines (break-line "「今日はいい天気です。」東京へ。" 6.0))
+
+(val hang-stop (hang-width "。"))
+(val hang-ideograph (hang-width "あ"))
+
+(val trim-open (trimming-width "「"))
+(val trim-close (trimming-width "」"))
+(val trim-stop (trimming-width "。"))
+(val trim-ideograph (trimming-width "あ"))
+
+(val justified (justify-line "「漢字」" 5.0))
+
+(val main
+  (record
+    (tag "ja-hang-trim-demo")
+    (lines lines)
+    (hang-stop hang-stop)
+    (hang-ideograph hang-ideograph)
+    (trim-open trim-open)
+    (trim-close trim-close)
+    (trim-stop trim-stop)
+    (trim-ideograph trim-ideograph)
+    (justified justified)))
