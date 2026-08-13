@@ -16,6 +16,11 @@ pub struct LockedPackage {
     /// Direct dependency edges (formal package names), for path-dep graphs.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub dependencies: Vec<String>,
+    /// Optional registry content checksum stub (OPEN-PKG-001).
+    ///
+    /// Carried for future lockfile round-trips; **not verified** today.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub checksum: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -44,6 +49,7 @@ impl Lockfile {
                     .iter()
                     .map(|d| d.package.clone().unwrap_or_else(|| d.name.clone()))
                     .collect(),
+                checksum: None,
             })
             .collect();
         Self { packages }
@@ -62,6 +68,7 @@ impl Lockfile {
             version: consumer.version.clone(),
             source: "workspace".into(),
             dependencies: deps.iter().map(|(_, m)| m.name.clone()).collect::<Vec<_>>(),
+            checksum: None,
         }];
         for (spec, manifest) in deps {
             let source = match &spec.path {
@@ -78,6 +85,7 @@ impl Lockfile {
                     .filter(|d| d.path.is_some())
                     .map(|d| d.package.clone().unwrap_or_else(|| d.name.clone()))
                     .collect(),
+                checksum: None,
             });
         }
         packages.sort_by(|a, b| a.name.cmp(&b.name));

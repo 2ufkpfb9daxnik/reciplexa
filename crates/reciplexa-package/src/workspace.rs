@@ -221,6 +221,7 @@ impl WorkspaceIndex {
                     .iter()
                     .map(|d| d.package.clone().unwrap_or_else(|| d.name.clone()))
                     .collect(),
+                checksum: None,
             })
             .collect();
         packages.sort_by(|a, b| a.name.cmp(&b.name));
@@ -439,6 +440,7 @@ pub fn resolve_workspace_dependencies(ws: &WorkspaceIndex) -> Result<Lockfile, W
             version: m.version.clone(),
             source: "workspace".into(),
             dependencies: edges.get(&m.name).cloned().unwrap_or_default(),
+            checksum: None,
         })
         .collect();
     packages.sort_by(|a, b| a.name.cmp(&b.name));

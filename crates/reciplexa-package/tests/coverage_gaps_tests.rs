@@ -149,6 +149,7 @@ fn lockfile_consistency_error_paths() {
             version: "0.2.0".into(),
             source: "workspace".into(),
             dependencies: vec![],
+            checksum: None,
         }],
     };
     let err = wrong_source
@@ -162,6 +163,7 @@ fn lockfile_consistency_error_paths() {
             version: "0.1.0".into(),
             source: "path:../g".into(),
             dependencies: vec![],
+            checksum: None,
         }],
     };
     let err = version_mismatch

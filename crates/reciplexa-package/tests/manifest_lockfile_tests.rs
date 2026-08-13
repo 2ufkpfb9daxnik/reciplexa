@@ -41,11 +41,35 @@ fn lockfile_json_roundtrip() {
             version: "1.0".into(),
             source: "workspace".into(),
             dependencies: vec![],
+            checksum: None,
         }],
     };
     let json = lf.to_json().unwrap();
     let parsed = Lockfile::from_json(&json).unwrap();
     assert_eq!(parsed, lf);
+}
+
+#[test]
+fn lockfile_checksum_optional_roundtrip_no_verify() {
+    let lf = Lockfile {
+        packages: vec![LockedPackage {
+            name: "demo".into(),
+            version: "1.0".into(),
+            source: "registry:demo".into(),
+            dependencies: vec![],
+            checksum: Some("sha256:deadbeef".into()),
+        }],
+    };
+    let json = lf.to_json().unwrap();
+    assert!(json.contains("sha256:deadbeef"));
+    let parsed = Lockfile::from_json(&json).unwrap();
+    assert_eq!(parsed.packages[0].checksum.as_deref(), Some("sha256:deadbeef"));
+    // Absent checksum remains None (serde default); never verified.
+    let bare = Lockfile::from_json(
+        r#"{ "packages": [{ "name": "x", "version": "0", "source": "workspace" }] }"#,
+    )
+    .unwrap();
+    assert_eq!(bare.packages[0].checksum, None);
 }
 
 #[test]

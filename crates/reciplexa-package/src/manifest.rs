@@ -268,10 +268,11 @@ impl std::fmt::Display for ResourceCheckError {
     }
 }
 
-/// OPEN-PKG-001: package registry protocol / checksums are not implemented.
+/// OPEN-PKG-001: package registry protocol is not implemented.
 ///
 /// Path-free dependencies that do not match a workspace member, or that set
 /// `source registry`, fail with [`crate::WorkspaceError::RegistryUnavailable`]
-/// and must not perform network I/O.
+/// and must not perform network I/O. Lockfile may carry an optional
+/// [`crate::LockedPackage::checksum`] string stub without verification.
 pub const OPEN_PKG_001_REGISTRY: &str =
     "OPEN-PKG-001: package registry resolution is not implemented (no network)";
