@@ -239,6 +239,20 @@ No push unless asked. Fine-grained commits (one unit ≈ one commit).
 
 ---
 
+## Status vs full engines (honest)
+
+Live layout (LL0–LL25) is a **fontless heuristic consume layer**:
+
+| Area | What this engine does | Not claimed (full target) |
+|------|----------------------|---------------------------|
+| JA text | `break_line` / `place_lines` / indent / columns → scene Text | Full JLReq UCS catalog, normative §C, hanging/justification with real glyph metrics, OpenType `vert` |
+| Math place | `layout_math_to_shapes`: Scripts / BigOp / Fraction·Radical Line / Delimiter stretch-by-`size_mm` / Matrix·Cases brace / Accent / Aligned / Stack / underbrace·overset offsets | OpenType MATH table, stretchy assembly, TeX `\fontdimen`, real glyph advances |
+| Host | `pkg_live_layout` / `pkg_live_math` → PDF/SVG/PPTX smoke; GUI opens via `wants_package_graphics_path` | Production document pipeline with editable math boxes / JA layout chrome |
+
+Keep pointing hosts at this file; do **not** close OPEN-TEXT-JA-001 from LL alone.
+
+---
+
 ## Status
 
 | Unit | Status |
@@ -268,4 +282,4 @@ No push unless asked. Fine-grained commits (one unit ≈ one commit).
 | LL22 — Underbrace/overset visual | **done** |
 | LL23 — `pkg_live_math` SVG/PPTX | **done** |
 | LL24 — GUI package path open | **done** |
-| LL25 — Heuristic vs OpenType/JLReq docs | pending |
+| LL25 — Heuristic vs OpenType/JLReq docs | **done** |
