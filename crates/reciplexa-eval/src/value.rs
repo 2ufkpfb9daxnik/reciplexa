@@ -97,6 +97,10 @@ pub enum BuiltinOp {
     JustifyLine,
     /// Ruby layout stub — base × annotation → `{tag, base-width, annotation-width, advance-width, height}` record.
     RubyBox,
+    /// Vertical ruby layout stub — base × annotation → vertical-ruby-box record.
+    VerticalRubyBox,
+    /// Bou (傍点) estimate stub — body string → bou-box record.
+    BouBox,
     /// Tate-chu-yoko width stub — body string → Number advance width (em).
     TateChuYokoWidth,
     /// Hangable EOL policy stub — string (first char) → Number hang width (em).

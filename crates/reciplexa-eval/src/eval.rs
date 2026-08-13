@@ -73,6 +73,14 @@ pub fn primitive_env() -> HashMap<String, RuntimeValue> {
         RuntimeValue::Builtin(BuiltinOp::RubyBox),
     );
     env.insert(
+        "vertical-ruby-box".into(),
+        RuntimeValue::Builtin(BuiltinOp::VerticalRubyBox),
+    );
+    env.insert(
+        "bou-box".into(),
+        RuntimeValue::Builtin(BuiltinOp::BouBox),
+    );
+    env.insert(
         "tate-chu-yoko-width".into(),
         RuntimeValue::Builtin(BuiltinOp::TateChuYokoWidth),
     );
@@ -1444,6 +1452,73 @@ fn apply_builtin(op: BuiltinOp, args: Vec<RuntimeValue>) -> Result<Outcome, Eval
                 ),
                 ("advance-width".into(), RuntimeValue::Number(b.advance_width)),
                 ("height".into(), RuntimeValue::Number(b.height)),
+            ])))
+        }
+        BuiltinOp::VerticalRubyBox => {
+            if args.len() != 2 {
+                return Err(EvalError {
+                    message: format!(
+                        "builtin `vertical-ruby-box` expects 2 args, got {}",
+                        args.len()
+                    ),
+                });
+            }
+            let base = match &args[0] {
+                RuntimeValue::String(s) => s.as_str(),
+                _ => {
+                    return Err(EvalError {
+                        message: "builtin `vertical-ruby-box` expects string base".into(),
+                    });
+                }
+            };
+            let annotation = match &args[1] {
+                RuntimeValue::String(s) => s.as_str(),
+                _ => {
+                    return Err(EvalError {
+                        message: "builtin `vertical-ruby-box` expects string annotation"
+                            .into(),
+                    });
+                }
+            };
+            let b = reciplexa_std::japanese::Ruby::simple(base, annotation).estimate_vertical_box();
+            Ok(Outcome::Value(RuntimeValue::Record(vec![
+                ("tag".into(), RuntimeValue::String("vertical-ruby-box".into())),
+                ("base-advance".into(), RuntimeValue::Number(b.base_advance)),
+                (
+                    "annotation-advance".into(),
+                    RuntimeValue::Number(b.annotation_advance),
+                ),
+                ("advance".into(), RuntimeValue::Number(b.advance)),
+                ("inline-em".into(), RuntimeValue::Number(b.inline_em)),
+                (
+                    "annotation-side-x".into(),
+                    RuntimeValue::Number(b.annotation_side_x),
+                ),
+            ])))
+        }
+        BuiltinOp::BouBox => {
+            if args.len() != 1 {
+                return Err(EvalError {
+                    message: format!(
+                        "builtin `bou-box` expects 1 arg, got {}",
+                        args.len()
+                    ),
+                });
+            }
+            let body = match &args[0] {
+                RuntimeValue::String(s) => s.as_str(),
+                _ => {
+                    return Err(EvalError {
+                        message: "builtin `bou-box` expects string body".into(),
+                    });
+                }
+            };
+            let b = reciplexa_std::japanese::bou_estimate_box(body);
+            Ok(Outcome::Value(RuntimeValue::Record(vec![
+                ("tag".into(), RuntimeValue::String("bou-box".into())),
+                ("advance".into(), RuntimeValue::Number(b.advance)),
+                ("side-em".into(), RuntimeValue::Number(b.side_em)),
+                ("mark-size".into(), RuntimeValue::Number(b.mark_size)),
             ])))
         }
         BuiltinOp::TateChuYokoWidth => {

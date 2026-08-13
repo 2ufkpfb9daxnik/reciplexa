@@ -1742,6 +1742,22 @@ pub fn typecheck_language_source(src: &str) -> Result<CoreType, CheckError> {
         },
     );
     env.insert(
+        "vertical-ruby-box",
+        CoreType::Fun {
+            args: vec![CoreType::String, CoreType::String],
+            ret: Box::new(CoreType::dyn_any()),
+            effects: EffectRow::default(),
+        },
+    );
+    env.insert(
+        "bou-box",
+        CoreType::Fun {
+            args: vec![CoreType::String],
+            ret: Box::new(CoreType::dyn_any()),
+            effects: EffectRow::default(),
+        },
+    );
+    env.insert(
         "tate-chu-yoko-width",
         CoreType::Fun {
             args: vec![CoreType::String],
