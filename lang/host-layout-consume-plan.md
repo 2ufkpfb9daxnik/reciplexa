@@ -180,3 +180,56 @@ cargo test -p reciplexa --offline --lib inspect_document
 | HC10 — GUI metrics status/debug | **skipped** (no dedicated status/debug strip; page/zoom chrome only) |
 | OPEN-PKG — structured registry refusal | **done** (`OPEN_PKG_001_CODE` + fixture) |
 | Inspect-document math main | **done** |
+
+## Follow-on (HC11–HC15)
+
+### HC11 — Long JA paragraph PPTX smoke test
+
+- Mirror HC7/HC9: package document long JA `paragraph` → bridge → `document_to_pptx`.
+- Assert ≥2 OOXML `<a:t>` runs via zip slide XML (no text-extraction API required).
+- **Commit.**
+
+### HC12 — Optional ruby / tate counts in preview metrics
+
+- Extend `DocTextPreviewMetrics` with `ruby_count` / `tate_chu_yoko_count`.
+- When previewing from package source, walk the eval value tree for
+  `ruby-box` / `vertical-ruby-box` / `ja-ruby` and `ja-tate-chu-yoko` /
+  `tate-chu-yoko` tags; scene-only metrics stay at zero.
+- Host records may wrap a `page` field; preview extracts it for bridging.
+- **Commit.**
+
+### HC13 — Manifest diagnose for registry deps
+
+- `diagnose_manifest` emits **PKG005** when a dependency has `source registry`
+  (static OPEN-PKG-001 stub; no network). Complements resolve-time
+  `RegistryUnavailable`.
+- **Commit.**
+
+### HC14 — Docs status for HC11–HC15
+
+- Mark units in this table; refresh `implemented-features.md` next-steps.
+- **Commit.**
+
+### HC15 — Export PDF/SVG/PPTX from `pkg_ja_break`
+
+- `examples/pkg_ja_break.rpx` is a language-only `ja-break-demo` record (line
+  list), not a document page — export would not apply.
+- Long JA multi-backend smoke already covered by HC7 / HC9 / HC11.
+- **Skip.**
+
+Gate (HC11–HC13):
+
+```bat
+set CARGO_TARGET_DIR=d:\reciplexa\target
+set TEMP=d:\reciplexa\.tmp
+set TMP=d:\reciplexa\.tmp
+cargo test -p reciplexa-package --offline --test graphics_bridge_coverage --test build_tests
+```
+
+| Unit | Status |
+|------|--------|
+| HC11 — Long JA → PPTX multiple `<a:t>` | **done** |
+| HC12 — ruby/tate optional preview counts | **done** |
+| HC13 — PKG005 registry dep diagnose | **done** |
+| HC14 — Docs status | **done** |
+| HC15 — `pkg_ja_break` export integration | **skipped** (not a document page; redundant with HC7/HC9/HC11) |
