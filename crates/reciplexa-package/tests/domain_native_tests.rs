@@ -4,8 +4,8 @@ use std::fs;
 use std::path::PathBuf;
 
 use reciplexa_package::{
-    elaborate_with_packages, length_units_module, length_units_source, DomainNativeModule,
-    DomainNativeRegistry, LocalPackageIndex,
+    document_page_module, elaborate_with_packages, length_units_module, length_units_source,
+    DomainNativeModule, DomainNativeRegistry, LocalPackageIndex,
 };
 
 fn workspace_packages() -> PathBuf {
@@ -270,6 +270,42 @@ fn n4_japanese_modules_are_native() {
                 .join(format!("japanese/src/{name}.rpx"))
                 .is_file(),
             "{path} .rpx should be retired"
+        );
+    }
+}
+
+#[test]
+fn n5_1_document_page_is_native() {
+    let idx = LocalPackageIndex::discover(&[workspace_packages()]).unwrap();
+    assert!(idx.native().contains("document/page"));
+    let page = idx.resolve_import_detailed("document/page").unwrap();
+    assert!(page.source.contains("native: document/page"));
+    assert!(page.source.contains("(tag \"doc-page\")"));
+    let exports = page.interface_exports.unwrap();
+    for name in ["page", "flow", "section", "heading", "paragraph"] {
+        assert!(exports.iter().any(|e| e == name), "missing export {name}");
+    }
+    assert!(!workspace_packages().join("document/src/page.rpx").is_file());
+}
+
+#[test]
+fn n5_1_pkg_document_example_elaborates() {
+    let entry = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/pkg_document.rpx");
+    let idx = LocalPackageIndex::discover(&[workspace_packages()]).unwrap();
+    let units = elaborate_with_packages(&entry, &idx).unwrap();
+    assert!(units.iter().any(|u| u.name == "pkg_document"));
+    assert!(units.iter().any(|u| u.name == "document/page"));
+}
+
+#[test]
+fn document_page_module_exports_align_with_rpi() {
+    let m = document_page_module();
+    let rpi =
+        std::fs::read_to_string(workspace_packages().join("document/interface/page.rpi")).unwrap();
+    for name in &m.exports {
+        assert!(
+            rpi.contains(&format!("(val {name})")),
+            "export `{name}` missing from .rpi"
         );
     }
 }

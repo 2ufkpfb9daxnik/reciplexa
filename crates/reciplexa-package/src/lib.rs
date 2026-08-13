@@ -20,9 +20,10 @@ pub use build::{
     PackageDiagnostic,
 };
 pub use domain_bodies::{
-    color_srgb_module, color_srgb_source, graphics_color_module, graphics_color_source,
-    graphics_page_module, graphics_page_source, graphics_shapes_module, graphics_shapes_source,
-    japanese_classes_module, japanese_classes_source, japanese_kihon_module, japanese_kihon_source,
+    color_srgb_module, color_srgb_source, document_page_module, document_page_source,
+    graphics_color_module, graphics_color_source, graphics_page_module, graphics_page_source,
+    graphics_shapes_module, graphics_shapes_source, japanese_classes_module,
+    japanese_classes_source, japanese_kihon_module, japanese_kihon_source,
     japanese_linebreak_module, japanese_linebreak_source, japanese_markup_module,
     japanese_markup_source, length_units_module, length_units_source, math_accents_module,
     math_accents_source, math_align_module, math_align_source, math_atoms_module,

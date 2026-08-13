@@ -24,6 +24,7 @@ fn discovers_std_packages() {
     assert!(names.contains(&"color"));
     assert!(names.contains(&"math"));
     assert!(names.contains(&"japanese"));
+    assert!(names.contains(&"document"));
 }
 
 #[test]

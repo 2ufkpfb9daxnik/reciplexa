@@ -25,6 +25,7 @@ pub fn std_domain_natives() -> DomainNativeRegistry {
     reg.register(japanese_linebreak_module());
     reg.register(japanese_kihon_module());
     reg.register(japanese_markup_module());
+    reg.register(document_page_module());
     reg
 }
 
@@ -1467,6 +1468,85 @@ pub fn japanese_markup_source() -> &'static str {
 "#
 }
 
+/// N5.1 — `document/page` flow-oriented constructors (mirror `reciplexa_std::document`).
+///
+/// Tags use the `doc-*` prefix so they stay distinct from `graphics/page` scene tags.
+/// Interim CST `(page)/(circle)` keyword tables are intentionally untouched.
+pub fn document_page_module() -> DomainNativeModule {
+    DomainNativeModule {
+        module_path: "document/page".into(),
+        exports: vec![
+            "a4".into(),
+            "letter".into(),
+            "a5".into(),
+            "a3".into(),
+            "legal".into(),
+            "page".into(),
+            "flow".into(),
+            "section".into(),
+            "heading".into(),
+            "paragraph".into(),
+            "unordered-list".into(),
+            "ordered-list".into(),
+            "list-item".into(),
+            "table".into(),
+            "figure".into(),
+            "spacer".into(),
+            "block-heading".into(),
+            "block-paragraph".into(),
+            "block-list".into(),
+            "block-table".into(),
+            "block-figure".into(),
+            "block-spacer".into(),
+        ],
+        synthetic_source: document_page_source().into(),
+    }
+}
+
+pub fn document_page_source() -> &'static str {
+    r#"(// native: document/page — synthesized by reciplexa-package::domain_bodies)
+(val a4 (record (width 210) (height 297)))
+(val letter (record (width 215.9) (height 279.4)))
+(val a5 (record (width 148) (height 210)))
+(val a3 (record (width 297) (height 420)))
+(val legal (record (width 215.9) (height 355.6)))
+(val page (fn (paper flow)
+  (record (tag "doc-page") (paper paper) (flow flow))))
+(val flow (fn (sections)
+  (record (tag "doc-flow") (sections sections))))
+(val section (fn (title blocks)
+  (record (tag "doc-section") (title title) (blocks blocks))))
+(val heading (fn (level text)
+  (record (tag "doc-heading") (level level) (text text))))
+(val paragraph (fn (text)
+  (record (tag "doc-paragraph") (text text))))
+(val unordered-list (fn (items)
+  (record (tag "doc-list") (ordered false) (items items))))
+(val ordered-list (fn (items)
+  (record (tag "doc-list") (ordered true) (items items))))
+(val list-item (fn (paragraphs)
+  (record (tag "doc-list-item") (paragraphs paragraphs))))
+(val table (fn (columns rows)
+  (record (tag "doc-table") (columns columns) (rows rows))))
+(val figure (fn (visual caption)
+  (record (tag "doc-figure") (visual visual) (caption caption))))
+(val spacer (fn (length)
+  (record (tag "doc-spacer") (length length))))
+(val block-heading (fn (heading)
+  (record (tag "doc-block") (kind "heading") (heading heading))))
+(val block-paragraph (fn (paragraph)
+  (record (tag "doc-block") (kind "paragraph") (paragraph paragraph))))
+(val block-list (fn (list)
+  (record (tag "doc-block") (kind "list") (list list))))
+(val block-table (fn (table)
+  (record (tag "doc-block") (kind "table") (table table))))
+(val block-figure (fn (figure)
+  (record (tag "doc-block") (kind "figure") (figure figure))))
+(val block-spacer (fn (spacer)
+  (record (tag "doc-block") (kind "spacer") (spacer spacer))))
+"#
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1494,11 +1574,14 @@ mod tests {
         assert!(reg.contains("japanese/linebreak"));
         assert!(reg.contains("japanese/kihon"));
         assert!(reg.contains("japanese/markup"));
+        assert!(reg.contains("document/page"));
         assert!(graphics_shapes_source().contains("(val circle "));
         assert!(graphics_shapes_source().contains("shapes-internal-tag"));
         assert!(math_atoms_source().contains("native: math/atoms"));
         assert!(math_stack_source().contains("native: math/stack"));
         assert!(japanese_classes_source().contains("native: japanese/classes"));
         assert!(japanese_markup_source().contains("native: japanese/markup"));
+        assert!(document_page_source().contains("native: document/page"));
+        assert!(document_page_source().contains("(tag \"doc-page\")"));
     }
 }

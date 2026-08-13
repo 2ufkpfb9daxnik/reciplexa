@@ -1,0 +1,15 @@
+(// language-only: document package constructors (N5.1; not GUI interim CST).)
+(import document/page only
+  a4 page flow section heading paragraph
+  unordered-list list-item spacer block-heading block-paragraph block-spacer)
+(val title (heading 1 "Document surface"))
+(val body (paragraph "Native document/page tagged records."))
+(val main
+  (page a4
+    (flow
+      (list
+        (section title
+          (list
+            (block-heading title)
+            (block-paragraph body)
+            (block-spacer (spacer 4))))))))

@@ -16,7 +16,7 @@ Goal: local-path package **API** (`package.rpxm`, `.rpi`, `import`) after Part I
 |---|---|
 | `crates/reciplexa-package` | Manifest / path dep / lock / workspace stub |
 | `crates/reciplexa-bind` | Module tree + package search path |
-| Document surface | Interim CST `(page …)(circle …)` retained for GUI golden; package-shaped sources use bridge |
+| Document surface | Interim CST `(page …)(circle …)` retained for GUI golden; package-shaped sources use bridge; **N5.1** adds native `document/page` (`doc-*`) |
 | `crates/reciplexa-std` | Rust typed façade (`visual` / `text` / `document` / `math` / …) — **authoritative body target** |
 | `packages/*/src/*.rpx` | **Interim portable bodies — migrate to native (see native-domain-plan)** |
 | `packages/*/interface/*.rpi` | Keep as public API surface |

@@ -129,11 +129,11 @@ Document / page constructors stay package-shaped (`graphics/page` or later `docu
 
 ### Phase N5 — document surface (after graphics stable)
 
-| ID | Unit |
-|----|------|
-| N5.1 | Map `reciplexa-std::document` constructors onto native package paths |
-| N5.2 | Markup expand → native document nodes (retire interim page keyword tables when goldens allow) |
-| N5.3 | Coverage tip |
+| ID | Unit | Status |
+|----|------|--------|
+| N5.1 | Map `reciplexa-std::document` constructors onto native package paths | **done** — `packages/document` + native `document/page` (`doc-*` tags); interim CST untouched |
+| N5.2 | Markup expand → native document nodes (retire interim page keyword tables when goldens allow) | pending (GUI `black_circle` stays interim) |
+| N5.3 | Coverage tip | pending |
 
 ### Phase N6 — workspace coverage to ~99%
 
@@ -162,4 +162,6 @@ Document / page constructors stay package-shaped (`graphics/page` or later `docu
 
 **Completed through N4:** length, color, graphics (color/page/shapes), math (11 modules), japanese (4 modules) are Rust-synthesized natives; portable `src/*.rpx` retired for those packages.
 
-**N6 done:** 7-crate BEST-ENTRY **≥99%** (N6 q). Soft residuals remain on check/cast/eval/load/document (see `coverage-holdouts.md`). **Next:** N5 GUI golden / document surface when ready.
+**N6 done:** 7-crate BEST-ENTRY **≥99%** (N6 q). Soft residuals remain on check/cast/eval/load/document (see `coverage-holdouts.md`).
+
+**N5.1 done:** native `document/page` package scaffold (`doc-*` tagged records mirroring `reciplexa_std::document`). **Next:** N5.2 markup→native / GUI golden before retiring interim keyword tables.

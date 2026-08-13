@@ -99,11 +99,12 @@ pre-PKG カーネルは計画上 **COMPLETE（意図的 defer 付き）**。各�
 
 | パッケージ | 状況 | 内容の目安 |
 |------------|------|------------|
-| **`packages/graphics`** | API + interim `.rpx` → **native 移行予定** | `shapes` / `page` / `color`＋`.rpi`；例 `pkg_graphics_*` |
-| **`packages/length`** | 同上 | 単位コンストラクタ＋`.rpi`；例 `pkg_length.rpx` |
-| **`packages/color`** | 同上 | srgb / named＋`.rpi`；例 `pkg_color.rpx` |
-| **`packages/math`** | 同上（SATySFi 志向） | atoms…stack＋`.rpi`；例 `pkg_math.rpx`；layout は後続 |
-| **`packages/japanese`** | 同上（JLReq 志向・部分） | classes / linebreak / kihon / markup；**完全 JLReq ではない** |
+| **`packages/graphics`** | **native**（N1–N2） | `shapes` / `page` / `color`＋`.rpi`；例 `pkg_graphics_*` |
+| **`packages/length`** | **native**（N1） | 単位コンストラクタ＋`.rpi`；例 `pkg_length.rpx` |
+| **`packages/color`** | **native**（N1） | srgb / named＋`.rpi`；例 `pkg_color.rpx` |
+| **`packages/math`** | **native**（N3） | atoms…stack＋`.rpi`；例 `pkg_math.rpx`；layout は後続 |
+| **`packages/japanese`** | **native**（N4・JLReq 志向・部分） | classes / linebreak / kihon / markup；**完全 JLReq ではない** |
+| **`packages/document`** | **native scaffold**（N5.1） | `page`＝flow/section/heading 等（`doc-*`）；例 `pkg_document.rpx`；interim CST は未退役 |
 | **`crates/reciplexa-std`** | Rust ファサード（native 本文の主戦場） | `visual` / `text` / `document` / `math` / … |
 
 ローカル import・path-dep・`workspace.rpxm` stub まで到達。**レジストリ等は OPEN-PKG-***。CST interim は GUI golden 用に残存。Slice D bridge は package-shaped ソース向けに live。
