@@ -1,0 +1,20 @@
+(// language-only: TeX-ish class spacing in math-box / Row estimate_box.
+ // Ord–Bin–Ord picks up medium muskips; Ord–Ord stays tight.)
+
+(import math/atoms only ord bin rel row)
+
+(val tight
+  (math-box (row (list (ord "a") (ord "b")))))
+
+(val spaced
+  (math-box (row (list (ord "a") (bin "+") (ord "b")))))
+
+(val related
+  (math-box (row (list (ord "a") (rel "=") (ord "b")))))
+
+(val main
+  (record
+    (tag "math-spacing-demo")
+    (tight tight)
+    (spaced spaced)
+    (related related)))
