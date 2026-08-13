@@ -750,6 +750,66 @@ fn layout_math_cases_draws_left_brace_and_places_rows() {
     );
 }
 
+/// LL22: Underbrace underline + overset Stackrel use underbrace/stackrel spacing.
+#[test]
+fn layout_math_underbrace_overset_spacing_visual() {
+    use reciplexa_scene::Shape;
+    use reciplexa_std::math::{
+        accent_attachment_offset, layout_math_atom_to_shapes, stackrel_spacing_offsets,
+        underbrace_spacing, MathAccentKind, MathStackKind, MATH_LAYOUT_EM_TO_MM,
+        UNDERBRACE_CLEARANCE_EM,
+    };
+
+    assert!((underbrace_spacing() - UNDERBRACE_CLEARANCE_EM).abs() < 1e-9);
+
+    let base = MathAtom::symbol(id(1), "x", MathClass::Ordinary);
+    let under = MathAtom::accent(id(2), MathAccentKind::Underline, base.clone());
+    let origin = (6.0, 100.0);
+    let shapes = layout_math_atom_to_shapes(&under, origin);
+    let mark = shapes.iter().find_map(|s| match s {
+        Shape::Text(t) if t.content == "_" => Some(t),
+        _ => None,
+    });
+    let mark = mark.expect("underbrace underline mark");
+    let (dx, dy) = accent_attachment_offset(MathAccentKind::Underline, base.estimate_box());
+    assert!((mark.x_mm - (origin.0 + dx * MATH_LAYOUT_EM_TO_MM)).abs() < 1e-9);
+    assert!((mark.y_mm - (origin.1 - dy * MATH_LAYOUT_EM_TO_MM)).abs() < 1e-9);
+    assert!(mark.y_mm > origin.1, "underbrace mark below base in scene y-down");
+
+    let lab = MathAtom::symbol(id(3), "U", MathClass::Ordinary);
+    let body = MathAtom::symbol(id(4), "L", MathClass::Ordinary);
+    // Labeled overset ≈ Stackrel(label, body).
+    let over = MathAtom::stack(id(5), MathStackKind::Stackrel, vec![lab.clone(), body.clone()]);
+    let oshapes = layout_math_atom_to_shapes(&over, origin);
+    let texts: Vec<_> = oshapes
+        .iter()
+        .filter_map(|s| match s {
+            Shape::Text(t) => Some(t),
+            _ => None,
+        })
+        .collect();
+    let tlab = texts.iter().find(|t| t.content == "U").expect("overset upper");
+    let tbody = texts.iter().find(|t| t.content == "L").expect("overset lower");
+    let ub = lab.estimate_box();
+    let lb = body.estimate_box();
+    let (uy, ly) = stackrel_spacing_offsets(ub, lb);
+    let expect_lab_y = origin.1 - uy * MATH_LAYOUT_EM_TO_MM;
+    let expect_body_y = origin.1 - ly * MATH_LAYOUT_EM_TO_MM;
+    assert!(
+        (tlab.y_mm - expect_lab_y).abs() < 1e-6,
+        "overset label y={} expect {}",
+        tlab.y_mm,
+        expect_lab_y
+    );
+    assert!(
+        (tbody.y_mm - expect_body_y).abs() < 1e-6,
+        "overset body y={} expect {}",
+        tbody.y_mm,
+        expect_body_y
+    );
+    assert!(tlab.y_mm < tbody.y_mm, "overset label above body in scene y-down");
+}
+
 /// LL13: Delimiter layout draws taller left/right fence glyphs from stretch heuristic.
 #[test]
 fn layout_math_delimiter_tall_fence_font_size() {

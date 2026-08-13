@@ -789,6 +789,13 @@ pub fn accent_mark_glyph(kind: MathAccentKind) -> &'static str {
 /// attachment.
 pub fn accent_attachment_offset(kind: MathAccentKind, base: MathBox) -> (f64, f64) {
     let (above, below) = accent_clearance_em(kind);
+    // Underline / underbrace: route through underbrace_spacing so live layout
+    // tip tests share one clearance constant (LL22).
+    let below = if matches!(kind, MathAccentKind::Underline) {
+        underbrace_spacing()
+    } else {
+        below
+    };
     let mark_w = 0.8_f64;
     let dx = (base.width - mark_w) * 0.5;
     if above > 0.0 {
@@ -1252,9 +1259,11 @@ fn math_offset_to_scene_mm(origin: (f64, f64), dx_em: f64, dy_em: f64) -> (f64, 
 /// [`aligned_column_x`] / [`matrix_cell_x_in_column`] (LL14); delimited /
 /// cases also draw left/right fence glyphs sized by
 /// [`cases_brace_total_height_em`] (LL21).
-/// [`MathAtom::Accent`]: accent mark glyph via [`accent_clearance_em`] (LL15).
+/// [`MathAtom::Accent`]: accent mark glyph via [`accent_clearance_em`] (LL15);
+/// underline / underbrace clearance via [`underbrace_spacing`] (LL22).
 /// [`MathAtom::Aligned`]: cells snapped to [`aligned_column_x`] bands (LL18).
-/// [`MathAtom::Stack`]: children via [`stackrel_spacing_offsets`] / vertical gap (LL19).
+/// [`MathAtom::Stack`]: children via [`stackrel_spacing_offsets`] / vertical gap
+/// (LL19; labeled overset / underbrace Stackrel) (LL22).
 /// Not OpenType MATH / glyph metrics.
 pub fn layout_math_atom_to_shapes(
     atom: &MathAtom,

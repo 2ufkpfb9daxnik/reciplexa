@@ -265,7 +265,7 @@ No push unless asked. Fine-grained commits (one unit ≈ one commit).
 | LL19 — Stack placement | **done** |
 | LL20 — Docs after aligned/stack | **done** |
 | LL21 — Cases left brace + rows | **done** |
-| LL22 — Underbrace/overset visual | pending |
+| LL22 — Underbrace/overset visual | **done** |
 | LL23 — `pkg_live_math` SVG/PPTX | pending |
 | LL24 — GUI package path open | pending |
 | LL25 — Heuristic vs OpenType/JLReq docs | pending |
