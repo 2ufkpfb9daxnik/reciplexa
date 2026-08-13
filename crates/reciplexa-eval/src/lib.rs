@@ -16,7 +16,5 @@ pub use graphics_value::{
     color_from_graphics_value, document_from_graphics_value, page_from_graphics_value,
     shape_from_graphics_value, GraphicsValueError,
 };
-pub use math_value::{
-    estimate_math_box_from_value, math_atom_from_value, MathValueError,
-};
+pub use math_value::{estimate_math_box_from_value, math_atom_from_value, MathValueError};
 pub use value::{BuiltinOp, RuntimeValue};

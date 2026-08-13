@@ -89,3 +89,43 @@ pub fn resolve_resource_value(
 ) -> Result<PathBuf, ResourceValueError> {
     materialize_package_resource(v, package_root, manifest)
 }
+
+#[cfg(test)]
+mod tip_tests {
+    use super::*;
+    use crate::rpxm::parse_rpxm;
+
+    #[test]
+    fn tip_display_and_non_string_path() {
+        let err = ResourceValueError::NotPackageResource("x".into());
+        assert_eq!(err.to_string(), "x");
+        let resolve_err = ResourceValueError::Resolve(ResourceResolveError::NotListed {
+            resource: "a".into(),
+        });
+        assert!(resolve_err.to_string().contains("not listed"));
+
+        let m = parse_rpxm(
+            r#"(package demo
+  format-version 1
+  version "1.0.0"
+  (public-modules main)
+  (resources "f.txt"))"#,
+        )
+        .unwrap();
+        let bad_path = RuntimeValue::Record(vec![
+            (
+                "tag".into(),
+                RuntimeValue::String("package-resource".into()),
+            ),
+            ("path".into(), RuntimeValue::Int(1)),
+        ]);
+        let err = materialize_package_resource(&bad_path, Path::new("."), &m).unwrap_err();
+        assert!(matches!(err, ResourceValueError::NotPackageResource(_)));
+
+        let bad_tag_ty = RuntimeValue::Record(vec![
+            ("tag".into(), RuntimeValue::Int(0)),
+            ("path".into(), RuntimeValue::String("f.txt".into())),
+        ]);
+        assert!(materialize_package_resource(&bad_tag_ty, Path::new("."), &m).is_err());
+    }
+}

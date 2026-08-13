@@ -8,10 +8,7 @@ fn record_field<'a>(expr: &'a CoreExpr, label: &str) -> Option<&'a CoreExpr> {
     let CoreExpr::Record { fields } = expr else {
         return None;
     };
-    fields
-        .iter()
-        .find(|(k, _)| k == label)
-        .map(|(_, v)| v)
+    fields.iter().find(|(k, _)| k == label).map(|(_, v)| v)
 }
 
 fn string_lit(expr: &CoreExpr) -> Option<&str> {

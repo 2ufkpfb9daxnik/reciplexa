@@ -340,3 +340,111 @@ fn tag_of(fields: &[(String, RuntimeValue)]) -> Option<&str> {
         _ => None,
     }
 }
+
+#[cfg(test)]
+mod tip_tests {
+    use super::*;
+
+    fn rec(fields: Vec<(&str, RuntimeValue)>) -> RuntimeValue {
+        RuntimeValue::Record(
+            fields
+                .into_iter()
+                .map(|(k, v)| (k.to_string(), v))
+                .collect(),
+        )
+    }
+
+    #[test]
+    fn tip_error_arms_accent_matrix_class_and_shape() {
+        // missing tag / non-record
+        assert!(math_atom_from_value(&RuntimeValue::Int(1)).is_err());
+        assert!(math_atom_from_value(&rec(vec![])).is_err());
+
+        // unknown accent / matrix kinds
+        let bad_accent = rec(vec![
+            ("tag", RuntimeValue::String("math-accent".into())),
+            ("kind", RuntimeValue::String("unknown".into())),
+            (
+                "base",
+                rec(vec![
+                    ("tag", RuntimeValue::String("math-symbol".into())),
+                    ("glyph", RuntimeValue::String("x".into())),
+                ]),
+            ),
+        ]);
+        assert!(math_atom_from_value(&bad_accent)
+            .unwrap_err()
+            .message
+            .contains("accent"));
+
+        let bad_matrix = rec(vec![
+            ("tag", RuntimeValue::String("math-matrix".into())),
+            ("kind", RuntimeValue::String("weird".into())),
+            (
+                "rows",
+                RuntimeValue::Variant {
+                    tag: "nil".into(),
+                    payload: None,
+                },
+            ),
+        ]);
+        assert!(math_atom_from_value(&bad_matrix)
+            .unwrap_err()
+            .message
+            .contains("matrix"));
+
+        // unknown class + operatorname/text
+        let bad_class = rec(vec![
+            ("tag", RuntimeValue::String("math-symbol".into())),
+            ("glyph", RuntimeValue::String("x".into())),
+            ("class", RuntimeValue::String("nope".into())),
+        ]);
+        assert!(math_atom_from_value(&bad_class).is_err());
+
+        let opname = rec(vec![
+            ("tag", RuntimeValue::String("math-operatorname".into())),
+            ("name", RuntimeValue::String("sin".into())),
+        ]);
+        assert!(matches!(
+            math_atom_from_value(&opname).unwrap(),
+            MathAtom::Symbol { .. }
+        ));
+        let text = rec(vec![
+            ("tag", RuntimeValue::String("math-text".into())),
+            ("body", RuntimeValue::String("hi".into())),
+        ]);
+        assert!(matches!(
+            math_atom_from_value(&text).unwrap(),
+            MathAtom::Symbol { .. }
+        ));
+
+        // delimited matrix defaults
+        let delimited = rec(vec![
+            ("tag", RuntimeValue::String("math-matrix".into())),
+            ("kind", RuntimeValue::String("delimited".into())),
+            (
+                "rows",
+                RuntimeValue::Variant {
+                    tag: "nil".into(),
+                    payload: None,
+                },
+            ),
+        ]);
+        assert!(matches!(
+            math_atom_from_value(&delimited).unwrap(),
+            MathAtom::Matrix { .. }
+        ));
+
+        // non-cons children
+        let bad_row = rec(vec![
+            ("tag", RuntimeValue::String("math-row".into())),
+            ("children", RuntimeValue::Int(0)),
+        ]);
+        assert!(math_atom_from_value(&bad_row)
+            .unwrap_err()
+            .message
+            .contains("cons"));
+
+        let _ = MathValueError::new("tip");
+    }
+}

@@ -30,8 +30,7 @@ fn eval_resource_with_unit_host_is_package_resource_record() {
 #[test]
 fn eval_resource_with_memory_fs_host_still_deferred() {
     let mut host = MemoryFsHost::default();
-    host.files
-        .insert("fonts/main.otf".into(), "unused".into());
+    host.files.insert("fonts/main.otf".into(), "unused".into());
     let v = eval_source_with_host(r#"(val main (resource "fonts/main.otf"))"#, &mut host).unwrap();
     // Pure identity — no FS read; package root unavailable → deferred record.
     assert_eq!(as_str(field(&v, "tag").unwrap()), Some("package-resource"));
@@ -41,9 +40,6 @@ fn eval_resource_with_memory_fs_host_still_deferred() {
 
 #[test]
 fn field_access_on_resource_handle() {
-    let v = eval_source(
-        r#"(val main (field (resource "styles/default.css") path))"#,
-    )
-    .unwrap();
+    let v = eval_source(r#"(val main (field (resource "styles/default.css") path))"#).unwrap();
     assert_eq!(v, RuntimeValue::String("styles/default.css".into()));
 }

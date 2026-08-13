@@ -310,3 +310,33 @@ fn classify_and_break_phrase_demo() {
     // AB — western run inseparable
     assert_eq!(breaks[5], BreakOpportunity::Inseparable);
 }
+
+/// Tip coverage: Display / from_id / Other / grouped-numeral break / ASCII other.
+#[test]
+fn tip_char_class_display_and_edge_classify() {
+    for id in 1u8..=30 {
+        let c = CharClass::from_id(id).expect("id");
+        assert_eq!(c.id(), id);
+        assert!(!c.code().is_empty());
+        assert!(!c.name().is_empty());
+        assert_eq!(c.to_string(), c.code());
+    }
+    assert_eq!(CharClass::Other.code(), "cl-other");
+    assert_eq!(CharClass::Other.to_string(), "cl-other");
+    assert!(!CharClass::Other.is_punctuation());
+    assert!(!CharClass::Other.is_kana());
+    assert!(!CharClass::Other.is_western());
+    assert!(!CharClass::Other.is_square_letter());
+
+    assert_eq!(
+        break_opportunity(CharClass::GroupedNumerals, CharClass::GroupedNumerals),
+        BreakOpportunity::Inseparable
+    );
+    assert_eq!(BreakOpportunity::Allowed.to_string(), "allowed");
+    assert_eq!(BreakOpportunity::Prohibited.to_string(), "prohibited");
+
+    // ASCII control / residual → Other; high BMP fallback → Ideographic.
+    assert_eq!(classify_char('\u{0001}'), CharClass::Other);
+    assert_eq!(classify_char('♠'), CharClass::Ornaments);
+    assert_eq!(classify_char('ß'), CharClass::ComplexWestern);
+}
