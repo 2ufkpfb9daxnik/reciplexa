@@ -4,6 +4,7 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use crate::lockfile::{LockedPackage, Lockfile};
 use crate::manifest::PackageManifest;
 use crate::rpxm::{parse_rpxm, tokenize, RpxmError};
 
@@ -31,14 +32,19 @@ pub enum WorkspaceError {
     NestedWorkspace(String),
     DuplicateName(String),
     MissingMember(String),
+    MemberLocalLock(String),
+    Lock(String),
 }
 
 impl std::fmt::Display for WorkspaceError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Io(s) | Self::NestedWorkspace(s) | Self::DuplicateName(s) | Self::MissingMember(s) => {
-                write!(f, "{s}")
-            }
+            Self::Io(s)
+            | Self::NestedWorkspace(s)
+            | Self::DuplicateName(s)
+            | Self::MissingMember(s)
+            | Self::MemberLocalLock(s)
+            | Self::Lock(s) => write!(f, "{s}"),
             Self::Manifest(e) => write!(f, "workspace manifest error: {e:?}"),
         }
     }
@@ -174,4 +180,60 @@ pub fn discover_workspace(root: impl AsRef<Path>) -> Result<WorkspaceIndex, Work
         manifest,
         members,
     })
+}
+
+impl WorkspaceIndex {
+    /// Path of the shared workspace-root lockfile (`rpx.lock`).
+    pub fn lock_path(&self) -> PathBuf {
+        self.root.join("rpx.lock")
+    }
+
+    /// Reject member-local `rpx.lock` files (PKG §21.1).
+    pub fn reject_member_local_locks(&self) -> Result<(), WorkspaceError> {
+        for (name, (member_root, _)) in &self.members {
+            let local = member_root.join("rpx.lock");
+            if local.is_file() {
+                return Err(WorkspaceError::MemberLocalLock(format!(
+                    "workspace member `{name}` must not have its own rpx.lock at `{}`; use the workspace root lock",
+                    local.display()
+                )));
+            }
+        }
+        Ok(())
+    }
+
+    /// Build a shared lock covering all workspace members (`source: workspace`).
+    pub fn build_lock(&self) -> Lockfile {
+        let mut packages: Vec<LockedPackage> = self
+            .members
+            .values()
+            .map(|(_, m)| LockedPackage {
+                name: m.name.clone(),
+                version: m.version.clone(),
+                source: "workspace".into(),
+                dependencies: m
+                    .dependencies
+                    .iter()
+                    .map(|d| d.package.clone().unwrap_or_else(|| d.name.clone()))
+                    .collect(),
+            })
+            .collect();
+        packages.sort_by(|a, b| a.name.cmp(&b.name));
+        Lockfile { packages }
+    }
+
+    /// Write the shared root `rpx.lock` after rejecting member-local locks.
+    pub fn write_lock(&self) -> Result<Lockfile, WorkspaceError> {
+        self.reject_member_local_locks()?;
+        let lock = self.build_lock();
+        lock.write_rpx_lock(self.lock_path())
+            .map_err(WorkspaceError::Lock)?;
+        Ok(lock)
+    }
+
+    /// Read the shared root `rpx.lock`, rejecting member-local locks.
+    pub fn read_lock(&self) -> Result<Lockfile, WorkspaceError> {
+        self.reject_member_local_locks()?;
+        Lockfile::read_rpx_lock(self.lock_path()).map_err(WorkspaceError::Lock)
+    }
 }

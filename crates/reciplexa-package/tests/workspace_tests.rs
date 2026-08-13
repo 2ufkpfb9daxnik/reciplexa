@@ -127,3 +127,39 @@ fn discover_rejects_missing_member_package() {
     let err = discover_workspace(&root).unwrap_err();
     assert!(matches!(err, WorkspaceError::MissingMember(_)));
 }
+
+#[test]
+fn workspace_shared_lock_roundtrip() {
+    let root = tmp_dir("lock");
+    write_pkg(&root.join("core"), "core", "1.0.0");
+    write_pkg(&root.join("render"), "render", "0.1.0");
+    fs::write(
+        root.join("workspace.rpxm"),
+        r#"(workspace format-version 1 (members "core" "render"))"#,
+    )
+    .unwrap();
+    let idx = discover_workspace(&root).unwrap();
+    let written = idx.write_lock().unwrap();
+    assert_eq!(written.packages.len(), 2);
+    assert!(written.packages.iter().all(|p| p.source == "workspace"));
+    assert!(idx.lock_path().is_file());
+    let read = idx.read_lock().unwrap();
+    assert_eq!(read, written);
+}
+
+#[test]
+fn workspace_rejects_member_local_lock() {
+    let root = tmp_dir("memlock");
+    write_pkg(&root.join("core"), "core", "1.0.0");
+    fs::write(root.join("core").join("rpx.lock"), "{\"packages\":[]}\n").unwrap();
+    fs::write(
+        root.join("workspace.rpxm"),
+        r#"(workspace format-version 1 (members "core"))"#,
+    )
+    .unwrap();
+    let idx = discover_workspace(&root).unwrap();
+    let err = idx.write_lock().unwrap_err();
+    assert!(matches!(err, WorkspaceError::MemberLocalLock(_)));
+    let err = idx.read_lock().unwrap_err();
+    assert!(matches!(err, WorkspaceError::MemberLocalLock(_)));
+}
