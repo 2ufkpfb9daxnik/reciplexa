@@ -7,7 +7,9 @@
 use std::cell::Cell;
 
 use reciplexa_identity::document::StableNodeId;
-use reciplexa_std::math::{MathAtom, MathBox, MathClass};
+use reciplexa_std::math::{
+    MathAccentKind, MathAtom, MathBox, MathClass, MathMatrixKind, MathStackKind,
+};
 
 use crate::value::RuntimeValue;
 
@@ -102,9 +104,128 @@ fn math_atom_from_value_with_ids(
             let body = required_child(fields, "body", ids)?;
             Ok(MathAtom::delimiter(ids.mint(), left, right, body))
         }
+        "math-accent" => {
+            let kind = accent_kind_field(fields)?;
+            let base = required_child(fields, "base", ids)?;
+            Ok(MathAtom::accent(ids.mint(), kind, base))
+        }
+        "math-bigop" => {
+            let glyph = string_field(fields, "glyph")?;
+            let lower = optional_child(fields, "lower", ids)?;
+            let upper = optional_child(fields, "upper", ids)?;
+            let body = optional_child(fields, "body", ids)?;
+            Ok(MathAtom::big_op(ids.mint(), glyph, lower, upper, body))
+        }
+        "math-matrix" => {
+            let kind = matrix_kind_field(fields)?;
+            let rows = matrix_rows_field(fields, ids)?;
+            if kind == MathMatrixKind::Delimited {
+                let left = string_field(fields, "left").unwrap_or_else(|_| "(".into());
+                let right = string_field(fields, "right").unwrap_or_else(|_| ")".into());
+                Ok(MathAtom::matrix_delimited(ids.mint(), left, right, rows))
+            } else {
+                Ok(MathAtom::matrix(ids.mint(), kind, rows))
+            }
+        }
+        "math-aligned" => {
+            let rows = matrix_rows_field(fields, ids)?;
+            Ok(MathAtom::aligned(ids.mint(), rows))
+        }
+        "math-stack" => {
+            let children_v = field(fields, "children")
+                .ok_or_else(|| MathValueError::new("math-stack missing children"))?;
+            let children = atom_list(children_v, ids)?;
+            let kind = stack_kind_field(fields);
+            Ok(MathAtom::stack(ids.mint(), kind, children))
+        }
+        "math-stackrel" => {
+            let relation = required_child(fields, "relation", ids)?;
+            let base = required_child(fields, "base", ids)?;
+            Ok(MathAtom::stack(
+                ids.mint(),
+                MathStackKind::Stackrel,
+                vec![relation, base],
+            ))
+        }
         other => Err(MathValueError::new(format!(
             "unsupported math tag `{other}`"
         ))),
+    }
+}
+
+fn accent_kind_field(fields: &[(String, RuntimeValue)]) -> Result<MathAccentKind, MathValueError> {
+    let s = string_field(fields, "kind")?;
+    match s.as_str() {
+        "hat" => Ok(MathAccentKind::Hat),
+        "bar" => Ok(MathAccentKind::Bar),
+        "vec" => Ok(MathAccentKind::Vec),
+        "tilde" => Ok(MathAccentKind::Tilde),
+        "dot" => Ok(MathAccentKind::Dot),
+        "ddot" => Ok(MathAccentKind::Ddot),
+        "overline" => Ok(MathAccentKind::Overline),
+        "underline" => Ok(MathAccentKind::Underline),
+        "widehat" => Ok(MathAccentKind::WideHat),
+        "widetilde" => Ok(MathAccentKind::WideTilde),
+        other => Err(MathValueError::new(format!(
+            "unknown accent kind `{other}`"
+        ))),
+    }
+}
+
+fn matrix_kind_field(fields: &[(String, RuntimeValue)]) -> Result<MathMatrixKind, MathValueError> {
+    let s = match field(fields, "kind") {
+        Some(RuntimeValue::String(s)) => s.as_str(),
+        Some(_) => return Err(MathValueError::new("math matrix kind must be a string")),
+        None => "matrix",
+    };
+    match s {
+        "matrix" => Ok(MathMatrixKind::Plain),
+        "bmatrix" | "delimited-bmatrix" => Ok(MathMatrixKind::BMatrix),
+        "pmatrix" | "delimited-pmatrix" => Ok(MathMatrixKind::PMatrix),
+        "vmatrix" => Ok(MathMatrixKind::VMatrix),
+        "smallmatrix" => Ok(MathMatrixKind::Small),
+        "delimited" => Ok(MathMatrixKind::Delimited),
+        other => Err(MathValueError::new(format!(
+            "unknown matrix kind `{other}`"
+        ))),
+    }
+}
+
+fn stack_kind_field(fields: &[(String, RuntimeValue)]) -> MathStackKind {
+    match field(fields, "kind") {
+        Some(RuntimeValue::String(s)) => match s.as_str() {
+            "atop" => MathStackKind::Atop,
+            "substack" => MathStackKind::Substack,
+            "stackrel" => MathStackKind::Stackrel,
+            _ => MathStackKind::Stack,
+        },
+        _ => MathStackKind::Stack,
+    }
+}
+
+fn matrix_rows_field(
+    fields: &[(String, RuntimeValue)],
+    ids: &mut IdGen,
+) -> Result<Vec<Vec<MathAtom>>, MathValueError> {
+    let rows_v = field(fields, "rows")
+        .ok_or_else(|| MathValueError::new("math matrix/aligned missing rows"))?;
+    let mut rows = Vec::new();
+    for row_v in cons_items(rows_v)? {
+        rows.push(matrix_row_atoms(row_v, ids)?);
+    }
+    Ok(rows)
+}
+
+fn matrix_row_atoms(v: &RuntimeValue, ids: &mut IdGen) -> Result<Vec<MathAtom>, MathValueError> {
+    let fields = record_fields(v)?;
+    match tag_of(fields) {
+        Some("math-matrix-row") | Some("math-align-row") => {
+            let cells_v = field(fields, "cells")
+                .ok_or_else(|| MathValueError::new("matrix/align row missing cells"))?;
+            atom_list(cells_v, ids)
+        }
+        // Bare cons list of cells is also accepted.
+        _ => atom_list(v, ids),
     }
 }
 
@@ -195,9 +316,7 @@ fn cons_items(v: &RuntimeValue) -> Result<Vec<&RuntimeValue>, MathValueError> {
                 cur = tail;
             }
             _ => {
-                return Err(MathValueError::new(
-                    "math children must be a cons list",
-                ));
+                return Err(MathValueError::new("math children must be a cons list"));
             }
         }
     }

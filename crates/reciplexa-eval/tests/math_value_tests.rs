@@ -142,3 +142,103 @@ fn delimiter_and_row_bridge() {
     ));
     assert!(estimate_math_box_from_value(&delim).unwrap().width > 0.0);
 }
+
+fn cons_list(items: Vec<RuntimeValue>) -> RuntimeValue {
+    let mut cur = RuntimeValue::Variant {
+        tag: "nil".into(),
+        payload: None,
+    };
+    for item in items.into_iter().rev() {
+        cur = RuntimeValue::Variant {
+            tag: "cons".into(),
+            payload: Some(Box::new(rec(vec![("head", item), ("tail", cur)]))),
+        };
+    }
+    cur
+}
+
+#[test]
+fn accent_matrix_bigop_stack_bridge() {
+    let accent = rec(vec![
+        ("tag", RuntimeValue::String("math-accent".into())),
+        ("kind", RuntimeValue::String("hat".into())),
+        ("base", sym("x", "ord")),
+    ]);
+    assert!(matches!(
+        math_atom_from_value(&accent).unwrap(),
+        MathAtom::Accent { .. }
+    ));
+    assert!(estimate_math_box_from_value(&accent).unwrap().height > 0.0);
+
+    let row = rec(vec![
+        ("tag", RuntimeValue::String("math-matrix-row".into())),
+        ("cells", cons_list(vec![sym("a", "ord"), sym("b", "ord")])),
+    ]);
+    let matrix = rec(vec![
+        ("tag", RuntimeValue::String("math-matrix".into())),
+        ("kind", RuntimeValue::String("bmatrix".into())),
+        ("rows", cons_list(vec![row])),
+    ]);
+    assert!(matches!(
+        math_atom_from_value(&matrix).unwrap(),
+        MathAtom::Matrix { .. }
+    ));
+    assert!(estimate_math_box_from_value(&matrix).unwrap().width > 0.0);
+
+    let bigop = rec(vec![
+        ("tag", RuntimeValue::String("math-bigop".into())),
+        ("glyph", RuntimeValue::String("∑".into())),
+        ("lower", sym("i", "ord")),
+        (
+            "upper",
+            rec(vec![("tag", RuntimeValue::String("math-absent".into()))]),
+        ),
+        ("body", sym("x", "ord")),
+    ]);
+    assert!(matches!(
+        math_atom_from_value(&bigop).unwrap(),
+        MathAtom::BigOp {
+            upper: None,
+            lower: Some(_),
+            ..
+        }
+    ));
+
+    let stack = rec(vec![
+        ("tag", RuntimeValue::String("math-stack".into())),
+        ("kind", RuntimeValue::String("atop".into())),
+        (
+            "children",
+            cons_list(vec![sym("a", "ord"), sym("b", "ord")]),
+        ),
+    ]);
+    assert!(matches!(
+        math_atom_from_value(&stack).unwrap(),
+        MathAtom::Stack { .. }
+    ));
+
+    let aligned = rec(vec![
+        ("tag", RuntimeValue::String("math-aligned".into())),
+        (
+            "rows",
+            cons_list(vec![rec(vec![
+                ("tag", RuntimeValue::String("math-align-row".into())),
+                ("cells", cons_list(vec![sym("x", "ord"), sym("=", "rel")])),
+            ])]),
+        ),
+    ]);
+    assert!(matches!(
+        math_atom_from_value(&aligned).unwrap(),
+        MathAtom::Aligned { .. }
+    ));
+
+    let stackrel = rec(vec![
+        ("tag", RuntimeValue::String("math-stackrel".into())),
+        ("relation", sym("def", "ord")),
+        ("base", sym("=", "rel")),
+    ]);
+    assert!(matches!(
+        math_atom_from_value(&stackrel).unwrap(),
+        MathAtom::Stack { .. }
+    ));
+}
