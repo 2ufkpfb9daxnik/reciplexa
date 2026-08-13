@@ -1,0 +1,10 @@
+(// language-only: ker builtin break-line-vertical → tagged line list demo.
+ // Hosts may feed lines into reciplexa_std::japanese::lines_to_vertical_text_shapes
+ // (place_lines_vertical column pitch).)
+
+(val lines (break-line-vertical "春夏秋冬一二三四" 4.0))
+
+(val main
+  (record
+    (tag "ja-vertical-place-demo")
+    (lines lines)))
