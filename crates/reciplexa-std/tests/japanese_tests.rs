@@ -417,6 +417,21 @@ fn tip_char_class_display_and_edge_classify() {
 }
 
 #[test]
+fn tip_ruby_tate_empty_and_box_ctors() {
+    use reciplexa_std::japanese::{Ruby, RubyBox, TateChuYoko, TateChuYokoBox};
+
+    let empty = Ruby::simple("", "").estimate_box();
+    assert_eq!(empty.advance_width, 0.0);
+    assert!(empty.height > 0.0);
+    let ctor = RubyBox::new(1.0, 0.5, 1.0, 1.5);
+    assert!((ctor.advance_width - 1.0).abs() < 1e-9);
+
+    let empty_tcy = TateChuYoko::new("").estimate_box();
+    assert_eq!(empty_tcy.advance_width, 0.0);
+    assert_eq!(TateChuYokoBox::new(2.0, 1.0).block_em, 1.0);
+}
+
+#[test]
 fn char_em_width_ascii_half_ideograph_full() {
     assert_eq!(char_em_width('A'), 0.5);
     assert_eq!(char_em_width('9'), 0.5);

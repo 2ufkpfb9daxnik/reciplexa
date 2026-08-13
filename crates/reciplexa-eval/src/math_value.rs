@@ -598,4 +598,40 @@ mod tip_tests {
 
         let _ = MathValueError::new("tip");
     }
+
+    #[test]
+    fn tip_delimiter_and_accent_estimate_via_bridge() {
+        let sym = rec(vec![
+            ("tag", RuntimeValue::String("math-symbol".into())),
+            ("glyph", RuntimeValue::String("x".into())),
+        ]);
+        let frac = rec(vec![
+            ("tag", RuntimeValue::String("math-fraction".into())),
+            ("numerator", sym.clone()),
+            ("denominator", sym.clone()),
+        ]);
+        let delim = rec(vec![
+            ("tag", RuntimeValue::String("math-delimiter".into())),
+            ("left", RuntimeValue::String("(".into())),
+            ("right", RuntimeValue::String(")".into())),
+            ("body", frac),
+        ]);
+        let atom = math_atom_from_value(&delim).expect("delimiter");
+        assert!(matches!(atom, MathAtom::Delimiter { stretch_factor, .. } if (stretch_factor - 1.0).abs() < 1e-9));
+        let box_ = estimate_math_box_from_value(&delim).expect("box");
+        assert!(box_.total_height() > 1.0);
+
+        let accent = rec(vec![
+            ("tag", RuntimeValue::String("math-accent".into())),
+            ("kind", RuntimeValue::String("hat".into())),
+            ("base", sym),
+        ]);
+        let ab = estimate_math_box_from_value(&accent).expect("accent box");
+        let bare = estimate_math_box_from_value(&rec(vec![
+            ("tag", RuntimeValue::String("math-symbol".into())),
+            ("glyph", RuntimeValue::String("x".into())),
+        ]))
+        .unwrap();
+        assert!(ab.height > bare.height);
+    }
 }

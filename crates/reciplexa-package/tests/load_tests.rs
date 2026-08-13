@@ -727,3 +727,50 @@ fn tempfile_dir() -> PathBuf {
     std::fs::create_dir_all(&dir).unwrap();
     dir
 }
+
+/// Wave 4 X5 tip: pkg_math delimiter/accent boxes + JA ruby/tate/break→shapes stubs.
+#[test]
+fn tip_pkg_math_ja_layout_stubs_integration() {
+    use reciplexa_scene::Color;
+    use reciplexa_std::japanese::{
+        break_line_to_text_shapes, Ruby, TateChuYoko, RUBY_HEIGHT_BUMP_EM,
+    };
+
+    // Japanese layout stubs (no package import required).
+    let ruby = Ruby::simple("漢", "かん").estimate_box();
+    assert!(ruby.advance_width > 0.0);
+    assert!((ruby.height - (1.0 + RUBY_HEIGHT_BUMP_EM)).abs() < 1e-9);
+    assert!(TateChuYoko::new("12").estimate_box().advance_width > 0.0);
+    let shapes = break_line_to_text_shapes("東京です。", 3.0, 0.0, 0.0, 10.0, 12.0, Color::BLACK);
+    assert!(!shapes.is_empty());
+
+    // pkg_math: delimiter (paren) and accent (hat) via math_value estimate_box.
+    std::thread::Builder::new()
+        .name("math-ja-tip".into())
+        .stack_size(8 * 1024 * 1024)
+        .spawn(|| {
+            let idx = index();
+            let entry =
+                PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/pkg_math.rpx");
+            let units = elaborate_with_packages(&entry, &idx).unwrap();
+            let demo = units.iter().find(|u| u.name == "pkg_math").unwrap();
+            let v = eval_expr(&demo.expr, &primitive_env(), &mut UnitHost).unwrap();
+            let RuntimeValue::Record(fields) = &v else {
+                panic!("pkg_math main should be a record, got {v}");
+            };
+            let tree = fields
+                .iter()
+                .find(|(k, _)| k == "tree")
+                .map(|(_, val)| val)
+                .expect("tree");
+            let delim = find_math_tag(tree, "math-delimiter").expect("paren in pkg_math");
+            let db = estimate_math_box_from_value(delim).expect("delimiter box");
+            assert!(db.total_height() > 0.0);
+            let accent = find_math_tag(tree, "math-accent").expect("hat in pkg_math");
+            let ab = estimate_math_box_from_value(accent).expect("accent box");
+            assert!(ab.height > 0.7);
+        })
+        .expect("spawn")
+        .join()
+        .expect("join");
+}
