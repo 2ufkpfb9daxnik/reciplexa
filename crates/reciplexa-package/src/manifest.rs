@@ -205,7 +205,9 @@ impl PackageManifest {
 /// Resolve a package resource path relative to `package_root` / `resource_root`.
 ///
 /// Requires `rel` to normalize cleanly and appear in `manifest.resources`.
-/// Does **not** implement language `(resource "path")` evaluation.
+/// Language `(resource "path")` elaborates to a deferred `package-resource`
+/// record in language-only eval; hosts with a package root may pass the
+/// record's `path` field here after load.
 pub fn resolve_package_resource(
     package_root: &std::path::Path,
     manifest: &PackageManifest,

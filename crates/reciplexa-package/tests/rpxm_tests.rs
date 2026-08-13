@@ -372,3 +372,57 @@ fn resolve_package_resource_under_resource_root() {
         other => panic!("expected InvalidPath, got {other:?}"),
     }
 }
+
+#[test]
+fn language_resource_path_resolves_when_package_root_available() {
+    use std::fs;
+    use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    use reciplexa_eval::{eval_source, RuntimeValue};
+    use reciplexa_package::resolve_package_resource;
+
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../.tmp")
+        .join(format!("pkg-lang-resource-{nanos}"));
+    let _ = fs::remove_dir_all(&root);
+    fs::create_dir_all(root.join("resources/images")).unwrap();
+    fs::write(root.join("resources/images/logo.png"), b"png").unwrap();
+
+    let m = parse_rpxm(
+        r#"(package demo
+  format-version 1
+  version "1.0.0"
+  (public-modules main)
+  (resources "images/logo.png"))"#,
+    )
+    .unwrap();
+
+    let v = eval_source(r#"(val main (resource "images/logo.png"))"#).unwrap();
+    let RuntimeValue::Record(fields) = v else {
+        panic!("expected package-resource record");
+    };
+    let path = fields
+        .iter()
+        .find(|(k, _)| k == "path")
+        .and_then(|(_, v)| match v {
+            RuntimeValue::String(s) => Some(s.as_str()),
+            _ => None,
+        })
+        .expect("path field");
+    let note = fields
+        .iter()
+        .find(|(k, _)| k == "note")
+        .and_then(|(_, v)| match v {
+            RuntimeValue::String(s) => Some(s.as_str()),
+            _ => None,
+        });
+    assert_eq!(note, Some("resolve at package load"));
+
+    let abs = resolve_package_resource(&root, &m, path).unwrap();
+    assert_eq!(abs, root.join("resources/images/logo.png"));
+}

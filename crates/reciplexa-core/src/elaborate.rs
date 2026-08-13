@@ -1546,6 +1546,7 @@ fn elaborate_list(node: &SyntaxNode, ctx: &mut ElabCtx) -> Result<CoreExpr, Elab
                 "try-cast" => return elaborate_try_cast(&atoms[1..], node, ctx),
                 "check-cast" => return elaborate_check_cast(&atoms[1..], node, ctx),
                 "unicode" => return elaborate_unicode(&atoms[1..], node, ctx),
+                "resource" => return elaborate_resource(&atoms[1..], node, ctx),
                 "val" => {
                     return Err(ElaborateError::at_node(
                         "`val` is only allowed at top level; use `let` for local bindings",
@@ -1633,6 +1634,50 @@ fn elaborate_ambient_perform(
     Ok(CoreExpr::Perform {
         op: op.to_string(),
         arg: Box::new(arg),
+    })
+}
+
+/// PKG §21.14 light surface: `(resource "rel")` → tagged `package-resource` record.
+///
+/// Language-only eval has no package root, so this builds a pure identity handle
+/// (`tag` / `path` / `note`) observed as a Core record. Hosts with a package root
+/// may resolve `path` later via `resolve_package_resource`.
+fn elaborate_resource(
+    rest: &[Atom],
+    parent: &SyntaxNode,
+    ctx: &mut ElabCtx,
+) -> Result<CoreExpr, ElaborateError> {
+    if rest.len() != 1 {
+        return Err(ElaborateError::at_node(
+            "`resource` requires exactly one string path argument",
+            parent,
+        ));
+    }
+    let path_expr = elaborate_atom(&rest[0], ctx)?;
+    let CoreExpr::Lit(CoreLiteral::String(path)) = path_expr else {
+        return Err(ElaborateError::at_node(
+            "`resource` path must be a string literal",
+            parent,
+        ));
+    };
+    if path.is_empty() {
+        return Err(ElaborateError::at_node(
+            "`resource` path must not be empty",
+            parent,
+        ));
+    }
+    Ok(CoreExpr::Record {
+        fields: vec![
+            (
+                "tag".into(),
+                CoreExpr::Lit(CoreLiteral::String("package-resource".into())),
+            ),
+            ("path".into(), CoreExpr::Lit(CoreLiteral::String(path))),
+            (
+                "note".into(),
+                CoreExpr::Lit(CoreLiteral::String("resolve at package load".into())),
+            ),
+        ],
     })
 }
 

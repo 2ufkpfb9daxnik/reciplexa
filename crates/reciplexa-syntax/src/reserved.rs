@@ -38,6 +38,7 @@ pub fn is_reserved_special_form(name: &str) -> bool {
             | "raise"
             | "or-raise"
             | "as-result"
+            | "resource"
             | "macro"
             | "true"
             | "false"

@@ -470,6 +470,13 @@ fn lang_resolve_list(
                     }
                     return;
                 }
+                "resource" => {
+                    // (resource "rel") — path is a literal; no binder uses.
+                    for atom in &atoms[1..] {
+                        lang_resolve_atom(atom, stack, env, errors, map, identity);
+                    }
+                    return;
+                }
                 "perform" => {
                     // (perform op arg) — op is an effect name, not a value binding.
                     for atom in atoms.iter().skip(2) {
@@ -1126,6 +1133,7 @@ fn is_surface_keyword(name: &str) -> bool {
             | "raise"
             | "or-raise"
             | "as-result"
+            | "resource"
             | "handle"
             | "with"
             | "handler"
