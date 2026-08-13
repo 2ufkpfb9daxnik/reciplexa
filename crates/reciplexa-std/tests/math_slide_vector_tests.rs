@@ -169,6 +169,37 @@ fn math_fraction_rule_thickness_and_clearance() {
 }
 
 #[test]
+fn math_radical_vinculum_index_offsets() {
+    use reciplexa_std::math::{
+        radical_vinculum_index_offsets, MathBox, RADICAL_VINCULUM_CLEARANCE_EM,
+        RADICAL_VINCULUM_THICKNESS_EM, SCRIPT_SCALE,
+    };
+
+    let body = MathBox::new(1.0, 0.7, 0.2);
+    let (vy, ix, iy) = radical_vinculum_index_offsets(body, None);
+    assert!((vy - (body.height + RADICAL_VINCULUM_CLEARANCE_EM)).abs() < 1e-9);
+    assert_eq!((ix, iy), (0.0, 0.0));
+
+    let idx = MathBox::new(0.5, 0.4, 0.1);
+    let (vy2, ix2, iy2) = radical_vinculum_index_offsets(body, Some(idx));
+    assert!((vy2 - vy).abs() < 1e-9);
+    assert!(ix2 < 0.0, "index left of surd: {ix2}");
+    assert!(iy2 > 0.0, "index raised: {iy2}");
+
+    let plain = MathAtom::radical(id(10), MathAtom::symbol(id(11), "x", MathClass::Ordinary));
+    let indexed = MathAtom::radical_indexed(
+        id(12),
+        MathAtom::symbol(id(13), "3", MathClass::Ordinary),
+        MathAtom::symbol(id(14), "x", MathClass::Ordinary),
+    );
+    let pb = plain.estimate_box();
+    let ib = indexed.estimate_box();
+    assert!(pb.height >= 0.7 + RADICAL_VINCULUM_CLEARANCE_EM + RADICAL_VINCULUM_THICKNESS_EM - 1e-9);
+    assert!(ib.width > pb.width);
+    let _ = SCRIPT_SCALE;
+}
+
+#[test]
 fn math_estimate_box_relative_sizes() {
     use reciplexa_std::math::MathBox;
     let a = MathAtom::symbol(id(1), "a", MathClass::Ordinary);

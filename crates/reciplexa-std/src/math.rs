@@ -580,6 +580,15 @@ pub const FRAC_NUM_CLEARANCE_EM: f64 = 0.15;
 /// Clearance (em) between the fraction rule and denominator box.
 pub const FRAC_DEN_CLEARANCE_EM: f64 = 0.15;
 
+/// Radical over-bar (vinculum) thickness in em — fontless stub.
+pub const RADICAL_VINCULUM_THICKNESS_EM: f64 = 0.04;
+
+/// Clearance (em) between radicand and the vinculum.
+pub const RADICAL_VINCULUM_CLEARANCE_EM: f64 = 0.25;
+
+/// Horizontal pad (em) for the radical surd / index gutter.
+pub const RADICAL_SURD_PAD_EM: f64 = 0.55;
+
 /// Fraction rule thickness + num/den clearance (em). Heuristic only.
 pub fn fraction_rule_metrics() -> (f64, f64, f64) {
     (
@@ -587,6 +596,28 @@ pub fn fraction_rule_metrics() -> (f64, f64, f64) {
         FRAC_NUM_CLEARANCE_EM,
         FRAC_DEN_CLEARANCE_EM,
     )
+}
+
+/// Radical vinculum / index placement stub relative to the radicand box origin.
+///
+/// Returns `(vinculum_y, index_x, index_y)` with `x` rightward and `y` upward from
+/// the radicand baseline. Missing index yields `0.0` for the index pair.
+/// Heuristic only — not OpenType MATH radical metrics / TeX `\fontdimen`.
+pub fn radical_vinculum_index_offsets(
+    radicand: MathBox,
+    index: Option<MathBox>,
+) -> (f64, f64, f64) {
+    let vinculum_y = radicand.height + RADICAL_VINCULUM_CLEARANCE_EM;
+    let (index_x, index_y) = match index {
+        Some(idx) => {
+            let scaled_w = idx.width * SCRIPT_SCALE;
+            let index_x = -(scaled_w * 0.55 + RADICAL_SURD_PAD_EM * 0.15);
+            let index_y = radicand.height * 0.55 + idx.depth * SCRIPT_SCALE * 0.25;
+            (index_x, index_y)
+        }
+        None => (0.0, 0.0),
+    };
+    (vinculum_y, index_x, index_y)
 }
 
 /// Fontless script attachment offsets relative to the base box origin.
@@ -713,14 +744,17 @@ impl MathAtom {
                 index, radicand, ..
             } => {
                 let body = radicand.estimate_box();
-                let mut width = body.width + 0.55;
-                let mut height = body.height + 0.25;
+                let mut width = body.width + RADICAL_SURD_PAD_EM;
+                let mut height = body.height
+                    + RADICAL_VINCULUM_CLEARANCE_EM
+                    + RADICAL_VINCULUM_THICKNESS_EM;
                 let depth = body.depth;
                 if let Some(idx) = index {
                     let ib = idx.estimate_box();
                     let scaled_w = ib.width * SCRIPT_SCALE;
                     width += scaled_w * 0.5;
-                    height = height.max(ib.height * SCRIPT_SCALE + 0.1);
+                    let (_vy, _ix, iy) = radical_vinculum_index_offsets(body, Some(ib));
+                    height = height.max(iy + ib.height * SCRIPT_SCALE);
                 }
                 MathBox::new(width, height, depth)
             }
