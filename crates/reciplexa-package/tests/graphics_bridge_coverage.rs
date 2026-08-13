@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use reciplexa_eval::{document_from_graphics_value, RuntimeValue};
 use reciplexa_package::{
     document_from_package_entry, document_from_package_source, elaborate_with_packages,
-    GraphicsBridgeError, LocalPackageIndex, PackageLoadError,
+    preview_doc_text_metrics, GraphicsBridgeError, LocalPackageIndex, PackageLoadError,
 };
 use reciplexa_scene::Shape;
 
@@ -225,6 +225,41 @@ fn package_document_long_ja_paragraph_emits_multiple_text_shapes() {
         found,
         "expected consecutive break_line lines among shapes {texts:?}, want {expected:?}"
     );
+}
+
+/// HC2: `preview_doc_text_metrics` reports multi-line counts for long JA paragraphs.
+#[test]
+fn preview_doc_text_metrics_long_ja_paragraph() {
+    let long = "あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをん";
+    let expected_lines = reciplexa_std::japanese::break_line(long, 40.0);
+    assert!(expected_lines.len() > 1);
+
+    let source = format!(
+        r#"(import document/page only
+  a4 page flow section heading paragraph
+  block-paragraph)
+(val title (heading 1 "題"))
+(val body (paragraph "{long}"))
+(val main
+  (page a4
+    (flow
+      (list
+        (section title
+          (list
+            (block-paragraph body)))))))
+"#
+    );
+    let idx = index();
+    let m = preview_doc_text_metrics(&source, &idx).expect("preview metrics");
+    // Title + wrapped paragraph lines.
+    assert!(
+        m.line_count > 1 && m.text_shape_count == m.line_count,
+        "expected multi-line preview, got {m:?}"
+    );
+    assert!(m.line_count >= expected_lines.len());
+    assert!(m.max_line_width_em > 0.0);
+    assert!(m.approx_block_height_em > 0.0);
+    assert!(m.diagnostic_note().contains("line"));
 }
 
 /// Wave 24 R1: `columns` / `block-columns` → side-by-side Text via measure_columns.

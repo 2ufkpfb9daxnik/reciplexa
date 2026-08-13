@@ -60,6 +60,19 @@ pub fn cmd_inspect_document(path: &str) -> Result<(), String> {
     for node in snap.nodes.iter() {
         println!("  {:?} id={}", node.kind, node.id.get());
     }
+    // HC2: optional host note when the snapshot carries Text shapes (e.g. JA wrap).
+    let shapes = crate::document_pipeline::preview_shapes(&snap);
+    if shapes
+        .iter()
+        .any(|s| matches!(s, reciplexa_scene::Shape::Text(_)))
+    {
+        let doc = reciplexa_scene::Document::single_page(reciplexa_scene::Page {
+            paper: reciplexa_scene::PaperSize::a4(),
+            shapes,
+        });
+        let metrics = reciplexa_package::preview_doc_text_metrics_from_document(&doc);
+        println!("{}", metrics.diagnostic_note());
+    }
     Ok(())
 }
 
