@@ -156,8 +156,8 @@ pre-PKG カーネルは計画上 **COMPLETE（意図的 defer 付き）**。各�
 2. **カバレッジ締め（N6）** — **done**（7-crate BEST-ENTRY ≥99%）；N5.3 tip for document surface residuals。
 3. **GUI CST sync v2** — [`gui-cst-sync-v2-plan.md`](gui-cst-sync-v2-plan.md) S0–**S6b done**（package writable sync、examples package 化、production keyword 表隔離）。
 4. **PKG インフラ（Slice E）** — **done**（workspace lock / resources / OPEN-PKG-001 stub）；package API `resolve_package_resource`（R0）**done**。言語 `(resource "rel")` 軽量面 **done**（elaborate→`package-resource` タグ付き record；package root 無しでは deferred note）。host `materialize_package_resource` / `resolve_resource_value`（R3）**done**。実 `package-resource` 型・load 時自動解決・レジストリはなお **OPEN**。
-5. **OPEN-TEXT-JA-001 / math layout** — 第一深化スライス **done**（[`ja-math-deepen-plan.md`](ja-math-deepen-plan.md) J0–J7 / M0–M3）。追加: eval `math_value` 橋（accent/matrix/bigop/stack/aligned/under/over/cases/operatorname 含む）**done**；JA classify 表意約物・全角・CJK 記号/空白/波ダッシュ拡張 **done**（なお subset）；言語ビルトイン `classify-char` / `break-between` **done**；例 `pkg_ja_classify.rpx` **done**；`pkg_math` 全デモ木の `estimate_box` 消費（`inspect-document` 非経路）**done**。残: 完全 UCS・§C 禁則・ruby/縦中横実レイアウト・OpenType MATH / stretchy・文書パイプライン本消費。
-6. **次の優先候補** — レジストリ（OPEN-PKG-001）／文書パイプラインが math box・JA classify を本番レイアウトに載せる／package load 時 resource 自動 materialize／package `classify-sample` を builtin へ寄せる任意整理。
+5. **OPEN-TEXT-JA-001 / math layout** — 第一深化スライス **done**（[`ja-math-deepen-plan.md`](ja-math-deepen-plan.md) J0–J7 / M0–M3）。追加: eval `math_value` 橋（accent/matrix/bigop/stack/aligned/under/over/cases/operatorname 含む）**done**；JA classify 表意約物・全角・CJK 記号/空白/波ダッシュ拡張 **done**（なお subset）；言語ビルトイン `classify-char` / `break-between` **done**；例 `pkg_ja_classify.rpx` **done**；`pkg_math` 全デモ木の `estimate_box` 消費（`inspect-document` 非経路）**done**；**wave-3** `japanese::break_line`（em幅ヒューリスティック + kinsoku stub）**done**；`MathAtom::linearize` 複数文字 script の `{…}` **done**。残: 完全 UCS・§C 禁則・ruby/縦中横実レイアウト・OpenType MATH / stretchy・文書パイプライン本消費。
+6. **次の優先候補** — レジストリ（OPEN-PKG-001）／文書パイプラインが math box・JA `break_line` / classify を本番レイアウトに載せる／package load 時 resource 自動 materialize／package `classify-sample` を builtin へ寄せる任意整理。
 ---
 
 ## 付記: クレート一覧の見取り図
