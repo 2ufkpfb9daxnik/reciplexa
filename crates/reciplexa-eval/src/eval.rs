@@ -52,6 +52,10 @@ pub fn primitive_env() -> HashMap<String, RuntimeValue> {
         "classify-char".into(),
         RuntimeValue::Builtin(BuiltinOp::ClassifyChar),
     );
+    env.insert(
+        "break-between".into(),
+        RuntimeValue::Builtin(BuiltinOp::BreakBetween),
+    );
     env
 }
 
@@ -1253,6 +1257,43 @@ fn apply_builtin(op: BuiltinOp, args: Vec<RuntimeValue>) -> Result<Outcome, Eval
             })?;
             let id = reciplexa_std::japanese::classify_char(ch).id();
             Ok(Outcome::Value(RuntimeValue::Int(i128::from(id))))
+        }
+        BuiltinOp::BreakBetween => {
+            if args.len() != 2 {
+                return Err(EvalError {
+                    message: format!(
+                        "builtin `break-between` expects 2 args, got {}",
+                        args.len()
+                    ),
+                });
+            }
+            let prev_s = match &args[0] {
+                RuntimeValue::String(text) => text.as_str(),
+                _ => {
+                    return Err(EvalError {
+                        message: "builtin `break-between` expects string arguments".into(),
+                    });
+                }
+            };
+            let next_s = match &args[1] {
+                RuntimeValue::String(text) => text.as_str(),
+                _ => {
+                    return Err(EvalError {
+                        message: "builtin `break-between` expects string arguments".into(),
+                    });
+                }
+            };
+            let prev = prev_s.chars().next().ok_or_else(|| EvalError {
+                message: "builtin `break-between` expects non-empty strings".into(),
+            })?;
+            let next = next_s.chars().next().ok_or_else(|| EvalError {
+                message: "builtin `break-between` expects non-empty strings".into(),
+            })?;
+            let opp = reciplexa_std::japanese::break_opportunity_chars(prev, next);
+            Ok(Outcome::Value(RuntimeValue::Variant {
+                tag: opp.as_str().into(),
+                payload: None,
+            }))
         }
     }
 }

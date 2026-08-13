@@ -87,6 +87,8 @@ pub enum BuiltinOp {
     Mod,
     /// JLReq-oriented `classify-char` — string (first char) → Int class id (`cl-NN` / Other=0).
     ClassifyChar,
+    /// JLReq-oriented `break-between` — two strings (first chars) → break opportunity tag.
+    BreakBetween,
 }
 
 impl fmt::Debug for RuntimeValue {
