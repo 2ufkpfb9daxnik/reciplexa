@@ -625,8 +625,58 @@ impl MathBox {
     }
 }
 
-/// Script-size shrink factor used by `estimate_box` (fontless heuristic).
+/// Script-size shrink factor used by `estimate_box` in [`EstimateStyle::Display`]
+/// (fontless heuristic).
 pub const SCRIPT_SCALE: f64 = 0.7;
+
+/// Tighter script shrink for [`EstimateStyle::Text`] (inline math); smaller than
+/// [`SCRIPT_SCALE`]. Heuristic only — not TeX `\textstyle` / OpenType MATH.
+pub const SCRIPT_SCALE_TEXT: f64 = 0.5;
+
+/// Fontless math style for [`MathAtom::estimate_box_with_style`].
+///
+/// [`Display`](EstimateStyle::Display) matches prior `estimate_box` defaults;
+/// [`Text`](EstimateStyle::Text) shrinks scripts/limits more (inline-ish stub).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum EstimateStyle {
+    /// Display / block math (default script scale [`SCRIPT_SCALE`]).
+    #[default]
+    Display,
+    /// Text / inline math (tighter [`SCRIPT_SCALE_TEXT`]).
+    Text,
+}
+
+impl EstimateStyle {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Display => "display",
+            Self::Text => "text",
+        }
+    }
+
+    /// Parse `"text"` / `"display"` (case-sensitive). Unknown → `None`.
+    pub fn parse(s: &str) -> Option<Self> {
+        match s {
+            "text" => Some(Self::Text),
+            "display" => Some(Self::Display),
+            _ => None,
+        }
+    }
+
+    /// Script / limit shrink factor for this style.
+    pub fn script_scale(self) -> f64 {
+        match self {
+            Self::Display => SCRIPT_SCALE,
+            Self::Text => SCRIPT_SCALE_TEXT,
+        }
+    }
+}
+
+impl fmt::Display for EstimateStyle {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
 
 /// Extra height (em) above the base for over-accents (hat/bar/…); stub clearance.
 pub const ACCENT_CLEARANCE_EM: f64 = 0.35;
@@ -820,14 +870,29 @@ pub fn aligned_column_x(rows: &[Vec<MathAtom>], col: usize) -> f64 {
 
 impl MathAtom {
     /// Rough width/height/depth estimate without fonts (layout scaffolding only).
+    ///
+    /// Defaults to [`EstimateStyle::Display`] (same metrics as before Wave 17).
     pub fn estimate_box(&self) -> MathBox {
+        self.estimate_box_with_style(EstimateStyle::Display)
+    }
+
+    /// Like [`estimate_box`](Self::estimate_box), with display vs text script scale.
+    ///
+    /// [`EstimateStyle::Text`] uses [`SCRIPT_SCALE_TEXT`] for scripts / radical
+    /// index / big-op limits (shrinks more than display). Recursive children keep
+    /// the same style. Heuristic only — not TeX style / OpenType MATH.
+    pub fn estimate_box_with_style(&self, style: EstimateStyle) -> MathBox {
+        let script_scale = style.script_scale();
         match self {
             Self::Symbol { glyph, .. } => {
                 let w = (glyph.chars().count() as f64).max(0.5);
                 MathBox::new(w, 0.7, 0.2)
             }
             Self::Row { children, .. } => {
-                let boxes: Vec<_> = children.iter().map(|c| c.estimate_box()).collect();
+                let boxes: Vec<_> = children
+                    .iter()
+                    .map(|c| c.estimate_box_with_style(style))
+                    .collect();
                 let mut row = MathBox::combine_row(&boxes);
                 if children.len() >= 2 {
                     let mut gap = 0.0_f64;
@@ -846,8 +911,8 @@ impl MathAtom {
                 denominator,
                 ..
             } => {
-                let num = numerator.estimate_box();
-                let den = denominator.estimate_box();
+                let num = numerator.estimate_box_with_style(style);
+                let den = denominator.estimate_box_with_style(style);
                 let width = num.width.max(den.width) + 0.2;
                 let (rule, num_clr, den_clr) = fraction_rule_metrics();
                 // Stack: num + clearance + rule above baseline; den + clearance below.
@@ -860,18 +925,18 @@ impl MathAtom {
             Self::Radical {
                 index, radicand, ..
             } => {
-                let body = radicand.estimate_box();
+                let body = radicand.estimate_box_with_style(style);
                 let mut width = body.width + RADICAL_SURD_PAD_EM;
                 let mut height = body.height
                     + RADICAL_VINCULUM_CLEARANCE_EM
                     + RADICAL_VINCULUM_THICKNESS_EM;
                 let depth = body.depth;
                 if let Some(idx) = index {
-                    let ib = idx.estimate_box();
-                    let scaled_w = ib.width * SCRIPT_SCALE;
+                    let ib = idx.estimate_box_with_style(style);
+                    let scaled_w = ib.width * script_scale;
                     width += scaled_w * 0.5;
                     let (_vy, _ix, iy) = radical_vinculum_index_offsets(body, Some(ib));
-                    height = height.max(iy + ib.height * SCRIPT_SCALE);
+                    height = height.max(iy + ib.height * script_scale);
                 }
                 MathBox::new(width, height, depth)
             }
@@ -881,20 +946,20 @@ impl MathAtom {
                 subscript,
                 ..
             } => {
-                let b = base.estimate_box();
+                let b = base.estimate_box_with_style(style);
                 let mut width = b.width;
                 let mut height = b.height;
                 let mut depth = b.depth;
                 let mut script_w = 0.0_f64;
                 if let Some(sup) = superscript {
-                    let s = sup.estimate_box();
-                    script_w = script_w.max(s.width * SCRIPT_SCALE);
-                    height = height.max(b.height * 0.5 + s.height * SCRIPT_SCALE);
+                    let s = sup.estimate_box_with_style(style);
+                    script_w = script_w.max(s.width * script_scale);
+                    height = height.max(b.height * 0.5 + s.height * script_scale);
                 }
                 if let Some(sub) = subscript {
-                    let s = sub.estimate_box();
-                    script_w = script_w.max(s.width * SCRIPT_SCALE);
-                    depth = depth.max(b.depth * 0.5 + s.depth * SCRIPT_SCALE + 0.15);
+                    let s = sub.estimate_box_with_style(style);
+                    script_w = script_w.max(s.width * script_scale);
+                    depth = depth.max(b.depth * 0.5 + s.depth * script_scale + 0.15);
                 }
                 width += script_w;
                 MathBox::new(width, height, depth)
@@ -906,7 +971,7 @@ impl MathAtom {
                 stretch_factor,
                 ..
             } => {
-                let inner = body.estimate_box();
+                let inner = body.estimate_box_with_style(style);
                 let pad = 0.35 * (left.chars().count() + right.chars().count()) as f64;
                 // Stretchy heuristic: fence height/depth track body, scaled by stretch_factor.
                 let factor = stretch_factor.max(0.0);
@@ -915,7 +980,7 @@ impl MathAtom {
                 MathBox::new(inner.width + pad, height, depth)
             }
             Self::Accent { kind, base, .. } => {
-                let b = base.estimate_box();
+                let b = base.estimate_box_with_style(style);
                 let width = b.width.max(0.8);
                 match kind {
                     MathAccentKind::Underline => {
@@ -944,17 +1009,17 @@ impl MathAtom {
                 let mut height = 0.9;
                 let mut depth = 0.3;
                 if let Some(lo) = lower {
-                    let lb = lo.estimate_box();
-                    width = width.max(lb.width * SCRIPT_SCALE);
-                    depth += lb.total_height() * SCRIPT_SCALE;
+                    let lb = lo.estimate_box_with_style(style);
+                    width = width.max(lb.width * script_scale);
+                    depth += lb.total_height() * script_scale;
                 }
                 if let Some(up) = upper {
-                    let ub = up.estimate_box();
-                    width = width.max(ub.width * SCRIPT_SCALE);
-                    height += ub.total_height() * SCRIPT_SCALE;
+                    let ub = up.estimate_box_with_style(style);
+                    width = width.max(ub.width * script_scale);
+                    height += ub.total_height() * script_scale;
                 }
                 if let Some(b) = body {
-                    let bb = b.estimate_box();
+                    let bb = b.estimate_box_with_style(style);
                     width += bb.width + 0.2;
                     height = height.max(bb.height);
                     depth = depth.max(bb.depth);
@@ -963,10 +1028,13 @@ impl MathAtom {
             }
             Self::Matrix {
                 rows, left, right, ..
-            } => estimate_grid_box(rows, left.as_deref(), right.as_deref()),
-            Self::Aligned { rows, .. } => estimate_grid_box(rows, None, None),
+            } => estimate_grid_box(rows, left.as_deref(), right.as_deref(), style),
+            Self::Aligned { rows, .. } => estimate_grid_box(rows, None, None, style),
             Self::Stack { kind, children, .. } => {
-                let boxes: Vec<_> = children.iter().map(|c| c.estimate_box()).collect();
+                let boxes: Vec<_> = children
+                    .iter()
+                    .map(|c| c.estimate_box_with_style(style))
+                    .collect();
                 let width = boxes.iter().map(|b| b.width).fold(0.0_f64, f64::max);
                 if *kind == MathStackKind::Stackrel && boxes.len() >= 2 {
                     let upper = boxes[0];
@@ -988,13 +1056,23 @@ impl MathAtom {
     }
 }
 
-fn estimate_grid_box(rows: &[Vec<MathAtom>], left: Option<&str>, right: Option<&str>) -> MathBox {
-    let col_widths = matrix_column_widths(rows);
+fn estimate_grid_box(
+    rows: &[Vec<MathAtom>],
+    left: Option<&str>,
+    right: Option<&str>,
+    style: EstimateStyle,
+) -> MathBox {
+    let mut col_widths: Vec<f64> = Vec::new();
     let mut total_h = 0.0_f64;
     for row in rows {
         let mut row_h = 0.0_f64;
-        for cell in row {
-            row_h = row_h.max(cell.estimate_box().total_height());
+        for (ci, cell) in row.iter().enumerate() {
+            let b = cell.estimate_box_with_style(style);
+            if col_widths.len() <= ci {
+                col_widths.resize(ci + 1, 0.0);
+            }
+            col_widths[ci] = col_widths[ci].max(b.width);
+            row_h = row_h.max(b.total_height());
         }
         total_h += row_h + 0.2;
     }

@@ -250,6 +250,29 @@ fn math_estimate_box_relative_sizes() {
 }
 
 #[test]
+fn estimate_style_text_shrinks_scripts_more_than_display() {
+    use reciplexa_std::math::{EstimateStyle, SCRIPT_SCALE, SCRIPT_SCALE_TEXT};
+
+    assert!((EstimateStyle::Display.script_scale() - SCRIPT_SCALE).abs() < 1e-9);
+    assert!((EstimateStyle::Text.script_scale() - SCRIPT_SCALE_TEXT).abs() < 1e-9);
+    assert!(SCRIPT_SCALE_TEXT < SCRIPT_SCALE);
+    assert_eq!(EstimateStyle::parse("text"), Some(EstimateStyle::Text));
+    assert_eq!(EstimateStyle::parse("display"), Some(EstimateStyle::Display));
+    assert_eq!(EstimateStyle::parse("weird"), None);
+    assert_eq!(EstimateStyle::Text.as_str(), "text");
+    assert_eq!(EstimateStyle::Display.to_string(), "display");
+
+    let base = MathAtom::symbol(id(1), "x", MathClass::Ordinary);
+    let sup = MathAtom::symbol(id(2), "2", MathClass::Ordinary);
+    let scripts = MathAtom::scripts(id(3), base, Some(sup), None);
+    let display = scripts.estimate_box();
+    let text = scripts.estimate_box_with_style(EstimateStyle::Text);
+    assert_eq!(display, scripts.estimate_box_with_style(EstimateStyle::Display));
+    assert!(text.width < display.width);
+    assert!(text.height < display.height);
+}
+
+#[test]
 fn class_spacing_em_texish_ord_op_and_row_width() {
     use reciplexa_std::math::{
         class_spacing_em, MED_MUSKIP_EM, THICK_MUSKIP_EM, THIN_MUSKIP_EM,
