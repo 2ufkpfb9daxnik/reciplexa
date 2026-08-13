@@ -1589,3 +1589,29 @@ pub fn justify_line_to_text_shapes(
         })
         .collect()
 }
+
+/// Simple multi-column measure stub for JA kihon / package `multi-column`.
+///
+/// Given total measure `total_em`, column `count`, and inter-column `gutter_em`,
+/// returns `(col_w, xs)` where:
+/// - `col_w = (total_em − (count−1)×gutter_em) / count` (clamped; invalid → `0`)
+/// - `xs[i] = i × (col_w + gutter_em)` — left edges of each column
+///
+/// Fontless geometry only — not real kihon multi-column books / balanced
+/// columns / `jlreq-multi-column` document consumption.
+pub fn measure_columns(total_em: f64, count: u32, gutter_em: f64) -> (f64, Vec<f64>) {
+    if count == 0 {
+        return (0.0, Vec::new());
+    }
+    let n = count as f64;
+    let gutters = (count.saturating_sub(1)) as f64 * gutter_em.max(0.0);
+    let usable = total_em - gutters;
+    let col_w = if usable.partial_cmp(&0.0) == Some(std::cmp::Ordering::Greater) {
+        usable / n
+    } else {
+        0.0
+    };
+    let step = col_w + gutter_em.max(0.0);
+    let xs: Vec<f64> = (0..count).map(|i| i as f64 * step).collect();
+    (col_w, xs)
+}
