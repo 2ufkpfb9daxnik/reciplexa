@@ -17,6 +17,7 @@ pub mod load;
 pub mod lockfile;
 pub mod manifest;
 pub mod resolver;
+pub mod resource_value;
 pub mod rpi;
 pub mod rpxm;
 pub mod target;
@@ -53,10 +54,13 @@ pub use load::{
 };
 pub use lockfile::{LockedPackage, Lockfile};
 pub use manifest::{
-    normalize_resource_path, resolve_package_resource, DependencySpec, OPEN_PKG_001_REGISTRY,
-    PackageManifest, ResourceCheckError, ResourceResolveError,
+    normalize_resource_path, resolve_package_resource, DependencySpec, PackageManifest,
+    ResourceCheckError, ResourceResolveError, OPEN_PKG_001_REGISTRY,
 };
 pub use resolver::{resolve_packages, ResolveError, ResolvedGraph};
+pub use resource_value::{
+    materialize_package_resource, resolve_resource_value, ResourceValueError,
+};
 pub use rpi::parse_rpi_exports;
 pub use rpxm::{parse_rpxm, RpxmError};
 pub use target::{BuildTarget, RuntimeProfile};

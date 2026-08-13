@@ -352,7 +352,8 @@ fn resolve_package_resource_under_resource_root() {
     let path = resolve_package_resource(&root, &m, "images/logo.png").unwrap();
     assert_eq!(path, root.join("resources/images/logo.png"));
     assert_eq!(
-        m.resolve_package_resource(&root, r"images\logo.png").unwrap(),
+        m.resolve_package_resource(&root, r"images\logo.png")
+            .unwrap(),
         path
     );
 
@@ -380,7 +381,9 @@ fn language_resource_path_resolves_when_package_root_available() {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use reciplexa_eval::{eval_source, RuntimeValue};
-    use reciplexa_package::resolve_package_resource;
+    use reciplexa_package::{
+        materialize_package_resource, resolve_resource_value, ResourceValueError,
+    };
 
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -403,17 +406,9 @@ fn language_resource_path_resolves_when_package_root_available() {
     .unwrap();
 
     let v = eval_source(r#"(val main (resource "images/logo.png"))"#).unwrap();
-    let RuntimeValue::Record(fields) = v else {
+    let RuntimeValue::Record(fields) = &v else {
         panic!("expected package-resource record");
     };
-    let path = fields
-        .iter()
-        .find(|(k, _)| k == "path")
-        .and_then(|(_, v)| match v {
-            RuntimeValue::String(s) => Some(s.as_str()),
-            _ => None,
-        })
-        .expect("path field");
     let note = fields
         .iter()
         .find(|(k, _)| k == "note")
@@ -423,6 +418,32 @@ fn language_resource_path_resolves_when_package_root_available() {
         });
     assert_eq!(note, Some("resolve at package load"));
 
-    let abs = resolve_package_resource(&root, &m, path).unwrap();
+    let abs = materialize_package_resource(&v, &root, &m).unwrap();
     assert_eq!(abs, root.join("resources/images/logo.png"));
+    assert_eq!(resolve_resource_value(&v, &root, &m).unwrap(), abs);
+
+    let err = materialize_package_resource(&RuntimeValue::Int(1), &root, &m).unwrap_err();
+    assert!(matches!(err, ResourceValueError::NotPackageResource(_)));
+
+    let bad_tag = RuntimeValue::Record(vec![
+        ("tag".into(), RuntimeValue::String("other".into())),
+        (
+            "path".into(),
+            RuntimeValue::String("images/logo.png".into()),
+        ),
+    ]);
+    let err = materialize_package_resource(&bad_tag, &root, &m).unwrap_err();
+    assert!(matches!(err, ResourceValueError::NotPackageResource(_)));
+
+    let missing_path = RuntimeValue::Record(vec![(
+        "tag".into(),
+        RuntimeValue::String("package-resource".into()),
+    )]);
+    let err = materialize_package_resource(&missing_path, &root, &m).unwrap_err();
+    assert!(matches!(err, ResourceValueError::NotPackageResource(_)));
+
+    let unlisted = eval_source(r#"(val main (resource "images/missing.png"))"#).unwrap();
+    let err = materialize_package_resource(&unlisted, &root, &m).unwrap_err();
+    assert!(matches!(err, ResourceValueError::Resolve(_)));
+    assert!(!err.to_string().is_empty());
 }
