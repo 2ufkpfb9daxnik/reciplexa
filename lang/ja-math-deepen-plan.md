@@ -633,3 +633,53 @@ cargo test -p reciplexa-std -p reciplexa-eval -p reciplexa-core -p reciplexa-pac
 - Font-backed ruby / tate-chu-yoko / vertical glyph orientation / real vertical metrics / bou placement.
 - OpenType MATH stretchy fences, accent/script/stackrel attachment, real matrix column alignment / big-op / fraction/radical metrics.
 - Document/GUI pipeline consuming boxes as production layout (beyond soft-wrapped Text shapes / estimate_box / math-box / stretchy-delim); load-time resource rewrite beyond fail-soft attach; registry resolve + checksum verification (OPEN-PKG-001).
+
+---
+
+## Wave 12 — inseparable glue + western soft-wrap + math class spacing (F0–F4)
+
+Honest scope: keep cl-08 runs glued in `break_line`; prefer ASCII-space soft-wrap over mid-latin; TeX-ish `class_spacing_em` in Row `estimate_box`; example + tip docs. Not normative JLReq §C, CSS `word-break`, or OpenType MATH muskips.
+
+Gate:
+
+```bat
+set CARGO_TARGET_DIR=d:\reciplexa\target
+set TEMP=d:\reciplexa\.tmp
+set TMP=d:\reciplexa\.tmp
+cargo test -p reciplexa-std -p reciplexa-eval -p reciplexa-core -p reciplexa-package --offline
+```
+
+| Unit | Status |
+|------|--------|
+| F0 — cl-08 inseparable run glue in `break_line` | **done** |
+| F1 — Prefer ASCII-space soft-wrap (avoid mid-latin when possible) | **done** |
+| F2 — `class_spacing_em` + Row `estimate_box` | **done** |
+| F3 — Example `pkg_math_spacing.rpx` + test | **done** |
+| F4 — Tip + docs | **done** |
+
+### F0 — Inseparable run glue
+
+- Extend measure through contiguous cl-08 runs; snap cuts off cl-08×cl-08 pairs (horizontal + vertical soft-wrap). **Commit.**
+
+### F1 — Western word soft-wrap
+
+- Prefer Allowed break before ASCII space; long latin without spaces may still force mid-run. **Commit.**
+
+### F2 — Math class spacing
+
+- `class_spacing_em(left, right) -> f64` thin/med/thick muskip stubs; `MathAtom::spacing_class`; Row width includes gaps. **Commit.**
+
+### F3 — Example
+
+- `examples/pkg_math_spacing.rpx` + package test. **Commit.**
+
+### F4 — Docs
+
+- Mark Wave 12 done; update `lang/implemented-features.md` / package READMEs. **Commit.**
+
+## Remains after Wave 12
+
+- Full UCS membership + normative JLReq §C break matrix + real hanging/justification / word-break.
+- Font-backed ruby / tate-chu-yoko / vertical glyph orientation / real vertical metrics / bou placement.
+- OpenType MATH stretchy fences, accent/script/stackrel attachment, real matrix column alignment / big-op / fraction/radical / muskip metrics.
+- Document/GUI pipeline consuming boxes as production layout (beyond soft-wrapped Text shapes / estimate_box / math-box / stretchy-delim); load-time resource rewrite beyond fail-soft attach; registry resolve + checksum verification (OPEN-PKG-001).
