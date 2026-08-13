@@ -85,6 +85,13 @@ impl CharClass {
         self as u8
     }
 
+    /// JLReq / package character-class numeric id (`cl-01`..=`cl-30`, `0` = Other).
+    ///
+    /// Alias of [`Self::id`] for hosts that prefer an explicit JLReq-oriented name.
+    pub fn as_jlreq_id(self) -> u8 {
+        self.id()
+    }
+
     /// Package-style code, e.g. `"cl-01"`.
     pub fn code(self) -> &'static str {
         match self {
@@ -195,6 +202,18 @@ impl CharClass {
         })
     }
 
+    /// Parse package-style code (`"cl-01"` … `"cl-30"`, or `"cl-other"`).
+    pub fn from_code(code: &str) -> Option<Self> {
+        match code {
+            "cl-other" => Some(Self::Other),
+            _ => {
+                let rest = code.strip_prefix("cl-")?;
+                let n: u8 = rest.parse().ok()?;
+                Self::from_id(n)
+            }
+        }
+    }
+
     pub fn is_punctuation(self) -> bool {
         matches!(
             self,
@@ -234,6 +253,28 @@ impl CharClass {
 impl fmt::Display for CharClass {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(self.code())
+    }
+}
+
+impl From<CharClass> for u8 {
+    fn from(c: CharClass) -> Self {
+        c.as_jlreq_id()
+    }
+}
+
+impl TryFrom<u8> for CharClass {
+    type Error = ();
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        Self::from_id(value).ok_or(())
+    }
+}
+
+impl std::str::FromStr for CharClass {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Self::from_code(s).ok_or(())
     }
 }
 

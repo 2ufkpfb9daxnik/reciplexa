@@ -10,11 +10,21 @@ use reciplexa_std::japanese::{
 #[test]
 fn char_class_ids_and_codes() {
     assert_eq!(CharClass::OpeningBrackets.id(), 1);
+    assert_eq!(CharClass::OpeningBrackets.as_jlreq_id(), 1);
     assert_eq!(CharClass::OpeningBrackets.code(), "cl-01");
     assert_eq!(CharClass::OpeningBrackets.name(), "opening-brackets");
     assert_eq!(CharClass::OpeningBrackets.to_string(), "cl-01");
+    assert_eq!(u8::from(CharClass::OpeningBrackets), 1);
+    assert_eq!(
+        CharClass::try_from(19u8).ok(),
+        Some(CharClass::Ideographic)
+    );
+    assert_eq!("cl-19".parse::<CharClass>().ok(), Some(CharClass::Ideographic));
+    assert_eq!(CharClass::from_code("cl-other"), Some(CharClass::Other));
+    assert_eq!(CharClass::Other.as_jlreq_id(), 0);
     assert_eq!(CharClass::from_id(19), Some(CharClass::Ideographic));
     assert_eq!(CharClass::from_id(0), None);
+    assert!(CharClass::try_from(0u8).is_err());
     assert!(CharClass::FullStops.is_punctuation());
     assert!(CharClass::Hiragana.is_kana());
     assert!(CharClass::WesternCharacters.is_western());
