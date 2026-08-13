@@ -768,3 +768,48 @@ cargo test -p reciplexa-std -p reciplexa-eval -p reciplexa-core -p reciplexa-pac
 - Font-backed ruby / tate-chu-yoko / real vertical metrics / bou placement; OpenType `vert`/`vrt2` / CSS `text-orientation`.
 - OpenType MATH stretchy fences, accent/script/stackrel attachment, real matrix column alignment / big-op / fraction/radical / full muskip style table.
 - Document/GUI pipeline consuming boxes as production layout (beyond soft-wrapped Text shapes / estimate_box / math-box / stretchy-delim); load-time resource rewrite beyond fail-soft attach; registry resolve + checksum verification (OPEN-PKG-001).
+
+---
+
+## Wave 15 — paragraph first-line indent stubs (I0–I3)
+
+Honest scope: fontless `indent_first_line` + optional `doc-paragraph` `indent-em` for first Text x. Not hanging indent / kihon placement / full JLReq paragraph composition.
+
+Gate:
+
+```bat
+set CARGO_TARGET_DIR=d:\reciplexa\target
+set TEMP=d:\reciplexa\.tmp
+set TMP=d:\reciplexa\.tmp
+cargo test -p reciplexa-std -p reciplexa-eval -p reciplexa-core -p reciplexa-package --offline
+```
+
+| Unit | Status |
+|------|--------|
+| I0 — `indent_first_line(lines, em)` | **done** |
+| I1 — `doc-paragraph` optional `indent-em` | **done** |
+| I2 — pkg example / test | **done** |
+| I3 — Docs | **done** |
+
+### I0 — Indent stub
+
+- `indent_first_line` → `(x_em, line)` with first line offset. **Commit.**
+
+### I1 — Document lower
+
+- Optional `indent-em` on `doc-paragraph` offsets first Text x (`1em ≈ size_mm`). **Commit.**
+
+### I2 — Example
+
+- `paragraph-indented` export + `examples/pkg_document_indent.rpx` + bridge test. **Commit.**
+
+### I3 — Docs
+
+- Mark Wave 15 done; tip + package / implemented-features notes. **Commit.**
+
+## Remains after Wave 15
+
+- Full UCS membership + normative JLReq §C break matrix + real hanging/justification / word-break / paragraph composition.
+- Font-backed ruby / tate-chu-yoko / real vertical metrics / bou placement; OpenType `vert`/`vrt2` / CSS `text-orientation`.
+- OpenType MATH stretchy fences, accent/script/stackrel attachment, real matrix column alignment / big-op / fraction/radical / full muskip style table.
+- Document/GUI pipeline consuming boxes as production layout (beyond soft-wrapped Text shapes / estimate_box / math-box / stretchy-delim / first-line indent stub); load-time resource rewrite beyond fail-soft attach; registry resolve + checksum verification (OPEN-PKG-001).
