@@ -1,0 +1,24 @@
+(// language-only: ker builtin ruby-box + document/page demo.
+ // Metrics from Ruby::estimate_box; page is a tagged document surface stub.)
+
+(import document/page only
+  a4 page flow section heading paragraph
+  block-heading block-paragraph)
+
+(val ruby (ruby-box "東京" "とうきょう"))
+
+(val title (heading 1 "Ruby box"))
+(val body (paragraph "東京（とうきょう）— fontless ruby-box metrics, not JLReq placement."))
+
+(val main
+  (record
+    (tag "ja-ruby-demo")
+    (ruby ruby)
+    (page
+      (page a4
+        (flow
+          (list
+            (section title
+              (list
+                (block-heading title)
+                (block-paragraph body)))))))))
