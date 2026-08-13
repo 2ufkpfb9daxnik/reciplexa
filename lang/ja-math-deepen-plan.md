@@ -934,3 +934,42 @@ cargo test -p reciplexa-std -p reciplexa-eval -p reciplexa-core -p reciplexa-pac
 - Font-backed ruby / tate-chu-yoko / real vertical metrics / bou placement; OpenType `vert`/`vrt2` / CSS `text-orientation`.
 - OpenType MATH stretchy fences, accent/script/stackrel attachment, real matrix column alignment / big-op / fraction/radical / full muskip style table; phantom/smash stubs.
 - Document/GUI pipeline consuming boxes as production layout (beyond soft-wrapped Text shapes / estimate_box / math-box / stretchy-delim / first-line indent / place_lines / EstimateStyle / vertical place stubs); load-time resource rewrite beyond fail-soft attach; registry resolve + checksum verification (OPEN-PKG-001).
+
+## Wave 19 — math phantom / smash estimate stubs (M0–M2)
+
+Honest scope: thin `phantom_box` / `smash_box` helpers that zero width or height+depth on a [`MathBox`]. Not `MathAtom` variants / OpenType MATH phantoms / TeX `\mathsm@sh`.
+
+Gate:
+
+```bat
+set CARGO_TARGET_DIR=d:\reciplexa\target
+set TEMP=d:\reciplexa\.tmp
+set TMP=d:\reciplexa\.tmp
+cargo test -p reciplexa-std -p reciplexa-eval -p reciplexa-core -p reciplexa-package --offline
+```
+
+| Unit | Status |
+|------|--------|
+| M0 — `phantom_box` / `smash_box` | **done** |
+| M1 — Tests | **done** |
+| M2 — Docs | **done** |
+
+### M0 — Helpers
+
+- `phantom_box(inner)` → width `0`, keep height/depth (vphantom-ish).
+- `smash_box(inner)` → height/depth `0`, keep width. **Commit.**
+
+### M1 — Tests
+
+- Std + eval tip covering helpers on `estimate_box` / `math-box` path. No language builtin (optional deferred). **Commit.**
+
+### M2 — Docs
+
+- Mark Wave 19 done; package / implemented-features notes. **Commit.**
+
+## Remains after Wave 19
+
+- Full UCS membership + normative JLReq §C break matrix + real hanging/justification / word-break / paragraph composition (emoji/color still misclassified as Ideographic via high-BMP fallback).
+- Font-backed ruby / tate-chu-yoko / real vertical metrics / bou placement; OpenType `vert`/`vrt2` / CSS `text-orientation`.
+- OpenType MATH stretchy fences, accent/script/stackrel attachment, real matrix column alignment / big-op / fraction/radical / full muskip style table / real phantom atoms.
+- Document/GUI pipeline consuming boxes as production layout (beyond soft-wrapped Text shapes / estimate_box / math-box / stretchy-delim / first-line indent / place_lines / EstimateStyle / vertical place / phantom-smash stubs); load-time resource rewrite beyond fail-soft attach; registry resolve + checksum verification (OPEN-PKG-001).
