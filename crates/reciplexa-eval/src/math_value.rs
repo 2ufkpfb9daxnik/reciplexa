@@ -9,8 +9,8 @@ use std::cell::Cell;
 use reciplexa_identity::document::StableNodeId;
 use reciplexa_scene::Shape;
 use reciplexa_std::math::{
-    layout_math_atom_to_shapes, scripts_attachment_offsets, EstimateStyle, MathAccentKind,
-    MathAtom, MathBox, MathClass, MathMatrixKind, MathStackKind,
+    layout_math_atom_to_shapes_with_style, scripts_attachment_offsets, EstimateStyle,
+    MathAccentKind, MathAtom, MathBox, MathClass, MathMatrixKind, MathStackKind,
 };
 
 use crate::value::RuntimeValue;
@@ -99,14 +99,14 @@ pub fn math_atom_from_value(v: &RuntimeValue) -> Result<MathAtom, MathValueError
 /// (monospace heuristic) at `origin` (mm). Scripts / BigOp / Fraction / Radical
 /// use std attachment heuristics and Line rules (LL7–LL11).
 ///
-/// `math-phantom` / `math-smash` metric records produce **no ink** (empty
-/// shape list). Not TeX `\mathsm@sh` (smash still draws) or OpenType MATH
-/// phantom nodes — see `lang/live-layout-plan.md`.
-///
-/// Not OpenType MATH — see `lang/live-layout-plan.md`.
+/// `layout_style` selects [`EstimateStyle::Display`] vs [`EstimateStyle::Text`]
+/// for box estimates (script / limit shrink). `math-phantom` / `math-smash`
+/// metric records produce **no ink** (empty shape list). Not TeX `\mathsm@sh`
+/// or OpenType MATH — see `lang/live-layout-plan.md`.
 pub fn layout_math_to_shapes(
     math_value: &RuntimeValue,
     origin: (f64, f64),
+    layout_style: EstimateStyle,
 ) -> Result<Vec<Shape>, MathValueError> {
     if let Ok(fields) = record_fields(math_value) {
         if matches!(tag_of(fields), Some("math-phantom" | "math-smash")) {
@@ -114,7 +114,11 @@ pub fn layout_math_to_shapes(
         }
     }
     let atom = math_atom_from_value(math_value)?;
-    Ok(layout_math_atom_to_shapes(&atom, origin))
+    Ok(layout_math_atom_to_shapes_with_style(
+        &atom,
+        origin,
+        layout_style,
+    ))
 }
 
 #[derive(Default)]
@@ -770,7 +774,8 @@ mod tip_tests {
             ("class", RuntimeValue::String("ord".into())),
         ]);
         // Symbol-only (still linearize path).
-        let shapes = layout_math_to_shapes(&a, (10.0, 200.0)).expect("math shapes");
+        let shapes =
+            layout_math_to_shapes(&a, (10.0, 200.0), EstimateStyle::Display).expect("math shapes");
         match &shapes[0] {
             Shape::Text(t) => {
                 assert_eq!(t.content, "a");
@@ -786,7 +791,8 @@ mod tip_tests {
             ("numerator", a),
             ("denominator", b),
         ]);
-        let frac_shapes = layout_math_to_shapes(&frac, (10.0, 200.0)).expect("frac shapes");
+        let frac_shapes = layout_math_to_shapes(&frac, (10.0, 200.0), EstimateStyle::Display)
+            .expect("frac shapes");
         let texts: Vec<_> = frac_shapes
             .iter()
             .filter_map(|s| match s {
@@ -831,8 +837,10 @@ mod tip_tests {
             ("height", RuntimeValue::Number(0.0)),
             ("depth", RuntimeValue::Number(0.0)),
         ]);
-        let p = layout_math_to_shapes(&phantom, (10.0, 200.0)).expect("phantom");
-        let s = layout_math_to_shapes(&smash, (10.0, 200.0)).expect("smash");
+        let p = layout_math_to_shapes(&phantom, (10.0, 200.0), EstimateStyle::Display)
+            .expect("phantom");
+        let s =
+            layout_math_to_shapes(&smash, (10.0, 200.0), EstimateStyle::Display).expect("smash");
         assert!(p.is_empty(), "phantom must produce no ink: {p:?}");
         assert!(s.is_empty(), "smash must produce no/zero ink: {s:?}");
 
@@ -841,11 +849,69 @@ mod tip_tests {
             ("glyph", RuntimeValue::String("x".into())),
             ("class", RuntimeValue::String("ord".into())),
         ]);
-        let ink = layout_math_to_shapes(&vis, (10.0, 200.0)).expect("symbol");
+        let ink =
+            layout_math_to_shapes(&vis, (10.0, 200.0), EstimateStyle::Display).expect("symbol");
         assert!(
             ink.iter()
                 .any(|sh| matches!(sh, Shape::Text(t) if t.content == "x")),
             "visible symbol still inks: {ink:?}"
+        );
+    }
+
+    #[test]
+    fn layout_math_to_shapes_honors_layout_style() {
+        // Row hits the linearize path; a superscripted scripts child's
+        // estimate_box height uses script_scale, so Text vs Display changes
+        // glyph height_mm.
+        fn cons(items: Vec<RuntimeValue>) -> RuntimeValue {
+            let mut cur = RuntimeValue::Variant {
+                tag: "nil".into(),
+                payload: None,
+            };
+            for item in items.into_iter().rev() {
+                cur = RuntimeValue::Variant {
+                    tag: "cons".into(),
+                    payload: Some(Box::new(RuntimeValue::Record(vec![
+                        ("head".into(), item),
+                        ("tail".into(), cur),
+                    ]))),
+                };
+            }
+            cur
+        }
+        let x = rec(vec![
+            ("tag", RuntimeValue::String("math-symbol".into())),
+            ("glyph", RuntimeValue::String("x".into())),
+            ("class", RuntimeValue::String("ord".into())),
+        ]);
+        let n = rec(vec![
+            ("tag", RuntimeValue::String("math-symbol".into())),
+            ("glyph", RuntimeValue::String("n".into())),
+            ("class", RuntimeValue::String("ord".into())),
+        ]);
+        let scripts = rec(vec![
+            ("tag", RuntimeValue::String("math-scripts".into())),
+            ("base", x),
+            ("superscript", n),
+        ]);
+        let row = rec(vec![
+            ("tag", RuntimeValue::String("math-row".into())),
+            ("children", cons(vec![scripts])),
+        ]);
+        let d =
+            layout_math_to_shapes(&row, (10.0, 200.0), EstimateStyle::Display).expect("display");
+        let t = layout_math_to_shapes(&row, (10.0, 200.0), EstimateStyle::Text).expect("text");
+        let h = |shapes: &[Shape]| {
+            shapes.iter().find_map(|s| match s {
+                Shape::Text(tx) => tx.height_mm,
+                _ => None,
+            })
+        };
+        let dh = h(&d).expect("display height");
+        let th = h(&t).expect("text height");
+        assert!(
+            (dh - th).abs() > 1e-9,
+            "layout_style Text vs Display should change row glyph height_mm, {dh} vs {th}"
         );
     }
 }

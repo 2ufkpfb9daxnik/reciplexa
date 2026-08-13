@@ -12,6 +12,7 @@ use reciplexa_eval::{
     eval_expr, layout_doc_page_to_scene, layout_math_to_shapes, RuntimeValue, UnitHost,
 };
 use reciplexa_scene::{Document, Shape};
+use reciplexa_std::math::EstimateStyle;
 
 use crate::graphics_bridge::GraphicsBridgeError;
 use crate::load::{elaborate_with_packages, LocalPackageIndex};
@@ -56,8 +57,8 @@ pub fn document_from_live_layout_value(v: &RuntimeValue) -> Result<Document, Gra
 
     let mut doc = layout_doc_page_to_scene(page_v).map_err(GraphicsBridgeError::from)?;
     let origin = math_origin_below_doc(&doc);
-    let math_shapes =
-        layout_math_to_shapes(math_v, origin).map_err(|e| GraphicsBridgeError::Bridge(e.message))?;
+    let math_shapes = layout_math_to_shapes(math_v, origin, EstimateStyle::Display)
+        .map_err(|e| GraphicsBridgeError::Bridge(e.message))?;
     if let Some(page) = doc.pages.first_mut() {
         page.shapes.extend(math_shapes);
     }

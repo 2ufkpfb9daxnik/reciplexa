@@ -1270,6 +1270,24 @@ pub fn layout_math_atom_to_shapes(
     atom: &MathAtom,
     origin: (f64, f64),
 ) -> Vec<reciplexa_scene::Shape> {
+    layout_math_atom_styled(atom, origin, EstimateStyle::Display)
+}
+
+/// Like [`layout_math_atom_to_shapes`], using [`EstimateStyle`] for box
+/// estimates (script / limit shrink). Heuristic only — not TeX `\textstyle`.
+pub fn layout_math_atom_to_shapes_with_style(
+    atom: &MathAtom,
+    origin: (f64, f64),
+    style: EstimateStyle,
+) -> Vec<reciplexa_scene::Shape> {
+    layout_math_atom_styled(atom, origin, style)
+}
+
+fn layout_math_atom_styled(
+    atom: &MathAtom,
+    origin: (f64, f64),
+    style: EstimateStyle,
+) -> Vec<reciplexa_scene::Shape> {
     match atom {
         MathAtom::Stack { kind, children, .. } => {
             if children.is_empty() {
@@ -1278,22 +1296,22 @@ pub fn layout_math_atom_to_shapes(
             if *kind == MathStackKind::Stackrel && children.len() >= 2 {
                 let upper = &children[0];
                 let lower = &children[1];
-                let ub = upper.estimate_box();
-                let lb = lower.estimate_box();
+                let ub = upper.estimate_box_with_style(style);
+                let lb = lower.estimate_box_with_style(style);
                 let width = ub.width.max(lb.width);
                 let (uy, ly) = stackrel_spacing_offsets(ub, lb);
                 let mut shapes = Vec::new();
                 let uo = math_offset_to_scene_mm(origin, (width - ub.width) * 0.5, uy);
-                shapes.extend(layout_math_atom_to_shapes(upper, uo));
+                shapes.extend(layout_math_atom_styled(upper, uo, style));
                 let lo = math_offset_to_scene_mm(origin, (width - lb.width) * 0.5, ly);
-                shapes.extend(layout_math_atom_to_shapes(lower, lo));
+                shapes.extend(layout_math_atom_styled(lower, lo, style));
                 // Extra children (rare) stack further below the lower band.
                 let mut y = ly - lb.depth - 0.1;
                 for extra in children.iter().skip(2) {
-                    let eb = extra.estimate_box();
+                    let eb = extra.estimate_box_with_style(style);
                     y -= eb.height;
                     let eo = math_offset_to_scene_mm(origin, (width - eb.width) * 0.5, y);
-                    shapes.extend(layout_math_atom_to_shapes(extra, eo));
+                    shapes.extend(layout_math_atom_styled(extra, eo, style));
                     y -= eb.depth + 0.1;
                 }
                 return shapes;
@@ -1302,7 +1320,10 @@ pub fn layout_math_atom_to_shapes(
                 MathStackKind::Stackrel => STACKREL_GAP_EM,
                 _ => 0.1,
             };
-            let boxes: Vec<_> = children.iter().map(|c| c.estimate_box()).collect();
+            let boxes: Vec<_> = children
+                .iter()
+                .map(|c| c.estimate_box_with_style(style))
+                .collect();
             let width = boxes.iter().map(|b| b.width).fold(0.0_f64, f64::max);
             let total: f64 = boxes.iter().map(|b| b.total_height() + gap).sum::<f64>()
                 - if boxes.is_empty() { 0.0 } else { gap };
@@ -1311,18 +1332,18 @@ pub fn layout_math_atom_to_shapes(
             for (child, b) in children.iter().zip(boxes.iter()) {
                 let baseline = y - b.height;
                 let o = math_offset_to_scene_mm(origin, (width - b.width) * 0.5, baseline);
-                shapes.extend(layout_math_atom_to_shapes(child, o));
+                shapes.extend(layout_math_atom_styled(child, o, style));
                 y -= b.total_height() + gap;
             }
             shapes
         }
         MathAtom::Aligned { rows, .. } => {
-            layout_math_grid_to_shapes(rows, origin, None, None, /* left_align */ true)
+            layout_math_grid_to_shapes(rows, origin, None, None, /* left_align */ true, style)
         }
         MathAtom::Accent { kind, base, .. } => {
-            let base_box = base.estimate_box();
+            let base_box = base.estimate_box_with_style(style);
             let (dx, dy) = accent_attachment_offset(*kind, base_box);
-            let mut shapes = layout_math_atom_to_shapes(base, origin);
+            let mut shapes = layout_math_atom_styled(base, origin, style);
             let mark = accent_mark_glyph(*kind);
             let mark_origin = math_offset_to_scene_mm(origin, dx, dy);
             let size_mm = MATH_LAYOUT_EM_TO_MM;
@@ -1346,6 +1367,7 @@ pub fn layout_math_atom_to_shapes(
             left.as_deref(),
             right.as_deref(),
             /* cases-style left brace ⇒ left-align cells */ left.is_some(),
+            style,
         ),
         MathAtom::Delimiter {
             left,
@@ -1354,14 +1376,14 @@ pub fn layout_math_atom_to_shapes(
             stretch_factor,
             ..
         } => {
-            let inner = body.estimate_box();
+            let inner = body.estimate_box_with_style(style);
             let (fence_h, fence_d) = delimiter_fence_extent_em(inner, *stretch_factor);
             let fence_size_em = fence_h + fence_d;
             let left_w = delimiter_fence_pad_em(left);
             let right_w = delimiter_fence_pad_em(right);
             let mut shapes = layout_fence_chars(left, origin, fence_size_em, left_w);
             let body_origin = math_offset_to_scene_mm(origin, left_w, 0.0);
-            shapes.extend(layout_math_atom_to_shapes(body, body_origin));
+            shapes.extend(layout_math_atom_styled(body, body_origin, style));
             let right_origin = math_offset_to_scene_mm(origin, left_w + inner.width, 0.0);
             shapes.extend(layout_fence_chars(
                 right,
@@ -1377,19 +1399,21 @@ pub fn layout_math_atom_to_shapes(
             subscript,
             ..
         } => {
-            let base_box = base.estimate_box();
-            let sub_box = subscript.as_ref().map(|s| s.estimate_box());
-            let sup_box = superscript.as_ref().map(|s| s.estimate_box());
+            let base_box = base.estimate_box_with_style(style);
+            let sub_box = subscript.as_ref().map(|s| s.estimate_box_with_style(style));
+            let sup_box = superscript
+                .as_ref()
+                .map(|s| s.estimate_box_with_style(style));
             let (sub_x, sub_y, sup_x, sup_y) =
                 scripts_attachment_offsets(base_box, sub_box, sup_box);
-            let mut shapes = layout_math_atom_to_shapes(base, origin);
+            let mut shapes = layout_math_atom_styled(base, origin, style);
             if let Some(sub) = subscript {
                 let o = math_offset_to_scene_mm(origin, sub_x, sub_y);
-                shapes.extend(layout_math_atom_to_shapes(sub, o));
+                shapes.extend(layout_math_atom_styled(sub, o, style));
             }
             if let Some(sup) = superscript {
                 let o = math_offset_to_scene_mm(origin, sup_x, sup_y);
-                shapes.extend(layout_math_atom_to_shapes(sup, o));
+                shapes.extend(layout_math_atom_styled(sup, o, style));
             }
             shapes
         }
@@ -1402,18 +1426,18 @@ pub fn layout_math_atom_to_shapes(
             ..
         } => {
             let op_atom = MathAtom::symbol(*id, operator.clone(), MathClass::Operator);
-            let op_box = op_atom.estimate_box();
-            let lower_box = lower.as_ref().map(|a| a.estimate_box());
-            let upper_box = upper.as_ref().map(|a| a.estimate_box());
+            let op_box = op_atom.estimate_box_with_style(style);
+            let lower_box = lower.as_ref().map(|a| a.estimate_box_with_style(style));
+            let upper_box = upper.as_ref().map(|a| a.estimate_box_with_style(style));
             let (lx, ly, ux, uy) = bigop_limit_offsets(op_box, lower_box, upper_box);
-            let mut shapes = layout_math_atom_to_shapes(&op_atom, origin);
+            let mut shapes = layout_math_atom_styled(&op_atom, origin, style);
             if let Some(lo) = lower {
                 let o = math_offset_to_scene_mm(origin, lx, ly);
-                shapes.extend(layout_math_atom_to_shapes(lo, o));
+                shapes.extend(layout_math_atom_styled(lo, o, style));
             }
             if let Some(up) = upper {
                 let o = math_offset_to_scene_mm(origin, ux, uy);
-                shapes.extend(layout_math_atom_to_shapes(up, o));
+                shapes.extend(layout_math_atom_styled(up, o, style));
             }
             if let Some(b) = body {
                 // Body sits to the right of the operator (display-style stub).
@@ -1421,7 +1445,7 @@ pub fn layout_math_atom_to_shapes(
                     origin.0 + (op_box.width + 0.2) * MATH_LAYOUT_EM_TO_MM,
                     origin.1,
                 );
-                shapes.extend(layout_math_atom_to_shapes(b, body_origin));
+                shapes.extend(layout_math_atom_styled(b, body_origin, style));
             }
             shapes
         }
@@ -1430,9 +1454,9 @@ pub fn layout_math_atom_to_shapes(
             denominator,
             ..
         } => {
-            let num_box = numerator.estimate_box();
-            let den_box = denominator.estimate_box();
-            let frac_box = atom.estimate_box();
+            let num_box = numerator.estimate_box_with_style(style);
+            let den_box = denominator.estimate_box_with_style(style);
+            let frac_box = atom.estimate_box_with_style(style);
             let (rule_em, num_clr, den_clr) = fraction_rule_metrics();
             let width = frac_box.width;
             let num_dx = (width - num_box.width) * 0.5;
@@ -1442,9 +1466,10 @@ pub fn layout_math_atom_to_shapes(
             let num_dy = rule_em + num_clr + num_box.depth;
             let den_dy = -(den_clr + den_box.height);
             let mut shapes = Vec::new();
-            shapes.extend(layout_math_atom_to_shapes(
+            shapes.extend(layout_math_atom_styled(
                 numerator,
                 math_offset_to_scene_mm(origin, num_dx, num_dy),
+                style,
             ));
             let (ox, oy) = origin;
             let rule_w_mm = (rule_em * MATH_LAYOUT_EM_TO_MM).max(0.15);
@@ -1456,24 +1481,25 @@ pub fn layout_math_atom_to_shapes(
                 stroke: reciplexa_scene::Color::BLACK,
                 width_mm: rule_w_mm,
             }));
-            shapes.extend(layout_math_atom_to_shapes(
+            shapes.extend(layout_math_atom_styled(
                 denominator,
                 math_offset_to_scene_mm(origin, den_dx, den_dy),
+                style,
             ));
             shapes
         }
         MathAtom::Radical {
             index, radicand, ..
         } => {
-            let body = radicand.estimate_box();
-            let idx_box = index.as_ref().map(|i| i.estimate_box());
+            let body = radicand.estimate_box_with_style(style);
+            let idx_box = index.as_ref().map(|i| i.estimate_box_with_style(style));
             let (vinculum_y, index_x, index_y) = radical_vinculum_index_offsets(body, idx_box);
             // Radicand origin shifted right by surd pad (heuristic gutter).
             let rad_origin = math_offset_to_scene_mm(origin, RADICAL_SURD_PAD_EM, 0.0);
-            let mut shapes = layout_math_atom_to_shapes(radicand, rad_origin);
+            let mut shapes = layout_math_atom_styled(radicand, rad_origin, style);
             if let Some(idx) = index {
                 let o = math_offset_to_scene_mm(origin, index_x, index_y);
-                shapes.extend(layout_math_atom_to_shapes(idx, o));
+                shapes.extend(layout_math_atom_styled(idx, o, style));
             }
             let (ox, oy) = rad_origin;
             let bar_y = oy - vinculum_y * MATH_LAYOUT_EM_TO_MM;
@@ -1488,7 +1514,7 @@ pub fn layout_math_atom_to_shapes(
             }));
             shapes
         }
-        _ => layout_math_linearize_glyphs(atom, origin),
+        _ => layout_math_linearize_glyphs(atom, origin, style),
     }
 }
 
@@ -1546,13 +1572,14 @@ fn layout_math_grid_to_shapes(
     left: Option<&str>,
     right: Option<&str>,
     left_align: bool,
+    style: EstimateStyle,
 ) -> Vec<reciplexa_scene::Shape> {
     let col_widths = matrix_column_widths(rows);
     let row_heights: Vec<f64> = rows
         .iter()
         .map(|row| {
             row.iter()
-                .map(|c| c.estimate_box().total_height())
+                .map(|c| c.estimate_box_with_style(style).total_height())
                 .fold(0.0_f64, f64::max)
                 .max(0.5)
         })
@@ -1603,7 +1630,7 @@ fn layout_math_grid_to_shapes(
         let rh = row_heights.get(ri).copied().unwrap_or(0.5);
         let row_baseline = y_cursor - rh * 0.55;
         for (ci, cell) in row.iter().enumerate() {
-            let cell_box = cell.estimate_box();
+            let cell_box = cell.estimate_box_with_style(style);
             let col_w = col_widths.get(ci).copied().unwrap_or(cell_box.width);
             let align = if left_align {
                 cases_column_align(ci)
@@ -1614,7 +1641,7 @@ fn layout_math_grid_to_shapes(
                 + aligned_column_x(rows, ci)
                 + matrix_cell_x_in_column(cell_box.width, col_w, align);
             let o = math_offset_to_scene_mm(origin, dx, row_baseline);
-            shapes.extend(layout_math_atom_to_shapes(cell, o));
+            shapes.extend(layout_math_atom_styled(cell, o, style));
         }
         y_cursor -= rh + row_gap;
     }
@@ -1630,9 +1657,10 @@ fn layout_math_grid_to_shapes(
 fn layout_math_linearize_glyphs(
     atom: &MathAtom,
     origin: (f64, f64),
+    style: EstimateStyle,
 ) -> Vec<reciplexa_scene::Shape> {
     let content = atom.linearize();
-    let mbox = atom.estimate_box();
+    let mbox = atom.estimate_box_with_style(style);
     let (ox, oy) = origin;
     let size_mm = MATH_LAYOUT_EM_TO_MM;
     let n = content.chars().count().max(1) as f64;
