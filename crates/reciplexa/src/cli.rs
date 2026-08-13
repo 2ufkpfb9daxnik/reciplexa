@@ -47,33 +47,72 @@ pub fn cmd_format(path: &str) -> Result<(), String> {
 
 pub fn cmd_inspect_document(path: &str) -> Result<(), String> {
     let src = std::fs::read_to_string(path).map_err(|e| format!("read {path}: {e}"))?;
-    let snap = crate::document_pipeline::document_snapshot_from_source(
+    match crate::document_pipeline::document_snapshot_from_source(
         &src,
         reciplexa_identity::document::DocumentIdentity::new(1),
-    )?;
-    println!(
-        "document {} rev {} nodes {}",
-        snap.identity.get(),
-        snap.revision.get(),
-        snap.nodes.iter().count()
-    );
-    for node in snap.nodes.iter() {
-        println!("  {:?} id={}", node.kind, node.id.get());
+    ) {
+        Ok(snap) => {
+            println!(
+                "document {} rev {} nodes {}",
+                snap.identity.get(),
+                snap.revision.get(),
+                snap.nodes.iter().count()
+            );
+            for node in snap.nodes.iter() {
+                println!("  {:?} id={}", node.kind, node.id.get());
+            }
+            // HC2: optional host note when the snapshot carries Text shapes (e.g. JA wrap).
+            let shapes = crate::document_pipeline::preview_shapes(&snap);
+            if shapes
+                .iter()
+                .any(|s| matches!(s, reciplexa_scene::Shape::Text(_)))
+            {
+                let doc = reciplexa_scene::Document::single_page(reciplexa_scene::Page {
+                    paper: reciplexa_scene::PaperSize::a4(),
+                    shapes,
+                });
+                let metrics = reciplexa_package::preview_doc_text_metrics_from_document(&doc);
+                println!("{}", metrics.diagnostic_note());
+            }
+            Ok(())
+        }
+        Err(doc_err) => {
+            // Host layout: math-ish package mains get a fontless box estimate.
+            if !source_looks_math_ish(&src) {
+                return Err(doc_err);
+            }
+            match try_inspect_math_main(path) {
+                Ok(note) => {
+                    println!("{note}");
+                    Ok(())
+                }
+                Err(math_err) => Err(format!("{doc_err}; math estimate: {math_err}")),
+            }
+        }
     }
-    // HC2: optional host note when the snapshot carries Text shapes (e.g. JA wrap).
-    let shapes = crate::document_pipeline::preview_shapes(&snap);
-    if shapes
-        .iter()
-        .any(|s| matches!(s, reciplexa_scene::Shape::Text(_)))
-    {
-        let doc = reciplexa_scene::Document::single_page(reciplexa_scene::Page {
-            paper: reciplexa_scene::PaperSize::a4(),
-            shapes,
-        });
-        let metrics = reciplexa_package::preview_doc_text_metrics_from_document(&doc);
-        println!("{}", metrics.diagnostic_note());
-    }
-    Ok(())
+}
+
+fn source_looks_math_ish(src: &str) -> bool {
+    src.contains("(import math/")
+}
+
+fn try_inspect_math_main(path: &str) -> Result<String, String> {
+    use std::path::Path;
+
+    use reciplexa_package::{estimate_package_math_main, LocalPackageIndex};
+
+    let entry = Path::new(path);
+    let search_roots = crate::pipeline::package_search_roots_near(Some(entry));
+    let roots: Vec<&Path> = search_roots.iter().map(|p| p.as_path()).collect();
+    let idx = LocalPackageIndex::discover(&roots).map_err(|e| e.to_string())?;
+    let box_ = estimate_package_math_main(entry, &idx).map_err(|e| e.to_string())?;
+    Ok(format!(
+        "math box estimate: width={:.3}em height={:.3}em depth={:.3}em total={:.3}em",
+        box_.width,
+        box_.height,
+        box_.depth,
+        box_.total_height()
+    ))
 }
 
 pub fn cmd_inspect_syntax(path: &str) -> Result<(), String> {
@@ -464,6 +503,30 @@ mod tests {
         std::fs::write(&path, "(val main 1)").unwrap();
         let err = cmd_inspect_document(path.to_str().unwrap()).unwrap_err();
         assert!(!err.is_empty());
+    }
+
+    #[test]
+    fn inspect_document_math_ish_prints_box_estimate() {
+        std::thread::Builder::new()
+            .name("inspect-math".into())
+            .stack_size(8 * 1024 * 1024)
+            .spawn(|| {
+                let entry = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                    .join("../../examples/pkg_math.rpx");
+                // Capture stdout is awkward in unit tests; assert Ok + note via helper.
+                let src = std::fs::read_to_string(&entry).expect("pkg_math");
+                assert!(super::source_looks_math_ish(&src));
+                let note = super::try_inspect_math_main(entry.to_str().unwrap())
+                    .expect("math box estimate");
+                assert!(
+                    note.contains("math box estimate:") && note.contains("width="),
+                    "unexpected note: {note}"
+                );
+                cmd_inspect_document(entry.to_str().unwrap()).expect("inspect math main");
+            })
+            .expect("spawn")
+            .join()
+            .expect("join");
     }
 
     #[test]

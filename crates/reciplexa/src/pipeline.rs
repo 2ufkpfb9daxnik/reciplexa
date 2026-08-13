@@ -150,20 +150,38 @@ fn has_top_level_interim_page(src: &str) -> bool {
 }
 
 fn package_search_roots() -> Vec<PathBuf> {
+    package_search_roots_near(None)
+}
+
+fn push_packages_under(start: PathBuf, roots: &mut Vec<PathBuf>) {
+    let mut dir = start;
+    for _ in 0..8 {
+        let packages = dir.join("packages");
+        if packages.is_dir() {
+            let canon = packages.canonicalize().unwrap_or(packages);
+            if !roots.iter().any(|r| r == &canon) {
+                roots.push(canon);
+            }
+            return;
+        }
+        if !dir.pop() {
+            return;
+        }
+    }
+}
+
+/// Discover `packages/` from cwd / env, optionally walking up from an entry path.
+pub(crate) fn package_search_roots_near(hint: Option<&Path>) -> Vec<PathBuf> {
     if let Ok(p) = std::env::var("RECIPLEXA_PACKAGE_ROOT") {
         return vec![PathBuf::from(p)];
     }
     let mut roots = Vec::new();
-    if let Ok(mut dir) = std::env::current_dir() {
-        for _ in 0..8 {
-            let packages = dir.join("packages");
-            if packages.is_dir() {
-                roots.push(packages);
-                break;
-            }
-            if !dir.pop() {
-                break;
-            }
+    if let Some(parent) = hint.and_then(|p| p.parent()) {
+        push_packages_under(parent.to_path_buf(), &mut roots);
+    }
+    if roots.is_empty() {
+        if let Ok(dir) = std::env::current_dir() {
+            push_packages_under(dir, &mut roots);
         }
     }
     if roots.is_empty() {
