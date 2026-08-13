@@ -1191,3 +1191,41 @@ cargo test -p reciplexa-std -p reciplexa-eval -p reciplexa-core -p reciplexa-pac
 - Font-backed ruby / tate-chu-yoko / real vertical metrics / bou placement; OpenType `vert`/`vrt2` / CSS `text-orientation`.
 - OpenType MATH stretchy fences, accent/script/stackrel attachment, real matrix column alignment / big-op / fraction/radical / full muskip style table / real phantom atoms.
 - Document/GUI pipeline consuming boxes as production layout; load-time resource rewrite beyond fail-soft attach; registry resolve + checksum verification (OPEN-PKG-001).
+
+## Wave 26 — JA line-head/end trimming stub (T0–T2)
+
+Honest scope: fontless `trimming_width_em(class)` / `TRIMMING_WIDTH_EM` (0.5) for line-head opens and line-end closers/stops; light use in `justify_line` natural-width. Not full JLReq 詰め / proportional aki / wired into `break_line` / `char_em_width`.
+
+Gate:
+
+```bat
+set CARGO_TARGET_DIR=d:\reciplexa\target
+set TEMP=d:\reciplexa\.tmp
+set TMP=d:\reciplexa\.tmp
+cargo test -p reciplexa-std -p reciplexa-eval -p reciplexa-core -p reciplexa-package --offline
+```
+
+| Unit | Status |
+|------|--------|
+| T0 — `trimming_width_em` stub | **done** |
+| T1 — Use in `justify_line` | **done** |
+| T2 — Docs | **done** |
+
+### T0 — Helper
+
+- `trimming_width_em` / `trimming_width_em_char` / `is_trimmable_line_head` / `is_trimmable_line_end`. **Commit.**
+
+### T1 — Light consumption
+
+- `justify_line` subtracts head/end trim from natural width before distributing slack. **Commit.**
+
+### T2 — Docs
+
+- Mark Wave 26 done; package / implemented-features notes. **Commit.**
+
+## Remains after Wave 26
+
+- Full UCS membership + normative JLReq §C break matrix + real hanging/justification / word-break / paragraph composition (punctuation packing / trimming not wired into `break_line` / `char_em_width`).
+- Font-backed ruby / tate-chu-yoko / real vertical metrics / bou placement; OpenType `vert`/`vrt2` / CSS `text-orientation`.
+- OpenType MATH stretchy fences, accent/script/stackrel attachment, real matrix column alignment / big-op / fraction/radical / full muskip style table / real phantom atoms.
+- Document/GUI pipeline consuming boxes as production layout; load-time resource rewrite beyond fail-soft attach; registry resolve + checksum verification (OPEN-PKG-001).
