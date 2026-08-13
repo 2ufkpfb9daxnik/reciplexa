@@ -851,11 +851,7 @@ pub fn cases_column_align(_column: usize) -> MatrixColumnAlign {
 }
 
 /// X offset of a cell within its column band (`0` = left edge of the column).
-pub fn matrix_cell_x_in_column(
-    cell_width: f64,
-    col_width: f64,
-    align: MatrixColumnAlign,
-) -> f64 {
+pub fn matrix_cell_x_in_column(cell_width: f64, col_width: f64, align: MatrixColumnAlign) -> f64 {
     let slack = (col_width - cell_width).max(0.0);
     match align {
         MatrixColumnAlign::Left => 0.0,
@@ -878,8 +874,8 @@ pub fn aligned_column_x(rows: &[Vec<MathAtom>], col: usize) -> f64 {
         return 0.0;
     }
     let mut x = 0.0_f64;
-    for i in 0..col.min(widths.len()) {
-        x += widths[i] + ALIGNED_COLUMN_GUTTER_EM;
+    for w in widths.iter().take(col.min(widths.len())) {
+        x += w + ALIGNED_COLUMN_GUTTER_EM;
     }
     x
 }
@@ -943,9 +939,8 @@ impl MathAtom {
             } => {
                 let body = radicand.estimate_box_with_style(style);
                 let mut width = body.width + RADICAL_SURD_PAD_EM;
-                let mut height = body.height
-                    + RADICAL_VINCULUM_CLEARANCE_EM
-                    + RADICAL_VINCULUM_THICKNESS_EM;
+                let mut height =
+                    body.height + RADICAL_VINCULUM_CLEARANCE_EM + RADICAL_VINCULUM_THICKNESS_EM;
                 let depth = body.depth;
                 if let Some(idx) = index {
                     let ib = idx.estimate_box_with_style(style);

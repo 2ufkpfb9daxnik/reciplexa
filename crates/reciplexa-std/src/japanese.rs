@@ -750,7 +750,7 @@ pub fn break_line(text: &str, max_em_units: f64) -> Vec<String> {
     if chars.is_empty() {
         return Vec::new();
     }
-    if !(max_em_units > 0.0) {
+    if max_em_units.partial_cmp(&0.0) != Some(std::cmp::Ordering::Greater) {
         return vec![text.to_string()];
     }
 
@@ -959,7 +959,7 @@ pub fn break_line_vertical(text: &str, max_em_units: f64) -> Vec<String> {
     if chars.is_empty() {
         return Vec::new();
     }
-    if !(max_em_units > 0.0) {
+    if max_em_units.partial_cmp(&0.0) != Some(std::cmp::Ordering::Greater) {
         return vec![text.to_string()];
     }
 
