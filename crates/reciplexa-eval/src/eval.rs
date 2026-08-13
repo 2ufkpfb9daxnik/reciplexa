@@ -72,6 +72,10 @@ pub fn primitive_env() -> HashMap<String, RuntimeValue> {
         "ruby-box".into(),
         RuntimeValue::Builtin(BuiltinOp::RubyBox),
     );
+    env.insert(
+        "tate-chu-yoko-width".into(),
+        RuntimeValue::Builtin(BuiltinOp::TateChuYokoWidth),
+    );
     env
 }
 
@@ -1433,6 +1437,28 @@ fn apply_builtin(op: BuiltinOp, args: Vec<RuntimeValue>) -> Result<Outcome, Eval
                 ("advance-width".into(), RuntimeValue::Number(b.advance_width)),
                 ("height".into(), RuntimeValue::Number(b.height)),
             ])))
+        }
+        BuiltinOp::TateChuYokoWidth => {
+            if args.len() != 1 {
+                return Err(EvalError {
+                    message: format!(
+                        "builtin `tate-chu-yoko-width` expects 1 arg, got {}",
+                        args.len()
+                    ),
+                });
+            }
+            let body = match &args[0] {
+                RuntimeValue::String(s) => s.as_str(),
+                _ => {
+                    return Err(EvalError {
+                        message: "builtin `tate-chu-yoko-width` expects string body".into(),
+                    });
+                }
+            };
+            let w = reciplexa_std::japanese::TateChuYoko::new(body)
+                .estimate_box()
+                .advance_width;
+            Ok(Outcome::Value(RuntimeValue::Number(w)))
         }
     }
 }
