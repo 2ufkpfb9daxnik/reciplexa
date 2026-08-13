@@ -14,11 +14,13 @@ Constructors follow the **SATySFi math model** (atom classes, scripts, fractions
 | `sqrt` / `radical-indexed` | `Radical` |
 | `scripts` / `superscript` / `subscript` | `Scripts` |
 | `delimiter` / `paren` / … | `Delimiter` |
-| `matrix` / `bmatrix` / `pmatrix` / … | Matrix stub trees (not in std yet) |
-| `hat` / `bar` / `vec` / … | Accent stub trees |
-| `sum` / `prod` / `int` / `lim` | Big-operator stub trees with limits |
+| `matrix` / `bmatrix` / `pmatrix` / … | `MathAtom::Matrix` (+ `MathMatrixKind`) in std |
+| `hat` / `bar` / `vec` / … | `MathAtom::Accent` |
+| `sum` / `prod` / `int` / `lim` | `MathAtom::BigOp` with limits |
+| `align` / `aligned` | `MathAtom::Aligned` |
+| `stack` / `atop` / `substack` | `MathAtom::Stack` |
 
-This package builds **trees**, not laid-out glyphs. Line breaking, stretchy fences, matrix alignment, and font math tables remain future layout work.
+This package builds **trees**, not laid-out glyphs. Std offers fontless `MathAtom::estimate_box()` heuristics for scaffolding. Line breaking, stretchy fences, real matrix alignment, and OpenType MATH tables remain future layout work (`lang/ja-math-deepen-plan.md`).
 
 ## Import
 

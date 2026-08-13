@@ -102,7 +102,7 @@ pre-PKG カーネルは計画上 **COMPLETE（意図的 defer 付き）**。各�
 | **`packages/graphics`** | **native**（N1–N2） | `shapes` / `page` / `color`＋`.rpi`；例 `pkg_graphics_*` |
 | **`packages/length`** | **native**（N1） | 単位コンストラクタ＋`.rpi`；例 `pkg_length.rpx` |
 | **`packages/color`** | **native**（N1） | srgb / named＋`.rpi`；例 `pkg_color.rpx` |
-| **`packages/math`** | **native**（N3） | atoms…stack＋`.rpi`；例 `pkg_math.rpx`；layout は後続（std M0–M3 深化中） |
+| **`packages/math`** | **native**（N3）＋ **std deepen（M0–M3）** | atoms…stack＋`.rpi`；例 `pkg_math.rpx`；`reciplexa-std::math` に Accent/BigOp/Matrix/Aligned/Stack＋fontless `MathBox`；**glyph layout は後続** |
 | **`packages/japanese`** | **native**（N4）＋ **std deepen（J0–J4）** | classes / linebreak / kihon / markup；`reciplexa-std::japanese` に classify / break / kihon / ruby；**完全 JLReq UCS ではない** |
 | **`packages/document`** | **native scaffold**（N5.1–N5.2） | `page`＝flow/section/heading 等（`doc-*`）；例 `pkg_document.rpx`；pipeline 自動ルート済；**interim keyword 表は S6b で production から隔離（`interim-surface` / `cfg(test)`）** |
 | **`crates/reciplexa-std`** | Rust ファサード（native 本文の主戦場） | `visual` / `text` / `document` / `math` / `japanese` / … |
@@ -156,7 +156,7 @@ pre-PKG カーネルは計画上 **COMPLETE（意図的 defer 付き）**。各�
 2. **カバレッジ締め（N6）** — **done**（7-crate BEST-ENTRY ≥99%）；N5.3 tip for document surface residuals。
 3. **GUI CST sync v2** — [`gui-cst-sync-v2-plan.md`](gui-cst-sync-v2-plan.md) S0–**S6b done**（package writable sync、examples package 化、production keyword 表隔離）。
 4. **PKG インフラ（Slice E）** — **done**（workspace lock / resources / OPEN-PKG-001 stub）；言語 `(resource …)`・実レジストリは後続。
-5. **OPEN-TEXT-JA-001 / math layout** — JA 第一深化（[`ja-math-deepen-plan.md`](ja-math-deepen-plan.md) J0–J4）**done**；math M0–M3 同計画。残: 完全 UCS 所属表・§C 禁則行列・ruby/縦中横実レイアウト・OpenType MATH / stretchy / 文書パイプライン消費。
+5. **OPEN-TEXT-JA-001 / math layout** — 第一深化スライス **done**（[`ja-math-deepen-plan.md`](ja-math-deepen-plan.md) J0–J4 / M0–M3：Rust 表＋API＋fontless box stub）。残: 完全 UCS 所属表・§C 禁則行列・ruby/縦中横実レイアウト・OpenType MATH / stretchy / 文書パイプライン消費。
 ---
 
 ## 付記: クレート一覧の見取り図

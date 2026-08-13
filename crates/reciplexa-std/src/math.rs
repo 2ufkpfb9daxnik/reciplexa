@@ -2,7 +2,10 @@
 //!
 //! Aligns with `packages/math` SATySFi-shaped constructors. Honest scope:
 //! trees + light metric stubs for hosts — not OpenType MATH layout.
-//! See `lang/ja-math-deepen-plan.md`.
+//! See `lang/ja-math-deepen-plan.md` (M0–M3).
+//!
+//! Package synthetic RPX remains the Core import surface; prefer these Rust
+//! APIs (`MathAtom`, `estimate_box`) for future layout and hosts.
 
 use std::fmt;
 
