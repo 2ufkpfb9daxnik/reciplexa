@@ -260,24 +260,27 @@ pub fn classify_char(c: char) -> CharClass {
         // cl-29 / cl-26 — warichu brackets (subset).
         '｟' | '⸨' => return CharClass::WarichuOpen,
         '｠' | '⸩' => return CharClass::WarichuClose,
-        // cl-03 — hyphens / wave dashes / ideographic wavy dash.
-        '—' | '–' | '‐' | '‑' | '‒' | '―' | '−' | '-' | '－' | '﹣' | '〜' | '～' | '〰' | '゠' =>
-        {
+        // cl-03 — hyphens / wave dashes / wavy overlines / swung dash.
+        '—' | '–' | '‐' | '‑' | '‒' | '―' | '−' | '-' | '－' | '﹣' | '〜' | '～' | '〰'
+        | '゠' | '⁓' | '∿' | '﹏' | '﹋' | '﹌' => {
             return CharClass::Hyphens;
         }
-        // cl-04 — dividing punctuation (incl. ideographic closing mark).
-        '！' | '？' | '‼' | '⁇' | '⁈' | '⁉' | '!' | '?' | '〆' | '／' | '＼' => {
+        // cl-04 — dividing punctuation (incl. ideographic closing mark / fraction slash).
+        '！' | '？' | '‼' | '⁇' | '⁈' | '⁉' | '!' | '?' | '〆' | '／' | '＼' | '⁄' | '⧸' | '⧹' =>
+        {
             return CharClass::DividingPunctuation;
         }
         // cl-05 — middle dots / colon-like separators.
-        '・' | '·' | '･' | '∶' | '︰' | ':' | '：' | ';' | '；' => {
+        '・' | '·' | '･' | '∶' | '︰' | ':' | '：' | ';' | '；' | '⁚' | '⁝' => {
             return CharClass::MiddleDots;
         }
         // cl-06 / cl-07 — stops and commas (fullwidth + halfwidth CJK forms).
         '。' | '．' | '.' | '｡' => return CharClass::FullStops,
         '、' | '，' | ',' | '､' => return CharClass::Commas,
-        // cl-08 — inseparable (ellipsis / ditto / vertical iteration forms).
-        '…' | '‥' | '⋯' | '〳' | '〴' | '〵' | '〃' => return CharClass::Inseparable,
+        // cl-08 — inseparable (ellipsis / ditto / vertical kana repeat).
+        '…' | '‥' | '⋯' | '⋰' | '⋱' | '〳' | '〴' | '〵' | '〃' | '〱' | '〲' => {
+            return CharClass::Inseparable;
+        }
         // cl-09 / cl-10.
         '々' | 'ゝ' | 'ゞ' | 'ヽ' | 'ヾ' | '〻' => return CharClass::IterationMarks,
         'ー' | 'ｰ' | 'ㅡ' => return CharClass::ProlongedSoundMark,
@@ -294,25 +297,59 @@ pub fn classify_char(c: char) -> CharClass {
         | '＞' | '<' | '>' | '＆' | '&' => {
             return CharClass::MathSymbols;
         }
-        // cl-21 — unit symbols (squared/cubed metric forms + litre).
-        '㎜' | '㎝' | '㎞' | '㎡' | '㎥' | '㎎' | '㎏' | '㏄' | 'ℓ' | 'Å' => {
+        // cl-21 — unit symbols (squared/cubed metric forms + litre + CJK compatibility).
+        '㎜' | '㎝' | '㎞' | '㎡' | '㎥' | '㎎' | '㎏' | '㏄' | 'ℓ' | 'Å' | '㍉' | '㍍' | '㌔'
+        | '㌢' | '㍗' | '㌘' | '㌧' | '㌃' | '㌶' | '㍑' | '㍊' | '㌻' => {
             return CharClass::UnitSymbols;
         }
         // cl-22 — enclosed alphanumerics / circled forms (common subset).
-        '①'..='⑳' | '⑴'..='⒇' | '⒈'..='⒛' | 'ⓐ'..='ⓩ' | 'Ⓐ'..='Ⓩ' | '㈱' | '㈲' | '㈹' =>
-        {
+        '①'..='⑳'
+        | '⑴'..='⒇'
+        | '⒈'..='⒛'
+        | 'ⓐ'..='ⓩ'
+        | 'Ⓐ'..='Ⓩ'
+        | '❶'..='❿'
+        | '➀'..='➉'
+        | '⓵'..='⓾'
+        | '㈱'
+        | '㈲'
+        | '㈹'
+        | '㊤'
+        | '㊥'
+        | '㊦'
+        | '㊧'
+        | '㊨' => {
             return CharClass::EnclosedAlphanumerics;
         }
-        // cl-23 — ornaments / reference marks / geta / part alternation.
+        // cl-23 — ornaments / reference marks / geta / part alternation / masu.
         '※' | '＊' | '*' | '☆' | '★' | '○' | '●' | '◎' | '◇' | '◆' | '□' | '■' | '△' | '▲'
         | '▽' | '▼' | '♠' | '♣' | '♥' | '♦' | '〓' | '〽' | '〇' | '￣' | '＾' | '｀' | '｜'
-        | '|' | '^' | '`' => {
+        | '|' | '^' | '`' | '〄' | '〼' | '✦' | '✧' => {
             return CharClass::Ornaments;
+        }
+        // Additional corner / angle brackets (math-ish forms).
+        '〈' | '⟪' | '⟬' | '⟮' | '⌈' | '⌊' | '⌜' | '⌞' => {
+            return CharClass::OpeningBrackets;
+        }
+        '〉' | '⟫' | '⟭' | '⟯' | '⌉' | '⌋' | '⌝' | '⌟' => {
+            return CharClass::ClosingBrackets;
         }
         _ => {}
     }
 
-    if c.is_whitespace() || c == '\u{3000}' || c == '\u{00A0}' || c == '\u{2002}' || c == '\u{2003}'
+    // cl-14 — spaces: ASCII / Unicode space separators / ZWSP-adjacent / ideographic.
+    if c.is_whitespace()
+        || matches!(
+            c,
+            '\u{00A0}' // NBSP
+                | '\u{1680}' // Ogham space
+                | '\u{2000}'..='\u{200A}' // en/em/thin/hair/… spaces
+                | '\u{200B}' // ZWSP (treat as space for linebreak stubs)
+                | '\u{202F}' // narrow NBSP
+                | '\u{205F}' // medium mathematical space
+                | '\u{3000}' // ideographic space
+                | '\u{FEFF}' // BOM / ZWNBSP
+        )
     {
         return CharClass::Spaces;
     }

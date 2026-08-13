@@ -118,6 +118,39 @@ fn classify_char_ideographic_punct_and_fullwidth() {
     assert_eq!(classify_char('\u{303E}'), CharClass::Ideographic); // 〾
 }
 
+/// More CJK symbols, Unicode spaces, and wave-dash family glyphs.
+#[test]
+fn classify_char_cjk_symbols_spaces_wave_dash() {
+    // Wave dash / wavy line family → hyphens (cl-03).
+    assert_eq!(classify_char('〜'), CharClass::Hyphens); // WAVE DASH
+    assert_eq!(classify_char('～'), CharClass::Hyphens); // FULLWIDTH TILDE
+    assert_eq!(classify_char('〰'), CharClass::Hyphens); // WAVY DASH
+    assert_eq!(classify_char('⁓'), CharClass::Hyphens); // SWUNG DASH
+    assert_eq!(classify_char('∿'), CharClass::Hyphens); // SINE WAVE
+    assert_eq!(classify_char('﹏'), CharClass::Hyphens); // WAVY LOW LINE
+    assert_eq!(classify_char('﹋'), CharClass::Hyphens); // WAVY OVERLINE
+
+    // Extra spaces (cl-14).
+    assert_eq!(classify_char('\u{2000}'), CharClass::Spaces); // EN QUAD
+    assert_eq!(classify_char('\u{2009}'), CharClass::Spaces); // THIN SPACE
+    assert_eq!(classify_char('\u{200B}'), CharClass::Spaces); // ZWSP
+    assert_eq!(classify_char('\u{202F}'), CharClass::Spaces); // NARROW NBSP
+    assert_eq!(classify_char('\u{205F}'), CharClass::Spaces); // MMSP
+    assert_eq!(classify_char('\u{3000}'), CharClass::Spaces); // IDEOGRAPHIC SPACE
+    assert_eq!(classify_char('\u{FEFF}'), CharClass::Spaces); // ZWNBSP
+
+    // More CJK / math brackets and symbols.
+    assert_eq!(classify_char('⌈'), CharClass::OpeningBrackets);
+    assert_eq!(classify_char('⌋'), CharClass::ClosingBrackets);
+    assert_eq!(classify_char('⁄'), CharClass::DividingPunctuation);
+    assert_eq!(classify_char('〱'), CharClass::Inseparable);
+    assert_eq!(classify_char('〄'), CharClass::Ornaments);
+    assert_eq!(classify_char('〼'), CharClass::Ornaments);
+    assert_eq!(classify_char('㍉'), CharClass::UnitSymbols);
+    assert_eq!(classify_char('❶'), CharClass::EnclosedAlphanumerics);
+    assert_eq!(classify_char('㊤'), CharClass::EnclosedAlphanumerics);
+}
+
 #[test]
 fn break_opportunity_kinsoku_stub() {
     assert!(is_line_head_prohibited(CharClass::FullStops));
