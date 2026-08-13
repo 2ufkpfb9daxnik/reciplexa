@@ -143,16 +143,19 @@ No push unless asked. Fine-grained commits (one unit ≈ one commit).
 
 ## Remains after this deepen (full OPEN-TEXT-JA-001)
 
+Waves **4–28** form a **stub layer complete-enough for host layout experiments** (break/justify/place helpers, fontless math boxes, language builtins). Remaining below is still **OPEN** for production / normative JLReq + OpenType MATH:
+
 - Complete UCS → class membership for all JLReq classes.
-- Normative §C break pair matrix + hangable punctuation / justification.
+- Normative §C break pair matrix + hangable punctuation / justification / 詰め wired into measure.
 - Font-backed shaping, ruby layout, tate-chu-yoko metrics, vertical glyph orientation.
-- Math: OpenType MATH / stretchy fences / real matrix column alignment / linebreak in display math.
-- Document pipeline + GUI consuming kihon / ruby / math boxes (not only trees).
+- Math: OpenType MATH / stretchy fences / real accent attachment / real matrix column alignment / linebreak in display math.
+- Document pipeline + GUI consuming kihon / ruby / math boxes as live page layout (not only trees / Text-shape helpers).
   - Light prep **done**: `reciplexa_eval::math_value` lowers package math tagged records → `MathAtom` → `estimate_box`.
   - **Note:** CLI `inspect-document` is the graphics/document snapshot path; it does **not** print math `estimate_box`. Prefer eval/`math_value` on package math trees (see `pkg_math_main_tree_estimates_box_via_math_value` — **full** `pkg_math` demo tree estimates, including under/over/cases/operatorname).
 - Wire `classify_char` / `break_opportunity` as language builtins.
   - **done**: ker builtins `classify-char` (→ Int class id) and `break-between` (→ `allowed`/`prohibited`/`inseparable` tags).
   - **done**: language-only example `examples/pkg_ja_classify.rpx` (+ eval test).
+- Host `CharClass` package cl surface (`as_jlreq_id` / Display / From / FromStr) **done** (Wave 29).
 
 ## Follow-on slices (post J*/M*)
 
@@ -1305,3 +1308,30 @@ cargo test -p reciplexa-std -p reciplexa-eval -p reciplexa-core -p reciplexa-pac
 - Font-backed ruby / tate-chu-yoko / real vertical metrics / bou placement; OpenType `vert`/`vrt2` / CSS `text-orientation`.
 - OpenType MATH stretchy fences, real accent/script/stackrel attachment, real matrix column alignment / big-op / fraction/radical / full muskip style table / real phantom atoms.
 - Document/GUI pipeline consuming boxes as production layout; load-time resource rewrite beyond fail-soft attach; registry resolve + checksum verification (OPEN-PKG-001).
+
+## Wave 29 — CharClass host ids + stub-layer status (W0–W1)
+
+Honest scope: close small host API gap on `CharClass` package cl numbers; mark Waves 4–28 as **complete-enough stub layer** for host layout experiments. Not full `OPEN-TEXT-JA-001`.
+
+| Unit | Status |
+|------|--------|
+| W0 — `CharClass::as_jlreq_id` / Display / From / FromStr | **done** |
+| W1 — Docs status (Waves 4–28 stub layer) | **done** |
+
+### W0 — CharClass package cl surface
+
+- `as_jlreq_id()` (alias of `id`), `From<CharClass> for u8`, `TryFrom<u8>`, `from_code` / `FromStr` for `"cl-NN"` / `"cl-other"`. Display already emitted `cl-NN`. **Commit.**
+
+### W1 — Status summary
+
+**Stub layer (Waves 4–28) — complete-enough for host layout experiments:**
+
+- JA: classify subset, denser §C-inspired break matrix, `break_line` / vertical / justify (+ trim), hang/trim builtins, place_lines / kihon pitch / measure_columns, ruby/bou/tate stubs, reciprocal punct.
+- Math: fontless `estimate_box` (+ EstimateStyle), stretchy delim, accent clearance table, scripts/bigop/fraction/radical/stackrel/muskip/phantom/smash/cases brace stubs, language `math-box` / phantom / smash.
+- PKG: resource materialize / PKG004 / optional lock checksum (unverified).
+
+**Still full `OPEN-TEXT-JA-001` / production layout (OPEN):**
+
+- Normative UCS + appendix C; real hanging / justification / 詰め in measure; font-backed ruby / vertical / bou; OpenType `vert` / MATH; document/GUI consuming boxes as live page layout; registry + checksum verification.
+
+**Commit.**

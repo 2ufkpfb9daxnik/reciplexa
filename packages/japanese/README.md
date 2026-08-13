@@ -39,7 +39,7 @@ Normative reference: [W3C JLReq](https://www.w3.org/TR/jlreq/) (JIS X 4051–bas
 
 ## Remaining gaps
 
-- Full UCS → class map still incomplete; **Rust** `reciplexa_std::japanese::classify_char` covers a useful subset (authoritative for hosts; package `classify-sample` stays synthetic). Emoji / color-presentation scalars map to `CharClass::Other` (explicit unknown), not Ideographic.
+- Full UCS → class map still incomplete; **Rust** `reciplexa_std::japanese::classify_char` covers a useful subset (authoritative for hosts; package `classify-sample` stays synthetic). Emoji / color-presentation scalars map to `CharClass::Other` (explicit unknown), not Ideographic. Hosts may use `CharClass::as_jlreq_id` / `Display` (`cl-NN`) / `TryFrom<u8>` / `FromStr` (`cl-01`…`cl-30`, `cl-other`).
 - Language builtins `classify-char` / `break-between` / `break-line` / `break-line-vertical` / `justify-line` / `ruby-box` / `vertical-ruby-box` / `bou-box` / `tate-chu-yoko-width` / `hang-width` / `trimming-width` / `vertical-orientation` / `math-box` / `stretchy-delim` / `measure-columns` call the same Rust APIs (no package import required).
 - `break-between` / `sample-pair-rules` are **subset stubs**; Rust `BREAK_PAIR_MATRIX` / `break_opportunity` densifies class×class kinsoku + digit-open quirks — still **not** the normative JLReq appendix C matrix.
 - `is_hangable` (cl-06/07) mirrors package `hangable-class?`; `break_line` may let those glyphs stick past the em budget. `hang_width_em` / language `hang-width` document a **0.5em** policy stub (not full JLReq hanging / justification).
@@ -51,5 +51,6 @@ Normative reference: [W3C JLReq](https://www.w3.org/TR/jlreq/) (JIS X 4051–bas
 - Vertical ruby / bou: `vertical_ruby_estimate_box` / `bou_estimate_box` / `bou_mark_offsets` are fontless side-placement stubs (not JLReq / CSS `text-emphasis`); language `vertical-ruby-box` / `bou-box` expose them.
 - Kihon trim/margin records are not consumed by CST lower / GUI (`KihonHanmen` helpers + `place_lines_*` / `line_pitch_em` exist in std).
 - SYN `(markup @heading(…) …)` and `japanese/markup` records are parallel; std `Ruby` / `TateChuYoko` align with package tags for future Text IR.
+- **Status:** Waves 4–28 stub layer is **complete-enough for host layout experiments**; remaining work is full `OPEN-TEXT-JA-001` (normative UCS/§C, font-backed metrics, OpenType MATH, production document consumption).
 
 See also: [`lang/ja-math-deepen-plan.md`](../../lang/ja-math-deepen-plan.md).
