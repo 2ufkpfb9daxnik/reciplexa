@@ -284,7 +284,8 @@ fn math_bigop_limit_offsets_heuristic() {
 #[test]
 fn math_matrix_column_widths_and_cases_left_align() {
     use reciplexa_std::math::{
-        cases_column_align, matrix_cell_x_in_column, matrix_column_widths, MatrixColumnAlign,
+        aligned_column_x, cases_column_align, matrix_cell_x_in_column, matrix_column_widths,
+        MatrixColumnAlign, ALIGNED_COLUMN_GUTTER_EM,
     };
 
     let a = MathAtom::symbol(id(1), "a", MathClass::Ordinary);
@@ -306,13 +307,24 @@ fn math_matrix_column_widths_and_cases_left_align() {
     assert!((matrix_cell_x_in_column(1.0, 3.0, MatrixColumnAlign::Center) - 1.0).abs() < 1e-9);
     assert!((matrix_cell_x_in_column(1.0, 3.0, MatrixColumnAlign::Right) - 2.0).abs() < 1e-9);
 
+    assert!((aligned_column_x(&rows, 0)).abs() < 1e-9);
+    assert!((aligned_column_x(&rows, 1) - (widths[0] + ALIGNED_COLUMN_GUTTER_EM)).abs() < 1e-9);
+    let past = aligned_column_x(&rows, 99);
+    assert!(
+        (past - (widths[0] + ALIGNED_COLUMN_GUTTER_EM + widths[1] + ALIGNED_COLUMN_GUTTER_EM))
+            .abs()
+            < 1e-9
+    );
+    assert_eq!(aligned_column_x(&[], 0), 0.0);
+
     let m = MathAtom::matrix(
         id(5),
         reciplexa_std::math::MathMatrixKind::Plain,
         rows.clone(),
     );
     let aligned = MathAtom::aligned(id(6), rows);
-    let expected_inner: f64 = widths.iter().sum::<f64>() + 0.25 * widths.len() as f64;
+    let expected_inner: f64 =
+        widths.iter().sum::<f64>() + ALIGNED_COLUMN_GUTTER_EM * widths.len() as f64;
     assert!((m.estimate_box().width - expected_inner.max(0.5)).abs() < 1e-9);
     assert!((aligned.estimate_box().width - expected_inner.max(0.5)).abs() < 1e-9);
 }

@@ -735,6 +735,26 @@ pub fn matrix_cell_x_in_column(
     }
 }
 
+/// Inter-column gutter (em) used by grid `estimate_box` and [`aligned_column_x`].
+pub const ALIGNED_COLUMN_GUTTER_EM: f64 = 0.25;
+
+/// Absolute x of the left edge of column `col` in an aligned / matrix grid.
+///
+/// Sums prior [`matrix_column_widths`] plus [`ALIGNED_COLUMN_GUTTER_EM`] gutters.
+/// Out-of-range `col` snaps past the last column band (same gutters as
+/// `estimate_grid_box`). Heuristic only — not TeX `align` `&` tab stops.
+pub fn aligned_column_x(rows: &[Vec<MathAtom>], col: usize) -> f64 {
+    let widths = matrix_column_widths(rows);
+    if widths.is_empty() {
+        return 0.0;
+    }
+    let mut x = 0.0_f64;
+    for i in 0..col.min(widths.len()) {
+        x += widths[i] + ALIGNED_COLUMN_GUTTER_EM;
+    }
+    x
+}
+
 impl MathAtom {
     /// Rough width/height/depth estimate without fonts (layout scaffolding only).
     pub fn estimate_box(&self) -> MathBox {
@@ -904,7 +924,8 @@ fn estimate_grid_box(rows: &[Vec<MathAtom>], left: Option<&str>, right: Option<&
         }
         total_h += row_h + 0.2;
     }
-    let mut width: f64 = col_widths.iter().sum::<f64>() + 0.25 * col_widths.len() as f64;
+    let mut width: f64 =
+        col_widths.iter().sum::<f64>() + ALIGNED_COLUMN_GUTTER_EM * col_widths.len() as f64;
     if let (Some(l), Some(r)) = (left, right) {
         width += 0.35 * (l.chars().count() + r.chars().count()) as f64;
     }

@@ -31,13 +31,13 @@ pub use japanese::{
 };
 pub use layout::{Align, Axis, Column, LayoutChild, Padding, Row, Stack};
 pub use math::{
-    bigop_limit_offsets, cases_column_align, fraction_rule_metrics, matrix_cell_x_in_column,
-    matrix_column_widths, radical_vinculum_index_offsets, scripts_attachment_offsets,
-    stackrel_spacing_offsets, underbrace_spacing, MathAccentKind, MathAtom, MathBox, MathClass,
-    MathMatrixKind, MathStackKind, MatrixColumnAlign, ACCENT_CLEARANCE_EM,
-    ACCENT_UNDER_CLEARANCE_EM, FRAC_DEN_CLEARANCE_EM, FRAC_NUM_CLEARANCE_EM, FRAC_RULE_THICKNESS_EM,
-    RADICAL_SURD_PAD_EM, RADICAL_VINCULUM_CLEARANCE_EM, RADICAL_VINCULUM_THICKNESS_EM, SCRIPT_SCALE,
-    STACKREL_GAP_EM, UNDERBRACE_CLEARANCE_EM,
+    aligned_column_x, bigop_limit_offsets, cases_column_align, fraction_rule_metrics,
+    matrix_cell_x_in_column, matrix_column_widths, radical_vinculum_index_offsets,
+    scripts_attachment_offsets, stackrel_spacing_offsets, underbrace_spacing, MathAccentKind,
+    MathAtom, MathBox, MathClass, MathMatrixKind, MathStackKind, MatrixColumnAlign,
+    ACCENT_CLEARANCE_EM, ACCENT_UNDER_CLEARANCE_EM, ALIGNED_COLUMN_GUTTER_EM, FRAC_DEN_CLEARANCE_EM,
+    FRAC_NUM_CLEARANCE_EM, FRAC_RULE_THICKNESS_EM, RADICAL_SURD_PAD_EM, RADICAL_VINCULUM_CLEARANCE_EM,
+    RADICAL_VINCULUM_THICKNESS_EM, SCRIPT_SCALE, STACKREL_GAP_EM, UNDERBRACE_CLEARANCE_EM,
 };
 pub use motion::{
     keyframe_track, DurationMs, Easing, Keyframe, MotionTimeline, MotionTrack, TemporalPlacement,
