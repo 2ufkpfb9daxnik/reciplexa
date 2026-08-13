@@ -954,3 +954,44 @@ impl TategakiParagraph {
         "ja-tategaki-paragraph"
     }
 }
+
+/// Place each line as a scene [`reciplexa_scene::Text`] shape (host/layout scaffolding).
+///
+/// Lines are stacked downward from `(x_mm, y_mm)` with vertical step `leading_mm`.
+/// Not glyph shaping — content strings only.
+pub fn lines_to_text_shapes<S: AsRef<str>>(
+    lines: &[S],
+    x_mm: f64,
+    y_mm: f64,
+    size_mm: f64,
+    leading_mm: f64,
+    fill: reciplexa_scene::Color,
+) -> Vec<reciplexa_scene::Text> {
+    lines
+        .iter()
+        .enumerate()
+        .map(|(i, line)| reciplexa_scene::Text {
+            x_mm,
+            y_mm: y_mm + i as f64 * leading_mm,
+            size_mm,
+            width_mm: None,
+            height_mm: None,
+            content: line.as_ref().to_string(),
+            fill,
+        })
+        .collect()
+}
+
+/// Soft-wrap with [`break_line`], then [`lines_to_text_shapes`].
+pub fn break_line_to_text_shapes(
+    text: &str,
+    max_em_units: f64,
+    x_mm: f64,
+    y_mm: f64,
+    size_mm: f64,
+    leading_mm: f64,
+    fill: reciplexa_scene::Color,
+) -> Vec<reciplexa_scene::Text> {
+    let lines = break_line(text, max_em_units);
+    lines_to_text_shapes(&lines, x_mm, y_mm, size_mm, leading_mm, fill)
+}

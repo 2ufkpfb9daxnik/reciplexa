@@ -518,3 +518,27 @@ fn break_line_short_japanese_phrase_demo() {
         vec!["AB東京".to_string(), "CD".to_string()]
     );
 }
+
+#[test]
+fn lines_to_text_shapes_from_break_line() {
+    use reciplexa_scene::{Color, Shape};
+    use reciplexa_std::japanese::{break_line_to_text_shapes, lines_to_text_shapes};
+
+    let text = "今日はいい天気です。";
+    let lines = break_line(text, 5.0);
+    assert!(lines.len() >= 2, "expected wrap: {lines:?}");
+
+    let shapes = lines_to_text_shapes(&lines, 10.0, 20.0, 12.0, 16.0, Color::BLACK);
+    assert_eq!(shapes.len(), lines.len());
+    for (i, (shape, line)) in shapes.iter().zip(lines.iter()).enumerate() {
+        assert_eq!(shape.content, *line);
+        assert!((shape.x_mm - 10.0).abs() < 1e-9);
+        assert!((shape.y_mm - (20.0 + i as f64 * 16.0)).abs() < 1e-9);
+        assert!(shape.is_drawable());
+        assert!(matches!(Shape::Text(shape.clone()), Shape::Text(_)));
+    }
+
+    let via = break_line_to_text_shapes(text, 5.0, 10.0, 20.0, 12.0, 16.0, Color::BLACK);
+    assert_eq!(via.len(), shapes.len());
+    assert_eq!(via[0].content, shapes[0].content);
+}

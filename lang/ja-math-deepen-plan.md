@@ -196,7 +196,7 @@ cargo test -p reciplexa-std -p reciplexa-eval -p reciplexa-package --offline
 | X1 — Tate-chu-yoko layout stub (horizontal run width in vertical context) | **done** |
 | X2 — Math stretchy delimiter stub (`Delimiter` grows with body; optional `stretch_factor`) | **done** |
 | X3 — Math accent clearance stub (clearance above base) | **done** |
-| X4 — Pipeline/host light consume (`lines_to_text_shapes` + break demo) | pending |
+| X4 — Pipeline/host light consume (`lines_to_text_shapes` + break demo) | **done** |
 | X5 — pkg_math / pkg_ja integration tip tests | pending |
 | X6 — Docs: `implemented-features` next steps | pending |
 

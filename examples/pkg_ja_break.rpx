@@ -1,0 +1,9 @@
+(// language-only: ker builtin break-line → tagged line list demo.
+ // Hosts may feed lines into reciplexa_std::japanese::lines_to_text_shapes.)
+
+(val lines (break-line "今日はいい天気です。東京タワーへ行こう。" 5.0))
+
+(val main
+  (record
+    (tag "ja-break-demo")
+    (lines lines)))
