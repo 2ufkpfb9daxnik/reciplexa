@@ -17,8 +17,8 @@ OpenType MATH.
 |---------|------------------|
 | `layout_doc_page_to_scene` over `doc-page` (break_line + place_lines + indent + columns) | Production document pipeline / editable layout engine |
 | Refactor `document_from_doc_value` → shared layout module | New markup / CST layout surface |
-| `layout_math_to_shapes` from `linearize` + `estimate_box` width (monospace heuristic) | Full OpenType MATH / stretchy |
-| Scripts / BigOp / Fraction / Radical placement stubs (offsets + Line rules) | Glyph metrics / TeX `\fontdimen` fidelity |
+| `layout_math_to_shapes` from `linearize` + `estimate_box` width (monospace heuristic); Scripts / BigOp / Matrix / Aligned / Stack / Accent / Delimiter placement stubs; Fraction / Radical Line rules | Full OpenType MATH / stretchy |
+| Scripts / BigOp / Fraction / Radical / Delimiter / Matrix / Accent / Aligned / Stack placement stubs (offsets + Line rules) | Glyph metrics / TeX `\fontdimen` fidelity |
 | Package page mixing doc paragraph + math sibling (or math-only graphics text fallback) | Math embedded as first-class `doc-block` kind |
 | PDF / SVG / PPTX smoke for the mixed / math page | Guaranteed CJK embedding without system fonts |
 | Docs pointing hosts at this plan | Closing full OPEN-TEXT-JA-001 |
@@ -220,6 +220,6 @@ No push unless asked. Fine-grained commits (one unit ≈ one commit).
 | LL15 — Accent clearance glyph | **done** |
 | LL16 — `pkg_live_math.rpx` | **done** |
 | LL17 — PDF smoke + docs | **done** |
-| LL18 — Aligned column snap | pending |
-| LL19 — Stack placement | pending |
-| LL20 — Docs after aligned/stack | pending |
+| LL18 — Aligned column snap | **done** |
+| LL19 — Stack placement | **done** |
+| LL20 — Docs after aligned/stack | **done** |
