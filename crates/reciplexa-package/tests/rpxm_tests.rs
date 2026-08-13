@@ -1,4 +1,4 @@
-use reciplexa_package::{parse_rpxm, RpxmError};
+use reciplexa_package::{normalize_resource_path, parse_rpxm, RpxmError};
 
 #[test]
 fn parses_minimal_rpxm() {
@@ -218,4 +218,57 @@ fn rejects_unsupported_format_version() {
     )
     .unwrap_err();
     assert_eq!(err, RpxmError::UnsupportedFormatVersion(99));
+}
+
+#[test]
+fn parses_resources_list_and_normalizes() {
+    let m = parse_rpxm(
+        r#"(package demo
+  format-version 1
+  version "1.0.0"
+  (public-modules main)
+  (resources
+    "styles/default.css"
+    "images"
+    "fonts\body.woff2"
+    "locale"))"#,
+    )
+    .unwrap();
+    assert_eq!(
+        m.resources,
+        vec![
+            "styles/default.css".to_string(),
+            "images".to_string(),
+            "fonts/body.woff2".to_string(),
+            "locale".to_string(),
+        ]
+    );
+    assert_eq!(m.resource_root, "resources");
+}
+
+#[test]
+fn rejects_escaping_resource_paths_pkg10() {
+    let err = parse_rpxm(
+        r#"(package demo
+  format-version 1
+  version "1.0.0"
+  (public-modules main)
+  (resources
+    "../secret.txt"))"#,
+    )
+    .unwrap_err();
+    match err {
+        RpxmError::Syntax(msg) => {
+            assert!(msg.contains("resource path escapes the package resource root"));
+        }
+        other => panic!("expected Syntax escape error, got {other:?}"),
+    }
+
+    for bad in ["/abs", "a//b", "a/../b", "C:/win", r"\rooted", ".", ""] {
+        let err = normalize_resource_path(bad).unwrap_err();
+        assert!(
+            err.contains("resource path escapes the package resource root"),
+            "path `{bad}`: {err}"
+        );
+    }
 }

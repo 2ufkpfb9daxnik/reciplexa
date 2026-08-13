@@ -42,7 +42,7 @@ pub use load::{
     ResolvedImport,
 };
 pub use lockfile::{LockedPackage, Lockfile};
-pub use manifest::{DependencySpec, PackageManifest};
+pub use manifest::{normalize_resource_path, DependencySpec, PackageManifest};
 pub use resolver::{resolve_packages, ResolveError, ResolvedGraph};
 pub use rpi::parse_rpi_exports;
 pub use rpxm::{parse_rpxm, RpxmError};

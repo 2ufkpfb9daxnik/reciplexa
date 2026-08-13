@@ -52,6 +52,9 @@ pub struct PackageManifest {
     /// Executable entry module paths (DD-001 `entry-points`).
     #[serde(default)]
     pub entry_points: Vec<String>,
+    /// Distributed resource paths relative to `resource_root` (PKG §21.10).
+    #[serde(default)]
+    pub resources: Vec<String>,
 }
 
 impl Default for PackageManifest {
@@ -68,8 +71,49 @@ impl Default for PackageManifest {
             resource_root: default_resource_root(),
             public_modules: Vec::new(),
             entry_points: Vec::new(),
+            resources: Vec::new(),
         }
     }
+}
+
+/// Normalize a resource path relative to `resource_root` (PKG §21.11).
+///
+/// Accepts `/` or `\` separators; returns `/`-joined form. Rejects absolute
+/// paths, `..`, and empty path components.
+pub fn normalize_resource_path(raw: &str) -> Result<String, String> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return Err("resource path escapes the package resource root".into());
+    }
+    // Absolute: Unix `/…`, Windows drive `C:…`, or UNC / rooted `\…`.
+    let first = trimmed.chars().next().unwrap_or('\0');
+    if first == '/' || first == '\\' {
+        return Err("resource path escapes the package resource root".into());
+    }
+    if trimmed.len() >= 2 {
+        let bytes = trimmed.as_bytes();
+        if bytes[1] == b':' && bytes[0].is_ascii_alphabetic() {
+            return Err("resource path escapes the package resource root".into());
+        }
+    }
+
+    let mut parts = Vec::new();
+    for seg in trimmed.split(['/', '\\']) {
+        if seg.is_empty() {
+            return Err("resource path escapes the package resource root".into());
+        }
+        if seg == ".." {
+            return Err("resource path escapes the package resource root".into());
+        }
+        if seg == "." {
+            continue;
+        }
+        parts.push(seg);
+    }
+    if parts.is_empty() {
+        return Err("resource path escapes the package resource root".into());
+    }
+    Ok(parts.join("/"))
 }
 
 impl PackageManifest {

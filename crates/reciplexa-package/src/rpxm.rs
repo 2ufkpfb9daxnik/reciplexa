@@ -1,6 +1,6 @@
 //! `package.rpxm` text format parser (Phase 10 + DD-001 flat fields).
 
-use crate::manifest::{DependencySpec, PackageManifest};
+use crate::manifest::{normalize_resource_path, DependencySpec, PackageManifest};
 use reciplexa_syntax::ident::validate_package_path;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -56,6 +56,7 @@ pub fn parse_rpxm(src: &str) -> Result<PackageManifest, RpxmError> {
     let mut resource_root = "resources".to_string();
     let mut public_modules = Vec::new();
     let mut entry_points = Vec::new();
+    let mut resources = Vec::new();
 
     fn is_known_flat_field(head: &str) -> bool {
         matches!(
@@ -135,6 +136,12 @@ pub fn parse_rpxm(src: &str) -> Result<PackageManifest, RpxmError> {
                 "entry-points" => {
                     let (items, next) = parse_ident_list(&tokens, i)?;
                     entry_points = items;
+                    i = next;
+                    continue;
+                }
+                "resources" => {
+                    let (items, next) = parse_resource_list(&tokens, i)?;
+                    resources = items;
                     i = next;
                     continue;
                 }
@@ -232,7 +239,28 @@ pub fn parse_rpxm(src: &str) -> Result<PackageManifest, RpxmError> {
         resource_root,
         public_modules,
         entry_points,
+        resources,
     })
+}
+
+/// Parse `(resources "a" "b/c")` starting at `(`; normalize and validate each path.
+fn parse_resource_list(tokens: &[String], start: usize) -> Result<(Vec<String>, usize), RpxmError> {
+    let mut i = start + 2; // skip ( resources
+    let mut items = Vec::new();
+    while i < tokens.len() && tokens[i] != ")" {
+        if tokens[i] == "(" {
+            return Err(RpxmError::Syntax(
+                "nested lists are not allowed in resources".into(),
+            ));
+        }
+        let normalized = normalize_resource_path(&tokens[i]).map_err(RpxmError::Syntax)?;
+        items.push(normalized);
+        i += 1;
+    }
+    if i >= tokens.len() {
+        return Err(RpxmError::Syntax("unclosed resources list".into()));
+    }
+    Ok((items, i + 1))
 }
 
 /// Parse `(keyword a b c)` starting at `(`; returns items and index after closing `)`.
