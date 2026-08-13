@@ -173,6 +173,23 @@ fn math_estimate_box_relative_sizes() {
 }
 
 #[test]
+fn math_scripts_attachment_offsets_heuristic() {
+    use reciplexa_std::math::{scripts_attachment_offsets, MathBox};
+
+    let base = MathBox::new(1.0, 0.7, 0.2);
+    let sub = MathBox::new(0.5, 0.4, 0.1);
+    let sup = MathBox::new(0.5, 0.4, 0.1);
+    let (sub_x, sub_y, sup_x, sup_y) =
+        scripts_attachment_offsets(base, Some(sub), Some(sup));
+    assert!((sub_x - 1.0).abs() < 1e-9);
+    assert!((sup_x - 1.0).abs() < 1e-9);
+    assert!(sub_y < 0.0, "subscript below baseline: {sub_y}");
+    assert!(sup_y > 0.0, "superscript above baseline: {sup_y}");
+    let none = scripts_attachment_offsets(base, None, None);
+    assert_eq!(none, (0.0, 0.0, 0.0, 0.0));
+}
+
+#[test]
 fn math_delimiter_stretchy_grows_with_body() {
     let a = MathAtom::symbol(id(1), "a", MathClass::Ordinary);
     let b = MathAtom::symbol(id(2), "b", MathClass::Ordinary);

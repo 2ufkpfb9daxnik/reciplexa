@@ -28,7 +28,10 @@ pub use japanese::{
     TategakiParagraph, WritingMode,
 };
 pub use layout::{Align, Axis, Column, LayoutChild, Padding, Row, Stack};
-pub use math::{MathAccentKind, MathAtom, MathBox, MathClass, MathMatrixKind, MathStackKind};
+pub use math::{
+    scripts_attachment_offsets, MathAccentKind, MathAtom, MathBox, MathClass, MathMatrixKind,
+    MathStackKind, ACCENT_CLEARANCE_EM, ACCENT_UNDER_CLEARANCE_EM, SCRIPT_SCALE,
+};
 pub use motion::{
     keyframe_track, DurationMs, Easing, Keyframe, MotionTimeline, MotionTrack, TemporalPlacement,
     TimeMs, Timeline, TimelineTrack,

@@ -571,6 +571,27 @@ pub const ACCENT_CLEARANCE_EM: f64 = 0.35;
 /// Extra depth (em) below the base for underline-style accents.
 pub const ACCENT_UNDER_CLEARANCE_EM: f64 = 0.35;
 
+/// Fontless script attachment offsets relative to the base box origin.
+///
+/// Returns `(sub_x, sub_y, sup_x, sup_y)` where `x` grows rightward and `y` grows
+/// upward from the baseline. Missing scripts yield `0.0` for that pair.
+/// Heuristic only — not OpenType MATH / TeX `\fontdimen` attachment.
+pub fn scripts_attachment_offsets(
+    base: MathBox,
+    sub: Option<MathBox>,
+    sup: Option<MathBox>,
+) -> (f64, f64, f64, f64) {
+    let sub_x = if sub.is_some() { base.width } else { 0.0 };
+    let sub_y = sub
+        .map(|s| -(base.depth * 0.35 + s.height * SCRIPT_SCALE * 0.5))
+        .unwrap_or(0.0);
+    let sup_x = if sup.is_some() { base.width } else { 0.0 };
+    let sup_y = sup
+        .map(|s| base.height * 0.55 + s.depth * SCRIPT_SCALE * 0.25)
+        .unwrap_or(0.0);
+    (sub_x, sub_y, sup_x, sup_y)
+}
+
 impl MathAtom {
     /// Rough width/height/depth estimate without fonts (layout scaffolding only).
     pub fn estimate_box(&self) -> MathBox {
