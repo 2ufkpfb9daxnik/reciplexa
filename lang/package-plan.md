@@ -39,7 +39,7 @@ Interim RPX depth that already exists (`graphics` / `length` / `color` / `math` 
 
 - Package-defined constructors consumed by lower/eval (bridge live); pipeline auto-routes `(import graphics|document`
 - Markup expand emits graphics package `page`/`text`/`line`/`image` (not interim keyword heads)
-- GUI: read-only layers from scene for package-shaped sources; nudge soft-refuses
+- GUI: package-shaped sources writable for circle nudge (CST sync v2 S1); markup expand still soft-refuses
 - **Keyword-table holdout (out of N5 delete scope):** interim CST + `black_circle.rpx` kept until GUI CST sync v2 can rewrite package AST. Package twin: `pkg_black_circle.rpx`
 - Tracking: `lang/native-domain-plan.md` Phase N5
 

@@ -80,17 +80,27 @@ fn authoring_parse_error_with_divergent_expanded_is_soft_false() {
 }
 
 #[test]
-fn package_black_circle_nudge_soft_refuses() {
+fn package_black_circle_nudge_updates_authoring() {
     let authoring = include_str!("../../../examples/pkg_black_circle.rpx");
     let expanded = reciplexa_macro::expand_source(authoring).expect("expand");
     assert!(
-        !authoring_layers_align(authoring, &expanded, 0).unwrap(),
-        "package twin must not claim CST editability"
+        authoring_layers_align(authoring, &expanded, 0).unwrap(),
+        "package twin should align for CST edits"
     );
-    let err = nudge_authoring_layers(authoring, &expanded, 0, &[0], 2.0, -1.0).unwrap_err();
+    let out = nudge_authoring_layers(authoring, &expanded, 0, &[0], 2.0, -1.0).unwrap();
     assert!(
-        err.message.contains("read-only") || err.message.contains("package"),
-        "{}",
-        err.message
+        out.contains("(circle 107 147.5 40)"),
+        "expected package circle xy rewrite: {out}"
+    );
+}
+
+#[test]
+fn interim_black_circle_nudge_still_works() {
+    let authoring = include_str!("../../../examples/black_circle.rpx");
+    let out = nudge_authoring_layers(authoring, authoring, 0, &[0], 2.0, -1.0).unwrap();
+    assert!(
+        out.contains("(translate 2 -1 (circle 105 148.5 40))")
+            || out.contains("(circle 107 147.5 40)"),
+        "{out}"
     );
 }

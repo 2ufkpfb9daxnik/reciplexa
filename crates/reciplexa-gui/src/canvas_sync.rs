@@ -4,13 +4,14 @@
 //! CST mutations must always target the authoring `.rpx`. When those layer lists
 //! diverge (e.g. `(markup …)` → synthetic page shapes), refuse the edit softly.
 //!
-//! Package-shaped sources (`(import graphics|document` + `val main`) have no
-//! interim top-level `(page …)` for CST sync — preview layers are built from the
-//! flattened scene and canvas edits soft-refuse.
+//! Package-shaped authoring (`(import graphics|document` + `val main`) is writable
+//! via package CST sync (GUI CST sync v2). Markup authoring that expands to package
+//! still soft-refuses.
 
 use reciplexa::wants_package_graphics_path;
 use reciplexa_lower::{
-    collect_layers_page, collect_size_targets_page, nudge_layer_page, LayerInfo, SizeTarget,
+    collect_layers_package, collect_layers_page, collect_size_targets_page,
+    is_package_shaped_authoring, nudge_layer_package, nudge_layer_page, LayerInfo, SizeTarget,
     SyncError,
 };
 use reciplexa_view::WorldShape;
@@ -29,9 +30,9 @@ impl SyncRefuse {
     }
 }
 
-/// Build read-only layer rows from flattened scene shapes (package / bridge path).
+/// Build read-only layer rows from flattened scene shapes (bridge / mismatch path).
 ///
-/// Byte spans are zeroed — there is no interim CST leaf to highlight or mutate.
+/// Byte spans are zeroed — there is no CST leaf to highlight or mutate.
 pub fn layers_from_world_shapes(shapes: &[WorldShape]) -> Vec<LayerInfo> {
     shapes
         .iter()
@@ -66,14 +67,17 @@ pub fn readonly_size_targets(n: usize) -> Vec<SizeTarget> {
     vec![SizeTarget::Unsupported; n]
 }
 
-/// Prefer CST layers; on failure (or package-shaped source) use scene-backed rows.
+/// Prefer CST layers; package authoring uses package collectors; else scene rows.
 pub fn resolve_preview_layers(
     expanded: &str,
     page_index: usize,
     shapes: &[WorldShape],
 ) -> Vec<LayerInfo> {
-    if wants_package_graphics_path(expanded) {
-        return layers_from_world_shapes(shapes);
+    if is_package_shaped_authoring(expanded) {
+        match collect_layers_package(expanded, page_index) {
+            Ok(layers) if layers.len() == shapes.len() => return layers,
+            Ok(_) | Err(_) => return layers_from_world_shapes(shapes),
+        }
     }
     match collect_layers_page(expanded, page_index) {
         Ok(layers) if layers.len() == shapes.len() => layers,
@@ -87,7 +91,7 @@ pub fn resolve_preview_size_targets(
     page_index: usize,
     shape_count: usize,
 ) -> Vec<SizeTarget> {
-    if wants_package_graphics_path(expanded) {
+    if is_package_shaped_authoring(expanded) || wants_package_graphics_path(expanded) {
         return readonly_size_targets(shape_count);
     }
     match collect_size_targets_page(expanded, page_index) {
@@ -105,6 +109,16 @@ pub fn authoring_layers_align(
     expanded: &str,
     page_index: usize,
 ) -> Result<bool, SyncError> {
+    if is_package_shaped_authoring(authoring) {
+        let auth = collect_layers_package(authoring, page_index)?;
+        let exp = if is_package_shaped_authoring(expanded) {
+            collect_layers_package(expanded, page_index)?
+        } else {
+            return Ok(false);
+        };
+        return Ok(layer_kinds_match(&auth, &exp));
+    }
+    // Markup / synthetic package expand: not editable in authoring.
     if wants_package_graphics_path(expanded) || wants_package_graphics_path(authoring) {
         return Ok(false);
     }
@@ -136,10 +150,37 @@ pub fn nudge_authoring_layers(
     if dx == 0.0 && dy == 0.0 {
         return Ok(authoring.to_string());
     }
+    if is_package_shaped_authoring(authoring) {
+        match authoring_layers_align(authoring, expanded, page_index) {
+            Ok(true) => {}
+            Ok(false) => {
+                return Err(SyncRefuse::new(
+                    "canvas move skipped: package authoring layers do not align with expanded",
+                ));
+            }
+            Err(e) => return Err(SyncRefuse::new(e.message)),
+        }
+        let mut src = authoring.to_string();
+        let mut indices = flat_indices.to_vec();
+        indices.sort_unstable();
+        indices.dedup();
+        for &idx in &indices {
+            match nudge_layer_package(&src, page_index, idx, dx, dy) {
+                Ok(next) => src = next,
+                Err(e) => {
+                    return Err(SyncRefuse::new(format!(
+                        "canvas move skipped: {} (authoring source unchanged)",
+                        e.message
+                    )));
+                }
+            }
+        }
+        return Ok(src);
+    }
     if wants_package_graphics_path(expanded) || wants_package_graphics_path(authoring) {
         return Err(SyncRefuse::new(
-            "canvas move skipped: package-shaped document layers are read-only \
-             (edit imports / val main — CST sync stays on interim page forms)",
+            "canvas move skipped: expanded layers are not editable in authoring source \
+             (markup-generated pages are read-only — edit the markup block instead)",
         ));
     }
     match authoring_layers_align(authoring, expanded, page_index) {
@@ -235,18 +276,18 @@ mod tests {
     }
 
     #[test]
-    fn package_shaped_layers_from_scene_and_nudge_soft_refuses() {
+    fn package_shaped_layers_writable_and_nudge_updates_circle() {
         use reciplexa_scene::{Circle, Color, Document, Page, PaperSize, Shape};
         use reciplexa_view::flatten_page;
 
         let pkg = include_str!("../../../examples/pkg_black_circle.rpx");
+        assert!(is_package_shaped_authoring(pkg));
         assert!(wants_package_graphics_path(pkg));
-        assert!(!authoring_layers_align(pkg, pkg, 0).unwrap());
-        let err = nudge_authoring_layers(pkg, pkg, 0, &[0], 1.0, 0.0).unwrap_err();
+        assert!(authoring_layers_align(pkg, pkg, 0).unwrap());
+        let out = nudge_authoring_layers(pkg, pkg, 0, &[0], 2.0, -1.0).unwrap();
         assert!(
-            err.message.contains("read-only") || err.message.contains("package"),
-            "{}",
-            err.message
+            out.contains("(circle 107 147.5 40)"),
+            "package circle should nudge in place: {out}"
         );
 
         let doc = Document::single_page(Page {
@@ -262,10 +303,24 @@ mod tests {
         let layers = resolve_preview_layers(pkg, 0, &shapes);
         assert_eq!(layers.len(), 1);
         assert_eq!(layers[0].kind, "circle");
-        assert!(layers[0].label.contains("read-only"));
+        assert!(layers[0].byte_end > layers[0].byte_start);
+        assert!(!layers[0].label.contains("read-only"));
+        // Size targets still unsupported until S2.
         assert_eq!(
             resolve_preview_size_targets(pkg, 0, shapes.len()),
             vec![SizeTarget::Unsupported]
+        );
+    }
+
+    #[test]
+    fn interim_black_circle_nudge_still_works() {
+        let src = include_str!("../../../examples/black_circle.rpx");
+        assert!(!is_package_shaped_authoring(src));
+        let out = nudge_authoring_layers(src, src, 0, &[0], 2.0, -1.0).unwrap();
+        assert!(
+            out.contains("(translate 2 -1 (circle 105 148.5 40))")
+                || out.contains("(circle 107 147.5 40)"),
+            "{out}"
         );
     }
 

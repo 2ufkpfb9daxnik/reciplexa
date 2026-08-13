@@ -1,13 +1,15 @@
-//! Package-shaped AST locators for GUI CST sync v2.
+//! Package-shaped AST locators and layer sync for GUI CST sync v2.
 //!
 //! Finds `(val main …)` and nested `(page …)` forms, treating `fill` / `stroke` /
 //! `paint` / `list` as transparent wrappers (matching eval bridge flatten).
-//! Locate via CST spans; mutate authoring strings in later units.
+//! Locate via CST spans; mutate authoring strings (hybrid, same as interim sync).
 
-use reciplexa_syntax::{SyntaxKind, SyntaxNode};
+use reciplexa_syntax::{
+    format_drag_number, replace_token_text, SyntaxKind, SyntaxNode, SyntaxToken,
+};
 
-use super::{is_headed, parse_root, SyncError};
-use crate::cst_walk::{list_atoms, Child};
+use super::{is_headed, parse_root, LayerInfo, SyncError};
+use crate::cst_walk::{find_list_covering, list_atoms, Child};
 
 /// Heads that wrap a single shape child at slot 1 (`fill`/`stroke`/`paint`).
 pub fn is_package_paint_wrapper(head: &str) -> bool {
@@ -151,6 +153,210 @@ pub fn find_package_page_in_source(src: &str, page_index: usize) -> Result<Synta
     find_package_page(&root, page_index)
 }
 
+/// Collect flattened drawable layers under package `(val main (page …))`.
+///
+/// Order matches bridge flatten / hit-test. Paint wrappers are transparent;
+/// `root_*` spans point at the page-content child that owns the leaf.
+pub fn collect_layers_package(src: &str, page_index: usize) -> Result<Vec<LayerInfo>, SyncError> {
+    let root = parse_root(src)?;
+    let page = find_package_page(&root, page_index)?;
+    let contents = package_page_content_nodes(&page)?;
+    let mut out = Vec::new();
+    for content in contents {
+        let rr = content.text_range();
+        let root_span = (usize::from(rr.start()), usize::from(rr.end()));
+        collect_layers_from_package_shape(&content, root_span, &mut out);
+    }
+    Ok(out)
+}
+
+/// Nudge flattened package layer `flat_index` by rewriting leaf geometry numbers.
+///
+/// For bare leaves (circle/rect/…), patches `x`/`y` in place. Does not wrap with
+/// `(translate …)` yet (S3).
+pub fn nudge_layer_package(
+    src: &str,
+    page_index: usize,
+    flat_index: usize,
+    dx: f64,
+    dy: f64,
+) -> Result<String, SyncError> {
+    if dx == 0.0 && dy == 0.0 {
+        return Ok(src.to_string());
+    }
+    let layers = collect_layers_package(src, page_index)?;
+    let layer = layers
+        .get(flat_index)
+        .ok_or_else(|| SyncError::new("layer index out of range"))?;
+    let root = parse_root(src).expect("parse ok after collect_layers_package");
+    let leaf = find_list_covering(&root, layer.byte_start, layer.byte_end)
+        .ok_or_else(|| SyncError::new("layer leaf span missing after parse"))?;
+    let (x_slot, y_slot) = match layer.kind.as_str() {
+        "circle" | "rect" | "ellipse" | "ring" | "frame" | "text" => (1usize, 2usize),
+        "image" => (2, 3),
+        "line" => {
+            // Nudge both endpoints by the same delta.
+            let after = nudge_xy_slots_of_list(&leaf, 1, 2, dx, dy)?;
+            let root2 = parse_root(&after).expect("parse ok after line p1 patch");
+            let leaf2 = find_list_covering(&root2, layer.byte_start, layer.byte_end)
+                .or_else(|| {
+                    root2.descendants().find(|n| {
+                        n.kind() == SyntaxKind::List
+                            && usize::from(n.text_range().start()) == layer.byte_start
+                    })
+                })
+                .ok_or_else(|| SyncError::new("line form missing after p1 patch"))?;
+            return nudge_xy_slots_of_list(&leaf2, 3, 4, dx, dy);
+        }
+        other => {
+            return Err(SyncError::new(format!(
+                "package nudge unsupported for kind `{other}`"
+            )));
+        }
+    };
+    nudge_xy_slots_of_list(&leaf, x_slot, y_slot, dx, dy)
+}
+
+fn collect_layers_from_package_shape(
+    node: &SyntaxNode,
+    root_span: (usize, usize),
+    out: &mut Vec<LayerInfo>,
+) {
+    let items = list_atoms(node);
+    let Some(Child::Token(head)) = items.first() else {
+        return;
+    };
+    if head.kind() != SyntaxKind::Ident {
+        return;
+    }
+    let kind = head.text();
+    match kind {
+        "fill" | "stroke" | "paint" => {
+            if let Some(Child::Node(n)) = items.get(1) {
+                collect_layers_from_package_shape(n, root_span, out);
+            }
+        }
+        "list" | "group" => {
+            for item in items.iter().skip(1) {
+                if let Child::Node(n) = item {
+                    collect_layers_from_package_shape(n, root_span, out);
+                }
+            }
+        }
+        "translate" => {
+            for item in items.iter().skip(3) {
+                if let Child::Node(n) = item {
+                    collect_layers_from_package_shape(n, root_span, out);
+                }
+            }
+        }
+        "rotate" | "opacity" => {
+            for item in items.iter().skip(2) {
+                if let Child::Node(n) = item {
+                    collect_layers_from_package_shape(n, root_span, out);
+                }
+            }
+        }
+        "scale" => {
+            let skip = if items.len() >= 4
+                && matches!(&items[1], Child::Token(t) if t.kind() == SyntaxKind::Number)
+                && matches!(&items[2], Child::Token(t) if t.kind() == SyntaxKind::Number)
+            {
+                3
+            } else {
+                2
+            };
+            for item in items.iter().skip(skip) {
+                if let Child::Node(n) = item {
+                    collect_layers_from_package_shape(n, root_span, out);
+                }
+            }
+        }
+        "circle" | "rect" | "ellipse" | "ring" | "frame" | "text" | "line" | "polyline"
+        | "polygon" | "image" | "path" => {
+            let range = node.text_range();
+            out.push(LayerInfo {
+                kind: kind.to_string(),
+                label: package_layer_label(kind, &items),
+                byte_start: range.start().into(),
+                byte_end: range.end().into(),
+                root_start: root_span.0,
+                root_end: root_span.1,
+            });
+        }
+        _ => {}
+    }
+}
+
+fn package_layer_label(kind: &str, items: &[Child]) -> String {
+    match kind {
+        "text" => {
+            let snippet = items.iter().find_map(|c| match c {
+                Child::Token(t) if t.kind() == SyntaxKind::String => {
+                    let raw = t.text();
+                    let inner = raw.trim_matches('"');
+                    let short: String = inner.chars().take(24).collect();
+                    Some(format!("text \"{short}\""))
+                }
+                _ => None,
+            });
+            snippet.unwrap_or_else(|| "text".into())
+        }
+        "image" => {
+            let snippet = items.iter().find_map(|c| match c {
+                Child::Token(t) if t.kind() == SyntaxKind::String => {
+                    let raw = t.text().trim_matches('"');
+                    let name = raw.rsplit(['/', '\\']).next().unwrap_or(raw);
+                    Some(format!("image {name}"))
+                }
+                _ => None,
+            });
+            snippet.unwrap_or_else(|| "image".into())
+        }
+        other => other.to_string(),
+    }
+}
+
+fn nudge_xy_slots_of_list(
+    node: &SyntaxNode,
+    x_slot: usize,
+    y_slot: usize,
+    dx: f64,
+    dy: f64,
+) -> Result<String, SyncError> {
+    let items = list_atoms(node);
+    let x_tok =
+        number_token_at(&items, x_slot).ok_or_else(|| SyncError::new("shape missing numeric x"))?;
+    let y_tok =
+        number_token_at(&items, y_slot).ok_or_else(|| SyncError::new("shape missing numeric y"))?;
+    let x: f64 =
+        reciplexa_syntax::parse_number_literal(x_tok.text()).expect("lexer Number parses as f64");
+    let y: f64 =
+        reciplexa_syntax::parse_number_literal(y_tok.text()).expect("lexer Number parses as f64");
+    let (_, after_x) = replace_token_text(&x_tok, &format_drag_number(x + dx));
+    let root2 = parse_root(&after_x).expect("parse ok after x patch");
+    let start = usize::from(node.text_range().start());
+    let end = usize::from(node.text_range().end());
+    let node2 = find_list_covering(&root2, start, end)
+        .or_else(|| {
+            root2.descendants().find(|n| {
+                n.kind() == SyntaxKind::List && usize::from(n.text_range().start()) == start
+            })
+        })
+        .expect("shape form still present after x patch");
+    let items2 = list_atoms(&node2);
+    let y_tok2 = number_token_at(&items2, y_slot).expect("y still numeric after x patch");
+    let (_, after_y) = replace_token_text(&y_tok2, &format_drag_number(y + dy));
+    Ok(after_y)
+}
+
+fn number_token_at(items: &[Child], slot: usize) -> Option<SyntaxToken> {
+    match items.get(slot) {
+        Some(Child::Token(t)) if t.kind() == SyntaxKind::Number => Some(t.clone()),
+        _ => None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -235,5 +441,33 @@ mod tests {
         let root = parse_root("(import graphics/shapes)\n(val other 1)\n").unwrap();
         assert!(find_main_expr(&root).is_err());
         assert!(find_main_expr_in_source("(page a4)").is_err());
+    }
+
+    #[test]
+    fn collect_and_nudge_pkg_black_circle() {
+        let layers = collect_layers_package(PKG_CIRCLE, 0).unwrap();
+        assert_eq!(layers.len(), 1);
+        assert_eq!(layers[0].kind, "circle");
+        assert!(layers[0].byte_end > layers[0].byte_start);
+        let out = nudge_layer_package(PKG_CIRCLE, 0, 0, 2.0, -1.0).unwrap();
+        assert!(
+            out.contains("(circle 107 147.5 40)"),
+            "expected in-place xy nudge, got:\n{out}"
+        );
+        assert!(out.contains("(fill (circle 107 147.5 40) black)"));
+        assert!(out.contains("(import graphics/shapes"));
+    }
+
+    #[test]
+    fn nudge_zero_delta_is_identity() {
+        assert_eq!(
+            nudge_layer_package(PKG_CIRCLE, 0, 0, 0.0, 0.0).unwrap(),
+            PKG_CIRCLE
+        );
+    }
+
+    #[test]
+    fn nudge_bad_index_errors() {
+        assert!(nudge_layer_package(PKG_CIRCLE, 0, 9, 1.0, 0.0).is_err());
     }
 }

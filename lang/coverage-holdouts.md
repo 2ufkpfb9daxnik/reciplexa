@@ -44,7 +44,7 @@ Prefer **eliminate** over documenting when reachable. Items below are either sti
 ## N5 document-surface holdouts (not coverage gaps)
 
 1. **Interim keyword tables (`page`/`circle`/…)** — **retained on purpose** for writable GUI CST sync (`black_circle.rpx`). Package twin + markup package emit + read-only scene layers complete the dual path. Deleting tables is **GUI CST sync v2** ([`gui-cst-sync-v2-plan.md`](gui-cst-sync-v2-plan.md)), out of N5 delete scope.
-2. **Package-shaped GUI edits** — S0 locator landed (`sync/package.rs`); canvas nudge still soft-refuses until S1 wires `collect_layers_package` / `nudge_layer_package`.
+2. **Package-shaped GUI edits** — S1: package circle nudge writable via `collect_layers_package` / `nudge_layer_package`; size/scale still S2; markup soft-refuse remains.
 
 ## Non-goals this pass
 
