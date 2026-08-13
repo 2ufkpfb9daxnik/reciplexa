@@ -997,6 +997,23 @@ pub fn break_line_vertical(text: &str, max_em_units: f64) -> Vec<String> {
     out
 }
 
+/// First-line paragraph indent stub (JA 字下げ).
+///
+/// Returns `(x_em, line)` pairs: the first line is offset by `indent_em` (clamped
+/// at ≥ 0); subsequent lines stay at `0.0`. Empty input → empty output. Not
+/// hanging indent / kihon placement / full JLReq paragraph composition.
+pub fn indent_first_line(lines: &[String], indent_em: f64) -> Vec<(f64, String)> {
+    let indent = if indent_em > 0.0 { indent_em } else { 0.0 };
+    lines
+        .iter()
+        .enumerate()
+        .map(|(i, line)| {
+            let x = if i == 0 { indent } else { 0.0 };
+            (x, line.clone())
+        })
+        .collect()
+}
+
 /// Writing mode for kihon-hanmen / vertical stubs.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum WritingMode {

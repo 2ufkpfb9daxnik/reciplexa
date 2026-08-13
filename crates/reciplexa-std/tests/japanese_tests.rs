@@ -832,6 +832,25 @@ fn break_line_vertical_wraps_on_vertical_advance() {
 }
 
 #[test]
+fn indent_first_line_offsets_only_first() {
+    use reciplexa_std::japanese::indent_first_line;
+
+    let lines = vec!["一二三".to_string(), "四五".to_string()];
+    let indented = indent_first_line(&lines, 1.0);
+    assert_eq!(indented.len(), 2);
+    assert!((indented[0].0 - 1.0).abs() < 1e-9);
+    assert_eq!(indented[0].1, "一二三");
+    assert!((indented[1].0 - 0.0).abs() < 1e-9);
+    assert_eq!(indented[1].1, "四五");
+
+    assert!(indent_first_line(&[], 1.0).is_empty());
+    let zero = indent_first_line(&lines, 0.0);
+    assert!((zero[0].0 - 0.0).abs() < 1e-9);
+    let neg = indent_first_line(&lines, -2.0);
+    assert!((neg[0].0 - 0.0).abs() < 1e-9);
+}
+
+#[test]
 fn justify_line_distributes_at_allowed_breaks() {
     // Ideographs: natural 3em; target 5em → +2em at two Allowed gaps (漢|字, 字|列).
     let chars: Vec<char> = "漢字列".chars().collect();
