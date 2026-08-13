@@ -107,6 +107,9 @@ fn collect_block_shapes(
     }
 }
 
+/// Soft-wrap budget (em) for document text nodes — ~A4 content width stub.
+const DOC_TEXT_MAX_EM: f64 = 40.0;
+
 fn push_heading_or_paragraph(
     v: &RuntimeValue,
     cursor_y: &mut f64,
@@ -123,31 +126,38 @@ fn push_heading_or_paragraph(
                 2 => 6.5,
                 _ => 5.5,
             };
-            push_text(text, size, cursor_y, shapes);
-            *cursor_y -= size + 3.0;
+            // Soft-wrap long headings via std `break_line` (same budget as paragraphs).
+            push_soft_wrapped_text(&text, size, cursor_y, shapes);
             Ok(())
         }
         "doc-paragraph" => {
             let text = string_field(fields, "text")?;
             let size = 4.0;
-            // Soft-wrap long paragraph runs via std `break_line` (fontless em stub).
-            // ~40 em ≈ A4 content width at body size; short text stays one Text shape.
-            const PARA_MAX_EM: f64 = 40.0;
-            let lines = reciplexa_std::japanese::break_line(&text, PARA_MAX_EM);
-            if lines.is_empty() {
-                push_text(String::new(), size, cursor_y, shapes);
-                *cursor_y -= size + 3.0;
-            } else {
-                for line in lines {
-                    push_text(line, size, cursor_y, shapes);
-                    *cursor_y -= size + 3.0;
-                }
-            }
+            push_soft_wrapped_text(&text, size, cursor_y, shapes);
             Ok(())
         }
         other => Err(GraphicsValueError::new(format!(
             "expected doc-heading or doc-paragraph, got `{other}`"
         ))),
+    }
+}
+
+/// Soft-wrap `text` via [`reciplexa_std::japanese::break_line`] into scene Text shapes.
+fn push_soft_wrapped_text(
+    text: &str,
+    size_mm: f64,
+    cursor_y: &mut f64,
+    shapes: &mut Vec<Shape>,
+) {
+    let lines = reciplexa_std::japanese::break_line(text, DOC_TEXT_MAX_EM);
+    if lines.is_empty() {
+        push_text(String::new(), size_mm, cursor_y, shapes);
+        *cursor_y -= size_mm + 3.0;
+    } else {
+        for line in lines {
+            push_text(line, size_mm, cursor_y, shapes);
+            *cursor_y -= size_mm + 3.0;
+        }
     }
 }
 
@@ -364,7 +374,7 @@ mod tests {
 
     #[test]
     fn doc_paragraph_long_text_uses_break_line() {
-        // Longer than PARA_MAX_EM (40): must emit multiple Text shapes via break_line.
+        // Longer than DOC_TEXT_MAX_EM (40): must emit multiple Text shapes via break_line.
         let long = "あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをん";
         assert!(long.chars().count() > 40);
         let expected = reciplexa_std::japanese::break_line(long, 40.0);
@@ -378,6 +388,54 @@ mod tests {
             ("tag", RuntimeValue::String("doc-block".into())),
             ("kind", RuntimeValue::String("paragraph".into())),
             ("paragraph", paragraph),
+        ])]);
+        let section = rec(vec![
+            ("tag", RuntimeValue::String("doc-section".into())),
+            ("blocks", blocks),
+        ]);
+        let flow = rec(vec![
+            ("tag", RuntimeValue::String("doc-flow".into())),
+            ("sections", cons(vec![section])),
+        ]);
+        let page = rec(vec![
+            ("tag", RuntimeValue::String("doc-page".into())),
+            (
+                "paper",
+                rec(vec![
+                    ("width", RuntimeValue::Int(210)),
+                    ("height", RuntimeValue::Int(297)),
+                ]),
+            ),
+            ("flow", flow),
+        ]);
+        let doc = document_from_doc_value(&page).expect("doc lower");
+        let texts: Vec<_> = doc.pages[0]
+            .shapes
+            .iter()
+            .filter_map(|s| match s {
+                Shape::Text(t) => Some(t.content.clone()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(texts, expected);
+    }
+
+    #[test]
+    fn doc_heading_long_text_uses_break_line() {
+        let long = "あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをん";
+        assert!(long.chars().count() > 40);
+        let expected = reciplexa_std::japanese::break_line(long, 40.0);
+        assert!(expected.len() > 1);
+
+        let heading = rec(vec![
+            ("tag", RuntimeValue::String("doc-heading".into())),
+            ("level", RuntimeValue::Int(1)),
+            ("text", RuntimeValue::String(long.into())),
+        ]);
+        let blocks = cons(vec![rec(vec![
+            ("tag", RuntimeValue::String("doc-block".into())),
+            ("kind", RuntimeValue::String("heading".into())),
+            ("heading", heading),
         ])]);
         let section = rec(vec![
             ("tag", RuntimeValue::String("doc-section".into())),
