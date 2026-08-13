@@ -471,9 +471,55 @@ cargo test -p reciplexa-std -p reciplexa-eval -p reciplexa-core -p reciplexa-pac
 
 - Mark Wave 8 done; update `lang/implemented-features.md` / package READMEs. **Commit.**
 
-## Remains after Wave 8
+## Wave 9 — fraction/radical stubs + text wrap wire + hang-width (C0–C5)
+
+Honest scope: fontless fraction rule / radical vinculum placement stubs; graphics_value soft-wrap via `wrap_text_shape_content`; language `hang-width` builtin; example. Not TeX `\fontdimen` / OpenType MATH / full JLReq hanging.
+
+Gate:
+
+```bat
+set CARGO_TARGET_DIR=d:\reciplexa\target
+set TEMP=d:\reciplexa\.tmp
+set TMP=d:\reciplexa\.tmp
+cargo test -p reciplexa-std -p reciplexa-eval -p reciplexa-core -p reciplexa-package --offline
+```
+
+| Unit | Status |
+|------|--------|
+| C0 — Fraction rule thickness / clearance in `estimate_box` | **done** |
+| C1 — Radical vinculum / index placement stub | **done** |
+| C2 — `wrap_text_shape_content` in graphics_value text (`wrap-em` / newlines) | **done** |
+| C3 — Language builtin `hang-width` | **done** |
+| C4 — Example `pkg_ja_hang.rpx` | **done** |
+| C5 — Docs + tip tests | **done** |
+
+### C0 — Fraction rule thickness / clearance
+
+- `FRAC_RULE_THICKNESS_EM` / `FRAC_NUM_CLEARANCE_EM` / `FRAC_DEN_CLEARANCE_EM` + `fraction_rule_metrics`; used by `estimate_box` for Fraction. **Commit.**
+
+### C1 — Radical vinculum / index placement
+
+- `RADICAL_VINCULUM_*` + `radical_vinculum_index_offsets`; wire into Radical `estimate_box`. **Commit.**
+
+### C2 — graphics_value text soft-wrap
+
+- Optional `wrap-em` on text records (fail-soft if absent); newlines also trigger wrap path via `wrap_text_shape_content` / hard-break split. **Commit.**
+
+### C3 — `hang-width` builtin
+
+- `(hang-width s)` → Number via `hang_width_em_char` (first char). **Commit.**
+
+### C4 — Example
+
+- `examples/pkg_ja_hang.rpx`: `break-line` + `hang-width` + `justify-line`. **Commit.**
+
+### C5 — Docs + tip tests
+
+- Mark Wave 9 done; update `lang/implemented-features.md` / package READMEs; tip coverage. **Commit.**
+
+## Remains after Wave 9
 
 - Full UCS membership + normative JLReq §C break matrix + real hanging/justification.
 - Font-backed ruby / tate-chu-yoko / vertical glyph orientation / real vertical metrics.
-- OpenType MATH stretchy fences, accent/script attachment, real matrix column alignment / big-op metrics.
+- OpenType MATH stretchy fences, accent/script attachment, real matrix column alignment / big-op / fraction/radical metrics.
 - Document/GUI pipeline consuming boxes as production layout (beyond soft-wrapped Text shapes / estimate_box); load-time resource rewrite beyond fail-soft attach; registry resolve + checksum verification (OPEN-PKG-001).
