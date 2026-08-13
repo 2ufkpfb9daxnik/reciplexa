@@ -96,8 +96,8 @@ pub fn math_atom_from_value(v: &RuntimeValue) -> Result<MathAtom, MathValueError
 }
 
 /// Very naive: Text glyphs from `linearize`, placed by `estimate_box` width
-/// (monospace heuristic) at `origin` (mm). Scripts use
-/// [`scripts_attachment_offsets`] for sub/sup placement (LL7).
+/// (monospace heuristic) at `origin` (mm). Scripts / BigOp limits use std
+/// attachment heuristics (LL7–LL8).
 ///
 /// Not OpenType MATH — see `lang/live-layout-plan.md`.
 pub fn layout_math_to_shapes(

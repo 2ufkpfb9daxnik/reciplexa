@@ -454,6 +454,65 @@ fn math_bigop_limit_offsets_heuristic() {
     assert_eq!(bigop_limit_offsets(op, None, None), (0.0, 0.0, 0.0, 0.0));
 }
 
+/// LL8: BigOp layout places limits via bigop_limit_offsets.
+#[test]
+fn layout_math_bigop_positions_limits() {
+    use reciplexa_scene::Shape;
+    use reciplexa_std::math::{
+        bigop_limit_offsets, layout_math_atom_to_shapes, MATH_LAYOUT_EM_TO_MM,
+    };
+
+    let lower = MathAtom::symbol(id(1), "i", MathClass::Ordinary);
+    let upper = MathAtom::symbol(id(2), "n", MathClass::Ordinary);
+    let body = MathAtom::symbol(id(3), "x", MathClass::Ordinary);
+    let atom = MathAtom::big_op(
+        id(4),
+        "∑",
+        Some(lower.clone()),
+        Some(upper.clone()),
+        Some(body.clone()),
+    );
+    let origin = (20.0, 150.0);
+    let shapes = layout_math_atom_to_shapes(&atom, origin);
+    let texts: Vec<_> = shapes
+        .iter()
+        .filter_map(|s| match s {
+            Shape::Text(t) => Some(t),
+            _ => None,
+        })
+        .collect();
+    assert!(
+        texts.len() >= 4,
+        "op + lower + upper + body: {:?}",
+        texts.iter().map(|t| t.content.as_str()).collect::<Vec<_>>()
+    );
+    let op_t = texts.iter().find(|t| t.content == "∑").expect("op");
+    let lo_t = texts.iter().find(|t| t.content == "i").expect("lower");
+    let up_t = texts.iter().find(|t| t.content == "n").expect("upper");
+    let body_t = texts.iter().find(|t| t.content == "x").expect("body");
+    assert!((op_t.x_mm - origin.0).abs() < 1e-9);
+    assert!((op_t.y_mm - origin.1).abs() < 1e-9);
+
+    let op_box = MathAtom::symbol(id(4), "∑", MathClass::Operator).estimate_box();
+    let (lx, ly, ux, uy) = bigop_limit_offsets(
+        op_box,
+        Some(lower.estimate_box()),
+        Some(upper.estimate_box()),
+    );
+    assert!((lo_t.x_mm - (origin.0 + lx * MATH_LAYOUT_EM_TO_MM)).abs() < 1e-9);
+    assert!((lo_t.y_mm - (origin.1 - ly * MATH_LAYOUT_EM_TO_MM)).abs() < 1e-9);
+    assert!((up_t.x_mm - (origin.0 + ux * MATH_LAYOUT_EM_TO_MM)).abs() < 1e-9);
+    assert!((up_t.y_mm - (origin.1 - uy * MATH_LAYOUT_EM_TO_MM)).abs() < 1e-9);
+    assert!(lo_t.y_mm > op_t.y_mm, "lower below op in scene y-down");
+    assert!(up_t.y_mm < op_t.y_mm, "upper above op in scene y-down");
+    assert!(
+        body_t.x_mm > op_t.x_mm,
+        "body to the right of op: body={} op={}",
+        body_t.x_mm,
+        op_t.x_mm
+    );
+}
+
 #[test]
 fn math_matrix_column_widths_and_cases_left_align() {
     use reciplexa_std::math::{

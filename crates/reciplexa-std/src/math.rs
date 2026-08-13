@@ -1205,7 +1205,9 @@ fn math_offset_to_scene_mm(origin: (f64, f64), dx_em: f64, dy_em: f64) -> (f64, 
 /// (monospace heuristic).
 ///
 /// [`MathAtom::Scripts`]: base at `origin`, sub/sup placed via
-/// [`scripts_attachment_offsets`] (LL7). Not OpenType MATH / glyph metrics.
+/// [`scripts_attachment_offsets`] (LL7).
+/// [`MathAtom::BigOp`]: operator at `origin`, limits via
+/// [`bigop_limit_offsets`] (LL8). Not OpenType MATH / glyph metrics.
 pub fn layout_math_atom_to_shapes(
     atom: &MathAtom,
     origin: (f64, f64),
@@ -1230,6 +1232,38 @@ pub fn layout_math_atom_to_shapes(
             if let Some(sup) = superscript {
                 let o = math_offset_to_scene_mm(origin, sup_x, sup_y);
                 shapes.extend(layout_math_atom_to_shapes(sup, o));
+            }
+            shapes
+        }
+        MathAtom::BigOp {
+            operator,
+            lower,
+            upper,
+            body,
+            id,
+            ..
+        } => {
+            let op_atom = MathAtom::symbol(*id, operator.clone(), MathClass::Operator);
+            let op_box = op_atom.estimate_box();
+            let lower_box = lower.as_ref().map(|a| a.estimate_box());
+            let upper_box = upper.as_ref().map(|a| a.estimate_box());
+            let (lx, ly, ux, uy) = bigop_limit_offsets(op_box, lower_box, upper_box);
+            let mut shapes = layout_math_atom_to_shapes(&op_atom, origin);
+            if let Some(lo) = lower {
+                let o = math_offset_to_scene_mm(origin, lx, ly);
+                shapes.extend(layout_math_atom_to_shapes(lo, o));
+            }
+            if let Some(up) = upper {
+                let o = math_offset_to_scene_mm(origin, ux, uy);
+                shapes.extend(layout_math_atom_to_shapes(up, o));
+            }
+            if let Some(b) = body {
+                // Body sits to the right of the operator (display-style stub).
+                let body_origin = (
+                    origin.0 + (op_box.width + 0.2) * MATH_LAYOUT_EM_TO_MM,
+                    origin.1,
+                );
+                shapes.extend(layout_math_atom_to_shapes(b, body_origin));
             }
             shapes
         }
