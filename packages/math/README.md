@@ -37,4 +37,4 @@ This package builds **trees**, not laid-out glyphs. Std offers fontless `MathAto
 
 ## Example
 
-See `examples/pkg_math.rpx`, `examples/pkg_math_box.rpx` (`math-box` builtin), `examples/pkg_math_phantom.rpx` (`math-phantom` / `math-smash`), `examples/pkg_math_spacing.rpx` (Row class spacing), and `examples/pkg_live_math.rpx` (live-layout frac+scripts+delim).
+See `examples/pkg_math.rpx`, `examples/pkg_math_box.rpx` (`math-box` builtin), `examples/pkg_math_phantom.rpx` (`math-phantom` / `math-smash`), `examples/pkg_math_spacing.rpx` (Row class spacing), `examples/pkg_live_math.rpx` (live-layout frac+scripts+delim), and `examples/pkg_live_math_phantom.rpx` (live-layout row + `math-phantom` builtin; no phantom ink).

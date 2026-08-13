@@ -252,15 +252,40 @@ No push unless asked. Fine-grained commits (one unit ≈ one commit).
 
 ---
 
+## Follow-ons (LL30–LL32)
+
+### LL30 — Host `layout_style` on estimate / live-layout entry
+
+- `estimate_package_math_main_with_style` (default helper stays Display / HC19).
+- `document_from_live_layout_value_with_style`; demo record optional `style`
+  field (`"text"` / `"display"`) reaches `layout_math_to_shapes`.
+- **Commit.**
+
+### LL31 — Nested phantom/smash tags + SVG/PPTX smoke
+
+- `math_value` skips nested `math-phantom` / `math-smash` in rows; metric
+  records estimate from `width`/`height`/`depth`.
+- Example `pkg_live_math_phantom.rpx` → SVG/PPTX: visible glyph inks, phantom
+  does not.
+- **Commit.**
+
+### LL32 — Live-layout eval uses `primitive_env`
+
+- Package / live-layout entry eval binds KER builtins so `math-phantom` (and
+  `math-box` / …) work on `live-layout-demo` pages / GUI package path.
+- **Commit.**
+
+---
+
 ## Status vs full engines (honest)
 
-Live layout (LL0–LL29) is a **fontless heuristic consume layer**:
+Live layout (LL0–LL32) is a **fontless heuristic consume layer**:
 
 | Area | What this engine does | Not claimed (full target) |
 |------|----------------------|---------------------------|
 | JA text | `break_line` / `place_lines` / indent / columns → scene Text | Full JLReq UCS catalog, normative §C, hanging/justification with real glyph metrics, OpenType `vert` |
 | Math place | `layout_math_to_shapes(..., layout_style)`: Scripts / BigOp / Fraction·Radical Line / Delimiter stretch-by-`size_mm` / Matrix·Cases brace / Accent (incl. overline/underline) / Aligned / Stack / underbrace·overset offsets; `math-phantom`/`math-smash` → **no ink** | OpenType MATH table, stretchy assembly, TeX `\fontdimen` / `\mathsm@sh` (smash still draws), real glyph advances |
-| Host | `pkg_live_layout` / `pkg_live_math` → PDF/SVG/PPTX smoke; GUI opens via `wants_package_graphics_path`; markup authoring still soft-refuses (package sync v2) | Production document pipeline with editable math boxes / JA layout chrome / markup CST |
+| Host | `pkg_live_layout` / `pkg_live_math` / `pkg_live_math_phantom` → PDF/SVG/PPTX smoke; `layout_style` on estimate + live-layout entry; GUI opens via `wants_package_graphics_path` (ker `primitive_env`); markup authoring still soft-refuses (package sync v2) | Production document pipeline with editable math boxes / JA layout chrome / markup CST |
 | Lock checksum | Path-dep + **workspace member** writers fill `checksum` from `package.rpxm` stub (CS0); PKG006 on `path:` mismatch (CS1); see `crates/reciplexa-package/README.md` | Registry artifact integrity / blake3·sha256; PKG006 does not compare `source: workspace` |
 
 Keep pointing hosts at this file; do **not** close OPEN-TEXT-JA-001 from LL alone.
@@ -301,3 +326,6 @@ Keep pointing hosts at this file; do **not** close OPEN-TEXT-JA-001 from LL alon
 | LL27 — Docs (CS0–CS2 + LL26) | **done** |
 | LL28 — phantom/smash no ink | **done** (`math-phantom`/`math-smash` → empty shapes; not TeX smash-still-draws) |
 | LL29 — `layout_style` Display/Text | **done** (`layout_math_to_shapes` third param; live-layout demos pass Display) |
+| LL30 — Host `layout_style` | **done** (`estimate_package_math_main_with_style`; live-layout-demo `style` / `_with_style`; default Display) |
+| LL31 — Nested phantom + SVG/PPTX | **done** (`pkg_live_math_phantom.rpx`; nested skip; no phantom ink in SVG/PPTX) |
+| LL32 — Live-layout `primitive_env` | **done** (ker builtins on package/live-layout entry eval) |
