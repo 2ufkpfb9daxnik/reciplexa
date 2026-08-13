@@ -321,12 +321,19 @@ fn resolve_registry_source_is_open_stub() {
     }
 }
 
-/// Checked-in fixture: `source registry` refuses with structured OPEN-PKG-001.
+/// Checked-in fixture: workspace-level `source registry` refuses with OPEN-PKG-001.
 #[test]
 fn open_pkg_001_registry_fixture_refuses_with_code() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("tests/fixtures/open_pkg_001_registry");
     let idx = discover_workspace(&root).expect("fixture workspace");
+    assert!(
+        idx.manifest
+            .dependencies
+            .iter()
+            .any(|d| d.source.as_deref() == Some("registry")),
+        "fixture should declare workspace-level registry dep"
+    );
     let err = resolve_workspace_dependencies(&idx).expect_err("registry must refuse");
     assert_eq!(
         err.code(),
@@ -337,4 +344,8 @@ fn open_pkg_001_registry_fixture_refuses_with_code() {
     assert!(msg.contains("OPEN-PKG-001"));
     assert!(msg.contains("no network"));
     assert!(msg.contains("remote-kit") || msg.contains("registry"));
+    assert!(
+        msg.contains("workspace"),
+        "refusal should mention workspace-level resolve: {msg}"
+    );
 }

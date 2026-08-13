@@ -1,9 +1,4 @@
 (package app
   format-version 1
   version "0.1.0"
-  (public-modules app)
-  (dependencies
-    (remote
-      package remote-kit
-      version "1.0.0"
-      source registry)))
+  (public-modules app))

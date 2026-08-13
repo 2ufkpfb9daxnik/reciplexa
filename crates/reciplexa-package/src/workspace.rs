@@ -9,11 +9,13 @@ use crate::manifest::PackageManifest;
 use crate::rpxm::{parse_rpxm, tokenize, RpxmError};
 
 /// Parsed workspace manifest (`workspace.rpxm`).
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct WorkspaceManifest {
     pub format_version: u32,
     /// Member paths relative to the workspace root (no globs in v1).
     pub members: Vec<String>,
+    /// Optional workspace-level path-free deps (OPEN-PKG registry refuse surface).
+    pub dependencies: Vec<crate::manifest::DependencySpec>,
 }
 
 /// Indexed workspace: root path, manifest, and each member's package root + manifest.
@@ -104,6 +106,7 @@ pub fn parse_workspace_rpxm(src: &str) -> Result<WorkspaceManifest, RpxmError> {
 
     let mut format_version = 1u32;
     let mut members = Vec::new();
+    let mut dependencies = Vec::new();
     let mut i = 2usize;
     while i < tokens.len() {
         match tokens[i].as_str() {
@@ -131,6 +134,11 @@ pub fn parse_workspace_rpxm(src: &str) -> Result<WorkspaceManifest, RpxmError> {
                 }
                 i += 1;
             }
+            "(" if i + 1 < tokens.len() && tokens[i + 1] == "dependencies" => {
+                let (deps, next) = crate::rpxm::parse_dependencies_block(&tokens, i)?;
+                dependencies.extend(deps);
+                i = next;
+            }
             ")" => break,
             other => {
                 return Err(RpxmError::UnknownField(format!(
@@ -149,6 +157,7 @@ pub fn parse_workspace_rpxm(src: &str) -> Result<WorkspaceManifest, RpxmError> {
     Ok(WorkspaceManifest {
         format_version,
         members,
+        dependencies,
     })
 }
 
@@ -371,6 +380,31 @@ fn formal_dep_name(dep: &crate::manifest::DependencySpec) -> &str {
 /// - Member dependency graph must be a DAG
 pub fn resolve_workspace_dependencies(ws: &WorkspaceIndex) -> Result<Lockfile, WorkspaceError> {
     use std::collections::{HashMap, HashSet};
+
+    // Workspace-level path-free deps: refuse registry / missing members (no network).
+    for dep in &ws.manifest.dependencies {
+        if dep.path.is_some() {
+            continue;
+        }
+        let formal = formal_dep_name(dep);
+        let source = dep.source.as_deref().unwrap_or("");
+        if source == "registry" {
+            return Err(WorkspaceError::registry_unavailable(format!(
+                "workspace cannot resolve `{formal}` via registry"
+            )));
+        }
+        if source == "workspace" || source.is_empty() {
+            if !ws.members.contains_key(formal) {
+                return Err(WorkspaceError::registry_unavailable(format!(
+                    "no workspace member matches workspace dependency `{formal}`"
+                )));
+            }
+            continue;
+        }
+        return Err(WorkspaceError::registry_unavailable(format!(
+            "unknown workspace dependency source `{source}` for `{formal}`"
+        )));
+    }
 
     // formal name → list of formal dependency names resolved via workspace
     let mut edges: HashMap<String, Vec<String>> = HashMap::new();

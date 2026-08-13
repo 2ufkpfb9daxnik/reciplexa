@@ -1,3 +1,8 @@
 (workspace
   format-version 1
-  (members "app"))
+  (members "app")
+  (dependencies
+    (remote
+      package remote-kit
+      version "1.0.0"
+      source registry)))

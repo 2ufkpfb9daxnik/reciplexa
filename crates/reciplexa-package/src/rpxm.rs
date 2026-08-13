@@ -284,7 +284,7 @@ fn parse_ident_list(tokens: &[String], start: usize) -> Result<(Vec<String>, usi
 }
 
 /// Parse DD-001 `(dependencies (alias package name version "…" path "…") …)`.
-fn parse_dependencies_block(
+pub(crate) fn parse_dependencies_block(
     tokens: &[String],
     start: usize,
 ) -> Result<(Vec<DependencySpec>, usize), RpxmError> {
