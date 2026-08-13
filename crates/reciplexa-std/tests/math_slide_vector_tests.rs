@@ -85,6 +85,40 @@ fn math_accent_and_big_op() {
         .linearize(),
         "x^2"
     );
+    // Multi-character script bodies get TeX-style braces (Display uses linearize).
+    let twelve = MathAtom::row(
+        id(11),
+        vec![
+            MathAtom::symbol(id(12), "1", MathClass::Ordinary),
+            MathAtom::symbol(id(13), "2", MathClass::Ordinary),
+        ],
+    );
+    assert_eq!(
+        MathAtom::superscript(
+            id(14),
+            MathAtom::symbol(id(15), "x", MathClass::Ordinary),
+            twelve
+        )
+        .linearize(),
+        "x^{12}"
+    );
+    assert_eq!(
+        format!(
+            "{}",
+            MathAtom::subscript(
+                id(16),
+                MathAtom::symbol(id(17), "a", MathClass::Ordinary),
+                MathAtom::row(
+                    id(18),
+                    vec![
+                        MathAtom::symbol(id(19), "i", MathClass::Ordinary),
+                        MathAtom::symbol(id(20), "j", MathClass::Ordinary),
+                    ]
+                )
+            )
+        ),
+        "a_{ij}"
+    );
 }
 
 #[test]

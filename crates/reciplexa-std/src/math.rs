@@ -394,6 +394,9 @@ impl MathAtom {
     }
 
     /// Linearized debug form (not for layout).
+    ///
+    /// Multi-character script / limit bodies are wrapped in `{…}` (TeX-style) so
+    /// e.g. `a^{12}` is unambiguous versus `a^12`.
     pub fn linearize(&self) -> String {
         match self {
             Self::Symbol { glyph, .. } => glyph.clone(),
@@ -418,11 +421,11 @@ impl MathAtom {
                 let mut s = base.linearize();
                 if let Some(sup) = superscript {
                     s.push('^');
-                    s.push_str(&sup.linearize());
+                    s.push_str(&brace_script_body(sup.linearize()));
                 }
                 if let Some(sub) = subscript {
                     s.push('_');
-                    s.push_str(&sub.linearize());
+                    s.push_str(&brace_script_body(sub.linearize()));
                 }
                 s
             }
@@ -440,11 +443,11 @@ impl MathAtom {
                 let mut s = operator.clone();
                 if let Some(lo) = lower {
                     s.push('_');
-                    s.push_str(&lo.linearize());
+                    s.push_str(&brace_script_body(lo.linearize()));
                 }
                 if let Some(up) = upper {
                     s.push('^');
-                    s.push_str(&up.linearize());
+                    s.push_str(&brace_script_body(up.linearize()));
                 }
                 if let Some(b) = body {
                     s.push('{');
@@ -496,6 +499,15 @@ impl MathAtom {
                 format!("{}{{{}}}", kind.as_str(), inner)
             }
         }
+    }
+}
+
+/// Wrap multi-character script/limit bodies so linearize stays unambiguous.
+fn brace_script_body(s: String) -> String {
+    if s.chars().count() == 1 {
+        s
+    } else {
+        format!("{{{s}}}")
     }
 }
 
