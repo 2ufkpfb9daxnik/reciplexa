@@ -591,6 +591,16 @@ fn tip_char_class_display_and_edge_classify() {
     assert_eq!(classify_char('\u{0001}'), CharClass::Other);
     assert_eq!(classify_char('♠'), CharClass::Ornaments);
     assert_eq!(classify_char('ß'), CharClass::ComplexWestern);
+
+    // Wave 20: emoji / color presentation → Other (unknown), not Ideographic.
+    assert_eq!(classify_char('😀'), CharClass::Other); // U+1F600
+    assert_eq!(classify_char('🚀'), CharClass::Other); // U+1F680
+    assert_eq!(classify_char('\u{FE0F}'), CharClass::Other); // emoji VS
+    assert_eq!(classify_char('☀'), CharClass::Other); // U+2600 Misc Symbols
+    assert_eq!(classify_char('✂'), CharClass::Other); // U+2702 Dingbats
+    assert_eq!(classify_char('\u{1F3FB}'), CharClass::Other); // skin tone
+    assert_ne!(classify_char('😀'), CharClass::Ideographic);
+    assert_ne!(classify_char('😀'), CharClass::WesternCharacters);
 }
 
 #[test]

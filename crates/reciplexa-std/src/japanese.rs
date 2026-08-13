@@ -248,8 +248,11 @@ impl fmt::Display for CharClass {
 /// scalar; cl-18 grouped numerals / cl-28 attached western / cl-30 tate-chu-yoko
 /// detection; most Enclosed CJK Letters (U+3200–32FF) beyond a sample; full
 /// CJK Compatibility (U+3300–33FF) unit/square set; vertical presentation forms;
-/// emoji / pictographs; and normative pair-matrix class nuance beyond coarse
-/// buckets.
+/// and normative pair-matrix class nuance beyond coarse buckets.
+///
+/// **Wave 20:** emoji / color-presentation scalars (pictographs, dingbats,
+/// variation selectors, emoji tags) map to [`CharClass::Other`] (explicit
+/// unknown) — not Ideographic via the high-BMP fallback.
 pub fn classify_char(c: char) -> CharClass {
     // Specific punctuation / symbols first (mirrors package classify-sample +
     // common JLReq appendix A samples + Wave 5 UCS-ish expansions).
@@ -461,6 +464,13 @@ pub fn classify_char(c: char) -> CharClass {
         | '\u{00F8}'..='\u{00FF}'
         | '\u{0100}'..='\u{024F}'
         | '\u{0300}'..='\u{036F}' => CharClass::ComplexWestern,
+        // Wave 20 — emoji / color presentation: explicit Other (unknown), not
+        // Ideographic. Listed ornaments above still win for ♠★○… samples.
+        '\u{FE0E}' | '\u{FE0F}' // text / emoji variation selectors
+        | '\u{2600}'..='\u{26FF}' // Misc Symbols (unmatched → Other)
+        | '\u{2700}'..='\u{27BF}' // Dingbats
+        | '\u{1F000}'..='\u{1FAFF}' // mahjong .. Symbols and Pictographs Ext-A
+        | '\u{E0020}'..='\u{E007F}' => CharClass::Other, // emoji tag characters
         // CJK Unified Ideographs + common extensions / compatibility.
         '\u{3400}'..='\u{4DBF}'
         | '\u{4E00}'..='\u{9FFF}'
