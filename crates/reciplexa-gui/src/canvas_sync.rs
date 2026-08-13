@@ -33,13 +33,20 @@ impl SyncRefuse {
 /// Build read-only layer rows from flattened scene shapes (bridge / mismatch path).
 ///
 /// Byte spans are zeroed — there is no CST leaf to highlight or mutate.
+/// Text shapes include a short content prefix (same spirit as package CST labels).
 pub fn layers_from_world_shapes(shapes: &[WorldShape]) -> Vec<LayerInfo> {
     shapes
         .iter()
         .enumerate()
         .map(|(i, shape)| {
             let kind = world_shape_kind(shape).to_string();
-            let label = format!("{kind} (read-only #{})", i + 1);
+            let label = match shape {
+                WorldShape::Text(t) => {
+                    let short: String = t.content.chars().take(24).collect();
+                    format!("text \"{short}\" (read-only #{})", i + 1)
+                }
+                _ => format!("{kind} (read-only #{})", i + 1),
+            };
             LayerInfo {
                 kind,
                 label,
@@ -386,6 +393,15 @@ mod tests {
             .collect();
         assert!(kinds.contains(&"circle".into()));
         assert!(kinds.contains(&"text".into()));
+        let text_label = layers_from_world_shapes(&shapes)
+            .into_iter()
+            .find(|l| l.kind == "text")
+            .expect("text layer")
+            .label;
+        assert!(
+            text_label.contains("text \"hi\""),
+            "read-only text label should include content prefix: {text_label}"
+        );
         assert!(kinds.contains(&"path".into()) || kinds.contains(&"polygon".into()));
         assert!(kinds.contains(&"image".into()));
         assert_eq!(readonly_size_targets(3).len(), 3);
