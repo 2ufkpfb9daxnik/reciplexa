@@ -803,6 +803,22 @@ pub fn underbrace_spacing() -> f64 {
     UNDERBRACE_CLEARANCE_EM
 }
 
+/// TeX-ish `\vphantom`: keep height/depth, **zero width**.
+///
+/// Fontless estimate stub for invisible vertical reserve — not a `MathAtom`
+/// variant / OpenType MATH phantom node.
+pub fn phantom_box(inner: MathBox) -> MathBox {
+    MathBox::new(0.0, inner.height, inner.depth)
+}
+
+/// TeX-ish `\smash`: keep width, **zero height and depth**.
+///
+/// Fontless estimate stub so neighbors pack horizontally without vertical
+/// contribution — not a `MathAtom` variant / real smash glyph.
+pub fn smash_box(inner: MathBox) -> MathBox {
+    MathBox::new(inner.width, 0.0, 0.0)
+}
+
 /// Horizontal packing of a cell inside its column (fontless matrix stub).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MatrixColumnAlign {
