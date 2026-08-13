@@ -269,7 +269,7 @@ When package path touched (Y2): also `cargo test -p reciplexa-package --offline`
 | Y2 — Auto-materialize `package-resource` in package document path | **done** |
 | Y3 — Justification stub | **done** |
 | Y4 — Math scripts position stub | **done** |
-| Y5 — Docs + `implemented-features` | **pending** |
+| Y5 — Docs + `implemented-features` | **done** |
 
 ### Y0 — Broader UCS-ish classify tables
 
