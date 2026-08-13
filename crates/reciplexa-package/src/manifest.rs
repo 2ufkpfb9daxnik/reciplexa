@@ -277,5 +277,7 @@ pub const OPEN_PKG_001_CODE: &str = "OPEN-PKG-001";
 /// `source registry`, fail with [`crate::WorkspaceError::RegistryUnavailable`]
 /// and must not perform network I/O. Lockfile may carry an optional
 /// [`crate::LockedPackage::checksum`] string stub without verification.
+/// [`crate::content_checksum`] fills a non-crypto `stub-fnv1a64:…` until
+/// blake3/sha256 is added (OPEN).
 pub const OPEN_PKG_001_REGISTRY: &str =
     "OPEN-PKG-001: package registry resolution is not implemented (no network)";

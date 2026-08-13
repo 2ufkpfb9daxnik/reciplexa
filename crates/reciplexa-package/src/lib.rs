@@ -5,6 +5,9 @@
 //! [`OPEN_PKG_001_REGISTRY`] / [`WorkspaceError::RegistryUnavailable`]: the package
 //! registry protocol is not implemented. Resolvers must refuse registry-shaped
 //! dependencies without network I/O.
+//!
+//! [`content_checksum`]: lockfile content hash is a **non-crypto FNV-1a stub**
+//! (`stub-fnv1a64:…`) until blake3/sha256 lands in the workspace; not verified.
 
 #![forbid(unsafe_code)]
 
@@ -64,7 +67,7 @@ pub use load::{
     elaborate_with_packages, load_module_tree_with_packages, LocalPackageIndex, PackageLoadError,
     ResolvedImport,
 };
-pub use lockfile::{LockedPackage, Lockfile};
+pub use lockfile::{content_checksum, LockedPackage, Lockfile};
 pub use manifest::{
     normalize_resource_path, resolve_package_resource, DependencySpec, PackageManifest,
     ResourceCheckError, ResourceResolveError, OPEN_PKG_001_CODE, OPEN_PKG_001_REGISTRY,

@@ -19,8 +19,33 @@ pub struct LockedPackage {
     /// Optional registry content checksum stub (OPEN-PKG-001).
     ///
     /// Carried for future lockfile round-trips; **not verified** today.
+    /// Populate via [`content_checksum`] (stub hash — see OPEN note there).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub checksum: Option<String>,
+}
+
+/// Compute a lockfile content-checksum string for `path`.
+///
+/// **OPEN:** No `blake3` / `sha2` crate is in the workspace yet, so this is a
+/// non-cryptographic FNV-1a 64-bit stub (`stub-fnv1a64:…`). Replace with
+/// blake3 or sha256 when a hash dependency is added; **do not treat as
+/// registry integrity**. Read errors become `stub-error:…`.
+pub fn content_checksum(path: impl AsRef<Path>) -> String {
+    match fs::read(path.as_ref()) {
+        Ok(bytes) => format!("stub-fnv1a64:{:016x}", fnv1a64(&bytes)),
+        Err(e) => format!("stub-error:{e}"),
+    }
+}
+
+fn fnv1a64(bytes: &[u8]) -> u64 {
+    const OFFSET: u64 = 0xcbf29ce484222325;
+    const PRIME: u64 = 0x100000001b3;
+    let mut hash = OFFSET;
+    for &b in bytes {
+        hash ^= u64::from(b);
+        hash = hash.wrapping_mul(PRIME);
+    }
+    hash
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

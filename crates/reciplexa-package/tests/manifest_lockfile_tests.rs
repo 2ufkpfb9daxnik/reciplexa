@@ -73,6 +73,41 @@ fn lockfile_checksum_optional_roundtrip_no_verify() {
 }
 
 #[test]
+fn content_checksum_stub_fnv_is_stable_and_marks_open() {
+    use reciplexa_package::content_checksum;
+    use std::io::Write;
+
+    let dir = std::env::temp_dir().join(format!(
+        "reciplexa-checksum-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0)
+    ));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("blob.bin");
+    {
+        let mut f = std::fs::File::create(&path).unwrap();
+        f.write_all(b"hello-lockfile").unwrap();
+    }
+    let a = content_checksum(&path);
+    let b = content_checksum(&path);
+    assert_eq!(a, b);
+    assert!(
+        a.starts_with("stub-fnv1a64:"),
+        "OPEN stub prefix expected, got {a}"
+    );
+    assert_eq!(a.len(), "stub-fnv1a64:".len() + 16);
+    let missing = content_checksum(dir.join("no-such-file"));
+    assert!(
+        missing.starts_with("stub-error:"),
+        "missing path should return stub-error, got {missing}"
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
 fn lockfile_from_graph_matches_manifests() {
     let manifests = vec![PackageManifest {
         name: "a".into(),
