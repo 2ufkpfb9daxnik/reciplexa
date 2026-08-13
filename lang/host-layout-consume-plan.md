@@ -94,9 +94,12 @@ No push unless asked. Fine-grained commits (one unit ≈ one commit).
 | HC2 — Tests (+ optional CLI) | **done** |
 | HC3 — GUI read-only text prefix | **done** |
 | HC4 — `estimate_package_math_main` | **done** |
-| HC5 — Docs / implemented-features | **pending** |
+| HC5 — Docs / implemented-features | **done** |
 
 ## Follow-on (after HC5)
 
-Host PDF / scene smoke over long JA paragraphs (multiple text ops) may continue
-as HC6+ once HC0–HC5 land — not required to close this slice.
+| Unit | Status |
+|------|--------|
+| HC6–HC8 — scene PDF smoke: long JA paragraph → multiple PDF text ops | **pending** |
+
+Host PDF / scene smoke over long JA paragraphs (multiple text ops) continues as HC6+ once HC0–HC5 land.
