@@ -770,6 +770,23 @@ fn vertical_advance_em_by_class() {
 }
 
 #[test]
+fn needs_tate_rotation_western_vs_cjk() {
+    use reciplexa_std::japanese::needs_tate_rotation;
+
+    assert!(needs_tate_rotation('A'));
+    assert!(needs_tate_rotation('z'));
+    assert!(needs_tate_rotation('7'));
+    assert!(needs_tate_rotation('-'));
+    assert!(needs_tate_rotation(' '));
+    assert!(!needs_tate_rotation('漢'));
+    assert!(!needs_tate_rotation('あ'));
+    assert!(!needs_tate_rotation('。'));
+    assert!(!needs_tate_rotation('「'));
+    // Fullwidth latin stays upright in this stub (tate-chu-yoko / presentation forms later).
+    assert!(!needs_tate_rotation('Ａ'));
+}
+
+#[test]
 fn break_line_vertical_wraps_on_vertical_advance() {
     // Four ideographs at 3em vertical measure → wrap.
     let lines = break_line_vertical("一二三四", 3.0);

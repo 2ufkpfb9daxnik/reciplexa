@@ -24,7 +24,7 @@ pub use japanese::{
     bou_estimate_box, bou_mark_offsets, break_line, break_line_to_text_shapes,
     break_line_vertical, break_opportunity, break_opportunity_chars, break_pair_matrix_cell,
     char_em_width, classify_char, hang_width_em, hang_width_em_char, is_hangable, justify_line,
-    justify_line_to_text_shapes, lines_to_text_shapes, ruby_estimate_box,
+    justify_line_to_text_shapes, lines_to_text_shapes, needs_tate_rotation, ruby_estimate_box,
     tate_chu_yoko_estimate_box, vertical_advance_em, vertical_ruby_estimate_box,
     wrap_text_shape_content, BouBox, BreakOpportunity, CharClass, KihonHanmen, Ruby, RubyBox,
     RubyKind, TateChuYoko, TateChuYokoBox, TategakiParagraph, VerticalRubyBox, WritingMode,

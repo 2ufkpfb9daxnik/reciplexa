@@ -838,7 +838,8 @@ pub fn justify_line(chars: &[char], target_em: f64) -> Vec<(char, f64)> {
 /// Fontless stub by [`CharClass`]: ideograph-like / kana / fullwidth punctuation
 /// ≈ 1 em; ASCII western / numeric ≈ 0.5 em (half-width upright); spaces ≈ 0.5;
 /// hangable punctuation still advances 1 em (no special vertical hang).
-/// Not glyph orientation / tate-chu-yoko / OpenType `vmtx`.
+/// Not glyph orientation / tate-chu-yoko / OpenType `vmtx`. See also
+/// [`needs_tate_rotation`] for a separate orientation flag stub.
 pub fn vertical_advance_em(c: char) -> f64 {
     match classify_char(c) {
         CharClass::WesternCharacters
@@ -850,6 +851,32 @@ pub fn vertical_advance_em(c: char) -> f64 {
         | CharClass::Spaces => 0.5,
         CharClass::Other if c.is_ascii() => 0.5,
         _ => 1.0,
+    }
+}
+
+/// Fontless stub: whether `c` should be rotated when set in `vertical-rl`.
+///
+/// ASCII / Latin-1 western letters and digits typically need a quarter-turn in
+/// tategaki; CJK square letters (ideograph / kana) and fullwidth latin stay
+/// upright in this stub (tate-chu-yoko / vertical presentation forms later).
+/// Not OpenType `vert` / `vrt2` or CSS `text-orientation`.
+pub fn needs_tate_rotation(c: char) -> bool {
+    match classify_char(c) {
+        // Extended latin often lacks a fullwidth twin — rotate.
+        CharClass::ComplexWestern => true,
+        CharClass::WesternCharacters
+        | CharClass::SimpleWestern
+        | CharClass::Numeric
+        | CharClass::GroupedNumerals
+        | CharClass::AttachedWestern => c.is_ascii(),
+        CharClass::Spaces => c.is_ascii_whitespace(),
+        CharClass::Hyphens | CharClass::DividingPunctuation | CharClass::MiddleDots
+            if c.is_ascii() =>
+        {
+            true
+        }
+        CharClass::Other if c.is_ascii() => true,
+        _ => false,
     }
 }
 
