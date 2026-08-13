@@ -1224,6 +1224,7 @@ pub fn japanese_linebreak_source() -> &'static str {
     (sample-line-end-prohibited "「『（〔［｛〈《￥＄￡＃")
     (sample-inseparable "—…‥〳〴〵")
     (completeness "subset-stub")))
+(// classify-sample kept for package API; prefer future intrinsic → reciplexa_std::japanese::classify_char)
 (val classify-sample (fn (glyph)
   (if (= glyph "「") 1
     (if (= glyph "」") 2

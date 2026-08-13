@@ -32,7 +32,7 @@ No push unless asked. Fine-grained commits (one unit ≈ one commit).
 
 ---
 
-## Japanese units (J0–J4)
+## Japanese units (J0–J7)
 
 ### J0 — `reciplexa-std::japanese` module skeleton
 
@@ -68,6 +68,24 @@ No push unless asked. Fine-grained commits (one unit ≈ one commit).
 - Module-level docs / README notes pointing at this plan.
 - Integration test (or std demo test) exercising `classify_char` + `break_opportunity` on a short Japanese string.
 - Update `lang/implemented-features.md` next-steps: first JA/math deepen slice **done**; remaining = full UCS / glyph layout.
+- **Commit.**
+
+### J5 — expand `classify_char` coverage
+
+- Broader punctuation / kana / digit / Latin ranges in `reciplexa-std::japanese` (still a subset, not full UCS).
+- Unit tests with at least one sample per expanded class / range.
+- **Commit.**
+
+### J6 — expand `break_opportunity` matrix
+
+- More prohibited / inseparable pairs aligned with package `kinsoku-profile` sample strings and `sample-pair-rules`.
+- Tests that every glyph in package line-head / line-end sample strings classifies into a prohibited class and forbids the matching break.
+- **Commit.**
+
+### J7 — package linebreak ↔ std parity bridge
+
+- Public `reciplexa_package::check_linebreak_std_parity` (+ fixed sample table) used from package tests.
+- Keep `classify-sample` API; note that authors should prefer a future intrinsic backed by Rust `classify_char`.
 - **Commit.**
 
 ---
@@ -113,6 +131,9 @@ No push unless asked. Fine-grained commits (one unit ≈ one commit).
 | J2 | **done** |
 | J3 | **done** |
 | J4 | **done** |
+| J5 | **done** |
+| J6 | **done** |
+| J7 | **done** |
 | M0 | **done** |
 | M1 | **done** |
 | M2 | **done** |
@@ -125,3 +146,4 @@ No push unless asked. Fine-grained commits (one unit ≈ one commit).
 - Font-backed shaping, ruby layout, tate-chu-yoko metrics, vertical glyph orientation.
 - Math: OpenType MATH / stretchy fences / real matrix column alignment / linebreak in display math.
 - Document pipeline + GUI consuming kihon / ruby / math boxes (not only trees).
+- Wire `classify_char` as a real language/package intrinsic (replace synthetic `classify-sample`).

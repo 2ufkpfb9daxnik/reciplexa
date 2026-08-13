@@ -12,6 +12,7 @@ pub mod build;
 pub mod domain_bodies;
 pub mod domain_native;
 pub mod graphics_bridge;
+pub mod japanese_bridge;
 pub mod load;
 pub mod lockfile;
 pub mod manifest;
@@ -42,6 +43,9 @@ pub use domain_bodies::{
 pub use domain_native::{DomainNativeModule, DomainNativeRegistry};
 pub use graphics_bridge::{
     document_from_package_entry, document_from_package_source, GraphicsBridgeError,
+};
+pub use japanese_bridge::{
+    check_linebreak_std_parity, linebreak_parity_samples, LinebreakParitySample,
 };
 pub use load::{
     elaborate_with_packages, load_module_tree_with_packages, LocalPackageIndex, PackageLoadError,

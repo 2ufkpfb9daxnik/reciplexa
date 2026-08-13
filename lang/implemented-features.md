@@ -156,7 +156,7 @@ pre-PKG カーネルは計画上 **COMPLETE（意図的 defer 付き）**。各�
 2. **カバレッジ締め（N6）** — **done**（7-crate BEST-ENTRY ≥99%）；N5.3 tip for document surface residuals。
 3. **GUI CST sync v2** — [`gui-cst-sync-v2-plan.md`](gui-cst-sync-v2-plan.md) S0–**S6b done**（package writable sync、examples package 化、production keyword 表隔離）。
 4. **PKG インフラ（Slice E）** — **done**（workspace lock / resources / OPEN-PKG-001 stub）；言語 `(resource …)`・実レジストリは後続。
-5. **OPEN-TEXT-JA-001 / math layout** — 第一深化スライス **done**（[`ja-math-deepen-plan.md`](ja-math-deepen-plan.md) J0–J4 / M0–M3：Rust 表＋API＋fontless box stub）。残: 完全 UCS 所属表・§C 禁則行列・ruby/縦中横実レイアウト・OpenType MATH / stretchy / 文書パイプライン消費。
+5. **OPEN-TEXT-JA-001 / math layout** — 第一深化スライス **done**（[`ja-math-deepen-plan.md`](ja-math-deepen-plan.md) J0–J7 / M0–M3：Rust 表拡充＋package linebreak パリティ橋＋fontless box stub）。残: 完全 UCS 所属表・§C 禁則行列・ruby/縦中横実レイアウト・OpenType MATH / stretchy / 文書パイプライン消費・`classify` 言語 intrinsic。
 ---
 
 ## 付記: クレート一覧の見取り図

@@ -139,6 +139,10 @@ fn resolve_japanese_jlreq_modules() {
     let (_, lb) = idx.resolve_import("japanese/linebreak").unwrap();
     assert!(lb.contains("break-between") && lb.contains("kinsoku-profile"));
     assert!(lb.contains("sample-pair-rules"));
+    assert!(
+        lb.contains("classify_char") || lb.contains("future intrinsic"),
+        "linebreak source should note std classify intrinsic"
+    );
     let (_, kihon) = idx.resolve_import("japanese/kihon").unwrap();
     assert!(kihon.contains("kihon-hanmen") && kihon.contains("line-rate-default"));
     assert!(kihon.contains("a5-trim") && kihon.contains("place-hanmen"));

@@ -12,6 +12,7 @@ reciplexa-bind = { workspace = true }
 reciplexa-syntax = { workspace = true }
 reciplexa-eval = { workspace = true }
 reciplexa-scene = { workspace = true }
+reciplexa-std = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 
