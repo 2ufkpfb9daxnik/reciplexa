@@ -592,6 +592,32 @@ pub fn scripts_attachment_offsets(
     (sub_x, sub_y, sup_x, sup_y)
 }
 
+/// Display-style big-op limit offsets relative to the operator box origin.
+///
+/// Returns `(lower_x, lower_y, upper_x, upper_y)` with `x` rightward and `y`
+/// upward from the operator baseline. Limits are horizontally centered on the
+/// operator; missing limits yield `0.0` for that pair.
+/// Heuristic only — not OpenType MATH / TeX `\displaylimits` metrics.
+pub fn bigop_limit_offsets(
+    op_box: MathBox,
+    lower: Option<MathBox>,
+    upper: Option<MathBox>,
+) -> (f64, f64, f64, f64) {
+    let lower_x = lower
+        .map(|lo| (op_box.width - lo.width * SCRIPT_SCALE) * 0.5)
+        .unwrap_or(0.0);
+    let lower_y = lower
+        .map(|lo| -(op_box.depth + lo.height * SCRIPT_SCALE + 0.1))
+        .unwrap_or(0.0);
+    let upper_x = upper
+        .map(|up| (op_box.width - up.width * SCRIPT_SCALE) * 0.5)
+        .unwrap_or(0.0);
+    let upper_y = upper
+        .map(|up| op_box.height + up.depth * SCRIPT_SCALE + 0.1)
+        .unwrap_or(0.0);
+    (lower_x, lower_y, upper_x, upper_y)
+}
+
 /// Horizontal packing of a cell inside its column (fontless matrix stub).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MatrixColumnAlign {

@@ -190,6 +190,21 @@ fn math_scripts_attachment_offsets_heuristic() {
 }
 
 #[test]
+fn math_bigop_limit_offsets_heuristic() {
+    use reciplexa_std::math::{bigop_limit_offsets, MathBox, SCRIPT_SCALE};
+
+    let op = MathBox::new(1.2, 0.9, 0.3);
+    let lower = MathBox::new(0.8, 0.4, 0.1);
+    let upper = MathBox::new(0.6, 0.4, 0.1);
+    let (lx, ly, ux, uy) = bigop_limit_offsets(op, Some(lower), Some(upper));
+    assert!((lx - (op.width - lower.width * SCRIPT_SCALE) * 0.5).abs() < 1e-9);
+    assert!((ux - (op.width - upper.width * SCRIPT_SCALE) * 0.5).abs() < 1e-9);
+    assert!(ly < 0.0, "lower limit below op: {ly}");
+    assert!(uy > 0.0, "upper limit above op: {uy}");
+    assert_eq!(bigop_limit_offsets(op, None, None), (0.0, 0.0, 0.0, 0.0));
+}
+
+#[test]
 fn math_matrix_column_widths_and_cases_left_align() {
     use reciplexa_std::math::{
         cases_column_align, matrix_cell_x_in_column, matrix_column_widths, MatrixColumnAlign,
