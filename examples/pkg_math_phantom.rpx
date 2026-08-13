@@ -1,0 +1,18 @@
+(// language-only: ker builtins math-phantom / math-smash demo.
+ // Fontless vphantom-ish zero-width / smash zero height+depth via
+ // phantom_box / smash_box — not MathAtom variants / OpenType MATH.)
+
+(val from-record
+  (math-phantom (record (tag "math-symbol") (glyph "Σ") (class "op"))))
+
+(val from-string (math-smash "x"))
+
+(val from-math-box
+  (math-phantom (math-box (record (tag "math-symbol") (glyph "y") (class "ord")))))
+
+(val main
+  (record
+    (tag "math-phantom-smash-demo")
+    (from-record from-record)
+    (from-string from-string)
+    (from-math-box from-math-box)))
