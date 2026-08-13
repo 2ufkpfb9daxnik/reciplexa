@@ -176,7 +176,7 @@ cargo test -p reciplexa --offline --lib inspect_document
 
 | Unit | Status |
 |------|--------|
-| HC9 — Long JA → SVG multiple `<text` | pending |
-| HC10 — GUI metrics status/debug | pending (skip if no hook) |
-| OPEN-PKG — structured registry refusal | pending |
-| Inspect-document math main | pending |
+| HC9 — Long JA → SVG multiple `<text` | **done** |
+| HC10 — GUI metrics status/debug | **skipped** (no dedicated status/debug strip; page/zoom chrome only) |
+| OPEN-PKG — structured registry refusal | **done** (`OPEN_PKG_001_CODE` + fixture) |
+| Inspect-document math main | **done** |
