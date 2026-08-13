@@ -1,0 +1,27 @@
+(// language-only: ker builtins classify-char / break-between
+ // backed by reciplexa_std::japanese (not package japanese/linebreak).)
+
+(val open-class (classify-char "「"))
+
+(val ideograph-class (classify-char "漢"))
+
+(val wave-class (classify-char "〜"))
+
+(val space-class (classify-char "　"))
+
+(val after-open (break-between "「" "あ"))
+
+(val before-stop (break-between "あ" "。"))
+
+(val between-kanji (break-between "漢" "字"))
+
+(val main
+  (record
+    (tag "ja-classify-demo")
+    (open-class open-class)
+    (ideograph-class ideograph-class)
+    (wave-class wave-class)
+    (space-class space-class)
+    (after-open after-open)
+    (before-stop before-stop)
+    (between-kanji between-kanji)))
