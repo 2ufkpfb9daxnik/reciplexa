@@ -17,9 +17,10 @@ OpenType MATH.
 |---------|------------------|
 | `layout_doc_page_to_scene` over `doc-page` (break_line + place_lines + indent + columns) | Production document pipeline / editable layout engine |
 | Refactor `document_from_doc_value` → shared layout module | New markup / CST layout surface |
-| `layout_math_to_shapes` from `linearize` + `estimate_box` width (monospace heuristic) | Glyph metrics, stretchy, scripts placement |
+| `layout_math_to_shapes` from `linearize` + `estimate_box` width (monospace heuristic) | Full OpenType MATH / stretchy |
+| Scripts / BigOp / Fraction / Radical placement stubs (offsets + Line rules) | Glyph metrics / TeX `\fontdimen` fidelity |
 | Package page mixing doc paragraph + math sibling (or math-only graphics text fallback) | Math embedded as first-class `doc-block` kind |
-| PDF smoke for the mixed / math page | Guaranteed CJK embedding without system fonts |
+| PDF / SVG / PPTX smoke for the mixed / math page | Guaranteed CJK embedding without system fonts |
 | Docs pointing hosts at this plan | Closing full OPEN-TEXT-JA-001 |
 
 ## Gate
@@ -32,6 +33,7 @@ set TEMP=d:\reciplexa\.tmp
 set TMP=d:\reciplexa\.tmp
 cargo test -p reciplexa-eval --offline --lib document_value
 cargo test -p reciplexa-package --offline --test graphics_bridge_coverage
+cargo test -p reciplexa-std --offline --test math_slide_vector_tests layout_math_
 ```
 
 Narrow further when a unit only touches std helpers or a single example.
@@ -90,6 +92,55 @@ No push unless asked. Fine-grained commits (one unit ≈ one commit).
 
 ---
 
+## Follow-ons (LL6–LL12)
+
+### LL6 — SVG + PPTX smoke for `pkg_live_layout`
+
+- Mirror HC9 / HC11: live-layout demo → `document_to_svg` / `document_to_pptx`.
+- Assert multiple `<text` / `<a:t>` (doc paragraph + math glyphs).
+- **Commit.**
+
+### LL7 — Scripts placement in `layout_math_to_shapes`
+
+- For `MathAtom::Scripts`, place base at `origin`; position sub/sup with
+  `scripts_attachment_offsets` (math y-up → scene y-down).
+- Tip test: sub below / sup above base.
+- **Commit.**
+
+### LL8 — BigOp limits placement
+
+- For `MathAtom::BigOp`, place operator at `origin`; lower/upper via
+  `bigop_limit_offsets`; body to the right of the op (display stub).
+- Tip test: lower below / upper above / body rightward.
+- **Commit.**
+
+### LL9 — Fraction rule as Line
+
+- For `MathAtom::Fraction`, stack num/den with `fraction_rule_metrics` clearances;
+  draw the vinculum as a scene `Line` between them (not `a/b` linearize).
+- Tip test: Line present; num above / den below.
+- **Commit.**
+
+### LL10 — Docs + tip tests
+
+- Extend this plan status for LL6–LL9; refresh `implemented-features.md`.
+- Keep / tip `layout_math_*` tests in `math_slide_vector_tests` + package smokes.
+- **Commit.**
+
+### LL11 — Radical vinculum as Line
+
+- For `MathAtom::Radical`, place radicand (+ optional index via
+  `radical_vinculum_index_offsets`); draw over-bar as scene `Line`.
+- Tip test: Line above radicand.
+- **Commit.**
+
+### LL12 — Docs after radical
+
+- Mark LL11–LL12 done; refresh next-steps if smooth.
+- **Commit.**
+
+---
+
 ## Status
 
 | Unit | Status |
@@ -100,4 +151,10 @@ No push unless asked. Fine-grained commits (one unit ≈ one commit).
 | LL3 — Integration example + test | **done** (`examples/pkg_live_layout.rpx` + `document_from_live_layout_*`) |
 | LL4 — PDF smoke | **done** (CJK-gated `Tj`) |
 | LL5 — Docs / implemented-features | **done** |
-
+| LL6 — SVG + PPTX smoke | **done** (multi `<text` / `<a:t>`) |
+| LL7 — Scripts placement | **done** (`scripts_attachment_offsets`) |
+| LL8 — BigOp limits | **done** (`bigop_limit_offsets`) |
+| LL9 — Fraction Line rule | **done** |
+| LL10 — Docs + tip tests | **done** |
+| LL11 — Radical vinculum Line | pending |
+| LL12 — Docs after radical | pending |
