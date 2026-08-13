@@ -42,6 +42,7 @@ fn lockfile_from_graph_uses_formal_package_name() {
             version_req: "1".into(),
             path: Some("../lib".into()),
             package: Some("formal-lib".into()),
+            source: None,
         }],
         entry: "main.rpx".into(),
         ..Default::default()
@@ -60,6 +61,7 @@ fn lockfile_from_consumer_workspace_source_and_nested_path_deps() {
             version_req: "*".into(),
             path: Some("../graphics".into()),
             package: Some("graphics".into()),
+            source: None,
         }],
         entry: "main.rpx".into(),
         ..Default::default()
@@ -73,12 +75,14 @@ fn lockfile_from_consumer_workspace_source_and_nested_path_deps() {
                 version_req: "1".into(),
                 path: Some("../util".into()),
                 package: None,
+                source: None,
             },
             DependencySpec {
                 name: "reg".into(),
                 version_req: "1".into(),
                 path: None,
                 package: None,
+                source: None,
             },
         ],
         entry: String::new(),
@@ -91,6 +95,7 @@ fn lockfile_from_consumer_workspace_source_and_nested_path_deps() {
         version_req: "*".into(),
         path: None,
         package: Some("graphics".into()),
+        source: None,
     };
     let lf = Lockfile::from_consumer(&consumer, &[(&registry_only, &dep_manifest)]);
     let g = lf.packages.iter().find(|p| p.name == "graphics").unwrap();
@@ -102,6 +107,7 @@ fn lockfile_from_consumer_workspace_source_and_nested_path_deps() {
         version_req: "0.1.0".into(),
         path: Some("../graphics".into()),
         package: Some("graphics".into()),
+        source: None,
     };
     let lf2 = Lockfile::from_consumer(&consumer, &[(&with_path, &dep_manifest)]);
     let g2 = lf2.packages.iter().find(|p| p.name == "graphics").unwrap();
@@ -119,12 +125,14 @@ fn lockfile_consistency_error_paths() {
                 version_req: "1".into(),
                 path: None,
                 package: None,
+                source: None,
             },
             DependencySpec {
                 name: "g".into(),
                 version_req: "0.2.0".into(),
                 path: Some("../g".into()),
                 package: Some("graphics".into()),
+                source: None,
             },
         ],
         entry: "m".into(),
@@ -783,6 +791,7 @@ fn lock_consumer_skips_registry_and_errors_when_missing() {
             version_req: "1".into(),
             path: Some("../gone".into()),
             package: Some("gone".into()),
+            source: None,
         }],
         entry: "main.rpx".into(),
         ..Default::default()
@@ -1100,6 +1109,7 @@ fn lockfile_from_graph_none_package_and_workspace_tokenize_err() {
             version_req: "1".into(),
             path: None,
             package: None,
+            source: None,
         }],
         entry: "main.rpx".into(),
         ..Default::default()

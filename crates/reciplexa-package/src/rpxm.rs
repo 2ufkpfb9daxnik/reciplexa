@@ -123,6 +123,7 @@ pub fn parse_rpxm(src: &str) -> Result<PackageManifest, RpxmError> {
                         version_req: ver,
                         path,
                         package: None,
+                        source: None,
                     });
                     i = j;
                     continue;
@@ -317,6 +318,7 @@ fn parse_one_dependency(
     let mut package = None;
     let mut version_req = None;
     let mut path = None;
+    let mut source = None;
     let mut i = start + 2;
     while i < tokens.len() && tokens[i] != ")" {
         match tokens[i].as_str() {
@@ -330,6 +332,10 @@ fn parse_one_dependency(
             }
             "path" if i + 1 < tokens.len() => {
                 path = Some(tokens[i + 1].clone());
+                i += 2;
+            }
+            "source" if i + 1 < tokens.len() => {
+                source = Some(tokens[i + 1].clone());
                 i += 2;
             }
             "(" => {
@@ -362,6 +368,7 @@ fn parse_one_dependency(
             version_req,
             path,
             package,
+            source,
         },
         i + 1,
     ))

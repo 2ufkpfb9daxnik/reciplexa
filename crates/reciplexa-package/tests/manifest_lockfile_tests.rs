@@ -16,6 +16,7 @@ fn manifest_parse_json_roundtrip() {
             version_req: "1.0".into(),
             path: Some("../util".into()),
             package: None,
+            source: None,
         }],
         entry: "main.rpx".into(),
         targets: vec!["document".into()],

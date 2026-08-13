@@ -34,6 +34,10 @@ pub enum WorkspaceError {
     MissingMember(String),
     MemberLocalLock(String),
     Lock(String),
+    DependencyCycle(String),
+    VersionMismatch(String),
+    /// OPEN-PKG-001: registry protocol is not implemented (no network).
+    RegistryUnavailable(String),
 }
 
 impl std::fmt::Display for WorkspaceError {
@@ -44,7 +48,10 @@ impl std::fmt::Display for WorkspaceError {
             | Self::DuplicateName(s)
             | Self::MissingMember(s)
             | Self::MemberLocalLock(s)
-            | Self::Lock(s) => write!(f, "{s}"),
+            | Self::Lock(s)
+            | Self::DependencyCycle(s)
+            | Self::VersionMismatch(s)
+            | Self::RegistryUnavailable(s) => write!(f, "{s}"),
             Self::Manifest(e) => write!(f, "workspace manifest error: {e:?}"),
         }
     }
@@ -328,4 +335,114 @@ pub fn check_package_lock_consistency(
 
     lock.is_consistent_with_consumer(&manifest)
         .map_err(WorkspaceError::Lock)
+}
+
+fn version_satisfies(req: &str, version: &str) -> bool {
+    let req = req.trim_matches('"');
+    let version = version.trim_matches('"');
+    req == "*" || req == version
+}
+
+fn formal_dep_name(dep: &crate::manifest::DependencySpec) -> &str {
+    dep.package.as_deref().unwrap_or(dep.name.as_str())
+}
+
+/// Resolve path-free member dependencies preferring workspace members (PKG §21.3–21.6).
+///
+/// - Matching member name+version → `source: workspace`
+/// - Explicit `source registry` or no matching member → [`WorkspaceError::RegistryUnavailable`]
+/// - Member dependency graph must be a DAG
+pub fn resolve_workspace_dependencies(ws: &WorkspaceIndex) -> Result<Lockfile, WorkspaceError> {
+    use std::collections::{HashMap, HashSet};
+
+    // formal name → list of formal dependency names resolved via workspace
+    let mut edges: HashMap<String, Vec<String>> = HashMap::new();
+
+    for (name, (_root, manifest)) in &ws.members {
+        let mut deps = Vec::new();
+        for dep in &manifest.dependencies {
+            if dep.path.is_some() {
+                // Path deps remain path-sourced; skip for workspace-preference graph.
+                continue;
+            }
+            let formal = formal_dep_name(dep).to_string();
+            let source = dep.source.as_deref().unwrap_or("");
+            if source == "registry" {
+                return Err(WorkspaceError::RegistryUnavailable(format!(
+                    "OPEN-PKG-001: package registry resolution is not implemented (no network); \
+                     cannot resolve `{formal}` via registry"
+                )));
+            }
+            if source == "workspace" || source.is_empty() {
+                let Some((_, member)) = ws.members.get(&formal) else {
+                    return Err(WorkspaceError::RegistryUnavailable(format!(
+                        "OPEN-PKG-001: package registry resolution is not implemented (no network); \
+                         no workspace member matches `{formal}`"
+                    )));
+                };
+                if !version_satisfies(&dep.version_req, &member.version) {
+                    return Err(WorkspaceError::VersionMismatch(format!(
+                        "workspace member `{formal}` is version `{}` but `{}` requires `{}`",
+                        member.version, name, dep.version_req
+                    )));
+                }
+                deps.push(formal);
+                continue;
+            }
+            return Err(WorkspaceError::RegistryUnavailable(format!(
+                "OPEN-PKG-001: unknown dependency source `{source}` for `{formal}`"
+            )));
+        }
+        edges.insert(name.clone(), deps);
+    }
+
+    // Cycle detection (DFS).
+    let mut visiting = HashSet::new();
+    let mut visited = HashSet::new();
+    fn dfs(
+        node: &str,
+        edges: &HashMap<String, Vec<String>>,
+        visiting: &mut HashSet<String>,
+        visited: &mut HashSet<String>,
+        stack: &mut Vec<String>,
+    ) -> Result<(), WorkspaceError> {
+        if visited.contains(node) {
+            return Ok(());
+        }
+        if !visiting.insert(node.to_string()) {
+            let mut cycle = stack.clone();
+            cycle.push(node.to_string());
+            return Err(WorkspaceError::DependencyCycle(format!(
+                "workspace member dependency cycle: {}",
+                cycle.join(" -> ")
+            )));
+        }
+        stack.push(node.to_string());
+        if let Some(deps) = edges.get(node) {
+            for d in deps {
+                dfs(d, edges, visiting, visited, stack)?;
+            }
+        }
+        stack.pop();
+        visiting.remove(node);
+        visited.insert(node.to_string());
+        Ok(())
+    }
+    let mut stack = Vec::new();
+    for name in edges.keys() {
+        dfs(name, &edges, &mut visiting, &mut visited, &mut stack)?;
+    }
+
+    let mut packages: Vec<LockedPackage> = ws
+        .members
+        .values()
+        .map(|(_, m)| LockedPackage {
+            name: m.name.clone(),
+            version: m.version.clone(),
+            source: "workspace".into(),
+            dependencies: edges.get(&m.name).cloned().unwrap_or_default(),
+        })
+        .collect();
+    packages.sort_by(|a, b| a.name.cmp(&b.name));
+    Ok(Lockfile { packages })
 }

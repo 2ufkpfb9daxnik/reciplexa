@@ -22,6 +22,9 @@ pub struct DependencySpec {
     /// Formal package identity when distinct from the local alias (`name`).
     #[serde(default)]
     pub package: Option<String>,
+    /// Explicit dependency source: `workspace`, `registry`, or unset (prefer workspace).
+    #[serde(default)]
+    pub source: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

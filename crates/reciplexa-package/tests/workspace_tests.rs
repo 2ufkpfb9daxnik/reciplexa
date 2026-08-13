@@ -4,7 +4,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use reciplexa_package::{
     check_package_lock_consistency, discover_workspace, find_enclosing_workspace,
-    parse_workspace_rpxm, read_lock_for_package, RpxmError, WorkspaceError,
+    parse_workspace_rpxm, read_lock_for_package, resolve_workspace_dependencies, RpxmError,
+    WorkspaceError,
 };
 
 fn tmp_dir(label: &str) -> PathBuf {
@@ -191,6 +192,11 @@ fn member_uses_workspace_root_lock() {
     check_package_lock_consistency(root.join("render")).unwrap();
 }
 
+fn write_pkg_with(root: &std::path::Path, body: &str) {
+    fs::create_dir_all(root).unwrap();
+    fs::write(root.join("package.rpxm"), body).unwrap();
+}
+
 #[test]
 fn member_lock_consistency_detects_version_mismatch() {
     let root = tmp_dir("e3bad");
@@ -208,5 +214,102 @@ fn member_lock_consistency_detects_version_mismatch() {
     match err {
         WorkspaceError::Lock(msg) => assert!(msg.contains("not consistent")),
         other => panic!("expected Lock consistency error, got {other:?}"),
+    }
+}
+
+#[test]
+fn resolve_prefers_workspace_members() {
+    let root = tmp_dir("e4ok");
+    write_pkg_with(
+        &root.join("core"),
+        r#"(package core
+  format-version 1
+  version "1.0.0"
+  (public-modules core))"#,
+    );
+    write_pkg_with(
+        &root.join("app"),
+        r#"(package app
+  format-version 1
+  version "0.1.0"
+  (public-modules app)
+  (dependencies
+    (core
+      package core
+      version "1.0.0")))"#,
+    );
+    fs::write(
+        root.join("workspace.rpxm"),
+        r#"(workspace format-version 1 (members "core" "app"))"#,
+    )
+    .unwrap();
+    let idx = discover_workspace(&root).unwrap();
+    let lock = resolve_workspace_dependencies(&idx).unwrap();
+    let app = lock.packages.iter().find(|p| p.name == "app").unwrap();
+    assert_eq!(app.source, "workspace");
+    assert_eq!(app.dependencies, vec!["core".to_string()]);
+    let core = lock.packages.iter().find(|p| p.name == "core").unwrap();
+    assert_eq!(core.source, "workspace");
+}
+
+#[test]
+fn resolve_detects_member_dependency_cycle() {
+    let root = tmp_dir("e4cycle");
+    write_pkg_with(
+        &root.join("a"),
+        r#"(package a
+  format-version 1
+  version "1.0.0"
+  (public-modules a)
+  (dependencies
+    (b package b version "1.0.0")))"#,
+    );
+    write_pkg_with(
+        &root.join("b"),
+        r#"(package b
+  format-version 1
+  version "1.0.0"
+  (public-modules b)
+  (dependencies
+    (a package a version "1.0.0")))"#,
+    );
+    fs::write(
+        root.join("workspace.rpxm"),
+        r#"(workspace format-version 1 (members "a" "b"))"#,
+    )
+    .unwrap();
+    let idx = discover_workspace(&root).unwrap();
+    let err = resolve_workspace_dependencies(&idx).unwrap_err();
+    assert!(matches!(err, WorkspaceError::DependencyCycle(_)));
+}
+
+#[test]
+fn resolve_registry_source_is_open_stub() {
+    let root = tmp_dir("e4reg");
+    write_pkg_with(
+        &root.join("app"),
+        r#"(package app
+  format-version 1
+  version "0.1.0"
+  (public-modules app)
+  (dependencies
+    (remote
+      package remote-kit
+      version "1.0.0"
+      source registry)))"#,
+    );
+    fs::write(
+        root.join("workspace.rpxm"),
+        r#"(workspace format-version 1 (members "app"))"#,
+    )
+    .unwrap();
+    let idx = discover_workspace(&root).unwrap();
+    let err = resolve_workspace_dependencies(&idx).unwrap_err();
+    match err {
+        WorkspaceError::RegistryUnavailable(msg) => {
+            assert!(msg.contains("OPEN-PKG-001"));
+            assert!(msg.contains("no network"));
+        }
+        other => panic!("expected RegistryUnavailable, got {other:?}"),
     }
 }
