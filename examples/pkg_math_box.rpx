@@ -1,0 +1,13 @@
+(// language-only: ker builtin math-box demo.
+ // Fontless width/height/depth via math_value + estimate_box — not OpenType MATH.)
+
+(val from-record
+  (math-box (record (tag "math-symbol") (glyph "x") (class "ord"))))
+
+(val from-string (math-box "Σ"))
+
+(val main
+  (record
+    (tag "math-box-demo")
+    (from-record from-record)
+    (from-string from-string)))
