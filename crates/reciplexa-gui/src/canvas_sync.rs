@@ -324,6 +324,26 @@ mod tests {
         );
     }
 
+    /// LL24: live-layout demos are package-path sources (GUI open → wants_package).
+    #[test]
+    fn live_layout_demos_want_package_graphics_path() {
+        let layout = include_str!("../../../examples/pkg_live_layout.rpx");
+        let math = include_str!("../../../examples/pkg_live_math.rpx");
+        for (name, src) in [("pkg_live_layout", layout), ("pkg_live_math", math)] {
+            assert!(
+                wants_package_graphics_path(src),
+                "{name}: authoring should match package import heuristics"
+            );
+            let expanded = reciplexa_macro::expand_source(src).unwrap_or_else(|e| {
+                panic!("{name} expand: {e:?}")
+            });
+            assert!(
+                wants_package_graphics_path(&expanded),
+                "{name}: GUI should open via package path (wants_package)"
+            );
+        }
+    }
+
     #[test]
     fn interim_page_fixture_nudge_still_works() {
         let src = include_str!("../../reciplexa-lower/tests/fixtures/interim_page.rpx");

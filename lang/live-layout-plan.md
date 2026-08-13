@@ -267,5 +267,5 @@ No push unless asked. Fine-grained commits (one unit ≈ one commit).
 | LL21 — Cases left brace + rows | **done** |
 | LL22 — Underbrace/overset visual | **done** |
 | LL23 — `pkg_live_math` SVG/PPTX | **done** |
-| LL24 — GUI package path open | pending |
+| LL24 — GUI package path open | **done** |
 | LL25 — Heuristic vs OpenType/JLReq docs | pending |

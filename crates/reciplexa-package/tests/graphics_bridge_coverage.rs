@@ -829,3 +829,29 @@ fn live_math_pptx_smoke_multi_text() {
     );
 }
 
+/// LL24: pkg_live_layout / pkg_live_math open via package-entry bridge (not only live_* helpers).
+#[test]
+fn live_layout_demos_open_via_package_entry_bridge() {
+    for name in ["pkg_live_layout.rpx", "pkg_live_math.rpx"] {
+        let entry = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples").join(name);
+        let doc = document_from_package_entry(&entry, &index())
+            .unwrap_or_else(|e| panic!("{name} package entry bridge: {e:?}"));
+        let text_count = doc.pages[0]
+            .shapes
+            .iter()
+            .filter(|s| matches!(s, Shape::Text(_)))
+            .count();
+        assert!(
+            text_count >= 2,
+            "{name}: expected Text shapes via package path, got {text_count}"
+        );
+        assert!(
+            doc.pages[0]
+                .shapes
+                .iter()
+                .any(|s| matches!(s, Shape::Line(_))),
+            "{name}: expected fraction Line via package path"
+        );
+    }
+}
+

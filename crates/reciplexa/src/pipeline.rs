@@ -323,6 +323,33 @@ mod tests {
         assert!(doc.pages[0].paper.is_positive());
     }
 
+    /// LL24: pkg_live_layout / pkg_live_math open via wants_package → package bridge.
+    #[test]
+    fn document_from_source_live_layout_demos_use_package_path() {
+        for name in ["pkg_live_layout.rpx", "pkg_live_math.rpx"] {
+            let src = match name {
+                "pkg_live_layout.rpx" => include_str!("../../../examples/pkg_live_layout.rpx"),
+                _ => include_str!("../../../examples/pkg_live_math.rpx"),
+            };
+            let expanded = expand(src).unwrap();
+            assert!(
+                wants_package_graphics_path(&expanded),
+                "{name}: should auto-route to package domain path"
+            );
+            let doc = document_from_source(src)
+                .unwrap_or_else(|e| panic!("{name} pipeline open: {e:?}"));
+            let texts = doc.pages[0]
+                .shapes
+                .iter()
+                .filter(|s| matches!(s, Shape::Text(_)))
+                .count();
+            assert!(
+                texts >= 2,
+                "{name}: expected Text shapes via package path, got {texts}"
+            );
+        }
+    }
+
     #[test]
     fn interim_page_fixture_is_refused_on_production_pipeline() {
         let src = include_str!("../../reciplexa-lower/tests/fixtures/interim_page.rpx");

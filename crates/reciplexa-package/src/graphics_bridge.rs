@@ -9,7 +9,9 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use reciplexa_eval::{document_from_graphics_value, eval_expr, GraphicsValueError, UnitHost};
+use reciplexa_eval::{
+    document_from_graphics_value, eval_expr, GraphicsValueError, RuntimeValue, UnitHost,
+};
 use reciplexa_scene::Document;
 
 use crate::load::{elaborate_with_packages, LocalPackageIndex, PackageLoadError};
@@ -99,7 +101,24 @@ pub fn document_from_package_entry(
     let v = eval_expr(&demo.expr, &HashMap::new(), &mut UnitHost)
         .map_err(|e| GraphicsBridgeError::Eval(e.message))?;
     let v = maybe_materialize_package_resources_for_entry(&v, entry_path.as_ref());
+    // Live-layout demos (doc page + sibling math) are not graphics/page trees.
+    if is_live_layout_demo_tag(&v) {
+        return crate::live_layout_bridge::document_from_live_layout_value(&v);
+    }
     document_from_graphics_value(&v).map_err(Into::into)
+}
+
+fn is_live_layout_demo_tag(v: &RuntimeValue) -> bool {
+    let RuntimeValue::Record(fields) = v else {
+        return false;
+    };
+    fields.iter().any(|(k, val)| {
+        k == "tag"
+            && matches!(
+                val,
+                RuntimeValue::String(s) | RuntimeValue::ShapeTag(s) if s == "live-layout-demo"
+            )
+    })
 }
 
 /// Write `source` to a temp entry file, then [`document_from_package_entry`].
