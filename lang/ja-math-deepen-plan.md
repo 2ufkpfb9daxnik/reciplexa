@@ -523,3 +523,58 @@ cargo test -p reciplexa-std -p reciplexa-eval -p reciplexa-core -p reciplexa-pac
 - Font-backed ruby / tate-chu-yoko / vertical glyph orientation / real vertical metrics.
 - OpenType MATH stretchy fences, accent/script attachment, real matrix column alignment / big-op / fraction/radical metrics.
 - Document/GUI pipeline consuming boxes as production layout (beyond soft-wrapped Text shapes / estimate_box); load-time resource rewrite beyond fail-soft attach; registry resolve + checksum verification (OPEN-PKG-001).
+
+---
+
+## Wave 10 — stackrel/aligned snap + math-box + vertical ruby/bou (D0–D5)
+
+Honest scope: fontless stackrel/underbrace spacing + aligned column snap; language `math-box` via `math_value`+`estimate_box`; vertical ruby / bou (傍点) estimate stubs. Not TeX `\stackrel` metrics, OpenType MATH, or JLReq ruby/emphasis placement.
+
+Gate:
+
+```bat
+set CARGO_TARGET_DIR=d:\reciplexa\target
+set TEMP=d:\reciplexa\.tmp
+set TMP=d:\reciplexa\.tmp
+cargo test -p reciplexa-std -p reciplexa-eval -p reciplexa-core -p reciplexa-package --offline
+```
+
+| Unit | Status |
+|------|--------|
+| D0 — Stackrel / underbrace-style spacing stubs | **done** |
+| D1 — `aligned_column_x(rows, col)` | **done** |
+| D2 — Builtin `math-box` | **done** |
+| D3 — Example `pkg_math_box.rpx` | **done** |
+| D4 — Vertical ruby / bou placement stubs | **done** |
+| D5 — Docs + tip tests | **done** |
+
+### D0 — Stackrel / underbrace spacing
+
+- `STACKREL_GAP_EM` / `stackrel_spacing_offsets`; `UNDERBRACE_CLEARANCE_EM` / `underbrace_spacing`; wire Stackrel + underline `estimate_box`. **Commit.**
+
+### D1 — Aligned at-column snap
+
+- `aligned_column_x(rows, col) -> f64` via `matrix_column_widths` + `ALIGNED_COLUMN_GUTTER_EM`. **Commit.**
+
+### D2 — `math-box` builtin
+
+- `(math-box record-or-string)` → `{tag, width, height, depth}` via `estimate_math_box_from_value` / ord symbol. **Commit.**
+
+### D3 — Example
+
+- `examples/pkg_math_box.rpx`. **Commit.**
+
+### D4 — Vertical ruby / bou
+
+- `vertical_ruby_estimate_box` / `VerticalRubyBox`; `bou_estimate_box` / `bou_mark_offsets` (傍点). **Commit.**
+
+### D5 — Docs
+
+- Mark Wave 10 done; update `lang/implemented-features.md` / package READMEs; tip coverage. **Commit.**
+
+## Remains after Wave 10
+
+- Full UCS membership + normative JLReq §C break matrix + real hanging/justification.
+- Font-backed ruby / tate-chu-yoko / vertical glyph orientation / real vertical metrics / bou placement.
+- OpenType MATH stretchy fences, accent/script/stackrel attachment, real matrix column alignment / big-op / fraction/radical metrics.
+- Document/GUI pipeline consuming boxes as production layout (beyond soft-wrapped Text shapes / estimate_box / math-box); load-time resource rewrite beyond fail-soft attach; registry resolve + checksum verification (OPEN-PKG-001).
