@@ -186,3 +186,40 @@ fn diagnose_pkg004_missing_listed_resource() {
         .any(|d| d.code == "PKG004"));
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn diagnose_pkg005_registry_dependency() {
+    let m = PackageManifest {
+        name: "app".into(),
+        version: "1".into(),
+        dependencies: vec![DependencySpec {
+            name: "remote-kit".into(),
+            version_req: "1".into(),
+            path: None,
+            package: Some("remote-kit".into()),
+            source: Some("registry".into()),
+        }],
+        entry: "main.rpx".into(),
+        targets: vec![],
+        ..Default::default()
+    };
+    let diags = diagnose_manifest(&m);
+    let hit = diags.iter().find(|d| d.code == "PKG005").expect("PKG005");
+    assert!(hit.message.contains("remote-kit"));
+    assert!(hit.message.contains("OPEN-PKG-001"));
+    assert_eq!(hit.package.as_deref(), Some("app"));
+
+    let path_dep = PackageManifest {
+        dependencies: vec![DependencySpec {
+            name: "local".into(),
+            version_req: "1".into(),
+            path: Some("../local".into()),
+            package: None,
+            source: Some("workspace".into()),
+        }],
+        ..m
+    };
+    assert!(!diagnose_manifest(&path_dep)
+        .iter()
+        .any(|d| d.code == "PKG005"));
+}

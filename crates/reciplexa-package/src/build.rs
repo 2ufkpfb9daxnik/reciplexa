@@ -139,7 +139,7 @@ pub struct PackageDiagnostic {
     pub package: Option<String>,
 }
 
-/// Static manifest diagnostics (PKG001–PKG003). Does not touch the filesystem.
+/// Static manifest diagnostics (PKG001–PKG003, PKG005). Does not touch the filesystem.
 pub fn diagnose_manifest(m: &PackageManifest) -> Vec<PackageDiagnostic> {
     diagnose_manifest_inner(m, None)
 }
@@ -180,6 +180,18 @@ fn diagnose_manifest_inner(
             diags.push(PackageDiagnostic {
                 code: "PKG003".into(),
                 message: format!("duplicate dependency {}", d.name),
+                package: Some(m.name.clone()),
+            });
+        }
+        // HC13: static refuse of `source registry` (OPEN-PKG-001; no network).
+        if d.source.as_deref() == Some("registry") {
+            diags.push(PackageDiagnostic {
+                code: "PKG005".into(),
+                message: format!(
+                    "dependency `{}` uses source registry ({})",
+                    d.name,
+                    crate::manifest::OPEN_PKG_001_CODE
+                ),
                 package: Some(m.name.clone()),
             });
         }
