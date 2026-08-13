@@ -767,6 +767,9 @@ fn vertical_advance_em_by_class() {
     assert_eq!(vertical_advance_em('A'), 0.5);
     assert_eq!(vertical_advance_em('7'), 0.5);
     assert_eq!(vertical_advance_em(' '), 0.5);
+    // ASCII hyphen rotates → width (0.5), not upright height (1.0).
+    assert_eq!(vertical_advance_em('-'), 0.5);
+    assert_eq!(vertical_advance_em('Ａ'), 1.0);
 }
 
 #[test]

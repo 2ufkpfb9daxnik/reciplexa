@@ -833,14 +833,11 @@ pub fn justify_line(chars: &[char], target_em: f64) -> Vec<(char, f64)> {
     out
 }
 
-/// Approximate vertical advance (em) for `vertical-rl` line budgeting.
+/// Fontless glyph extent stub `(width_em, height_em)` for vertical metrics.
 ///
-/// Fontless stub by [`CharClass`]: ideograph-like / kana / fullwidth punctuation
-/// ≈ 1 em; ASCII western / numeric ≈ 0.5 em (half-width upright); spaces ≈ 0.5;
-/// hangable punctuation still advances 1 em (no special vertical hang).
-/// Not glyph orientation / tate-chu-yoko / OpenType `vmtx`. See also
-/// [`needs_tate_rotation`] for a separate orientation flag stub.
-pub fn vertical_advance_em(c: char) -> f64 {
+/// Half-width western / numeric / ASCII spaces ≈ `(0.5, 1.0)`; square CJK /
+/// fullwidth letters ≈ `(1.0, 1.0)`. Not OpenType `vmtx` / real glyph bounds.
+fn glyph_extent_em(c: char) -> (f64, f64) {
     match classify_char(c) {
         CharClass::WesternCharacters
         | CharClass::SimpleWestern
@@ -848,9 +845,30 @@ pub fn vertical_advance_em(c: char) -> f64 {
         | CharClass::Numeric
         | CharClass::GroupedNumerals
         | CharClass::AttachedWestern
-        | CharClass::Spaces => 0.5,
-        CharClass::Other if c.is_ascii() => 0.5,
-        _ => 1.0,
+        | CharClass::Spaces => (0.5, 1.0),
+        CharClass::Hyphens | CharClass::DividingPunctuation | CharClass::MiddleDots
+            if c.is_ascii() =>
+        {
+            (0.5, 1.0)
+        }
+        CharClass::Other if c.is_ascii() => (0.5, 1.0),
+        _ => (1.0, 1.0),
+    }
+}
+
+/// Approximate vertical advance (em) for `vertical-rl` line budgeting.
+///
+/// Uses [`needs_tate_rotation`] + a taller/wider swap: rotated glyphs advance by
+/// their horizontal width (former width becomes the line measure); upright
+/// glyphs advance by height. Square CJK stay ≈ 1 em; ASCII western ≈ 0.5 em
+/// after rotation. Hangable punctuation still advances (no special vertical hang).
+/// Not tate-chu-yoko / OpenType `vmtx`.
+pub fn vertical_advance_em(c: char) -> f64 {
+    let (width_em, height_em) = glyph_extent_em(c);
+    if needs_tate_rotation(c) {
+        width_em
+    } else {
+        height_em
     }
 }
 
