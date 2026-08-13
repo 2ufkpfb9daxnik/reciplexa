@@ -390,3 +390,106 @@ pub fn break_opportunity(prev: CharClass, next: CharClass) -> BreakOpportunity {
 pub fn break_opportunity_chars(prev: char, next: char) -> BreakOpportunity {
     break_opportunity(classify_char(prev), classify_char(next))
 }
+
+/// Writing mode for kihon-hanmen / vertical stubs.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum WritingMode {
+    /// CSS `horizontal-tb` / package `writing-mode-horizontal`.
+    HorizontalTb,
+    /// CSS `vertical-rl` / package `writing-mode-vertical`.
+    VerticalRl,
+}
+
+impl WritingMode {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::HorizontalTb => "horizontal-tb",
+            Self::VerticalRl => "vertical-rl",
+        }
+    }
+
+    pub fn is_vertical(self) -> bool {
+        matches!(self, Self::VerticalRl)
+    }
+}
+
+impl fmt::Display for WritingMode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+/// Kihon-hanmen geometry stub (character frame × lines × line-rate).
+///
+/// Em sizes are abstract; document lower does not yet place these.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct KihonHanmen {
+    pub char_size_em: f64,
+    pub line_length: u32,
+    pub line_count: u32,
+    pub line_rate: f64,
+    pub writing_mode: WritingMode,
+}
+
+impl KihonHanmen {
+    pub fn new(
+        char_size_em: f64,
+        line_length: u32,
+        line_count: u32,
+        line_rate: f64,
+        writing_mode: WritingMode,
+    ) -> Self {
+        Self {
+            char_size_em,
+            line_length,
+            line_count,
+            line_rate,
+            writing_mode,
+        }
+    }
+
+    pub fn default_horizontal() -> Self {
+        Self::new(1.0, 40, 30, 1.5, WritingMode::HorizontalTb)
+    }
+
+    pub fn default_vertical() -> Self {
+        Self::new(1.0, 35, 20, 1.5, WritingMode::VerticalRl)
+    }
+
+    /// Gap between lines in em (line_rate − 1) × char size.
+    pub fn line_gap_em(self) -> f64 {
+        self.char_size_em * (self.line_rate - 1.0)
+    }
+
+    /// Inline measure of the hanmen in em.
+    pub fn hanmen_inline_em(self) -> f64 {
+        self.char_size_em * f64::from(self.line_length)
+    }
+
+    /// Block measure: lines + gaps between them.
+    pub fn hanmen_block_em(self) -> f64 {
+        let lines = f64::from(self.line_count);
+        let gaps = f64::from(self.line_count.saturating_sub(1));
+        self.char_size_em * lines + self.line_gap_em() * gaps
+    }
+
+    /// Heading band height for `lines` of kihon characters.
+    pub fn heading_band_em(self, lines: u32) -> f64 {
+        let n = f64::from(lines);
+        let gaps = f64::from(lines.saturating_sub(1));
+        self.char_size_em * n + self.line_gap_em() * gaps
+    }
+
+    pub fn indent_em(self, chars: u32) -> f64 {
+        self.char_size_em * f64::from(chars)
+    }
+}
+
+/// Common line-rate presets from `japanese/kihon`.
+pub mod line_rate {
+    pub const SOLID: f64 = 1.0;
+    pub const COMPACT: f64 = 1.2;
+    pub const DEFAULT: f64 = 1.5;
+    pub const RELAXED: f64 = 1.7;
+    pub const LOOSE: f64 = 2.0;
+}

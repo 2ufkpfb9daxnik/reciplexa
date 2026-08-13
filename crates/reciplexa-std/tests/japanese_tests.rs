@@ -86,3 +86,26 @@ fn break_opportunity_kinsoku_stub() {
     assert!(!BreakOpportunity::Prohibited.may_break());
     assert_eq!(BreakOpportunity::Inseparable.as_str(), "inseparable");
 }
+
+#[test]
+fn kihon_hanmen_size_helpers() {
+    use reciplexa_std::japanese::{line_rate, KihonHanmen, WritingMode};
+
+    let h = KihonHanmen::default_horizontal();
+    assert_eq!(h.writing_mode, WritingMode::HorizontalTb);
+    assert!(!h.writing_mode.is_vertical());
+    assert_eq!(h.writing_mode.as_str(), "horizontal-tb");
+    assert!((h.line_gap_em() - 0.5).abs() < 1e-9);
+    assert!((h.hanmen_inline_em() - 40.0).abs() < 1e-9);
+    assert!((h.hanmen_block_em() - 44.5).abs() < 1e-9);
+    assert!((h.indent_em(1) - 1.0).abs() < 1e-9);
+    assert!((h.heading_band_em(2) - 2.5).abs() < 1e-9);
+
+    let v = KihonHanmen::default_vertical();
+    assert!(v.writing_mode.is_vertical());
+    assert_eq!(v.writing_mode.to_string(), "vertical-rl");
+    assert!((v.hanmen_inline_em() - 35.0).abs() < 1e-9);
+    assert!((v.hanmen_block_em() - 29.5).abs() < 1e-9);
+    assert!((line_rate::DEFAULT - 1.5).abs() < 1e-9);
+    assert!((line_rate::SOLID - 1.0).abs() < 1e-9);
+}
