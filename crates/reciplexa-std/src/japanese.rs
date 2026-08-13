@@ -684,6 +684,38 @@ fn snap_cut_off_cl08_run(chars: &[char], start: usize, mut cut: usize) -> usize 
     cut
 }
 
+/// Choose soft-wrap cut index in `(start, end]` (starts the next line).
+///
+/// Prefers an [`BreakOpportunity::Allowed`] break **before** an ASCII space when
+/// one exists (western word wrap). Otherwise the rightmost Allowed cut; if none,
+/// forces `end` (may split a long latin run when no space is available).
+fn choose_soft_wrap_cut(chars: &[char], start: usize, end: usize) -> usize {
+    let mut cut = end;
+    let mut found = false;
+    let mut space_cut: Option<usize> = None;
+    for cand in (start + 1..=end).rev() {
+        if cand < chars.len()
+            && break_opportunity_chars(chars[cand - 1], chars[cand]).may_break()
+        {
+            if !found {
+                cut = cand;
+                found = true;
+            }
+            if chars[cand].is_ascii_whitespace() {
+                space_cut = Some(cand);
+                break;
+            }
+        }
+    }
+    if let Some(s) = space_cut {
+        s
+    } else if found {
+        cut
+    } else {
+        end
+    }
+}
+
 /// Soft-wrap `text` into lines of at most `max_em_units` em (fontless).
 ///
 /// Uses [`break_opportunity`] between adjacent characters and [`char_em_width`].
@@ -696,6 +728,9 @@ fn snap_cut_off_cl08_run(chars: &[char], start: usize, mut cut: usize) -> usize 
 ///
 /// **Inseparable run glue:** contiguous cl-08 sequences are kept together
 /// (budget overrun stub) and cuts are snapped off cl-08×cl-08 pairs.
+///
+/// **Western soft-wrap:** prefers a break before ASCII space when available so
+/// mid-latin cuts are avoided when a word boundary exists in the window.
 ///
 /// `max_em_units <= 0` returns the whole string as one line (empty input → empty vec).
 pub fn break_line(text: &str, max_em_units: f64) -> Vec<String> {
@@ -733,21 +768,7 @@ pub fn break_line(text: &str, max_em_units: f64) -> Vec<String> {
             break;
         }
 
-        // Rightmost allowed break in (start, end]: cut index starts the next line.
-        let mut cut = end;
-        let mut found = false;
-        for cand in (start + 1..=end).rev() {
-            if cand < chars.len()
-                && break_opportunity_chars(chars[cand - 1], chars[cand]).may_break()
-            {
-                cut = cand;
-                found = true;
-                break;
-            }
-        }
-        if !found {
-            cut = end;
-        }
+        let mut cut = choose_soft_wrap_cut(&chars, start, end);
 
         // Line-end kinsoku: don't finish on opening brackets / prefixed abbrevs.
         while cut > start + 1 && is_line_end_prohibited(classify_char(chars[cut - 1])) {
@@ -869,20 +890,7 @@ pub fn break_line_vertical(text: &str, max_em_units: f64) -> Vec<String> {
             break;
         }
 
-        let mut cut = end;
-        let mut found = false;
-        for cand in (start + 1..=end).rev() {
-            if cand < chars.len()
-                && break_opportunity_chars(chars[cand - 1], chars[cand]).may_break()
-            {
-                cut = cand;
-                found = true;
-                break;
-            }
-        }
-        if !found {
-            cut = end;
-        }
+        let mut cut = choose_soft_wrap_cut(&chars, start, end);
 
         while cut > start + 1 && is_line_end_prohibited(classify_char(chars[cut - 1])) {
             cut -= 1;

@@ -713,6 +713,23 @@ fn break_line_keeps_cl08_inseparable_run_together() {
     assert_eq!(joined, "ああ……いい");
 }
 
+#[test]
+fn break_line_prefers_ascii_space_over_mid_latin() {
+    // "hi there" = 0.5*8 + 0.5 space = 4.5em. At 3.0em prefer break before space.
+    let lines = break_line("hi there", 3.0);
+    assert_eq!(lines, vec!["hi".to_string(), " there".to_string()]);
+    // Long latin without spaces still forced mid-run (western inseparable).
+    assert_eq!(
+        break_line("ABCDEF", 2.0),
+        vec!["ABCD".to_string(), "EF".to_string()]
+    );
+    // Vertical path shares the same cut preference.
+    assert_eq!(
+        break_line_vertical("hi there", 3.0),
+        vec!["hi".to_string(), " there".to_string()]
+    );
+}
+
 /// Demo: wrap a short Japanese sentence with mixed ASCII via `break_line`.
 #[test]
 fn break_line_short_japanese_phrase_demo() {
