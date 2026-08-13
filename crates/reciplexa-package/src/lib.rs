@@ -9,6 +9,7 @@
 #![forbid(unsafe_code)]
 
 pub mod build;
+pub mod doc_preview;
 pub mod domain_bodies;
 pub mod domain_native;
 pub mod graphics_bridge;
@@ -42,6 +43,10 @@ pub use domain_bodies::{
     std_domain_natives,
 };
 pub use domain_native::{DomainNativeModule, DomainNativeRegistry};
+pub use doc_preview::{
+    preview_doc_text_metrics, preview_doc_text_metrics_from_document, DocTextPreviewMetrics,
+    DOC_TEXT_MAX_EM,
+};
 pub use graphics_bridge::{
     document_from_package_entry, document_from_package_source, GraphicsBridgeError,
 };

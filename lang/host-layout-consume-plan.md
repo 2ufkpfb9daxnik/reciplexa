@@ -89,8 +89,8 @@ No push unless asked. Fine-grained commits (one unit ≈ one commit).
 
 | Unit | Status |
 |------|--------|
-| HC0 — Plan doc | **pending** |
-| HC1 — `preview_doc_text_metrics` | **pending** |
+| HC0 — Plan doc | **done** |
+| HC1 — `preview_doc_text_metrics` | **done** |
 | HC2 — Tests (+ optional CLI) | **pending** |
 | HC3 — GUI read-only text prefix | **pending** |
 | HC4 — `estimate_package_math_main` | **pending** |
