@@ -21,8 +21,8 @@
 | S2 | Package size targets (circle radius) | **done** — scale radius on package circle |
 | S3 | More shapes + translate wrap parity | **done** — rect/ellipse/text/line (+ wrap rules) |
 | S4 | Multipage + align rules (markup stays refuse) | **done** — multipage package; markup soft-refuse |
-| S5 | Migrate GUI golden to package; audit interim examples | `black_circle` → package twin as golden |
-| S6 | Retire interim keyword tables | delete types/lower/bind surface arms; gate green |
+| S5 | Migrate GUI golden to package; audit interim examples | **done** — `black_circle.rpx` is package-shaped; interim twin `interim_black_circle.rpx` |
+| S6 | Retire interim keyword tables | **blocked** — interim examples remain (`interim_black_circle`, `text_line`, `two_pages`, `letter_opacity`, `shapes`, `transforms`, `paths`, `image`, …); do not delete tables yet |
 
 ## Approach
 
@@ -40,6 +40,8 @@ cargo test -p reciplexa-lower -p reciplexa-gui --offline
 cargo check --offline -p reciplexa-gui
 ```
 
-## Tracking
+## S6 status
 
-Update this file + `lang/coverage-holdouts.md` / `implemented-features.md` as units land.
+**Blocked** until remaining interim examples migrate off bare `(page)/(circle)` keyword surfaces. Critical GUI golden (`black_circle.rpx`) is package-shaped as of S5; keyword tables stay for `interim_black_circle.rpx`, `text_line.rpx`, `two_pages.rpx`, `letter_opacity.rpx`, and other interim CST examples.
+
+Do **not** delete types/lower/bind keyword arms while those examples remain.

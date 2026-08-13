@@ -43,8 +43,8 @@ Prefer **eliminate** over documenting when reachable. Items below are either sti
 
 ## N5 document-surface holdouts (not coverage gaps)
 
-1. **Interim keyword tables (`page`/`circle`/…)** — **retained on purpose** for writable GUI CST sync (`black_circle.rpx`). Package twin + markup package emit + read-only scene layers complete the dual path. Deleting tables is **GUI CST sync v2** ([`gui-cst-sync-v2-plan.md`](gui-cst-sync-v2-plan.md)), out of N5 delete scope.
-2. **Package-shaped GUI edits** — S1–S4: package nudge/size + multipage; markup authoring soft-refuse; golden migrate = S5; keyword tables retained until S6.
+1. **Interim keyword tables (`page`/`circle`/…)** — **retained** until S6; GUI golden `black_circle.rpx` is now package-shaped. Keyword lower still used by interim examples (`interim_black_circle.rpx`, `text_line.rpx`, …). Track retire in [`gui-cst-sync-v2-plan.md`](gui-cst-sync-v2-plan.md).
+2. **Package-shaped GUI edits** — S1–S5: package nudge/size/multipage + golden migrated; markup soft-refuse; S6 keyword-table delete blocked while many examples remain interim.
 
 ## Non-goals this pass
 

@@ -140,7 +140,7 @@ Document / page constructors stay package-shaped (`graphics/page` or later `docu
 | N5.2e | Docs: keyword-table deletion blocked by GUI CST sync (out of N5 delete scope) | **done** — dual-path complete; keyword tables retained; see honesty note below |
 | N5.3 | Coverage tip for document surface / pipeline / markup | **done** — tip tests for `document_value` / pipeline document+markup / GUI `resolve_preview_layers`; status note below |
 
-**N5.2 honesty (complete):** N5.2 finishes the **dual path** — package document + markup→graphics package emit + GUI read-only scene layers; interim `(page)/(circle)` keyword tables and `black_circle.rpx` stay for **writable GUI CST sync**. Deleting those tables is **out of N5 delete scope**: it requires GUI CST sync v2 that rewrites package AST (not just scene layers). Do not treat keyword-table retirement as an N5 leftover.
+**N5.2 honesty (complete):** N5.2 finished the dual path. GUI CST sync v2 (S0–S5) later made package AST writable and migrated `black_circle.rpx` to package form; keyword-table deletion is **S6** and remains blocked while interim examples still use bare `(page)/(circle)` — see [`gui-cst-sync-v2-plan.md`](gui-cst-sync-v2-plan.md).
 
 ### Phase N6 — workspace coverage to ~99%
 
@@ -171,4 +171,4 @@ Document / page constructors stay package-shaped (`graphics/page` or later `docu
 
 **N6 done:** 7-crate BEST-ENTRY **≥99%** (N6 q). Soft residuals remain on check/cast/eval/load/document (see `coverage-holdouts.md`).
 
-**N5 complete (N5.1–N5.3):** dual-path document surface + coverage tips. Keyword-table deletion remains GUI CST sync v2 (out of N5) — track in [`gui-cst-sync-v2-plan.md`](gui-cst-sync-v2-plan.md).
+**N5 complete (N5.1–N5.3):** dual-path document surface + coverage tips. Follow-on writable package sync: [`gui-cst-sync-v2-plan.md`](gui-cst-sync-v2-plan.md) (S0–S5 done; S6 blocked on interim example migration).

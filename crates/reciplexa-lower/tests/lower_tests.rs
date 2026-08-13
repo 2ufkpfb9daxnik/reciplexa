@@ -93,7 +93,7 @@ fn end_to_end_transformed_source_to_pdf() {
 
 #[test]
 fn fixture_file_round_trips_to_pdf() {
-    let src = include_str!("../../../examples/black_circle.rpx");
+    let src = include_str!("../../../examples/interim_black_circle.rpx");
     let pdf = document_to_pdf(&lower_source(src).unwrap()).unwrap();
     assert!(pdf.windows(5).any(|w| w == b"%%EOF"));
 }

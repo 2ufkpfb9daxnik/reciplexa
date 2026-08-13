@@ -1,7 +1,8 @@
 //! Thin Slice D adapter: package-entry → scene document via graphics bridge.
 //!
-//! GUI preview routes package-shaped sources through [`reciplexa::pipeline::document_from_source`].
-//! Interim CST `(page)/(circle)` keyword lower remains for `black_circle.rpx` CST sync.
+//! GUI preview routes package-shaped sources (including golden `black_circle.rpx`)
+//! through [`reciplexa::pipeline::document_from_source`]. Interim CST keyword lower
+//! remains for `interim_black_circle.rpx` and other interim examples until S6.
 
 use std::collections::HashMap;
 use std::path::Path;

@@ -28,6 +28,6 @@ fn n5_3_document_import_and_markup_package_paths() {
     assert!(!mdoc.pages[0].shapes.is_empty());
 
     // Interim golden stays off package path.
-    let interim = include_str!("../../../examples/black_circle.rpx");
+    let interim = include_str!("../../../examples/interim_black_circle.rpx");
     assert!(!wants_package_graphics_path(&expand(interim).unwrap()));
 }

@@ -280,25 +280,38 @@ mod tests {
     }
 
     #[test]
-    fn black_circle_stays_on_interim_cst_path() {
-        let src = include_str!("../../../examples/black_circle.rpx");
+    fn interim_black_circle_stays_on_interim_cst_path() {
+        let src = include_str!("../../../examples/interim_black_circle.rpx");
         let expanded = expand(src).unwrap();
         assert!(
             !wants_package_graphics_path(&expanded),
-            "interim golden must not route through package domain bridge"
+            "interim twin must not route through package domain bridge"
         );
-        let doc = document_from_source(src).expect("black_circle interim lower");
+        let doc = document_from_source(src).expect("interim_black_circle lower");
+        assert_eq!(doc.pages.len(), 1);
+    }
+
+    #[test]
+    fn black_circle_gui_golden_uses_package_path() {
+        let src = include_str!("../../../examples/black_circle.rpx");
+        let expanded = expand(src).unwrap();
+        assert!(
+            wants_package_graphics_path(&expanded),
+            "GUI golden black_circle.rpx must be package-shaped"
+        );
+        let doc = document_from_source(src).expect("black_circle package bridge");
         assert_eq!(doc.pages.len(), 1);
     }
 
     #[test]
     fn pkg_black_circle_parity_with_interim_lower() {
-        let interim = document_from_source(include_str!("../../../examples/black_circle.rpx"))
-            .expect("interim black_circle");
-        let pkg = document_from_source(include_str!("../../../examples/pkg_black_circle.rpx"))
-            .expect("pkg_black_circle twin");
+        let interim =
+            document_from_source(include_str!("../../../examples/interim_black_circle.rpx"))
+                .expect("interim black_circle");
+        let pkg = document_from_source(include_str!("../../../examples/black_circle.rpx"))
+            .expect("package black_circle golden");
         assert!(wants_package_graphics_path(
-            &expand(include_str!("../../../examples/pkg_black_circle.rpx")).unwrap()
+            &expand(include_str!("../../../examples/black_circle.rpx")).unwrap()
         ));
         assert_eq!(pkg.pages.len(), 1);
         assert_eq!(pkg.pages[0].paper, interim.pages[0].paper);

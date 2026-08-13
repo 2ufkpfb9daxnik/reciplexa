@@ -1,4 +1,4 @@
-(// language-only: package twin of black_circle.rpx (N5.2b; GUI golden stays interim CST).)
+(// language-only: package alias of black_circle.rpx (GUI golden; same AST).)
 (import graphics/shapes only circle fill)
 (import graphics/page only a4 page)
 (import graphics/color only black)

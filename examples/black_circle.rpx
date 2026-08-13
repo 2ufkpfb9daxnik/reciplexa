@@ -1,4 +1,6 @@
-(// interim/CST: GUI golden + CST sync; keep until keyword tables retire (package: pkg_circle.rpx).)
-(// Minimal A4 page: one filled circle (mm, origin bottom-left).)
-(page a4
-  (circle 105 148.5 40))
+(// GUI golden (CST sync v2): package-shaped A4 + filled circle.)
+(// Interim twin for keyword lower: interim_black_circle.rpx; package alias: pkg_black_circle.rpx.)
+(import graphics/shapes only circle fill)
+(import graphics/page only a4 page)
+(import graphics/color only black)
+(val main (page a4 (fill (circle 105 148.5 40) black)))

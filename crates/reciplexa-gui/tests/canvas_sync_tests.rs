@@ -95,8 +95,19 @@ fn package_black_circle_nudge_updates_authoring() {
 }
 
 #[test]
-fn interim_black_circle_nudge_still_works() {
+fn black_circle_gui_golden_is_package_nudgeable() {
     let authoring = include_str!("../../../examples/black_circle.rpx");
+    assert!(reciplexa_lower::is_package_shaped_authoring(authoring));
+    let out = nudge_authoring_layers(authoring, authoring, 0, &[0], 2.0, -1.0).unwrap();
+    assert!(
+        out.contains("(circle 107 147.5 40)"),
+        "GUI golden should nudge package circle: {out}"
+    );
+}
+
+#[test]
+fn interim_black_circle_nudge_still_works() {
+    let authoring = include_str!("../../../examples/interim_black_circle.rpx");
     let out = nudge_authoring_layers(authoring, authoring, 0, &[0], 2.0, -1.0).unwrap();
     assert!(
         out.contains("(translate 2 -1 (circle 105 148.5 40))")
