@@ -240,52 +240,109 @@ impl fmt::Display for CharClass {
 /// Classify a single Unicode scalar with a **useful subset** of JLReq classes.
 ///
 /// Not a full UCS membership table: uncommon punctuation and edge cases fall
-/// through to coarse buckets (ideographic / western / other).
+/// through to coarse buckets (ideographic / western / other). Coverage is
+/// intentionally broader than the package `classify-sample` glyph list, still
+/// a subset of JLReq appendix A.
 pub fn classify_char(c: char) -> CharClass {
-    // Specific punctuation / symbols first (mirrors package classify-sample).
+    // Specific punctuation / symbols first (mirrors package classify-sample +
+    // common JLReq appendix A samples).
     match c {
-        '「' | '『' | '（' | '〔' | '［' | '｛' | '〈' | '《' | '(' | '[' | '{' => {
+        // cl-01 — opening brackets (fullwidth + halfwidth corner forms).
+        '「' | '『' | '（' | '〔' | '［' | '｛' | '〈' | '《' | '【' | '〖' | '〘' | '〚'
+        | '｢' | '(' | '[' | '{' => {
             return CharClass::OpeningBrackets;
         }
-        '」' | '』' | '）' | '〕' | '］' | '｝' | '〉' | '》' | ')' | ']' | '}' => {
+        // cl-02 — closing brackets.
+        '」' | '』' | '）' | '〕' | '］' | '｝' | '〉' | '》' | '】' | '〗' | '〙' | '〛'
+        | '｣' | ')' | ']' | '}' => {
             return CharClass::ClosingBrackets;
         }
-        '—' | '–' | '‐' | '-' | '〜' | '～' => return CharClass::Hyphens,
-        '！' | '？' | '!' | '?' => return CharClass::DividingPunctuation,
-        '・' | '·' | '･' => return CharClass::MiddleDots,
+        // cl-29 / cl-26 — warichu brackets (subset).
+        '｟' | '⸨' => return CharClass::WarichuOpen,
+        '｠' | '⸩' => return CharClass::WarichuClose,
+        // cl-03 — hyphens / wave dashes.
+        '—' | '–' | '‐' | '‑' | '‒' | '―' | '−' | '-' | '－' | '﹣' | '〜' | '～' => {
+            return CharClass::Hyphens;
+        }
+        // cl-04 — dividing punctuation.
+        '！' | '？' | '‼' | '⁇' | '⁈' | '⁉' | '!' | '?' => {
+            return CharClass::DividingPunctuation;
+        }
+        // cl-05 — middle dots / colon-like separators.
+        '・' | '·' | '･' | '∶' | '︰' | ':' | '：' | ';' | '；' => {
+            return CharClass::MiddleDots;
+        }
+        // cl-06 / cl-07 — stops and commas (incl. fullwidth forms in kinsoku samples).
         '。' | '．' | '.' => return CharClass::FullStops,
         '、' | '，' | ',' => return CharClass::Commas,
-        '…' | '‥' | '〳' | '〴' | '〵' => return CharClass::Inseparable,
-        '々' | 'ゝ' | 'ゞ' | 'ヽ' | 'ヾ' => return CharClass::IterationMarks,
-        'ー' | 'ｰ' => return CharClass::ProlongedSoundMark,
-        '〒' | '￥' | '＄' | '￡' | '＃' | '#' | '$' | '¥' | '£' => {
+        // cl-08 — inseparable (ellipsis / vertical iteration forms).
+        '…' | '‥' | '⋯' | '〳' | '〴' | '〵' => return CharClass::Inseparable,
+        // cl-09 / cl-10.
+        '々' | 'ゝ' | 'ゞ' | 'ヽ' | 'ヾ' | '〻' => return CharClass::IterationMarks,
+        'ー' | 'ｰ' | 'ㅡ' => return CharClass::ProlongedSoundMark,
+        // cl-12 / cl-13 — prefixed / postfixed abbreviations.
+        '〒' | '￥' | '＄' | '￡' | '＃' | '№' | '#' | '$' | '¥' | '£' | '€' | '₩' => {
             return CharClass::PrefixedAbbreviations;
         }
-        '％' | '%' | '‰' | '℃' | '°' => return CharClass::PostfixedAbbreviations,
-        '＝' | '=' | '≠' | '≦' | '≧' | '+' | '±' | '×' | '÷' => {
+        '％' | '%' | '‰' | '℃' | '°' | '′' | '″' | '㌫' => {
+            return CharClass::PostfixedAbbreviations;
+        }
+        // cl-17 — math / equality-like symbols.
+        '＝' | '=' | '≠' | '≦' | '≧' | '≤' | '≥' | '≈' | '+' | '±' | '×' | '÷' => {
             return CharClass::MathSymbols;
+        }
+        // cl-21 — unit symbols (squared/cubed metric forms + litre).
+        '㎜' | '㎝' | '㎞' | '㎡' | '㎥' | '㎎' | '㎏' | '㏄' | 'ℓ' | 'Å' => {
+            return CharClass::UnitSymbols;
+        }
+        // cl-22 — enclosed alphanumerics / circled forms (common subset).
+        '①'..='⑳' | '⑴'..='⒇' | '⒈'..='⒛' | 'ⓐ'..='ⓩ' | 'Ⓐ'..='Ⓩ' | '㈱' | '㈲' | '㈹' => {
+            return CharClass::EnclosedAlphanumerics;
+        }
+        // cl-23 — ornaments / reference marks.
+        '※' | '＊' | '*' | '☆' | '★' | '○' | '●' | '◎' | '◇' | '◆' | '□' | '■' | '△' | '▲'
+        | '▽' | '▼' | '♠' | '♣' | '♥' | '♦' => {
+            return CharClass::Ornaments;
         }
         _ => {}
     }
 
-    if c.is_whitespace() || c == '\u{3000}' {
+    if c.is_whitespace() || c == '\u{3000}' || c == '\u{00A0}' || c == '\u{2002}' || c == '\u{2003}'
+    {
         return CharClass::Spaces;
     }
 
-    // Small kana (hiragana + katakana).
+    // cl-11 — small kana (hiragana + katakana + halfwidth small katakana).
     if matches!(
         c,
         'ぁ' | 'ぃ' | 'ぅ' | 'ぇ' | 'ぉ' | 'っ' | 'ゃ' | 'ゅ' | 'ょ' | 'ゎ' | 'ゕ' | 'ゖ'
             | 'ァ' | 'ィ' | 'ゥ' | 'ェ' | 'ォ' | 'ッ' | 'ャ' | 'ュ' | 'ョ' | 'ヮ' | 'ヵ' | 'ヶ'
+            | 'ｧ' | 'ｨ' | 'ｩ' | 'ｪ' | 'ｫ' | 'ｬ' | 'ｭ' | 'ｮ' | 'ｯ'
     ) {
         return CharClass::SmallKana;
     }
 
     match c {
+        // cl-15 / cl-16 — kana blocks (fullwidth + halfwidth katakana).
         '\u{3040}'..='\u{309F}' => CharClass::Hiragana,
-        '\u{30A0}'..='\u{30FF}' | '\u{31F0}'..='\u{31FF}' => CharClass::Katakana,
-        '0'..='9' | '０'..='９' => CharClass::Numeric,
+        '\u{30A0}'..='\u{30FF}' | '\u{31F0}'..='\u{31FF}' | '\u{FF66}'..='\u{FF9D}' => {
+            CharClass::Katakana
+        }
+        // cl-20 — ASCII, fullwidth, and common superscript/subscript digits.
+        '0'..='9'
+        | '０'..='９'
+        | '⁰' | '¹' | '²' | '³' | '⁴' | '⁵' | '⁶' | '⁷' | '⁸' | '⁹'
+        | '₀' | '₁' | '₂' | '₃' | '₄' | '₅' | '₆' | '₇' | '₈' | '₉' => CharClass::Numeric,
+        // cl-27 — ASCII / fullwidth Latin (package classify-sample maps "A" → 27).
         'A'..='Z' | 'a'..='z' | 'Ａ'..='Ｚ' | 'ａ'..='ｚ' => CharClass::WesternCharacters,
+        // cl-24 — underscore / apostrophe-like simple western connectors (subset).
+        '_' | '\'' | '’' => CharClass::SimpleWestern,
+        // cl-25 — Latin-1 / Extended-A letters + combining marks (complex western).
+        '\u{00C0}'..='\u{00D6}'
+        | '\u{00D8}'..='\u{00F6}'
+        | '\u{00F8}'..='\u{00FF}'
+        | '\u{0100}'..='\u{024F}'
+        | '\u{0300}'..='\u{036F}' => CharClass::ComplexWestern,
         // CJK Unified Ideographs + common extensions / compatibility.
         '\u{3400}'..='\u{4DBF}'
         | '\u{4E00}'..='\u{9FFF}'

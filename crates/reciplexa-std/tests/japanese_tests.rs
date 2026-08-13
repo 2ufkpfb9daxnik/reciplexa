@@ -42,6 +42,46 @@ fn classify_char_useful_subset() {
     assert_eq!(classify_char(' '), CharClass::Spaces);
 }
 
+/// J5 — one sample per expanded class / range (still a subset, not full UCS).
+#[test]
+fn classify_char_expanded_class_samples() {
+    // Punctuation expansions (kinsoku + JLReq appendix A common forms).
+    assert_eq!(classify_char('【'), CharClass::OpeningBrackets);
+    assert_eq!(classify_char('】'), CharClass::ClosingBrackets);
+    assert_eq!(classify_char('〖'), CharClass::OpeningBrackets);
+    assert_eq!(classify_char('〗'), CharClass::ClosingBrackets);
+    assert_eq!(classify_char('｢'), CharClass::OpeningBrackets);
+    assert_eq!(classify_char('｣'), CharClass::ClosingBrackets);
+    assert_eq!(classify_char('―'), CharClass::Hyphens);
+    assert_eq!(classify_char('－'), CharClass::Hyphens);
+    assert_eq!(classify_char('‼'), CharClass::DividingPunctuation);
+    assert_eq!(classify_char('：'), CharClass::MiddleDots);
+    assert_eq!(classify_char('．'), CharClass::FullStops);
+    assert_eq!(classify_char('，'), CharClass::Commas);
+    assert_eq!(classify_char('⋯'), CharClass::Inseparable);
+    assert_eq!(classify_char('〻'), CharClass::IterationMarks);
+    assert_eq!(classify_char('€'), CharClass::PrefixedAbbreviations);
+    assert_eq!(classify_char('‰'), CharClass::PostfixedAbbreviations);
+    assert_eq!(classify_char('≤'), CharClass::MathSymbols);
+
+    // Warichu / unit / enclosed / ornament.
+    assert_eq!(classify_char('｟'), CharClass::WarichuOpen);
+    assert_eq!(classify_char('｠'), CharClass::WarichuClose);
+    assert_eq!(classify_char('㎜'), CharClass::UnitSymbols);
+    assert_eq!(classify_char('①'), CharClass::EnclosedAlphanumerics);
+    assert_eq!(classify_char('※'), CharClass::Ornaments);
+
+    // Kana / digits / latin ranges.
+    assert_eq!(classify_char('ｯ'), CharClass::SmallKana);
+    assert_eq!(classify_char('ｱ'), CharClass::Katakana); // halfwidth
+    assert_eq!(classify_char('７'), CharClass::Numeric); // fullwidth digit
+    assert_eq!(classify_char('²'), CharClass::Numeric);
+    assert_eq!(classify_char('Ａ'), CharClass::WesternCharacters); // fullwidth Latin
+    assert_eq!(classify_char('_'), CharClass::SimpleWestern);
+    assert_eq!(classify_char('é'), CharClass::ComplexWestern);
+    assert_eq!(classify_char('\u{00A0}'), CharClass::Spaces); // NBSP
+}
+
 #[test]
 fn break_opportunity_kinsoku_stub() {
     assert!(is_line_head_prohibited(CharClass::FullStops));
