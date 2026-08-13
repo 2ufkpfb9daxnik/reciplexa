@@ -292,6 +292,32 @@ mod tests {
     }
 
     #[test]
+    fn pkg_black_circle_parity_with_interim_lower() {
+        let interim = document_from_source(include_str!("../../../examples/black_circle.rpx"))
+            .expect("interim black_circle");
+        let pkg = document_from_source(include_str!("../../../examples/pkg_black_circle.rpx"))
+            .expect("pkg_black_circle twin");
+        assert!(wants_package_graphics_path(
+            &expand(include_str!("../../../examples/pkg_black_circle.rpx")).unwrap()
+        ));
+        assert_eq!(pkg.pages.len(), 1);
+        assert_eq!(pkg.pages[0].paper, interim.pages[0].paper);
+        let Shape::Circle(ic) = &interim.pages[0].shapes[0] else {
+            panic!(
+                "interim expected circle, got {:?}",
+                interim.pages[0].shapes[0]
+            );
+        };
+        let Shape::Circle(pc) = &pkg.pages[0].shapes[0] else {
+            panic!("pkg expected circle, got {:?}", pkg.pages[0].shapes[0]);
+        };
+        assert_eq!(pc.x_mm, ic.x_mm);
+        assert_eq!(pc.y_mm, ic.y_mm);
+        assert_eq!(pc.radius_mm, ic.radius_mm);
+        assert_eq!(pc.fill, ic.fill);
+    }
+
+    #[test]
     fn document_from_source_auto_detect_matches_interim_scene_bounds() {
         use reciplexa_lower::lower_source;
         use reciplexa_scene::Shape;
