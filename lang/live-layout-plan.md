@@ -237,17 +237,31 @@ No push unless asked. Fine-grained commits (one unit ≈ one commit).
 - Mark LL21–LL25 done; refresh `implemented-features.md`.
 - **Commit.**
 
+### LL26 — Overline / underline visual stubs
+
+- Tags `overline` / `underline` already map to `MathAccentKind` and share the
+  Accent live-layout path (`accent_mark_glyph` + clearance). Tip test places
+  overline above and underline below the base.
+- **Commit.**
+
+### LL27 — Docs after CS / LL26
+
+- Mark LL26–LL27 done; note path-dep lock checksum fill (CS0) + PKG006
+  diagnose (CS1) + tips (CS2) in `implemented-features.md`.
+- **Commit.**
+
 ---
 
 ## Status vs full engines (honest)
 
-Live layout (LL0–LL25) is a **fontless heuristic consume layer**:
+Live layout (LL0–LL27) is a **fontless heuristic consume layer**:
 
 | Area | What this engine does | Not claimed (full target) |
 |------|----------------------|---------------------------|
 | JA text | `break_line` / `place_lines` / indent / columns → scene Text | Full JLReq UCS catalog, normative §C, hanging/justification with real glyph metrics, OpenType `vert` |
-| Math place | `layout_math_to_shapes`: Scripts / BigOp / Fraction·Radical Line / Delimiter stretch-by-`size_mm` / Matrix·Cases brace / Accent / Aligned / Stack / underbrace·overset offsets | OpenType MATH table, stretchy assembly, TeX `\fontdimen`, real glyph advances |
+| Math place | `layout_math_to_shapes`: Scripts / BigOp / Fraction·Radical Line / Delimiter stretch-by-`size_mm` / Matrix·Cases brace / Accent (incl. overline/underline) / Aligned / Stack / underbrace·overset offsets | OpenType MATH table, stretchy assembly, TeX `\fontdimen`, real glyph advances |
 | Host | `pkg_live_layout` / `pkg_live_math` → PDF/SVG/PPTX smoke; GUI opens via `wants_package_graphics_path` | Production document pipeline with editable math boxes / JA layout chrome |
+| Lock checksum | Path-dep writers fill `checksum` from `package.rpxm` stub (CS0); PKG006 on mismatch (CS1) | Registry artifact integrity / blake3·sha256 (OPEN crypto) |
 
 Keep pointing hosts at this file; do **not** close OPEN-TEXT-JA-001 from LL alone.
 
@@ -283,3 +297,5 @@ Keep pointing hosts at this file; do **not** close OPEN-TEXT-JA-001 from LL alon
 | LL23 — `pkg_live_math` SVG/PPTX | **done** |
 | LL24 — GUI package path open | **done** |
 | LL25 — Heuristic vs OpenType/JLReq docs | **done** |
+| LL26 — Overline/underline visual stubs | **done** |
+| LL27 — Docs (CS0–CS2 + LL26) | **done** |
