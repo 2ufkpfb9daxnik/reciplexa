@@ -3,8 +3,9 @@
 //! Keeping these as small functions (instead of one monolith) lets the GUI
 //! preview without performing I/O, while the CLI/export path injects a handler.
 //!
-//! Slice D: when source imports `graphics/*` and has no top-level interim `(page …)`,
-//! the pipeline can opt into package eval + `document_from_graphics_value` instead.
+//! Package domain path: when source imports `graphics/*` or `document/*` and has
+//! no top-level interim `(page …)`, the pipeline opts into package eval +
+//! graphics/document value bridge instead of interim CST lower.
 
 use std::path::{Path, PathBuf};
 
@@ -64,23 +65,23 @@ pub fn lower(expanded: &str) -> Result<Document, PipelineError> {
 
 /// Expand + typecheck + lower — **no** effect execution (safe for live preview).
 ///
-/// Uses the package graphics bridge when [`wants_package_graphics_path`] is true.
+/// Uses the package domain bridge when [`wants_package_graphics_path`] is true.
 pub fn document_from_source(src: &str) -> Result<Document, PipelineError> {
     let expanded = expand(src)?;
     if wants_package_graphics_path(&expanded) {
-        return document_from_package_graphics(&expanded);
+        return document_from_package_domain(&expanded);
     }
     typecheck(&expanded)?;
     lower(&expanded)
 }
 
-/// Whether to route document ingest through package graphics eval instead of interim CST lower.
+/// Whether to route ingest through the package domain bridge instead of interim CST lower.
 ///
-/// Auto-detects package-shaped sources: `(import graphics` + `(val main` without a top-level
-/// interim `(page …)` head. Override with `RECIPLEXA_PACKAGE_GRAPHICS=1` (force on) or `=0`
-/// (force off).
+/// Auto-detects package-shaped sources: `(import graphics` or `(import document` plus
+/// `(val main` without a top-level interim `(page …)` head. Override with
+/// `RECIPLEXA_PACKAGE_GRAPHICS=1` (force on) or `=0` (force off).
 pub fn wants_package_graphics_path(expanded: &str) -> bool {
-    if !expanded.contains("(import graphics") {
+    if !has_package_domain_import(expanded) {
         return false;
     }
     if std::env::var("RECIPLEXA_PACKAGE_GRAPHICS")
@@ -98,7 +99,11 @@ pub fn wants_package_graphics_path(expanded: &str) -> bool {
     is_package_shaped_graphics_source(expanded)
 }
 
-/// Package-shaped graphics ingest: explicit `main` entry and no top-level interim `(page …)`.
+fn has_package_domain_import(expanded: &str) -> bool {
+    expanded.contains("(import graphics") || expanded.contains("(import document")
+}
+
+/// Package-shaped domain ingest: explicit `main` entry and no top-level interim `(page …)`.
 pub fn is_package_shaped_graphics_source(expanded: &str) -> bool {
     expanded.contains("(val main") && !has_top_level_interim_page(expanded)
 }
@@ -143,7 +148,7 @@ fn package_search_roots() -> Vec<PathBuf> {
     roots
 }
 
-fn document_from_package_graphics(expanded: &str) -> Result<Document, PipelineError> {
+fn document_from_package_domain(expanded: &str) -> Result<Document, PipelineError> {
     let package_src = strip_top_level_effect_forms(expanded);
     let search_roots = package_search_roots();
     let roots: Vec<&Path> = search_roots.iter().map(PathBuf::as_path).collect();
@@ -189,7 +194,7 @@ pub fn document_from_source_with_snapshot(
 ) -> Result<PipelineDocument, PipelineError> {
     let expanded = expand(src)?;
     let scene = if wants_package_graphics_path(&expanded) {
-        document_from_package_graphics(&expanded)?
+        document_from_package_domain(&expanded)?
     } else {
         typecheck(&expanded)?;
         lower(&expanded)?
@@ -226,7 +231,7 @@ pub fn document_for_export(
     let expanded = expand(src)?;
     if wants_package_graphics_path(&expanded) {
         run_effects(handler, &expanded)?;
-        let doc = document_from_package_graphics(&expanded)?;
+        let doc = document_from_package_domain(&expanded)?;
         return Ok((doc, expanded));
     }
     typecheck(&expanded)?;
@@ -259,6 +264,31 @@ mod tests {
         assert!(is_package_shaped_graphics_source(&expanded));
         let interim = expand("(page a4 (circle 1 2 3))").unwrap();
         assert!(!wants_package_graphics_path(&interim));
+    }
+
+    #[test]
+    fn document_from_source_pkg_document_uses_package_domain_bridge() {
+        let src = include_str!("../../../examples/pkg_document.rpx");
+        let expanded = expand(src).unwrap();
+        assert!(
+            wants_package_graphics_path(&expanded),
+            "document import should auto-route to package domain path"
+        );
+        let doc = document_from_source(src).expect("pkg_document via pipeline bridge");
+        assert_eq!(doc.pages.len(), 1);
+        assert!(doc.pages[0].paper.is_positive());
+    }
+
+    #[test]
+    fn black_circle_stays_on_interim_cst_path() {
+        let src = include_str!("../../../examples/black_circle.rpx");
+        let expanded = expand(src).unwrap();
+        assert!(
+            !wants_package_graphics_path(&expanded),
+            "interim golden must not route through package domain bridge"
+        );
+        let doc = document_from_source(src).expect("black_circle interim lower");
+        assert_eq!(doc.pages.len(), 1);
     }
 
     #[test]

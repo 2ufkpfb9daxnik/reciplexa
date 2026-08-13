@@ -133,8 +133,14 @@ Document / page constructors stay package-shaped (`graphics/page` or later `docu
 |----|------|--------|
 | N5.1 | Map `reciplexa-std::document` constructors onto native package paths | **done** — `packages/document` + native `document/page` (`doc-*` tags); interim CST untouched |
 | N5.1b | Lower `doc-*` package values to scene (text layout stub) | **done** — `document_from_doc_value` + graphics bridge accepts `doc-page`; `pkg_document.rpx` elaborates+evals via bridge |
-| N5.2 | Markup expand → native document nodes (retire interim page keyword tables when goldens allow) | pending (GUI `black_circle` stays interim) |
-| N5.3 | Coverage tip | pending |
+| N5.2a | Pipeline auto-route `(import document` like graphics | **done** — `wants_package_graphics_path` treats `(import document` as package domain path; `pkg_document.rpx` via `document_from_source`; interim `black_circle` unchanged |
+| N5.2b | Package twin for black_circle (keep interim CST golden) | pending |
+| N5.2c | GUI read-only layers from scene when CST pages absent | pending |
+| N5.2d | Markup expand → package native nodes | pending |
+| N5.2e | Docs: keyword-table deletion blocked by GUI CST sync (out of N5 delete scope) | pending |
+| N5.3 | Coverage tip for document surface / pipeline / markup | pending |
+
+**N5.2 honesty:** Retiring interim `(page)/(circle)` keyword tables requires GUI CST sync v2 (rewrite package AST). N5 finishes the **dual path** (package document + markup native; interim retained for writable goldens).
 
 ### Phase N6 — workspace coverage to ~99%
 
@@ -165,4 +171,4 @@ Document / page constructors stay package-shaped (`graphics/page` or later `docu
 
 **N6 done:** 7-crate BEST-ENTRY **≥99%** (N6 q). Soft residuals remain on check/cast/eval/load/document (see `coverage-holdouts.md`).
 
-**N5.1 done:** native `document/page` package scaffold (`doc-*` tagged records mirroring `reciplexa_std::document`). **Next:** N5.2 markup→native / GUI golden before retiring interim keyword tables.
+**N5.1 done:** native `document/page` package scaffold (`doc-*` tagged records mirroring `reciplexa_std::document`). **N5.2a done:** pipeline auto-routes `(import document`. **Next:** N5.2b package twin / GUI layers / markup native; keyword tables retained.
