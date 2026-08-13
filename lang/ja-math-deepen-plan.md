@@ -973,3 +973,36 @@ cargo test -p reciplexa-std -p reciplexa-eval -p reciplexa-core -p reciplexa-pac
 - Font-backed ruby / tate-chu-yoko / real vertical metrics / bou placement; OpenType `vert`/`vrt2` / CSS `text-orientation`.
 - OpenType MATH stretchy fences, accent/script/stackrel attachment, real matrix column alignment / big-op / fraction/radical / full muskip style table / real phantom atoms.
 - Document/GUI pipeline consuming boxes as production layout (beyond soft-wrapped Text shapes / estimate_box / math-box / stretchy-delim / first-line indent / place_lines / EstimateStyle / vertical place / phantom-smash stubs); load-time resource rewrite beyond fail-soft attach; registry resolve + checksum verification (OPEN-PKG-001).
+
+## Wave 20 — emoji / color classify (N0–N1)
+
+Honest scope: map emoji / pictographs / dingbats / variation selectors / emoji tags to [`CharClass::Other`] (explicit unknown) instead of Ideographic high-BMP fallback. Not a JLReq emoji class / UAX #14 / western soft-wrap policy.
+
+Gate:
+
+```bat
+set CARGO_TARGET_DIR=d:\reciplexa\target
+set TEMP=d:\reciplexa\.tmp
+set TMP=d:\reciplexa\.tmp
+cargo test -p reciplexa-std -p reciplexa-eval -p reciplexa-core -p reciplexa-package --offline
+```
+
+| Unit | Status |
+|------|--------|
+| N0 — emoji/color → Other | **done** |
+| N1 — Docs | **done** |
+
+### N0 — Classify
+
+- Pictograph plane (`U+1F000`–`U+1FAFF`), Misc Symbols / Dingbats residuals, VS15/16, emoji tags → `CharClass::Other`. Listed ornament samples (♠★…) still win earlier arms. **Commit.**
+
+### N1 — Docs
+
+- Mark Wave 20 done; package / implemented-features notes. **Commit.**
+
+## Remains after Wave 20
+
+- Full UCS membership + normative JLReq §C break matrix + real hanging/justification / word-break / paragraph composition.
+- Font-backed ruby / tate-chu-yoko / real vertical metrics / bou placement; OpenType `vert`/`vrt2` / CSS `text-orientation`.
+- OpenType MATH stretchy fences, accent/script/stackrel attachment, real matrix column alignment / big-op / fraction/radical / full muskip style table / real phantom atoms.
+- Document/GUI pipeline consuming boxes as production layout (beyond soft-wrapped Text shapes / estimate_box / math-box / stretchy-delim / first-line indent / place_lines / EstimateStyle / vertical place / phantom-smash / emoji-Other stubs); load-time resource rewrite beyond fail-soft attach; registry resolve + checksum verification (OPEN-PKG-001).

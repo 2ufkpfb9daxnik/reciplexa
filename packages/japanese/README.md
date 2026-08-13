@@ -38,7 +38,7 @@ Normative reference: [W3C JLReq](https://www.w3.org/TR/jlreq/) (JIS X 4051–bas
 
 ## Remaining gaps
 
-- Full UCS → class map still incomplete; **Rust** `reciplexa_std::japanese::classify_char` covers a useful subset (authoritative for hosts; package `classify-sample` stays synthetic).
+- Full UCS → class map still incomplete; **Rust** `reciplexa_std::japanese::classify_char` covers a useful subset (authoritative for hosts; package `classify-sample` stays synthetic). Emoji / color-presentation scalars map to `CharClass::Other` (explicit unknown), not Ideographic.
 - Language builtins `classify-char` / `break-between` / `break-line` / `break-line-vertical` / `justify-line` / `ruby-box` / `vertical-ruby-box` / `bou-box` / `tate-chu-yoko-width` / `hang-width` / `vertical-orientation` / `math-box` / `stretchy-delim` call the same Rust APIs (no package import required).
 - `break-between` / `sample-pair-rules` are **subset stubs**; Rust `BREAK_PAIR_MATRIX` / `break_opportunity` densifies class×class kinsoku + digit-open quirks — still **not** the normative JLReq appendix C matrix.
 - `is_hangable` (cl-06/07) mirrors package `hangable-class?`; `break_line` may let those glyphs stick past the em budget. `hang_width_em` / language `hang-width` document a **0.5em** policy stub (not full JLReq hanging / justification).
