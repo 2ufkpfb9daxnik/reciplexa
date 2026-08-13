@@ -787,6 +787,32 @@ fn needs_tate_rotation_western_vs_cjk() {
 }
 
 #[test]
+fn vertical_glyph_orientation_enum_matches_flag() {
+    use reciplexa_std::japanese::{
+        needs_tate_rotation, vertical_glyph_orientation, VerticalGlyphOrientation,
+    };
+
+    assert_eq!(
+        vertical_glyph_orientation('A'),
+        VerticalGlyphOrientation::Rotated
+    );
+    assert_eq!(
+        vertical_glyph_orientation('漢'),
+        VerticalGlyphOrientation::Upright
+    );
+    assert_eq!(VerticalGlyphOrientation::Rotated.as_str(), "rotated");
+    assert_eq!(VerticalGlyphOrientation::Upright.to_string(), "upright");
+    assert!(VerticalGlyphOrientation::Rotated.needs_rotation());
+    assert!(!VerticalGlyphOrientation::Upright.needs_rotation());
+    for c in ['A', '漢', 'é', '７', 'あ'] {
+        assert_eq!(
+            vertical_glyph_orientation(c).needs_rotation(),
+            needs_tate_rotation(c)
+        );
+    }
+}
+
+#[test]
 fn break_line_vertical_wraps_on_vertical_advance() {
     // Four ideographs at 3em vertical measure → wrap.
     let lines = break_line_vertical("一二三四", 3.0);

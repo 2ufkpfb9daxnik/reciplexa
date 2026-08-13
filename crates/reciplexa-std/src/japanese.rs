@@ -854,15 +854,43 @@ pub fn vertical_advance_em(c: char) -> f64 {
     }
 }
 
-/// Fontless stub: whether `c` should be rotated when set in `vertical-rl`.
+/// Fontless vertical glyph orientation for `vertical-rl` (tategaki) stubs.
 ///
-/// ASCII / Latin-1 western letters and digits typically need a quarter-turn in
-/// tategaki; CJK square letters (ideograph / kana) and fullwidth latin stay
-/// upright in this stub (tate-chu-yoko / vertical presentation forms later).
 /// Not OpenType `vert` / `vrt2` or CSS `text-orientation`.
-pub fn needs_tate_rotation(c: char) -> bool {
-    match classify_char(c) {
-        // Extended latin often lacks a fullwidth twin — rotate.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum VerticalGlyphOrientation {
+    /// Keep the glyph upright (typical CJK square letters).
+    Upright,
+    /// Rotate a quarter-turn for tategaki (typical ASCII / Latin-1 western).
+    Rotated,
+}
+
+impl VerticalGlyphOrientation {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Upright => "upright",
+            Self::Rotated => "rotated",
+        }
+    }
+
+    pub fn needs_rotation(self) -> bool {
+        matches!(self, Self::Rotated)
+    }
+}
+
+impl fmt::Display for VerticalGlyphOrientation {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+/// Classify vertical glyph orientation for `c` (fontless stub).
+///
+/// ASCII / Latin-1 western letters and digits → [`Rotated`]; CJK square letters
+/// and fullwidth latin → [`Upright`]. Tate-chu-yoko / vertical presentation
+/// forms remain future work.
+pub fn vertical_glyph_orientation(c: char) -> VerticalGlyphOrientation {
+    let rotated = match classify_char(c) {
         CharClass::ComplexWestern => true,
         CharClass::WesternCharacters
         | CharClass::SimpleWestern
@@ -877,7 +905,18 @@ pub fn needs_tate_rotation(c: char) -> bool {
         }
         CharClass::Other if c.is_ascii() => true,
         _ => false,
+    };
+    if rotated {
+        VerticalGlyphOrientation::Rotated
+    } else {
+        VerticalGlyphOrientation::Upright
     }
+}
+
+/// Whether `c` should be rotated in `vertical-rl` — alias of
+/// [`VerticalGlyphOrientation::needs_rotation`] via [`vertical_glyph_orientation`].
+pub fn needs_tate_rotation(c: char) -> bool {
+    vertical_glyph_orientation(c).needs_rotation()
 }
 
 /// Soft-wrap for `vertical-rl` using [`vertical_advance_em`] + [`break_opportunity`].
