@@ -896,3 +896,41 @@ cargo test -p reciplexa-std -p reciplexa-eval -p reciplexa-core -p reciplexa-pac
 - Font-backed ruby / tate-chu-yoko / real vertical metrics / bou placement; OpenType `vert`/`vrt2` / CSS `text-orientation`.
 - OpenType MATH stretchy fences, accent/script/stackrel attachment, real matrix column alignment / big-op / fraction/radical / full muskip style table.
 - Document/GUI pipeline consuming boxes as production layout (beyond soft-wrapped Text shapes / estimate_box / math-box / stretchy-delim / first-line indent / place_lines / EstimateStyle stubs); load-time resource rewrite beyond fail-soft attach; registry resolve + checksum verification (OPEN-PKG-001).
+
+## Wave 18 — vertical place → Text shapes (L0–L2)
+
+Honest scope: wire `place_lines_vertical` into host helper `lines_to_vertical_text_shapes` (column x pitch). Not full JLReq hanmen / OpenType `vert` / tategaki composition.
+
+Gate:
+
+```bat
+set CARGO_TARGET_DIR=d:\reciplexa\target
+set TEMP=d:\reciplexa\.tmp
+set TMP=d:\reciplexa\.tmp
+cargo test -p reciplexa-std -p reciplexa-eval -p reciplexa-core -p reciplexa-package --offline
+```
+
+| Unit | Status |
+|------|--------|
+| L0 — `lines_to_vertical_text_shapes` | **done** |
+| L1 — Example / test `pkg_ja_vertical_place` | **done** |
+| L2 — Docs | **done** |
+
+### L0 — Vertical text shapes
+
+- `lines_to_vertical_text_shapes(lines, x_mm, y_mm, size_mm, leading_mm, fill)` places **x** via `place_lines_vertical`; shared `y_mm` per column. **Commit.**
+
+### L1 — Example
+
+- `examples/pkg_ja_vertical_place.rpx` + host path test (break-line-vertical → `lines_to_vertical_text_shapes`). **Commit.**
+
+### L2 — Docs
+
+- Mark Wave 18 done; tip + package / implemented-features notes. **Commit.**
+
+## Remains after Wave 18
+
+- Full UCS membership + normative JLReq §C break matrix + real hanging/justification / word-break / paragraph composition.
+- Font-backed ruby / tate-chu-yoko / real vertical metrics / bou placement; OpenType `vert`/`vrt2` / CSS `text-orientation`.
+- OpenType MATH stretchy fences, accent/script/stackrel attachment, real matrix column alignment / big-op / fraction/radical / full muskip style table; phantom/smash stubs.
+- Document/GUI pipeline consuming boxes as production layout (beyond soft-wrapped Text shapes / estimate_box / math-box / stretchy-delim / first-line indent / place_lines / EstimateStyle / vertical place stubs); load-time resource rewrite beyond fail-soft attach; registry resolve + checksum verification (OPEN-PKG-001).
