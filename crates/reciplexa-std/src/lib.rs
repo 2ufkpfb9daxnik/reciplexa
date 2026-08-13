@@ -21,7 +21,7 @@ pub mod visual;
 pub use core::{Angle, Color, Length, Point, Range, Rect, Size};
 pub use document::{Block, Figure, Flow, Heading, List, ListItem, Page, Section, Table};
 pub use japanese::{
-    break_line, break_opportunity, break_opportunity_chars, char_em_width, classify_char,
+    break_line, break_opportunity, break_opportunity_chars, char_em_width, classify_char, is_hangable,
     BreakOpportunity, CharClass, KihonHanmen, Ruby, RubyKind, TateChuYoko, TategakiParagraph,
     WritingMode,
 };

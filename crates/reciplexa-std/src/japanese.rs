@@ -509,6 +509,16 @@ pub fn is_line_end_prohibited(class: CharClass) -> bool {
     )
 }
 
+/// Hangable punctuation classes (JLReq-style stub).
+///
+/// Matches package `hangable-class?` / `kinsoku-profile.hangable-classes`:
+/// **cl-06** full stops and **cl-07** commas. Not a full hanging-punctuation /
+/// justification model — hosts may query this; [`break_line`] optionally
+/// allows these glyphs to stick slightly past `max_em_units`.
+pub fn is_hangable(class: CharClass) -> bool {
+    matches!(class, CharClass::FullStops | CharClass::Commas)
+}
+
 /// Decide break opportunity between adjacent classified characters.
 ///
 /// Prefer calling this from future layout; package `japanese/linebreak`
@@ -584,6 +594,10 @@ pub fn char_em_width(c: char) -> f64 {
 /// Applies class-level kinsoku so e.g. `。` does not start a line when an earlier
 /// break exists. Not a full JLReq / CSS line breaker.
 ///
+/// **Hangable stub:** if the next character would overflow but its class is
+/// [`is_hangable`] (cl-06/07), it may still be appended past the measure. This
+/// is not full JLReq hanging punctuation or justification.
+///
 /// `max_em_units <= 0` returns the whole string as one line (empty input → empty vec).
 pub fn break_line(text: &str, max_em_units: f64) -> Vec<String> {
     let chars: Vec<char> = text.chars().collect();
@@ -603,6 +617,10 @@ pub fn break_line(text: &str, max_em_units: f64) -> Vec<String> {
         while end < chars.len() {
             let w = char_em_width(chars[end]);
             if end > start && used + w > max_em_units {
+                // Optional hang: cl-06/07 may stick past the em budget (stub).
+                if is_hangable(classify_char(chars[end])) {
+                    end += 1;
+                }
                 break;
             }
             used += w;

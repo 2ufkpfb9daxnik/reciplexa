@@ -2,7 +2,7 @@
 
 use reciplexa_std::japanese::{
     break_line, break_opportunity, break_opportunity_chars, char_em_width, classify_char,
-    is_line_end_prohibited, is_line_head_prohibited, BreakOpportunity, CharClass,
+    is_hangable, is_line_end_prohibited, is_line_head_prohibited, BreakOpportunity, CharClass,
 };
 
 #[test]
@@ -386,13 +386,36 @@ fn char_em_width_ascii_half_ideograph_full() {
 
 #[test]
 fn break_line_kinsoku_no_period_at_line_start() {
-    // Without kinsoku, max=3em on "あああ。" would yield ["あああ", "。"].
+    // Hangable stub: 。 may stick past max_em, so "あああ。" at 3em stays one line.
     let lines = break_line("あああ。", 3.0);
     assert!(
         lines.iter().all(|l| !l.starts_with('。')),
         "period must not start a line: {lines:?}"
     );
-    assert_eq!(lines, vec!["ああ".to_string(), "あ。".to_string()]);
+    assert_eq!(lines, vec!["あああ。".to_string()]);
+    // Without hanging room, kinsoku still keeps 。 off the next line head.
+    let lines = break_line("あああああ。", 3.0);
+    assert!(
+        lines.iter().all(|l| !l.starts_with('。')),
+        "period must not start a line: {lines:?}"
+    );
+    assert!(lines.len() >= 2, "expected wrap: {lines:?}");
+}
+
+#[test]
+fn is_hangable_cl06_cl07_only() {
+    assert!(is_hangable(CharClass::FullStops));
+    assert!(is_hangable(CharClass::Commas));
+    assert!(!is_hangable(CharClass::MiddleDots));
+    assert!(!is_hangable(CharClass::Ideographic));
+    assert!(!is_hangable(CharClass::ClosingBrackets));
+}
+
+#[test]
+fn break_line_hangable_period_may_overhang() {
+    // 東京 = 2em; 。 hangs past measure instead of forcing a wrap.
+    assert_eq!(break_line("東京。", 2.0), vec!["東京。".to_string()]);
+    assert_eq!(break_line("東京、", 2.0), vec!["東京、".to_string()]);
 }
 
 #[test]
