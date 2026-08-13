@@ -116,6 +116,8 @@ pub enum MathAtom {
         left: String,
         right: String,
         body: Box<MathAtom>,
+        /// Stretchy fence scale vs body height/depth (1.0 ≈ match body; stub only).
+        stretch_factor: f64,
     },
     Accent {
         id: StableNodeId,
@@ -287,11 +289,23 @@ impl MathAtom {
         right: impl Into<String>,
         body: MathAtom,
     ) -> Self {
+        Self::delimiter_with_stretch(id, left, right, body, 1.0)
+    }
+
+    /// Like [`delimiter`](Self::delimiter) with an explicit stretchy scale factor.
+    pub fn delimiter_with_stretch(
+        id: StableNodeId,
+        left: impl Into<String>,
+        right: impl Into<String>,
+        body: MathAtom,
+        stretch_factor: f64,
+    ) -> Self {
         Self::Delimiter {
             id,
             left: left.into(),
             right: right.into(),
             body: Box::new(body),
+            stretch_factor,
         }
     }
 
@@ -614,15 +628,19 @@ impl MathAtom {
                 MathBox::new(width, height, depth)
             }
             Self::Delimiter {
-                left, right, body, ..
+                left,
+                right,
+                body,
+                stretch_factor,
+                ..
             } => {
                 let inner = body.estimate_box();
                 let pad = 0.35 * (left.chars().count() + right.chars().count()) as f64;
-                MathBox::new(
-                    inner.width + pad,
-                    inner.height.max(0.9),
-                    inner.depth.max(0.3),
-                )
+                // Stretchy heuristic: fence height/depth track body, scaled by stretch_factor.
+                let factor = stretch_factor.max(0.0);
+                let height = (inner.height * factor).max(0.9);
+                let depth = (inner.depth * factor).max(0.3);
+                MathBox::new(inner.width + pad, height, depth)
             }
             Self::Accent { base, .. } => {
                 let b = base.estimate_box();

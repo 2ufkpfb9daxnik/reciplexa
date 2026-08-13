@@ -148,6 +148,29 @@ fn math_estimate_box_relative_sizes() {
 }
 
 #[test]
+fn math_delimiter_stretchy_grows_with_body() {
+    let a = MathAtom::symbol(id(1), "a", MathClass::Ordinary);
+    let b = MathAtom::symbol(id(2), "b", MathClass::Ordinary);
+    let tall = MathAtom::fraction(id(3), a.clone(), b.clone());
+    let flat = MathAtom::paren(id(4), a.clone());
+    let around_frac = MathAtom::paren(id(5), tall.clone());
+
+    let flat_box = flat.estimate_box();
+    let tall_box = around_frac.estimate_box();
+    assert!(
+        tall_box.total_height() > flat_box.total_height(),
+        "stretchy delimiter should grow with body: flat={flat_box:?} tall={tall_box:?}"
+    );
+
+    let stretched = MathAtom::delimiter_with_stretch(id(6), "(", ")", tall, 2.0);
+    let defaulted = MathAtom::paren(id(7), MathAtom::fraction(id(8), a.clone(), b));
+    assert!(
+        stretched.estimate_box().total_height() > defaulted.estimate_box().total_height(),
+        "stretch_factor > 1 should enlarge fences"
+    );
+}
+
+#[test]
 fn math_matrix_align_stack_nodes() {
     use reciplexa_std::math::{MathMatrixKind, MathStackKind};
     let a = MathAtom::symbol(id(1), "a", MathClass::Ordinary);
