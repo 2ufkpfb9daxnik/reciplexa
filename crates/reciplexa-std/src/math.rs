@@ -850,6 +850,19 @@ pub fn cases_column_align(_column: usize) -> MatrixColumnAlign {
     MatrixColumnAlign::Left
 }
 
+/// Nominal per-row height (em) for cases left-brace stretch when cells are empty/thin.
+pub const CASES_ROW_HEIGHT_EM: f64 = 1.0;
+
+/// Total vertical extent (height+depth) for a cases / choice left brace.
+///
+/// Stretchy-delimiter-inspired stub: `nrows.max(1) × row_height`. Used by
+/// [`MathAtom::estimate_box`] for delimited matrices (`math-cases`). Not
+/// OpenType MATH stretchy fences.
+pub fn cases_brace_total_height_em(nrows: usize, row_height: f64) -> f64 {
+    let n = nrows.max(1) as f64;
+    n * row_height.max(0.0)
+}
+
 /// X offset of a cell within its column band (`0` = left edge of the column).
 pub fn matrix_cell_x_in_column(cell_width: f64, col_width: f64, align: MatrixColumnAlign) -> f64 {
     let slack = (col_width - cell_width).max(0.0);
@@ -1075,6 +1088,7 @@ fn estimate_grid_box(
 ) -> MathBox {
     let mut col_widths: Vec<f64> = Vec::new();
     let mut total_h = 0.0_f64;
+    let mut max_row_h = 0.0_f64;
     for row in rows {
         let mut row_h = 0.0_f64;
         for (ci, cell) in row.iter().enumerate() {
@@ -1085,12 +1099,27 @@ fn estimate_grid_box(
             col_widths[ci] = col_widths[ci].max(b.width);
             row_h = row_h.max(b.total_height());
         }
+        max_row_h = max_row_h.max(row_h);
         total_h += row_h + 0.2;
     }
     let mut width: f64 =
         col_widths.iter().sum::<f64>() + ALIGNED_COLUMN_GUTTER_EM * col_widths.len() as f64;
-    if let (Some(l), Some(r)) = (left, right) {
-        width += 0.35 * (l.chars().count() + r.chars().count()) as f64;
+    if let Some(l) = left {
+        width += 0.35 * l.chars().count() as f64;
     }
-    MathBox::new(width.max(0.5), total_h * 0.55, total_h * 0.45)
+    if let Some(r) = right {
+        width += 0.35 * r.chars().count() as f64;
+    }
+    // Content-based height/depth split (prior grid stub).
+    let mut height = total_h * 0.55;
+    let mut depth = total_h * 0.45;
+    // Cases / choice left brace: stretchy-delimiter heuristic —
+    // brace total height = rows × row_height (measured max row, floor CASES_ROW_HEIGHT_EM).
+    if left.is_some() {
+        let row_h = max_row_h.max(CASES_ROW_HEIGHT_EM);
+        let brace_total = cases_brace_total_height_em(rows.len(), row_h);
+        height = (brace_total * 0.55).max(height);
+        depth = (brace_total * 0.45).max(depth);
+    }
+    MathBox::new(width.max(0.5), height, depth)
 }
