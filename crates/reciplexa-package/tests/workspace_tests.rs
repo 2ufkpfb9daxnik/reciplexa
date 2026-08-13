@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use reciplexa_package::{
-    check_package_lock_consistency, discover_workspace, find_enclosing_workspace,
+    check_package_lock_consistency, content_checksum, discover_workspace, find_enclosing_workspace,
     parse_workspace_rpxm, read_lock_for_package, resolve_workspace_dependencies, RpxmError,
     WorkspaceError,
 };
@@ -150,6 +150,20 @@ fn workspace_shared_lock_roundtrip() {
     let written = idx.write_lock().unwrap();
     assert_eq!(written.packages.len(), 2);
     assert!(written.packages.iter().all(|p| p.source == "workspace"));
+    for pkg in &written.packages {
+        let member_root = root.join(&pkg.name);
+        let expected = content_checksum(member_root.join("package.rpxm"));
+        assert_eq!(
+            pkg.checksum.as_deref(),
+            Some(expected.as_str()),
+            "workspace lock should fill member checksum for {}",
+            pkg.name
+        );
+        assert!(
+            expected.starts_with("stub-fnv1a64:"),
+            "OPEN stub prefix, got {expected}"
+        );
+    }
     assert!(idx.lock_path().is_file());
     let read = idx.read_lock().unwrap();
     assert_eq!(read, written);
@@ -256,6 +270,15 @@ fn resolve_prefers_workspace_members() {
     assert_eq!(app.dependencies, vec!["core".to_string()]);
     let core = lock.packages.iter().find(|p| p.name == "core").unwrap();
     assert_eq!(core.source, "workspace");
+    for (name, dir) in [("app", "app"), ("core", "core")] {
+        let expected = content_checksum(root.join(dir).join("package.rpxm"));
+        let locked = lock.packages.iter().find(|p| p.name == name).unwrap();
+        assert_eq!(
+            locked.checksum.as_deref(),
+            Some(expected.as_str()),
+            "resolve_workspace_dependencies should fill checksum for {name}"
+        );
+    }
 }
 
 #[test]
@@ -324,8 +347,8 @@ fn resolve_registry_source_is_open_stub() {
 /// Checked-in fixture: workspace-level `source registry` refuses with OPEN-PKG-001.
 #[test]
 fn open_pkg_001_registry_fixture_refuses_with_code() {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("tests/fixtures/open_pkg_001_registry");
+    let root =
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/open_pkg_001_registry");
     let idx = discover_workspace(&root).expect("fixture workspace");
     assert!(
         idx.manifest

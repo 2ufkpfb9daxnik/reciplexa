@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::lockfile::{LockedPackage, Lockfile};
+use crate::lockfile::{content_checksum, LockedPackage, Lockfile};
 use crate::manifest::PackageManifest;
 use crate::rpxm::{parse_rpxm, tokenize, RpxmError};
 
@@ -236,11 +236,16 @@ impl WorkspaceIndex {
     }
 
     /// Build a shared lock covering all workspace members (`source: workspace`).
+    ///
+    /// Fills each member's `checksum` from [`content_checksum`] of that
+    /// member's `package.rpxm` (manifest file only — stub hash, not the full
+    /// tree). PKG006 still only compares `path:` sources; workspace checksums
+    /// are recorded for later integrity work.
     pub fn build_lock(&self) -> Lockfile {
         let mut packages: Vec<LockedPackage> = self
             .members
             .values()
-            .map(|(_, m)| LockedPackage {
+            .map(|(root, m)| LockedPackage {
                 name: m.name.clone(),
                 version: m.version.clone(),
                 source: "workspace".into(),
@@ -249,7 +254,7 @@ impl WorkspaceIndex {
                     .iter()
                     .map(|d| d.package.clone().unwrap_or_else(|| d.name.clone()))
                     .collect(),
-                checksum: None,
+                checksum: Some(content_checksum(root.join("package.rpxm"))),
             })
             .collect();
         packages.sort_by(|a, b| a.name.cmp(&b.name));
@@ -485,12 +490,12 @@ pub fn resolve_workspace_dependencies(ws: &WorkspaceIndex) -> Result<Lockfile, W
     let mut packages: Vec<LockedPackage> = ws
         .members
         .values()
-        .map(|(_, m)| LockedPackage {
+        .map(|(root, m)| LockedPackage {
             name: m.name.clone(),
             version: m.version.clone(),
             source: "workspace".into(),
             dependencies: edges.get(&m.name).cloned().unwrap_or_default(),
-            checksum: None,
+            checksum: Some(content_checksum(root.join("package.rpxm"))),
         })
         .collect();
     packages.sort_by(|a, b| a.name.cmp(&b.name));

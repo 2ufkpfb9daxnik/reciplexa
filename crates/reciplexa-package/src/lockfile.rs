@@ -18,9 +18,11 @@ pub struct LockedPackage {
     pub dependencies: Vec<String>,
     /// Optional content checksum stub (OPEN-PKG-001 / path-dep CS0).
     ///
-    /// For path deps, writers may fill via [`content_checksum`] of that
-    /// package's `package.rpxm` (not the full tree). Stub hash — see OPEN
-    /// note on [`content_checksum`]. Diagnose mismatch with
+    /// Path-dep writers fill via [`content_checksum`] of that package's
+    /// `package.rpxm` (not the full tree). Workspace lock writers
+    /// ([`crate::WorkspaceIndex::build_lock`] / [`crate::resolve_workspace_dependencies`])
+    /// fill the same stub for each member. Stub hash — see OPEN note on
+    /// [`content_checksum`]. Diagnose mismatch for `path:` sources with
     /// [`crate::diagnose_lockfile_checksums`] (PKG006).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub checksum: Option<String>,
