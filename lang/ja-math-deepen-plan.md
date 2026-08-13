@@ -10,8 +10,8 @@ Status tracking for deepening `packages/japanese` + `packages/math` **beyond** t
 | Pair **break opportunity** stub (kinsoku-inspired forbidden starts/ends) | Normative JLReq appendix C pair matrix / streaming linebreak |
 | Naive **`break_line` / `char_em_width`** (em budget + break_opportunity + optional hangable stub) | Full justification / CSS `line-break` / normative hanging punctuation |
 | **`is_hangable`** (cl-06/07) used optionally by `break_line` | Full JLReq hanging / measure overhang model |
-| Kihon-hanmen / writing-mode / ruby / tate-chu-yoko **data types** | Live line layout, glyph positioning, Document lower consumption |
-| Deeper `MathAtom` tree + **fontless** box metric estimates + matrix/align/stack nodes | TeX/SATySFi glyph layout, stretchy fences, OpenType MATH tables |
+| Kihon-hanmen / writing-mode / ruby / tate-chu-yoko **data types** + **Wave 4 fontless box stubs** | Live line layout, glyph positioning, Document lower consumption |
+| Deeper `MathAtom` tree + **fontless** box metric estimates + matrix/align/stack + **stretchy delimiter / accent clearance stubs** | TeX/SATySFi glyph layout, real OpenType MATH stretchy fences |
 
 Package natives (`reciplexa-package::domain_bodies`) keep **synthetic RPX constructors** for the Core/eval import path. Std Rust is what future layout and hosts should call; comments in package sources document that relationship.
 
@@ -173,4 +173,74 @@ No push unless asked. Fine-grained commits (one unit ≈ one commit).
 | **Wave 3** — `MathAtom::linearize` braces multi-char script/limit bodies | **done** |
 | Language builtin `break-line` (ker + eval + light typecheck → cons/nil strings) | **done** |
 | `is_hangable` (cl-06/07) + optional hang stub inside `break_line` | **done** (stub; not full hanging punctuation) |
-| Full UCS / §C / glyph layout / document consumption | **OPEN** |
+| Full UCS / §C / glyph layout / document consumption | **OPEN** (Wave 4 stubs below) |
+
+---
+
+## Wave 4 — layout stubs + light host consume (X0–X6)
+
+Honest scope: **stubs / heuristics only** — not full JLReq ruby/tate-chu-yoko metrics, not OpenType MATH stretchy fences.
+
+Gate (when packages/eval touched):
+
+```bat
+set CARGO_TARGET_DIR=d:\reciplexa\target
+set TEMP=d:\reciplexa\.tmp
+set TMP=d:\reciplexa\.tmp
+cargo test -p reciplexa-std -p reciplexa-eval -p reciplexa-package --offline
+```
+
+| Unit | Status |
+|------|--------|
+| X0 — Ruby layout stub (`Ruby::estimate_box` / `ruby_estimate_box`) | **done** |
+| X1 — Tate-chu-yoko layout stub (horizontal run width in vertical context) | pending |
+| X2 — Math stretchy delimiter stub (`Delimiter` grows with body; optional `stretch_factor`) | pending |
+| X3 — Math accent clearance stub (clearance above base) | pending |
+| X4 — Pipeline/host light consume (`lines_to_text_shapes` + break demo) | pending |
+| X5 — pkg_math / pkg_ja integration tip tests | pending |
+| X6 — Docs: `implemented-features` next steps | pending |
+
+### X0 — Ruby layout stub
+
+- Given `Ruby { base, annotation, kind }`: base width = `char_em_width` sum; annotation width scaled ~0.5; advance = max(base, annotation); optional height bump for ruby band.
+- API: `Ruby::estimate_box` and/or `ruby_estimate_box`.
+- Tests. **Commit.**
+
+### X1 — Tate-chu-yoko layout stub
+
+- Estimate horizontal run width (digits/latin span) inside vertical context via `char_em_width`.
+- Tests. **Commit.**
+
+### X2 — Math stretchy delimiter stub
+
+- `Delimiter::estimate_box` (via `MathAtom`) grows with body height (stretchy heuristic).
+- Optional `stretch_factor` on the delimiter node / constructor.
+- Tests. **Commit.**
+
+### X3 — Math accent clearance stub
+
+- Accent boxes add named clearance above (or below for underline) the base.
+- Commit if not already good. **Commit.**
+
+### X4 — Pipeline/host light consume
+
+- Helper `lines_to_text_shapes`: Japanese string → `break_line` → one scene `Text` per line (or tagged records).
+- Prefer `reciplexa-std` helper used from package / eval test; example `examples/pkg_ja_break.rpx` if builtins allow.
+- **Commit.**
+
+### X5 — pkg_math / pkg_ja integration tips
+
+- More tip tests around math_value / japanese / package demos.
+- **Commit.**
+
+### X6 — Docs
+
+- Update `lang/implemented-features.md` next-steps for Wave 4 stubs.
+- Mark this plan table done. **Commit.**
+
+## Remains after Wave 4
+
+- Full UCS membership + normative JLReq §C break matrix + real hanging/justification.
+- Font-backed ruby / tate-chu-yoko / vertical glyph orientation.
+- OpenType MATH stretchy fences, accent attachment, matrix column alignment.
+- Document/GUI pipeline consuming boxes as production layout (beyond light Text shapes / estimate_box).

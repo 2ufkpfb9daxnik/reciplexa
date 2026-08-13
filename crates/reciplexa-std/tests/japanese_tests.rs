@@ -315,6 +315,28 @@ fn ruby_and_tate_chu_yoko_types() {
     assert_eq!(p.tag(), "ja-tategaki-paragraph");
 }
 
+#[test]
+fn ruby_estimate_box_advance_and_scale() {
+    use reciplexa_std::japanese::{
+        ruby_estimate_box, Ruby, RUBY_ANNOTATION_SCALE, RUBY_HEIGHT_BUMP_EM,
+    };
+
+    // Base 1 ideograph (1em); annotation 2 kana → 2 * 0.5 = 1em; advance = 1.
+    let r = Ruby::simple("漢", "かん");
+    let b = r.estimate_box();
+    assert!((b.base_width - 1.0).abs() < 1e-9);
+    assert!((b.annotation_width - 2.0 * RUBY_ANNOTATION_SCALE).abs() < 1e-9);
+    assert!((b.advance_width - 1.0).abs() < 1e-9);
+    assert!((b.height - (1.0 + RUBY_HEIGHT_BUMP_EM)).abs() < 1e-9);
+    assert_eq!(ruby_estimate_box(&r), b);
+
+    // Longer annotation than base → advance follows scaled annotation.
+    let long = Ruby::jukugo("漢", "かんじかな");
+    let lb = long.estimate_box();
+    assert!(lb.annotation_width > lb.base_width);
+    assert!((lb.advance_width - lb.annotation_width).abs() < 1e-9);
+}
+
 /// Demo: classify + break over a short Japanese phrase (J4).
 #[test]
 fn classify_and_break_phrase_demo() {

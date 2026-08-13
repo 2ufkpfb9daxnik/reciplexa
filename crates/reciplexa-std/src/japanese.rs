@@ -804,6 +804,39 @@ pub struct Ruby {
     pub kind: RubyKind,
 }
 
+/// Annotation glyph scale vs base (fontless ruby stub; ~half-size furigana).
+pub const RUBY_ANNOTATION_SCALE: f64 = 0.5;
+
+/// Extra block height (em) reserved above the base for the ruby band.
+pub const RUBY_HEIGHT_BUMP_EM: f64 = 0.5;
+
+/// Fontless ruby metrics (abstract em). Not JLReq placement / jukugo distribution.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct RubyBox {
+    pub base_width: f64,
+    pub annotation_width: f64,
+    /// Combined advance: `max(base_width, annotation_width)`.
+    pub advance_width: f64,
+    /// Base line box (~1 em) plus optional ruby band bump.
+    pub height: f64,
+}
+
+impl RubyBox {
+    pub const fn new(
+        base_width: f64,
+        annotation_width: f64,
+        advance_width: f64,
+        height: f64,
+    ) -> Self {
+        Self {
+            base_width,
+            annotation_width,
+            advance_width,
+            height,
+        }
+    }
+}
+
 impl Ruby {
     pub fn simple(base: impl Into<String>, annotation: impl Into<String>) -> Self {
         Self {
@@ -824,6 +857,25 @@ impl Ruby {
     pub fn tag(&self) -> &'static str {
         "ja-ruby"
     }
+
+    /// Estimate advance / height without fonts (layout scaffolding only).
+    pub fn estimate_box(&self) -> RubyBox {
+        ruby_estimate_box(self)
+    }
+}
+
+/// Estimate ruby box metrics from [`Ruby`] (same as [`Ruby::estimate_box`]).
+pub fn ruby_estimate_box(ruby: &Ruby) -> RubyBox {
+    let base_width: f64 = ruby.base.chars().map(char_em_width).sum();
+    let annotation_width: f64 = ruby.annotation.chars().map(char_em_width).sum::<f64>()
+        * RUBY_ANNOTATION_SCALE;
+    let advance_width = base_width.max(annotation_width);
+    // Base character band (~1 em) + optional ruby-overhang bump.
+    // `kind` is reserved for future jukugo distribution heuristics.
+    let height = match ruby.kind {
+        RubyKind::Simple | RubyKind::Jukugo => 1.0 + RUBY_HEIGHT_BUMP_EM,
+    };
+    RubyBox::new(base_width, annotation_width, advance_width, height)
 }
 
 impl fmt::Display for Ruby {
