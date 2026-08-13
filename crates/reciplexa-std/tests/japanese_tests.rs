@@ -1018,3 +1018,30 @@ fn measure_columns_splits_total_with_gutters() {
     assert!((zero_w - 0.0).abs() < 1e-9);
     assert_eq!(zero_xs.len(), 3);
 }
+
+#[test]
+fn reciprocal_punctuation_mirror_fullwidth_vs_half() {
+    use reciplexa_std::japanese::{
+        reciprocal_punctuation_mirror_em, reciprocal_punctuation_widths_em,
+    };
+
+    // Fullwidth: solid 0.5 + mirror 0.5
+    assert_eq!(reciprocal_punctuation_widths_em('「'), Some((0.5, 0.5)));
+    assert_eq!(reciprocal_punctuation_widths_em('）'), Some((0.5, 0.5)));
+    assert_eq!(reciprocal_punctuation_widths_em('。'), Some((0.5, 0.5)));
+    assert_eq!(reciprocal_punctuation_widths_em('、'), Some((0.5, 0.5)));
+    assert_eq!(reciprocal_punctuation_widths_em('・'), Some((0.5, 0.5)));
+    assert_eq!(reciprocal_punctuation_mirror_em('「'), Some(0.5));
+
+    // Halfwidth / ASCII: solid 0.5 + mirror 0.0
+    assert_eq!(reciprocal_punctuation_widths_em('('), Some((0.5, 0.0)));
+    assert_eq!(reciprocal_punctuation_widths_em(')'), Some((0.5, 0.0)));
+    assert_eq!(reciprocal_punctuation_widths_em(','), Some((0.5, 0.0)));
+    assert_eq!(reciprocal_punctuation_widths_em('.'), Some((0.5, 0.0)));
+    assert_eq!(reciprocal_punctuation_widths_em('､'), Some((0.5, 0.0)));
+    assert_eq!(reciprocal_punctuation_mirror_em('('), Some(0.0));
+
+    // Non-punct
+    assert_eq!(reciprocal_punctuation_widths_em('あ'), None);
+    assert_eq!(reciprocal_punctuation_mirror_em('A'), None);
+}

@@ -561,6 +561,58 @@ pub fn hang_width_em_char(c: char) -> f64 {
     hang_width_em(classify_char(c))
 }
 
+/// Solid + mirror (empty) widths in em for reciprocal punctuation packing.
+///
+/// JLReq-inspired stub for cl-01/02/05/06/07:
+/// - **Fullwidth** forms → solid `0.5` + mirror `0.5` (advance 1em)
+/// - **Halfwidth / ASCII** forms of the same classes → solid `0.5` + mirror `0.0`
+///
+/// Returns `None` for non-participating glyphs. Not full JLReq 詰め / aki /
+/// proportional font metrics.
+pub fn reciprocal_punctuation_widths_em(c: char) -> Option<(f64, f64)> {
+    match classify_char(c) {
+        CharClass::OpeningBrackets
+        | CharClass::ClosingBrackets
+        | CharClass::MiddleDots
+        | CharClass::FullStops
+        | CharClass::Commas => {
+            if is_halfwidth_reciprocal_punct(c) {
+                Some((0.5, 0.0))
+            } else {
+                Some((0.5, 0.5))
+            }
+        }
+        _ => None,
+    }
+}
+
+/// Mirror (empty) half width in em — [`reciprocal_punctuation_widths_em`] `.1`.
+pub fn reciprocal_punctuation_mirror_em(c: char) -> Option<f64> {
+    reciprocal_punctuation_widths_em(c).map(|(_, mirror)| mirror)
+}
+
+/// Halfwidth / ASCII forms that participate in reciprocal punct classes.
+fn is_halfwidth_reciprocal_punct(c: char) -> bool {
+    matches!(
+        c,
+        '(' | ')'
+            | '['
+            | ']'
+            | '{'
+            | '}'
+            | ','
+            | '.'
+            | ':'
+            | ';'
+            | '·'
+            | '･'
+            | '｡'
+            | '｢'
+            | '｣'
+            | '､'
+    ) || ('\u{FF61}'..='\u{FF65}').contains(&c)
+}
+
 /// Dimension of the §C-inspired class×class break matrix (`Other`=0 .. `cl-30`=30).
 pub const BREAK_PAIR_MATRIX_DIM: usize = 31;
 
