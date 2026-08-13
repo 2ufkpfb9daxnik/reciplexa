@@ -86,7 +86,7 @@ fn with_snapshot_and_export_expand_errors() {
 }
 
 #[test]
-fn document_for_export_interim_and_package_force() {
+fn document_for_export_interim_refused_and_package_ok() {
     let _g = env_lock();
     let _root = EnvGuard::set(
         "RECIPLEXA_PACKAGE_ROOT",
@@ -94,12 +94,10 @@ fn document_for_export_interim_and_package_force() {
     );
     let _force = EnvGuard::remove("RECIPLEXA_PACKAGE_GRAPHICS");
 
-    // Interim (non-package) export path: typecheck → effects → lower.
+    // S6b: interim keyword export is refused.
     let mut h = TestHandler::default();
-    let (doc, expanded) =
-        document_for_export(&mut h, "(page a4 (circle 1 2 3))").expect("interim export");
-    assert_eq!(doc.pages.len(), 1);
-    assert!(!wants_package_graphics_path(&expanded));
+    let err = document_for_export(&mut h, "(page a4 (circle 1 2 3))").expect_err("interim");
+    assert_eq!(err.stage, "package");
 
     // Package export with effects stripped for ingest.
     let mut h2 = TestHandler::default();

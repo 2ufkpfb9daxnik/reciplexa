@@ -2,8 +2,8 @@
 //!
 //! GUI preview routes package-shaped sources (including golden `black_circle.rpx`)
 //! through [`reciplexa::pipeline::document_from_source`]. Interim CST keyword lower
-//! remains for test fixtures (`reciplexa-lower/tests/fixtures/interim_page.rpx`) until S6b.
-//! Opt-in refuse of bare `(page …)`: `RECIPLEXA_REQUIRE_PACKAGE=1`.
+//! is fixture-only (`interim-surface` / `lower_interim_source`). Production pipeline
+//! always refuses bare `(page …)`.
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -79,8 +79,8 @@ impl From<GraphicsValueError> for GraphicsBridgeError {
 
 /// Elaborate `entry_path`, eval its entry `main`, bridge to a scene [`Document`].
 ///
-/// Product pipeline auto-routes package-shaped sources; with
-/// `RECIPLEXA_REQUIRE_PACKAGE=1` bare `(page …)` is refused at the pipeline gate.
+/// Product pipeline auto-routes package-shaped sources; bare `(page …)` is
+/// refused at the pipeline gate (S6b).
 pub fn document_from_package_entry(
     entry_path: impl AsRef<Path>,
     index: &LocalPackageIndex,

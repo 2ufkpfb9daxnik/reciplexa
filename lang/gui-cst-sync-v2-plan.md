@@ -1,6 +1,6 @@
 # GUI CST sync v2 (package AST rewrite)
 
-**Status:** active (S6a done; S6b open)  
+**Status:** active (S6a–S6b done)
 **Goal:** Make package-shaped authoring (`(import …)(val main (page …))`) writable in the GUI (nudge/size), then migrate goldens and **retire interim keyword tables**.
 
 **Normative context:** N5 dual-path left interim `(page)/(circle)` for writable CST sync. This phase closes that holdout.
@@ -24,7 +24,7 @@
 | S5 | Migrate GUI golden to package; audit interim examples | **done** — `black_circle.rpx` is package-shaped; interim twin quarantined |
 | S5b | Migrate remaining graphics examples; quarantine fixtures | **done** — product `examples/` package-shaped; keyword fixture at `crates/reciplexa-lower/tests/fixtures/interim_page.rpx` |
 | S6a | Deprecate interim ingest (require-package gate) | **done** — `RECIPLEXA_REQUIRE_PACKAGE=1` rejects bare top-level `(page …)`; keyword tables still in types/lower/bind |
-| S6b | Delete production keyword arms (or `#[cfg(test)]` quarantine) | **open** — after fixture/coverage audit; keep interim lower for fixtures if needed |
+| S6b | Delete production keyword arms (or `#[cfg(test)]` quarantine) | **done** — keyword arms behind `interim-surface` / `cfg(test)`; production pipeline always refuses bare `(page …)`; fixture crates enable the feature in the Env D gate |
 
 ## Approach
 
@@ -44,6 +44,4 @@ cargo check --offline -p reciplexa-gui
 
 ## S6 status
 
-**S6a done.** Product `examples/` GUI/render surface is package-shaped. Interim keyword lower remains for crate test fixtures and coverage tips. Opt-in gate: `RECIPLEXA_REQUIRE_PACKAGE=1`.
-
-**S6b open:** remove or `#[cfg(test)]`-quarantine `reciplexa-types` / `reciplexa-lower` keyword arms and trim `is_surface_keyword` graphics heads once fixture audit is clean.
+**S6a–S6b done.** Product `examples/` GUI/render surface is package-shaped. Production preview/typecheck/lower reject keyword `(page)/(circle)` tables (`interim-surface` feature / `cfg(test)` only). Pipeline always refuses bare top-level `(page …)`. Fixture lower: `lower_interim_source` / enable `interim-surface` on `reciplexa-lower` / `reciplexa-types` / `reciplexa-bind`.

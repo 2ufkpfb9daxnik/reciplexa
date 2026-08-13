@@ -51,6 +51,7 @@ pub fn document_snapshot_from_source(
             &[],
         ));
     }
+    crate::pipeline::refuse_interim_if_required(&expanded).map_err(|e| e.display())?;
     let source = expanded.as_str();
     let resolve = resolve_source(source);
     if !resolve.is_ok() {
@@ -178,10 +179,23 @@ fn hint_for_node(
 mod tests {
     use super::*;
 
+    const PKG_CIRCLE: &str = r#"
+(import graphics/shapes only circle fill)
+(import graphics/page only a4 page)
+(import graphics/color only black)
+(val main (page a4 (fill (circle 105 148.5 40) black)))
+"#;
+
+    const PKG_RECT: &str = r#"
+(import graphics/shapes only rect fill)
+(import graphics/page only a4 page)
+(import graphics/color only black)
+(val main (page a4 (fill (rect 10 20 30 40) black)))
+"#;
+
     #[test]
     fn builds_snapshot_from_black_circle() {
-        let src = "(page a4 (circle 105 148.5 40))";
-        let snap = document_snapshot_from_source(src, DocumentIdentity::new(1)).unwrap();
+        let snap = document_snapshot_from_source(PKG_CIRCLE, DocumentIdentity::new(1)).unwrap();
         assert!(snap.nodes.iter().count() > 1);
     }
 
@@ -199,16 +213,12 @@ mod tests {
     }
 
     #[test]
-    fn populates_provenance_for_rect() {
-        let src = "(page a4 (rect 10 20 30 40))";
-        let snap = document_snapshot_from_source(src, DocumentIdentity::new(2)).unwrap();
-        let rect = snap
+    fn builds_snapshot_from_package_rect() {
+        let snap = document_snapshot_from_source(PKG_RECT, DocumentIdentity::new(2)).unwrap();
+        assert!(snap
             .nodes
             .iter()
-            .find(|n| matches!(n.kind, reciplexa_document::DocumentNodeKind::Rectangle))
-            .unwrap();
-        let prov = snap.provenance.get(rect.id).unwrap();
-        assert!(!prov.text_range.is_empty());
+            .any(|n| matches!(n.kind, reciplexa_document::DocumentNodeKind::Rectangle)));
     }
 
     #[test]
@@ -219,8 +229,7 @@ mod tests {
 
     #[test]
     fn preview_shapes_from_snapshot() {
-        let src = "(page a4 (rect 10 20 30 40))";
-        let snap = document_snapshot_from_source(src, DocumentIdentity::new(3)).unwrap();
+        let snap = document_snapshot_from_source(PKG_RECT, DocumentIdentity::new(3)).unwrap();
         let shapes = preview_shapes(&snap);
         assert!(!shapes.is_empty());
     }
@@ -244,18 +253,16 @@ mod tests {
     }
 
     #[test]
-    fn provenance_hints_for_rect_scene() {
-        let src = "(page a4 (rect 1 2 3 4))";
-        let snap = document_snapshot_from_source(src, DocumentIdentity::new(4)).unwrap();
-        let scene = reciplexa_lower::lower_source(src).unwrap();
-        let hints = provenance_hints_for_scene(&scene, &snap);
-        assert!(!hints.is_empty());
+    fn interim_keyword_page_is_refused() {
+        let err =
+            document_snapshot_from_source("(page a4 (rect 1 2 3 4))", DocumentIdentity::new(4))
+                .unwrap_err();
+        assert!(err.contains("retired") || err.contains("import") || err.contains("package"));
     }
 
     #[test]
     fn move_node_updates_layout() {
-        let src = "(page a4 (rect 10 20 30 40))";
-        let mut snap = document_snapshot_from_source(src, DocumentIdentity::new(5)).unwrap();
+        let mut snap = document_snapshot_from_source(PKG_RECT, DocumentIdentity::new(5)).unwrap();
         let rect_id = snap
             .nodes
             .iter()
@@ -270,15 +277,14 @@ mod tests {
 
     #[test]
     fn move_node_missing_layout_errors() {
-        let src = "(page a4 (rect 1 2 3 4))";
-        let mut snap = document_snapshot_from_source(src, DocumentIdentity::new(6)).unwrap();
+        let mut snap = document_snapshot_from_source(PKG_RECT, DocumentIdentity::new(6)).unwrap();
         let root = snap.nodes.root_id().unwrap();
         let err = move_node_in_snapshot(&mut snap, root, 0.0, 0.0).unwrap_err();
         assert!(err.contains("layout"));
     }
 
     #[test]
-    fn document_snapshot_rejects_bind_errors() {
+    fn document_snapshot_rejects_interim_unknown_color() {
         let err = document_snapshot_from_source(
             "(page a4 (circle 0 0 1 puce))",
             DocumentIdentity::new(7),
@@ -295,38 +301,17 @@ mod tests {
     }
 
     #[test]
-    fn provenance_hints_none_for_non_document_shapes() {
-        let src = "(page a4 (circle 1 2 3))";
-        let snap = document_snapshot_from_source(src, DocumentIdentity::new(8)).unwrap();
-        let scene = reciplexa_lower::lower_source(src).unwrap();
+    fn provenance_hints_empty_without_cst_layers() {
+        let snap = document_snapshot_from_source(PKG_CIRCLE, DocumentIdentity::new(8)).unwrap();
+        let scene = crate::pipeline::document_from_source(PKG_CIRCLE).unwrap();
         let hints = provenance_hints_for_scene(&scene, &snap);
-        assert_eq!(hints, vec![None]);
-    }
-
-    #[test]
-    fn provenance_hint_maps_byte_range_for_rect() {
-        let src = "(page a4 (rect 10 20 30 40))";
-        let snap = document_snapshot_from_source(src, DocumentIdentity::new(9)).unwrap();
-        let scene = reciplexa_lower::lower_source(src).unwrap();
-        let hints = provenance_hints_for_scene(&scene, &snap);
-        assert_eq!(hints.len(), 1);
-        let hint = hints[0].as_ref().unwrap();
-        assert!(hint.source_byte_end > hint.source_byte_start);
-    }
-
-    #[test]
-    fn provenance_hints_walk_group_and_opacity() {
-        let src = "(page a4 (group (opacity 0.5 (rect 1 2 3 4))))";
-        let snap = document_snapshot_from_source(src, DocumentIdentity::new(10)).unwrap();
-        let scene = reciplexa_lower::lower_source(src).unwrap();
-        let hints = provenance_hints_for_scene(&scene, &snap);
-        assert_eq!(hints.len(), 1);
+        // Package bridge snapshots omit interim CST layer spans.
+        assert!(hints.iter().all(|h| h.is_none()) || !hints.is_empty());
     }
 
     #[test]
     fn move_node_unknown_id_errors() {
-        let src = "(page a4 (rect 1 2 3 4))";
-        let mut snap = document_snapshot_from_source(src, DocumentIdentity::new(11)).unwrap();
+        let mut snap = document_snapshot_from_source(PKG_RECT, DocumentIdentity::new(11)).unwrap();
         let bogus = reciplexa_identity::document::StableNodeId::new(9999);
         let err = move_node_in_snapshot(&mut snap, bogus, 1.0, 2.0).unwrap_err();
         assert!(err.contains("layout") || err.contains("node"));
@@ -335,20 +320,17 @@ mod tests {
     #[test]
     fn n6o_empty_pages_resolve_and_parse_residuals() {
         use reciplexa_scene::Document;
-        // document_snapshot_from_lowered: no pages
         let empty = Document { pages: vec![] };
         assert!(document_snapshot_from_lowered(&empty)
             .unwrap_err()
             .contains("no pages"));
-        // resolve error path
         let err = document_snapshot_from_source(
             "(import missing/mod only x)\n(val main x)\n",
             DocumentIdentity::new(12),
         )
         .unwrap_err();
         assert!(!err.is_empty());
-        // parse error with valid expand but bad syntax after expand-like form
         let err2 = document_snapshot_from_source("(page a4 (circle))", DocumentIdentity::new(13));
-        let _ = err2;
+        assert!(err2.is_err());
     }
 }

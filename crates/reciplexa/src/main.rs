@@ -101,7 +101,7 @@ fn print_usage() {
     eprintln!("  reciplexa eval <input.rpx>");
     eprintln!();
     eprintln!("env: RECIPLEXA_PACKAGE_GRAPHICS=1 forces package graphics ingest;");
-    eprintln!("     RECIPLEXA_REQUIRE_PACKAGE=1 rejects interim top-level (page …);");
+    eprintln!("     interim top-level (page …) is refused (use package import);");
     eprintln!("     RECIPLEXA_PACKAGE_ROOT=<packages-dir> overrides search path.");
 }
 

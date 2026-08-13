@@ -6,6 +6,12 @@ license.workspace = true
 description = "Lower reciplexa CST forms into scene documents"
 publish = false
 
+[features]
+default = []
+# Keyword-table `(page)/(circle)/…` lower for fixtures. Off in production builds.
+# Enabled for this crate's tests via the workspace gate (`--features interim-surface`).
+interim-surface = []
+
 [dependencies]
 reciplexa-syntax = { workspace = true }
 reciplexa-scene = { workspace = true }

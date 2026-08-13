@@ -91,7 +91,10 @@ fn expands_doc_with_em_markers() {
 #[test]
 fn empty_doc_becomes_empty_page() {
     let out = expand_source("(markup)").unwrap();
-    assert_eq!(out, "(page a4)");
+    assert_eq!(
+        out,
+        "(import graphics/page only a4 page)\n(val main (page a4 (list)))"
+    );
 }
 
 #[test]
@@ -162,9 +165,18 @@ fn expands_warn_prefix_and_indent() {
 
 #[test]
 fn empty_em_strong_warn_skip() {
-    assert_eq!(expand_source("(markup @em{})").unwrap(), "(page a4)");
-    assert_eq!(expand_source("(markup @strong{})").unwrap(), "(page a4)");
-    assert_eq!(expand_source("(markup @warn{})").unwrap(), "(page a4)");
+    assert_eq!(
+        expand_source("(markup @em{})").unwrap(),
+        "(import graphics/page only a4 page)\n(val main (page a4 (list)))"
+    );
+    assert_eq!(
+        expand_source("(markup @strong{})").unwrap(),
+        "(import graphics/page only a4 page)\n(val main (page a4 (list)))"
+    );
+    assert_eq!(
+        expand_source("(markup @warn{})").unwrap(),
+        "(import graphics/page only a4 page)\n(val main (page a4 (list)))"
+    );
 }
 
 #[test]
@@ -190,8 +202,14 @@ fn expands_center_indents_short_line() {
 
 #[test]
 fn empty_tt_center_skip() {
-    assert_eq!(expand_source("(markup @tt{})").unwrap(), "(page a4)");
-    assert_eq!(expand_source("(markup @center{})").unwrap(), "(page a4)");
+    assert_eq!(
+        expand_source("(markup @tt{})").unwrap(),
+        "(import graphics/page only a4 page)\n(val main (page a4 (list)))"
+    );
+    assert_eq!(
+        expand_source("(markup @center{})").unwrap(),
+        "(import graphics/page only a4 page)\n(val main (page a4 (list)))"
+    );
 }
 
 #[test]
@@ -245,10 +263,13 @@ fn expands_image_with_caption_brace() {
 
 #[test]
 fn empty_image_path_skips() {
-    assert_eq!(expand_source("(markup @image[])").unwrap(), "(page a4)");
+    assert_eq!(
+        expand_source("(markup @image[])").unwrap(),
+        "(import graphics/page only a4 page)\n(val main (page a4 (list)))"
+    );
     assert_eq!(
         expand_source(r#"(markup @image[""])"#).unwrap(),
-        "(page a4)"
+        "(import graphics/page only a4 page)\n(val main (page a4 (list)))"
     );
 }
 
@@ -286,13 +307,22 @@ fn expands_cite_as_bracketed_key() {
 
 #[test]
 fn empty_caption_skips() {
-    assert_eq!(expand_source("(markup @caption{})").unwrap(), "(page a4)");
+    assert_eq!(
+        expand_source("(markup @caption{})").unwrap(),
+        "(import graphics/page only a4 page)\n(val main (page a4 (list)))"
+    );
 }
 
 #[test]
 fn empty_link_and_cite_are_skipped() {
-    assert_eq!(expand_source("(markup @link[]{})").unwrap(), "(page a4)");
-    assert_eq!(expand_source("(markup @cite[])").unwrap(), "(page a4)");
+    assert_eq!(
+        expand_source("(markup @link[]{})").unwrap(),
+        "(import graphics/page only a4 page)\n(val main (page a4 (list)))"
+    );
+    assert_eq!(
+        expand_source("(markup @cite[])").unwrap(),
+        "(import graphics/page only a4 page)\n(val main (page a4 (list)))"
+    );
 }
 
 // --- defect ---
@@ -301,7 +331,7 @@ fn empty_link_and_cite_are_skipped() {
 fn empty_title_brace_skips_empty_text() {
     let out = expand_source("(markup @title{})").unwrap();
     assert_eq!(
-        out, "(page a4)",
+        out, "(import graphics/page only a4 page)\n(val main (page a4 (list)))",
         "empty title must not emit empty text: {out}"
     );
 }
@@ -309,7 +339,10 @@ fn empty_title_brace_skips_empty_text() {
 #[test]
 fn bare_title_without_brace_does_not_panic() {
     let out = expand_source("(markup @title)").unwrap();
-    assert!(out.starts_with("(page a4)"), "{out}");
+    assert!(
+        out.starts_with("(import graphics/page only a4 page)\n(val main (page a4 (list)))"),
+        "{out}"
+    );
     assert!(!out.contains("(text "), "bare @title has no content: {out}");
 }
 
@@ -372,7 +405,10 @@ fn expands_subsubsection_as_h3_alias() {
 #[test]
 fn empty_h2_skips_empty_text() {
     let out = expand_source("(markup @h2{})").unwrap();
-    assert_eq!(out, "(page a4)");
+    assert_eq!(
+        out,
+        "(import graphics/page only a4 page)\n(val main (page a4 (list)))"
+    );
 }
 
 // --- @li list items ---
@@ -406,12 +442,18 @@ fn expands_item_as_li_alias() {
 #[test]
 fn empty_li_skips_empty_text() {
     let out = expand_source("(markup @li{})").unwrap();
-    assert_eq!(out, "(page a4)");
+    assert_eq!(
+        out,
+        "(import graphics/page only a4 page)\n(val main (page a4 (list)))"
+    );
 }
 
 #[test]
 fn empty_item_skips() {
-    assert_eq!(expand_source("(markup @item{})").unwrap(), "(page a4)");
+    assert_eq!(
+        expand_source("(markup @item{})").unwrap(),
+        "(import graphics/page only a4 page)\n(val main (page a4 (list)))"
+    );
 }
 
 #[test]
@@ -450,12 +492,18 @@ fn expands_note_prefix_and_indent() {
 
 #[test]
 fn empty_note_skips() {
-    assert_eq!(expand_source("(markup @note{})").unwrap(), "(page a4)");
+    assert_eq!(
+        expand_source("(markup @note{})").unwrap(),
+        "(import graphics/page only a4 page)\n(val main (page a4 (list)))"
+    );
 }
 
 #[test]
 fn empty_quote_skips() {
-    assert_eq!(expand_source("(markup @quote{})").unwrap(), "(page a4)");
+    assert_eq!(
+        expand_source("(markup @quote{})").unwrap(),
+        "(import graphics/page only a4 page)\n(val main (page a4 (list)))"
+    );
 }
 
 // --- numbered list: @ol{ item; item } uses `;` separators inside one brace ---
@@ -500,12 +548,18 @@ fn expands_todo_prefix_callout() {
 
 #[test]
 fn empty_ol_skips() {
-    assert_eq!(expand_source("(markup @ol{})").unwrap(), "(page a4)");
+    assert_eq!(
+        expand_source("(markup @ol{})").unwrap(),
+        "(import graphics/page only a4 page)\n(val main (page a4 (list)))"
+    );
 }
 
 #[test]
 fn empty_ul_skips() {
-    assert_eq!(expand_source("(markup @ul{})").unwrap(), "(page a4)");
+    assert_eq!(
+        expand_source("(markup @ul{})").unwrap(),
+        "(import graphics/page only a4 page)\n(val main (page a4 (list)))"
+    );
 }
 
 #[test]
@@ -583,7 +637,10 @@ fn pagebreak_alone_yields_empty_pages_skipped() {
     // Only a break with no drawable items → still one empty page is ok,
     // or empty doc page; we accept a single empty page.
     let out = expand_source("(markup @pagebreak{})").unwrap();
-    assert!(out.contains("(page a4)"), "{out}");
+    assert!(
+        out.contains("(import graphics/page only a4 page)\n(val main (page a4 (list)))"),
+        "{out}"
+    );
 }
 
 // --- @code ---
@@ -612,7 +669,10 @@ fn expands_pre_as_code_alias() {
 
 #[test]
 fn empty_code_skips() {
-    assert_eq!(expand_source("(markup @code{})").unwrap(), "(page a4)");
+    assert_eq!(
+        expand_source("(markup @code{})").unwrap(),
+        "(import graphics/page only a4 page)\n(val main (page a4 (list)))"
+    );
 }
 
 #[test]

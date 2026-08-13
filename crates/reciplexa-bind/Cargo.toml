@@ -6,6 +6,11 @@ license.workspace = true
 description = "Binding, scope, and name resolution for reciplexa"
 publish = false
 
+[features]
+default = []
+# Treat interim graphics heads (`page`/`circle`/…) as surface keywords (fixture bind).
+interim-surface = []
+
 [dependencies]
 reciplexa-identity = { workspace = true }
 reciplexa-source = { workspace = true }

@@ -43,8 +43,8 @@ Prefer **eliminate** over documenting when reachable. Items below are either sti
 
 ## N5 document-surface holdouts (not coverage gaps)
 
-1. **Interim keyword tables (`page`/`circle`/…)** — **S6a:** product `examples/` are package-shaped; fixture quarantined at `crates/reciplexa-lower/tests/fixtures/interim_page.rpx`. Keyword type/lower/bind arms **retained** (deprecated). Opt-in refuse: `RECIPLEXA_REQUIRE_PACKAGE=1`. **S6b** deletes/quarantines production arms. Track in [`gui-cst-sync-v2-plan.md`](gui-cst-sync-v2-plan.md).
-2. **Package-shaped GUI edits** — S0–S5b done (package nudge/size/multipage + golden + example migration); markup soft-refuse; S6b keyword-table delete still open.
+1. **Interim keyword tables (`page`/`circle`/…)** — **S6b done:** production arms gated by `interim-surface` / `cfg(test)`; pipeline always refuses bare `(page …)`. Fixture: `crates/reciplexa-lower/tests/fixtures/interim_page.rpx`. Track in [`gui-cst-sync-v2-plan.md`](gui-cst-sync-v2-plan.md).
+2. **Package-shaped GUI edits** — S0–S6b done (package nudge/size/multipage + golden + example migration + keyword-arm quarantine); markup soft-refuse.
 
 ## Non-goals this pass
 

@@ -6,6 +6,11 @@ license.workspace = true
 description = "Type checking slice for reciplexa surface forms"
 publish = false
 
+[features]
+default = []
+# Keyword-table document-surface typecheck for fixtures. Off in production builds.
+interim-surface = []
+
 [dependencies]
 reciplexa-syntax = { workspace = true }
 reciplexa-effect = { workspace = true }

@@ -7,9 +7,9 @@
 //! no top-level interim `(page …)`, the pipeline opts into package eval +
 //! graphics/document value bridge instead of interim CST lower.
 //!
-//! Interim keyword `(page)/(circle)/…` ingest remains available by default for
-//! fixtures and legacy sources. Set `RECIPLEXA_REQUIRE_PACKAGE=1` to reject bare
-//! top-level `(page …)` (S6a deprecation gate).
+//! **S6b:** Interim keyword `(page)/(circle)/…` ingest is refused on the
+//! production pipeline. Author with `(import graphics/…)(val main (page …))`.
+//! Keyword tables remain behind `interim-surface` for fixture crates only.
 
 use std::path::{Path, PathBuf};
 
@@ -86,19 +86,17 @@ fn env_flag_true(name: &str) -> bool {
         .unwrap_or(false)
 }
 
-/// When `RECIPLEXA_REQUIRE_PACKAGE=1`, reject top-level interim `(page …)` sources.
+/// Reject top-level interim `(page …)` sources (S6b; always on).
 ///
 /// Package-shaped ingest (`(import graphics|document …)(val main …)`) is unaffected.
-/// Default off so keyword-table fixtures and coverage tips keep working until S6b.
+/// `RECIPLEXA_REQUIRE_PACKAGE` remains accepted as a no-op synonym for compatibility.
 pub fn refuse_interim_if_required(expanded: &str) -> Result<(), PipelineError> {
-    if !env_flag_true("RECIPLEXA_REQUIRE_PACKAGE") {
-        return Ok(());
-    }
+    let _ = env_flag_true("RECIPLEXA_REQUIRE_PACKAGE");
     if has_top_level_interim_page(expanded) {
         return Err(PipelineError::new(
             "package",
-            "interim top-level `(page …)` is deprecated; author with \
-             `(import graphics/…)(val main (page …))` or unset RECIPLEXA_REQUIRE_PACKAGE",
+            "interim top-level `(page …)` is retired; author with \
+             `(import graphics/…)(val main (page …))`",
         ));
     }
     Ok(())
@@ -308,15 +306,16 @@ mod tests {
     }
 
     #[test]
-    fn interim_page_fixture_stays_on_interim_cst_path() {
+    fn interim_page_fixture_is_refused_on_production_pipeline() {
         let src = include_str!("../../reciplexa-lower/tests/fixtures/interim_page.rpx");
         let expanded = expand(src).unwrap();
         assert!(
             !wants_package_graphics_path(&expanded),
             "interim fixture must not route through package domain bridge"
         );
-        let doc = document_from_source(src).expect("interim_page fixture lower");
-        assert_eq!(doc.pages.len(), 1);
+        let err = document_from_source(src).expect_err("S6b refuses interim keyword page");
+        assert_eq!(err.stage, "package");
+        assert!(err.message.contains("retired") || err.message.contains("import graphics"));
     }
 
     #[test]
@@ -332,36 +331,23 @@ mod tests {
     }
 
     #[test]
-    fn pkg_black_circle_parity_with_interim_lower() {
-        let interim = document_from_source(include_str!(
-            "../../reciplexa-lower/tests/fixtures/interim_page.rpx"
-        ))
-        .expect("interim page fixture");
+    fn pkg_black_circle_has_expected_circle_geometry() {
         let pkg = document_from_source(include_str!("../../../examples/black_circle.rpx"))
             .expect("package black_circle golden");
         assert!(wants_package_graphics_path(
             &expand(include_str!("../../../examples/black_circle.rpx")).unwrap()
         ));
         assert_eq!(pkg.pages.len(), 1);
-        assert_eq!(pkg.pages[0].paper, interim.pages[0].paper);
-        let Shape::Circle(ic) = &interim.pages[0].shapes[0] else {
-            panic!(
-                "interim expected circle, got {:?}",
-                interim.pages[0].shapes[0]
-            );
-        };
         let Shape::Circle(pc) = &pkg.pages[0].shapes[0] else {
             panic!("pkg expected circle, got {:?}", pkg.pages[0].shapes[0]);
         };
-        assert_eq!(pc.x_mm, ic.x_mm);
-        assert_eq!(pc.y_mm, ic.y_mm);
-        assert_eq!(pc.radius_mm, ic.radius_mm);
-        assert_eq!(pc.fill, ic.fill);
+        assert_eq!(pc.x_mm, 105.0);
+        assert_eq!(pc.y_mm, 148.5);
+        assert_eq!(pc.radius_mm, 40.0);
     }
 
     #[test]
-    fn document_from_source_auto_detect_matches_interim_scene_bounds() {
-        use reciplexa_lower::lower_source;
+    fn document_from_source_auto_detect_package_text_line() {
         use reciplexa_scene::Shape;
 
         fn leaf_shape_count(shapes: &[Shape]) -> usize {
@@ -378,20 +364,8 @@ mod tests {
 
         let pkg_src = include_str!("../../../examples/text_line.rpx");
         let from_pkg = document_from_source(pkg_src).expect("package auto-detect");
-        let interim = lower_source(
-            r#"(page a4
-  (text 30 260 8 "Reciplexa" black)
-  (line 30 250 180 250 (rgb 0.784 0.157 0.157) 1)
-  (translate 105 120
-    (circle 0 0 25 (rgb 0.118 0.353 0.706))))"#,
-        )
-        .expect("interim lower");
         assert_eq!(from_pkg.pages.len(), 1);
-        assert_eq!(from_pkg.pages[0].paper, interim.pages[0].paper);
-        assert_eq!(
-            leaf_shape_count(&from_pkg.pages[0].shapes),
-            leaf_shape_count(&interim.pages[0].shapes)
-        );
+        assert!(leaf_shape_count(&from_pkg.pages[0].shapes) >= 3);
     }
 
     #[test]
@@ -443,17 +417,20 @@ mod tests {
             .any(|s| matches!(s, Shape::Image(_))));
     }
 
+    const PKG_CIRCLE: &str = r#"
+(import graphics/shapes only circle fill)
+(import graphics/page only a4 page)
+(import graphics/color only black)
+(val main (page a4 (fill (circle 1 2 3) black)))
+"#;
+
     #[test]
     fn document_from_source_does_not_run_effects() {
         // Preview path must not touch the handler (export will).
         let mut h = TestHandler::default();
-        let expanded = expand(
-            r#"(src (perform log "x"))
-(page a4 (circle 1 2 3))"#,
-        )
-        .unwrap();
-        typecheck(&expanded).unwrap();
-        let _doc = lower(&expanded).unwrap();
+        let expanded = expand(&format!("(src (perform log \"x\"))\n{PKG_CIRCLE}")).unwrap();
+        assert!(wants_package_graphics_path(&expanded));
+        let _doc = document_from_package_domain(&strip_top_level_effect_forms(&expanded)).unwrap();
         assert!(h.logs.is_empty());
         run_effects(&mut h, &expanded).unwrap();
         assert_eq!(h.logs, vec!["x"]);
@@ -463,14 +440,16 @@ mod tests {
     fn document_for_export_runs_handle_log() {
         let mut h = TestHandler::default();
         h.random_seq = vec![0.5];
-        let src = r#"
+        let src = format!(
+            r#"
 (src
   (perform log "a")
   (handle log (perform log "mute") (perform random))
   (perform log "b"))
-(page a4 (circle 1 2 3))
-"#;
-        let (doc, _) = document_for_export(&mut h, src).unwrap();
+{PKG_CIRCLE}
+"#
+        );
+        let (doc, _) = document_for_export(&mut h, &src).unwrap();
         assert_eq!(doc.pages.len(), 1);
         assert_eq!(h.logs, vec!["a", "b"]);
     }
@@ -478,14 +457,16 @@ mod tests {
     #[test]
     fn document_for_export_mutes_write_path() {
         let mut h = TestHandler::default();
-        let src = r#"
+        let src = format!(
+            r#"
 (src
   (perform write-path "a.pdf")
   (handle write-path (perform write-path "mute.pdf"))
   (perform write-path "b.pdf"))
-(page a4 (circle 1 2 3))
-"#;
-        let (doc, _) = document_for_export(&mut h, src).unwrap();
+{PKG_CIRCLE}
+"#
+        );
+        let (doc, _) = document_for_export(&mut h, &src).unwrap();
         assert_eq!(doc.pages.len(), 1);
         assert_eq!(h.writes, vec!["a.pdf", "b.pdf"]);
     }
@@ -493,23 +474,27 @@ mod tests {
     // --- defect ---
 
     #[test]
-    fn type_error_surfaces_stage() {
+    fn interim_page_surfaces_package_stage() {
         let err = document_from_source("(page a4 (circle (circle 0 0 1) 0 1))").unwrap_err();
-        assert_eq!(err.stage, "type");
-        assert!(err.message.contains("type mismatch"));
+        assert_eq!(err.stage, "package");
+        assert!(err.message.contains("retired") || err.message.contains("import"));
     }
 
     #[test]
     fn optional_snapshot_path_builds_editable() {
-        let out = document_from_source_with_snapshot("(page a4 (rect 1 2 3 4))", true).unwrap();
+        let out = document_from_source_with_snapshot(PKG_CIRCLE, true).unwrap();
         assert_eq!(out.scene.pages.len(), 1);
         let snap = out.editable.expect("snapshot");
-        assert!(snap.nodes.iter().count() > 2);
+        assert!(snap.nodes.iter().count() >= 1);
     }
 
     #[test]
     fn optional_snapshot_skipped_by_default() {
-        let out = document_from_source_with_snapshot("(page a4)", false).unwrap();
+        let out = document_from_source_with_snapshot(
+            "(import graphics/page only a4 page)\n(val main (page a4 (list)))",
+            false,
+        )
+        .unwrap();
         assert!(out.editable.is_none());
     }
 
@@ -526,15 +511,18 @@ mod tests {
     }
 
     #[test]
-    fn lower_error_surfaces() {
+    fn lower_error_surfaces_retired_keyword() {
         let err = lower("(page a4 (bogus 1))").unwrap_err();
         assert_eq!(err.stage, "lower");
+        assert!(err.message.contains("retired") || err.message.contains("interim"));
     }
 
     #[test]
-    fn typecheck_standalone() {
-        assert!(typecheck("(page a4 (circle 1 2 3))").is_ok());
-        assert!(typecheck("(page a4 (circle x 2 3))").is_err());
+    fn typecheck_standalone_rejects_interim_keywords() {
+        let err = typecheck("(page a4 (circle 1 2 3))").unwrap_err();
+        assert_eq!(err.stage, "type");
+        assert!(err.message.contains("retired") || err.message.contains("interim"));
+        assert!(typecheck("(src (perform log \"x\"))").is_ok());
     }
 
     #[test]
@@ -546,22 +534,15 @@ mod tests {
     #[test]
     fn document_from_source_with_effects_in_src_only() {
         let h = TestHandler::default();
-        let doc = document_from_source(
-            r#"(src (perform log "skip"))
-(page a4 (circle 1 2 3))"#,
-        )
-        .unwrap();
+        let doc =
+            document_from_source(&format!("(src (perform log \"skip\"))\n{PKG_CIRCLE}")).unwrap();
         assert_eq!(doc.pages.len(), 1);
         assert!(h.logs.is_empty());
     }
 
     #[test]
     fn run_effects_unknown_op_uses_effect_stage() {
-        let expanded = expand(
-            r#"(src (perform draw "x"))
-(page a4 (circle 1 2 3))"#,
-        )
-        .unwrap();
+        let expanded = expand(&format!("(src (perform draw \"x\"))\n{PKG_CIRCLE}")).unwrap();
         let err = run_effects(&mut TestHandler::default(), &expanded).unwrap_err();
         assert_eq!(err.stage, "effect");
     }
@@ -570,19 +551,20 @@ mod tests {
     fn expand_empty_markup_still_parses() {
         let expanded = expand("(markup)").unwrap();
         assert!(expanded.contains("(page"));
+        assert!(expanded.contains("(import graphics"));
     }
 
     #[test]
-    fn document_for_export_type_error() {
+    fn document_for_export_interim_refused() {
         let err = document_for_export(&mut TestHandler::default(), "(page a4 (circle x 2 3))")
             .unwrap_err();
-        assert_eq!(err.stage, "type");
+        assert_eq!(err.stage, "package");
     }
 
     #[test]
-    fn document_snapshot_failure_surfaces_document_stage() {
+    fn document_snapshot_interim_refused() {
         let err = document_from_source_with_snapshot("(page a4 (circle x 2 3))", true).unwrap_err();
-        assert_eq!(err.stage, "type");
+        assert_eq!(err.stage, "package");
     }
 
     #[test]

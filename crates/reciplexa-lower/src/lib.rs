@@ -1,11 +1,12 @@
 //! Minimal CST → scene lowering for pages, shapes, and Glisp-like transforms.
 //!
-//! **Deprecated interim keyword tables** (`page`/`circle`/…): retained for test
-//! fixtures (`tests/fixtures/interim_page.rpx`) and legacy ingest until S6b.
-//! Product `examples/` are package-shaped; pipeline gate
-//! `RECIPLEXA_REQUIRE_PACKAGE=1` refuses bare top-level `(page …)`.
+//! **S6b:** Keyword-table `(page)/(circle)/…` lower is gated by
+//! `feature = "interim-surface"` (or `cfg(test)` for this crate's unit tests).
+//! Production builds reject bare keyword pages — author with
+//! `(import graphics/…)(val main (page …))`. Fixture lower:
+//! [`lower_interim_source`] / enable `interim-surface`.
 //!
-//! Supported forms (Lisp mode):
+//! Supported interim forms (Lisp mode, feature-gated):
 //!
 //! ```text
 //! (page a4
@@ -70,13 +71,35 @@ impl LowerError {
     }
 }
 
+const INTERIM_RETIRED: &str = "interim keyword `(page)/(circle)/…` lower is retired from \
+     production; author with `(import graphics/…)(val main (page …))`, or call \
+     `lower_interim_source` / enable feature `interim-surface` in tests";
+
+#[inline]
+fn interim_surface_enabled() -> bool {
+    cfg!(any(test, feature = "interim-surface"))
+}
+
 /// Parse source and lower it to a [`Document`].
+///
+/// Without `interim-surface` / `cfg(test)`, rejects keyword-table `(page …)` sources.
 pub fn lower_source(input: &str) -> Result<Document, LowerError> {
     let parse = parse_source(input);
     let root = parse
         .into_result()
         .map_err(|errs| LowerError::new(format!("parse error: {}", errs[0].message)))?;
     lower_syntax(&root)
+}
+
+/// Explicit interim keyword-table lower for fixtures and gated tests.
+///
+/// Same as [`lower_source`] when `interim-surface` (or this crate's `cfg(test)`) is on;
+/// otherwise returns a clear retirement error.
+pub fn lower_interim_source(input: &str) -> Result<Document, LowerError> {
+    if !interim_surface_enabled() {
+        return Err(LowerError::new(INTERIM_RETIRED));
+    }
+    lower_source(input)
 }
 
 /// Lower an already-parsed CST root (`SourceFile`).
@@ -107,9 +130,14 @@ pub fn lower_syntax(root: &SyntaxNode) -> Result<Document, LowerError> {
             continue;
         };
         match head {
-            "page" => pages.push(lower_page(&form)?),
+            "page" => {
+                if !interim_surface_enabled() {
+                    return Err(LowerError::new(INTERIM_RETIRED));
+                }
+                pages.push(lower_page(&form)?);
+            }
             "markup" | "src" | "type" | "val" | "perform" | "handle" | "//" => {
-                // `markup` is normally expanded to `(page …)` by reciplexa-macro (M8).
+                // `markup` expands to package-shaped graphics (or empty package page).
                 // Leftover markup/src/effects/decls are skipped (logic / package seams).
                 // `//` should be StructuredComment; skip if it ever appears as a list.
             }

@@ -24,6 +24,7 @@ impl EnvGuard {
         Self { key, prev }
     }
 
+    #[allow(dead_code)]
     fn remove(key: &'static str) -> Self {
         let prev = std::env::var(key).ok();
         unsafe { std::env::remove_var(key) };

@@ -424,11 +424,10 @@ fn elaborate_and_eval_static_graphics_surface() {
 }
 
 #[test]
-fn graphics_value_bridge_matches_interim_lower_source() {
-    // Slice D strangler: package-eval page tree → same scene as interim CST lower.
+fn graphics_value_bridge_matches_a4_circle_geometry() {
+    // Slice D strangler: package-eval page tree → expected A4 + circle scene.
     use reciplexa_eval::document_from_graphics_value;
-    use reciplexa_lower::lower_source;
-    use reciplexa_scene::Shape;
+    use reciplexa_scene::{Color, PaperSize, Shape};
 
     let idx = index();
     let dir = tempfile_dir();
@@ -448,26 +447,23 @@ fn graphics_value_bridge_matches_interim_lower_source() {
     let demo = units.iter().find(|u| u.name == "bridge").unwrap();
     let v = eval_expr(&demo.expr, &HashMap::new(), &mut UnitHost).unwrap();
     let from_pkg = document_from_graphics_value(&v).expect("package bridge");
-    let from_cst = lower_source("(page a4 (circle 105 148.5 40))").expect("interim lower");
     assert_eq!(from_pkg.pages.len(), 1);
-    assert_eq!(from_cst.pages.len(), 1);
-    assert_eq!(from_pkg.pages[0].paper, from_cst.pages[0].paper);
-    match (&from_pkg.pages[0].shapes[0], &from_cst.pages[0].shapes[0]) {
-        (Shape::Circle(a), Shape::Circle(b)) => {
-            assert_eq!(a.x_mm, b.x_mm);
-            assert_eq!(a.y_mm, b.y_mm);
-            assert_eq!(a.radius_mm, b.radius_mm);
-            assert_eq!(a.fill, b.fill);
+    assert_eq!(from_pkg.pages[0].paper, PaperSize::a4());
+    match &from_pkg.pages[0].shapes[0] {
+        Shape::Circle(a) => {
+            assert_eq!(a.x_mm, 105.0);
+            assert_eq!(a.y_mm, 148.5);
+            assert_eq!(a.radius_mm, 40.0);
+            assert_eq!(a.fill, Color::BLACK);
         }
-        other => panic!("expected matching circles, got {other:?}"),
+        other => panic!("expected circle, got {other:?}"),
     }
 }
 
 #[test]
 fn graphics_value_bridge_grows_ellipse_text_transform_opacity() {
-    // Slice D step 4/6: more package tags lower like interim CST forms.
+    // Slice D step 4/6: more package tags lower to expected scene shapes.
     use reciplexa_eval::document_from_graphics_value;
-    use reciplexa_lower::lower_source;
     use reciplexa_scene::Shape;
 
     let idx = index();
@@ -503,28 +499,15 @@ fn graphics_value_bridge_grows_ellipse_text_transform_opacity() {
             assert!(children.iter().any(|s| matches!(s, Shape::Ellipse(_))));
             assert!(children.iter().any(|s| matches!(s, Shape::Opacity { .. })));
             assert!(children.iter().any(|s| matches!(s, Shape::Text(_))));
+            assert_eq!(children.len(), 3);
         }
         other => panic!("expected top-level group, got {other:?}"),
     }
-
-    let from_cst = lower_source(
-        r#"(page a4
-  (ellipse 105 220 55 28 red)
-  (opacity 0.45
-    (translate 105 148.5
-      (rotate 30
-        (scale 1.5
-          (circle 0 0 20)))))
-  (text 30 270 6 "shapes"))"#,
-    )
-    .expect("interim lower");
-    assert_eq!(from_cst.pages[0].shapes.len(), 3);
 }
 
 #[test]
 fn graphics_value_bridge_multipage_pages_constructor() {
     use reciplexa_eval::document_from_graphics_value;
-    use reciplexa_lower::lower_source;
 
     let idx = index();
     let dir = tempfile_dir();
@@ -552,16 +535,6 @@ fn graphics_value_bridge_multipage_pages_constructor() {
     let v = eval_expr(&demo.expr, &HashMap::new(), &mut UnitHost).unwrap();
     let from_pkg = document_from_graphics_value(&v).expect("multipage bridge");
     assert_eq!(from_pkg.pages.len(), 2);
-
-    let from_cst = lower_source(
-        r#"(page a4
-  (text 30 260 8 "Page 1" black)
-  (circle 105 148.5 40 red))
-(page a4
-  (text 30 260 8 "Page 2" black))"#,
-    )
-    .expect("interim lower");
-    assert_eq!(from_cst.pages.len(), 2);
 }
 
 #[test]

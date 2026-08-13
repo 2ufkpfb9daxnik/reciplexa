@@ -10,6 +10,13 @@ use reciplexa::{
 };
 use reciplexa_identity::document::DocumentIdentity;
 
+const PKG_CIRCLE: &str = r#"
+(import graphics/shapes only circle fill)
+(import graphics/page only a4 page)
+(import graphics/color only black)
+(val main (page a4 (fill (circle 1 2 3) black)))
+"#;
+
 fn tmp_file(name: &str, contents: &str) -> PathBuf {
     let dir = std::env::temp_dir().join("rpx_pipeline_cov");
     let _ = fs::create_dir_all(&dir);
@@ -20,25 +27,30 @@ fn tmp_file(name: &str, contents: &str) -> PathBuf {
 
 #[test]
 fn document_snapshot_ok_and_parse_err() {
-    let snap = document_snapshot_from_source("(page a4 (circle 1 2 3))", DocumentIdentity::new(1))
-        .expect("snapshot");
+    let snap =
+        document_snapshot_from_source(PKG_CIRCLE, DocumentIdentity::new(1)).expect("snapshot");
     assert!(snap.nodes.iter().count() > 0);
 
     let err = document_snapshot_from_source("(unclosed", DocumentIdentity::new(2));
     assert!(err.is_err());
+
+    let refused =
+        document_snapshot_from_source("(page a4 (circle 1 2 3))", DocumentIdentity::new(3));
+    assert!(refused.is_err());
 }
 
 #[test]
 fn pipeline_expand_lower_and_document() {
-    let src = "(page a4 (circle 1 2 3))";
-    let expanded = expand(src).expect("expand");
-    let doc = lower(&expanded).expect("lower");
-    assert_eq!(doc.pages.len(), 1);
+    // Production lower refuses keyword pages (S6b).
+    let interim = "(page a4 (circle 1 2 3))";
+    let expanded = expand(interim).expect("expand");
+    assert!(lower(&expanded).is_err());
+    assert!(document_from_source(interim).is_err());
 
-    let via = document_from_source(src).expect("document");
+    let via = document_from_source(PKG_CIRCLE).expect("document");
     assert_eq!(via.pages.len(), 1);
 
-    let pipe_doc = document_from_source_with_snapshot(src, true).expect("with snap");
+    let pipe_doc = document_from_source_with_snapshot(PKG_CIRCLE, true).expect("with snap");
     assert_eq!(pipe_doc.scene.pages.len(), 1);
     assert!(pipe_doc.editable.is_some());
     assert!(pipe_doc.editable.unwrap().nodes.iter().count() > 0);

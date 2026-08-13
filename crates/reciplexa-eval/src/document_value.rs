@@ -346,8 +346,8 @@ mod tests {
                 _ => None,
             })
             .collect();
-        assert!(texts.iter().any(|t| *t == "Title"));
-        assert!(texts.iter().any(|t| *t == "Body"));
+        assert!(texts.contains(&"Title"));
+        assert!(texts.contains(&"Body"));
     }
 
     #[test]

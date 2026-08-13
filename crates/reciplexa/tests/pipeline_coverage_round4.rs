@@ -83,7 +83,7 @@ fn package_search_roots_fallback_outside_repo_tree() {
 }
 
 #[test]
-fn package_then_editable_and_interim_editable_ok() {
+fn package_then_editable_and_interim_refused() {
     let _g = env_lock();
     let _root = EnvGuard::set(
         "RECIPLEXA_PACKAGE_ROOT",
@@ -96,11 +96,10 @@ fn package_then_editable_and_interim_editable_ok() {
     assert_eq!(pkg.scene.pages.len(), 1);
     assert!(pkg.editable.is_some());
 
-    // Interim path covers with_editable Ok with CST provenance.
-    let out = document_from_source_with_snapshot("(page a4 (circle 1 2 3))", true)
-        .expect("interim+editable");
-    assert_eq!(out.scene.pages.len(), 1);
-    assert!(out.editable.is_some());
+    // S6b: interim keyword path refused.
+    let err = document_from_source_with_snapshot("(page a4 (circle 1 2 3))", true)
+        .expect_err("interim refused");
+    assert_eq!(err.stage, "package");
 }
 
 #[test]
@@ -120,22 +119,19 @@ fn wants_package_force_off_and_true_aliases() {
 }
 
 #[test]
-fn interim_export_and_effects_then_package_force() {
+fn interim_export_refused_then_package_force() {
     let _g = env_lock();
     let _root = EnvGuard::set(
         "RECIPLEXA_PACKAGE_ROOT",
         packages_dir().to_str().expect("utf8"),
     );
 
-    // Interim lower path (no graphics import).
+    // S6b: interim keyword export refused.
     let mut h = TestHandler::default();
-    let (doc, exp) = document_for_export(&mut h, "(page a4 (circle 1 2 3))").expect("interim");
-    assert_eq!(doc.pages.len(), 1);
-    assert!(!wants_package_graphics_path(&exp));
+    let err = document_for_export(&mut h, "(page a4 (circle 1 2 3))").expect_err("interim");
+    assert_eq!(err.stage, "package");
 
     // Force package path + top-level effect strip before package elaborator.
-    let _force = EnvGuard::set("RECIPLEXA_PACKAGE_GRAPHICS", "1");
-    // Force package path + strip top-level `(perform …)` before package elaborator.
     let _force = EnvGuard::set("RECIPLEXA_PACKAGE_GRAPHICS", "1");
     let with_effect = format!(
         "(perform log \"skip-me\")\n{}",

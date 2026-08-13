@@ -4421,8 +4421,8 @@ mod tests {
                 );
             }
             let _ = elaborate_field(&[bad.clone(), bad.clone()], &parent, &mut ctx);
-            let _ = elaborate_list_lit(&[bad.clone()], &mut ctx);
-            let _ = elaborate_atoms(&[bad.clone()], &mut ctx);
+            let _ = elaborate_list_lit(std::slice::from_ref(&bad), &mut ctx);
+            let _ = elaborate_atoms(std::slice::from_ref(&bad), &mut ctx);
             let _ = elaborate_perform(
                 &[
                     Atom::Token({
@@ -4440,19 +4440,19 @@ mod tests {
                 &parent,
                 &mut ctx,
             );
-            let _ = elaborate_raise(&[bad.clone()], &parent, &mut ctx);
+            let _ = elaborate_raise(std::slice::from_ref(&bad), &parent, &mut ctx);
             let _ = elaborate_try_cast(&[bad.clone(), bad.clone()], &parent, &mut ctx);
             let _ = elaborate_check_cast(&[bad.clone(), bad.clone()], &parent, &mut ctx);
             let _ = elaborate_if(&[bad.clone(), bad.clone(), bad.clone()], &parent, &mut ctx);
             let _ = elaborate_set(&[bad.clone(), bad.clone()], &parent, &mut ctx);
-            let _ = elaborate_unicode(&[bad.clone()], &parent, &mut ctx);
-            let _ = elaborate_ambient_perform("log", &[bad.clone()], &parent, &mut ctx);
-            let _ = elaborate_match(&[bad.clone()], &parent, &mut ctx);
+            let _ = elaborate_unicode(std::slice::from_ref(&bad), &parent, &mut ctx);
+            let _ = elaborate_ambient_perform("log", std::slice::from_ref(&bad), &parent, &mut ctx);
+            let _ = elaborate_match(std::slice::from_ref(&bad), &parent, &mut ctx);
             let _ = elaborate_with(&[bad.clone(), bad.clone()], &parent, &mut ctx);
             let _ = elaborate_handle(&[bad.clone(), bad.clone(), bad.clone()], &parent, &mut ctx);
             let _ = elaborate_let(&[bad.clone(), bad.clone()], &parent, &mut ctx);
             let _ = elaborate_letrec(&[bad.clone(), bad.clone()], &parent, &mut ctx);
-            let _ = elaborate_local_decls(&[bad.clone()], &bad, &parent, &mut ctx);
+            let _ = elaborate_local_decls(std::slice::from_ref(&bad), &bad, &parent, &mut ctx);
             let _ = elaborate_var(&[bad.clone(), bad.clone(), bad.clone()], &parent, &mut ctx);
             let _ = elaborate_expr_node(
                 match &bad {

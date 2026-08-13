@@ -1,13 +1,13 @@
 //! DOCUMENT SURFACE type checker (not the language kernel).
 //!
-//! Checks page / markup / shape / perform-handle prelude forms for the
-//! document pipeline. Language semantics typecheck lives on Core via
+//! Checks markup / perform-handle / type-val prelude forms for the document
+//! pipeline. Language semantics typecheck lives on Core via
 //! `reciplexa_core::typecheck_language_source` (TYP-001).
 //!
-//! **Deprecated interim:** top-level keyword forms `(page)/(circle)/…` remain for
-//! fixture and legacy ingest (S6a). Product authoring uses package imports; set
-//! `RECIPLEXA_REQUIRE_PACKAGE=1` to refuse bare `(page …)` at the pipeline gate.
-//! Full keyword-arm removal is S6b.
+//! **S6b:** Keyword-table `(page)/(circle)/…` arms are gated by
+//! `feature = "interim-surface"` (or `cfg(test)` for this crate's unit tests).
+//! Production `typecheck_source` rejects bare keyword pages — use package
+//! imports, or [`typecheck_interim_source`] / enable `interim-surface` in tests.
 #![forbid(unsafe_code)]
 
 use reciplexa_effect::EffectOp;
@@ -52,7 +52,18 @@ impl TypeError {
     }
 }
 
+const INTERIM_RETIRED: &str = "interim keyword `(page)/(circle)/…` typecheck is retired from \
+     production; author with `(import graphics/…)(val main (page …))`, or call \
+     `typecheck_interim_source` / enable feature `interim-surface` in tests";
+
+#[inline]
+fn interim_surface_enabled() -> bool {
+    cfg!(any(test, feature = "interim-surface"))
+}
+
 /// Parse and type-check a source buffer.
+///
+/// Without `interim-surface` / `cfg(test)`, rejects keyword-table graphics forms.
 pub fn typecheck_source(input: &str) -> Result<Type, TypeError> {
     let parse = parse_source(input);
     if !parse.errors.is_empty() {
@@ -64,6 +75,14 @@ pub fn typecheck_source(input: &str) -> Result<Type, TypeError> {
         ));
     }
     typecheck_syntax(&parse.root)
+}
+
+/// Explicit interim keyword-table typecheck for fixtures and gated tests.
+pub fn typecheck_interim_source(input: &str) -> Result<Type, TypeError> {
+    if !interim_surface_enabled() {
+        return Err(TypeError::at(INTERIM_RETIRED, 0, 0));
+    }
+    typecheck_source(input)
 }
 
 pub fn typecheck_syntax(root: &SyntaxNode) -> Result<Type, TypeError> {
@@ -102,7 +121,72 @@ pub fn typecheck_syntax(root: &SyntaxNode) -> Result<Type, TypeError> {
 fn check_form(node: &SyntaxNode) -> Result<Type, TypeError> {
     let (head, args, span) = split_list(node)?;
     match head.as_str() {
-        // Deprecated interim keyword arms (S6a). Prefer package graphics constructors.
+        "markup" => {
+            // SYN §17.11: absent expected package type ⇒ markup-fragment (Type::Markup).
+            // Body TextChunk / @-command structure is owned by the markup reader; package
+            // commands supply expected types for nested markup arguments.
+            Ok(Type::Markup)
+        }
+        "src" => {
+            for a in &args {
+                require_src_ty(a, Type::Unit, node)?;
+            }
+            Ok(Type::Src)
+        }
+        "perform" => check_perform(&args, node, span),
+        "handle" => check_handle(&args, node, span),
+        "type" => check_decl("type", &args, span),
+        "val" => check_decl("val", &args, span),
+        other => check_interim_or_unknown(other, &args, node, span),
+    }
+}
+
+fn check_interim_or_unknown(
+    head: &str,
+    args: &[Child],
+    node: &SyntaxNode,
+    span: (usize, usize),
+) -> Result<Type, TypeError> {
+    if !interim_surface_enabled() {
+        if matches!(
+            head,
+            "page"
+                | "circle"
+                | "rect"
+                | "ellipse"
+                | "ring"
+                | "frame"
+                | "text"
+                | "line"
+                | "polyline"
+                | "polygon"
+                | "image"
+                | "rgb"
+                | "translate"
+                | "rotate"
+                | "scale"
+                | "group"
+                | "opacity"
+        ) {
+            return Err(TypeError::at(INTERIM_RETIRED, span.0, span.1));
+        }
+        return Err(TypeError::at(
+            format!("unknown form `{head}`"),
+            span.0,
+            span.1,
+        ));
+    }
+    check_interim_form(head, args, node, span)
+}
+
+fn check_interim_form(
+    head: &str,
+    args: &[Child],
+    node: &SyntaxNode,
+    span: (usize, usize),
+) -> Result<Type, TypeError> {
+    match head {
+        // Interim keyword arms (S6b: feature / cfg(test) only).
         "page" => {
             if args.is_empty() {
                 return Err(TypeError::at(
@@ -137,22 +221,6 @@ fn check_form(node: &SyntaxNode) -> Result<Type, TypeError> {
             }
             Ok(Type::Page)
         }
-        "markup" => {
-            // SYN §17.11: absent expected package type ⇒ markup-fragment (Type::Markup).
-            // Body TextChunk / @-command structure is owned by the markup reader; package
-            // commands supply expected types for nested markup arguments.
-            Ok(Type::Markup)
-        }
-        "src" => {
-            for a in &args {
-                require_src_ty(a, Type::Unit, node)?;
-            }
-            Ok(Type::Src)
-        }
-        "perform" => check_perform(&args, node, span),
-        "handle" => check_handle(&args, node, span),
-        "type" => check_decl("type", &args, span),
-        "val" => check_decl("val", &args, span),
         "circle" => {
             // (circle Num Num Num) | (circle Num Num Num Color)
             if args.len() != 3 && args.len() != 4 {
@@ -286,8 +354,8 @@ fn check_form(node: &SyntaxNode) -> Result<Type, TypeError> {
             }
             Ok(Type::Shape)
         }
-        "polyline" => check_polyline(&args, node, span),
-        "polygon" => check_polygon(&args, node, span),
+        "polyline" => check_polyline(args, node, span),
+        "polygon" => check_polygon(args, node, span),
         "image" => {
             if args.len() != 5 {
                 return Err(TypeError::at(
@@ -310,7 +378,7 @@ fn check_form(node: &SyntaxNode) -> Result<Type, TypeError> {
                     span.1,
                 ));
             }
-            for a in &args {
+            for a in args {
                 require_ty(a, Type::Number, node)?;
             }
             Ok(Type::Color)
@@ -344,7 +412,7 @@ fn check_form(node: &SyntaxNode) -> Result<Type, TypeError> {
             }
             Ok(Type::Shape)
         }
-        "scale" => check_scale(&args, node, span),
+        "scale" => check_scale(args, node, span),
         "group" => {
             if args.is_empty() {
                 return Err(TypeError::at(
@@ -353,7 +421,7 @@ fn check_form(node: &SyntaxNode) -> Result<Type, TypeError> {
                     span.1,
                 ));
             }
-            for a in &args {
+            for a in args {
                 require_ty(a, Type::Shape, node)?;
             }
             Ok(Type::Shape)

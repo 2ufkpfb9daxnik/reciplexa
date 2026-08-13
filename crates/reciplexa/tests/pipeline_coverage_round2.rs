@@ -156,7 +156,8 @@ fn document_for_export_and_snapshot_use_package_bridge() {
     assert_eq!(no_snap.scene.pages.len(), 1);
     assert!(no_snap.editable.is_none());
 
-    let with_snap = document_from_source_with_snapshot(shapes_src(), true).expect("package editable");
+    let with_snap =
+        document_from_source_with_snapshot(shapes_src(), true).expect("package editable");
     assert_eq!(with_snap.scene.pages.len(), 1);
     assert!(with_snap.editable.is_some());
 }

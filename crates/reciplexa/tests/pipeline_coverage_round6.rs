@@ -6,8 +6,8 @@ use std::sync::{Mutex, OnceLock};
 
 use reciplexa::pipeline::typecheck;
 use reciplexa::{
-    document_for_export, document_from_source, document_from_source_with_snapshot, expand, lower,
-    run_effects, wants_package_graphics_path, PipelineError,
+    document_for_export, document_from_source, document_from_source_with_snapshot, expand,
+    wants_package_graphics_path, PipelineError,
 };
 use reciplexa_effect::TestHandler;
 
@@ -73,23 +73,20 @@ fn package_source_map_err_after_discover_ok() {
 }
 
 #[test]
-fn snapshot_interim_lower_and_export_paths() {
+fn snapshot_interim_refused_and_export_package() {
     let _g = env_lock();
     let _clear = EnvGuard::remove("RECIPLEXA_PACKAGE_GRAPHICS");
 
     let interim = "(page a4 (circle 1 2 3))";
-    let doc = document_from_source_with_snapshot(interim, false).expect("interim snapshot");
-    assert_eq!(doc.scene.pages.len(), 1);
-    assert!(doc.editable.is_none());
+    let err = document_from_source_with_snapshot(interim, false).expect_err("interim refused");
+    assert_eq!(err.stage, "package");
 
     let bad_lower = document_from_source_with_snapshot("(page a4 (not-a-shape))", false);
     assert!(bad_lower.is_err());
 
     let mut h = TestHandler::default();
-    let (scene, expanded) = document_for_export(&mut h, interim).expect("export interim");
-    assert!(!scene.pages.is_empty());
-    let _ = run_effects(&mut h, &expanded);
-    let _ = lower(&expanded);
+    let err2 = document_for_export(&mut h, interim).expect_err("export interim");
+    assert_eq!(err2.stage, "package");
 
     let mut h2 = TestHandler::default();
     let _root = EnvGuard::set(
@@ -130,9 +127,10 @@ fn expand_typecheck_lower_stage_errors() {
     assert_eq!(err.stage, "macro");
 
     let expanded = expand("(page a4 (circle 1 2 3))").unwrap();
-    typecheck(&expanded).expect("interim typechecks");
+    let ty_err = typecheck(&expanded).expect_err("interim typecheck retired");
+    assert_eq!(ty_err.stage, "type");
 
-    // Unbound head fails type stage after expand.
-    let err = document_from_source("(page a4 (not-a-real-shape 1))").expect_err("type/lower");
-    assert!(err.stage == "type" || err.stage == "lower", "{err:?}");
+    // Bare keyword page fails at package refuse stage.
+    let err = document_from_source("(page a4 (not-a-real-shape 1))").expect_err("package");
+    assert_eq!(err.stage, "package", "{err:?}");
 }

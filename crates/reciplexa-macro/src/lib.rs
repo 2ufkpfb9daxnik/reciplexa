@@ -273,9 +273,9 @@ fn find_markup(root: &SyntaxNode) -> Option<(usize, usize, String)> {
         let start: usize = range.start().into();
         let end: usize = range.end().into();
         let placed = place_items(&laid, DocFrame::A4);
-        // Empty / pagebreak-only markup stays interim CST (no drawable package content).
+        // Empty / pagebreak-only markup → empty package page (no keyword lower).
         let replacement = if placed.is_empty() {
-            "(page a4)".to_string()
+            "(import graphics/page only a4 page)\n(val main (page a4 (list)))".to_string()
         } else {
             emit_markup_as_package_graphics(&placed)
         };

@@ -170,7 +170,10 @@ fn main() -> ExitCode {
                 }
             }
         }
-        None => (PathBuf::from("untitled.rpx"), "(page a4)\n".to_string()),
+        None => (
+            PathBuf::from("untitled.rpx"),
+            "(import graphics/page only a4 page)\n(val main (page a4 (list)))\n".to_string(),
+        ),
     };
     // Keep the author's `.rpx` text. Expansion happens inside `pipeline_doc` /
     // export so Scribble `(markup …)` macros (`@title`, …) stay editable.
@@ -2496,7 +2499,8 @@ impl PreviewApp {
             return;
         }
         self.path = PathBuf::from("untitled.rpx");
-        self.source = "(page a4)\n".to_string();
+        self.source =
+            "(import graphics/page only a4 page)\n(val main (page a4 (list)))\n".to_string();
         self.drag = None;
         self.clear_selection();
         self.page_index = 0;

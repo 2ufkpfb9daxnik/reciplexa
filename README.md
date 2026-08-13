@@ -14,4 +14,4 @@ cargo run -p reciplexa -- examples\black_circle.rpx target\out.pdf
 cargo run -p reciplexa-gui -- examples\black_circle.rpx
 ```
 
-出力拡張子でバックエンドを選びます（`.pdf` / `.svg` / `.pptx`）。サンプルは `examples/`（`(//)` コメント、`(markup …)`、トップレベル `perform`/`handle`、最小 `(type …)`/`(val …)`）。GUI／描画向け `examples/` は package 形（`(import …)(val main (page …))`）；interim 組込み `page`/`circle` の keyword 表はテスト fixture 向けに残存（`crates/reciplexa-lower/tests/fixtures/interim_page.rpx`）。`RECIPLEXA_REQUIRE_PACKAGE=1` でトップレベル裸の `(page …)` を拒否できます。brace の `@form{…}` も受理します。
+出力拡張子でバックエンドを選びます（`.pdf` / `.svg` / `.pptx`）。サンプルは `examples/`（`(//)` コメント、`(markup …)`、トップレベル `perform`/`handle`、最小 `(type …)`/`(val …)`）。GUI／描画向け `examples/` は package 形（`(import …)(val main (page …))`）；interim 組込み `page`/`circle` の keyword 表は fixture 専用（`interim-surface` / `crates/reciplexa-lower/tests/fixtures/interim_page.rpx`）。本番 pipeline はトップレベル裸の `(page …)` を拒否します。brace の `@form{…}` も受理します。

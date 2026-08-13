@@ -949,24 +949,13 @@ fn is_param_list(node: &SyntaxNode) -> bool {
 fn is_quarantined_head(node: &SyntaxNode) -> bool {
     // Graphics / document hosts only. Language-kernel effects (`perform`,
     // `handle`, `raise`, …) must be walked so binders inside handlers resolve.
-    matches!(
-        list_head_ident(node).as_deref(),
-        Some(
-            "page"
-                | "markup"
-                | "src"
-                | "circle"
-                | "rect"
-                | "text"
-                | "group"
-                | "ellipse"
-                | "line"
-                | "translate"
-                | "rotate"
-                | "scale"
-                | "opacity"
-        )
-    )
+    let Some(head) = list_head_ident(node) else {
+        return false;
+    };
+    if matches!(head.as_str(), "markup" | "src") {
+        return true;
+    }
+    interim_graphics_keyword(head.as_str())
 }
 
 fn list_atoms(node: &SyntaxNode) -> Vec<Atom> {
@@ -1123,17 +1112,39 @@ fn resolve_token(
 
 /// Surface heads that are not unbound identifiers (bind skip list).
 ///
-/// Graphics heads (`page`/`circle`/…) are **deprecated interim** keywords (S6a);
-/// package imports supply the product constructors. Keep listed until S6b removes
-/// keyword type/lower arms and fixture audit is clean.
+/// Language-kernel / markup heads always apply. Interim graphics heads
+/// (`page`/`circle`/…) apply only with `feature = "interim-surface"` or this
+/// crate's `cfg(test)` (S6b).
 fn is_surface_keyword(name: &str) -> bool {
     matches!(
         name,
-        "page"
-            | "markup"
+        "markup"
             | "src"
             | "type"
             | "val"
+            | "perform"
+            | "raise"
+            | "or-raise"
+            | "as-result"
+            | "handle"
+            | "with"
+            | "handler"
+            | "color-byte"
+    ) || interim_graphics_keyword(name)
+}
+
+#[inline]
+fn interim_surface_enabled() -> bool {
+    cfg!(any(test, feature = "interim-surface"))
+}
+
+fn interim_graphics_keyword(name: &str) -> bool {
+    if !interim_surface_enabled() {
+        return false;
+    }
+    matches!(
+        name,
+        "page"
             | "circle"
             | "rect"
             | "ellipse"
@@ -1144,15 +1155,7 @@ fn is_surface_keyword(name: &str) -> bool {
             | "rotate"
             | "scale"
             | "opacity"
-            | "perform"
-            | "raise"
-            | "or-raise"
-            | "as-result"
-            | "handle"
-            | "with"
-            | "handler"
             | "rgb"
-            | "color-byte"
             | "polyline"
             | "polygon"
             | "image"

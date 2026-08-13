@@ -7,6 +7,13 @@ use reciplexa::document_pipeline::{
 use reciplexa_identity::document::{DocumentIdentity, StableNodeId};
 use reciplexa_scene::{Circle, Color, Document, Page, PaperSize, Rect, Shape};
 
+const PKG_RECT: &str = r#"
+(import graphics/shapes only rect fill)
+(import graphics/page only a4 page)
+(import graphics/color only black)
+(val main (page a4 (fill (rect 1 2 3 4) black)))
+"#;
+
 #[test]
 fn document_pipeline_n6p_residuals() {
     let empty = Document { pages: vec![] };
@@ -18,9 +25,13 @@ fn document_pipeline_n6p_residuals() {
     );
     let _ = document_snapshot_from_source("(page a4 (", DocumentIdentity::new(21));
 
-    let src = "(page a4 (rect 1 2 3 4) (circle 5 6 7) (group (rect 8 9 1 1)))";
-    let mut snap = document_snapshot_from_source(src, DocumentIdentity::new(22)).unwrap();
-    let scene = reciplexa_lower::lower_source(src).unwrap();
+    // S6b: interim keyword page refused.
+    let interim_err =
+        document_snapshot_from_source("(page a4 (rect 1 2 3 4))", DocumentIdentity::new(22));
+    assert!(interim_err.is_err());
+
+    let mut snap = document_snapshot_from_source(PKG_RECT, DocumentIdentity::new(23)).unwrap();
+    let scene = reciplexa::document_from_source(PKG_RECT).unwrap();
     let _ = preview_shapes(&snap);
     let _ = provenance_hints_for_scene(&scene, &snap);
 
@@ -53,9 +64,7 @@ fn document_pipeline_n6p_residuals() {
             ],
         }],
     };
-    let snap2 =
-        document_snapshot_from_source("(page a4 (rect 1 2 3 4))", DocumentIdentity::new(23))
-            .unwrap();
+    let snap2 = document_snapshot_from_source(PKG_RECT, DocumentIdentity::new(24)).unwrap();
     let _ = provenance_hints_for_scene(&mixed, &snap2);
     let _ = document_snapshot_from_lowered(&scene);
 }
