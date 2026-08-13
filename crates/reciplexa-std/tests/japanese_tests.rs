@@ -1,9 +1,10 @@
 //! Coverage for `reciplexa_std::japanese` (OPEN-TEXT-JA-001 deepen J0+).
 
 use reciplexa_std::japanese::{
-    break_line, break_line_vertical, break_opportunity, break_opportunity_chars, char_em_width,
-    classify_char, is_hangable, is_line_end_prohibited, is_line_head_prohibited, justify_line,
-    vertical_advance_em, BreakOpportunity, CharClass,
+    break_line, break_line_vertical, break_opportunity, break_opportunity_chars,
+    break_pair_matrix_cell, char_em_width, classify_char, is_hangable, is_line_end_prohibited,
+    is_line_head_prohibited, justify_line, vertical_advance_em, BreakOpportunity, CharClass,
+    BREAK_PAIR_MATRIX, BREAK_PAIR_MATRIX_DIM,
 };
 
 #[test]
@@ -310,6 +311,113 @@ fn break_opportunity_kinsoku_profile_samples() {
         break_opportunity_chars('漢', '｠'),
         BreakOpportunity::Prohibited
     );
+}
+
+/// Wave 7 A0 — denser §C-inspired class×class matrix corners (not full appendix C).
+#[test]
+fn break_pair_matrix_corners() {
+    assert_eq!(BREAK_PAIR_MATRIX_DIM, 31);
+    assert_eq!(BREAK_PAIR_MATRIX.len(), BREAK_PAIR_MATRIX_DIM);
+    assert_eq!(BREAK_PAIR_MATRIX[0].len(), BREAK_PAIR_MATRIX_DIM);
+
+    // Corner (0,0): Other×Other allowed.
+    assert_eq!(
+        break_pair_matrix_cell(0, 0),
+        BreakOpportunity::Allowed
+    );
+    // Corner (30,30): TateChuYoko×TateChuYoko allowed (not western-run).
+    assert_eq!(
+        break_opportunity(CharClass::TateChuYoko, CharClass::TateChuYoko),
+        BreakOpportunity::Allowed
+    );
+    // Corner (1,30) / (30,1): open is line-end → prohibited either side as prev.
+    assert_eq!(
+        break_opportunity(CharClass::OpeningBrackets, CharClass::TateChuYoko),
+        BreakOpportunity::Prohibited
+    );
+    assert_eq!(
+        break_opportunity(CharClass::TateChuYoko, CharClass::OpeningBrackets),
+        BreakOpportunity::Allowed
+    );
+
+    // Inseparable cl-08 with anything.
+    assert_eq!(
+        break_opportunity(CharClass::Inseparable, CharClass::Ideographic),
+        BreakOpportunity::Inseparable
+    );
+    assert_eq!(
+        break_opportunity(CharClass::Hiragana, CharClass::Inseparable),
+        BreakOpportunity::Inseparable
+    );
+
+    // Digit-open quirk (package numeric-before-close / sample-pair-rules).
+    assert_eq!(
+        break_opportunity(CharClass::Numeric, CharClass::OpeningBrackets),
+        BreakOpportunity::Prohibited
+    );
+    assert_eq!(
+        break_opportunity_chars('1', '「'),
+        BreakOpportunity::Prohibited
+    );
+    // Digit + unit (not covered by head/end alone).
+    assert_eq!(
+        break_opportunity(CharClass::Numeric, CharClass::UnitSymbols),
+        BreakOpportunity::Prohibited
+    );
+    // Digit + close still prohibited via line-head.
+    assert_eq!(
+        break_opportunity(CharClass::Numeric, CharClass::ClosingBrackets),
+        BreakOpportunity::Prohibited
+    );
+    // Prefix + digit via line-end.
+    assert_eq!(
+        break_opportunity(CharClass::PrefixedAbbreviations, CharClass::Numeric),
+        BreakOpportunity::Prohibited
+    );
+    // Stop / comma before open.
+    assert_eq!(
+        break_opportunity(CharClass::FullStops, CharClass::OpeningBrackets),
+        BreakOpportunity::Prohibited
+    );
+    assert_eq!(
+        break_opportunity(CharClass::Commas, CharClass::OpeningBrackets),
+        BreakOpportunity::Prohibited
+    );
+
+    // Cross-western inseparable corners.
+    assert_eq!(
+        break_opportunity(CharClass::SimpleWestern, CharClass::WesternCharacters),
+        BreakOpportunity::Inseparable
+    );
+    assert_eq!(
+        break_opportunity(CharClass::ComplexWestern, CharClass::SimpleWestern),
+        BreakOpportunity::Inseparable
+    );
+
+    // Matrix lookup matches break_opportunity for every class id pair (smoke).
+    for prev_id in 0u8..=30 {
+        for next_id in 0u8..=30 {
+            let prev = if prev_id == 0 {
+                CharClass::Other
+            } else {
+                CharClass::from_id(prev_id).expect("prev class")
+            };
+            let next = if next_id == 0 {
+                CharClass::Other
+            } else {
+                CharClass::from_id(next_id).expect("next class")
+            };
+            assert_eq!(
+                break_pair_matrix_cell(prev_id, next_id),
+                break_opportunity(prev, next),
+                "matrix cell ({prev_id},{next_id})"
+            );
+        }
+    }
+
+    // Out-of-range ids soft-default to allowed.
+    assert_eq!(break_pair_matrix_cell(31, 0), BreakOpportunity::Allowed);
+    assert_eq!(break_pair_matrix_cell(0, 99), BreakOpportunity::Allowed);
 }
 
 #[test]

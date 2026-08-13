@@ -104,6 +104,24 @@ pub fn linebreak_parity_samples() -> &'static [LinebreakParitySample] {
             expected: "allowed",
             note: "ideograph + digit",
         },
+        LinebreakParitySample {
+            prev: '1',
+            next: '「',
+            expected: "prohibited",
+            note: "digit + open quirk",
+        },
+        LinebreakParitySample {
+            prev: '1',
+            next: '2',
+            expected: "inseparable",
+            note: "digit run",
+        },
+        LinebreakParitySample {
+            prev: 'a',
+            next: 'B',
+            expected: "inseparable",
+            note: "cross western run",
+        },
     ]
 }
 

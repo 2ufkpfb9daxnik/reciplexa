@@ -469,7 +469,7 @@ pub fn classify_char(c: char) -> CharClass {
 
 /// Line-break opportunity between two character classes (JLReq-inspired stub).
 ///
-/// Not the normative appendix C matrix — only common kinsoku / inseparable cases.
+/// Resolved via denser [`BREAK_PAIR_MATRIX`] — still **not** normative appendix C.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum BreakOpportunity {
     Allowed,
@@ -500,35 +500,17 @@ impl fmt::Display for BreakOpportunity {
 /// Classes that must not start a line (sample kinsoku / line-head prohibited).
 ///
 /// Aligned with package `kinsoku-profile` / `sample-line-head-prohibited`
-/// character samples (still a class-level stub, not appendix C).
+/// character samples and [`BREAK_PAIR_MATRIX`] (still a class-level stub, not appendix C).
 pub fn is_line_head_prohibited(class: CharClass) -> bool {
-    matches!(
-        class,
-        CharClass::ClosingBrackets
-            | CharClass::Hyphens
-            | CharClass::DividingPunctuation
-            | CharClass::MiddleDots
-            | CharClass::FullStops
-            | CharClass::Commas
-            | CharClass::IterationMarks
-            | CharClass::ProlongedSoundMark
-            | CharClass::SmallKana
-            | CharClass::PostfixedAbbreviations
-            | CharClass::WarichuClose
-    )
+    is_line_head_prohibited_id(class.id())
 }
 
 /// Classes that must not end a line (sample line-end prohibited).
 ///
-/// Aligned with package `sample-line-end-prohibited` (opens + prefixed abbrevs).
+/// Aligned with package `sample-line-end-prohibited` (opens + prefixed abbrevs)
+/// and [`BREAK_PAIR_MATRIX`].
 pub fn is_line_end_prohibited(class: CharClass) -> bool {
-    matches!(
-        class,
-        CharClass::OpeningBrackets
-            | CharClass::PrefixedAbbreviations
-            | CharClass::AttachedWestern
-            | CharClass::WarichuOpen
-    )
+    is_line_end_prohibited_id(class.id())
 }
 
 /// Hangable punctuation classes (JLReq-style stub).
@@ -565,57 +547,96 @@ pub fn hang_width_em_char(c: char) -> f64 {
     hang_width_em(classify_char(c))
 }
 
-/// Decide break opportunity between adjacent classified characters.
+/// Dimension of the §C-inspired class×class break matrix (`Other`=0 .. `cl-30`=30).
+pub const BREAK_PAIR_MATRIX_DIM: usize = 31;
+
+/// §C-inspired class×class break pair matrix for classes we implement.
 ///
-/// Prefer calling this from future layout; package `japanese/linebreak`
-/// `break-between` is a synthetic RPX mirror for Core imports.
-pub fn break_opportunity(prev: CharClass, next: CharClass) -> BreakOpportunity {
-    if prev == CharClass::Inseparable || next == CharClass::Inseparable {
+/// Index by [`CharClass::id`] (`0` = [`CharClass::Other`], `1..=30` = cl-01..cl-30).
+/// Densifies the former ad-hoc `break_opportunity` rules into a table: inseparable
+/// runs, line-head / line-end kinsoku, and digit-open / prefix-digit / stop-open
+/// quirks aligned with package `sample-pair-rules` / `numeric-before-close`.
+/// **Not** the full normative JLReq appendix C matrix.
+pub static BREAK_PAIR_MATRIX: [[BreakOpportunity; BREAK_PAIR_MATRIX_DIM]; BREAK_PAIR_MATRIX_DIM] =
+    build_break_pair_matrix();
+
+const fn build_break_pair_matrix(
+) -> [[BreakOpportunity; BREAK_PAIR_MATRIX_DIM]; BREAK_PAIR_MATRIX_DIM] {
+    let mut m = [[BreakOpportunity::Allowed; BREAK_PAIR_MATRIX_DIM]; BREAK_PAIR_MATRIX_DIM];
+    let mut prev = 0usize;
+    while prev < BREAK_PAIR_MATRIX_DIM {
+        let mut next = 0usize;
+        while next < BREAK_PAIR_MATRIX_DIM {
+            m[prev][next] = break_pair_cell_rules(prev as u8, next as u8);
+            next += 1;
+        }
+        prev += 1;
+    }
+    m
+}
+
+/// Class-id rules used to fill [`BREAK_PAIR_MATRIX`] (same semantics as lookup).
+const fn break_pair_cell_rules(prev_id: u8, next_id: u8) -> BreakOpportunity {
+    // cl-08 inseparable with anything (including itself).
+    if prev_id == 8 || next_id == 8 {
         return BreakOpportunity::Inseparable;
     }
-    // Simple / complex / ASCII western letter runs stay together.
-    if is_western_run_class(prev) && is_western_run_class(next) {
+    // Western letter runs (cl-24/25/27) stay together.
+    if is_western_run_id(prev_id) && is_western_run_id(next_id) {
         return BreakOpportunity::Inseparable;
     }
-    if prev == CharClass::Numeric && next == CharClass::Numeric {
+    // Numeric / grouped-numeral runs.
+    if prev_id == 20 && next_id == 20 {
         return BreakOpportunity::Inseparable;
     }
-    if prev == CharClass::GroupedNumerals && next == CharClass::GroupedNumerals {
+    if prev_id == 18 && next_id == 18 {
         return BreakOpportunity::Inseparable;
     }
-    if is_line_end_prohibited(prev) || is_line_head_prohibited(next) {
+    // Line-end / line-head kinsoku (class-level).
+    if is_line_end_prohibited_id(prev_id) || is_line_head_prohibited_id(next_id) {
         return BreakOpportunity::Prohibited;
     }
-    // Digit before close/open/postfix (package numeric-before-close stub).
-    if prev == CharClass::Numeric
-        && matches!(
-            next,
-            CharClass::ClosingBrackets
-                | CharClass::OpeningBrackets
-                | CharClass::PostfixedAbbreviations
-                | CharClass::UnitSymbols
-        )
-    {
+    // Digit-open / digit-unit quirks (package numeric-before-close + unit).
+    // Digit+close/postfix already covered by line-head on next; open/unit are not.
+    if prev_id == 20 && (next_id == 1 || next_id == 21) {
         return BreakOpportunity::Prohibited;
     }
-    // Prefixed abbrev + digit (package sample-pair-rules).
-    if prev == CharClass::PrefixedAbbreviations && next == CharClass::Numeric {
-        return BreakOpportunity::Prohibited;
-    }
-    // Full stop / comma before open — keep on same line (package samples).
-    if matches!(prev, CharClass::FullStops | CharClass::Commas)
-        && matches!(next, CharClass::OpeningBrackets)
-    {
+    // Full stop / comma before open (package sample-pair-rules).
+    if (prev_id == 6 || prev_id == 7) && next_id == 1 {
         return BreakOpportunity::Prohibited;
     }
     BreakOpportunity::Allowed
 }
 
-fn is_western_run_class(class: CharClass) -> bool {
-    matches!(
-        class,
-        CharClass::SimpleWestern | CharClass::ComplexWestern | CharClass::WesternCharacters
-    )
+const fn is_western_run_id(id: u8) -> bool {
+    matches!(id, 24 | 25 | 27)
+}
+
+const fn is_line_head_prohibited_id(id: u8) -> bool {
+    matches!(id, 2 | 3 | 4 | 5 | 6 | 7 | 9 | 10 | 11 | 13 | 26)
+}
+
+const fn is_line_end_prohibited_id(id: u8) -> bool {
+    matches!(id, 1 | 12 | 28 | 29)
+}
+
+/// Look up [`BREAK_PAIR_MATRIX`] by class id (`0..=30`). Out-of-range → [`Allowed`].
+pub fn break_pair_matrix_cell(prev_id: u8, next_id: u8) -> BreakOpportunity {
+    let p = prev_id as usize;
+    let n = next_id as usize;
+    if p >= BREAK_PAIR_MATRIX_DIM || n >= BREAK_PAIR_MATRIX_DIM {
+        return BreakOpportunity::Allowed;
+    }
+    BREAK_PAIR_MATRIX[p][n]
+}
+
+/// Decide break opportunity between adjacent classified characters.
+///
+/// Uses the denser §C-inspired [`BREAK_PAIR_MATRIX`] (not normative appendix C).
+/// Prefer calling this from future layout; package `japanese/linebreak`
+/// `break-between` is a synthetic RPX mirror for Core imports.
+pub fn break_opportunity(prev: CharClass, next: CharClass) -> BreakOpportunity {
+    break_pair_matrix_cell(prev.id(), next.id())
 }
 
 /// Classify two chars and return the break opportunity between them.
