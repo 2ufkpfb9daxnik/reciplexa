@@ -758,3 +758,29 @@ fn live_math_frac_scripts_delim_shapes() {
     );
 }
 
+/// LL17: pkg_live_math → PDF text ops when CJK font available.
+#[test]
+fn live_math_pdf_smoke_when_cjk_font() {
+    if reciplexa_pdf::system_cjk_font_path().is_none() {
+        return;
+    }
+    let entry = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/pkg_live_math.rpx");
+    let doc = document_from_live_layout_entry(&entry, &index()).expect("live math bridge");
+    let text_shape_count = doc.pages[0]
+        .shapes
+        .iter()
+        .filter(|s| matches!(s, Shape::Text(_)))
+        .count();
+    assert!(
+        text_shape_count >= 3,
+        "expected doc + delim/frac/script Text shapes, got {text_shape_count}"
+    );
+    let bytes = reciplexa_pdf::document_to_pdf(&doc).expect("live math pdf");
+    let pdf = String::from_utf8_lossy(&bytes);
+    let tj = pdf.matches(" Tj\n").count();
+    assert!(
+        tj >= 1,
+        "expected ≥1 PDF text op from live-math page, got {tj} Tj (shapes={text_shape_count})"
+    );
+}
+

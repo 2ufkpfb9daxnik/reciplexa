@@ -141,6 +141,63 @@ No push unless asked. Fine-grained commits (one unit ≈ one commit).
 
 ---
 
+## Follow-ons (LL13–LL20)
+
+### LL13 — Delimiter stretchy fence glyphs
+
+- For `MathAtom::Delimiter`, place body; draw left/right fence chars as
+  scene `Text` with taller `size_mm` from the stretch height/depth heuristic
+  (`stretch_factor` × body extent).
+- Tip test: fence `size_mm` matches heuristic; body between fences.
+- **Commit.**
+
+### LL14 — Matrix cell placement
+
+- For `MathAtom::Matrix`, place cells via `matrix_column_widths` /
+  `aligned_column_x` / `matrix_cell_x_in_column` (center; cases left-align
+  when delimited).
+- Tip test: column-1 right of column-0; row-1 below row-0.
+- **Commit.**
+
+### LL15 — Accent mark via clearance
+
+- For `MathAtom::Accent`, place base; draw accent mark glyph using
+  `accent_clearance_em` / `accent_attachment_offset`.
+- Tip test: hat above base; underline below.
+- **Commit.**
+
+### LL16 — Example `pkg_live_math.rpx`
+
+- Live-layout demo with nested delimiter + fraction + scripts.
+- Package bridge tip: fences, frac Line, subscript present.
+- **Commit.**
+
+### LL17 — PDF smoke + docs
+
+- PDF smoke for `pkg_live_math` (CJK-gated `Tj`).
+- Extend this plan status for LL13–LL17; refresh `implemented-features.md`.
+- **Commit.**
+
+### LL18 — Aligned column snap
+
+- For `MathAtom::Aligned`, place cells snapped to `aligned_column_x` bands.
+- Tip test: column x matches helper.
+- **Commit.**
+
+### LL19 — Stack / stackrel placement
+
+- For `MathAtom::Stack`, place children via `stackrel_spacing_offsets` (or
+  vertical gap stub for plain stack/atop).
+- Tip test: upper above / lower below shared baseline.
+- **Commit.**
+
+### LL20 — Docs after aligned/stack
+
+- Mark LL18–LL20 done; refresh next-steps.
+- **Commit.**
+
+---
+
 ## Status
 
 | Unit | Status |
@@ -158,3 +215,11 @@ No push unless asked. Fine-grained commits (one unit ≈ one commit).
 | LL10 — Docs + tip tests | **done** |
 | LL11 — Radical vinculum Line | **done** |
 | LL12 — Docs after radical | **done** |
+| LL13 — Delimiter tall fences | **done** |
+| LL14 — Matrix column widths | **done** |
+| LL15 — Accent clearance glyph | **done** |
+| LL16 — `pkg_live_math.rpx` | **done** |
+| LL17 — PDF smoke + docs | **done** |
+| LL18 — Aligned column snap | pending |
+| LL19 — Stack placement | pending |
+| LL20 — Docs after aligned/stack | pending |
