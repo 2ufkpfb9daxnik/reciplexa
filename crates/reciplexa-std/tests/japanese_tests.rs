@@ -832,6 +832,31 @@ fn break_line_vertical_wraps_on_vertical_advance() {
 }
 
 #[test]
+fn place_lines_horizontal_and_vertical_pitch() {
+    use reciplexa_std::japanese::{place_lines_horizontal, place_lines_vertical, KihonHanmen};
+
+    let lines = ["甲", "乙", "丙"];
+    let h = place_lines_horizontal(&lines, 10.0, 1.5);
+    assert_eq!(h.len(), 3);
+    assert_eq!(h[0].0, "甲");
+    assert!((h[0].1 - 10.0).abs() < 1e-9);
+    assert!((h[1].1 - 11.5).abs() < 1e-9);
+    assert!((h[2].1 - 13.0).abs() < 1e-9);
+
+    let v = place_lines_vertical(&lines, 2.0, 1.5);
+    assert_eq!(v[0].0, "甲");
+    assert!((v[0].1 - 2.0).abs() < 1e-9);
+    assert!((v[2].1 - 5.0).abs() < 1e-9);
+
+    let kihon = KihonHanmen::default_horizontal();
+    assert!((kihon.line_pitch_em() - 1.5).abs() < 1e-9);
+    let via_kihon = place_lines_horizontal(&lines, 0.0, kihon.line_pitch_em());
+    assert!((via_kihon[1].1 - 1.5).abs() < 1e-9);
+    assert!(place_lines_horizontal::<&str>(&[], 0.0, 1.0).is_empty());
+    assert!(place_lines_vertical::<&str>(&[], 0.0, 1.0).is_empty());
+}
+
+#[test]
 fn indent_first_line_offsets_only_first() {
     use reciplexa_std::japanese::indent_first_line;
 

@@ -1084,6 +1084,14 @@ impl KihonHanmen {
         self.char_size_em * (self.line_rate - 1.0)
     }
 
+    /// Baseline-to-baseline pitch in em (`char_size_em × line_rate`).
+    ///
+    /// Pass to [`place_lines_horizontal`] / [`place_lines_vertical`] for kihon
+    /// line spacing. Fontless stub — not full JLReq hanmen composition.
+    pub fn line_pitch_em(self) -> f64 {
+        self.char_size_em * self.line_rate
+    }
+
     /// Inline measure of the hanmen in em.
     pub fn hanmen_inline_em(self) -> f64 {
         self.char_size_em * f64::from(self.line_length)
@@ -1414,6 +1422,40 @@ impl TategakiParagraph {
     pub fn tag(&self) -> &'static str {
         "ja-tategaki-paragraph"
     }
+}
+
+/// Place lines for horizontal-tb writing: block axis is **y** (downward).
+///
+/// Returns `(line, y)` with `y = start_y + i × pitch_em`. Use
+/// [`KihonHanmen::line_pitch_em`] for kihon baseline pitch. Fontless stub —
+/// not full JLReq / CSS line-height composition.
+pub fn place_lines_horizontal<S: AsRef<str>>(
+    lines: &[S],
+    start_y: f64,
+    pitch_em: f64,
+) -> Vec<(String, f64)> {
+    lines
+        .iter()
+        .enumerate()
+        .map(|(i, line)| (line.as_ref().to_string(), start_y + i as f64 * pitch_em))
+        .collect()
+}
+
+/// Place lines for vertical-rl writing: block axis is **x** (column advance).
+///
+/// Returns `(line, x)` with `x = start_x + i × pitch_em`. Positive pitch steps
+/// rightward; hosts using vertical-rl may negate for column progression.
+/// Fontless stub — not OpenType `vert` / full tategaki composition.
+pub fn place_lines_vertical<S: AsRef<str>>(
+    lines: &[S],
+    start_x: f64,
+    pitch_em: f64,
+) -> Vec<(String, f64)> {
+    lines
+        .iter()
+        .enumerate()
+        .map(|(i, line)| (line.as_ref().to_string(), start_x + i as f64 * pitch_em))
+        .collect()
 }
 
 /// Place each line as a scene [`reciplexa_scene::Text`] shape (host/layout scaffolding).
