@@ -614,9 +614,11 @@ pub fn load_module_tree(root_path: impl AsRef<Path>) -> Result<Vec<(String, Stri
     }
     // Stable order: entry first, then remaining sorted by name.
     let mut out = Vec::with_capacity(loaded.len());
-    if let Some(src) = loaded.remove(&entry_name) {
-        out.push((entry_name, src));
-    }
+    // Entry is always inserted before dependents are walked.
+    let src = loaded
+        .remove(&entry_name)
+        .expect("entry module was loaded");
+    out.push((entry_name, src));
     let mut rest: Vec<_> = loaded.into_iter().collect();
     rest.sort_by(|a, b| a.0.cmp(&b.0));
     out.extend(rest);

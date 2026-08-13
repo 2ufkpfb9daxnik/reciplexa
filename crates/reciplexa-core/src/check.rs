@@ -1256,12 +1256,9 @@ fn unify_ctor_payload(
             found: actual.cloned().unwrap_or(CoreType::Unit),
         }),
         (Some(act), schemas) => {
-            // Fallback: unify against packed schema shape.
-            if let Some(exp) = schema_payload_type(schemas) {
-                unify(act, &exp, subst)
-            } else {
-                Ok(())
-            }
+            // Non-empty `schemas` (empty caught above) ⇒ packed shape always exists.
+            let exp = schema_payload_type(schemas).expect("non-empty schemas");
+            unify(act, &exp, subst)
         }
     }
 }
@@ -1498,9 +1495,8 @@ fn operand_numeric_class(ty: &CoreType) -> Option<NumericClass> {
     match ty {
         CoreType::Dynamic(bound) => operand_numeric_class(bound),
         CoreType::Intersect(members) if members.len() == 2 => {
-            let [scr, constraint] = members.as_slice() else {
-                return None;
-            };
+            let scr = &members[0];
+            let constraint = &members[1];
             if matches!(constraint, CoreType::Number) {
                 return numeric_union_class(scr);
             }
@@ -1738,16 +1734,13 @@ pub fn coerce_to_static(
             TextRange::EMPTY,
         ))
     } else if let Some(evidence) = crate::cast::plan_cast_evidence(&found, &needed) {
-        if matches!(evidence, crate::cast::CastEvidence::Identity) {
-            Ok(expr)
-        } else {
-            Ok(CoreExpr::Cast {
-                expr: Box::new(expr),
-                evidence,
-                target: needed,
-                cast_id,
-            })
-        }
+        // Identity would imply subtype, already returned above.
+        Ok(CoreExpr::Cast {
+            expr: Box::new(expr),
+            evidence,
+            target: needed,
+            cast_id,
+        })
     } else {
         Err(CheckError::at(
             "cast is statically impossible",
@@ -2168,6 +2161,25 @@ mod coverage_helpers {
                 }),
                 Box::new(CoreType::Int),
             ),
+            op
+        ));
+        // Diff: effect only on right (covers `||` second arm)
+        assert!(type_mentions_effect(
+            &CoreType::Diff(
+                Box::new(CoreType::Int),
+                Box::new(CoreType::Fun {
+                    args: vec![],
+                    ret: Box::new(CoreType::Unit),
+                    effects: EffectRow::default().with_op(op),
+                }),
+            ),
+            op
+        ));
+        // Variant nullary payload None skips
+        assert!(!type_mentions_effect(
+            &CoreType::Variant {
+                variants: vec![("none".into(), None)],
+            },
             op
         ));
         assert!(type_mentions_effect(
@@ -2669,6 +2681,15 @@ mod coverage_helpers {
             &mut subst
         )
         .is_ok());
+        // Missing field key → Mismatch (line ~1246)
+        assert!(unify_ctor_payload(
+            Some(&CoreType::Record {
+                fields: vec![("0".into(), CoreType::Int)],
+            }),
+            &[CoreType::Int, CoreType::String],
+            &mut subst
+        )
+        .is_err());
         // Fallback packed schema when actual not Record
         assert!(unify_ctor_payload(
             Some(&CoreType::Int),
@@ -2929,6 +2950,155 @@ mod coverage_helpers {
     }
 
     #[test]
+    fn bind_pattern_variant_nullary_payload_and_unknown_tag() {
+        let mut env = TypeEnv::new();
+        bind_pattern(
+            &CorePattern::Variant {
+                tag: "none".into(),
+                payload: Some(Box::new(CorePattern::Bind("x".into()))),
+            },
+            &CoreType::Variant {
+                variants: vec![("none".into(), None), ("some".into(), Some(CoreType::Int))],
+            },
+            &mut env,
+        );
+        assert_eq!(env.vars.get("x"), Some(&CoreType::dyn_any()));
+        bind_pattern(
+            &CorePattern::Variant {
+                tag: "ghost".into(),
+                payload: Some(Box::new(CorePattern::Bind("y".into()))),
+            },
+            &CoreType::Variant {
+                variants: vec![("some".into(), Some(CoreType::Int))],
+            },
+            &mut env,
+        );
+        bind_pattern(
+            &CorePattern::Variant {
+                tag: "ghost".into(),
+                payload: Some(Box::new(CorePattern::Tuple(vec![CorePattern::Bind(
+                    "z".into(),
+                )]))),
+            },
+            &CoreType::Int,
+            &mut env,
+        );
+    }
+
+    #[test]
+    fn insert_casts_let_if_and_lambda_residuals() {
+        let mut env = TypeEnv::new();
+        env.insert(
+            "f",
+            CoreType::Fun {
+                args: vec![CoreType::Number],
+                ret: Box::new(CoreType::Number),
+                effects: EffectRow::default(),
+            },
+        );
+        env.insert("x", CoreType::Int);
+        let let_expr = CoreExpr::Let {
+            name: "y".into(),
+            value: Box::new(CoreExpr::Lit(CoreLiteral::Int(1))),
+            body: Box::new(CoreExpr::Var("y".into())),
+        };
+        let _ = insert_implicit_casts(&let_expr, &env);
+        let if_expr = CoreExpr::If {
+            cond: Box::new(CoreExpr::App {
+                fun: Box::new(CoreExpr::Var("number?".into())),
+                args: vec![CoreExpr::Var("x".into())],
+            }),
+            then_branch: Box::new(CoreExpr::Var("x".into())),
+            else_branch: Box::new(CoreExpr::Lit(CoreLiteral::Int(0))),
+        };
+        let _ = insert_implicit_casts(&if_expr, &env);
+        let lam = CoreExpr::Lambda {
+            params: vec!["z".into()],
+            body: Box::new(CoreExpr::App {
+                fun: Box::new(CoreExpr::Var("f".into())),
+                args: vec![CoreExpr::Var("z".into())],
+            }),
+        };
+        let _ = insert_implicit_casts(&lam, &env);
+        let _ = insert_implicit_casts(
+            &CoreExpr::Seq(vec![
+                CoreExpr::Lit(CoreLiteral::Int(1)),
+                CoreExpr::Lit(CoreLiteral::Int(2)),
+            ]),
+            &env,
+        );
+        let _ = insert_implicit_casts(
+            &CoreExpr::Cast {
+                expr: Box::new(CoreExpr::Lit(CoreLiteral::Int(1))),
+                evidence: crate::cast::CastEvidence::Identity,
+                target: CoreType::Int,
+                cast_id: 1,
+            },
+            &env,
+        );
+        let _ = insert_implicit_casts(
+            &CoreExpr::TryCast {
+                expr: Box::new(CoreExpr::Lit(CoreLiteral::Int(1))),
+                target: CoreType::Int,
+                cast_id: 2,
+            },
+            &env,
+        );
+        let _ = insert_implicit_casts(
+            &CoreExpr::CheckCast {
+                expr: Box::new(CoreExpr::Lit(CoreLiteral::Int(1))),
+                target: CoreType::Int,
+                cast_id: 3,
+            },
+            &env,
+        );
+        let _ = coerce_to_static(
+            CoreExpr::Lit(CoreLiteral::Int(1)),
+            &CoreType::Int,
+            &CoreType::Int,
+            11,
+        );
+        let _ = coerce_to_static(
+            CoreExpr::Lit(CoreLiteral::Int(1)),
+            &CoreType::String,
+            &CoreType::Int,
+            12,
+        );
+        let _ = coerce_to_static(
+            CoreExpr::Lit(CoreLiteral::String("x".into())),
+            &CoreType::dyn_any(),
+            &CoreType::Never,
+            13,
+        );
+    }
+
+    #[test]
+    fn generalize_type_app_with_data_params() {
+        let mut env = TypeEnv::new();
+        env.data.type_params.insert("box".into(), vec!["a".into()]);
+        env.data
+            .data_ctors
+            .insert("box".into(), vec![("mk".into(), 1)]);
+        let ty = CoreType::App {
+            ctor: "box".into(),
+            args: vec![CoreType::Var(Subst::new().fresh_var())],
+        };
+        let _ = generalize_type(ty, &env, &Subst::new());
+    }
+
+    #[test]
+    fn subst_type_names_open_record_fields() {
+        let mut map = HashMap::new();
+        map.insert("a".into(), CoreType::Int);
+        let ty = CoreType::OpenRecord {
+            fields: vec![("a".into(), CoreType::Name("a".into()))],
+            row: Box::new(CoreType::Name("a".into())),
+        };
+        let out = subst_type_names(&ty, &map);
+        assert!(matches!(out, CoreType::OpenRecord { .. }));
+    }
+
+    #[test]
     fn infer_effectful_forms_and_coerce_insert_residuals() {
         let r = TextRange::EMPTY;
         let mut env = TypeEnv::new();
@@ -3030,5 +3200,412 @@ mod coverage_helpers {
             r,
         )
         .is_err());
+    }
+
+    #[test]
+    fn round26_keep_variant_bind_open_record_numeric() {
+        let r = TextRange::EMPTY;
+        // keep_variant_tag: payload Some / None / missing tag / non-variant
+        let _ = keep_variant_tag(
+            &CoreType::Variant {
+                variants: vec![("some".into(), Some(CoreType::Int)), ("none".into(), None)],
+            },
+            "some",
+        );
+        let _ = keep_variant_tag(
+            &CoreType::Variant {
+                variants: vec![("none".into(), None)],
+            },
+            "none",
+        );
+        let _ = keep_variant_tag(
+            &CoreType::Variant {
+                variants: vec![("a".into(), Some(CoreType::Int))],
+            },
+            "missing",
+        );
+        let _ = keep_variant_tag(&CoreType::Int, "x");
+
+        // bind_pattern residual matrix
+        let mut env = TypeEnv::new();
+        bind_pattern(
+            &CorePattern::Tuple(vec![
+                CorePattern::Bind("a".into()),
+                CorePattern::Bind("b".into()),
+            ]),
+            &CoreType::Record {
+                fields: vec![("0".into(), CoreType::Int)],
+            },
+            &mut env,
+        );
+        bind_pattern(
+            &CorePattern::Tuple(vec![CorePattern::Bind("x".into())]),
+            &CoreType::Int,
+            &mut env,
+        );
+        bind_pattern(
+            &CorePattern::Record {
+                fields: vec![
+                    ("a".into(), CorePattern::Bind("x".into())),
+                    ("b".into(), CorePattern::Bind("y".into())),
+                ],
+            },
+            &CoreType::Record {
+                fields: vec![
+                    ("a".into(), CoreType::OptionalField(Box::new(CoreType::Int))),
+                ],
+            },
+            &mut env,
+        );
+        bind_pattern(
+            &CorePattern::Record {
+                fields: vec![("z".into(), CorePattern::Bind("z".into()))],
+            },
+            &CoreType::OpenRecord {
+                fields: vec![],
+                row: Box::new(CoreType::Unit),
+            },
+            &mut env,
+        );
+        bind_pattern(
+            &CorePattern::Record {
+                fields: vec![("a".into(), CorePattern::Bind("x".into()))],
+            },
+            &CoreType::Int,
+            &mut env,
+        );
+        bind_pattern(
+            &CorePattern::Variant {
+                tag: "some".into(),
+                payload: Some(Box::new(CorePattern::Tuple(vec![CorePattern::Bind(
+                    "x".into(),
+                )]))),
+            },
+            &CoreType::Variant {
+                variants: vec![("some".into(), None)],
+            },
+            &mut env,
+        );
+        bind_pattern(
+            &CorePattern::Variant {
+                tag: "missing".into(),
+                payload: Some(Box::new(CorePattern::Bind("x".into()))),
+            },
+            &CoreType::Variant {
+                variants: vec![("some".into(), Some(CoreType::Int))],
+            },
+            &mut env,
+        );
+        bind_pattern(
+            &CorePattern::Variant {
+                tag: "x".into(),
+                payload: Some(Box::new(CorePattern::Bind("x".into()))),
+            },
+            &CoreType::Int,
+            &mut env,
+        );
+
+        // Open-record field access unify + update/extend Err
+        let mut subst = Subst::new();
+        let mut env2 = TypeEnv::new();
+        env2.insert(
+            "r",
+            CoreType::OpenRecord {
+                fields: vec![],
+                row: Box::new(CoreType::Var(subst.fresh_var())),
+            },
+        );
+        let _ = infer_with_effects(
+            &CoreExpr::RecordGet {
+                record: Box::new(CoreExpr::Var("r".into())),
+                field: "a".into(),
+            },
+            &env2,
+            &mut subst,
+            r,
+        );
+        let _ = infer_with_effects(
+            &CoreExpr::RecordUpdate {
+                record: Box::new(CoreExpr::Lit(CoreLiteral::Int(1))),
+                fields: vec![("a".into(), CoreExpr::Lit(CoreLiteral::Int(2)))],
+            },
+            &env2,
+            &mut subst,
+            r,
+        );
+        env2.insert(
+            "closed",
+            CoreType::Record {
+                fields: vec![("a".into(), CoreType::Int)],
+            },
+        );
+        let _ = infer_with_effects(
+            &CoreExpr::RecordUpdate {
+                record: Box::new(CoreExpr::Var("closed".into())),
+                fields: vec![("missing".into(), CoreExpr::Lit(CoreLiteral::Int(2)))],
+            },
+            &env2,
+            &mut subst,
+            r,
+        );
+        let _ = infer_with_effects(
+            &CoreExpr::RecordExtend {
+                record: Box::new(CoreExpr::Lit(CoreLiteral::Unit)),
+                fields: vec![("a".into(), CoreExpr::Lit(CoreLiteral::Int(1)))],
+            },
+            &env2,
+            &mut subst,
+            r,
+        );
+        let _ = infer_with_effects(
+            &CoreExpr::RecordExtend {
+                record: Box::new(CoreExpr::Var("closed".into())),
+                fields: vec![("a".into(), CoreExpr::Lit(CoreLiteral::Int(1)))],
+            },
+            &env2,
+            &mut subst,
+            r,
+        );
+
+        // HandlerValue bad arity + LocalVar escape + Set unbound
+        let _ = infer_with_effects(
+            &CoreExpr::HandlerValue {
+                op: "ask".into(),
+                handler_params: vec![],
+                handler_body: Box::new(CoreExpr::Lit(CoreLiteral::Unit)),
+            },
+            &env2,
+            &mut subst,
+            r,
+        );
+        let _ = infer_with_effects(
+            &CoreExpr::HandlerValue {
+                op: "ask".into(),
+                handler_params: vec!["a".into(), "b".into(), "c".into()],
+                handler_body: Box::new(CoreExpr::Lit(CoreLiteral::Unit)),
+            },
+            &env2,
+            &mut subst,
+            r,
+        );
+        let _ = infer_with_effects(
+            &CoreExpr::LocalVar {
+                name: "s".into(),
+                init: Box::new(CoreExpr::Lit(CoreLiteral::Int(1))),
+                body: Box::new(CoreExpr::Lambda {
+                    params: vec![],
+                    body: Box::new(CoreExpr::Var("s".into())),
+                }),
+            },
+            &env2,
+            &mut subst,
+            r,
+        );
+        let _ = infer_with_effects(
+            &CoreExpr::Set {
+                name: "nope".into(),
+                value: Box::new(CoreExpr::Lit(CoreLiteral::Int(1))),
+            },
+            &env2,
+            &mut subst,
+            r,
+        );
+
+        // operand_numeric_class / occurrence
+        let _ = operand_numeric_class(&CoreType::Dynamic(Box::new(CoreType::Number)));
+        let _ = operand_numeric_class(&CoreType::Intersect(vec![
+            CoreType::Union(vec![CoreType::Int, CoreType::F64]),
+            CoreType::Number,
+        ]));
+        let _ = operand_numeric_class(&CoreType::Intersect(vec![
+            CoreType::Int,
+            CoreType::String,
+        ]));
+        let _ = operand_numeric_class(&CoreType::Union(vec![CoreType::Int, CoreType::F64]));
+        let _ = numeric_union_class(&CoreType::Int);
+        let _ = numeric_union_class(&CoreType::F64);
+        let _ = numeric_union_class(&CoreType::String);
+        let _ = occurrence_envs(
+            &CoreExpr::App {
+                fun: Box::new(CoreExpr::Var("number?".into())),
+                args: vec![CoreExpr::Var("x".into())],
+            },
+            &env2,
+        );
+
+        // Open-record field miss → unify row (L462)
+        let mut env_or = TypeEnv::new();
+        env_or.insert(
+            "r",
+            CoreType::OpenRecord {
+                fields: vec![("a".into(), CoreType::Int)],
+                row: Box::new(CoreType::Var(subst.fresh_var())),
+            },
+        );
+        let _ = infer_with_effects(
+            &CoreExpr::RecordGet {
+                record: Box::new(CoreExpr::Var("r".into())),
+                field: "missing".into(),
+            },
+            &env_or,
+            &mut subst,
+            r,
+        );
+        // Dynamic(Number) + number? → else Never (L1312)
+        let mut env_d = TypeEnv::new();
+        env_d.insert("d", CoreType::Dynamic(Box::new(CoreType::Number)));
+        let (then_e, else_e) = occurrence_envs(
+            &CoreExpr::App {
+                fun: Box::new(CoreExpr::Var("number?".into())),
+                args: vec![CoreExpr::Var("d".into())],
+            },
+            &env_d,
+        );
+        let _ = (then_e, else_e);
+        // Intersect len!=2 → None arm (L1502)
+        let _ = operand_numeric_class(&CoreType::Intersect(vec![CoreType::Int]));
+        let _ = operand_numeric_class(&CoreType::Intersect(vec![
+            CoreType::Int,
+            CoreType::Number,
+            CoreType::F64,
+        ]));
+        // Keep variant tag Never / some (L1312/1343 neighborhood)
+        let _ = keep_variant_tag(&CoreType::Never, "some");
+        let _ = keep_variant_tag(
+            &CoreType::Variant {
+                variants: vec![("some".into(), Some(CoreType::Int))],
+            },
+            "some",
+        );
+        let _ = keep_variant_tag(&CoreType::dyn_any(), "some");
+    }
+
+    #[test]
+    fn round35_direct_residual_helpers() {
+        let r = TextRange::EMPTY;
+        let mut subst = Subst::new();
+
+        // App callee still a Var after soft unify
+        let mut env = TypeEnv::new();
+        env.insert("g", CoreType::Var(subst.fresh_var()));
+        let _ = infer_with_effects(
+            &CoreExpr::App {
+                fun: Box::new(CoreExpr::Var("g".into())),
+                args: vec![CoreExpr::Lit(CoreLiteral::Int(1))],
+            },
+            &env,
+            &mut subst,
+            r,
+        );
+
+        // Nullary sibling ctor when elaborating a payload ctor (L546)
+        let mut env_d = TypeEnv::new();
+        env_d.data.ctor_type.insert("none".into(), "opt".into());
+        env_d.data.ctor_type.insert("some".into(), "opt".into());
+        env_d.data.data_ctors.insert(
+            "opt".into(),
+            vec![("none".into(), 0), ("some".into(), 1)],
+        );
+        env_d
+            .data
+            .ctor_payloads
+            .insert("some".into(), vec![CoreType::Int]);
+        let _ = infer_with_effects(
+            &CoreExpr::Variant {
+                tag: "some".into(),
+                payload: Some(Box::new(CoreExpr::Lit(CoreLiteral::Int(1)))),
+            },
+            &env_d,
+            &mut subst,
+            r,
+        );
+
+        // generalize App with free unification vars as type params
+        let v = subst.fresh_var();
+        let mut env_g = TypeEnv::new();
+        env_g.data.type_params.insert("box".into(), vec!["a".into()]);
+        let _ = generalize_type(
+            CoreType::App {
+                ctor: "box".into(),
+                args: vec![CoreType::Var(v)],
+            },
+            &env_g,
+            &subst,
+        );
+        let _ = generalize_type(
+            CoreType::App {
+                ctor: "box".into(),
+                args: vec![CoreType::Forall {
+                    params: vec![("a".into(), "type".into())],
+                    body: Box::new(CoreType::Name("a".into())),
+                }],
+            },
+            &env_g,
+            &subst,
+        );
+
+        // try_infer_parameterized_ctor empty params → None
+        let mut env_p = TypeEnv::new();
+        env_p.data.ctor_type.insert("wrap".into(), "box".into());
+        env_p.data.type_params.insert("box".into(), vec![]);
+        let _ = try_infer_parameterized_ctor(
+            "wrap",
+            Some(&CoreType::Int),
+            &env_p,
+            &mut subst,
+            r,
+        );
+
+        // unify_ctor_payload Some(act) + empty schemas
+        let _ = unify_ctor_payload(Some(&CoreType::Int), &[], &mut subst);
+
+        // coerce Identity skip + plan None / disjoint
+        let _ = coerce_to_static(
+            CoreExpr::Lit(CoreLiteral::Int(1)),
+            &CoreType::Int,
+            &CoreType::Int,
+            1,
+        );
+        let _ = coerce_to_static(
+            CoreExpr::Lit(CoreLiteral::Int(1)),
+            &CoreType::Int,
+            &CoreType::Never,
+            2,
+        );
+        let _ = coerce_to_static(
+            CoreExpr::Lit(CoreLiteral::Int(1)),
+            &CoreType::Int,
+            &CoreType::String,
+            3,
+        );
+
+        // LetRec annotated branch
+        let mut env_l = TypeEnv::new();
+        env_l.data.type_aliases.insert(
+            "f".into(),
+            CoreType::Fun {
+                args: vec![CoreType::Int],
+                ret: Box::new(CoreType::Int),
+                effects: EffectRow::default(),
+            },
+        );
+        let _ = infer_with_effects(
+            &CoreExpr::LetRec {
+                bindings: vec![(
+                    "f".into(),
+                    CoreExpr::Lambda {
+                        params: vec!["x".into()],
+                        body: Box::new(CoreExpr::Var("x".into())),
+                    },
+                )],
+                body: Box::new(CoreExpr::App {
+                    fun: Box::new(CoreExpr::Var("f".into())),
+                    args: vec![CoreExpr::Lit(CoreLiteral::Int(1))],
+                }),
+            },
+            &env_l,
+            &mut subst,
+            r,
+        );
     }
 }

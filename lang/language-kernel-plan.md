@@ -1,6 +1,6 @@
 # Language kernel completion plan (excl. PKG-001)
 
-Goal: complete LEX→SYN→MAC→RES→TYP/ROW/EFF→Core→EVAL/BND (+ MOD/KER/RSC/EDT/TST language parts) per `lang/specification.md`. Packages (graphics/math/Japanese) deferred.
+Goal: complete LEX→SYN→MAC→RES→TYP/ROW/EFF→Core→EVAL/BND (+ MOD/KER/RSC/EDT/TST language parts) per `lang/specification.md`. Domain packages (graphics/math/Japanese) are **Rust native** behind package API — see `lang/native-domain-plan.md` (not portable `.rpx` bodies as the long-term home).
 
 ## Spec alignment progress (2026-08-11)
 

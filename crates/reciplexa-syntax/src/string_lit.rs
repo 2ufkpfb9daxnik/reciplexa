@@ -20,9 +20,7 @@ pub fn decode_string_literal(raw: &str) -> Result<String, String> {
             break;
         }
     }
-    if open == 0 {
-        return Err("malformed string literal delimiters".into());
-    }
+    // `raw.starts_with('"')` above ⇒ open ≥ 1.
 
     // `""` is the empty string (delimiter length 2 is reserved for this).
     if open == 2 {
@@ -89,9 +87,7 @@ pub fn virtual_close_delimiter(raw: &str) -> Option<String> {
             break;
         }
     }
-    if open == 0 {
-        return None;
-    }
+    // `raw.starts_with('"')` above ⇒ open ≥ 1.
     if open == 2 {
         return if raw.len() == 2 {
             None

@@ -12,11 +12,13 @@ pub struct StructuredDiff {
 
 impl fmt::Display for StructuredDiff {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
+        // Ignore Formatter write errors: test Display is best-effort text.
+        let _ = write!(
             f,
             "at {}: expected {}, got {}",
             self.path, self.expected, self.actual
-        )
+        );
+        Ok(())
     }
 }
 

@@ -148,3 +148,19 @@ fn ident_validate_residual_matrix() {
     assert!(validate_package_path("A/b").is_err());
     assert!(validate_ident(&format!("a{}", '\u{200b}')).is_err());
 }
+
+#[test]
+fn lexer_and_parse_residual_lines() {
+    use reciplexa_syntax::lexer::Lexer;
+    use reciplexa_syntax::parse_source;
+
+    let mut lexer = Lexer::new("(page a4 (circle 1 2 3))");
+    let tokens = lexer.tokenize_all();
+    assert!(!tokens.is_empty());
+
+    let parse = parse_source("(val main 1)");
+    assert!(!parse.has_errors());
+
+    let bad = parse_source("(unclosed");
+    assert!(bad.has_errors());
+}

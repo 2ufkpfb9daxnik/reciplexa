@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 
 use reciplexa_bind::{elaborate_units_with_interfaces, parse_imports, ElaboratedUnit, ModuleError};
 
+use crate::domain_native::{DomainNativeModule, DomainNativeRegistry};
 use crate::manifest::{DependencySpec, PackageManifest};
 use crate::rpi::parse_rpi_exports;
 use crate::rpxm::{parse_rpxm, RpxmError};
@@ -60,9 +61,33 @@ pub struct LocalPackageIndex {
     packages: BTreeMap<String, (PathBuf, PackageManifest)>,
     /// Import first-segment alias → formal package name (Slice B path deps).
     aliases: BTreeMap<String, String>,
+    /// Modules whose bodies are Rust-synthesized (skip `src/*.rpx`).
+    native: DomainNativeRegistry,
 }
 
 impl LocalPackageIndex {
+    /// Attach / replace the domain-native registry (N0.4+).
+    pub fn with_native(mut self, native: DomainNativeRegistry) -> Self {
+        self.native = native;
+        self
+    }
+
+    pub fn set_native(&mut self, native: DomainNativeRegistry) {
+        self.native = native;
+    }
+
+    pub fn native(&self) -> &DomainNativeRegistry {
+        &self.native
+    }
+
+    pub fn native_mut(&mut self) -> &mut DomainNativeRegistry {
+        &mut self.native
+    }
+
+    /// Register a single native module on this index.
+    pub fn register_native(&mut self, module: DomainNativeModule) {
+        self.native.register(module);
+    }
     /// Scan each search root for immediate child directories containing `package.rpxm`.
     pub fn discover(search_roots: &[impl AsRef<Path>]) -> Result<Self, PackageLoadError> {
         let mut packages: BTreeMap<String, (PathBuf, PackageManifest)> = BTreeMap::new();
@@ -102,6 +127,7 @@ impl LocalPackageIndex {
         Ok(Self {
             packages,
             aliases: BTreeMap::new(),
+            native: crate::domain_bodies::std_domain_natives(),
         })
     }
 
@@ -188,17 +214,38 @@ impl LocalPackageIndex {
     }
 
     /// Resolve an import and load the optional `.rpi` export list (MOD §8 / §2.3).
+    ///
+    /// When the resolved `package/module` path is in [`DomainNativeRegistry`], the
+    /// `.rpx` body is **not** read; [`DomainNativeModule::synthetic_source`] is used.
     pub fn resolve_import_detailed(
         &self,
         import_path: &str,
     ) -> Result<ResolvedImport, PackageLoadError> {
-        let (pkg_alias, module_path) = split_package_import(import_path);
+        let (pkg_alias, module_rest) = split_package_import(import_path);
         let pkg_name = self.resolve_alias(pkg_alias);
+
+        // Pure-native modules with no package.rpxm on disk.
+        if !self.packages.contains_key(pkg_name) {
+            if let Some(native) = self.native.get(import_path).or_else(|| {
+                if module_rest.is_empty() {
+                    None
+                } else {
+                    self.native.get(&format!("{pkg_name}/{module_rest}"))
+                }
+            }) {
+                return Ok(ResolvedImport {
+                    unit_name: import_path.to_string(),
+                    source: native.synthetic_source.clone(),
+                    interface_exports: Some(native.exports.clone()),
+                });
+            }
+        }
+
         let (root, manifest) = self.packages.get(pkg_name).ok_or_else(|| {
             PackageLoadError::NotFound(format!("package `{pkg_alias}` not found on search path"))
         })?;
 
-        let module_path = if module_path.is_empty() {
+        let module_path = if module_rest.is_empty() {
             // Bare `(import graphics)` — require a public module with the same name, else first public.
             if manifest.public_modules.iter().any(|m| m == pkg_name) {
                 pkg_name.to_string()
@@ -210,7 +257,7 @@ impl LocalPackageIndex {
                 )));
             }
         } else {
-            module_path.to_string()
+            module_rest.to_string()
         };
 
         if !manifest.public_modules.is_empty()
@@ -219,6 +266,28 @@ impl LocalPackageIndex {
             return Err(PackageLoadError::NotFound(format!(
                 "module `{module_path}` is not public in package `{pkg_name}`"
             )));
+        }
+
+        let native_key = format!("{pkg_name}/{module_path}");
+        if let Some(native) = self.native.get(&native_key) {
+            let interface_exports =
+                if let Some(rpi) = manifest.module_interface_path(root, &module_path) {
+                    if rpi.is_file() {
+                        let rpi_src = fs::read_to_string(&rpi).map_err(|e| {
+                            PackageLoadError::Io(format!("failed to read `{}`: {e}", rpi.display()))
+                        })?;
+                        Some(parse_rpi_exports(&rpi_src)?)
+                    } else {
+                        Some(native.exports.clone())
+                    }
+                } else {
+                    Some(native.exports.clone())
+                };
+            return Ok(ResolvedImport {
+                unit_name: import_path.to_string(),
+                source: native.synthetic_source.clone(),
+                interface_exports,
+            });
         }
 
         // When interface-root is set, require `.rpi` and parse its public export names.

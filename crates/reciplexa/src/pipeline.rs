@@ -111,12 +111,8 @@ fn has_top_level_interim_page(src: &str) -> bool {
         if form.kind() == SyntaxKind::StructuredComment {
             continue;
         }
-        let items: Vec<_> = form.children().collect();
-        if let Some(head) = items.first() {
-            if head.kind() == SyntaxKind::Ident && head.text() == "page" {
-                return true;
-            }
-        }
+        // Prefer list_head_ident: rowan `children()` skips tokens, so an Ident
+        // head is never visible via `children().first()` on a List form.
         if list_head_ident(&form).is_some_and(|h| h == "page") {
             return true;
         }
@@ -296,8 +292,7 @@ mod tests {
         assert_eq!(from_pkg.pages[0].paper, interim.pages[0].paper);
         assert_eq!(
             leaf_shape_count(&from_pkg.pages[0].shapes),
-            leaf_shape_count(&interim.pages[0].shapes),
-            "package auto-detect should match interim leaf count"
+            leaf_shape_count(&interim.pages[0].shapes)
         );
     }
 
@@ -333,27 +328,21 @@ mod tests {
     fn document_from_source_expands_doc_title() {
         let doc = document_from_source("(markup @title{Hi})").unwrap();
         assert_eq!(doc.pages.len(), 1);
-        match &doc.pages[0].shapes[0] {
-            Shape::Text(t) => {
-                assert_eq!(t.content, "Hi");
-                assert_eq!(t.size_mm, 14.0);
-            }
-            other => panic!("expected text, got {other:?}"),
-        }
+        let Shape::Text(t) = &doc.pages[0].shapes[0] else {
+            panic!("expected text");
+        };
+        assert_eq!(t.content, "Hi");
+        assert_eq!(t.size_mm, 14.0);
     }
 
     #[test]
     fn document_from_source_expands_doc_image() {
         let doc = document_from_source(r#"(markup @image["figures/demo.png"])"#).unwrap();
         assert_eq!(doc.pages.len(), 1);
-        assert!(
-            doc.pages[0]
-                .shapes
-                .iter()
-                .any(|s| matches!(s, Shape::Image(_))),
-            "expected an Image shape: {:?}",
-            doc.pages[0].shapes
-        );
+        assert!(doc.pages[0]
+            .shapes
+            .iter()
+            .any(|s| matches!(s, Shape::Image(_))));
     }
 
     #[test]
@@ -506,5 +495,28 @@ mod tests {
         let err = PipelineError::from(e);
         assert_eq!(err.stage, "effect");
         assert!(err.message.contains("boom"));
+    }
+
+    #[test]
+    fn round26_page_ident_strip_and_error_display() {
+        // Ident-first-child page detection + structured-comment skip
+        assert!(has_top_level_interim_page("(page a4 (circle 1 2 3))"));
+        assert!(has_top_level_interim_page("(// note)\n(page a4)"));
+        assert!(!has_top_level_interim_page("(val main 1)"));
+        assert!(!has_top_level_interim_page("(")); // parse fail → false
+        assert!(!has_top_level_interim_page(""));
+
+        // strip: parse fail returns input unchanged; effect forms dropped
+        let bad = "(";
+        assert_eq!(strip_top_level_effect_forms(bad), bad);
+        let stripped = strip_top_level_effect_forms(
+            "(perform log \"x\")\n(handle ask (fn (m) m) 1)\n(src 1)\n(val main 1)",
+        );
+        assert!(!stripped.contains("perform"));
+        assert!(stripped.contains("val main"));
+
+        let pe = PipelineError::new("package", "x");
+        assert!(!pe.display().is_empty());
+        let _ = format!("{pe:?}");
     }
 }

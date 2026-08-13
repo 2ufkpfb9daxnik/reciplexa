@@ -5,8 +5,9 @@
 
 /// True when the token text denotes an `f64` literal (fractional or scientific).
 pub fn is_f64_literal_form(text: &str) -> bool {
-    let Ok((_, body)) = strip_sign(text) else {
-        return false;
+    let (_, body) = match strip_sign(text) {
+        Ok(v) => v,
+        Err(_) => return false,
     };
     body.contains('.') || body.contains('e') || body.contains('E')
 }

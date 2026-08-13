@@ -267,9 +267,7 @@ impl<'a> Lexer<'a> {
             self.advance_char();
             open += 1;
         }
-        if open == 0 {
-            return self.finish(SyntaxKind::Error, start);
-        }
+        // Caller only enters on `"`, so `open >= 1`.
         if open == 2 {
             return self.finish(SyntaxKind::String, start);
         }
@@ -464,11 +462,13 @@ impl<'a> Lexer<'a> {
                 self.advance_char(); // 0
                 let radix_ch = self.peek_char().expect("checked");
                 self.advance_char(); // b|o|x
-                let radix = match radix_ch {
-                    'b' => 2,
-                    'o' => 8,
-                    'x' => 16,
-                    _ => unreachable!(),
+                // Matched `b|o|x` above; `x` is the remaining case.
+                let radix = if radix_ch == 'b' {
+                    2
+                } else if radix_ch == 'o' {
+                    8
+                } else {
+                    16
                 };
                 if !self.consume_digits_with_sep(|c| c.is_digit(radix)) {
                     return self.finish(SyntaxKind::Error, start);

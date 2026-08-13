@@ -59,11 +59,11 @@
 
 ### 2.3 Rust ワークスペース領域カバレッジ概況
 
-出典: `lang/coverage-status.md`（llvm-cov region、tests/bins 除外）
+出典: `lang/coverage-status.md`（llvm-cov region、BEST-ENTRY、7-crate impl `src/`）
 
-- **実装ソース**: 45907 / 48243 regions ≈ **95.16%**（目標はおおよそ 99–100%）
-- 残ギャップが大きいパッケージ: **`reciplexa-core` 84.40%**（check/elaborate 中心）、`reciplexa-bind` 92.80%、`reciplexa-syntax` 93.98%、`reciplexa-eval` 95.07%、CLI / gui / view が 95–98% 帯
-- `pdf` / `svg` / `pptx` / `effect` / `std` など多数は 100%（測定上）
+- **Filtered BEST-ENTRY (7 crates):** **99.01%**（25614/25870; 256 missed）— **≥99% crossed** (N6 q); 目標はおおよそ 99%
+- 残ギャップが大きいファイル: `cli` / `document_pipeline` / `load` / `eval` / `check` / `cast`；`pipeline` と `graphics_value` は **≥99%**；`parse` は **98.98%**
+- `graphics_bridge` live-hash **100%**；`unify` / `resolve` / `outcome` は ≥99% または 100%
 
 ---
 
@@ -93,20 +93,20 @@ pre-PKG カーネルは計画上 **COMPLETE（意図的 defer 付き）**。各�
 | **TST** | 部分 | 言語ゲート／適合試験の主要通過；版付きフル suite は延期 | `crates/reciplexa-test` + `lang_kernel` 系 |
 | **IR / lower / scene** | 実装済（文書面はホスト連動） | Core→Mem→scene／visual-ir；図形は当面 interim + パッケージ二重化 | `crates/reciplexa-lower` / `scene` / `visual-ir` |
 
-### 3.1 パッケージ Slice A（＋ B/C 薄層）
+### 3.1 パッケージ Slice A（＋ B/C 薄層）— **実装は Rust native へ移行**
 
-仕様上の単位・色・図形は **言語組み込みではない**（パッケージ供給）。現状:
+仕様上の単位・色・図形は **言語組み込みではない**（パッケージ API 供給）。ホットドメインの **本文は Rust native**（`KER-001` / Compiler-native package）。詳細単位: [`native-domain-plan.md`](native-domain-plan.md)。
 
 | パッケージ | 状況 | 内容の目安 |
 |------------|------|------------|
-| **`packages/graphics`** | Slice A + C static depth | `shapes`（circle/rect/ellipse/line/path/ring/frame/group + fill/stroke/paint）、`page`（a4/letter/a5/a3/legal/square/page-size）、`color`（rgb/rgba + named）＋`.rpi`；例 `examples/pkg_graphics_static.rpx` |
-| **`packages/length`** | Slice C | `mm`/`cm`/`pt`/`bp`/`inch`/`q`/`px`/`em` + `to-mm`/`add-mm`；例 `pkg_length.rpx`（Number+Ident 単位サフィックスは暫定のまま） |
-| **`packages/color`** | Slice C | `rgb`/`rgba`/`srgb` + 名前色 + `from-byte`/`with-alpha`；例 `pkg_color.rpx` |
-| **`packages/math`** | Slice C（SATySFi 志向） | `atoms` / `scripts` / `frac` / `sqrt` / `delimiters` + **`matrix`（env/delim） / `accents` / `bigops` / `cases`（delim） / `align` / `stack`**；`operatorname`/`mathrm`/`textop`；例 `examples/pkg_math.rpx` |
-| **`packages/japanese`** | Slice C（JLReq 志向・部分） | `classes`、`linebreak`（拡張 `sample-pair-rules`）、`kihon`（trim/placement + **`vertical-text`/`place-vertical-text` graphics bridge**）、`markup`（`tategaki-text`）；例 `pkg_japanese_jlreq` / **`pkg_markup_ja`**；**完全 JLReq ではない** |
+| **`packages/graphics`** | API + interim `.rpx` → **native 移行予定** | `shapes` / `page` / `color`＋`.rpi`；例 `pkg_graphics_*` |
+| **`packages/length`** | 同上 | 単位コンストラクタ＋`.rpi`；例 `pkg_length.rpx` |
+| **`packages/color`** | 同上 | srgb / named＋`.rpi`；例 `pkg_color.rpx` |
+| **`packages/math`** | 同上（SATySFi 志向） | atoms…stack＋`.rpi`；例 `pkg_math.rpx`；layout は後続 |
+| **`packages/japanese`** | 同上（JLReq 志向・部分） | classes / linebreak / kihon / markup；**完全 JLReq ではない** |
+| **`crates/reciplexa-std`** | Rust ファサード（native 本文の主戦場） | `visual` / `text` / `document` / `math` / … |
 
-ローカル import（例: `(import graphics/shapes)`）、消費者 path-dep + alias、`workspace.rpxm` stub parse まで到達。**レジストリ・署名・git/URL dep・本番ビルドグラフ全体は未着手（OPEN-PKG-*）。**  
-文書パイプラインの CST `(page …)(circle …)` interim は **GUI CST sync 向けに `black_circle.rpx` 等で残存**。Slice D: `document_from_source` が package-shaped ソース（`(import graphics` + `(val main`、top-level interim `(page` なし）を自動検出し expanded バッファ経由で `document_from_graphics_value` へ橋渡し；effects prelude は strip して package elaboration。キーワード表は未削除（step 5）。
+ローカル import・path-dep・`workspace.rpxm` stub まで到達。**レジストリ等は OPEN-PKG-***。CST interim は GUI golden 用に残存。Slice D bridge は package-shaped ソース向けに live。
 
 ---
 
@@ -149,17 +149,13 @@ pre-PKG カーネルは計画上 **COMPLETE（意図的 defer 付き）**。各�
 
 ## 6. 次工程
 
-推奨順序（既存計画と整合）:
+推奨順序:
 
-1. **カバレッジ締め** — 特に `reciplexa-core`（check/elaborate）、続いて bind / syntax / eval / CLI・GUI の残リージョンを 99% 帯へ。
-2. **PKG 深化（Slice C–D）**
-   - `graphics` strangler: package bridge default for package-shaped sources; examples `japanese_page`/`effects`/`macros` migrated; GUI interim retained for `black_circle` CST sync
-   - `japanese` / jlreq: vertical-text graphics bridge stubs; Text IR bind for `pkg_markup_ja`
-   - `math`: `operatorname`/matrix-env/delimited cases on Core records (layout still deferred)
-3. **PKG インフラ残り（Slice E 断片）** — workspace メンバー発見＋共有 lock、resource root；レジストリは stub のまま据え置き可。
-4. **意図的言語 defer の選択的解禁** — 必要になった時点でのみ EFF multi-shot、MOD functor、ROW multi-tail 等（カーネル「完成宣言」を崩さない範囲で）。
-5. **OPEN-TEXT-JA-001** — UCS 文字クラス表・§C 分割可否行列・Text IR 結合を japanese package へ段階追加。
-6. **math layout** — stretchy fence / script / matrix alignment（現は木の構築のみ）。
+1. **Native domain 移行** — [`native-domain-plan.md`](native-domain-plan.md) の単位 N0→N5（length/color → graphics → math → japanese → document）。`.rpx` 本文を廃し Rust 実装 + `.rpi`/`import` を維持。
+2. **カバレッジ締め（N6）** — 移行後に llvm-cov で filtered ~99%（core/eval/bind/syntax/cli）。
+3. **Slice D 残り** — GUI golden が native 経由で green になったら interim keyword 表削除。
+4. **PKG インフラ（Slice E）** — workspace lock / resource root；レジストリは stub 可。
+5. **OPEN-TEXT-JA-001 / math layout** — UCS 表・glyph layout は native japanese/math 深化の後続。
 ---
 
 ## 付記: クレート一覧の見取り図

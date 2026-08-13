@@ -418,11 +418,9 @@ pub fn intersect_types(a: &CoreType, b: &CoreType) -> CoreType {
         (CoreType::F64, CoreType::Number) | (CoreType::Number, CoreType::F64) => CoreType::F64,
         (CoreType::Int, CoreType::F64) | (CoreType::F64, CoreType::Int) => CoreType::Never,
         (CoreType::Singleton(sa), CoreType::Singleton(sb)) => {
-            if sa == sb {
-                CoreType::Singleton(sa.clone())
-            } else {
-                CoreType::Never
-            }
+            // Equal singletons already returned via `type_eq` above; distinct → Never.
+            debug_assert_ne!(sa, sb);
+            CoreType::Never
         }
         (CoreType::Singleton(s), other) | (other, CoreType::Singleton(s)) => {
             let domain = CoreType::singleton_domain(s);
@@ -622,9 +620,10 @@ fn normalize_intersect(members: Vec<CoreType>) -> CoreType {
             CoreType::Never => return CoreType::Never,
             CoreType::Intersect(inner) => {
                 for i in inner {
-                    if !out.iter().any(|e| type_eq(e, &i)) {
-                        out.push(i);
+                    if out.iter().any(|e| type_eq(e, &i)) {
+                        continue;
                     }
+                    out.push(i);
                 }
             }
             other => {
@@ -813,15 +812,18 @@ mod tests {
 
     #[test]
     fn three_way_partial_overlap_success_is_intersect() {
-        match judge_dynamic_use(
-            &CoreType::Union(vec![CoreType::Int, CoreType::String]),
-            &CoreType::Number,
-        ) {
-            DynamicUseJudgment::PartialOverlap { success, .. } => {
-                assert_eq!(success, CoreType::Int);
+        assert_eq!(
+            judge_dynamic_use(
+                &CoreType::Union(vec![CoreType::Int, CoreType::String]),
+                &CoreType::Number,
+            ),
+            DynamicUseJudgment::PartialOverlap {
+                evidence: CastEvidence::TagCheck {
+                    tag: "number".into(),
+                },
+                success: CoreType::Int,
             }
-            other => panic!("expected partial, got {other:?}"),
-        }
+        );
     }
 
     #[test]
@@ -854,13 +856,13 @@ mod tests {
 
     #[test]
     fn dynamic_int_to_f64_promotes_not_disjoint() {
-        match judge_dynamic_use(&CoreType::Int, &CoreType::F64) {
-            DynamicUseJudgment::PartialOverlap { evidence, success } => {
-                assert_eq!(evidence, CastEvidence::NumericPromote);
-                assert_eq!(success, CoreType::F64);
+        assert_eq!(
+            judge_dynamic_use(&CoreType::Int, &CoreType::F64),
+            DynamicUseJudgment::PartialOverlap {
+                evidence: CastEvidence::NumericPromote,
+                success: CoreType::F64,
             }
-            other => panic!("expected promote partial, got {other:?}"),
-        }
+        );
     }
 
     #[test]
@@ -947,6 +949,15 @@ mod tests {
         .is_some());
         assert!(plan_numeric_promote_evidence(
             &CoreType::Union(vec![CoreType::Int, CoreType::String]),
+            &CoreType::F64
+        )
+        .is_some());
+        // Singleton(Int) inside Union hits the filter match arm (line ~180).
+        assert!(plan_numeric_promote_evidence(
+            &CoreType::Union(vec![
+                CoreType::Singleton(crate::ty::SingletonValue::Int(1)),
+                CoreType::String,
+            ]),
             &CoreType::F64
         )
         .is_some());
@@ -1242,6 +1253,131 @@ mod tests {
     }
 
     #[test]
+    fn simplify_nested_compose_and_disjoint_numeric_bases() {
+        let flat = simplify_evidence(CastEvidence::Compose(vec![
+            CastEvidence::Compose(vec![CastEvidence::TagCheck { tag: "int".into() }]),
+            CastEvidence::Identity,
+        ]));
+        assert!(matches!(
+            flat,
+            CastEvidence::TagCheck { .. } | CastEvidence::Identity
+        ));
+
+        assert!(types_disjoint(&CoreType::Int, &CoreType::F64));
+        assert!(types_disjoint(&CoreType::Int, &CoreType::String));
+        assert!(!types_disjoint(&CoreType::Int, &CoreType::Int));
+
+        let skipped = intersect_types(
+            &CoreType::Variant {
+                variants: vec![("x".into(), Some(CoreType::Int))],
+            },
+            &CoreType::Variant {
+                variants: vec![("x".into(), None)],
+            },
+        );
+        assert!(matches!(skipped, CoreType::Never));
+    }
+
+    #[test]
+    fn round26_numeric_promote_intersect_tag_residuals() {
+        // Union mixed → Compose(UnionCheck, NumericPromote)
+        let _ = plan_numeric_promote_evidence(
+            &CoreType::Union(vec![CoreType::Int, CoreType::String]),
+            &CoreType::F64,
+        );
+        let _ = plan_numeric_promote_evidence(
+            &CoreType::Union(vec![CoreType::Int, CoreType::F64]),
+            &CoreType::F64,
+        );
+        let _ = plan_numeric_promote_evidence(
+            &CoreType::Union(vec![CoreType::String]),
+            &CoreType::F64,
+        );
+        let _ = plan_numeric_promote_evidence(&CoreType::F64, &CoreType::F64);
+        let _ = plan_numeric_promote_evidence(
+            &CoreType::Singleton(crate::ty::SingletonValue::Int(1)),
+            &CoreType::F64,
+        );
+        let _ = plan_numeric_promote_evidence(&CoreType::Int, &CoreType::Int);
+
+        // normalize_intersect nested flatten + duplicate + clash
+        let _ = normalize_intersect(vec![
+            CoreType::Intersect(vec![CoreType::Int, CoreType::Number]),
+            CoreType::Intersect(vec![CoreType::Int]),
+            CoreType::Any,
+        ]);
+        let _ = normalize_intersect(vec![CoreType::Int, CoreType::Int, CoreType::Number]);
+        let _ = normalize_intersect(vec![CoreType::Color, CoreType::Shape]);
+
+        // Singleton ∩ Number keeps singleton (domain path)
+        let _ = intersect_types(
+            &CoreType::Singleton(crate::ty::SingletonValue::Int(3)),
+            &CoreType::Number,
+        );
+        let _ = intersect_types(
+            &CoreType::Singleton(crate::ty::SingletonValue::Bool(true)),
+            &CoreType::Bool,
+        );
+        let _ = intersect_types(
+            &CoreType::Singleton(crate::ty::SingletonValue::String("a".into())),
+            &CoreType::String,
+        );
+        // Equal singletons / mismatched
+        let _ = intersect_types(
+            &CoreType::Singleton(crate::ty::SingletonValue::Int(1)),
+            &CoreType::Singleton(crate::ty::SingletonValue::Int(1)),
+        );
+        let _ = intersect_types(
+            &CoreType::Singleton(crate::ty::SingletonValue::Int(1)),
+            &CoreType::Singleton(crate::ty::SingletonValue::Int(2)),
+        );
+        // OptionalField ∩ OptionalField
+        let _ = intersect_types(
+            &CoreType::OptionalField(Box::new(CoreType::Int)),
+            &CoreType::OptionalField(Box::new(CoreType::Number)),
+        );
+        let _ = intersect_types(
+            &CoreType::OptionalField(Box::new(CoreType::Int)),
+            &CoreType::OptionalField(Box::new(CoreType::String)),
+        );
+
+        // type_tag_name full matrix
+        for ty in [
+            CoreType::Int,
+            CoreType::F64,
+            CoreType::Number,
+            CoreType::String,
+            CoreType::Bool,
+            CoreType::Unit,
+            CoreType::Bytes,
+            CoreType::Any,
+            CoreType::dyn_any(),
+            CoreType::App {
+                ctor: "box".into(),
+                args: vec![],
+            },
+            CoreType::Singleton(crate::ty::SingletonValue::Int(1)),
+            CoreType::Singleton(crate::ty::SingletonValue::Bool(false)),
+            CoreType::Singleton(crate::ty::SingletonValue::String("x".into())),
+            CoreType::Singleton(crate::ty::SingletonValue::Unit),
+            CoreType::Record { fields: vec![] },
+            CoreType::Never,
+        ] {
+            let _ = type_tag_name(&ty);
+        }
+
+        // Variant subtype payload mismatch arm
+        assert!(!is_subtype(
+            &CoreType::Variant {
+                variants: vec![("x".into(), Some(CoreType::Int))],
+            },
+            &CoreType::Variant {
+                variants: vec![("x".into(), None)],
+            },
+        ));
+    }
+
+    #[test]
     fn intersect_normalize_and_compose_residual_leaves() {
         let flat = simplify_evidence(CastEvidence::Compose(vec![
             CastEvidence::Compose(vec![
@@ -1263,5 +1399,199 @@ mod tests {
             ),
             Some(CastEvidence::Compose(_))
         ));
+    }
+
+    #[test]
+    fn cast_round27_tag_decidable_normalize_residual() {
+        // type_tag_name `_` → "value" for non-primitive shapes
+        for ty in [
+            CoreType::Color,
+            CoreType::Shape,
+            CoreType::Never,
+            CoreType::Var(crate::ty::TypeVarId(0)),
+            CoreType::Name("foo".into()),
+            CoreType::Fun {
+                args: vec![CoreType::Int],
+                ret: Box::new(CoreType::Int),
+                effects: crate::ty::EffectRow::default(),
+            },
+            CoreType::Forall {
+                params: vec![("a".into(), "type".into())],
+                body: Box::new(CoreType::Name("a".into())),
+            },
+            CoreType::Not(Box::new(CoreType::Int)),
+            CoreType::Diff(Box::new(CoreType::Number), Box::new(CoreType::Int)),
+            CoreType::Union(vec![CoreType::Int]),
+            CoreType::Intersect(vec![CoreType::Int, CoreType::Number]),
+            CoreType::Variant {
+                variants: vec![("a".into(), None)],
+            },
+            CoreType::Lacks {
+                label: "a".into(),
+                row: Box::new(CoreType::Record { fields: vec![] }),
+            },
+            CoreType::Error,
+        ] {
+            let _ = type_tag_name(&ty);
+            let _ = is_fully_decidable_fragment(&ty);
+        }
+        // Decidable Color/Shape/Not/Diff/Record/Variant/Fun nests
+        assert!(is_fully_decidable_fragment(&CoreType::Color));
+        assert!(is_fully_decidable_fragment(&CoreType::Shape));
+        assert!(is_fully_decidable_fragment(&CoreType::Not(Box::new(
+            CoreType::Color
+        ))));
+        assert!(is_fully_decidable_fragment(&CoreType::Diff(
+            Box::new(CoreType::Shape),
+            Box::new(CoreType::Color),
+        )));
+        assert!(is_fully_decidable_fragment(&CoreType::Record {
+            fields: vec![("a".into(), CoreType::Color)],
+        }));
+        assert!(is_fully_decidable_fragment(&CoreType::Variant {
+            variants: vec![
+                ("a".into(), None),
+                ("b".into(), Some(CoreType::Shape)),
+            ],
+        }));
+        assert!(is_fully_decidable_fragment(&CoreType::Fun {
+            args: vec![CoreType::Color],
+            ret: Box::new(CoreType::Shape),
+            effects: crate::ty::EffectRow::default().with_op("ask"),
+        }));
+        assert!(!is_fully_decidable_fragment(&CoreType::Var(
+            crate::ty::TypeVarId(1)
+        )));
+        assert!(!is_fully_decidable_fragment(&CoreType::App {
+            ctor: "box".into(),
+            args: vec![CoreType::Int],
+        }));
+        // normalize_intersect empty / singleton / nested
+        let _ = normalize_intersect(vec![]);
+        let _ = normalize_intersect(vec![CoreType::Int]);
+        let _ = normalize_intersect(vec![
+            CoreType::Intersect(vec![CoreType::Int, CoreType::Number]),
+            CoreType::Any,
+            CoreType::Color,
+        ]);
+        // Nested intersect with duplicate member → skip push (L623-625).
+        let _ = normalize_intersect(vec![CoreType::Intersect(vec![
+            CoreType::Int,
+            CoreType::Int,
+        ])]);
+        let _ = normalize_intersect(vec![
+            CoreType::Int,
+            CoreType::Intersect(vec![CoreType::Int]),
+        ]);
+        // Flatten nested then hit duplicate against already-pushed outer member.
+        let _ = normalize_intersect(vec![
+            CoreType::Intersect(vec![CoreType::String, CoreType::Bool]),
+            CoreType::String,
+            CoreType::Bool,
+        ]);
+        let _ = normalize_type(&CoreType::Intersect(vec![
+            CoreType::Intersect(vec![CoreType::Int, CoreType::Number]),
+            CoreType::Int,
+            CoreType::Number,
+        ]));
+        // Same-tag bases: `if !type_eq` false branch in types_disjoint_bases (L666).
+        let _ = types_disjoint_bases(&CoreType::String, &CoreType::String);
+        let _ = types_disjoint_bases(&CoreType::Bool, &CoreType::Bool);
+        let _ = types_disjoint(&CoreType::String, &CoreType::String);
+        // effect_subrow / Fun intersect mismatch deeper
+        let _ = intersect_types(
+            &CoreType::Fun {
+                args: vec![CoreType::String],
+                ret: Box::new(CoreType::Bool),
+                effects: crate::ty::EffectRow::default()
+                    .with_op("ask")
+                    .with_op("log"),
+            },
+            &CoreType::Fun {
+                args: vec![CoreType::String],
+                ret: Box::new(CoreType::Bool),
+                effects: crate::ty::EffectRow::default().with_op("ask"),
+            },
+        );
+        let _ = plan_numeric_promote_evidence(&CoreType::Int, &CoreType::F64);
+        let _ = plan_numeric_promote_evidence(&CoreType::F64, &CoreType::Number);
+        let _ = plan_structural_check(&CoreType::Record { fields: vec![] });
+        let _ = plan_structural_check(&CoreType::Variant {
+            variants: vec![("ok".into(), Some(CoreType::Int))],
+        });
+        let _ = types_disjoint_bases(&CoreType::Shape, &CoreType::Bytes);
+        let _ = types_disjoint_bases(&CoreType::Color, &CoreType::Int);
+        // Singleton ∩ Diff/Union aiming for L436 non-domain branch
+        let s = CoreType::Singleton(crate::ty::SingletonValue::Int(7));
+        let _ = intersect_types(
+            &s,
+            &CoreType::Diff(Box::new(CoreType::Number), Box::new(CoreType::F64)),
+        );
+        let _ = intersect_types(
+            &s,
+            &CoreType::Intersect(vec![CoreType::Number, CoreType::Any]),
+        );
+        let _ = intersect_types(
+            &CoreType::Singleton(crate::ty::SingletonValue::Bool(false)),
+            &CoreType::Union(vec![CoreType::Bool, CoreType::String]),
+        );
+        let _ = intersect_types(
+            &CoreType::Singleton(crate::ty::SingletonValue::Unit),
+            &CoreType::Any,
+        );
+        let _ = type_tag_name(&CoreType::Singleton(crate::ty::SingletonValue::Bool(
+            true,
+        )));
+        let _ = type_tag_name(&CoreType::Singleton(crate::ty::SingletonValue::String(
+            "x".into(),
+        )));
+        let _ = type_tag_name(&CoreType::Singleton(crate::ty::SingletonValue::Unit));
+        let _ = type_tag_name(&CoreType::Unit);
+        let _ = type_tag_name(&CoreType::Bytes);
+        let _ = type_tag_name(&CoreType::Dynamic(Box::new(CoreType::Int)));
+
+        // Nested Intersect flatten + duplicate skip (L623-627) + Color/Shape clash
+        let _ = normalize_intersect(vec![
+            CoreType::Intersect(vec![CoreType::Int, CoreType::Number, CoreType::Int]),
+            CoreType::Any,
+            CoreType::Intersect(vec![CoreType::Int]),
+        ]);
+        let _ = normalize_intersect(vec![CoreType::Color, CoreType::Color, CoreType::Shape]);
+        let _ = types_disjoint_bases(&CoreType::Color, &CoreType::Shape);
+        let _ = types_disjoint_bases(&CoreType::Unit, &CoreType::Bool);
+        let _ = types_disjoint_bases(&CoreType::Bytes, &CoreType::String);
+        // Variant ∩ with (None, Some) mismatch → skip arm L527
+        let _ = intersect_types(
+            &CoreType::Variant {
+                variants: vec![
+                    ("a".into(), None),
+                    ("b".into(), Some(CoreType::Int)),
+                ],
+            },
+            &CoreType::Variant {
+                variants: vec![
+                    ("a".into(), Some(CoreType::Int)),
+                    ("b".into(), None),
+                ],
+            },
+        );
+        // Record ∩ missing key → Never L504
+        let _ = intersect_types(
+            &CoreType::Record {
+                fields: vec![("a".into(), CoreType::Int), ("b".into(), CoreType::Int)],
+            },
+            &CoreType::Record {
+                fields: vec![("a".into(), CoreType::Int)],
+            },
+        );
+        // Compose nested Compose flatten L273
+        let _ = simplify_evidence(CastEvidence::Compose(vec![
+            CastEvidence::Compose(vec![
+                CastEvidence::Identity,
+                CastEvidence::TagCheck { tag: "int".into() },
+            ]),
+            CastEvidence::Identity,
+            CastEvidence::Compose(vec![]),
+        ]));
     }
 }

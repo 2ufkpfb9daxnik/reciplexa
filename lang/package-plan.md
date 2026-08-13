@@ -1,93 +1,62 @@
-# Package plan (PKG-001 + std domain libs)
+# Package plan (PKG-001 + native std domain)
 
-Goal: land local-path packages and std domain libraries after Part II conformance, without waiting on `OPEN-PKG-001` registry distribution.
+Goal: local-path package **API** (`package.rpxm`, `.rpi`, `import`) after Part II conformance, with **Rust native bodies** for hot domain packages (graphics / length / color / japanese / math / document). Portable `.rpx` bodies under `packages/*/src/` are interim only and are being retired per `lang/native-domain-plan.md`.
 
 ## Spec anchors
 
-- `PKG-001` — `specification.md` §13.10 (~L15855+): `package.rpxm`, source/interface/resource roots, public modules, deps, lockfile, workspace, resources
-- `MOD-001` — outer modules + `(import …)` (already done); package path resolution is the next link
+- `PKG-001` — `specification.md` §13.10: manifest, public modules, deps, lockfile, workspace, resources
+- **Compiler-native package** (~L17260): keep package API; replace body with Rust native
+- `KER-001` (~L17300, ~L26350): domain vocabulary stays package-shaped; Rust implements as typed intrinsics with same observable meaning
 - SYN — `circle` / `page` / colors / units are **not** language builtins; packages supply constructors
-- `OPEN-PKG-001*` — registry protocol, signing, git/URL deps: **stub / defer**
+- `OPEN-PKG-001*` / `OPEN-NATIVE-PKG-001` — registry / ABI details: stub / defer where needed
 
 ## Current baseline
 
 | Piece | Status |
 |---|---|
-| `crates/reciplexa-package` | Phase 10 skeleton: nested `(name)/(version)/(entry)/(dep)` `parse_rpxm`, JSON manifest, resolver/lockfile/build graph |
-| `crates/reciplexa-bind` | `load_module_tree` sibling `.rpx` only; no package search path |
-| Document surface | Interim `(page …) (circle …)` in lower/effect — **keep until migration** |
-| `crates/reciplexa-std` | Rust typed façade (Length/Color/…); not RPX packages yet |
+| `crates/reciplexa-package` | Manifest / path dep / lock / workspace stub |
+| `crates/reciplexa-bind` | Module tree + package search path |
+| Document surface | Interim CST `(page …)(circle …)` retained for GUI golden; package-shaped sources use bridge |
+| `crates/reciplexa-std` | Rust typed façade (`visual` / `text` / `document` / `math` / …) — **authoritative body target** |
+| `packages/*/src/*.rpx` | **Interim portable bodies — migrate to native (see native-domain-plan)** |
+| `packages/*/interface/*.rpi` | Keep as public API surface |
 
 ## Ordered work
 
-### Slice A — plan + DD-001 manifest surface (this pass)
+### Slice A–B — manifest + local import (done)
 
-1. This plan file.
-2. Extend `PackageManifest` / `parse_rpxm` toward DD-001:
-   - `(package <name> format-version … version "…" …)` flat fields
-   - `source-root` / `interface-root` / `resource-root`
-   - `(public-modules …)`
-   - optional `entry` / `(entry-points …)` for libraries
-   - keep Phase 10 nested form working for existing tests
-3. Std RPX packages on disk under `packages/`:
-   - `graphics` — `shapes` (+ minimal `color` / page-size vals as needed by examples)
-   - stubs or thin follow-ons: `length`, `color`, `math`, `japanese` / markup (as separate commits)
-4. Wire local import: `(import graphics/shapes)` resolves via package search roots → `source-root` module file → existing `elaborate_units`.
-5. One language example using package import for a shape constructor; do **not** break GUI interim `page`/`circle`.
-6. Gate (fmt / clippy `-D warnings` / test workspace / check gui) after each commit batch.
-7. Update `lang/part2-conformance.md` PKG-001 items from blanket `deferred` → `partial` / `ok` / `gap` where implemented; recompute stats JSON.
+Local `package.rpxm`, path deps, aliases, `rpx.lock`, search roots — done.
 
-### Slice B — consumer packages + path deps
+### Slice C — std domain depth (**corrected: Rust native**)
 
-- [x] Consumer `package.rpxm` with `(dependencies (alias package name version path "…"))` (`examples/pkg_consumer`)
-- [x] Alias → package instance mapping for import first segment (`LocalPackageIndex::aliases`)
-- [x] `rpx.lock` write/read for path deps (no registry) (`Lockfile::from_consumer` / `write_rpx_lock`)
-- [x] `packages/math` + `packages/japanese` stubs; `.rpi` stubs when `interface-root` set
+~~Deepen as RPX source under `packages/*/src`~~ → **implement in Rust** (`reciplexa-std` + native module registry); keep `.rpi` + package names.
 
-### Slice C — std domain depth
+Tracking: **`lang/native-domain-plan.md`** (units N0–N6).
 
-- [x] `packages/graphics` depth (static): shapes (`circle`/`rect`/`ellipse`/`line`/`path`/`polyline`/`polygon`/`ring`/`frame`/`group`), `text`/`text-box`/`image`, transforms (`translate`/`rotate`/`scale`), `opacity`, `fill`/`stroke`/`paint`, page sizes (`a4`/`letter`/`a5`/`a3`/`legal`/`square`/`page-size`), color `rgb`/`rgba` + named — aligned to `reciplexa-std` visual / interim tags; examples `pkg_graphics_static` / `pkg_graphics_shapes` / `pkg_graphics_transform`; package-tree load tests in `reciplexa-package`
-- `packages/length` — deepen beyond stub (`mm` / unit constructors; retire Number+Ident interim where safe)
-- [x] `packages/length` — `mm`/`cm`/`pt`/`bp`/`inch`/`q`/`px`/`em` + `to-mm`/`add-mm`/`scale-length`; example `examples/pkg_length.rpx`
-- `packages/color` — deepen beyond stub (`rgb` / named colors) *(graphics/color already hosts rgb/rgba; shared `packages/color` still thin)*
-- [x] `packages/color` — `rgb`/`rgba`/`srgb` + named palette + `from-byte`/`with-alpha`; example `examples/pkg_color.rpx`
-- [x] `packages/japanese` — JLReq layer deepened: extended `sample-pair-rules`, `numeric-before-close-prohibited?`, vertical-flow/stack/tategaki stubs **`vertical-text`/`place-vertical-text`/`tategaki-text` graphics bridge**, `markup-bridge`/`doc-with-markup` connecting to `examples/markup_ja.rpx`; examples **`pkg_japanese_vertical`** (vertical-text stubs); **not** full JLReq / OPEN-TEXT-JA-001
-- [x] `packages/math` — SATySFi-inspired atoms/scripts/frac/sqrt/delimiters **+ matrix / accents / bigops / align / stack** as Core records; **`operatorname`/`mathrm`/`textop`**, **`matrix-env`/`bmatrix-env`**, **`cases-delim`/`left-cases`**; example `examples/pkg_math.rpx`
+Interim RPX depth that already exists (`graphics` / `length` / `color` / `math` / `japanese`) remains until each unit’s native replacement is wired and examples pass; then delete the `.rpx` body only.
 
 ### Slice D — document migration (strangler)
 
-- Package-defined shape/page constructors consumed by lower/eval
-- Keep interim surface until GUI + examples migrate atomically *(GUI interim retained; package import path live for examples, now covering interim text/image/transform/opacity tags as package constructors)*
-- Retire hard-coded `"circle"` / `"page"` keyword tables gradually
-- **Graphics strangler progress:**
-  1. [x] Map interim lower tags (`circle`/`rect`/`page`/`text`/…) 1:1 onto `graphics/*` package records (already tag-compatible).
-  2. [x] Bridge: `reciplexa_eval::document_from_graphics_value` recognizes package `page`/`fill`/`circle`/`rgb` records (ShapeTag-aware); golden vs `lower_source` in package tests. CST keyword tables + GUI unchanged.
-  3. [x] Migrate `examples/*.rpx` that still use interim `(page …)(circle …)` to `(import graphics/…)` — `shapes`, `transforms`, `image`, `paths`, **`text_line`**, **`letter_opacity`**, **`two_pages`**, **`japanese_page`**, **`effects`**, **`macros`**, **`decls_stub`** → language-only or package bridge; **interim kept**: `black_circle` (GUI golden + CST sync), `markup_ja` / `markup_doc` (SYN `@`-markup macro → interim expand; package mirrors: `pkg_markup_ja`, vertical stubs: `pkg_japanese_vertical`).
-  4. [x] Flip GUI scene ingest to the same constructors; keep keyword parse as a thin compatibility adapter. *(auto-detect package-shaped `(import graphics` + `(val main` without top-level interim `(page` → package bridge in `document_from_source`; expanded source + effect-form strip before package elaboration; `RECIPLEXA_PACKAGE_GRAPHICS=0|1` override; GUI `pipeline_doc` inherits via shared pipeline; CST sync/edit still interim-only via `black_circle.rpx`.)*
-  5. [ ] Delete interim keyword tables only after GUI + export golden paths stay green.
-  6. [x] Grow bridge tags: `rect`/`ellipse`/transforms/`group`/stroke/paint/text/image/opacity (+ line/polyline/polygon/ring/frame).
-  7. [x] Multipage package trees: `graphics/page.pages` + cons-list / `pages` record in `document_from_graphics_value`.
+- Package-defined constructors consumed by lower/eval (bridge live)
+- GUI interim CST kept for `black_circle` until native + sync allow keyword-table deletion
+- See package-plan history / native-domain-plan Phase N2 / N5
+
 ### Slice E — workspace / resources / OPEN stubs
 
-- [x] `workspace.rpxm` stub parse (`parse_workspace_rpxm` / format-version + members)
-- [ ] Shared lockfile wired to workspace member discovery (root `rpx.lock` helpers exist for path deps)
-- [ ] Resource root + declared distributable resources
-- Registry client: stub errors only (`OPEN-PKG-001`)
+Unchanged: workspace stub parse done; shared lock / resource root / registry deferred.
 
-## Conventions (v1 local)
+## Conventions (v1)
 
 ```text
 packages/<pkg>/
   package.rpxm
-  src/<module>.rpx          # module path = relative to source-root
-  interface/<module>.rpi    # required later for public modules (may stub)
-  resources/                # optional
+  interface/<module>.rpi    # public API (required for public modules)
+  src/<module>.rpx          # INTERIM only — removed when native registry covers the module
 ```
 
 - Package names: ASCII lowercase kebab-case
-- Search roots: repo `packages/` (and later env / workspace members)
-- Script without manifest may import std packages by **package name as first path segment** (`graphics/shapes`)
-- Registry / multi-version / features: out of scope until Slice E
+- Import: `(import graphics/shapes)` — resolves to **native body** when registered, else interim `.rpx`
+- Native implementation lives in Rust crates; never expose raw FFI as the authoring API
 
 ## Gate
 
@@ -99,16 +68,9 @@ cargo test --workspace --offline
 cargo check --offline -p reciplexa-gui
 ```
 
-## Done when (Slice A)
+## Done when (domain migration)
 
-- [x] DD-001-ish manifests parse for std packages
-- [x] `(import graphics/shapes)` loads from `packages/graphics`
-- [x] Example elaborates/evaluates via package import
-- [x] Interim document `page`/`circle` still green
-- [x] PKG-001 conformance rows updated; stats recomputed
-
-## Done when (Slice B)
-
-- [x] Consumer path deps + alias import (`g/shapes` → graphics)
-- [x] `rpx.lock` path sources round-trip
-- [x] math / japanese package stubs + public-module `.rpi` stubs
+1. `graphics` / `length` / `color` / `math` / `japanese` bodies are Rust native.
+2. `(import …)` still works; examples green.
+3. Interim `packages/*/src/*.rpx` for those packages removed (interfaces remain).
+4. Filtered Rust region coverage ~99% (Phase N6).

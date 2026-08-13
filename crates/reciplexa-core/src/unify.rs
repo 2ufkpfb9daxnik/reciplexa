@@ -599,6 +599,47 @@ mod coverage_helpers {
     }
 
     #[test]
+    fn unify_lacks_same_label_and_open_open_shared_fields() {
+        let mut subst = Subst::new();
+        let lacks_a = CoreType::Lacks {
+            label: "a".into(),
+            row: Box::new(CoreType::Unit),
+        };
+        let lacks_b = CoreType::Lacks {
+            label: "a".into(),
+            row: Box::new(CoreType::Unit),
+        };
+        assert!(unify(&lacks_a, &lacks_b, &mut subst).is_ok());
+        let lacks_c = CoreType::Lacks {
+            label: "b".into(),
+            row: Box::new(CoreType::Unit),
+        };
+        assert!(unify(&lacks_a, &lacks_c, &mut subst).is_err());
+
+        // Open/open with exclusive fields + fresh Var tails can recurse; use Unit tails.
+        let mut subst2 = Subst::new();
+        let open_a = CoreType::OpenRecord {
+            fields: vec![("a".into(), CoreType::Int)],
+            row: Box::new(CoreType::Unit),
+        };
+        let open_b = CoreType::OpenRecord {
+            fields: vec![("a".into(), CoreType::Int)],
+            row: Box::new(CoreType::Unit),
+        };
+        assert!(unify(&open_a, &open_b, &mut subst2).is_ok());
+
+        let mut subst3 = Subst::new();
+        let open_z = CoreType::OpenRecord {
+            fields: vec![("z".into(), CoreType::Int)],
+            row: Box::new(CoreType::Var(subst3.fresh_var())),
+        };
+        let closed = CoreType::Record {
+            fields: vec![("a".into(), CoreType::Int)],
+        };
+        assert!(unify(&open_z, &closed, &mut subst3).is_err());
+    }
+
+    #[test]
     fn unify_open_closed_and_edge_pairs() {
         let mut subst = Subst::new();
         let row = CoreType::Var(subst.fresh_var());
@@ -862,5 +903,234 @@ mod coverage_helpers {
             row: Box::new(CoreType::Var(subst.fresh_var())),
         };
         assert!(unify(&open_l, &open_r, &mut subst).is_err());
+    }
+
+    #[test]
+    fn unify_round24_stub_arms_occurs_and_apply() {
+        let mut subst = Subst::new();
+        let v = subst.fresh_var();
+        // bind var to itself (occurs short-circuit Ok)
+        assert!(subst.bind(v, CoreType::Var(v)).is_ok());
+        // occurs through Fun / Variant / Record / OpenRecord
+        assert!(occurs(
+            v,
+            &CoreType::Fun {
+                args: vec![CoreType::Var(v)],
+                ret: Box::new(CoreType::Int),
+                effects: EffectRow::default(),
+            }
+        ));
+        assert!(occurs(
+            v,
+            &CoreType::Fun {
+                args: vec![CoreType::Int],
+                ret: Box::new(CoreType::Var(v)),
+                effects: EffectRow::default(),
+            }
+        ));
+        assert!(occurs(
+            v,
+            &CoreType::Variant {
+                variants: vec![("a".into(), Some(CoreType::Var(v)))],
+            }
+        ));
+        assert!(!occurs(
+            v,
+            &CoreType::Variant {
+                variants: vec![("a".into(), None)],
+            }
+        ));
+        assert!(occurs(
+            v,
+            &CoreType::Record {
+                fields: vec![("a".into(), CoreType::Var(v))],
+            }
+        ));
+        assert!(occurs(
+            v,
+            &CoreType::OpenRecord {
+                fields: vec![],
+                row: Box::new(CoreType::Var(v)),
+            }
+        ));
+        assert!(occurs(
+            v,
+            &CoreType::Union(vec![CoreType::Var(v), CoreType::Int])
+        ));
+        assert!(occurs(
+            v,
+            &CoreType::Intersect(vec![CoreType::Int, CoreType::Var(v)])
+        ));
+
+        // Gradual stub arms both orientations
+        for stub in [
+            CoreType::Dynamic(Box::new(CoreType::Int)),
+            CoreType::Union(vec![CoreType::Int]),
+            CoreType::Intersect(vec![CoreType::Int]),
+            CoreType::Not(Box::new(CoreType::Int)),
+            CoreType::Diff(Box::new(CoreType::Number), Box::new(CoreType::Int)),
+        ] {
+            assert!(unify(&stub, &CoreType::String, &mut Subst::new()).is_ok());
+            assert!(unify(&CoreType::String, &stub, &mut Subst::new()).is_ok());
+        }
+        // App/App same ctor + mismatched gradual App/Name
+        assert!(unify(
+            &CoreType::App {
+                ctor: "box".into(),
+                args: vec![CoreType::Int],
+            },
+            &CoreType::App {
+                ctor: "box".into(),
+                args: vec![CoreType::Int],
+            },
+            &mut Subst::new()
+        )
+        .is_ok());
+        assert!(unify(
+            &CoreType::App {
+                ctor: "box".into(),
+                args: vec![CoreType::Int],
+            },
+            &CoreType::App {
+                ctor: "box".into(),
+                args: vec![CoreType::String],
+            },
+            &mut Subst::new()
+        )
+        .is_err());
+        assert!(unify(
+            &CoreType::App {
+                ctor: "box".into(),
+                args: vec![],
+            },
+            &CoreType::Name("t".into()),
+            &mut Subst::new()
+        )
+        .is_ok());
+        assert!(unify(
+            &CoreType::Name("t".into()),
+            &CoreType::Int,
+            &mut Subst::new()
+        )
+        .is_ok());
+
+        // Variant (None, None) + payload unify Ok
+        assert!(unify(
+            &CoreType::Variant {
+                variants: vec![("none".into(), None), ("some".into(), Some(CoreType::Int))],
+            },
+            &CoreType::Variant {
+                variants: vec![("none".into(), None), ("some".into(), Some(CoreType::Int))],
+            },
+            &mut Subst::new()
+        )
+        .is_ok());
+
+        // Record length / label mismatch
+        assert!(unify(
+            &CoreType::Record {
+                fields: vec![("a".into(), CoreType::Int)],
+            },
+            &CoreType::Record {
+                fields: vec![
+                    ("a".into(), CoreType::Int),
+                    ("b".into(), CoreType::Int),
+                ],
+            },
+            &mut Subst::new()
+        )
+        .is_err());
+        assert!(unify(
+            &CoreType::Record {
+                fields: vec![("a".into(), CoreType::Int)],
+            },
+            &CoreType::Record {
+                fields: vec![("b".into(), CoreType::Int)],
+            },
+            &mut Subst::new()
+        )
+        .is_err());
+        assert!(unify(
+            &CoreType::Record {
+                fields: vec![("a".into(), CoreType::Int)],
+            },
+            &CoreType::Record {
+                fields: vec![("a".into(), CoreType::String)],
+            },
+            &mut Subst::new()
+        )
+        .is_err());
+
+        // Int↔F64 mismatch + Fun arg unify recursive
+        assert!(unify(&CoreType::Int, &CoreType::F64, &mut Subst::new()).is_err());
+        assert!(unify(
+            &CoreType::Fun {
+                args: vec![CoreType::Int],
+                ret: Box::new(CoreType::String),
+                effects: EffectRow::default(),
+            },
+            &CoreType::Fun {
+                args: vec![CoreType::Int],
+                ret: Box::new(CoreType::String),
+                effects: EffectRow::default(),
+            },
+            &mut Subst::new()
+        )
+        .is_ok());
+
+        // apply walks OpenRecord / Variant / Lacks / Union / Intersect / App / Forall
+        let mut subst = Subst::new();
+        let v = subst.fresh_var();
+        subst.bind(v, CoreType::Int).unwrap();
+        let _ = subst.apply(&CoreType::OpenRecord {
+            fields: vec![("a".into(), CoreType::Var(v))],
+            row: Box::new(CoreType::Var(v)),
+        });
+        let _ = subst.apply(&CoreType::Variant {
+            variants: vec![
+                ("n".into(), None),
+                ("s".into(), Some(CoreType::Var(v))),
+            ],
+        });
+        let _ = subst.apply(&CoreType::Lacks {
+            label: "a".into(),
+            row: Box::new(CoreType::Var(v)),
+        });
+        let _ = subst.apply(&CoreType::Union(vec![CoreType::Var(v)]));
+        let _ = subst.apply(&CoreType::Intersect(vec![CoreType::Var(v)]));
+        let _ = subst.apply(&CoreType::App {
+            ctor: "t".into(),
+            args: vec![CoreType::Var(v)],
+        });
+        let _ = subst.apply(&CoreType::Forall {
+            params: vec![("a".into(), "type".into())],
+            body: Box::new(CoreType::Var(v)),
+        });
+        let _ = subst.apply(&CoreType::Not(Box::new(CoreType::Var(v))));
+        let _ = subst.apply(&CoreType::Diff(
+            Box::new(CoreType::Var(v)),
+            Box::new(CoreType::Int),
+        ));
+        let _ = subst.apply(&CoreType::OptionalField(Box::new(CoreType::Var(v))));
+        let _ = subst.apply(&CoreType::Dynamic(Box::new(CoreType::Var(v))));
+
+        // Open→closed empty remaining (exact fields → empty Record rest)
+        let mut subst = Subst::new();
+        let open = CoreType::OpenRecord {
+            fields: vec![("a".into(), CoreType::Int)],
+            row: Box::new(CoreType::Var(subst.fresh_var())),
+        };
+        let closed = CoreType::Record {
+            fields: vec![("a".into(), CoreType::Int)],
+        };
+        assert!(unify(&open, &closed, &mut subst).is_ok());
+
+        // Right-hand Var bind arm
+        let mut subst = Subst::new();
+        let v = subst.fresh_var();
+        assert!(unify(&CoreType::Int, &CoreType::Var(v), &mut subst).is_ok());
+
+        // Any/Any
+        assert!(unify(&CoreType::Any, &CoreType::Any, &mut Subst::new()).is_ok());
     }
 }

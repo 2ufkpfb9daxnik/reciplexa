@@ -1,7 +1,0 @@
-(// math/frac — fraction constructor (MathAtom::Fraction / SATySFi \frac).)
-(val fraction (fn (numerator denominator)
-  (record (tag "math-fraction")
-    (numerator numerator) (denominator denominator))))
-(val over (fn (numerator denominator)
-  (record (tag "math-fraction")
-    (numerator numerator) (denominator denominator))))

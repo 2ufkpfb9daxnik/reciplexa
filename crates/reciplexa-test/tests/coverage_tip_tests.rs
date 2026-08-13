@@ -45,4 +45,33 @@ fn test_outcome_and_subject_helpers() {
     assert!(subject.label().contains("CID"));
     assert_subject_success::<(), i32>(SubjectOutcome::Success(7), 7);
     assert_subject_failure::<&str, ()>(SubjectOutcome::Failure("e"), "e");
+
+    // Exercise derive noise on diff + clone all variants again.
+    let diffs = [
+        StructuredDiff {
+            path: "x".into(),
+            expected: "a".into(),
+            actual: "b".into(),
+        },
+        StructuredDiff {
+            path: "y".into(),
+            expected: "".into(),
+            actual: "z".into(),
+        },
+    ];
+    for d in &diffs {
+        assert!(!format!("{d:?}").is_empty());
+        assert_eq!(d.clone(), *d);
+    }
+    let defect = DefectReport::new(
+        2,
+        DefectCode::new("t2", "D2"),
+        "inv2",
+        DefectScope::Task,
+        "sub2",
+        "msg2",
+    );
+    let defected2 = TestOutcome::<i32>::Defected(Box::new(defect));
+    assert!(format!("{defected2:?}").contains("Defected"));
+    assert_ne!(defected2, TestOutcome::Passed(1));
 }

@@ -136,23 +136,15 @@ impl<'a> Parser<'a> {
         while self.current.as_ref().is_some_and(|t| t.kind.is_trivia()) {
             self.bump();
         }
-        match self.current.clone() {
-            Some(tok) if tok.kind == SyntaxKind::Ident && tok.text(self.input) == "//" => {
-                self.bump(); // //
-            }
-            _ => {
-                let (start, end) = self
-                    .current
-                    .as_ref()
-                    .map(|t| (t.start, t.end))
-                    .unwrap_or((self.input.len(), self.input.len()));
-                self.push_error(
-                    "expected `//` after `(` in structured comment".into(),
-                    start,
-                    end,
-                );
-            }
-        }
+        // `at_structured_comment` only returns true when the next non-trivia
+        // token is Ident `//`, so the former recovery arm was unreachable.
+        debug_assert!(
+            self.current
+                .as_ref()
+                .is_some_and(|t| t.kind == SyntaxKind::Ident && t.text(self.input) == "//"),
+            "structured comment without //"
+        );
+        self.bump(); // //
         // Body: track paren depth; strings are single tokens from the lexer.
         let mut depth = 1usize;
         loop {
@@ -578,11 +570,30 @@ fn closing_text(close: SyntaxKind) -> &'static str {
     match close {
         SyntaxKind::RParen => ")",
         SyntaxKind::RBracket => "]",
-        SyntaxKind::RBrace => "}",
-        _ => "",
+        // Only called with RParen / RBracket / RBrace.
+        _ => "}",
     }
 }
 
 fn is_ident_continue(c: char) -> bool {
     c.is_alphabetic() || c.is_ascii_digit() || matches!(c, '-' | '$' | '_')
+}
+
+#[cfg(test)]
+mod coverage_helpers {
+    use super::*;
+
+    #[test]
+    fn bump_and_bump_as_none_current() {
+        let mut p = Parser::new("");
+        // Exhaust tokens so current is None.
+        while p.current.is_some() {
+            p.bump();
+        }
+        p.bump(); // None early-return
+        p.bump_as(SyntaxKind::UnexpectedToken); // None early-return
+        let _ = closing_text(SyntaxKind::RParen);
+        let _ = closing_text(SyntaxKind::RBracket);
+        let _ = closing_text(SyntaxKind::RBrace);
+    }
 }

@@ -103,9 +103,6 @@ fn validate_package_path_segment(name: &str) -> Result<(), String> {
             "path segment `{name}` must start with a lowercase ASCII letter (SYN §4)"
         ));
     }
-    if first == '-' {
-        return Err(format!("path segment `{name}` must not start with `-`"));
-    }
     let mut prev_hyphen = false;
     for c in chars {
         if c == '-' {
@@ -124,9 +121,6 @@ fn validate_package_path_segment(name: &str) -> Result<(), String> {
     }
     if prev_hyphen {
         return Err(format!("path segment `{name}` must not end with `-`"));
-    }
-    if name.contains('_') {
-        return Err(format!("path segment `{name}` must not contain `_`"));
     }
     Ok(())
 }

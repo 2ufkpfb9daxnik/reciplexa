@@ -3,6 +3,8 @@
 #![forbid(unsafe_code)]
 
 pub mod build;
+pub mod domain_bodies;
+pub mod domain_native;
 pub mod graphics_bridge;
 pub mod load;
 pub mod lockfile;
@@ -17,6 +19,20 @@ pub use build::{
     diagnose_manifest, BuildGraph, BuildNode, BuildNodeId, IncrementalCache, InvalidationKind,
     PackageDiagnostic,
 };
+pub use domain_bodies::{
+    color_srgb_module, color_srgb_source, graphics_color_module, graphics_color_source,
+    graphics_page_module, graphics_page_source, graphics_shapes_module, graphics_shapes_source,
+    japanese_classes_module, japanese_classes_source, japanese_kihon_module, japanese_kihon_source,
+    japanese_linebreak_module, japanese_linebreak_source, japanese_markup_module,
+    japanese_markup_source, length_units_module, length_units_source, math_accents_module,
+    math_accents_source, math_align_module, math_align_source, math_atoms_module,
+    math_atoms_source, math_bigops_module, math_bigops_source, math_cases_module,
+    math_cases_source, math_delimiters_module, math_delimiters_source, math_frac_module,
+    math_frac_source, math_matrix_module, math_matrix_source, math_scripts_module,
+    math_scripts_source, math_sqrt_module, math_sqrt_source, math_stack_module, math_stack_source,
+    std_domain_natives,
+};
+pub use domain_native::{DomainNativeModule, DomainNativeRegistry};
 pub use graphics_bridge::{
     document_from_package_entry, document_from_package_source, GraphicsBridgeError,
 };

@@ -694,31 +694,33 @@ fn discover_with_consumer_parse_and_io_errors() {
 #[test]
 fn resolve_import_missing_interface_and_module_io() {
     let root = scratch();
+    // Use a non-native package: `graphics/shapes` is domain-native and skips the
+    // missing-`.rpi` error path (exports come from DomainNativeRegistry).
     write_pkg(
         &root,
-        "graphics",
-        r#"(package graphics
+        "widgets",
+        r#"(package widgets
   format-version 1
   version "0.1.0"
   source-root "src"
   interface-root "interface"
   (public-modules shapes))"#,
     );
-    fs::create_dir_all(root.join("graphics/src")).unwrap();
-    fs::write(root.join("graphics/src/shapes.rpx"), "(val circle 1)\n").unwrap();
+    fs::create_dir_all(root.join("widgets/src")).unwrap();
+    fs::write(root.join("widgets/src/shapes.rpx"), "(val circle 1)\n").unwrap();
     // interface-root declared but .rpi missing
     let idx = LocalPackageIndex::discover(&[&root]).unwrap();
-    let err = idx.resolve_import("graphics/shapes").unwrap_err();
+    let err = idx.resolve_import("widgets/shapes").unwrap_err();
     assert!(err.to_string().contains("missing interface"), "{err}");
 
-    fs::create_dir_all(root.join("graphics/interface")).unwrap();
-    let rpi = root.join("graphics/interface/shapes.rpi");
+    fs::create_dir_all(root.join("widgets/interface")).unwrap();
+    let rpi = root.join("widgets/interface/shapes.rpi");
     fs::write(&rpi, "(val circle)\n").unwrap();
 
     #[cfg(windows)]
     {
         let _guard = exclusive_open(&rpi);
-        let err = idx.resolve_import_detailed("graphics/shapes").unwrap_err();
+        let err = idx.resolve_import_detailed("widgets/shapes").unwrap_err();
         assert!(matches!(err, PackageLoadError::Io(_)), "{err}");
     }
 

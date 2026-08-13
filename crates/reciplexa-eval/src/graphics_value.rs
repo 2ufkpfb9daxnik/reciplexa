@@ -578,9 +578,9 @@ fn cons_items(v: &RuntimeValue) -> Result<Vec<&RuntimeValue>, GraphicsValueError
         match cur {
             RuntimeValue::Variant { tag, .. } if tag == "nil" => break,
             RuntimeValue::Variant { tag, payload } if tag == "cons" => {
-                let payload = payload
-                    .as_ref()
-                    .ok_or_else(|| GraphicsValueError::new("cons missing payload"))?;
+                let Some(payload) = payload.as_ref() else {
+                    return Err(GraphicsValueError::new("cons variant missing payload"));
+                };
                 let fields = record_fields(payload, "cons")?;
                 let head = field(fields, "head")
                     .ok_or_else(|| GraphicsValueError::new("cons missing head"))?;

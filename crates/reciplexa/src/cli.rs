@@ -1,7 +1,7 @@
 //! Subcommands for syntax inspection (`roadmap.md` Phase 1 §3.4).
 
 use std::fs;
-use std::io::{self, Write};
+use std::io::{self};
 
 use reciplexa_diagnostic::{push_syntax_parse_errors, render_diagnostic_line, DiagnosticCollector};
 use reciplexa_identity::package::{ModuleId, PackageInstanceId};
@@ -120,6 +120,19 @@ fn emit_parse_diagnostics(
     errors: &[reciplexa_syntax::ParseError],
     json: bool,
 ) -> Result<(), String> {
+    if json {
+        emit_parse_diagnostics_into(src, errors, true, &mut io::stdout())
+    } else {
+        emit_parse_diagnostics_into(src, errors, false, &mut io::stderr())
+    }
+}
+
+fn emit_parse_diagnostics_into(
+    src: &str,
+    errors: &[reciplexa_syntax::ParseError],
+    json: bool,
+    out: &mut dyn io::Write,
+) -> Result<(), String> {
     let mut collector = DiagnosticCollector::new();
     push_syntax_parse_errors(
         &mut collector,
@@ -129,7 +142,6 @@ fn emit_parse_diagnostics(
         errors,
     );
     if json {
-        let mut out = io::stdout();
         writeln!(out, "{{\"status\":\"error\",\"diagnostics\":[").map_err(|e| e.to_string())?;
         for (i, d) in collector.diagnostics().iter().enumerate() {
             if i > 0 {
@@ -146,7 +158,6 @@ fn emit_parse_diagnostics(
         .iter()
         .map(|d| render_diagnostic_line(&index, d))
     {
-        let mut out = io::stderr();
         writeln!(out, "{line}").map_err(|e| e.to_string())?;
     }
     Ok(())
@@ -358,6 +369,10 @@ mod tests {
             eval_source_with_host(r#"(val main (seq (log "hello") 42))"#, &mut host).expect("eval");
         assert_eq!(v, RuntimeValue::Int(42));
         assert_eq!(host.logs, vec!["hello".to_string()]);
+        // Tip non-string log / random / unknown-op arms.
+        let _ = host.perform("log", RuntimeValue::Int(7));
+        let _ = host.perform("random", RuntimeValue::Unit);
+        let _ = host.perform("nope", RuntimeValue::Unit);
     }
 
     #[test]
@@ -407,5 +422,99 @@ mod tests {
     #[test]
     fn json_string_escapes_backslash() {
         assert_eq!(json_string("a\\b"), "\"a\\\\b\"");
+    }
+
+    #[test]
+    fn format_and_inspect_syntax_missing_file_errors() {
+        let err = cmd_format("/nonexistent/rpx_format.rpx").unwrap_err();
+        assert!(err.contains("read"));
+        let err = cmd_inspect_syntax("/nonexistent/rpx_inspect.rpx").unwrap_err();
+        assert!(err.contains("read"));
+    }
+
+    #[test]
+    fn parse_json_mode_multiple_diagnostics() {
+        let dir = std::env::temp_dir().join("rpx_cli_test");
+        let _ = std::fs::create_dir_all(&dir);
+        let path = dir.join("multi_err.rpx");
+        // Two independently broken top-level forms → ≥2 diagnostics (i > 0 comma path).
+        std::fs::write(&path, "(page a4\n(circle\n").unwrap();
+        let err = cmd_parse(path.to_str().unwrap(), true).unwrap_err();
+        assert!(err.contains("parse error"));
+    }
+
+    #[test]
+    fn inspect_document_rejects_non_document_source() {
+        let dir = std::env::temp_dir().join("rpx_cli_test");
+        let _ = std::fs::create_dir_all(&dir);
+        let path = dir.join("pure.rpx");
+        std::fs::write(&path, "(val main 1)").unwrap();
+        let err = cmd_inspect_document(path.to_str().unwrap()).unwrap_err();
+        assert!(!err.is_empty());
+    }
+
+    #[test]
+    fn diagnostic_to_json_unknown_origin_defaults_range() {
+        use reciplexa_diagnostic::{
+            Diagnostic, DiagnosticCategory, DiagnosticCode, DiagnosticId, DiagnosticLifecycleStage,
+            DiagnosticMessage, DiagnosticOrigin, DiagnosticSeverity,
+        };
+        let d = Diagnostic::new(
+            DiagnosticId::new(1),
+            DiagnosticCode::new("compiler", "syntax", "SYN-0001"),
+            DiagnosticSeverity::Error,
+            DiagnosticCategory::Syntax,
+            DiagnosticLifecycleStage::Parse,
+            DiagnosticMessage::new("x"),
+        )
+        .with_primary_origin(DiagnosticOrigin::Unknown);
+        let json = diagnostic_to_json(&d);
+        assert!(json.contains("\"start\":0"));
+        assert!(json.contains("\"end\":0"));
+    }
+
+    #[test]
+    fn emit_parse_diagnostics_write_err_arms() {
+        use reciplexa_syntax::parse_source;
+        use std::io;
+
+        struct Boom;
+        impl io::Write for Boom {
+            fn write(&mut self, _buf: &[u8]) -> io::Result<usize> {
+                Err(io::Error::other("boom"))
+            }
+            fn flush(&mut self) -> io::Result<()> {
+                Ok(())
+            }
+        }
+
+        let parse = parse_source("(page a4\n(circle\n");
+        assert!(!parse.errors.is_empty());
+        assert!(emit_parse_diagnostics_into("(page a4", &parse.errors, true, &mut Boom).is_err());
+        assert!(emit_parse_diagnostics_into("(page a4", &parse.errors, false, &mut Boom).is_err());
+
+        // Multi-diag JSON path: first write succeeds, later write fails (comma / body).
+        struct FailAfter {
+            left: usize,
+        }
+        impl io::Write for FailAfter {
+            fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+                if self.left == 0 {
+                    return Err(io::Error::other("boom-later"));
+                }
+                self.left -= 1;
+                Ok(buf.len())
+            }
+            fn flush(&mut self) -> io::Result<()> {
+                Ok(())
+            }
+        }
+        let mut w = FailAfter { left: 1 };
+        let _ = emit_parse_diagnostics_into("(x", &parse.errors, true, &mut w);
+        let mut w2 = FailAfter { left: 2 };
+        let _ = emit_parse_diagnostics_into("(x", &parse.errors, true, &mut w2);
+        let mut boom = Boom;
+        let _ = std::io::Write::flush(&mut boom);
+        let _ = std::io::Write::flush(&mut w2);
     }
 }

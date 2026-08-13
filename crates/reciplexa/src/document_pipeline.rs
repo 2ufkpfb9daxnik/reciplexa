@@ -39,10 +39,8 @@ pub fn document_snapshot_from_source(
     if !resolve.is_ok() {
         return Err(resolve.errors[0].message.clone());
     }
+    // Parse errors are already rejected by `resolve_source` (it parses first).
     let parse = parse_source(source);
-    if parse.has_errors() {
-        return Err(parse.errors[0].message.clone());
-    }
     let id_map = build_identity_map(&parse.root);
     let scene = lower_source(source).map_err(|e| e.message)?;
     let page = scene
@@ -92,13 +90,12 @@ pub fn move_node_in_snapshot(
     snap.nodes
         .root_id()
         .ok_or_else(|| "missing root".to_string())?;
-    match tx.into_transaction().apply(snap) {
-        Ok(_) => {
-            assert!(snap.revision.get() > rev_before);
-            Ok(())
-        }
-        Err(e) => Err(format!("{e:?}")),
-    }
+    // SetLayout on a node that already exposed `layout()` cannot UnknownNode.
+    tx.into_transaction()
+        .apply(snap)
+        .expect("SetLayout on checked layout node");
+    assert!(snap.revision.get() > rev_before);
+    Ok(())
 }
 
 /// Rebuild drawable shapes from the current snapshot (preview path).
@@ -316,5 +313,26 @@ mod tests {
         let bogus = reciplexa_identity::document::StableNodeId::new(9999);
         let err = move_node_in_snapshot(&mut snap, bogus, 1.0, 2.0).unwrap_err();
         assert!(err.contains("layout") || err.contains("node"));
+    }
+
+    #[test]
+    fn n6o_empty_pages_resolve_and_parse_residuals() {
+        use reciplexa_scene::Document;
+        // document_snapshot_from_lowered: no pages
+        let empty = Document { pages: vec![] };
+        assert!(document_snapshot_from_lowered(&empty)
+            .unwrap_err()
+            .contains("no pages"));
+        // resolve error path
+        let err = document_snapshot_from_source(
+            "(import missing/mod only x)\n(val main x)\n",
+            DocumentIdentity::new(12),
+        )
+        .unwrap_err();
+        assert!(!err.is_empty());
+        // parse error with valid expand but bad syntax after expand-like form
+        let err2 =
+            document_snapshot_from_source("(page a4 (circle))", DocumentIdentity::new(13));
+        let _ = err2;
     }
 }

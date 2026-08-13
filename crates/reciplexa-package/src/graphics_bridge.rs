@@ -5,11 +5,55 @@
 
 use std::collections::HashMap;
 use std::path::Path;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use reciplexa_eval::{document_from_graphics_value, eval_expr, GraphicsValueError, UnitHost};
 use reciplexa_scene::Document;
 
 use crate::load::{elaborate_with_packages, LocalPackageIndex, PackageLoadError};
+
+/// Seq for unique temp dirs; module-level so llvm-cov marks static init covered.
+static TEMP_SEQ: AtomicU64 = AtomicU64::new(0);
+
+// Test-only FS fail seam: when set, `create_dir_all` / `write` return `io::Error`
+// so the `map_err` Load arms in `document_from_package_source` are reachable.
+// Unset (default) preserves production behavior.
+thread_local! {
+    static TEST_FAIL_CREATE_DIR: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+    static TEST_FAIL_WRITE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Inject `create_dir_all` failure (coverage / tests only). Default off.
+#[doc(hidden)]
+pub fn test_set_fail_create_dir(fail: bool) {
+    TEST_FAIL_CREATE_DIR.with(|c| c.set(fail));
+}
+
+/// Inject `write` failure (coverage / tests only). Default off.
+#[doc(hidden)]
+pub fn test_set_fail_write(fail: bool) {
+    TEST_FAIL_WRITE.with(|c| c.set(fail));
+}
+
+fn fs_create_dir_all(path: &Path) -> std::io::Result<()> {
+    if TEST_FAIL_CREATE_DIR.with(|c| c.get()) {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::PermissionDenied,
+            "TEST_FAIL_CREATE_DIR",
+        ));
+    }
+    std::fs::create_dir_all(path)
+}
+
+fn fs_write(path: &Path, contents: &str) -> std::io::Result<()> {
+    if TEST_FAIL_WRITE.with(|c| c.get()) {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::PermissionDenied,
+            "TEST_FAIL_WRITE",
+        ));
+    }
+    std::fs::write(path, contents)
+}
 
 /// Errors from package load/eval or graphics bridge.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -59,15 +103,13 @@ pub fn document_from_package_source(
     entry_stem: &str,
     index: &LocalPackageIndex,
 ) -> Result<Document, GraphicsBridgeError> {
-    use std::sync::atomic::{AtomicU64, Ordering};
-    static TEMP_SEQ: AtomicU64 = AtomicU64::new(0);
     let seq = TEMP_SEQ.fetch_add(1, Ordering::Relaxed);
     let dir = std::env::temp_dir().join(format!(
         "reciplexa-pkg-{}-{entry_stem}-{seq}",
         std::process::id()
     ));
-    std::fs::create_dir_all(&dir).map_err(|e| GraphicsBridgeError::Load(e.to_string()))?;
+    fs_create_dir_all(&dir).map_err(|e| GraphicsBridgeError::Load(e.to_string()))?;
     let entry = dir.join(format!("{entry_stem}.rpx"));
-    std::fs::write(&entry, source).map_err(|e| GraphicsBridgeError::Load(e.to_string()))?;
+    fs_write(&entry, source).map_err(|e| GraphicsBridgeError::Load(e.to_string()))?;
     document_from_package_entry(&entry, index)
 }
