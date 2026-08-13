@@ -3056,12 +3056,14 @@ dependencies = [
  "reciplexa-identity",
  "reciplexa-lower",
  "reciplexa-pdf",
+ "reciplexa-pptx",
  "reciplexa-scene",
  "reciplexa-std",
  "reciplexa-svg",
  "reciplexa-syntax",
  "serde",
  "serde_json",
+ "zip",
 ]
 
 [[package]]

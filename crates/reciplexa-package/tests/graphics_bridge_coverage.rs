@@ -1,5 +1,6 @@
 //! llvm-cov tip: graphics_bridge adapter + From/error paths.
 
+use std::io::{Cursor, Read};
 use std::path::PathBuf;
 
 use reciplexa_eval::{document_from_graphics_value, RuntimeValue};
@@ -349,6 +350,61 @@ fn package_long_ja_paragraph_svg_emits_multiple_text_elements() {
     assert!(
         text_elems >= 2,
         "expected multiple SVG text elements from wrapped JA paragraph, got {text_elems} <text (shapes={text_shape_count})"
+    );
+}
+
+fn slide1_xml_from_pptx(bytes: &[u8]) -> String {
+    let cursor = Cursor::new(bytes);
+    let mut archive = zip::read::ZipArchive::new(cursor).expect("valid pptx zip");
+    let mut file = archive
+        .by_name("ppt/slides/slide1.xml")
+        .expect("slide1.xml");
+    let mut xml = String::new();
+    file.read_to_string(&mut xml).expect("read slide1");
+    xml
+}
+
+/// HC11: bridged long JA paragraph PPTX emits multiple `<a:t>` text runs.
+#[test]
+fn package_long_ja_paragraph_pptx_emits_multiple_a_t() {
+    let long = "あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをん";
+    let expected = reciplexa_std::japanese::break_line(long, 40.0);
+    assert!(expected.len() > 1);
+
+    let source = format!(
+        r#"(import document/page only
+  a4 page flow section heading paragraph
+  block-paragraph)
+(val title (heading 1 "題"))
+(val body (paragraph "{long}"))
+(val main
+  (page a4
+    (flow
+      (list
+        (section title
+          (list
+            (block-paragraph body)))))))
+"#
+    );
+    let idx = index();
+    let doc = document_from_package_source(&source, "ja_long_pptx", &idx)
+        .expect("long JA paragraph bridge");
+    let text_shape_count = doc.pages[0]
+        .shapes
+        .iter()
+        .filter(|s| matches!(s, Shape::Text(_)))
+        .count();
+    assert!(
+        text_shape_count > 1,
+        "expected multiple Text shapes before PPTX, got {text_shape_count}"
+    );
+
+    let bytes = reciplexa_pptx::document_to_pptx(&doc).expect("pptx from package scene");
+    let slide = slide1_xml_from_pptx(&bytes);
+    let a_t = slide.matches("<a:t>").count();
+    assert!(
+        a_t >= 2,
+        "expected multiple PPTX text runs from wrapped JA paragraph, got {a_t} <a:t> (shapes={text_shape_count})"
     );
 }
 
