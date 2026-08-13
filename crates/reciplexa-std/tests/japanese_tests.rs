@@ -507,6 +507,19 @@ fn is_hangable_cl06_cl07_only() {
 }
 
 #[test]
+fn hang_width_em_policy_stub() {
+    use reciplexa_std::japanese::{hang_width_em, hang_width_em_char, HANG_WIDTH_EM};
+
+    assert!((hang_width_em(CharClass::FullStops) - HANG_WIDTH_EM).abs() < 1e-9);
+    assert!((hang_width_em(CharClass::Commas) - HANG_WIDTH_EM).abs() < 1e-9);
+    assert_eq!(hang_width_em(CharClass::Ideographic), 0.0);
+    assert!((hang_width_em_char('。') - HANG_WIDTH_EM).abs() < 1e-9);
+    assert!((hang_width_em_char('、') - HANG_WIDTH_EM).abs() < 1e-9);
+    assert_eq!(hang_width_em_char('あ'), 0.0);
+    assert!(HANG_WIDTH_EM > 0.0 && HANG_WIDTH_EM <= 1.0);
+}
+
+#[test]
 fn break_line_hangable_period_may_overhang() {
     // 東京 = 2em; 。 hangs past measure instead of forcing a wrap.
     assert_eq!(break_line("東京。", 2.0), vec!["東京。".to_string()]);

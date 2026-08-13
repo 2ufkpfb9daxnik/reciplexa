@@ -541,6 +541,30 @@ pub fn is_hangable(class: CharClass) -> bool {
     matches!(class, CharClass::FullStops | CharClass::Commas)
 }
 
+/// Default end-of-line hang budget (em) for hangable punctuation.
+///
+/// Policy stub only: JLReq hanging punctuation uses a richer measure-overhang
+/// model. Hosts / future `break_line` refinements may consult [`hang_width_em`]
+/// instead of treating hang as unbounded past the measure.
+pub const HANG_WIDTH_EM: f64 = 0.5;
+
+/// Abstract overhang width (em) allowed past the line measure for `class`.
+///
+/// Returns [`HANG_WIDTH_EM`] for [`is_hangable`] classes, else `0.0`.
+/// Not full JLReq hanging / justification.
+pub fn hang_width_em(class: CharClass) -> f64 {
+    if is_hangable(class) {
+        HANG_WIDTH_EM
+    } else {
+        0.0
+    }
+}
+
+/// [`hang_width_em`] after [`classify_char`].
+pub fn hang_width_em_char(c: char) -> f64 {
+    hang_width_em(classify_char(c))
+}
+
 /// Decide break opportunity between adjacent classified characters.
 ///
 /// Prefer calling this from future layout; package `japanese/linebreak`
