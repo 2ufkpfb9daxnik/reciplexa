@@ -9,7 +9,8 @@ use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use reciplexa_eval::{
-    eval_expr, layout_doc_page_to_scene, layout_math_to_shapes, RuntimeValue, UnitHost,
+    estimate_style_from_value, eval_expr, layout_doc_page_to_scene, layout_math_to_shapes,
+    RuntimeValue, UnitHost,
 };
 use reciplexa_scene::{Document, Shape};
 use reciplexa_std::math::EstimateStyle;
@@ -21,7 +22,21 @@ static TEMP_SEQ: AtomicU64 = AtomicU64::new(0);
 
 /// Compose a `live-layout-demo` record: `page` via [`layout_doc_page_to_scene`],
 /// `math` via [`layout_math_to_shapes`], sibling shapes on page 0.
+///
+/// Optional record field `style` (`"text"` / `"display"`) selects
+/// [`EstimateStyle`] for the math sibling; missing / unknown → Display.
 pub fn document_from_live_layout_value(v: &RuntimeValue) -> Result<Document, GraphicsBridgeError> {
+    document_from_live_layout_value_with_style(v, estimate_style_from_value(v))
+}
+
+/// Like [`document_from_live_layout_value`], with an explicit math [`EstimateStyle`].
+///
+/// The style argument is the host layout choice; a nested `style` field on the
+/// demo record is ignored.
+pub fn document_from_live_layout_value_with_style(
+    v: &RuntimeValue,
+    layout_style: EstimateStyle,
+) -> Result<Document, GraphicsBridgeError> {
     let fields = match v {
         RuntimeValue::Record(f) => f.as_slice(),
         _ => {
@@ -57,7 +72,7 @@ pub fn document_from_live_layout_value(v: &RuntimeValue) -> Result<Document, Gra
 
     let mut doc = layout_doc_page_to_scene(page_v).map_err(GraphicsBridgeError::from)?;
     let origin = math_origin_below_doc(&doc);
-    let math_shapes = layout_math_to_shapes(math_v, origin, EstimateStyle::Display)
+    let math_shapes = layout_math_to_shapes(math_v, origin, layout_style)
         .map_err(|e| GraphicsBridgeError::Bridge(e.message))?;
     if let Some(page) = doc.pages.first_mut() {
         page.shapes.extend(math_shapes);

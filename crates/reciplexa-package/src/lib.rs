@@ -63,7 +63,7 @@ pub use japanese_bridge::{
 };
 pub use live_layout_bridge::{
     document_from_live_layout_entry, document_from_live_layout_source,
-    document_from_live_layout_value,
+    document_from_live_layout_value, document_from_live_layout_value_with_style,
 };
 pub use load::{
     elaborate_with_packages, load_module_tree_with_packages, LocalPackageIndex, PackageLoadError,
@@ -74,7 +74,9 @@ pub use manifest::{
     normalize_resource_path, resolve_package_resource, DependencySpec, PackageManifest,
     ResourceCheckError, ResourceResolveError, OPEN_PKG_001_CODE, OPEN_PKG_001_REGISTRY,
 };
-pub use math_bridge::{estimate_package_math_main, MathBridgeError};
+pub use math_bridge::{
+    estimate_package_math_main, estimate_package_math_main_with_style, MathBridgeError,
+};
 pub use resolver::{resolve_packages, ResolveError, ResolvedGraph};
 pub use resource_value::{
     find_enclosing_package_root, materialize_package_resource,

@@ -6,10 +6,12 @@ use std::path::PathBuf;
 use reciplexa_eval::{document_from_graphics_value, RuntimeValue};
 use reciplexa_package::{
     debug_layout_summary, document_from_live_layout_entry, document_from_live_layout_source,
-    document_from_package_entry, document_from_package_source, elaborate_with_packages,
-    preview_doc_text_metrics, GraphicsBridgeError, LocalPackageIndex, PackageLoadError,
+    document_from_live_layout_value_with_style, document_from_package_entry,
+    document_from_package_source, elaborate_with_packages, preview_doc_text_metrics,
+    GraphicsBridgeError, LocalPackageIndex, PackageLoadError,
 };
 use reciplexa_scene::Shape;
+use reciplexa_std::math::EstimateStyle;
 
 fn workspace_packages() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../packages")
@@ -865,4 +867,98 @@ fn live_layout_demos_open_via_package_entry_bridge() {
             "{name}: expected fraction Line via package path"
         );
     }
+}
+
+fn live_scripts_demo_source(style: &str) -> String {
+    format!(
+        r#"(import document/page only
+  a4 page flow section heading paragraph
+  block-paragraph)
+(val title (heading 1 "S"))
+(val body (paragraph "p"))
+(val math
+  (record
+    (tag "math-row")
+    (children
+      (list
+        (record
+          (tag "math-scripts")
+          (base (record (tag "math-symbol") (glyph "x") (class "ord")))
+          (superscript (record (tag "math-symbol") (glyph "n") (class "ord"))))))))
+(val main
+  (record
+    (tag "live-layout-demo")
+    (style "{style}")
+    (page
+      (page a4
+        (flow
+          (list
+            (section title
+              (list
+                (block-paragraph body)))))))
+    (math math)))
+"#
+    )
+}
+
+fn first_math_glyph_height(doc: &reciplexa_scene::Document) -> f64 {
+    doc.pages[0]
+        .shapes
+        .iter()
+        .find_map(|s| match s {
+            Shape::Text(t) if t.content == "x" || t.content == "n" => t.height_mm,
+            _ => None,
+        })
+        .expect("row glyph height")
+}
+
+/// Host live-layout-demo `style` field reaches `layout_math_to_shapes`.
+#[test]
+fn live_layout_demo_style_text_vs_display() {
+    let display = document_from_live_layout_source(
+        &live_scripts_demo_source("display"),
+        "live_style_display",
+        &index(),
+    )
+    .expect("display demo");
+    let text = document_from_live_layout_source(
+        &live_scripts_demo_source("text"),
+        "live_style_text",
+        &index(),
+    )
+    .expect("text demo");
+    let dh = first_math_glyph_height(&display);
+    let th = first_math_glyph_height(&text);
+    assert!(
+        (dh - th).abs() > 1e-9,
+        "live-layout-demo style Text vs Display should change glyph height_mm, {dh} vs {th}"
+    );
+}
+
+/// Explicit host `layout_style` overrides a nested demo `style` field.
+#[test]
+fn live_layout_with_style_overrides_record_field() {
+    let source = live_scripts_demo_source("display");
+    let via_record = document_from_live_layout_source(&source, "live_style_override", &index())
+        .expect("record display");
+    let display_h = first_math_glyph_height(&via_record);
+
+    let dir = scratch();
+    let entry = dir.join("live_style_force.rpx");
+    std::fs::write(&entry, &source).unwrap();
+    let units = elaborate_with_packages(&entry, &index()).unwrap();
+    let demo = units.iter().find(|u| u.name == "live_style_force").unwrap();
+    let v = reciplexa_eval::eval_expr(
+        &demo.expr,
+        &std::collections::HashMap::new(),
+        &mut reciplexa_eval::UnitHost,
+    )
+    .unwrap();
+    let forced =
+        document_from_live_layout_value_with_style(&v, EstimateStyle::Text).expect("forced text");
+    let th = first_math_glyph_height(&forced);
+    assert!(
+        (display_h - th).abs() > 1e-9,
+        "with_style(Text) should ignore demo style display: {display_h} vs {th}"
+    );
 }

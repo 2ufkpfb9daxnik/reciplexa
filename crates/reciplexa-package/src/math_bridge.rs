@@ -40,12 +40,25 @@ impl std::fmt::Display for MathBridgeError {
 /// Host package mains use [`EstimateStyle::Display`] by default (display math),
 /// ignoring any nested `style` field on the tree — inline text style is for
 /// language `math-box` / record surfaces, not host inspect estimates.
+/// Pass [`estimate_package_math_main_with_style`] for [`EstimateStyle::Text`].
 ///
 /// When `main` is a `math-demo`-style record with a `tree` field, estimates that
 /// subtree; otherwise estimates the whole value if it is a math tagged record.
 pub fn estimate_package_math_main(
     entry_path: impl AsRef<Path>,
     index: &LocalPackageIndex,
+) -> Result<MathBox, MathBridgeError> {
+    estimate_package_math_main_with_style(entry_path, index, EstimateStyle::Display)
+}
+
+/// Like [`estimate_package_math_main`], with an explicit [`EstimateStyle`].
+///
+/// The style argument is the host layout choice; nested `style` fields on the
+/// math tree are ignored (same contract as the Display default helper).
+pub fn estimate_package_math_main_with_style(
+    entry_path: impl AsRef<Path>,
+    index: &LocalPackageIndex,
+    layout_style: EstimateStyle,
 ) -> Result<MathBox, MathBridgeError> {
     let entry = entry_path.as_ref();
     let units = elaborate_with_packages(entry, index)?;
@@ -57,7 +70,7 @@ pub fn estimate_package_math_main(
     let v = eval_expr(&demo.expr, &primitive_env(), &mut UnitHost)
         .map_err(|e| MathBridgeError::Eval(e.message))?;
     let target = math_estimate_target(&v);
-    estimate_math_box_from_value_with_style(target, EstimateStyle::Display)
+    estimate_math_box_from_value_with_style(target, layout_style)
         .map_err(|e| MathBridgeError::Estimate(e.message))
 }
 
