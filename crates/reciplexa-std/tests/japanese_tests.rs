@@ -1,6 +1,9 @@
 //! Coverage for `reciplexa_std::japanese` (OPEN-TEXT-JA-001 deepen J0+).
 
-use reciplexa_std::japanese::{classify_char, CharClass};
+use reciplexa_std::japanese::{
+    break_opportunity, break_opportunity_chars, classify_char, is_line_end_prohibited,
+    is_line_head_prohibited, BreakOpportunity, CharClass,
+};
 
 #[test]
 fn char_class_ids_and_codes() {
@@ -37,4 +40,49 @@ fn classify_char_useful_subset() {
     assert_eq!(classify_char('A'), CharClass::WesternCharacters);
     assert_eq!(classify_char('7'), CharClass::Numeric);
     assert_eq!(classify_char(' '), CharClass::Spaces);
+}
+
+#[test]
+fn break_opportunity_kinsoku_stub() {
+    assert!(is_line_head_prohibited(CharClass::FullStops));
+    assert!(is_line_end_prohibited(CharClass::OpeningBrackets));
+
+    // Open + letter: cannot break after open (line-end prohibited).
+    assert_eq!(
+        break_opportunity(CharClass::OpeningBrackets, CharClass::Hiragana),
+        BreakOpportunity::Prohibited
+    );
+    // Letter + full stop: cannot break before stop (line-head prohibited).
+    assert_eq!(
+        break_opportunity_chars('あ', '。'),
+        BreakOpportunity::Prohibited
+    );
+    // Closing before letter: break after close is allowed (close is head-kinsoku only).
+    assert_eq!(
+        break_opportunity_chars('」', 'あ'),
+        BreakOpportunity::Allowed
+    );
+    // Letter before close: cannot put close at line head.
+    assert_eq!(
+        break_opportunity_chars('あ', '」'),
+        BreakOpportunity::Prohibited
+    );
+    // Inseparable ellipsis run.
+    assert_eq!(
+        break_opportunity(CharClass::Inseparable, CharClass::Inseparable),
+        BreakOpportunity::Inseparable
+    );
+    // Western letter run stays together.
+    assert_eq!(
+        break_opportunity_chars('A', 'B'),
+        BreakOpportunity::Inseparable
+    );
+    // Ideograph boundary may break.
+    assert_eq!(
+        break_opportunity(CharClass::Ideographic, CharClass::Ideographic),
+        BreakOpportunity::Allowed
+    );
+    assert!(BreakOpportunity::Allowed.may_break());
+    assert!(!BreakOpportunity::Prohibited.may_break());
+    assert_eq!(BreakOpportunity::Inseparable.as_str(), "inseparable");
 }

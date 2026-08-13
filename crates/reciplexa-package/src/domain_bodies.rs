@@ -1121,7 +1121,11 @@ pub fn japanese_linebreak_module() -> DomainNativeModule {
 }
 
 pub fn japanese_linebreak_source() -> &'static str {
+    // NOTE: Synthetic RPX keeps the package import API for Core eval.
+    // Authoritative pair / classify tables for future layout live in
+    // `reciplexa_std::japanese` (`classify_char`, `break_opportunity`).
     r#"(// native: japanese/linebreak — synthesized by reciplexa-package::domain_bodies)
+(// authoritative Rust: reciplexa_std::japanese::{classify_char, break_opportunity})
 (val sample-line-head-prohibited
   "」、。．，）〕］｝〉》』】！？ーぁぃぅぇぉっゃゅょァィゥェォッャュョヽヾゝゞ々")
 (val sample-line-end-prohibited

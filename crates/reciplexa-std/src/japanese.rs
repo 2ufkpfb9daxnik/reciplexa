@@ -295,3 +295,98 @@ pub fn classify_char(c: char) -> CharClass {
         _ => CharClass::Other,
     }
 }
+
+/// Line-break opportunity between two character classes (JLReq-inspired stub).
+///
+/// Not the normative appendix C matrix — only common kinsoku / inseparable cases.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum BreakOpportunity {
+    Allowed,
+    Prohibited,
+    Inseparable,
+}
+
+impl BreakOpportunity {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Allowed => "allowed",
+            Self::Prohibited => "prohibited",
+            Self::Inseparable => "inseparable",
+        }
+    }
+
+    pub fn may_break(self) -> bool {
+        matches!(self, Self::Allowed)
+    }
+}
+
+impl fmt::Display for BreakOpportunity {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+/// Classes that must not start a line (sample kinsoku / line-head prohibited).
+pub fn is_line_head_prohibited(class: CharClass) -> bool {
+    matches!(
+        class,
+        CharClass::ClosingBrackets
+            | CharClass::FullStops
+            | CharClass::Commas
+            | CharClass::IterationMarks
+            | CharClass::ProlongedSoundMark
+            | CharClass::SmallKana
+            | CharClass::WarichuClose
+            | CharClass::DividingPunctuation
+            | CharClass::MiddleDots
+            | CharClass::Hyphens
+    )
+}
+
+/// Classes that must not end a line (sample line-end prohibited).
+pub fn is_line_end_prohibited(class: CharClass) -> bool {
+    matches!(
+        class,
+        CharClass::OpeningBrackets
+            | CharClass::PrefixedAbbreviations
+            | CharClass::AttachedWestern
+            | CharClass::WarichuOpen
+    )
+}
+
+/// Decide break opportunity between adjacent classified characters.
+///
+/// Prefer calling this from future layout; package `japanese/linebreak`
+/// `break-between` is a synthetic RPX mirror for Core imports.
+pub fn break_opportunity(prev: CharClass, next: CharClass) -> BreakOpportunity {
+    if prev == CharClass::Inseparable || next == CharClass::Inseparable {
+        return BreakOpportunity::Inseparable;
+    }
+    // Simple western / ASCII letter runs stay together (cl-24 / cl-27 style).
+    if (prev == CharClass::SimpleWestern || prev == CharClass::WesternCharacters)
+        && (next == CharClass::SimpleWestern || next == CharClass::WesternCharacters)
+    {
+        return BreakOpportunity::Inseparable;
+    }
+    if prev == CharClass::Numeric && next == CharClass::Numeric {
+        return BreakOpportunity::Inseparable;
+    }
+    if is_line_end_prohibited(prev) || is_line_head_prohibited(next) {
+        return BreakOpportunity::Prohibited;
+    }
+    // Digit before close/open (package numeric-before-close stub).
+    if prev == CharClass::Numeric
+        && matches!(
+            next,
+            CharClass::ClosingBrackets | CharClass::OpeningBrackets | CharClass::PostfixedAbbreviations
+        )
+    {
+        return BreakOpportunity::Prohibited;
+    }
+    BreakOpportunity::Allowed
+}
+
+/// Classify two chars and return the break opportunity between them.
+pub fn break_opportunity_chars(prev: char, next: char) -> BreakOpportunity {
+    break_opportunity(classify_char(prev), classify_char(next))
+}
