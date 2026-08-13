@@ -999,6 +999,22 @@ fn live_math_phantom_skips_sigma_ink() {
     );
 }
 
+/// Package-entry bridge (GUI path) also evals ker `math-phantom` via primitive_env.
+#[test]
+fn live_math_phantom_opens_via_package_entry_bridge() {
+    let doc = document_from_package_entry(&live_math_phantom_entry(), &index())
+        .expect("phantom package entry");
+    let texts = page_text_contents(&doc);
+    assert!(
+        texts.iter().any(|t| t == "x"),
+        "expected visible glyph via package path: {texts:?}"
+    );
+    assert!(
+        texts.iter().all(|t| t != "Σ"),
+        "package path must skip phantom Σ: {texts:?}"
+    );
+}
+
 /// pkg_live_math_phantom → SVG has paragraph/glyph text but not phantom Σ.
 #[test]
 fn live_math_phantom_svg_smoke_no_sigma() {

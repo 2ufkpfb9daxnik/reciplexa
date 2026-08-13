@@ -5,12 +5,12 @@
 //! is fixture-only (`interim-surface` / `lower_interim_source`). Production pipeline
 //! always refuses bare `(page …)`.
 
-use std::collections::HashMap;
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use reciplexa_eval::{
-    document_from_graphics_value, eval_expr, GraphicsValueError, RuntimeValue, UnitHost,
+    document_from_graphics_value, eval_expr, primitive_env, GraphicsValueError, RuntimeValue,
+    UnitHost,
 };
 use reciplexa_scene::Document;
 
@@ -98,7 +98,7 @@ pub fn document_from_package_entry(
         .iter()
         .find(|u| u.name == stem)
         .ok_or_else(|| GraphicsBridgeError::Load(format!("missing elaborated unit `{stem}`")))?;
-    let v = eval_expr(&demo.expr, &HashMap::new(), &mut UnitHost)
+    let v = eval_expr(&demo.expr, &primitive_env(), &mut UnitHost)
         .map_err(|e| GraphicsBridgeError::Eval(e.message))?;
     let v = maybe_materialize_package_resources_for_entry(&v, entry_path.as_ref());
     // Live-layout demos (doc page + sibling math) are not graphics/page trees.

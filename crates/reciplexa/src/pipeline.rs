@@ -323,13 +323,18 @@ mod tests {
         assert!(doc.pages[0].paper.is_positive());
     }
 
-    /// LL24: pkg_live_layout / pkg_live_math open via wants_package → package bridge.
+    /// LL24: pkg_live_layout / pkg_live_math / phantom open via wants_package → package bridge.
     #[test]
     fn document_from_source_live_layout_demos_use_package_path() {
-        for name in ["pkg_live_layout.rpx", "pkg_live_math.rpx"] {
+        for name in [
+            "pkg_live_layout.rpx",
+            "pkg_live_math.rpx",
+            "pkg_live_math_phantom.rpx",
+        ] {
             let src = match name {
                 "pkg_live_layout.rpx" => include_str!("../../../examples/pkg_live_layout.rpx"),
-                _ => include_str!("../../../examples/pkg_live_math.rpx"),
+                "pkg_live_math.rpx" => include_str!("../../../examples/pkg_live_math.rpx"),
+                _ => include_str!("../../../examples/pkg_live_math_phantom.rpx"),
             };
             let expanded = expand(src).unwrap();
             assert!(

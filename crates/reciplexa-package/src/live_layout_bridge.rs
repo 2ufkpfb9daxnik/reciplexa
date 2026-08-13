@@ -4,13 +4,12 @@
 //! `math` tree; this module lays out both and merges shapes. Heuristic only —
 //! see `lang/live-layout-plan.md` (LL3).
 
-use std::collections::HashMap;
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use reciplexa_eval::{
     estimate_style_from_value, eval_expr, layout_doc_page_to_scene, layout_math_to_shapes,
-    RuntimeValue, UnitHost,
+    primitive_env, RuntimeValue, UnitHost,
 };
 use reciplexa_scene::{Document, Shape};
 use reciplexa_std::math::EstimateStyle;
@@ -116,7 +115,7 @@ pub fn document_from_live_layout_entry(
         .iter()
         .find(|u| u.name == stem)
         .ok_or_else(|| GraphicsBridgeError::Load(format!("missing elaborated unit `{stem}`")))?;
-    let v = eval_expr(&demo.expr, &HashMap::new(), &mut UnitHost)
+    let v = eval_expr(&demo.expr, &primitive_env(), &mut UnitHost)
         .map_err(|e| GraphicsBridgeError::Eval(e.message))?;
     document_from_live_layout_value(&v)
 }

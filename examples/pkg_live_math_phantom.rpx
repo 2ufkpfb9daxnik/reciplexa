@@ -1,6 +1,5 @@
-(// language-only: live-layout phantom — math-phantom metric record (same tag
- // the ker builtin emits) nested in a row. Host inks "x" and skips Σ.
- // Not TeX smash-still-draws / OpenType MATH.)
+(// language-only: live-layout phantom — ker builtin math-phantom nested in a
+ // row. Host inks "x" and skips Σ (not TeX smash-still-draws / OpenType MATH).)
 
 (import document/page only
   a4 page flow section heading paragraph
@@ -14,7 +13,7 @@
     (children
       (list
         (record (tag "math-symbol") (glyph "x") (class "ord"))
-        (record (tag "math-phantom") (glyph "Σ") (width 0) (height 0.7) (depth 0.2))))))
+        (math-phantom (record (tag "math-symbol") (glyph "Σ") (class "op")))))))
 
 (val main
   (record
