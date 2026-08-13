@@ -94,9 +94,10 @@ No push unless asked. Fine-grained commits (one unit ≈ one commit).
 
 | Unit | Status |
 |------|--------|
-| LL0 — Plan doc | **pending** |
-| LL1 — `layout_doc_page_to_scene` | pending |
-| LL2 — `layout_math_to_shapes` | pending |
-| LL3 — Integration example + test | pending |
-| LL4 — PDF smoke | pending |
-| LL5 — Docs / implemented-features | pending |
+| LL0 — Plan doc | **done** |
+| LL1 — `layout_doc_page_to_scene` | **done** |
+| LL2 — `layout_math_to_shapes` | **done** (naive linearize glyphs; monospace `estimate_box` width — not OpenType MATH) |
+| LL3 — Integration example + test | **done** (`examples/pkg_live_layout.rpx` + `document_from_live_layout_*`) |
+| LL4 — PDF smoke | **done** (CJK-gated `Tj`) |
+| LL5 — Docs / implemented-features | **done** |
+
