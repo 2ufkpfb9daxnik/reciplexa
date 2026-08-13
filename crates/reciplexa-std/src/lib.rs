@@ -8,6 +8,7 @@
 
 pub mod core;
 pub mod document;
+pub mod japanese;
 pub mod layout;
 pub mod math;
 pub mod motion;
@@ -19,6 +20,7 @@ pub mod visual;
 
 pub use core::{Angle, Color, Length, Point, Range, Rect, Size};
 pub use document::{Block, Figure, Flow, Heading, List, ListItem, Page, Section, Table};
+pub use japanese::{classify_char, CharClass};
 pub use layout::{Align, Axis, Column, LayoutChild, Padding, Row, Stack};
 pub use math::{MathAtom, MathClass};
 pub use motion::{
