@@ -5,9 +5,9 @@ use std::path::PathBuf;
 
 use reciplexa_eval::{document_from_graphics_value, RuntimeValue};
 use reciplexa_package::{
-    debug_layout_summary, document_from_package_entry, document_from_package_source,
-    elaborate_with_packages, preview_doc_text_metrics, GraphicsBridgeError, LocalPackageIndex,
-    PackageLoadError,
+    debug_layout_summary, document_from_live_layout_entry, document_from_live_layout_source,
+    document_from_package_entry, document_from_package_source, elaborate_with_packages,
+    preview_doc_text_metrics, GraphicsBridgeError, LocalPackageIndex, PackageLoadError,
 };
 use reciplexa_scene::Shape;
 
@@ -599,4 +599,35 @@ fn vertical_place_pdf_smoke_when_cjk_font() {
         tj >= 2,
         "expected multiple PDF text ops from vertical columns, got {tj}"
     );
+}
+
+/// LL3: doc paragraph + sibling math-box compose onto one scene page.
+#[test]
+fn live_layout_doc_plus_math_sibling_shapes() {
+    let entry =
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/pkg_live_layout.rpx");
+    let doc = document_from_live_layout_entry(&entry, &index()).expect("live layout entry");
+    let texts: Vec<_> = doc.pages[0]
+        .shapes
+        .iter()
+        .filter_map(|s| match s {
+            Shape::Text(t) => Some(t.content.as_str()),
+            _ => None,
+        })
+        .collect();
+    assert!(
+        texts.iter().any(|t| t.contains("本文") || *t == "本文の下に数式を置く。"),
+        "expected doc paragraph among {texts:?}"
+    );
+    let joined: String = texts.concat();
+    assert!(
+        joined.contains("(a/b)") || texts.iter().any(|t| ["(", "a", "/", "b", ")"].contains(t)),
+        "expected linearized math glyphs among {texts:?}"
+    );
+
+    // Source path also works (temp entry).
+    let source = std::fs::read_to_string(&entry).expect("read example");
+    let via_src = document_from_live_layout_source(&source, "pkg_live_layout", &index())
+        .expect("live layout source");
+    assert!(!via_src.pages[0].shapes.is_empty());
 }

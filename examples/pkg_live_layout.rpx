@@ -1,0 +1,27 @@
+(// language-only: live-layout demo — doc paragraph + sibling math tree.
+ // Host composes via document_from_live_layout_* (LL3); not a graphics child embed.
+ // Math placement is linearize → Text glyphs (monospace estimate_box heuristic).)
+
+(import document/page only
+  a4 page flow section heading paragraph
+  block-paragraph)
+
+(val title (heading 1 "Live layout"))
+(val body (paragraph "本文の下に数式を置く。"))
+(val math
+  (record
+    (tag "math-fraction")
+    (numerator (record (tag "math-symbol") (glyph "a") (class "ord")))
+    (denominator (record (tag "math-symbol") (glyph "b") (class "ord")))))
+
+(val main
+  (record
+    (tag "live-layout-demo")
+    (page
+      (page a4
+        (flow
+          (list
+            (section title
+              (list
+                (block-paragraph body)))))))
+    (math math)))

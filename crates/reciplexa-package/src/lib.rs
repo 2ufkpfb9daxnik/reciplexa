@@ -14,6 +14,7 @@ pub mod domain_bodies;
 pub mod domain_native;
 pub mod graphics_bridge;
 pub mod japanese_bridge;
+pub mod live_layout_bridge;
 pub mod load;
 pub mod lockfile;
 pub mod manifest;
@@ -54,6 +55,10 @@ pub use graphics_bridge::{
 };
 pub use japanese_bridge::{
     check_linebreak_std_parity, linebreak_parity_samples, LinebreakParitySample,
+};
+pub use live_layout_bridge::{
+    document_from_live_layout_entry, document_from_live_layout_source,
+    document_from_live_layout_value,
 };
 pub use load::{
     elaborate_with_packages, load_module_tree_with_packages, LocalPackageIndex, PackageLoadError,
