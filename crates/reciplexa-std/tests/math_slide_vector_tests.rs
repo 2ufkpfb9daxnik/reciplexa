@@ -69,19 +69,20 @@ fn math_accent_and_big_op() {
     assert_eq!(hat.linearize(), "hat{a}");
     assert_eq!(MathAccentKind::Vec.as_str(), "vec");
     let i = MathAtom::symbol(id(4), "i", MathClass::Ordinary);
-    let sum = MathAtom::big_op(
-        id(5),
-        "∑",
-        Some(i),
-        Some(n),
-        Some(a),
-    );
+    let sum = MathAtom::big_op(id(5), "∑", Some(i), Some(n), Some(a));
     assert_eq!(sum.child_count(), 3);
     assert!(sum.linearize().contains('∑'));
-    assert_eq!(MathAtom::paren(id(6), MathAtom::symbol(id(7), "x", MathClass::Ordinary)).linearize(), "(x)");
     assert_eq!(
-        MathAtom::superscript(id(8), MathAtom::symbol(id(9), "x", MathClass::Ordinary), MathAtom::symbol(id(10), "2", MathClass::Ordinary))
-            .linearize(),
+        MathAtom::paren(id(6), MathAtom::symbol(id(7), "x", MathClass::Ordinary)).linearize(),
+        "(x)"
+    );
+    assert_eq!(
+        MathAtom::superscript(
+            id(8),
+            MathAtom::symbol(id(9), "x", MathClass::Ordinary),
+            MathAtom::symbol(id(10), "2", MathClass::Ordinary)
+        )
+        .linearize(),
         "x^2"
     );
 }

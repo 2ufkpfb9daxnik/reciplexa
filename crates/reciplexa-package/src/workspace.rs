@@ -139,9 +139,8 @@ pub fn parse_workspace_rpxm(src: &str) -> Result<WorkspaceManifest, RpxmError> {
 pub fn discover_workspace(root: impl AsRef<Path>) -> Result<WorkspaceIndex, WorkspaceError> {
     let root = root.as_ref();
     let ws_path = root.join("workspace.rpxm");
-    let src = fs::read_to_string(&ws_path).map_err(|e| {
-        WorkspaceError::Io(format!("read `{}`: {e}", ws_path.display()))
-    })?;
+    let src = fs::read_to_string(&ws_path)
+        .map_err(|e| WorkspaceError::Io(format!("read `{}`: {e}", ws_path.display())))?;
     let manifest = parse_workspace_rpxm(&src)?;
 
     let mut members: BTreeMap<String, (PathBuf, PackageManifest)> = BTreeMap::new();
@@ -167,9 +166,8 @@ pub fn discover_workspace(root: impl AsRef<Path>) -> Result<WorkspaceIndex, Work
                 pkg_path.display()
             )));
         }
-        let pkg_src = fs::read_to_string(&pkg_path).map_err(|e| {
-            WorkspaceError::Io(format!("read `{}`: {e}", pkg_path.display()))
-        })?;
+        let pkg_src = fs::read_to_string(&pkg_path)
+            .map_err(|e| WorkspaceError::Io(format!("read `{}`: {e}", pkg_path.display())))?;
         let package = parse_rpxm(&pkg_src).map_err(WorkspaceError::Manifest)?;
         if let Some((existing, _)) = members.get(&package.name) {
             return Err(WorkspaceError::DuplicateName(format!(
@@ -309,9 +307,8 @@ pub fn check_package_lock_consistency(
 ) -> Result<(), WorkspaceError> {
     let package_root = package_root.as_ref();
     let manifest_path = package_root.join("package.rpxm");
-    let src = fs::read_to_string(&manifest_path).map_err(|e| {
-        WorkspaceError::Io(format!("read `{}`: {e}", manifest_path.display()))
-    })?;
+    let src = fs::read_to_string(&manifest_path)
+        .map_err(|e| WorkspaceError::Io(format!("read `{}`: {e}", manifest_path.display())))?;
     let manifest = parse_rpxm(&src).map_err(WorkspaceError::Manifest)?;
     let (_lock_path, lock) = read_lock_for_package(package_root)?;
 

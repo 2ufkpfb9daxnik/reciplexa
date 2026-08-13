@@ -109,7 +109,11 @@ fn discover_rejects_duplicate_formal_names() {
 fn discover_rejects_nested_workspace() {
     let root = tmp_dir("nest");
     write_pkg(&root.join("core"), "core", "1.0.0");
-    fs::write(root.join("core").join("workspace.rpxm"), "(workspace (members \"x\"))\n").unwrap();
+    fs::write(
+        root.join("core").join("workspace.rpxm"),
+        "(workspace (members \"x\"))\n",
+    )
+    .unwrap();
     fs::write(
         root.join("workspace.rpxm"),
         r#"(workspace format-version 1 (members "core"))"#,
@@ -181,7 +185,9 @@ fn member_uses_workspace_root_lock() {
     let idx = discover_workspace(&root).unwrap();
     idx.write_lock().unwrap();
 
-    let found = find_enclosing_workspace(root.join("core")).unwrap().unwrap();
+    let found = find_enclosing_workspace(root.join("core"))
+        .unwrap()
+        .unwrap();
     assert_eq!(found.root, idx.root);
 
     let (lock_path, lock) = read_lock_for_package(root.join("core")).unwrap();

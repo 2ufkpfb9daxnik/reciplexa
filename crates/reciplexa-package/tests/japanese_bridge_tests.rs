@@ -1,7 +1,7 @@
 //! Package ↔ std japanese linebreak parity (J7).
 
 use reciplexa_package::{
-    check_linebreak_std_parity, linebreak_parity_samples, japanese_linebreak_source,
+    check_linebreak_std_parity, japanese_linebreak_source, linebreak_parity_samples,
 };
 
 #[test]

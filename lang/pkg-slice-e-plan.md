@@ -26,5 +26,6 @@ Full typed `package-resource` / resource effects; real registry network; content
 | R0 | Package API `resolve_package_resource` under `resource_root` + listed resources | **done** |
 | R1 | Document language `(resource …)` still OPEN / deferred | **done** (historical note) |
 | R2 | Language light `(resource "rel")` → deferred `package-resource` record | **done** |
+| R3 | Host `materialize_package_resource` / `resolve_resource_value` when root known | **done** |
 
-Language `(resource "path")` light surface is **done** (tagged record + R0 when package root available). Full typed handle / effects remain OPEN.
+Language `(resource "path")` light surface is **done** (tagged record + R0 when package root available). Host materialize helper is **done**. Full typed handle / effects / auto load-time rewrite remain OPEN.

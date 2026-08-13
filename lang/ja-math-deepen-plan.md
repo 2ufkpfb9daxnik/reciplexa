@@ -149,3 +149,14 @@ No push unless asked. Fine-grained commits (one unit ≈ one commit).
   - Light prep **done**: `reciplexa_eval::math_value` lowers package math tagged records → `MathAtom` → `estimate_box`.
 - Wire `classify_char` as a real language/package intrinsic (replace synthetic `classify-sample`).
   - Skipped for now (std + J7 parity bridge sufficient; BuiltinOp deferred).
+
+## Follow-on slices (post J*/M*)
+
+| Slice | Status |
+|-------|--------|
+| Eval `math_value` bridge: symbol/row/frac/scripts/radical/delimiter | **done** |
+| Eval `math_value`: accent / matrix / bigop / stack / aligned | **done** |
+| JA `classify_char` ideographic punctuation + fullwidth expansions | **done** (still subset, not full UCS) |
+| Package `materialize_package_resource` / `resolve_resource_value` when root known | **done** (helper + tests; full load-time rewrite deferred) |
+| Tip tests for math_value / japanese / resource | **done** |
+| Full UCS / §C / glyph layout / document consumption | **OPEN** |

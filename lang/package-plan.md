@@ -52,8 +52,11 @@ Interim RPX depth that already exists (`graphics` / `length` / `color` / `math` 
 **R2 (language light):** `(resource "rel")` elaborates to a pure tagged record
 `(tag "package-resource") (path …) (note "resolve at package load")` — typechecks/evals without package root; hosts may resolve `path` via R0 when a root is available.
 
+**R3 (host materialize):** `materialize_package_resource` / `resolve_resource_value(v, package_root, manifest)` — when a evaluated `package-resource` record is in hand and the package root is known, resolve to an absolute `PathBuf` via R0. **done** (helper + tests). Automatic rewrite inside `elaborate_with_packages` / `document_from_package_entry` remains deferred.
+
 **Still OPEN / deferred:**
 - Full `package-resource` typed handle / resource effects / content hashes
+- Auto-resolve nested `(resource …)` during package load/eval (call sites still opt-in via R3)
 - Real registry network (`OPEN-PKG-001`)
 
 ## Conventions (v1)

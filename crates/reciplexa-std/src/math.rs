@@ -359,11 +359,7 @@ impl MathAtom {
     }
 
     pub fn stack(id: StableNodeId, kind: MathStackKind, children: Vec<MathAtom>) -> Self {
-        Self::Stack {
-            id,
-            kind,
-            children,
-        }
+        Self::Stack { id, kind, children }
     }
 
     pub fn atop(id: StableNodeId, top: MathAtom, bottom: MathAtom) -> Self {
@@ -386,7 +382,9 @@ impl MathAtom {
             Self::BigOp {
                 lower, upper, body, ..
             } => {
-                usize::from(lower.is_some()) + usize::from(upper.is_some()) + usize::from(body.is_some())
+                usize::from(lower.is_some())
+                    + usize::from(upper.is_some())
+                    + usize::from(body.is_some())
             }
             Self::Matrix { rows, .. } | Self::Aligned { rows, .. } => {
                 rows.iter().map(|r| r.len()).sum()
@@ -489,10 +487,12 @@ impl MathAtom {
                     .collect();
                 format!("align{{{}}}", body.join("\\\\"))
             }
-            Self::Stack {
-                kind, children, ..
-            } => {
-                let inner: String = children.iter().map(|c| c.linearize()).collect::<Vec<_>>().join(",");
+            Self::Stack { kind, children, .. } => {
+                let inner: String = children
+                    .iter()
+                    .map(|c| c.linearize())
+                    .collect::<Vec<_>>()
+                    .join(",");
                 format!("{}{{{}}}", kind.as_str(), inner)
             }
         }

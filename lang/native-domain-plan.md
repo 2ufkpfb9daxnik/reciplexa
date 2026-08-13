@@ -173,4 +173,4 @@ Document / page constructors stay package-shaped (`graphics/page` or later `docu
 
 **N5 complete (N5.1–N5.3):** dual-path document surface + coverage tips. Follow-on writable package sync: [`gui-cst-sync-v2-plan.md`](gui-cst-sync-v2-plan.md) (S0–S6b **complete**).
 
-**Follow-ons outside N*:** JA/math deepen J0–J7 / M0–M3 **done**; eval `math_value` bridge (tagged math records → `estimate_box`) **done**; package R0 + language light `(resource …)` **done**. Remains: full UCS / §C / glyph layout / document layout consumption; registry; typed package-resource effects.
+**Follow-ons outside N*:** JA/math deepen J0–J7 / M0–M3 **done**; eval `math_value` bridge (incl. accent/matrix/bigop/stack) **done**; JA classify ideographic punct/fullwidth expand **done**; package R0+R2+R3 (`materialize_package_resource`) **done**. Remains: full UCS / §C / glyph layout / document layout consumption; registry; typed package-resource effects; auto materialize at load.

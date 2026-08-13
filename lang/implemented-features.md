@@ -155,9 +155,9 @@ pre-PKG カーネルは計画上 **COMPLETE（意図的 defer 付き）**。各�
 1. **Native domain 移行** — [`native-domain-plan.md`](native-domain-plan.md) N0→N5.2 dual-path **done**（length/color → graphics → math → japanese → document）。keyword 表 production 隔離は GUI CST sync v2 S6b **done**。
 2. **カバレッジ締め（N6）** — **done**（7-crate BEST-ENTRY ≥99%）；N5.3 tip for document surface residuals。
 3. **GUI CST sync v2** — [`gui-cst-sync-v2-plan.md`](gui-cst-sync-v2-plan.md) S0–**S6b done**（package writable sync、examples package 化、production keyword 表隔離）。
-4. **PKG インフラ（Slice E）** — **done**（workspace lock / resources / OPEN-PKG-001 stub）；package API `resolve_package_resource`（R0）**done**。言語 `(resource "rel")` 軽量面 **done**（elaborate→`package-resource` タグ付き record；package root 無しでは deferred note；root あり時は R0 で解決）。実 `package-resource` 型・レジストリはなお **OPEN**。
-5. **OPEN-TEXT-JA-001 / math layout** — 第一深化スライス **done**（[`ja-math-deepen-plan.md`](ja-math-deepen-plan.md) J0–J7 / M0–M3）。追加: eval `math_value` 橋（package math タグ record → `MathAtom` → fontless `estimate_box`）。残: 完全 UCS・§C 禁則・ruby/縦中横実レイアウト・OpenType MATH / stretchy / 文書パイプライン本消費・`classify` 言語 intrinsic（BuiltinOp は未配線）。
-6. **次の優先候補** — レジストリ（OPEN-PKG-001）／文書パイプラインが math box・JA classify を本番レイアウトに載せる／`classify-char` 言語ビルトイン（任意）。
+4. **PKG インフラ（Slice E）** — **done**（workspace lock / resources / OPEN-PKG-001 stub）；package API `resolve_package_resource`（R0）**done**。言語 `(resource "rel")` 軽量面 **done**（elaborate→`package-resource` タグ付き record；package root 無しでは deferred note）。host `materialize_package_resource` / `resolve_resource_value`（R3）**done**。実 `package-resource` 型・load 時自動解決・レジストリはなお **OPEN**。
+5. **OPEN-TEXT-JA-001 / math layout** — 第一深化スライス **done**（[`ja-math-deepen-plan.md`](ja-math-deepen-plan.md) J0–J7 / M0–M3）。追加: eval `math_value` 橋（accent/matrix/bigop/stack/aligned 含む）**done**；JA classify 表意約物・全角拡張 **done**（なお subset）。残: 完全 UCS・§C 禁則・ruby/縦中横実レイアウト・OpenType MATH / stretchy / 文書パイプライン本消費・`classify` 言語 intrinsic（BuiltinOp は未配線）。
+6. **次の優先候補** — レジストリ（OPEN-PKG-001）／文書パイプラインが math box・JA classify を本番レイアウトに載せる／package load 時 resource 自動 materialize／`classify-char` 言語ビルトイン（任意）。
 ---
 
 ## 付記: クレート一覧の見取り図

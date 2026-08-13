@@ -259,7 +259,10 @@ impl std::fmt::Display for ResourceCheckError {
         match self {
             Self::InvalidPath(s) => write!(f, "{s}"),
             Self::Missing { resource, path } => {
-                write!(f, "package resource does not exist: `{resource}` at `{path}`")
+                write!(
+                    f,
+                    "package resource does not exist: `{resource}` at `{path}`"
+                )
             }
         }
     }
