@@ -1062,7 +1062,7 @@ cargo test -p reciplexa-std -p reciplexa-eval -p reciplexa-core -p reciplexa-pac
 |------|--------|
 | P0 — `measure_columns` | **done** |
 | P1 — Test + docs (kihon `multi-column` link) | **done** |
-| P2 — tip / optional `doc-columns` | pending |
+| P2 — tip / optional `doc-columns` | **done** |
 
 ### P0 — Helper
 
@@ -1074,4 +1074,11 @@ cargo test -p reciplexa-std -p reciplexa-eval -p reciplexa-core -p reciplexa-pac
 
 ### P2 — Optional document lower
 
-- If clean: `doc-columns` tag places paragraphs via `measure_columns`. Else tip-only. **Commit.**
+- `doc-columns` tag (+ doc-block kind `columns`) places up to `count` paragraphs via `measure_columns`. **Commit.**
+
+## Remains after Wave 22
+
+- Full UCS membership + normative JLReq §C break matrix + real hanging/justification / word-break / paragraph composition.
+- Font-backed ruby / tate-chu-yoko / real vertical metrics / bou placement; OpenType `vert`/`vrt2` / CSS `text-orientation`.
+- OpenType MATH stretchy fences, accent/script/stackrel attachment, real matrix column alignment / big-op / fraction/radical / full muskip style table / real phantom atoms.
+- Document/GUI pipeline consuming boxes as production layout; JA reciprocal punctuation stubs; load-time resource rewrite beyond fail-soft attach; registry resolve + checksum verification (OPEN-PKG-001).

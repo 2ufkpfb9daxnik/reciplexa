@@ -86,6 +86,11 @@ fn collect_block_shapes(
                 .ok_or_else(|| GraphicsValueError::new("doc-block paragraph missing paragraph"))?;
             push_heading_or_paragraph(paragraph, cursor_y, shapes)
         }
+        "columns" => {
+            let columns = field(fields, "columns")
+                .ok_or_else(|| GraphicsValueError::new("doc-block columns missing columns"))?;
+            push_heading_or_paragraph(columns, cursor_y, shapes)
+        }
         "spacer" => {
             let spacer = field(fields, "spacer")
                 .ok_or_else(|| GraphicsValueError::new("doc-block spacer missing spacer"))?;
@@ -137,10 +142,84 @@ fn push_heading_or_paragraph(
             push_soft_wrapped_text(&text, size, indent_em, cursor_y, shapes);
             Ok(())
         }
+        "doc-columns" => push_doc_columns(fields, cursor_y, shapes),
         other => Err(GraphicsValueError::new(format!(
-            "expected doc-heading or doc-paragraph, got `{other}`"
+            "expected doc-heading, doc-paragraph, or doc-columns, got `{other}`"
         ))),
     }
+}
+
+/// Place paragraph texts into columns via [`measure_columns`] (Wave 22 stub).
+///
+/// Record fields: `count`, `gutter-em`, optional `total-em`, `paragraphs` (cons of
+/// strings or `doc-paragraph`). One paragraph per column (extras ignored). Not
+/// balanced multi-column / `jlreq-multi-column` book layout.
+fn push_doc_columns(
+    fields: &[(String, RuntimeValue)],
+    cursor_y: &mut f64,
+    shapes: &mut Vec<Shape>,
+) -> Result<(), GraphicsValueError> {
+    let count = field(fields, "count")
+        .and_then(as_f64)
+        .unwrap_or(2.0)
+        .max(0.0) as u32;
+    let gutter_em = field(fields, "gutter-em").and_then(as_f64).unwrap_or(1.0);
+    let total_em = field(fields, "total-em")
+        .and_then(as_f64)
+        .unwrap_or(DOC_TEXT_MAX_EM);
+    let paragraphs = field(fields, "paragraphs")
+        .ok_or_else(|| GraphicsValueError::new("doc-columns missing paragraphs"))?;
+    let items = cons_items(paragraphs)?;
+    let (col_w, xs) = reciplexa_std::japanese::measure_columns(total_em, count, gutter_em);
+    let size_mm = 4.0;
+    const BASE_X_MM: f64 = 20.0;
+    let start_y = *cursor_y;
+    let mut min_y = start_y;
+    let n = count as usize;
+    for (i, item) in items.iter().enumerate().take(n) {
+        let text = match item {
+            RuntimeValue::String(s) => s.clone(),
+            RuntimeValue::Record(pf) => {
+                expect_tag(pf, "doc-paragraph")?;
+                string_field(pf, "text")?
+            }
+            _ => {
+                return Err(GraphicsValueError::new(
+                    "doc-columns paragraphs expect string or doc-paragraph",
+                ));
+            }
+        };
+        let x_em = xs.get(i).copied().unwrap_or(0.0);
+        let budget = if col_w > 0.0 { col_w } else { DOC_TEXT_MAX_EM };
+        let lines = reciplexa_std::japanese::break_line(&text, budget);
+        let mut col_y = start_y;
+        if lines.is_empty() {
+            push_text_at(
+                String::new(),
+                size_mm,
+                BASE_X_MM + x_em * size_mm,
+                &mut col_y,
+                shapes,
+            );
+            col_y -= size_mm + 3.0;
+        } else {
+            for line in lines {
+                push_text_at(
+                    line,
+                    size_mm,
+                    BASE_X_MM + x_em * size_mm,
+                    &mut col_y,
+                    shapes,
+                );
+                col_y -= size_mm + 3.0;
+            }
+        }
+        if col_y < min_y {
+            min_y = col_y;
+        }
+    }
+    *cursor_y = min_y;
+    Ok(())
 }
 
 /// Soft-wrap `text` via [`reciplexa_std::japanese::break_line`] into scene Text shapes.
@@ -714,5 +793,73 @@ mod tests {
             ),
         ]);
         assert!(document_from_doc_value(&zero_paper).is_err());
+    }
+
+    #[test]
+    fn doc_columns_places_paragraphs_with_measure_columns() {
+        let columns = rec(vec![
+            ("tag", RuntimeValue::String("doc-columns".into())),
+            ("count", RuntimeValue::Int(2)),
+            ("gutter-em", RuntimeValue::Number(1.0)),
+            ("total-em", RuntimeValue::Number(21.0)),
+            (
+                "paragraphs",
+                cons(vec![
+                    RuntimeValue::String("左カラム".into()),
+                    rec(vec![
+                        ("tag", RuntimeValue::String("doc-paragraph".into())),
+                        ("text", RuntimeValue::String("右カラム".into())),
+                    ]),
+                ]),
+            ),
+        ]);
+        let blocks = cons(vec![rec(vec![
+            ("tag", RuntimeValue::String("doc-block".into())),
+            ("kind", RuntimeValue::String("columns".into())),
+            ("columns", columns),
+        ])]);
+        let section = rec(vec![
+            ("tag", RuntimeValue::String("doc-section".into())),
+            (
+                "title",
+                rec(vec![
+                    ("tag", RuntimeValue::String("doc-heading".into())),
+                    ("level", RuntimeValue::Int(2)),
+                    ("text", RuntimeValue::String("Cols".into())),
+                ]),
+            ),
+            ("blocks", blocks),
+        ]);
+        let flow = rec(vec![
+            ("tag", RuntimeValue::String("doc-flow".into())),
+            ("sections", cons(vec![section])),
+        ]);
+        let page = rec(vec![
+            ("tag", RuntimeValue::String("doc-page".into())),
+            (
+                "paper",
+                rec(vec![
+                    ("width", RuntimeValue::Int(210)),
+                    ("height", RuntimeValue::Int(297)),
+                ]),
+            ),
+            ("flow", flow),
+        ]);
+        let doc = document_from_doc_value(&page).expect("doc-columns lower");
+        let texts: Vec<_> = doc.pages[0]
+            .shapes
+            .iter()
+            .filter_map(|s| match s {
+                Shape::Text(t) => Some(t),
+                _ => None,
+            })
+            .collect();
+        assert!(texts.iter().any(|t| t.content == "左カラム"));
+        assert!(texts.iter().any(|t| t.content == "右カラム"));
+        let left = texts.iter().find(|t| t.content == "左カラム").unwrap();
+        let right = texts.iter().find(|t| t.content == "右カラム").unwrap();
+        // col_w = (21-1)/2 = 10; xs = [0, 11]; size_mm = 4 → Δx = 44mm
+        assert!((right.x_mm - left.x_mm - 11.0 * 4.0).abs() < 1e-6);
+        assert!((left.y_mm - right.y_mm).abs() < 1e-9);
     }
 }
