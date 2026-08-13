@@ -146,4 +146,6 @@ No push unless asked. Fine-grained commits (one unit ≈ one commit).
 - Font-backed shaping, ruby layout, tate-chu-yoko metrics, vertical glyph orientation.
 - Math: OpenType MATH / stretchy fences / real matrix column alignment / linebreak in display math.
 - Document pipeline + GUI consuming kihon / ruby / math boxes (not only trees).
+  - Light prep **done**: `reciplexa_eval::math_value` lowers package math tagged records → `MathAtom` → `estimate_box`.
 - Wire `classify_char` as a real language/package intrinsic (replace synthetic `classify-sample`).
+  - Skipped for now (std + J7 parity bridge sufficient; BuiltinOp deferred).

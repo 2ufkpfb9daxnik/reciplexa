@@ -85,7 +85,7 @@ pre-PKG カーネルは計画上 **COMPLETE（意図的 defer 付き）**。各�
 | **EVAL** | 実装済 | Core 評価、ホスト効果、継続の one-shot 経路 | `crates/reciplexa-eval` |
 | **MOD** | 実装済（functor/sig は延期） | 外モジュール、`import` path/`as`/`only`/rename、qualified、`.rpi` 境界 | `crates/reciplexa-bind` |
 | **KER** | 部分 | 算術比較ビルトイン + EffectHost；正式 ABI hash は OPEN | `crates/reciplexa-eval` / identity |
-| **RSC** | 部分 | `MemoryFsHost` の file I/O；豊富な資源カタログは延期 | `crates/reciplexa-eval` |
+| **RSC** | 部分 | `MemoryFsHost` の file I/O；言語 `(resource …)` 軽量 deferred record；豊富な資源カタログは延期 | `crates/reciplexa-eval` / `reciplexa-core` |
 | **MEM** | 実装済（拡張・一部 OPEN は延期） | Mem IR、record-update/extend 実行、lower | `crates/reciplexa-mem` + `reciplexa-lower` |
 | **ERR** | 部分 | 構文診断・主要 abort；深い診断体系・PKG 連動は延期多数 | `crates/reciplexa-diagnostic` |
 | **EDT** | 部分 | BindingId／展開ソースマップ、文書パイプライン；協調編集・codec policy は延期 | `crates/reciplexa-document` + macro map |
@@ -155,8 +155,9 @@ pre-PKG カーネルは計画上 **COMPLETE（意図的 defer 付き）**。各�
 1. **Native domain 移行** — [`native-domain-plan.md`](native-domain-plan.md) N0→N5.2 dual-path **done**（length/color → graphics → math → japanese → document）。keyword 表 production 隔離は GUI CST sync v2 S6b **done**。
 2. **カバレッジ締め（N6）** — **done**（7-crate BEST-ENTRY ≥99%）；N5.3 tip for document surface residuals。
 3. **GUI CST sync v2** — [`gui-cst-sync-v2-plan.md`](gui-cst-sync-v2-plan.md) S0–**S6b done**（package writable sync、examples package 化、production keyword 表隔離）。
-4. **PKG インフラ（Slice E）** — **done**（workspace lock / resources / OPEN-PKG-001 stub）；package API `resolve_package_resource`（R0）**done**。言語 `(resource …)` / `package-resource` 型・実レジストリは **OPEN / deferred**（R1）。
-5. **OPEN-TEXT-JA-001 / math layout** — 第一深化スライス **done**（[`ja-math-deepen-plan.md`](ja-math-deepen-plan.md) J0–J7 / M0–M3：Rust 表拡充＋package linebreak パリティ橋＋fontless box stub）。残: 完全 UCS 所属表・§C 禁則行列・ruby/縦中横実レイアウト・OpenType MATH / stretchy / 文書パイプライン消費・`classify` 言語 intrinsic。
+4. **PKG インフラ（Slice E）** — **done**（workspace lock / resources / OPEN-PKG-001 stub）；package API `resolve_package_resource`（R0）**done**。言語 `(resource "rel")` 軽量面 **done**（elaborate→`package-resource` タグ付き record；package root 無しでは deferred note；root あり時は R0 で解決）。実 `package-resource` 型・レジストリはなお **OPEN**。
+5. **OPEN-TEXT-JA-001 / math layout** — 第一深化スライス **done**（[`ja-math-deepen-plan.md`](ja-math-deepen-plan.md) J0–J7 / M0–M3）。追加: eval `math_value` 橋（package math タグ record → `MathAtom` → fontless `estimate_box`）。残: 完全 UCS・§C 禁則・ruby/縦中横実レイアウト・OpenType MATH / stretchy / 文書パイプライン本消費・`classify` 言語 intrinsic（BuiltinOp は未配線）。
+6. **次の優先候補** — レジストリ（OPEN-PKG-001）／文書パイプラインが math box・JA classify を本番レイアウトに載せる／`classify-char` 言語ビルトイン（任意）。
 ---
 
 ## 付記: クレート一覧の見取り図

@@ -47,11 +47,14 @@ Interim RPX depth that already exists (`graphics` / `length` / `color` / `math` 
 
 **Done (E0–E5):** `(resources …)` path rules; workspace member discovery; shared root `rpx.lock`; member→root lock; prefer workspace members + DAG; `OPEN-PKG-001` registry stub + optional listed-resource FS existence.
 
-**R0 (package API):** `resolve_package_resource(package_root, manifest, rel)` validates under `resource_root` + listed `resources` (host helper; no language type yet).
+**R0 (package API):** `resolve_package_resource(package_root, manifest, rel)` validates under `resource_root` + listed `resources` (host helper).
+
+**R2 (language light):** `(resource "rel")` elaborates to a pure tagged record
+`(tag "package-resource") (path …) (note "resolve at package load")` — typechecks/evals without package root; hosts may resolve `path` via R0 when a root is available.
 
 **Still OPEN / deferred:**
-- Language `(resource …)` / `package-resource` type (parse/elaborate/eval) — **not** started; use R0 until a language slice exists
-- Real registry network / content hashes (`OPEN-PKG-001`)
+- Full `package-resource` typed handle / resource effects / content hashes
+- Real registry network (`OPEN-PKG-001`)
 
 ## Conventions (v1)
 

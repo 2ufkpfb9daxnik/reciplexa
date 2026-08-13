@@ -14,8 +14,8 @@
 | E4 | Prefer workspace members when resolving | path-free dep → member; DAG; registry → stub error | ✅ |
 | E5 | OPEN registry / listed-resource existence stub | stable refusal; optional FS check under resource_root | ✅ |
 
-## Non-goals
-Language `(resource …)` / `package-resource` type; real registry network; content hashes.
+## Non-goals (Slice E itself)
+Full typed `package-resource` / resource effects; real registry network; content hashes.
 
 **Status:** complete (E0–E5)
 
@@ -24,6 +24,7 @@ Language `(resource …)` / `package-resource` type; real registry network; cont
 | ID | Unit | Status |
 |----|------|--------|
 | R0 | Package API `resolve_package_resource` under `resource_root` + listed resources | **done** |
-| R1 | Document language `(resource …)` still OPEN / deferred | **done** (this note + `package-plan.md`) |
+| R1 | Document language `(resource …)` still OPEN / deferred | **done** (historical note) |
+| R2 | Language light `(resource "rel")` → deferred `package-resource` record | **done** |
 
-Language `(resource "path")` parse/elaborate/host value remains **OPEN** — R0 is host/manifest only.
+Language `(resource "path")` light surface is **done** (tagged record + R0 when package root available). Full typed handle / effects remain OPEN.
