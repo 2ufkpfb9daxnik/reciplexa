@@ -1,4 +1,0 @@
-(// interim/CST: keyword-table regression twin; GUI golden is black_circle.rpx (package).)
-(// Minimal A4 page: one filled circle (mm, origin bottom-left).)
-(page a4
-  (circle 105 148.5 40))

@@ -1,5 +1,5 @@
 (// GUI golden (CST sync v2): package-shaped A4 + filled circle.)
-(// Interim twin for keyword lower: interim_black_circle.rpx; package alias: pkg_black_circle.rpx.)
+(// Keyword-lower fixture: crates/reciplexa-lower/tests/fixtures/interim_page.rpx; alias: pkg_black_circle.rpx.)
 (import graphics/shapes only circle fill)
 (import graphics/page only a4 page)
 (import graphics/color only black)

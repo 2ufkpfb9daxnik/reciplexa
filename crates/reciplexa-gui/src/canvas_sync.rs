@@ -318,8 +318,8 @@ mod tests {
     }
 
     #[test]
-    fn interim_black_circle_nudge_still_works() {
-        let src = include_str!("../../../examples/interim_black_circle.rpx");
+    fn interim_page_fixture_nudge_still_works() {
+        let src = include_str!("../../reciplexa-lower/tests/fixtures/interim_page.rpx");
         assert!(!is_package_shaped_authoring(src));
         let out = nudge_authoring_layers(src, src, 0, &[0], 2.0, -1.0).unwrap();
         assert!(

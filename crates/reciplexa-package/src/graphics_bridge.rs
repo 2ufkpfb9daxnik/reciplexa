@@ -2,7 +2,7 @@
 //!
 //! GUI preview routes package-shaped sources (including golden `black_circle.rpx`)
 //! through [`reciplexa::pipeline::document_from_source`]. Interim CST keyword lower
-//! remains for `interim_black_circle.rpx` and other interim examples until S6.
+//! remains for test fixtures (`reciplexa-lower/tests/fixtures/interim_page.rpx`) until S6b.
 
 use std::collections::HashMap;
 use std::path::Path;

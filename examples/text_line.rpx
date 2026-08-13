@@ -1,4 +1,4 @@
-(// language-only: Slice D — package graphics text/line/translate (GUI interim kept for color-byte sync tests).)
+(// language-only: Slice D — package graphics text/line/translate.)
 (import graphics/shapes only circle line text translate fill stroke group)
 (import graphics/page only a4 page)
 (import graphics/color only black rgb)

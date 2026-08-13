@@ -280,14 +280,14 @@ mod tests {
     }
 
     #[test]
-    fn interim_black_circle_stays_on_interim_cst_path() {
-        let src = include_str!("../../../examples/interim_black_circle.rpx");
+    fn interim_page_fixture_stays_on_interim_cst_path() {
+        let src = include_str!("../../reciplexa-lower/tests/fixtures/interim_page.rpx");
         let expanded = expand(src).unwrap();
         assert!(
             !wants_package_graphics_path(&expanded),
-            "interim twin must not route through package domain bridge"
+            "interim fixture must not route through package domain bridge"
         );
-        let doc = document_from_source(src).expect("interim_black_circle lower");
+        let doc = document_from_source(src).expect("interim_page fixture lower");
         assert_eq!(doc.pages.len(), 1);
     }
 
@@ -306,8 +306,10 @@ mod tests {
     #[test]
     fn pkg_black_circle_parity_with_interim_lower() {
         let interim =
-            document_from_source(include_str!("../../../examples/interim_black_circle.rpx"))
-                .expect("interim black_circle");
+            document_from_source(include_str!(
+                "../../reciplexa-lower/tests/fixtures/interim_page.rpx"
+            ))
+            .expect("interim page fixture");
         let pkg = document_from_source(include_str!("../../../examples/black_circle.rpx"))
             .expect("package black_circle golden");
         assert!(wants_package_graphics_path(

@@ -1,0 +1,4 @@
+(// Test fixture: interim keyword-table page/circle lower.)
+(// Product examples are package-shaped; GUI golden is examples/black_circle.rpx.)
+(page a4
+  (circle 105 148.5 40))

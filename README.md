@@ -14,4 +14,4 @@ cargo run -p reciplexa -- examples\black_circle.rpx target\out.pdf
 cargo run -p reciplexa-gui -- examples\black_circle.rpx
 ```
 
-出力拡張子でバックエンドを選びます（`.pdf` / `.svg` / `.pptx`）。サンプルは `examples/`（`(//)` コメント、`(markup …)`、トップレベル `perform`/`handle`、最小 `(type …)`/`(val …)`）。GUI ゴールデン `black_circle.rpx` は package 形（`(import …)(val main (page …))`）；interim 組込み `page`/`circle` は keyword 表退役まで残存（`interim_black_circle.rpx`）。brace の `@form{…}` も受理します。
+出力拡張子でバックエンドを選びます（`.pdf` / `.svg` / `.pptx`）。サンプルは `examples/`（`(//)` コメント、`(markup …)`、トップレベル `perform`/`handle`、最小 `(type …)`/`(val …)`）。GUI／描画向け `examples/` は package 形（`(import …)(val main (page …))`）；interim 組込み `page`/`circle` の keyword 表はテスト fixture 向けに残存（`crates/reciplexa-lower/tests/fixtures/interim_page.rpx`）。brace の `@form{…}` も受理します。

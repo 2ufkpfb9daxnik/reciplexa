@@ -1,5 +1,5 @@
-(// language-only: Migrated Slice D — package graphics constructors.)
-(// GUI regression still uses interim examples like black_circle.rpx.)
+(// language-only: package graphics constructors (Slice D).)
+(// GUI golden: black_circle.rpx (also package-shaped).)
 (import graphics/shapes only
   circle rect ellipse ring frame text fill stroke group)
 (import graphics/page only a4 page)

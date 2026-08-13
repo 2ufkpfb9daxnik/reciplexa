@@ -27,7 +27,7 @@ fn n5_3_document_import_and_markup_package_paths() {
     let mdoc = document_from_source(markup).expect("markup package bridge");
     assert!(!mdoc.pages[0].shapes.is_empty());
 
-    // Interim golden stays off package path.
-    let interim = include_str!("../../../examples/interim_black_circle.rpx");
+    // Interim keyword fixture stays off package path.
+    let interim = include_str!("../../reciplexa-lower/tests/fixtures/interim_page.rpx");
     assert!(!wants_package_graphics_path(&expand(interim).unwrap()));
 }

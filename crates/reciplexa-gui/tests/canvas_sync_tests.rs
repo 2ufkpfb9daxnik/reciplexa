@@ -106,8 +106,8 @@ fn black_circle_gui_golden_is_package_nudgeable() {
 }
 
 #[test]
-fn interim_black_circle_nudge_still_works() {
-    let authoring = include_str!("../../../examples/interim_black_circle.rpx");
+fn interim_page_fixture_nudge_still_works() {
+    let authoring = include_str!("../../reciplexa-lower/tests/fixtures/interim_page.rpx");
     let out = nudge_authoring_layers(authoring, authoring, 0, &[0], 2.0, -1.0).unwrap();
     assert!(
         out.contains("(translate 2 -1 (circle 105 148.5 40))")
