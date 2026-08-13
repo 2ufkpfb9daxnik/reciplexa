@@ -250,6 +250,28 @@ fn math_estimate_box_relative_sizes() {
 }
 
 #[test]
+fn phantom_and_smash_box_zero_axes() {
+    use reciplexa_std::math::{phantom_box, smash_box, MathBox};
+
+    let inner = MathBox::new(1.2, 0.7, 0.3);
+    let ph = phantom_box(inner);
+    assert!((ph.width - 0.0).abs() < 1e-9);
+    assert!((ph.height - 0.7).abs() < 1e-9);
+    assert!((ph.depth - 0.3).abs() < 1e-9);
+    assert!((ph.total_height() - 1.0).abs() < 1e-9);
+
+    let sm = smash_box(inner);
+    assert!((sm.width - 1.2).abs() < 1e-9);
+    assert!((sm.height - 0.0).abs() < 1e-9);
+    assert!((sm.depth - 0.0).abs() < 1e-9);
+    assert_eq!(sm.total_height(), 0.0);
+
+    let zero = MathBox::new(0.0, 0.0, 0.0);
+    assert_eq!(phantom_box(zero), zero);
+    assert_eq!(smash_box(zero), zero);
+}
+
+#[test]
 fn estimate_style_text_shrinks_scripts_more_than_display() {
     use reciplexa_std::math::{EstimateStyle, SCRIPT_SCALE, SCRIPT_SCALE_TEXT};
 
