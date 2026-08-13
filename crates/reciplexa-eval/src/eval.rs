@@ -92,6 +92,10 @@ pub fn primitive_env() -> HashMap<String, RuntimeValue> {
         "math-box".into(),
         RuntimeValue::Builtin(BuiltinOp::MathBox),
     );
+    env.insert(
+        "stretchy-delim".into(),
+        RuntimeValue::Builtin(BuiltinOp::StretchyDelim),
+    );
     env
 }
 
@@ -1600,6 +1604,64 @@ fn apply_builtin(op: BuiltinOp, args: Vec<RuntimeValue>) -> Result<Outcome, Eval
             };
             Ok(Outcome::Value(RuntimeValue::Record(vec![
                 ("tag".into(), RuntimeValue::String("math-box".into())),
+                ("width".into(), RuntimeValue::Number(box_.width)),
+                ("height".into(), RuntimeValue::Number(box_.height)),
+                ("depth".into(), RuntimeValue::Number(box_.depth)),
+            ])))
+        }
+        BuiltinOp::StretchyDelim => {
+            if args.len() != 3 {
+                return Err(EvalError {
+                    message: format!(
+                        "builtin `stretchy-delim` expects 3 args, got {}",
+                        args.len()
+                    ),
+                });
+            }
+            let left = match &args[0] {
+                RuntimeValue::String(s) => s.as_str(),
+                _ => {
+                    return Err(EvalError {
+                        message: "builtin `stretchy-delim` expects string left".into(),
+                    });
+                }
+            };
+            let right = match &args[1] {
+                RuntimeValue::String(s) => s.as_str(),
+                _ => {
+                    return Err(EvalError {
+                        message: "builtin `stretchy-delim` expects string right".into(),
+                    });
+                }
+            };
+            let body_height = match as_numeric(&args[2]) {
+                Ok((_, n)) => n,
+                Err(_) => {
+                    return Err(EvalError {
+                        message: "builtin `stretchy-delim` expects numeric body-height"
+                            .into(),
+                    });
+                }
+            };
+            // Placeholder body; stretch_factor carries the body-height heuristic.
+            let body = reciplexa_std::math::MathAtom::symbol(
+                reciplexa_identity::document::StableNodeId::new(0),
+                "□",
+                reciplexa_std::math::MathClass::Ordinary,
+            );
+            let atom = reciplexa_std::math::MathAtom::delimiter_with_stretch(
+                reciplexa_identity::document::StableNodeId::new(1),
+                left,
+                right,
+                body,
+                body_height.max(0.0),
+            );
+            let box_ = atom.estimate_box();
+            Ok(Outcome::Value(RuntimeValue::Record(vec![
+                ("tag".into(), RuntimeValue::String("stretchy-delim".into())),
+                ("left".into(), RuntimeValue::String(left.into())),
+                ("right".into(), RuntimeValue::String(right.into())),
+                ("stretch-factor".into(), RuntimeValue::Number(body_height.max(0.0))),
                 ("width".into(), RuntimeValue::Number(box_.width)),
                 ("height".into(), RuntimeValue::Number(box_.height)),
                 ("depth".into(), RuntimeValue::Number(box_.depth)),

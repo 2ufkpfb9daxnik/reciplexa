@@ -107,6 +107,8 @@ pub enum BuiltinOp {
     HangWidth,
     /// Math box estimate stub — math tag record or symbol string → `{tag, width, height, depth}`.
     MathBox,
+    /// Stretchy delimiter stub — left × right × body-height → stretchy-delim record with box metrics.
+    StretchyDelim,
 }
 
 impl fmt::Debug for RuntimeValue {

@@ -130,7 +130,14 @@ fn math_atom_from_value_with_ids(
             let left = string_field(fields, "left")?;
             let right = string_field(fields, "right")?;
             let body = required_child(fields, "body", ids)?;
-            Ok(MathAtom::delimiter(ids.mint(), left, right, body))
+            let stretch_factor = optional_number_field(fields, "stretch-factor").unwrap_or(1.0);
+            Ok(MathAtom::delimiter_with_stretch(
+                ids.mint(),
+                left,
+                right,
+                body,
+                stretch_factor,
+            ))
         }
         "math-accent" => {
             let kind = accent_kind_field(fields)?;
@@ -476,6 +483,15 @@ fn string_field(fields: &[(String, RuntimeValue)], name: &str) -> Result<String,
     }
 }
 
+fn optional_number_field(fields: &[(String, RuntimeValue)], name: &str) -> Option<f64> {
+    match field(fields, name)? {
+        RuntimeValue::Number(n) => Some(*n),
+        RuntimeValue::F64(n) => Some(*n),
+        RuntimeValue::Int(n) => Some(*n as f64),
+        _ => None,
+    }
+}
+
 fn cons_items(v: &RuntimeValue) -> Result<Vec<&RuntimeValue>, MathValueError> {
     let mut out = Vec::new();
     let mut cur = v;
@@ -648,6 +664,25 @@ mod tip_tests {
         assert!(matches!(atom, MathAtom::Delimiter { stretch_factor, .. } if (stretch_factor - 1.0).abs() < 1e-9));
         let box_ = estimate_math_box_from_value(&delim).expect("box");
         assert!(box_.total_height() > 1.0);
+
+        let stretched = rec(vec![
+            ("tag", RuntimeValue::String("math-delimiter".into())),
+            ("left", RuntimeValue::String("(".into())),
+            ("right", RuntimeValue::String(")".into())),
+            ("body", sym.clone()),
+            ("stretch-factor", RuntimeValue::Number(2.0)),
+        ]);
+        let atom2 = math_atom_from_value(&stretched).expect("stretched delimiter");
+        assert!(matches!(atom2, MathAtom::Delimiter { stretch_factor, .. } if (stretch_factor - 2.0).abs() < 1e-9));
+        let tall = estimate_math_box_from_value(&stretched).expect("tall");
+        let flat = estimate_math_box_from_value(&rec(vec![
+            ("tag", RuntimeValue::String("math-delimiter".into())),
+            ("left", RuntimeValue::String("(".into())),
+            ("right", RuntimeValue::String(")".into())),
+            ("body", sym.clone()),
+        ]))
+        .unwrap();
+        assert!(tall.total_height() > flat.total_height());
 
         let accent = rec(vec![
             ("tag", RuntimeValue::String("math-accent".into())),
