@@ -198,7 +198,7 @@ cargo test -p reciplexa-std -p reciplexa-eval -p reciplexa-package --offline
 | X3 — Math accent clearance stub (clearance above base) | **done** |
 | X4 — Pipeline/host light consume (`lines_to_text_shapes` + break demo) | **done** |
 | X5 — pkg_math / pkg_ja integration tip tests | **done** |
-| X6 — Docs: `implemented-features` next steps | pending |
+| X6 — Docs: `implemented-features` next steps | **done** |
 
 ### X0 — Ruby layout stub
 
