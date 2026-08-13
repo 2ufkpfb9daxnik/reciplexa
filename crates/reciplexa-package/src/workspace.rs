@@ -369,15 +369,15 @@ pub fn resolve_workspace_dependencies(ws: &WorkspaceIndex) -> Result<Lockfile, W
             let source = dep.source.as_deref().unwrap_or("");
             if source == "registry" {
                 return Err(WorkspaceError::RegistryUnavailable(format!(
-                    "OPEN-PKG-001: package registry resolution is not implemented (no network); \
-                     cannot resolve `{formal}` via registry"
+                    "{}: cannot resolve `{formal}` via registry",
+                    crate::manifest::OPEN_PKG_001_REGISTRY
                 )));
             }
             if source == "workspace" || source.is_empty() {
                 let Some((_, member)) = ws.members.get(&formal) else {
                     return Err(WorkspaceError::RegistryUnavailable(format!(
-                        "OPEN-PKG-001: package registry resolution is not implemented (no network); \
-                         no workspace member matches `{formal}`"
+                        "{}: no workspace member matches `{formal}`",
+                        crate::manifest::OPEN_PKG_001_REGISTRY
                     )));
                 };
                 if !version_satisfies(&dep.version_req, &member.version) {
@@ -390,7 +390,8 @@ pub fn resolve_workspace_dependencies(ws: &WorkspaceIndex) -> Result<Lockfile, W
                 continue;
             }
             return Err(WorkspaceError::RegistryUnavailable(format!(
-                "OPEN-PKG-001: unknown dependency source `{source}` for `{formal}`"
+                "{}: unknown dependency source `{source}` for `{formal}`",
+                crate::manifest::OPEN_PKG_001_REGISTRY
             )));
         }
         edges.insert(name.clone(), deps);

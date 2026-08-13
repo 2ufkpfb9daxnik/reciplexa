@@ -1,4 +1,10 @@
 //! Package manifest, resolver, lockfile (Phase 10).
+//!
+//! # OPEN stubs
+//!
+//! [`OPEN_PKG_001_REGISTRY`] / [`WorkspaceError::RegistryUnavailable`]: the package
+//! registry protocol is not implemented. Resolvers must refuse registry-shaped
+//! dependencies without network I/O.
 
 #![forbid(unsafe_code)]
 
@@ -42,7 +48,10 @@ pub use load::{
     ResolvedImport,
 };
 pub use lockfile::{LockedPackage, Lockfile};
-pub use manifest::{normalize_resource_path, DependencySpec, PackageManifest};
+pub use manifest::{
+    normalize_resource_path, DependencySpec, OPEN_PKG_001_REGISTRY, PackageManifest,
+    ResourceCheckError,
+};
 pub use resolver::{resolve_packages, ResolveError, ResolvedGraph};
 pub use rpi::parse_rpi_exports;
 pub use rpxm::{parse_rpxm, RpxmError};

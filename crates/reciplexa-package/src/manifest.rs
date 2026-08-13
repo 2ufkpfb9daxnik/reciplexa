@@ -153,4 +153,64 @@ impl PackageManifest {
         path.set_extension("rpi");
         Some(path)
     }
+
+    /// Absolute filesystem path for a listed resource under `resource_root`.
+    pub fn resource_fs_path(
+        &self,
+        package_root: &std::path::Path,
+        resource_path: &str,
+    ) -> Result<std::path::PathBuf, String> {
+        let normalized = normalize_resource_path(resource_path)?;
+        let mut path = package_root.join(&self.resource_root);
+        for seg in normalized.split('/') {
+            path.push(seg);
+        }
+        Ok(path)
+    }
+
+    /// Optional FS check: every listed resource must exist under `resource_root`
+    /// (static prep for PKG-12; no language `(resource …)` yet).
+    pub fn check_resources_exist(
+        &self,
+        package_root: &std::path::Path,
+    ) -> Result<(), ResourceCheckError> {
+        for rel in &self.resources {
+            let path = self
+                .resource_fs_path(package_root, rel)
+                .map_err(ResourceCheckError::InvalidPath)?;
+            if !path.exists() {
+                return Err(ResourceCheckError::Missing {
+                    resource: rel.clone(),
+                    path: path.display().to_string(),
+                });
+            }
+        }
+        Ok(())
+    }
 }
+
+/// Error from optional listed-resource existence checks (PKG §21.10 / PKG-12 prep).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ResourceCheckError {
+    InvalidPath(String),
+    Missing { resource: String, path: String },
+}
+
+impl std::fmt::Display for ResourceCheckError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::InvalidPath(s) => write!(f, "{s}"),
+            Self::Missing { resource, path } => {
+                write!(f, "package resource does not exist: `{resource}` at `{path}`")
+            }
+        }
+    }
+}
+
+/// OPEN-PKG-001: package registry protocol / checksums are not implemented.
+///
+/// Path-free dependencies that do not match a workspace member, or that set
+/// `source registry`, fail with [`crate::WorkspaceError::RegistryUnavailable`]
+/// and must not perform network I/O.
+pub const OPEN_PKG_001_REGISTRY: &str =
+    "OPEN-PKG-001: package registry resolution is not implemented (no network)";

@@ -45,7 +45,7 @@ Interim RPX depth that already exists (`graphics` / `length` / `color` / `math` 
 
 ### Slice E — workspace / resources / OPEN stubs
 
-Unchanged: workspace stub parse done; shared lock / resource root / registry deferred.
+**Done (E0–E5):** `(resources …)` path rules; workspace member discovery; shared root `rpx.lock`; member→root lock; prefer workspace members + DAG; `OPEN-PKG-001` registry stub + optional listed-resource FS existence. Still deferred: language `(resource …)` / `package-resource`, real registry network, content hashes.
 
 ## Conventions (v1)
 

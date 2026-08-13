@@ -272,3 +272,51 @@ fn rejects_escaping_resource_paths_pkg10() {
         );
     }
 }
+
+#[test]
+fn listed_resources_must_exist_under_resource_root() {
+    use std::fs;
+    use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    use reciplexa_package::ResourceCheckError;
+
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../.tmp")
+        .join(format!("pkg-res-{nanos}"));
+    let _ = fs::remove_dir_all(&root);
+    fs::create_dir_all(root.join("resources/images")).unwrap();
+    fs::write(root.join("resources/images/logo.png"), b"png").unwrap();
+
+    let m = parse_rpxm(
+        r#"(package demo
+  format-version 1
+  version "1.0.0"
+  (public-modules main)
+  (resources
+    "images/logo.png"
+    "missing.txt"))"#,
+    )
+    .unwrap();
+    let err = m.check_resources_exist(&root).unwrap_err();
+    match err {
+        ResourceCheckError::Missing { resource, .. } => {
+            assert_eq!(resource, "missing.txt");
+        }
+        other => panic!("expected Missing, got {other:?}"),
+    }
+
+    let ok = parse_rpxm(
+        r#"(package demo
+  format-version 1
+  version "1.0.0"
+  (public-modules main)
+  (resources "images/logo.png"))"#,
+    )
+    .unwrap();
+    ok.check_resources_exist(&root).unwrap();
+}
