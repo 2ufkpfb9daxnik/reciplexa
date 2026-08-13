@@ -104,3 +104,40 @@ fn interim_black_circle_nudge_still_works() {
         "{out}"
     );
 }
+
+#[test]
+fn markup_ja_example_still_soft_refuses_authoring_edits() {
+    let authoring = include_str!("../../../examples/markup_ja.rpx");
+    let expanded = reciplexa_macro::expand_source(authoring).expect("markup expands");
+    assert!(
+        !reciplexa_lower::is_package_shaped_authoring(authoring),
+        "markup authoring must not look package-shaped"
+    );
+    assert!(
+        !authoring_layers_align(authoring, &expanded, 0).unwrap(),
+        "markup_ja must not claim authoring editability"
+    );
+    let err = nudge_authoring_layers(authoring, &expanded, 0, &[0], 2.0, -1.0).unwrap_err();
+    assert!(
+        err.message.contains("read-only")
+            || err.message.contains("skipped")
+            || err.message.contains("markup"),
+        "{}",
+        err.message
+    );
+}
+
+#[test]
+fn multipage_package_nudge_second_page() {
+    let authoring = r#"(import graphics/shapes only circle fill)
+(import graphics/page only a4 page)
+(import graphics/color only black)
+(val main
+  (list
+    (page a4 (fill (circle 10 20 5) black))
+    (page a4 (fill (circle 30 40 6) black))))
+"#;
+    let out = nudge_authoring_layers(authoring, authoring, 1, &[0], 1.0, 1.0).unwrap();
+    assert!(out.contains("(circle 10 20 5)"), "{out}");
+    assert!(out.contains("(circle 31 41 6)"), "{out}");
+}

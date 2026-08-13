@@ -739,4 +739,20 @@ mod tests {
             "{tr}"
         );
     }
+
+    #[test]
+    fn multipage_list_nudge_second_page_only() {
+        let src = r#"(import graphics/shapes only circle fill)
+(import graphics/page only a4 page)
+(import graphics/color only black)
+(val main
+  (list
+    (page a4 (fill (circle 10 20 5) black))
+    (page a4 (fill (circle 30 40 6) black))))
+"#;
+        assert_eq!(count_package_pages(src).unwrap(), 2);
+        let out = nudge_layer_package(src, 1, 0, 1.0, 1.0).unwrap();
+        assert!(out.contains("(circle 10 20 5)"), "page0 unchanged: {out}");
+        assert!(out.contains("(circle 31 41 6)"), "page1 nudged: {out}");
+    }
 }

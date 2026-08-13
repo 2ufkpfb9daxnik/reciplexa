@@ -24,10 +24,11 @@ pub use layers::{
     group_layers_page, insert_layer_page, reorder_layer_page, ungroup_layer_page,
 };
 pub use package::{
-    collect_layers_package, collect_package_pages, collect_size_targets_package, find_main_expr,
-    find_main_expr_in_source, find_package_page, find_package_page_in_source,
-    is_package_paint_wrapper, is_package_shaped_authoring, is_package_transparent_wrapper,
-    nudge_layer_package, package_page_content_nodes, paint_wrapper_shape,
+    collect_layers_package, collect_package_pages, collect_size_targets_package,
+    count_package_pages, find_main_expr, find_main_expr_in_source, find_package_page,
+    find_package_page_in_source, is_package_paint_wrapper, is_package_shaped_authoring,
+    is_package_transparent_wrapper, nudge_layer_package, package_page_content_nodes,
+    paint_wrapper_shape,
 };
 pub use pages::{count_pages, delete_page, find_page, insert_page_after, page_body_start};
 
