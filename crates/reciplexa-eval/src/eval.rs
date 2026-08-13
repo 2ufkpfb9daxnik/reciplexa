@@ -68,18 +68,12 @@ pub fn primitive_env() -> HashMap<String, RuntimeValue> {
         "justify-line".into(),
         RuntimeValue::Builtin(BuiltinOp::JustifyLine),
     );
-    env.insert(
-        "ruby-box".into(),
-        RuntimeValue::Builtin(BuiltinOp::RubyBox),
-    );
+    env.insert("ruby-box".into(), RuntimeValue::Builtin(BuiltinOp::RubyBox));
     env.insert(
         "vertical-ruby-box".into(),
         RuntimeValue::Builtin(BuiltinOp::VerticalRubyBox),
     );
-    env.insert(
-        "bou-box".into(),
-        RuntimeValue::Builtin(BuiltinOp::BouBox),
-    );
+    env.insert("bou-box".into(), RuntimeValue::Builtin(BuiltinOp::BouBox));
     env.insert(
         "tate-chu-yoko-width".into(),
         RuntimeValue::Builtin(BuiltinOp::TateChuYokoWidth),
@@ -92,9 +86,14 @@ pub fn primitive_env() -> HashMap<String, RuntimeValue> {
         "vertical-orientation".into(),
         RuntimeValue::Builtin(BuiltinOp::VerticalOrientation),
     );
+    env.insert("math-box".into(), RuntimeValue::Builtin(BuiltinOp::MathBox));
     env.insert(
-        "math-box".into(),
-        RuntimeValue::Builtin(BuiltinOp::MathBox),
+        "math-phantom".into(),
+        RuntimeValue::Builtin(BuiltinOp::MathPhantom),
+    );
+    env.insert(
+        "math-smash".into(),
+        RuntimeValue::Builtin(BuiltinOp::MathSmash),
     );
     env.insert(
         "stretchy-delim".into(),
@@ -1282,10 +1281,7 @@ fn apply_builtin(op: BuiltinOp, args: Vec<RuntimeValue>) -> Result<Outcome, Eval
         BuiltinOp::ClassifyChar => {
             if args.len() != 1 {
                 return Err(EvalError {
-                    message: format!(
-                        "builtin `classify-char` expects 1 arg, got {}",
-                        args.len()
-                    ),
+                    message: format!("builtin `classify-char` expects 1 arg, got {}", args.len()),
                 });
             }
             let s = match &args[0] {
@@ -1305,10 +1301,7 @@ fn apply_builtin(op: BuiltinOp, args: Vec<RuntimeValue>) -> Result<Outcome, Eval
         BuiltinOp::BreakBetween => {
             if args.len() != 2 {
                 return Err(EvalError {
-                    message: format!(
-                        "builtin `break-between` expects 2 args, got {}",
-                        args.len()
-                    ),
+                    message: format!("builtin `break-between` expects 2 args, got {}", args.len()),
                 });
             }
             let prev_s = match &args[0] {
@@ -1342,10 +1335,7 @@ fn apply_builtin(op: BuiltinOp, args: Vec<RuntimeValue>) -> Result<Outcome, Eval
         BuiltinOp::BreakLine => {
             if args.len() != 2 {
                 return Err(EvalError {
-                    message: format!(
-                        "builtin `break-line` expects 2 args, got {}",
-                        args.len()
-                    ),
+                    message: format!("builtin `break-line` expects 2 args, got {}", args.len()),
                 });
             }
             let text = match &args[0] {
@@ -1399,10 +1389,7 @@ fn apply_builtin(op: BuiltinOp, args: Vec<RuntimeValue>) -> Result<Outcome, Eval
         BuiltinOp::JustifyLine => {
             if args.len() != 2 {
                 return Err(EvalError {
-                    message: format!(
-                        "builtin `justify-line` expects 2 args, got {}",
-                        args.len()
-                    ),
+                    message: format!("builtin `justify-line` expects 2 args, got {}", args.len()),
                 });
             }
             let text = match &args[0] {
@@ -1428,10 +1415,7 @@ fn apply_builtin(op: BuiltinOp, args: Vec<RuntimeValue>) -> Result<Outcome, Eval
         BuiltinOp::RubyBox => {
             if args.len() != 2 {
                 return Err(EvalError {
-                    message: format!(
-                        "builtin `ruby-box` expects 2 args, got {}",
-                        args.len()
-                    ),
+                    message: format!("builtin `ruby-box` expects 2 args, got {}", args.len()),
                 });
             }
             let base = match &args[0] {
@@ -1458,7 +1442,10 @@ fn apply_builtin(op: BuiltinOp, args: Vec<RuntimeValue>) -> Result<Outcome, Eval
                     "annotation-width".into(),
                     RuntimeValue::Number(b.annotation_width),
                 ),
-                ("advance-width".into(), RuntimeValue::Number(b.advance_width)),
+                (
+                    "advance-width".into(),
+                    RuntimeValue::Number(b.advance_width),
+                ),
                 ("height".into(), RuntimeValue::Number(b.height)),
             ])))
         }
@@ -1483,14 +1470,16 @@ fn apply_builtin(op: BuiltinOp, args: Vec<RuntimeValue>) -> Result<Outcome, Eval
                 RuntimeValue::String(s) => s.as_str(),
                 _ => {
                     return Err(EvalError {
-                        message: "builtin `vertical-ruby-box` expects string annotation"
-                            .into(),
+                        message: "builtin `vertical-ruby-box` expects string annotation".into(),
                     });
                 }
             };
             let b = reciplexa_std::japanese::Ruby::simple(base, annotation).estimate_vertical_box();
             Ok(Outcome::Value(RuntimeValue::Record(vec![
-                ("tag".into(), RuntimeValue::String("vertical-ruby-box".into())),
+                (
+                    "tag".into(),
+                    RuntimeValue::String("vertical-ruby-box".into()),
+                ),
                 ("base-advance".into(), RuntimeValue::Number(b.base_advance)),
                 (
                     "annotation-advance".into(),
@@ -1507,10 +1496,7 @@ fn apply_builtin(op: BuiltinOp, args: Vec<RuntimeValue>) -> Result<Outcome, Eval
         BuiltinOp::BouBox => {
             if args.len() != 1 {
                 return Err(EvalError {
-                    message: format!(
-                        "builtin `bou-box` expects 1 arg, got {}",
-                        args.len()
-                    ),
+                    message: format!("builtin `bou-box` expects 1 arg, got {}", args.len()),
                 });
             }
             let body = match &args[0] {
@@ -1554,10 +1540,7 @@ fn apply_builtin(op: BuiltinOp, args: Vec<RuntimeValue>) -> Result<Outcome, Eval
         BuiltinOp::HangWidth => {
             if args.len() != 1 {
                 return Err(EvalError {
-                    message: format!(
-                        "builtin `hang-width` expects 1 arg, got {}",
-                        args.len()
-                    ),
+                    message: format!("builtin `hang-width` expects 1 arg, got {}", args.len()),
                 });
             }
             let s = match &args[0] {
@@ -1600,16 +1583,11 @@ fn apply_builtin(op: BuiltinOp, args: Vec<RuntimeValue>) -> Result<Outcome, Eval
         BuiltinOp::MathBox => {
             if args.len() != 1 {
                 return Err(EvalError {
-                    message: format!(
-                        "builtin `math-box` expects 1 arg, got {}",
-                        args.len()
-                    ),
+                    message: format!("builtin `math-box` expects 1 arg, got {}", args.len()),
                 });
             }
             let style = match &args[0] {
-                RuntimeValue::Record(_) => {
-                    crate::math_value::estimate_style_from_value(&args[0])
-                }
+                RuntimeValue::Record(_) => crate::math_value::estimate_style_from_value(&args[0]),
                 _ => reciplexa_std::math::EstimateStyle::Display,
             };
             let box_ = match &args[0] {
@@ -1639,10 +1617,31 @@ fn apply_builtin(op: BuiltinOp, args: Vec<RuntimeValue>) -> Result<Outcome, Eval
                 ("width".into(), RuntimeValue::Number(box_.width)),
                 ("height".into(), RuntimeValue::Number(box_.height)),
                 ("depth".into(), RuntimeValue::Number(box_.depth)),
-                (
-                    "style".into(),
-                    RuntimeValue::String(style.as_str().into()),
-                ),
+                ("style".into(), RuntimeValue::String(style.as_str().into())),
+            ])))
+        }
+        BuiltinOp::MathPhantom | BuiltinOp::MathSmash => {
+            let name = match op {
+                BuiltinOp::MathPhantom => "math-phantom",
+                BuiltinOp::MathSmash => "math-smash",
+                _ => unreachable!(),
+            };
+            if args.len() != 1 {
+                return Err(EvalError {
+                    message: format!("builtin `{name}` expects 1 arg, got {}", args.len()),
+                });
+            }
+            let inner = math_box_like_from_arg(&args[0], name)?;
+            let box_ = match op {
+                BuiltinOp::MathPhantom => reciplexa_std::math::phantom_box(inner),
+                BuiltinOp::MathSmash => reciplexa_std::math::smash_box(inner),
+                _ => unreachable!(),
+            };
+            Ok(Outcome::Value(RuntimeValue::Record(vec![
+                ("tag".into(), RuntimeValue::String(name.into())),
+                ("width".into(), RuntimeValue::Number(box_.width)),
+                ("height".into(), RuntimeValue::Number(box_.height)),
+                ("depth".into(), RuntimeValue::Number(box_.depth)),
             ])))
         }
         BuiltinOp::StretchyDelim => {
@@ -1674,8 +1673,7 @@ fn apply_builtin(op: BuiltinOp, args: Vec<RuntimeValue>) -> Result<Outcome, Eval
                 Ok((_, n)) => n,
                 Err(_) => {
                     return Err(EvalError {
-                        message: "builtin `stretchy-delim` expects numeric body-height"
-                            .into(),
+                        message: "builtin `stretchy-delim` expects numeric body-height".into(),
                     });
                 }
             };
@@ -1697,7 +1695,10 @@ fn apply_builtin(op: BuiltinOp, args: Vec<RuntimeValue>) -> Result<Outcome, Eval
                 ("tag".into(), RuntimeValue::String("stretchy-delim".into())),
                 ("left".into(), RuntimeValue::String(left.into())),
                 ("right".into(), RuntimeValue::String(right.into())),
-                ("stretch-factor".into(), RuntimeValue::Number(body_height.max(0.0))),
+                (
+                    "stretch-factor".into(),
+                    RuntimeValue::Number(body_height.max(0.0)),
+                ),
                 ("width".into(), RuntimeValue::Number(box_.width)),
                 ("height".into(), RuntimeValue::Number(box_.height)),
                 ("depth".into(), RuntimeValue::Number(box_.depth)),
@@ -1722,6 +1723,75 @@ fn strings_to_cons_list(lines: Vec<String>) -> RuntimeValue {
         };
     }
     acc
+}
+
+/// Estimate or rehydrate a [`MathBox`] from a symbol string, math tag record, or
+/// math-box-like metrics record (`width`/`height`/`depth`).
+fn math_box_like_from_arg(
+    arg: &RuntimeValue,
+    builtin: &str,
+) -> Result<reciplexa_std::math::MathBox, EvalError> {
+    match arg {
+        RuntimeValue::String(glyph) => {
+            let atom = reciplexa_std::math::MathAtom::symbol(
+                reciplexa_identity::document::StableNodeId::new(0),
+                glyph.as_str(),
+                reciplexa_std::math::MathClass::Ordinary,
+            );
+            Ok(atom.estimate_box())
+        }
+        RuntimeValue::Record(fields) => {
+            // Already-estimated math-box / stretchy-delim / phantom / smash metrics.
+            let tag = fields
+                .iter()
+                .find(|(k, _)| k == "tag")
+                .and_then(|(_, v)| match v {
+                    RuntimeValue::String(s) => Some(s.as_str()),
+                    RuntimeValue::ShapeTag(s) => Some(s.as_str()),
+                    _ => None,
+                });
+            let metrics = |name: &str| -> Option<f64> {
+                fields
+                    .iter()
+                    .find(|(k, _)| k == name)
+                    .and_then(|(_, v)| match v {
+                        RuntimeValue::Number(n) => Some(*n),
+                        RuntimeValue::F64(n) => Some(*n),
+                        RuntimeValue::Int(n) => Some(*n as f64),
+                        _ => None,
+                    })
+            };
+            if matches!(
+                tag,
+                Some("math-box" | "math-phantom" | "math-smash" | "stretchy-delim")
+            ) {
+                if let (Some(w), Some(h), Some(d)) =
+                    (metrics("width"), metrics("height"), metrics("depth"))
+                {
+                    return Ok(reciplexa_std::math::MathBox::new(w, h, d));
+                }
+            }
+            // Also accept bare metrics records without a recognized tag.
+            if let (Some(w), Some(h), Some(d)) =
+                (metrics("width"), metrics("height"), metrics("depth"))
+            {
+                if tag.is_none() {
+                    return Ok(reciplexa_std::math::MathBox::new(w, h, d));
+                }
+            }
+            let style = crate::math_value::estimate_style_from_value(arg);
+            crate::math_value::estimate_math_box_from_value_with_style(arg, style).map_err(|e| {
+                EvalError {
+                    message: format!("builtin `{builtin}`: {}", e.message),
+                }
+            })
+        }
+        _ => Err(EvalError {
+            message: format!(
+                "builtin `{builtin}` expects math record, math-box metrics, or symbol string"
+            ),
+        }),
+    }
 }
 
 /// `justify-line` result: cons/nil of `{char: String, x: Number}` records.

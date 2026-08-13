@@ -1790,6 +1790,22 @@ pub fn typecheck_language_source(src: &str) -> Result<CoreType, CheckError> {
         },
     );
     env.insert(
+        "math-phantom",
+        CoreType::Fun {
+            args: vec![CoreType::dyn_any()],
+            ret: Box::new(CoreType::dyn_any()),
+            effects: EffectRow::default(),
+        },
+    );
+    env.insert(
+        "math-smash",
+        CoreType::Fun {
+            args: vec![CoreType::dyn_any()],
+            ret: Box::new(CoreType::dyn_any()),
+            effects: EffectRow::default(),
+        },
+    );
+    env.insert(
         "stretchy-delim",
         CoreType::Fun {
             args: vec![CoreType::String, CoreType::String, CoreType::Number],

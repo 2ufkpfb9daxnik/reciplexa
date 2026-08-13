@@ -109,6 +109,10 @@ pub enum BuiltinOp {
     VerticalOrientation,
     /// Math box estimate stub — math tag record or symbol string → `{tag, width, height, depth}`.
     MathBox,
+    /// Math phantom stub — math record / symbol / math-box metrics → zero-width box (vphantom-ish).
+    MathPhantom,
+    /// Math smash stub — math record / symbol / math-box metrics → zero height+depth box.
+    MathSmash,
     /// Stretchy delimiter stub — left × right × body-height → stretchy-delim record with box metrics.
     StretchyDelim,
 }
