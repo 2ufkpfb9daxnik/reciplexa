@@ -1717,6 +1717,22 @@ pub fn typecheck_language_source(src: &str) -> Result<CoreType, CheckError> {
             effects: EffectRow::default(),
         },
     );
+    env.insert(
+        "break-line-vertical",
+        CoreType::Fun {
+            args: vec![CoreType::String, CoreType::Number],
+            ret: Box::new(CoreType::dyn_any()),
+            effects: EffectRow::default(),
+        },
+    );
+    env.insert(
+        "justify-line",
+        CoreType::Fun {
+            args: vec![CoreType::String, CoreType::Number],
+            ret: Box::new(CoreType::dyn_any()),
+            effects: EffectRow::default(),
+        },
+    );
     let ty = infer_expr(&expr, &env, &mut subst, TextRange::EMPTY)?;
     Ok(subst.apply(&ty))
 }

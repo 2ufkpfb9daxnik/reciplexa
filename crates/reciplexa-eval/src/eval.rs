@@ -60,6 +60,14 @@ pub fn primitive_env() -> HashMap<String, RuntimeValue> {
         "break-line".into(),
         RuntimeValue::Builtin(BuiltinOp::BreakLine),
     );
+    env.insert(
+        "break-line-vertical".into(),
+        RuntimeValue::Builtin(BuiltinOp::BreakLineVertical),
+    );
+    env.insert(
+        "justify-line".into(),
+        RuntimeValue::Builtin(BuiltinOp::JustifyLine),
+    );
     env
 }
 
@@ -1327,6 +1335,64 @@ fn apply_builtin(op: BuiltinOp, args: Vec<RuntimeValue>) -> Result<Outcome, Eval
             let lines = reciplexa_std::japanese::break_line(text, max_em);
             Ok(Outcome::Value(strings_to_cons_list(lines)))
         }
+        BuiltinOp::BreakLineVertical => {
+            if args.len() != 2 {
+                return Err(EvalError {
+                    message: format!(
+                        "builtin `break-line-vertical` expects 2 args, got {}",
+                        args.len()
+                    ),
+                });
+            }
+            let text = match &args[0] {
+                RuntimeValue::String(s) => s.as_str(),
+                _ => {
+                    return Err(EvalError {
+                        message: "builtin `break-line-vertical` expects string as first argument"
+                            .into(),
+                    });
+                }
+            };
+            let max_em = match as_numeric(&args[1]) {
+                Ok((_, n)) => n,
+                Err(_) => {
+                    return Err(EvalError {
+                        message: "builtin `break-line-vertical` expects numeric max-em".into(),
+                    });
+                }
+            };
+            let lines = reciplexa_std::japanese::break_line_vertical(text, max_em);
+            Ok(Outcome::Value(strings_to_cons_list(lines)))
+        }
+        BuiltinOp::JustifyLine => {
+            if args.len() != 2 {
+                return Err(EvalError {
+                    message: format!(
+                        "builtin `justify-line` expects 2 args, got {}",
+                        args.len()
+                    ),
+                });
+            }
+            let text = match &args[0] {
+                RuntimeValue::String(s) => s.as_str(),
+                _ => {
+                    return Err(EvalError {
+                        message: "builtin `justify-line` expects string as first argument".into(),
+                    });
+                }
+            };
+            let target_em = match as_numeric(&args[1]) {
+                Ok((_, n)) => n,
+                Err(_) => {
+                    return Err(EvalError {
+                        message: "builtin `justify-line` expects numeric target-em".into(),
+                    });
+                }
+            };
+            let chars: Vec<char> = text.chars().collect();
+            let placed = reciplexa_std::japanese::justify_line(&chars, target_em);
+            Ok(Outcome::Value(justify_placements_to_cons_list(placed)))
+        }
     }
 }
 
@@ -1341,6 +1407,32 @@ fn strings_to_cons_list(lines: Vec<String>) -> RuntimeValue {
             tag: "cons".into(),
             payload: Some(Box::new(RuntimeValue::Record(vec![
                 ("head".into(), RuntimeValue::String(s)),
+                ("tail".into(), acc),
+            ]))),
+        };
+    }
+    acc
+}
+
+/// `justify-line` result: cons/nil of `{char: String, x: Number}` records.
+fn justify_placements_to_cons_list(placed: Vec<(char, f64)>) -> RuntimeValue {
+    let mut acc = RuntimeValue::Variant {
+        tag: "nil".into(),
+        payload: None,
+    };
+    for (ch, x) in placed.into_iter().rev() {
+        let mut s = String::new();
+        s.push(ch);
+        acc = RuntimeValue::Variant {
+            tag: "cons".into(),
+            payload: Some(Box::new(RuntimeValue::Record(vec![
+                (
+                    "head".into(),
+                    RuntimeValue::Record(vec![
+                        ("char".into(), RuntimeValue::String(s)),
+                        ("x".into(), RuntimeValue::Number(x)),
+                    ]),
+                ),
                 ("tail".into(), acc),
             ]))),
         };

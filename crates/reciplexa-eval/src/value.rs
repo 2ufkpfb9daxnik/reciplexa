@@ -91,6 +91,10 @@ pub enum BuiltinOp {
     BreakBetween,
     /// JLReq-oriented `break-line` — string × max-em → cons/nil list of strings.
     BreakLine,
+    /// Vertical soft-wrap stub — string × max-em → cons/nil list of strings.
+    BreakLineVertical,
+    /// Naive justify stub — string × target-em → cons/nil of `{char, x}` records.
+    JustifyLine,
 }
 
 impl fmt::Debug for RuntimeValue {
