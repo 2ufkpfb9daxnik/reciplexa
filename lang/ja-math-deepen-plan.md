@@ -683,3 +683,43 @@ cargo test -p reciplexa-std -p reciplexa-eval -p reciplexa-core -p reciplexa-pac
 - Font-backed ruby / tate-chu-yoko / vertical glyph orientation / real vertical metrics / bou placement.
 - OpenType MATH stretchy fences, accent/script/stackrel attachment, real matrix column alignment / big-op / fraction/radical / muskip metrics.
 - Document/GUI pipeline consuming boxes as production layout (beyond soft-wrapped Text shapes / estimate_box / math-box / stretchy-delim); load-time resource rewrite beyond fail-soft attach; registry resolve + checksum verification (OPEN-PKG-001).
+
+---
+
+## Wave 13 — vertical glyph orientation stubs (G0–G2)
+
+Honest scope: fontless `needs_tate_rotation` / `VerticalGlyphOrientation` for `vertical-rl` hosts. Not OpenType `vert`/`vrt2`, CSS `text-orientation`, or vertical presentation forms.
+
+Gate:
+
+```bat
+set CARGO_TARGET_DIR=d:\reciplexa\target
+set TEMP=d:\reciplexa\.tmp
+set TMP=d:\reciplexa\.tmp
+cargo test -p reciplexa-std -p reciplexa-eval -p reciplexa-core -p reciplexa-package --offline
+```
+
+| Unit | Status |
+|------|--------|
+| G0 — `needs_tate_rotation(c) -> bool` | **done** |
+| G1 — `VerticalGlyphOrientation` + `vertical_glyph_orientation` | **done** |
+| G2 — Tip + docs | **done** |
+
+### G0 — Rotation flag
+
+- ASCII / Latin-1 western → rotate; CJK / fullwidth latin → upright stub. **Commit.**
+
+### G1 — Orientation enum
+
+- `VerticalGlyphOrientation::{Upright,Rotated}`; `needs_tate_rotation` delegates. **Commit.**
+
+### G2 — Docs
+
+- Mark Wave 13 done; update `lang/implemented-features.md` / package README. **Commit.**
+
+## Remains after Wave 13
+
+- Full UCS membership + normative JLReq §C break matrix + real hanging/justification / word-break.
+- Font-backed ruby / tate-chu-yoko / real vertical metrics / bou placement; OpenType `vert`/`vrt2` / CSS `text-orientation`.
+- OpenType MATH stretchy fences, accent/script/stackrel attachment, real matrix column alignment / big-op / fraction/radical / muskip metrics.
+- Document/GUI pipeline consuming boxes as production layout (beyond soft-wrapped Text shapes / estimate_box / math-box / stretchy-delim); load-time resource rewrite beyond fail-soft attach; registry resolve + checksum verification (OPEN-PKG-001).
