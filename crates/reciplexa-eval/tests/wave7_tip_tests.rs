@@ -5,7 +5,7 @@ use reciplexa_eval::document_value::document_from_doc_value;
 use reciplexa_eval::{eval_source, RuntimeValue};
 use reciplexa_scene::Shape;
 use reciplexa_std::japanese::{
-    break_line, break_opportunity, break_pair_matrix_cell, Ruby, TateChuYoko, CharClass,
+    break_line, break_opportunity, break_pair_matrix_cell, CharClass, Ruby, TateChuYoko,
 };
 
 fn rec(fields: Vec<(&str, RuntimeValue)>) -> RuntimeValue {
@@ -113,5 +113,8 @@ fn tip_wave7_break_pair_matrix_and_doc_paragraph_wrap() {
             _ => None,
         })
         .collect();
-    assert_eq!(texts, expected.iter().map(String::as_str).collect::<Vec<_>>());
+    assert_eq!(
+        texts,
+        expected.iter().map(String::as_str).collect::<Vec<_>>()
+    );
 }

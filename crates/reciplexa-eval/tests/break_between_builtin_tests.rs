@@ -26,10 +26,7 @@ fn break_between_builtin_matches_std_opportunity() {
         let v = eval_source(&src).unwrap();
         assert_eq!(v, tag(expected.as_str()), "pair {prev}{next}");
         assert_eq!(
-            break_opportunity_chars(
-                prev.chars().next().unwrap(),
-                next.chars().next().unwrap()
-            ),
+            break_opportunity_chars(prev.chars().next().unwrap(), next.chars().next().unwrap()),
             expected
         );
     }

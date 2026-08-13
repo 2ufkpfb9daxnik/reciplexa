@@ -15,11 +15,11 @@ fn char_class_ids_and_codes() {
     assert_eq!(CharClass::OpeningBrackets.name(), "opening-brackets");
     assert_eq!(CharClass::OpeningBrackets.to_string(), "cl-01");
     assert_eq!(u8::from(CharClass::OpeningBrackets), 1);
+    assert_eq!(CharClass::try_from(19u8).ok(), Some(CharClass::Ideographic));
     assert_eq!(
-        CharClass::try_from(19u8).ok(),
+        "cl-19".parse::<CharClass>().ok(),
         Some(CharClass::Ideographic)
     );
-    assert_eq!("cl-19".parse::<CharClass>().ok(), Some(CharClass::Ideographic));
     assert_eq!(CharClass::from_code("cl-other"), Some(CharClass::Other));
     assert_eq!(CharClass::Other.as_jlreq_id(), 0);
     assert_eq!(CharClass::from_id(19), Some(CharClass::Ideographic));
@@ -938,7 +938,7 @@ fn justify_line_applies_trimming_width_at_head_and_end() {
     assert_eq!(placed[0].0, '「');
     assert!((placed[0].1 - 0.0).abs() < 1e-9);
     assert!((placed[1].1 - 1.0).abs() < 1e-9); // after 「 (no stretch before 漢)
-    // 漢|字 gets the trimmed slack (+2em).
+                                               // 漢|字 gets the trimmed slack (+2em).
     assert!(
         (placed[2].1 - 4.0).abs() < 1e-9,
         "expected 漢 + 2em trim stretch before 字, got {}",

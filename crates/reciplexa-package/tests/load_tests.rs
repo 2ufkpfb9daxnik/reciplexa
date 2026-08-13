@@ -290,7 +290,8 @@ fn pkg_math_main_tree_estimates_box_via_math_value() {
                 .map(|(_, val)| val)
                 .expect("math-demo tree field");
             // Full demo tree (under/over/cases/operatorname/matrix-env/…) via bridge.
-            let full = estimate_math_box_from_value(tree).expect("estimate_box for full pkg_math tree");
+            let full =
+                estimate_math_box_from_value(tree).expect("estimate_box for full pkg_math tree");
             assert!(
                 full.width > 0.0 && full.height + full.depth > 0.0,
                 "expected non-empty MathBox, got {full:?}"
@@ -785,10 +786,7 @@ fn tip_wave7_ja_builtins_and_break_matrix() {
     };
 
     assert_eq!(BREAK_PAIR_MATRIX_DIM, 31);
-    assert_eq!(
-        break_pair_matrix_cell(20, 1),
-        BreakOpportunity::Prohibited
-    );
+    assert_eq!(break_pair_matrix_cell(20, 1), BreakOpportunity::Prohibited);
     assert_eq!(
         break_opportunity(CharClass::Numeric, CharClass::OpeningBrackets),
         BreakOpportunity::Prohibited

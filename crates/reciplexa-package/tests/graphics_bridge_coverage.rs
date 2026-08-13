@@ -292,7 +292,10 @@ fn preview_doc_text_metrics_counts_ruby_and_tate() {
     let idx = index();
     let m = preview_doc_text_metrics(source, &idx).expect("preview with ruby/tate");
     assert_eq!(m.ruby_count, 1, "expected one ruby-box, got {m:?}");
-    assert_eq!(m.tate_chu_yoko_count, 1, "expected one tate node, got {m:?}");
+    assert_eq!(
+        m.tate_chu_yoko_count, 1,
+        "expected one tate node, got {m:?}"
+    );
     assert!(m.line_count >= 1);
     assert!(m.diagnostic_note().contains("ruby=1"));
     assert!(m.diagnostic_note().contains("tate-chu-yoko=1"));
@@ -582,7 +585,9 @@ fn vertical_place_pdf_smoke_when_cjk_font() {
         return;
     }
     use reciplexa_scene::{Color, Document, Page, PaperSize, Shape};
-    use reciplexa_std::japanese::{break_line_vertical, lines_to_vertical_text_shapes, KihonHanmen};
+    use reciplexa_std::japanese::{
+        break_line_vertical, lines_to_vertical_text_shapes, KihonHanmen,
+    };
 
     let lines = break_line_vertical("春夏秋冬一二三四", 4.0);
     assert!(lines.len() >= 2, "vertical wrap: {lines:?}");
@@ -616,7 +621,9 @@ fn live_layout_doc_plus_math_sibling_shapes() {
         })
         .collect();
     assert!(
-        texts.iter().any(|t| t.contains("本文") || *t == "本文の下に数式を置く。"),
+        texts
+            .iter()
+            .any(|t| t.contains("本文") || *t == "本文の下に数式を置く。"),
         "expected doc paragraph among {texts:?}"
     );
     let joined: String = texts.concat();
@@ -732,7 +739,10 @@ fn live_math_frac_scripts_delim_shapes() {
         "expected JA paragraph among {texts:?}"
     );
     assert!(
-        joined.contains('(') && joined.contains(')') && joined.contains('a') && joined.contains('b'),
+        joined.contains('(')
+            && joined.contains(')')
+            && joined.contains('a')
+            && joined.contains('b'),
         "expected delim + frac glyphs among {texts:?}"
     );
     assert!(
@@ -833,7 +843,9 @@ fn live_math_pptx_smoke_multi_text() {
 #[test]
 fn live_layout_demos_open_via_package_entry_bridge() {
     for name in ["pkg_live_layout.rpx", "pkg_live_math.rpx"] {
-        let entry = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples").join(name);
+        let entry = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../examples")
+            .join(name);
         let doc = document_from_package_entry(&entry, &index())
             .unwrap_or_else(|e| panic!("{name} package entry bridge: {e:?}"));
         let text_count = doc.pages[0]
@@ -854,4 +866,3 @@ fn live_layout_demos_open_via_package_entry_bridge() {
         );
     }
 }
-

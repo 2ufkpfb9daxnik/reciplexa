@@ -110,9 +110,9 @@ pub fn resolve_resource_value(
 }
 
 fn is_package_resource_record(fields: &[(String, RuntimeValue)]) -> bool {
-    fields.iter().any(|(k, v)| {
-        k == "tag" && matches!(v, RuntimeValue::String(s) if s == "package-resource")
-    })
+    fields
+        .iter()
+        .any(|(k, v)| k == "tag" && matches!(v, RuntimeValue::String(s) if s == "package-resource"))
 }
 
 /// Clone `v`, attaching `resolved-path` on every listed `package-resource` record.
@@ -148,9 +148,13 @@ pub fn materialize_package_resources_in_tree(
         }
         RuntimeValue::Variant { tag, payload } => RuntimeValue::Variant {
             tag: tag.clone(),
-            payload: payload
-                .as_ref()
-                .map(|p| Box::new(materialize_package_resources_in_tree(p, package_root, manifest))),
+            payload: payload.as_ref().map(|p| {
+                Box::new(materialize_package_resources_in_tree(
+                    p,
+                    package_root,
+                    manifest,
+                ))
+            }),
         },
         other => other.clone(),
     }
@@ -247,14 +251,22 @@ mod tip_tests {
         let RuntimeValue::Record(fields) = out else {
             panic!("record");
         };
-        let a = fields.iter().find(|(k, _)| k == "a").map(|(_, v)| v).unwrap();
+        let a = fields
+            .iter()
+            .find(|(k, _)| k == "a")
+            .map(|(_, v)| v)
+            .unwrap();
         let RuntimeValue::Record(af) = a else {
             panic!("a");
         };
         assert!(af.iter().any(|(k, v)| {
             k == "resolved-path" && matches!(v, RuntimeValue::String(s) if s.ends_with("ok.txt"))
         }));
-        let b = fields.iter().find(|(k, _)| k == "b").map(|(_, v)| v).unwrap();
+        let b = fields
+            .iter()
+            .find(|(k, _)| k == "b")
+            .map(|(_, v)| v)
+            .unwrap();
         let RuntimeValue::Record(bf) = b else {
             panic!("b");
         };

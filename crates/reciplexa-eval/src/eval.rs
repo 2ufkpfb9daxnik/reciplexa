@@ -1568,10 +1568,7 @@ fn apply_builtin(op: BuiltinOp, args: Vec<RuntimeValue>) -> Result<Outcome, Eval
         BuiltinOp::TrimmingWidth => {
             if args.len() != 1 {
                 return Err(EvalError {
-                    message: format!(
-                        "builtin `trimming-width` expects 1 arg, got {}",
-                        args.len()
-                    ),
+                    message: format!("builtin `trimming-width` expects 1 arg, got {}", args.len()),
                 });
             }
             let s = match &args[0] {
@@ -1775,8 +1772,7 @@ fn apply_builtin(op: BuiltinOp, args: Vec<RuntimeValue>) -> Result<Outcome, Eval
                     });
                 }
             };
-            let (col_w, xs) =
-                reciplexa_std::japanese::measure_columns(total_em, count, gutter_em);
+            let (col_w, xs) = reciplexa_std::japanese::measure_columns(total_em, count, gutter_em);
             Ok(Outcome::Value(RuntimeValue::Record(vec![
                 ("tag".into(), RuntimeValue::String("measure-columns".into())),
                 ("col-w".into(), RuntimeValue::Number(col_w)),

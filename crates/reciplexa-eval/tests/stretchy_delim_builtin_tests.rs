@@ -22,23 +22,14 @@ fn field_num(fields: &[(String, RuntimeValue)], name: &str) -> f64 {
 #[test]
 fn stretchy_delim_builtin_matches_estimate() {
     let body = MathAtom::symbol(StableNodeId::new(0), "□", MathClass::Ordinary);
-    let atom = MathAtom::delimiter_with_stretch(
-        StableNodeId::new(1),
-        "(",
-        ")",
-        body,
-        2.5,
-    );
+    let atom = MathAtom::delimiter_with_stretch(StableNodeId::new(1), "(", ")", body, 2.5);
     let expected = atom.estimate_box();
     let v = eval_source(r#"(val main (stretchy-delim "(" ")" 2.5))"#).unwrap();
     let RuntimeValue::Record(fields) = v else {
         panic!("expected record, got {v:?}");
     };
     assert_eq!(
-        fields
-            .iter()
-            .find(|(k, _)| k == "tag")
-            .map(|(_, v)| v),
+        fields.iter().find(|(k, _)| k == "tag").map(|(_, v)| v),
         Some(&RuntimeValue::String("stretchy-delim".into()))
     );
     assert!((field_num(&fields, "stretch-factor") - 2.5).abs() < 1e-9);

@@ -17,7 +17,8 @@ fn id(n: u64) -> StableNodeId {
 
 #[test]
 fn tip_wave10_stackrel_aligned_math_box() {
-    let (uy, ly) = stackrel_spacing_offsets(MathBox::new(0.5, 0.4, 0.1), MathBox::new(1.0, 0.7, 0.2));
+    let (uy, ly) =
+        stackrel_spacing_offsets(MathBox::new(0.5, 0.4, 0.1), MathBox::new(1.0, 0.7, 0.2));
     assert!(uy > 0.0 && ly < 0.0);
     assert!((underbrace_spacing() - UNDERBRACE_CLEARANCE_EM).abs() < 1e-9);
 

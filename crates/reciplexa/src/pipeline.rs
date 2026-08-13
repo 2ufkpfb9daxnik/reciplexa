@@ -336,8 +336,8 @@ mod tests {
                 wants_package_graphics_path(&expanded),
                 "{name}: should auto-route to package domain path"
             );
-            let doc = document_from_source(src)
-                .unwrap_or_else(|e| panic!("{name} pipeline open: {e:?}"));
+            let doc =
+                document_from_source(src).unwrap_or_else(|e| panic!("{name} pipeline open: {e:?}"));
             let texts = doc.pages[0]
                 .shapes
                 .iter()

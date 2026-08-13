@@ -26,10 +26,7 @@ fn vertical_ruby_box_builtin_matches_std() {
         panic!("expected record, got {v:?}");
     };
     assert_eq!(
-        fields
-            .iter()
-            .find(|(k, _)| k == "tag")
-            .map(|(_, v)| v),
+        fields.iter().find(|(k, _)| k == "tag").map(|(_, v)| v),
         Some(&RuntimeValue::String("vertical-ruby-box".into()))
     );
     assert!((field_num(&fields, "base-advance") - expected.base_advance).abs() < 1e-9);
@@ -47,10 +44,7 @@ fn bou_box_builtin_matches_std() {
         panic!("expected record, got {v:?}");
     };
     assert_eq!(
-        fields
-            .iter()
-            .find(|(k, _)| k == "tag")
-            .map(|(_, v)| v),
+        fields.iter().find(|(k, _)| k == "tag").map(|(_, v)| v),
         Some(&RuntimeValue::String("bou-box".into()))
     );
     assert!((field_num(&fields, "advance") - expected.advance).abs() < 1e-9);

@@ -1,8 +1,8 @@
 //! Wave 17 K3 tip coverage: EstimateStyle + math-box style field.
 
 use reciplexa_eval::{eval_source, RuntimeValue};
-use reciplexa_std::math::{EstimateStyle, MathAtom, MathClass, SCRIPT_SCALE, SCRIPT_SCALE_TEXT};
 use reciplexa_identity::document::StableNodeId;
+use reciplexa_std::math::{EstimateStyle, MathAtom, MathClass, SCRIPT_SCALE, SCRIPT_SCALE_TEXT};
 
 fn field<'a>(rec: &'a RuntimeValue, name: &str) -> &'a RuntimeValue {
     match rec {

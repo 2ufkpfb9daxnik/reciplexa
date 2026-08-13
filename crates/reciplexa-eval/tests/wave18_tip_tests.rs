@@ -1,9 +1,7 @@
 //! Wave 18 L2 tip coverage: lines_to_vertical_text_shapes + place_lines_vertical.
 
 use reciplexa_scene::Color;
-use reciplexa_std::japanese::{
-    lines_to_vertical_text_shapes, place_lines_vertical, KihonHanmen,
-};
+use reciplexa_std::japanese::{lines_to_vertical_text_shapes, place_lines_vertical, KihonHanmen};
 
 #[test]
 fn tip_wave18_vertical_text_shapes() {

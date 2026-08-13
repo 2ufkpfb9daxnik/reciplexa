@@ -21,8 +21,7 @@ fn field<'a>(rec: &'a RuntimeValue, name: &str) -> &'a RuntimeValue {
 
 #[test]
 fn pkg_math_box_example_elaborates_and_eval() {
-    let entry =
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/pkg_math_box.rpx");
+    let entry = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/pkg_math_box.rpx");
     let idx = LocalPackageIndex::discover(&[workspace_packages()]).unwrap();
     let units = elaborate_with_packages(&entry, &idx).unwrap();
     assert!(units.iter().any(|u| u.name == "pkg_math_box"));
@@ -52,7 +51,10 @@ fn pkg_math_box_example_elaborates_and_eval() {
 
     let display = field(&v, "scripts-display");
     let text = field(&v, "scripts-text");
-    assert_eq!(field(display, "style"), &RuntimeValue::String("display".into()));
+    assert_eq!(
+        field(display, "style"),
+        &RuntimeValue::String("display".into())
+    );
     assert_eq!(field(text, "style"), &RuntimeValue::String("text".into()));
     match (field(display, "width"), field(text, "width")) {
         (RuntimeValue::Number(dw), RuntimeValue::Number(tw)) => {

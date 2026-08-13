@@ -1,11 +1,9 @@
 //! Example `pkg_math_spacing.rpx` — Row class_spacing_em via math-box.
 
 use reciplexa_eval::{eval_expr, primitive_env, RuntimeValue, UnitHost};
-use reciplexa_package::{elaborate_with_packages, LocalPackageIndex};
-use reciplexa_std::math::{
-    class_spacing_em, MathAtom, MathClass, MED_MUSKIP_EM, THICK_MUSKIP_EM,
-};
 use reciplexa_identity::document::StableNodeId;
+use reciplexa_package::{elaborate_with_packages, LocalPackageIndex};
+use reciplexa_std::math::{class_spacing_em, MathAtom, MathClass, MED_MUSKIP_EM, THICK_MUSKIP_EM};
 use std::path::PathBuf;
 
 fn workspace_packages() -> PathBuf {
@@ -64,10 +62,6 @@ fn pkg_math_spacing_example_row_gaps_match_class_spacing_em() {
     assert!((width(field(&v, "spaced")) - spaced_w).abs() < 1e-9);
     assert!((width(field(&v, "related")) - related_w).abs() < 1e-9);
     assert!(spaced_w > tight_w);
-    assert!(
-        (spaced_w - tight_w - plus.estimate_box().width - 2.0 * MED_MUSKIP_EM).abs() < 1e-9
-    );
-    assert!(
-        (related_w - tight_w - eq.estimate_box().width - 2.0 * THICK_MUSKIP_EM).abs() < 1e-9
-    );
+    assert!((spaced_w - tight_w - plus.estimate_box().width - 2.0 * MED_MUSKIP_EM).abs() < 1e-9);
+    assert!((related_w - tight_w - eq.estimate_box().width - 2.0 * THICK_MUSKIP_EM).abs() < 1e-9);
 }

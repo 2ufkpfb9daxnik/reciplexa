@@ -58,7 +58,10 @@ fn estimate_package_math_main_forces_display_style() {
     let idx = LocalPackageIndex::discover(&[workspace_packages()]).unwrap();
     let host = estimate_package_math_main(&entry, &idx).expect("host display box");
     let units = elaborate_with_packages(&entry, &idx).unwrap();
-    let demo = units.iter().find(|u| u.name == "math_display_main").unwrap();
+    let demo = units
+        .iter()
+        .find(|u| u.name == "math_display_main")
+        .unwrap();
     let v = reciplexa_eval::eval_expr(
         &demo.expr,
         &reciplexa_eval::primitive_env(),

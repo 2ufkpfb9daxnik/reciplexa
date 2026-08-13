@@ -58,7 +58,10 @@ fn text_wrap_em_soft_wraps_via_break_line() {
             _ => None,
         })
         .collect();
-    assert_eq!(texts, expected.iter().map(String::as_str).collect::<Vec<_>>());
+    assert_eq!(
+        texts,
+        expected.iter().map(String::as_str).collect::<Vec<_>>()
+    );
 }
 
 #[test]

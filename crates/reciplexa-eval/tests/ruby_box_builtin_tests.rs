@@ -26,10 +26,7 @@ fn ruby_box_builtin_matches_std() {
         panic!("expected record, got {v:?}");
     };
     assert_eq!(
-        fields
-            .iter()
-            .find(|(k, _)| k == "tag")
-            .map(|(_, v)| v),
+        fields.iter().find(|(k, _)| k == "tag").map(|(_, v)| v),
         Some(&RuntimeValue::String("ruby-box".into()))
     );
     assert!((field_num(&fields, "base-width") - expected.base_width).abs() < 1e-9);

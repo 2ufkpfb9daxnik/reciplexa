@@ -29,10 +29,7 @@ fn math_box_builtin_from_symbol_record() {
         ("class".into(), RuntimeValue::String("ord".into())),
     ]))
     .unwrap();
-    assert_eq!(
-        field(&v, "tag"),
-        &RuntimeValue::String("math-box".into())
-    );
+    assert_eq!(field(&v, "tag"), &RuntimeValue::String("math-box".into()));
     match (field(&v, "width"), field(&v, "height"), field(&v, "depth")) {
         (RuntimeValue::Number(w), RuntimeValue::Number(h), RuntimeValue::Number(d)) => {
             assert!((w - expected.width).abs() < 1e-9);
@@ -57,7 +54,10 @@ fn math_box_honors_style_text_field_on_scripts() {
     assert_eq!(field(&text, "style"), &RuntimeValue::String("text".into()));
     match (field(&display, "width"), field(&text, "width")) {
         (RuntimeValue::Number(dw), RuntimeValue::Number(tw)) => {
-            assert!(tw < dw, "text style scripts should be narrower: text={tw} display={dw}");
+            assert!(
+                tw < dw,
+                "text style scripts should be narrower: text={tw} display={dw}"
+            );
         }
         other => panic!("widths, got {other:?}"),
     }
@@ -66,8 +66,7 @@ fn math_box_honors_style_text_field_on_scripts() {
 #[test]
 fn math_box_builtin_from_symbol_string() {
     let v = eval_source(r#"(val main (math-box "x"))"#).unwrap();
-    let expected =
-        MathAtom::symbol(StableNodeId::new(0), "x", MathClass::Ordinary).estimate_box();
+    let expected = MathAtom::symbol(StableNodeId::new(0), "x", MathClass::Ordinary).estimate_box();
     match field(&v, "width") {
         RuntimeValue::Number(w) => assert!((w - expected.width).abs() < 1e-9),
         other => panic!("width number, got {other}"),
@@ -80,10 +79,7 @@ fn math_box_builtin_rejects_bad_args() {
     assert!(err.message.contains("record") || err.message.contains("string"));
     let err = eval_source(r#"(val main (math-box))"#).unwrap_err();
     assert!(err.message.contains("expects 1"));
-    let err = eval_source(
-        r#"(val main (math-box (record (tag "math-absent"))))"#,
-    )
-    .unwrap_err();
+    let err = eval_source(r#"(val main (math-box (record (tag "math-absent"))))"#).unwrap_err();
     assert!(err.message.contains("math-box"));
 }
 

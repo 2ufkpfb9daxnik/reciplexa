@@ -49,10 +49,7 @@ pub fn estimate_package_math_main(
 ) -> Result<MathBox, MathBridgeError> {
     let entry = entry_path.as_ref();
     let units = elaborate_with_packages(entry, index)?;
-    let stem = entry
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .unwrap_or("main");
+    let stem = entry.file_stem().and_then(|s| s.to_str()).unwrap_or("main");
     let demo = units
         .iter()
         .find(|u| u.name == stem)

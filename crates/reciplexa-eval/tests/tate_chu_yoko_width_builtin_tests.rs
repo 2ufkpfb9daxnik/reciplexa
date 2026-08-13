@@ -39,5 +39,8 @@ fn tate_chu_yoko_width_builtin_rejects_bad_args() {
 #[test]
 fn tate_chu_yoko_width_typechecks_lightly() {
     let ty = typecheck_language_source(r#"(val main (tate-chu-yoko-width "12"))"#).unwrap();
-    assert!(matches!(ty, CoreType::Number | CoreType::Dynamic(_) | CoreType::Any));
+    assert!(matches!(
+        ty,
+        CoreType::Number | CoreType::Dynamic(_) | CoreType::Any
+    ));
 }

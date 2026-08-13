@@ -482,7 +482,10 @@ fn auto_materialize_package_resource_tree_and_entry_helper() {
     let entry = root.join("main.rpx");
     fs::write(&entry, "(val main 1)").unwrap();
 
-    assert_eq!(find_enclosing_package_root(&entry).as_deref(), Some(root.as_path()));
+    assert_eq!(
+        find_enclosing_package_root(&entry).as_deref(),
+        Some(root.as_path())
+    );
 
     let m = parse_rpxm(&fs::read_to_string(root.join("package.rpxm")).unwrap()).unwrap();
     let listed = eval_source(r#"(val main (resource "images/logo.png"))"#).unwrap();
@@ -507,7 +510,9 @@ fn auto_materialize_package_resource_tree_and_entry_helper() {
             _ => None,
         })
         .expect("resolved-path");
-    assert!(resolved.replace('\\', "/").ends_with("resources/images/logo.png"));
+    assert!(resolved
+        .replace('\\', "/")
+        .ends_with("resources/images/logo.png"));
 
     let bad = fields.iter().find(|(k, _)| k == "bad").unwrap().1.clone();
     let RuntimeValue::Record(badf) = bad else {

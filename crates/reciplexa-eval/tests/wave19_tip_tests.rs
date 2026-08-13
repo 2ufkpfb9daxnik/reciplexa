@@ -1,8 +1,8 @@
 //! Wave 19 M1 tip: phantom_box / smash_box on estimated math boxes.
 
 use reciplexa_eval::{estimate_math_box_from_value, eval_source, RuntimeValue};
-use reciplexa_std::math::{phantom_box, smash_box, MathAtom, MathClass};
 use reciplexa_identity::document::StableNodeId;
+use reciplexa_std::math::{phantom_box, smash_box, MathAtom, MathClass};
 
 fn field<'a>(rec: &'a RuntimeValue, name: &str) -> &'a RuntimeValue {
     match rec {

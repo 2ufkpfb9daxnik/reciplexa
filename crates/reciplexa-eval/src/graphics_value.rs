@@ -464,11 +464,7 @@ fn shape_text(fields: &[(String, RuntimeValue)], fill: Color) -> Result<Shape, G
 ///
 /// When `wrap_em` is set, each hard-newline segment is passed through `break_line`.
 /// When only newlines are present (no `wrap-em`), hard breaks become separate Text shapes.
-fn soft_wrap_graphics_text(
-    text: &Text,
-    wrap_em: Option<f64>,
-    leading_mm: f64,
-) -> Vec<Text> {
+fn soft_wrap_graphics_text(text: &Text, wrap_em: Option<f64>, leading_mm: f64) -> Vec<Text> {
     use reciplexa_std::japanese::{lines_to_text_shapes, wrap_text_shape_content};
 
     if let Some(max_em) = wrap_em {

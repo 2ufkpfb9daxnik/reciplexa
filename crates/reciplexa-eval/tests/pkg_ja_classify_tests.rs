@@ -1,7 +1,9 @@
 //! Example `pkg_ja_classify.rpx` — language builtins classify-char / break-between.
 
 use reciplexa_eval::{eval_source, RuntimeValue};
-use reciplexa_std::japanese::{break_opportunity_chars, classify_char, BreakOpportunity, CharClass};
+use reciplexa_std::japanese::{
+    break_opportunity_chars, classify_char, BreakOpportunity, CharClass,
+};
 
 fn field<'a>(rec: &'a RuntimeValue, name: &str) -> &'a RuntimeValue {
     match rec {

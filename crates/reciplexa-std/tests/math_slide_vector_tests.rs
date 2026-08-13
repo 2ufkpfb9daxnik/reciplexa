@@ -816,12 +816,19 @@ fn layout_math_underbrace_overset_spacing_visual() {
     let (dx, dy) = accent_attachment_offset(MathAccentKind::Underline, base.estimate_box());
     assert!((mark.x_mm - (origin.0 + dx * MATH_LAYOUT_EM_TO_MM)).abs() < 1e-9);
     assert!((mark.y_mm - (origin.1 - dy * MATH_LAYOUT_EM_TO_MM)).abs() < 1e-9);
-    assert!(mark.y_mm > origin.1, "underbrace mark below base in scene y-down");
+    assert!(
+        mark.y_mm > origin.1,
+        "underbrace mark below base in scene y-down"
+    );
 
     let lab = MathAtom::symbol(id(3), "U", MathClass::Ordinary);
     let body = MathAtom::symbol(id(4), "L", MathClass::Ordinary);
     // Labeled overset ≈ Stackrel(label, body).
-    let over = MathAtom::stack(id(5), MathStackKind::Stackrel, vec![lab.clone(), body.clone()]);
+    let over = MathAtom::stack(
+        id(5),
+        MathStackKind::Stackrel,
+        vec![lab.clone(), body.clone()],
+    );
     let oshapes = layout_math_atom_to_shapes(&over, origin);
     let texts: Vec<_> = oshapes
         .iter()
@@ -830,8 +837,14 @@ fn layout_math_underbrace_overset_spacing_visual() {
             _ => None,
         })
         .collect();
-    let tlab = texts.iter().find(|t| t.content == "U").expect("overset upper");
-    let tbody = texts.iter().find(|t| t.content == "L").expect("overset lower");
+    let tlab = texts
+        .iter()
+        .find(|t| t.content == "U")
+        .expect("overset upper");
+    let tbody = texts
+        .iter()
+        .find(|t| t.content == "L")
+        .expect("overset lower");
     let ub = lab.estimate_box();
     let lb = body.estimate_box();
     let (uy, ly) = stackrel_spacing_offsets(ub, lb);
@@ -849,7 +862,10 @@ fn layout_math_underbrace_overset_spacing_visual() {
         tbody.y_mm,
         expect_body_y
     );
-    assert!(tlab.y_mm < tbody.y_mm, "overset label above body in scene y-down");
+    assert!(
+        tlab.y_mm < tbody.y_mm,
+        "overset label above body in scene y-down"
+    );
 }
 
 /// LL13: Delimiter layout draws taller left/right fence glyphs from stretch heuristic.
