@@ -1,0 +1,9 @@
+(// language-only: ker builtin break-line-vertical → tagged line list demo.
+ // Soft-wrap stub for vertical-rl using vertical_advance_em — not full JLReq.)
+
+(val lines (break-line-vertical "一二三四あいうえ" 3.0))
+
+(val main
+  (record
+    (tag "ja-vertical-break-demo")
+    (lines lines)))
