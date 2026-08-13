@@ -621,8 +621,15 @@ fn live_layout_doc_plus_math_sibling_shapes() {
     );
     let joined: String = texts.concat();
     assert!(
-        joined.contains("(a/b)") || texts.iter().any(|t| ["(", "a", "/", "b", ")"].contains(t)),
-        "expected linearized math glyphs among {texts:?}"
+        joined.contains('a') && joined.contains('b'),
+        "expected fraction num/den glyphs among {texts:?}"
+    );
+    assert!(
+        doc.pages[0]
+            .shapes
+            .iter()
+            .any(|s| matches!(s, Shape::Line(_))),
+        "expected fraction rule Line on live-layout page"
     );
 
     // Source path also works (temp entry).

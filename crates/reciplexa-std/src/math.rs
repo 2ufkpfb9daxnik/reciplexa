@@ -1207,7 +1207,9 @@ fn math_offset_to_scene_mm(origin: (f64, f64), dx_em: f64, dy_em: f64) -> (f64, 
 /// [`MathAtom::Scripts`]: base at `origin`, sub/sup placed via
 /// [`scripts_attachment_offsets`] (LL7).
 /// [`MathAtom::BigOp`]: operator at `origin`, limits via
-/// [`bigop_limit_offsets`] (LL8). Not OpenType MATH / glyph metrics.
+/// [`bigop_limit_offsets`] (LL8).
+/// [`MathAtom::Fraction`]: num/den stacked with a [`reciplexa_scene::Line`]
+/// rule between them (LL9). Not OpenType MATH / glyph metrics.
 pub fn layout_math_atom_to_shapes(
     atom: &MathAtom,
     origin: (f64, f64),
@@ -1265,6 +1267,43 @@ pub fn layout_math_atom_to_shapes(
                 );
                 shapes.extend(layout_math_atom_to_shapes(b, body_origin));
             }
+            shapes
+        }
+        MathAtom::Fraction {
+            numerator,
+            denominator,
+            ..
+        } => {
+            let num_box = numerator.estimate_box();
+            let den_box = denominator.estimate_box();
+            let frac_box = atom.estimate_box();
+            let (rule_em, num_clr, den_clr) = fraction_rule_metrics();
+            let width = frac_box.width;
+            let num_dx = (width - num_box.width) * 0.5;
+            let den_dx = (width - den_box.width) * 0.5;
+            // Stack: rule on baseline; num above (rule + clearance + num.depth);
+            // den below (clearance + den.height). Math y-up → scene y-down.
+            let num_dy = rule_em + num_clr + num_box.depth;
+            let den_dy = -(den_clr + den_box.height);
+            let mut shapes = Vec::new();
+            shapes.extend(layout_math_atom_to_shapes(
+                numerator,
+                math_offset_to_scene_mm(origin, num_dx, num_dy),
+            ));
+            let (ox, oy) = origin;
+            let rule_w_mm = (rule_em * MATH_LAYOUT_EM_TO_MM).max(0.15);
+            shapes.push(reciplexa_scene::Shape::Line(reciplexa_scene::Line {
+                x1_mm: ox,
+                y1_mm: oy,
+                x2_mm: ox + width * MATH_LAYOUT_EM_TO_MM,
+                y2_mm: oy,
+                stroke: reciplexa_scene::Color::BLACK,
+                width_mm: rule_w_mm,
+            }));
+            shapes.extend(layout_math_atom_to_shapes(
+                denominator,
+                math_offset_to_scene_mm(origin, den_dx, den_dy),
+            ));
             shapes
         }
         _ => layout_math_linearize_glyphs(atom, origin),

@@ -454,6 +454,42 @@ fn math_bigop_limit_offsets_heuristic() {
     assert_eq!(bigop_limit_offsets(op, None, None), (0.0, 0.0, 0.0, 0.0));
 }
 
+/// LL9: Fraction layout draws a Line rule between num and den.
+#[test]
+fn layout_math_fraction_draws_rule_line() {
+    use reciplexa_scene::Shape;
+    use reciplexa_std::math::{fraction_rule_metrics, layout_math_atom_to_shapes, MATH_LAYOUT_EM_TO_MM};
+
+    let num = MathAtom::symbol(id(1), "a", MathClass::Ordinary);
+    let den = MathAtom::symbol(id(2), "b", MathClass::Ordinary);
+    let atom = MathAtom::fraction(id(3), num, den);
+    let origin = (10.0, 200.0);
+    let shapes = layout_math_atom_to_shapes(&atom, origin);
+    let texts: Vec<_> = shapes
+        .iter()
+        .filter_map(|s| match s {
+            Shape::Text(t) => Some(t),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(texts.len(), 2);
+    let a = texts.iter().find(|t| t.content == "a").expect("num");
+    let b = texts.iter().find(|t| t.content == "b").expect("den");
+    assert!(a.y_mm < origin.1, "num above rule");
+    assert!(b.y_mm > origin.1, "den below rule");
+    let line = shapes.iter().find_map(|s| match s {
+        Shape::Line(l) => Some(l),
+        _ => None,
+    });
+    let line = line.expect("fraction rule Line");
+    assert!((line.y1_mm - origin.1).abs() < 1e-9);
+    assert!((line.y2_mm - origin.1).abs() < 1e-9);
+    assert!((line.x1_mm - origin.0).abs() < 1e-9);
+    let (rule_em, _, _) = fraction_rule_metrics();
+    assert!(line.width_mm >= (rule_em * MATH_LAYOUT_EM_TO_MM).min(0.15) - 1e-9);
+    assert!(line.x2_mm > line.x1_mm);
+}
+
 /// LL8: BigOp layout places limits via bigop_limit_offsets.
 #[test]
 fn layout_math_bigop_positions_limits() {

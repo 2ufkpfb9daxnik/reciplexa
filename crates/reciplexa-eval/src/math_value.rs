@@ -96,8 +96,8 @@ pub fn math_atom_from_value(v: &RuntimeValue) -> Result<MathAtom, MathValueError
 }
 
 /// Very naive: Text glyphs from `linearize`, placed by `estimate_box` width
-/// (monospace heuristic) at `origin` (mm). Scripts / BigOp limits use std
-/// attachment heuristics (LL7–LL8).
+/// (monospace heuristic) at `origin` (mm). Scripts / BigOp / Fraction use
+/// std attachment heuristics and a Line fraction rule (LL7–LL9).
 ///
 /// Not OpenType MATH — see `lang/live-layout-plan.md`.
 pub fn layout_math_to_shapes(
@@ -768,28 +768,51 @@ mod tip_tests {
             ("glyph", RuntimeValue::String("b".into())),
             ("class", RuntimeValue::String("ord".into())),
         ]);
+        // Symbol-only (still linearize path).
+        let shapes = layout_math_to_shapes(&a, (10.0, 200.0)).expect("math shapes");
+        match &shapes[0] {
+            Shape::Text(t) => {
+                assert_eq!(t.content, "a");
+                assert!((t.x_mm - 10.0).abs() < 1e-9);
+                assert!((t.y_mm - 200.0).abs() < 1e-9);
+            }
+            _ => panic!("expected Text shape"),
+        }
+
+        // Fraction: num/den Text + rule Line (LL9).
         let frac = rec(vec![
             ("tag", RuntimeValue::String("math-fraction".into())),
             ("numerator", a),
             ("denominator", b),
         ]);
-        let shapes = layout_math_to_shapes(&frac, (10.0, 200.0)).expect("math shapes");
-        let texts: Vec<_> = shapes
+        let frac_shapes = layout_math_to_shapes(&frac, (10.0, 200.0)).expect("frac shapes");
+        let texts: Vec<_> = frac_shapes
             .iter()
             .filter_map(|s| match s {
                 Shape::Text(t) => Some(t.content.as_str()),
                 _ => None,
             })
             .collect();
-        let joined: String = texts.concat();
-        assert_eq!(joined, "(a/b)");
-        assert_eq!(texts.len(), joined.chars().count());
-        match &shapes[0] {
-            Shape::Text(t) => {
-                assert!((t.x_mm - 10.0).abs() < 1e-9);
-                assert!((t.y_mm - 200.0).abs() < 1e-9);
-            }
-            _ => panic!("expected Text shape"),
-        }
+        assert!(texts.contains(&"a") && texts.contains(&"b"), "{texts:?}");
+        assert!(
+            frac_shapes.iter().any(|s| matches!(s, Shape::Line(_))),
+            "expected fraction rule Line among {frac_shapes:?}"
+        );
+        let a_y = frac_shapes
+            .iter()
+            .find_map(|s| match s {
+                Shape::Text(t) if t.content == "a" => Some(t.y_mm),
+                _ => None,
+            })
+            .unwrap();
+        let b_y = frac_shapes
+            .iter()
+            .find_map(|s| match s {
+                Shape::Text(t) if t.content == "b" => Some(t.y_mm),
+                _ => None,
+            })
+            .unwrap();
+        assert!(a_y < 200.0, "numerator above baseline: {a_y}");
+        assert!(b_y > 200.0, "denominator below baseline: {b_y}");
     }
 }

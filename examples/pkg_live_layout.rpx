@@ -1,6 +1,6 @@
 (// language-only: live-layout demo — doc paragraph + sibling math tree.
  // Host composes via document_from_live_layout_* (LL3); not a graphics child embed.
- // Math placement is linearize → Text glyphs (monospace estimate_box heuristic).)
+ // Math: fraction num/den + Line rule (LL9); not OpenType MATH.)
 
 (import document/page only
   a4 page flow section heading paragraph
