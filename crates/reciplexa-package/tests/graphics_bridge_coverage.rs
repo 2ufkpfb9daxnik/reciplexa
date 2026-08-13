@@ -262,6 +262,53 @@ fn preview_doc_text_metrics_long_ja_paragraph() {
     assert!(m.diagnostic_note().contains("line"));
 }
 
+/// HC7: bridged long JA paragraph PDF emits multiple text showing ops (CJK font).
+#[test]
+fn package_long_ja_paragraph_pdf_emits_multiple_text_ops() {
+    if reciplexa_pdf::system_cjk_font_path().is_none() {
+        return;
+    }
+    let long = "あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをん";
+    let expected = reciplexa_std::japanese::break_line(long, 40.0);
+    assert!(expected.len() > 1);
+
+    let source = format!(
+        r#"(import document/page only
+  a4 page flow section heading paragraph
+  block-paragraph)
+(val title (heading 1 "題"))
+(val body (paragraph "{long}"))
+(val main
+  (page a4
+    (flow
+      (list
+        (section title
+          (list
+            (block-paragraph body)))))))
+"#
+    );
+    let idx = index();
+    let doc = document_from_package_source(&source, "ja_long_pdf", &idx)
+        .expect("long JA paragraph bridge");
+    let text_shape_count = doc.pages[0]
+        .shapes
+        .iter()
+        .filter(|s| matches!(s, Shape::Text(_)))
+        .count();
+    assert!(
+        text_shape_count > 1,
+        "expected multiple Text shapes before PDF, got {text_shape_count}"
+    );
+
+    let bytes = reciplexa_pdf::document_to_pdf(&doc).expect("pdf from package scene");
+    let pdf = String::from_utf8_lossy(&bytes);
+    let tj = pdf.matches(" Tj\n").count();
+    assert!(
+        tj >= 2,
+        "expected multiple PDF text ops from wrapped JA paragraph, got {tj} Tj (shapes={text_shape_count})"
+    );
+}
+
 /// Wave 24 R1: `columns` / `block-columns` → side-by-side Text via measure_columns.
 #[test]
 fn package_document_columns_places_side_by_side_texts() {

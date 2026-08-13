@@ -125,6 +125,6 @@ cargo test -p reciplexa-package --offline --test graphics_bridge_coverage
 
 | Unit | Status |
 |------|--------|
-| HC6 — Plan: PDF smoke units | **pending** |
-| HC7 — Long JA → PDF multiple `Tj` | **pending** |
+| HC6 — Plan: PDF smoke units | **done** |
+| HC7 — Long JA → PDF multiple `Tj` | **done** |
 | HC8 — Docs status | **pending** |
