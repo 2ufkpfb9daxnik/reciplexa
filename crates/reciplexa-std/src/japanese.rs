@@ -561,6 +561,49 @@ pub fn hang_width_em_char(c: char) -> f64 {
     hang_width_em(classify_char(c))
 }
 
+/// Default line-head / line-end punctuation trimming width (em).
+///
+/// JLReq-inspired stub for 詰め at the start/end of a line (half-em solid for
+/// reciprocal punctuation classes). Not full proportional / font-backed aki.
+pub const TRIMMING_WIDTH_EM: f64 = 0.5;
+
+/// Classes that participate in line-head or line-end trimming (stub).
+///
+/// - **Line-head:** opening brackets (cl-01)
+/// - **Line-end:** closing brackets / middle dots / full stops / commas (cl-02/05/06/07)
+pub fn is_trimmable_line_head(class: CharClass) -> bool {
+    matches!(class, CharClass::OpeningBrackets | CharClass::WarichuOpen)
+}
+
+/// See [`is_trimmable_line_head`] for the complementary end-of-line set.
+pub fn is_trimmable_line_end(class: CharClass) -> bool {
+    matches!(
+        class,
+        CharClass::ClosingBrackets
+            | CharClass::MiddleDots
+            | CharClass::FullStops
+            | CharClass::Commas
+            | CharClass::WarichuClose
+    )
+}
+
+/// Abstract trim amount (em) for `class` at line head or end.
+///
+/// Returns [`TRIMMING_WIDTH_EM`] for [`is_trimmable_line_head`] /
+/// [`is_trimmable_line_end`] classes, else `0.0`. Not full JLReq 詰め / aki.
+pub fn trimming_width_em(class: CharClass) -> f64 {
+    if is_trimmable_line_head(class) || is_trimmable_line_end(class) {
+        TRIMMING_WIDTH_EM
+    } else {
+        0.0
+    }
+}
+
+/// [`trimming_width_em`] after [`classify_char`].
+pub fn trimming_width_em_char(c: char) -> f64 {
+    trimming_width_em(classify_char(c))
+}
+
 /// Solid + mirror (empty) widths in em for reciprocal punctuation packing.
 ///
 /// JLReq-inspired stub for cl-01/02/05/06/07:

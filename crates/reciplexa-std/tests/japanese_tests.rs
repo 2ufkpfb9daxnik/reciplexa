@@ -1020,6 +1020,28 @@ fn measure_columns_splits_total_with_gutters() {
 }
 
 #[test]
+fn trimming_width_em_line_head_and_end_classes() {
+    use reciplexa_std::japanese::{
+        classify_char, is_trimmable_line_end, is_trimmable_line_head, trimming_width_em,
+        trimming_width_em_char, CharClass, TRIMMING_WIDTH_EM,
+    };
+
+    assert!(is_trimmable_line_head(CharClass::OpeningBrackets));
+    assert!(!is_trimmable_line_head(CharClass::ClosingBrackets));
+    assert!(is_trimmable_line_end(CharClass::ClosingBrackets));
+    assert!(is_trimmable_line_end(CharClass::FullStops));
+    assert!(is_trimmable_line_end(CharClass::Commas));
+    assert!(!is_trimmable_line_end(CharClass::OpeningBrackets));
+
+    assert!((trimming_width_em(CharClass::OpeningBrackets) - TRIMMING_WIDTH_EM).abs() < 1e-9);
+    assert!((trimming_width_em(CharClass::Ideographic) - 0.0).abs() < 1e-9);
+    assert!((trimming_width_em_char('「') - TRIMMING_WIDTH_EM).abs() < 1e-9);
+    assert!((trimming_width_em_char('。') - TRIMMING_WIDTH_EM).abs() < 1e-9);
+    assert!((trimming_width_em_char('あ') - 0.0).abs() < 1e-9);
+    assert_eq!(classify_char('「'), CharClass::OpeningBrackets);
+}
+
+#[test]
 fn reciprocal_punctuation_mirror_fullwidth_vs_half() {
     use reciplexa_std::japanese::{
         reciprocal_punctuation_mirror_em, reciprocal_punctuation_widths_em,

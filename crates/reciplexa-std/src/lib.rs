@@ -23,15 +23,17 @@ pub use document::{Block, Figure, Flow, Heading, List, ListItem, Page, Section, 
 pub use japanese::{
     bou_estimate_box, bou_mark_offsets, break_line, break_line_to_text_shapes, break_line_vertical,
     break_opportunity, break_opportunity_chars, break_pair_matrix_cell, char_em_width,
-    classify_char, hang_width_em, hang_width_em_char, indent_first_line, is_hangable, justify_line,
-    justify_line_to_text_shapes, lines_to_text_shapes, lines_to_vertical_text_shapes,
-    measure_columns, needs_tate_rotation, place_lines_horizontal, place_lines_vertical,
-    reciprocal_punctuation_mirror_em, reciprocal_punctuation_widths_em, ruby_estimate_box,
-    tate_chu_yoko_estimate_box, vertical_advance_em, vertical_glyph_orientation,
+    classify_char, hang_width_em, hang_width_em_char, indent_first_line, is_hangable,
+    is_trimmable_line_end, is_trimmable_line_head, justify_line, justify_line_to_text_shapes,
+    lines_to_text_shapes, lines_to_vertical_text_shapes, measure_columns, needs_tate_rotation,
+    place_lines_horizontal, place_lines_vertical, reciprocal_punctuation_mirror_em,
+    reciprocal_punctuation_widths_em, ruby_estimate_box, tate_chu_yoko_estimate_box,
+    trimming_width_em, trimming_width_em_char, vertical_advance_em, vertical_glyph_orientation,
     vertical_ruby_estimate_box, wrap_text_shape_content, BouBox, BreakOpportunity, CharClass,
     KihonHanmen, Ruby, RubyBox, RubyKind, TateChuYoko, TateChuYokoBox, TategakiParagraph,
     VerticalGlyphOrientation, VerticalRubyBox, WritingMode, BOU_MARK_SIZE_EM, BOU_SIDE_OFFSET_EM,
-    BREAK_PAIR_MATRIX, BREAK_PAIR_MATRIX_DIM, HANG_WIDTH_EM, VERTICAL_RUBY_SIDE_EM,
+    BREAK_PAIR_MATRIX, BREAK_PAIR_MATRIX_DIM, HANG_WIDTH_EM, TRIMMING_WIDTH_EM,
+    VERTICAL_RUBY_SIDE_EM,
 };
 pub use layout::{Align, Axis, Column, LayoutChild, Padding, Row, Stack};
 pub use math::{
