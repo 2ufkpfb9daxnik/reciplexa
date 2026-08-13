@@ -101,6 +101,8 @@ pub enum BuiltinOp {
     TateChuYokoWidth,
     /// Hangable EOL policy stub — string (first char) → Number hang width (em).
     HangWidth,
+    /// Math box estimate stub — math tag record or symbol string → `{tag, width, height, depth}`.
+    MathBox,
 }
 
 impl fmt::Debug for RuntimeValue {

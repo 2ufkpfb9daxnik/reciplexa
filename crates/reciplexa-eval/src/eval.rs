@@ -80,6 +80,10 @@ pub fn primitive_env() -> HashMap<String, RuntimeValue> {
         "hang-width".into(),
         RuntimeValue::Builtin(BuiltinOp::HangWidth),
     );
+    env.insert(
+        "math-box".into(),
+        RuntimeValue::Builtin(BuiltinOp::MathBox),
+    );
     env
 }
 
@@ -1486,6 +1490,45 @@ fn apply_builtin(op: BuiltinOp, args: Vec<RuntimeValue>) -> Result<Outcome, Eval
             })?;
             let w = reciplexa_std::japanese::hang_width_em_char(ch);
             Ok(Outcome::Value(RuntimeValue::Number(w)))
+        }
+        BuiltinOp::MathBox => {
+            if args.len() != 1 {
+                return Err(EvalError {
+                    message: format!(
+                        "builtin `math-box` expects 1 arg, got {}",
+                        args.len()
+                    ),
+                });
+            }
+            let box_ = match &args[0] {
+                RuntimeValue::String(glyph) => {
+                    // Bare symbol string → ordinary math-symbol estimate.
+                    let atom = reciplexa_std::math::MathAtom::symbol(
+                        reciplexa_identity::document::StableNodeId::new(0),
+                        glyph.as_str(),
+                        reciplexa_std::math::MathClass::Ordinary,
+                    );
+                    atom.estimate_box()
+                }
+                RuntimeValue::Record(_) => {
+                    crate::math_value::estimate_math_box_from_value(&args[0]).map_err(|e| {
+                        EvalError {
+                            message: format!("builtin `math-box`: {}", e.message),
+                        }
+                    })?
+                }
+                _ => {
+                    return Err(EvalError {
+                        message: "builtin `math-box` expects math record or symbol string".into(),
+                    });
+                }
+            };
+            Ok(Outcome::Value(RuntimeValue::Record(vec![
+                ("tag".into(), RuntimeValue::String("math-box".into())),
+                ("width".into(), RuntimeValue::Number(box_.width)),
+                ("height".into(), RuntimeValue::Number(box_.height)),
+                ("depth".into(), RuntimeValue::Number(box_.depth)),
+            ])))
         }
     }
 }
