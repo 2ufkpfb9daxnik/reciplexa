@@ -129,8 +129,20 @@ fn push_heading_or_paragraph(
         }
         "doc-paragraph" => {
             let text = string_field(fields, "text")?;
-            push_text(text, 4.0, cursor_y, shapes);
-            *cursor_y -= 7.0;
+            let size = 4.0;
+            // Soft-wrap long paragraph runs via std `break_line` (fontless em stub).
+            // ~40 em ≈ A4 content width at body size; short text stays one Text shape.
+            const PARA_MAX_EM: f64 = 40.0;
+            let lines = reciplexa_std::japanese::break_line(&text, PARA_MAX_EM);
+            if lines.is_empty() {
+                push_text(String::new(), size, cursor_y, shapes);
+                *cursor_y -= size + 3.0;
+            } else {
+                for line in lines {
+                    push_text(line, size, cursor_y, shapes);
+                    *cursor_y -= size + 3.0;
+                }
+            }
             Ok(())
         }
         other => Err(GraphicsValueError::new(format!(
@@ -348,6 +360,54 @@ mod tests {
             .collect();
         assert!(texts.contains(&"Title"));
         assert!(texts.contains(&"Body"));
+    }
+
+    #[test]
+    fn doc_paragraph_long_text_uses_break_line() {
+        // Longer than PARA_MAX_EM (40): must emit multiple Text shapes via break_line.
+        let long = "あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをん";
+        assert!(long.chars().count() > 40);
+        let expected = reciplexa_std::japanese::break_line(long, 40.0);
+        assert!(expected.len() > 1);
+
+        let paragraph = rec(vec![
+            ("tag", RuntimeValue::String("doc-paragraph".into())),
+            ("text", RuntimeValue::String(long.into())),
+        ]);
+        let blocks = cons(vec![rec(vec![
+            ("tag", RuntimeValue::String("doc-block".into())),
+            ("kind", RuntimeValue::String("paragraph".into())),
+            ("paragraph", paragraph),
+        ])]);
+        let section = rec(vec![
+            ("tag", RuntimeValue::String("doc-section".into())),
+            ("blocks", blocks),
+        ]);
+        let flow = rec(vec![
+            ("tag", RuntimeValue::String("doc-flow".into())),
+            ("sections", cons(vec![section])),
+        ]);
+        let page = rec(vec![
+            ("tag", RuntimeValue::String("doc-page".into())),
+            (
+                "paper",
+                rec(vec![
+                    ("width", RuntimeValue::Int(210)),
+                    ("height", RuntimeValue::Int(297)),
+                ]),
+            ),
+            ("flow", flow),
+        ]);
+        let doc = document_from_doc_value(&page).expect("doc lower");
+        let texts: Vec<_> = doc.pages[0]
+            .shapes
+            .iter()
+            .filter_map(|s| match s {
+                Shape::Text(t) => Some(t.content.clone()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(texts, expected);
     }
 
     #[test]
