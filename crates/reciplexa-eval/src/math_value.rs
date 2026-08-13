@@ -38,10 +38,17 @@ pub fn estimate_math_box_from_value(v: &RuntimeValue) -> Result<MathBox, MathVal
 }
 
 /// Estimate with an explicit [`EstimateStyle`] (ignores record `style` field).
+///
+/// Already-estimated metric records (`math-box` / `math-phantom` / `math-smash`
+/// with `width`/`height`/`depth`) are returned as-is; style does not re-scale
+/// them.
 pub fn estimate_math_box_from_value_with_style(
     v: &RuntimeValue,
     style: EstimateStyle,
 ) -> Result<MathBox, MathValueError> {
+    if let Some(b) = math_box_from_metrics_record(v) {
+        return Ok(b);
+    }
     Ok(math_atom_from_value(v)?.estimate_box_with_style(style))
 }
 
@@ -252,6 +259,13 @@ fn math_atom_from_value_with_ids(
         // Package `math/scripts` under / over (brace, set, plain).
         "math-over" => over_under_from_fields(fields, ids, /* over */ true),
         "math-under" => over_under_from_fields(fields, ids, /* over */ false),
+        // Metric / tree tags from builtins `math-phantom` / `math-smash`.
+        "math-phantom" | "math-smash" => {
+            // Metric records are handled by `layout_math_to_shapes` (no ink) and
+            // `math_box_from_metrics_record`. Nested tree tags become an empty
+            // row so a surrounding row still lays out.
+            Ok(MathAtom::row(ids.mint(), vec![]))
+        }
         // Package `math/cases` piecewise / delimited cases.
         "math-cases" => {
             let left = string_field(fields, "left").unwrap_or_else(|_| "{".into());
@@ -464,7 +478,7 @@ fn optional_child(
     let Some(v) = field(fields, name) else {
         return Ok(None);
     };
-    if is_math_absent(v) {
+    if is_math_absent(v) || is_no_ink_math_tag(v) {
         return Ok(None);
     }
     Ok(Some(math_atom_from_value_with_ids(v, ids)?))
@@ -477,9 +491,33 @@ fn is_math_absent(v: &RuntimeValue) -> bool {
         .is_some_and(|t| t == "math-absent")
 }
 
+fn is_no_ink_math_tag(v: &RuntimeValue) -> bool {
+    record_fields(v)
+        .ok()
+        .and_then(|f| tag_of(f))
+        .is_some_and(|t| t == "math-phantom" || t == "math-smash")
+}
+
+/// Already-estimated `{tag, width, height, depth}` from `math-box` / phantom / smash.
+fn math_box_from_metrics_record(v: &RuntimeValue) -> Option<MathBox> {
+    let fields = record_fields(v).ok()?;
+    match tag_of(fields)? {
+        "math-box" | "math-phantom" | "math-smash" => {}
+        _ => return None,
+    }
+    Some(MathBox::new(
+        optional_number_field(fields, "width")?,
+        optional_number_field(fields, "height")?,
+        optional_number_field(fields, "depth")?,
+    ))
+}
+
 fn atom_list(v: &RuntimeValue, ids: &mut IdGen) -> Result<Vec<MathAtom>, MathValueError> {
     let mut out = Vec::new();
     for item in cons_items(v)? {
+        if is_no_ink_math_tag(item) {
+            continue;
+        }
         out.push(math_atom_from_value_with_ids(item, ids)?);
     }
     Ok(out)
@@ -563,6 +601,7 @@ fn field<'a>(fields: &'a [(String, RuntimeValue)], name: &str) -> Option<&'a Run
 fn tag_of(fields: &[(String, RuntimeValue)]) -> Option<&str> {
     match field(fields, "tag") {
         Some(RuntimeValue::String(s)) => Some(s.as_str()),
+        Some(RuntimeValue::ShapeTag(s)) => Some(s.as_str()),
         _ => None,
     }
 }
@@ -578,6 +617,23 @@ mod tip_tests {
                 .map(|(k, v)| (k.to_string(), v))
                 .collect(),
         )
+    }
+
+    fn cons(items: Vec<RuntimeValue>) -> RuntimeValue {
+        let mut cur = RuntimeValue::Variant {
+            tag: "nil".into(),
+            payload: None,
+        };
+        for item in items.into_iter().rev() {
+            cur = RuntimeValue::Variant {
+                tag: "cons".into(),
+                payload: Some(Box::new(RuntimeValue::Record(vec![
+                    ("head".into(), item),
+                    ("tail".into(), cur),
+                ]))),
+            };
+        }
+        cur
     }
 
     #[test]
@@ -859,26 +915,93 @@ mod tip_tests {
     }
 
     #[test]
+    fn layout_math_row_skips_nested_phantom_smash_tags() {
+        let vis = rec(vec![
+            ("tag", RuntimeValue::String("math-symbol".into())),
+            ("glyph", RuntimeValue::String("x".into())),
+            ("class", RuntimeValue::String("ord".into())),
+        ]);
+        let phantom = rec(vec![
+            ("tag", RuntimeValue::String("math-phantom".into())),
+            ("width", RuntimeValue::Number(0.0)),
+            ("height", RuntimeValue::Number(0.7)),
+            ("depth", RuntimeValue::Number(0.2)),
+        ]);
+        let smash = rec(vec![
+            ("tag", RuntimeValue::String("math-smash".into())),
+            ("width", RuntimeValue::Number(1.0)),
+            ("height", RuntimeValue::Number(0.0)),
+            ("depth", RuntimeValue::Number(0.0)),
+        ]);
+        let hidden = rec(vec![
+            ("tag", RuntimeValue::String("math-symbol".into())),
+            ("glyph", RuntimeValue::String("Σ".into())),
+            ("class", RuntimeValue::String("op".into())),
+        ]);
+        let row = rec(vec![
+            ("tag", RuntimeValue::String("math-row".into())),
+            ("children", cons(vec![vis, phantom, smash, hidden])),
+        ]);
+        let shapes =
+            layout_math_to_shapes(&row, (10.0, 200.0), EstimateStyle::Display).expect("row");
+        let texts: Vec<_> = shapes
+            .iter()
+            .filter_map(|s| match s {
+                Shape::Text(t) => Some(t.content.as_str()),
+                _ => None,
+            })
+            .collect();
+        assert!(
+            texts.contains(&"x") && texts.contains(&"Σ"),
+            "visible glyphs remain: {texts:?}"
+        );
+    }
+
+    #[test]
+    fn estimate_math_box_reads_phantom_smash_metrics() {
+        let phantom = rec(vec![
+            ("tag", RuntimeValue::String("math-phantom".into())),
+            ("width", RuntimeValue::Number(0.0)),
+            ("height", RuntimeValue::Number(0.7)),
+            ("depth", RuntimeValue::Number(0.2)),
+        ]);
+        let smash = rec(vec![
+            ("tag", RuntimeValue::String("math-smash".into())),
+            ("width", RuntimeValue::Number(1.25)),
+            ("height", RuntimeValue::Number(0.0)),
+            ("depth", RuntimeValue::Number(0.0)),
+        ]);
+        let pb = estimate_math_box_from_value(&phantom).expect("phantom metrics");
+        assert!((pb.width - 0.0).abs() < 1e-9);
+        assert!((pb.height - 0.7).abs() < 1e-9);
+        assert!((pb.depth - 0.2).abs() < 1e-9);
+        let sb = estimate_math_box_from_value(&smash).expect("smash metrics");
+        assert!((sb.width - 1.25).abs() < 1e-9);
+        assert!((sb.height - 0.0).abs() < 1e-9);
+        assert!((sb.depth - 0.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn layout_math_phantom_tag_as_shape_tag_still_no_ink() {
+        let phantom = rec(vec![
+            ("tag", RuntimeValue::ShapeTag("math-phantom".into())),
+            ("width", RuntimeValue::Number(0.0)),
+            ("height", RuntimeValue::Number(0.7)),
+            ("depth", RuntimeValue::Number(0.2)),
+        ]);
+        let p = layout_math_to_shapes(&phantom, (10.0, 200.0), EstimateStyle::Display)
+            .expect("shape-tag phantom");
+        assert!(
+            p.is_empty(),
+            "ShapeTag math-phantom must produce no ink: {p:?}"
+        );
+    }
+
+    #[test]
     fn layout_math_to_shapes_honors_layout_style() {
         // Row hits the linearize path; a superscripted scripts child's
         // estimate_box height uses script_scale, so Text vs Display changes
         // glyph height_mm.
-        fn cons(items: Vec<RuntimeValue>) -> RuntimeValue {
-            let mut cur = RuntimeValue::Variant {
-                tag: "nil".into(),
-                payload: None,
-            };
-            for item in items.into_iter().rev() {
-                cur = RuntimeValue::Variant {
-                    tag: "cons".into(),
-                    payload: Some(Box::new(RuntimeValue::Record(vec![
-                        ("head".into(), item),
-                        ("tail".into(), cur),
-                    ]))),
-                };
-            }
-            cur
-        }
         let x = rec(vec![
             ("tag", RuntimeValue::String("math-symbol".into())),
             ("glyph", RuntimeValue::String("x".into())),
