@@ -193,7 +193,8 @@ pub fn nudge_authoring_layers(
     if wants_package_graphics_path(expanded) || wants_package_graphics_path(authoring) {
         return Err(SyncRefuse::new(
             "canvas move skipped: expanded layers are not editable in authoring source \
-             (markup-generated pages are read-only — edit the markup block instead)",
+             (package sync v2 still does not cover markup authoring — \
+              markup-generated pages stay read-only; edit the markup block instead)",
         ));
     }
     match authoring_layers_align(authoring, expanded, page_index) {
@@ -201,7 +202,8 @@ pub fn nudge_authoring_layers(
         Ok(false) => {
             return Err(SyncRefuse::new(
                 "canvas move skipped: expanded layers are not editable in authoring source \
-                 (markup-generated text is read-only — edit the markup block instead)",
+                 (package sync v2 still does not cover markup authoring — \
+                  markup-generated text stays read-only; edit the markup block instead)",
             ));
         }
         Err(e) => return Err(SyncRefuse::new(e.message)),
@@ -334,9 +336,8 @@ mod tests {
                 wants_package_graphics_path(src),
                 "{name}: authoring should match package import heuristics"
             );
-            let expanded = reciplexa_macro::expand_source(src).unwrap_or_else(|e| {
-                panic!("{name} expand: {e:?}")
-            });
+            let expanded = reciplexa_macro::expand_source(src)
+                .unwrap_or_else(|e| panic!("{name} expand: {e:?}"));
             assert!(
                 wants_package_graphics_path(&expanded),
                 "{name}: GUI should open via package path (wants_package)"

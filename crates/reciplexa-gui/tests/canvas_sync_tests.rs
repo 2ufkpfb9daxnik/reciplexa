@@ -130,12 +130,11 @@ fn markup_ja_example_still_soft_refuses_authoring_edits() {
     );
     let err = nudge_authoring_layers(authoring, &expanded, 0, &[0], 2.0, -1.0).unwrap_err();
     assert!(
-        err.message.contains("read-only")
-            || err.message.contains("skipped")
-            || err.message.contains("markup"),
-        "{}",
+        err.message.contains("package sync v2"),
+        "refuse should mention package sync v2 still skipping markup: {}",
         err.message
     );
+    assert!(err.message.contains("markup"), "{}", err.message);
 }
 
 #[test]
