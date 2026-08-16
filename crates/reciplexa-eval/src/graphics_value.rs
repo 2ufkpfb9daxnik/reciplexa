@@ -93,7 +93,7 @@ pub fn shape_from_graphics_value(v: &RuntimeValue) -> Result<Shape, GraphicsValu
         "polyline" => shape_polyline(fields, Color::BLACK, 0.5),
         "polygon" => shape_polygon(fields, Color::BLACK),
         "ring" => shape_ring(fields, Color::BLACK),
-        "frame" => shape_frame(fields, None),
+        "frame" => shape_frame(fields),
         "text" => shape_text(fields, Color::BLACK),
         "image" => shape_image(fields),
         "group" => shape_group(fields),
@@ -395,19 +395,13 @@ fn shape_ring(
     Ok(Shape::Ring(ring))
 }
 
-fn shape_frame(
-    fields: &[(String, RuntimeValue)],
-    stroke_override: Option<Color>,
-) -> Result<Shape, GraphicsValueError> {
+fn shape_frame(fields: &[(String, RuntimeValue)]) -> Result<Shape, GraphicsValueError> {
     let x = number_field(fields, "x")?;
     let y = number_field(fields, "y")?;
     let w = number_field(fields, "w")?;
     let h = number_field(fields, "h")?;
     let width = number_field(fields, "width")?;
-    let stroke = match stroke_override {
-        Some(c) => c,
-        None => optional_color_field(fields, "color")?.unwrap_or(Color::BLACK),
-    };
+    let stroke = optional_color_field(fields, "color")?.unwrap_or(Color::BLACK);
     let frame = Frame {
         x_mm: x,
         y_mm: y,
