@@ -19,3 +19,23 @@ reciplexa-view = { workspace = true }
 
 [dev-dependencies]
 reciplexa-pdf = { workspace = true }
+
+[[test]]
+name = "lower_tests"
+required-features = ["interim-surface"]
+
+[[test]]
+name = "layers_tests"
+required-features = ["interim-surface"]
+
+[[test]]
+name = "geometry_tests"
+required-features = ["interim-surface"]
+
+[[test]]
+name = "sync_tests"
+required-features = ["interim-surface"]
+
+[[test]]
+name = "props_tests"
+required-features = ["interim-surface"]
