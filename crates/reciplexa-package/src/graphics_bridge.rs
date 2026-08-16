@@ -80,6 +80,14 @@ impl From<GraphicsValueError> for GraphicsBridgeError {
     }
 }
 
+impl std::fmt::Display for GraphicsBridgeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Load(s) | Self::Eval(s) | Self::Bridge(s) => write!(f, "{s}"),
+        }
+    }
+}
+
 /// Elaborate `entry_path`, eval its entry `main`, bridge to a scene [`Document`].
 ///
 /// Product pipeline auto-routes package-shaped sources; bare `(page …)` is

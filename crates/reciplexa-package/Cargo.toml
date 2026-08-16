@@ -11,6 +11,7 @@ reciplexa-identity = { workspace = true }
 reciplexa-bind = { workspace = true }
 reciplexa-syntax = { workspace = true }
 reciplexa-eval = { workspace = true }
+reciplexa-core = { workspace = true }
 reciplexa-scene = { workspace = true }
 reciplexa-std = { workspace = true }
 serde = { workspace = true }

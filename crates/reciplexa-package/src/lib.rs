@@ -29,6 +29,7 @@ pub mod resource_value;
 pub mod rpi;
 pub mod rpxm;
 pub mod target;
+pub mod typecheck;
 pub mod workspace;
 
 pub use build::{
@@ -86,6 +87,7 @@ pub use resource_value::{
 pub use rpi::parse_rpi_exports;
 pub use rpxm::{parse_rpxm, RpxmError};
 pub use target::{BuildTarget, RuntimeProfile};
+pub use typecheck::{typecheck_package_source, typecheck_with_packages, PackageTypecheckError};
 pub use workspace::{
     check_package_lock_consistency, discover_workspace, find_enclosing_workspace,
     parse_workspace_rpxm, read_lock_for_package, resolve_workspace_dependencies, WorkspaceError,

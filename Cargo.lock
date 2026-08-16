@@ -3053,6 +3053,7 @@ name = "reciplexa-package"
 version = "0.1.0"
 dependencies = [
  "reciplexa-bind",
+ "reciplexa-core",
  "reciplexa-eval",
  "reciplexa-identity",
  "reciplexa-lower",
