@@ -283,6 +283,19 @@ Source上の値を直接更新できない場合は、次を区別する。
 
 このPhaseを通過するまで、複雑なGUI機能や多数Backendの実装へ進まない。
 
+### 6.7 現行製品Vertical Sliceとの対応（2026）
+
+長期Phase 4の完全条件（Provenance、Shared Style、GUI Override）はまだ `unit complete` ではない。
+
+現行の **product slice complete** 条件は [`active-roadmap.md`](active-roadmap.md) Step 5 と [`implemented-features.md`](implemented-features.md) を正とする:
+
+- package形式1ページの circle / line / text 等
+- GUI相当APIで move / resize / insert / delete / reorder / text 更新
+- 保存、再読込、PDF/SVG に編集結果が残る
+- markup、製品級JA/math、`doc-*` 作者編集は non-goal（read-only / soft-refuse）
+
+`stub complete`（JA/math heuristic）や第II部 `spec conformant`（`ok`件数）を、このPhaseの製品完了と混同しない。
+
 ## 7. Phase 5: Effect LoweringとStructured Runtime
 
 ### 7.1 目的
@@ -498,6 +511,8 @@ Motion IRは静的Vertical Sliceの後に追加してよい。
 - Contract変更とImplementation変更の無効化範囲を分ける
 
 ## 13. Phase 11: Native PackageとForeign Boundary
+
+現行の標準packageは Hybrid Native v1 である。必須マイルストーン Direct Native v2（`synthetic_source` 廃止、BindingId → 型付き Rust callable、import API 維持、v1/reference 差分適合、gate green）は [`direct-native-v2-plan.md`](direct-native-v2-plan.md)。portable fallback は `OPEN-NATIVE-PKG-001` として残す。
 
 ### 13.1 実装順
 

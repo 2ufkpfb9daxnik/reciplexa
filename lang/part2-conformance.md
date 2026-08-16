@@ -3212,11 +3212,11 @@
 
 - [x] **L6 L14870: 8.2 Wrapper** — `deferred`
   - spec: `specification.md:14870`
-  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 
 - [x] **L6 L14879: 8.3 .rpi内のimport** — `deferred`
   - spec: `specification.md:14879`
-  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 
 - [x] **L6 L14891: 8.4 Public module** — `ok`
   - spec: `specification.md:14891`
@@ -3224,15 +3224,15 @@
 
 - [x] **L6 L14897: 8.5 Internal module** — `deferred`
   - spec: `specification.md:14897`
-  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 
 - [x] **L6 L14903: 8.6 Script／実行entry** — `deferred`
   - spec: `specification.md:14903`
-  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 
 - [x] **L5 L14907: 9. 推論シグネチャと抽象化境界** — `deferred`
   - spec: `specification.md:14907`
-  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 
 - [x] **L6 L14908: 9.1 .rpiなしの内部モジュール** — `ok`
   - spec: `specification.md:14908`
@@ -3244,227 +3244,227 @@
 
 - [x] **L6 L14918: 9.3 Interface追加** — `deferred`
   - spec: `specification.md:14918`
-  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 
 - [x] **L5 L14924: 10. .rpiの値仕様** — `deferred`
   - spec: `specification.md:14924`
-  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 
 - [x] **L6 L14925: 10.1 type** — `deferred`
   - spec: `specification.md:14925`
-  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 
 - [x] **L6 L14938: 10.2 実装** — `deferred`
   - spec: `specification.md:14938`
-  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 
 - [x] **L6 L14946: 10.3 型注釈の省略** — `deferred`
   - spec: `specification.md:14946`
-  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 
 - [x] **L6 L14952: 10.4 実装側にも型がある場合** — `deferred`
   - spec: `specification.md:14952`
-  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 
 - [x] **L5 L14958: 11. 型の公開方法** — `deferred`
   - spec: `specification.md:14958`
-  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 
 - [x] **L6 L14959: 11.1 抽象型仕様** — `deferred`
   - spec: `specification.md:14959`
-  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 
 - [x] **L6 L14977: 11.2 Parameter付き抽象型** — `deferred`
   - spec: `specification.md:14977`
-  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 
 - [x] **L6 L14986: 11.3 Constructor公開data仕様** — `deferred`
   - spec: `specification.md:14986`
-  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 
 - [x] **L6 L14998: 11.4 実装との一致** — `deferred`
   - spec: `specification.md:14998`
-  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 
 - [x] **L6 L15011: 11.5 type-alias** — `deferred`
   - spec: `specification.md:15011`
-  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 
 - [x] **L5 L15025: 12. 名前付きシグネチャ** — `deferred`
   - spec: `specification.md:15025`
-  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 
 - [x] **L6 L15026: 12.1 基本構文** — `deferred`
   - spec: `specification.md:15026`
-  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 
 - [x] **L6 L15033: 12.2 日本語上の意味** — `deferred`
   - spec: `specification.md:15033`
-  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 
 - [x] **L6 L15042: 12.3 .rpiとの違い** — `deferred`
   - spec: `specification.md:15042`
-  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 
 - [x] **L6 L15049: 12.4 Signature identity** — `deferred`
   - spec: `specification.md:15049`
-  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 
 - [x] **L5 L15055: 13. シグネチャ指定** — `deferred`
   - spec: `specification.md:15055`
-  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 
 - [x] **L6 L15056: 13.1 基本構文** — `deferred`
   - spec: `specification.md:15056`
-  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 
 - [x] **L6 L15069: 13.2 適合判定** — `deferred`
   - spec: `specification.md:15069`
-  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 
 - [x] **L6 L15075: 13.3 追加構成要素** — `deferred`
   - spec: `specification.md:15075`
-  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 
 - [x] **L6 L15081: 13.4 抽象型identity** — `deferred`
   - spec: `specification.md:15081`
-  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 
 - [x] **L6 L15089: 13.5 実装内部のalias** — `deferred`
   - spec: `specification.md:15089`
-  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 
 - [x] **L5 L15103: 14. 下位モジュール仕様** — `deferred`
   - spec: `specification.md:15103`
-  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 
 - [x] **L6 L15104: 14.1 名前付きシグネチャ** — `deferred`
   - spec: `specification.md:15104`
-  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 
 - [x] **L6 L15119: 14.2 インラインシグネチャ** — `deferred`
   - spec: `specification.md:15119`
-  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 
 - [x] **L6 L15128: 14.3 下位モジュール型の参照** — `deferred`
   - spec: `specification.md:15128`
-  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 
 - [x] **L6 L15134: 14.4 抽象型の独立性** — `deferred`
   - spec: `specification.md:15134`
-  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 
 - [x] **L6 L15142: 14.5 非公開型の漏出** — `deferred`
   - spec: `specification.md:15142`
-  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 
 - [x] **L5 L15151: 15. シグネチャの精緻化と型共有** — `deferred`
   - spec: `specification.md:15151`
-  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 
 - [x] **L6 L15152: 15.1 基本構文** — `deferred`
   - spec: `specification.md:15152`
-  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 
 - [x] **L6 L15156: 15.2 抽象型の具体化** — `deferred`
   - spec: `specification.md:15156`
-  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 
 - [x] **L6 L15163: 15.3 別モジュールとの型共有** — `deferred`
   - spec: `specification.md:15163`
-  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 
 - [x] **L6 L15174: 15.4 日本語用語** — `deferred`
   - spec: `specification.md:15174`
-  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 
 - [x] **L6 L15185: 15.5 許可される精緻化** — `deferred`
   - spec: `specification.md:15185`
-  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 
 - [x] **L6 L15189: 15.6 禁止される変更** — `deferred`
   - spec: `specification.md:15189`
-  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 
 - [x] **L6 L15198: 15.7 Parameter付き型constructor** — `deferred`
   - spec: `specification.md:15198`
-  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 
 - [x] **L6 L15205: 15.8 下位モジュール内の型** — `deferred`
   - spec: `specification.md:15205`
-  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+  - notes: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 
 - [x] **L5 L15212: 16. Functor** — `deferred`
   - spec: `specification.md:15212`
-  - notes: full ML functors deferred (MOD-001 / language-kernel-plan)
+  - notes: full ML functors deferred (MOD-001 / implemented-features)
 
 - [x] **L6 L15213: 16.1 概念** — `deferred`
   - spec: `specification.md:15213`
-  - notes: full ML functors deferred (MOD-001 / language-kernel-plan)
+  - notes: full ML functors deferred (MOD-001 / implemented-features)
 
 - [x] **L6 L15223: 16.2 基本構文** — `deferred`
   - spec: `specification.md:15223`
-  - notes: full ML functors deferred (MOD-001 / language-kernel-plan)
+  - notes: full ML functors deferred (MOD-001 / implemented-features)
 
 - [x] **L6 L15233: 16.3 Parameter** — `deferred`
   - spec: `specification.md:15233`
-  - notes: full ML functors deferred (MOD-001 / language-kernel-plan)
+  - notes: full ML functors deferred (MOD-001 / implemented-features)
 
 - [x] **L6 L15243: 16.4 結果シグネチャ** — `deferred`
   - spec: `specification.md:15243`
-  - notes: full ML functors deferred (MOD-001 / language-kernel-plan)
+  - notes: full ML functors deferred (MOD-001 / implemented-features)
 
 - [x] **L6 L15249: 16.5 Fixed arity** — `deferred`
   - spec: `specification.md:15249`
-  - notes: full ML functors deferred (MOD-001 / language-kernel-plan)
+  - notes: full ML functors deferred (MOD-001 / implemented-features)
 
 - [x] **L6 L15255: 16.6 通常値ではない** — `deferred`
   - spec: `specification.md:15255`
-  - notes: full ML functors deferred (MOD-001 / language-kernel-plan)
+  - notes: full ML functors deferred (MOD-001 / implemented-features)
 
 - [x] **L5 L15261: 17. Functor適用** — `deferred`
   - spec: `specification.md:15261`
-  - notes: full ML functors deferred (MOD-001 / language-kernel-plan)
+  - notes: full ML functors deferred (MOD-001 / implemented-features)
 
 - [x] **L6 L15262: 17.1 基本構文** — `deferred`
   - spec: `specification.md:15262`
-  - notes: full ML functors deferred (MOD-001 / language-kernel-plan)
+  - notes: full ML functors deferred (MOD-001 / implemented-features)
 
 - [x] **L6 L15269: 17.2 複数引数** — `deferred`
   - spec: `specification.md:15269`
-  - notes: full ML functors deferred (MOD-001 / language-kernel-plan)
+  - notes: full ML functors deferred (MOD-001 / implemented-features)
 
 - [x] **L6 L15276: 17.3 名前付きモジュールのみ** — `deferred`
   - spec: `specification.md:15276`
-  - notes: full ML functors deferred (MOD-001 / language-kernel-plan)
+  - notes: full ML functors deferred (MOD-001 / implemented-features)
 
 - [x] **L6 L15282: 17.4 適用結果の再利用** — `deferred`
   - spec: `specification.md:15282`
-  - notes: full ML functors deferred (MOD-001 / language-kernel-plan)
+  - notes: full ML functors deferred (MOD-001 / implemented-features)
 
 - [x] **L5 L15294: 18. 適用的Functor** — `deferred`
   - spec: `specification.md:15294`
-  - notes: full ML functors deferred (MOD-001 / language-kernel-plan)
+  - notes: full ML functors deferred (MOD-001 / implemented-features)
 
 - [x] **L6 L15295: 18.1 基本規則** — `deferred`
   - spec: `specification.md:15295`
-  - notes: full ML functors deferred (MOD-001 / language-kernel-plan)
+  - notes: full ML functors deferred (MOD-001 / implemented-features)
 
 - [x] **L6 L15305: 18.2 同一入力** — `deferred`
   - spec: `specification.md:15305`
-  - notes: full ML functors deferred (MOD-001 / language-kernel-plan)
+  - notes: full ML functors deferred (MOD-001 / implemented-features)
 
 - [x] **L6 L15319: 18.3 異なる入力** — `deferred`
   - spec: `specification.md:15319`
-  - notes: full ML functors deferred (MOD-001 / language-kernel-plan)
+  - notes: full ML functors deferred (MOD-001 / implemented-features)
 
 - [x] **L6 L15333: 18.4 Aliasの影響** — `deferred`
   - spec: `specification.md:15333`
-  - notes: full ML functors deferred (MOD-001 / language-kernel-plan)
+  - notes: full ML functors deferred (MOD-001 / implemented-features)
 
 - [x] **L6 L15339: 18.5 生成的Functor** — `deferred`
   - spec: `specification.md:15339`
-  - notes: full ML functors deferred (MOD-001 / language-kernel-plan)
+  - notes: full ML functors deferred (MOD-001 / implemented-features)
 
 - [x] **L5 L15343: 19. 再公開とシグネチャ合成** — `deferred`
   - spec: `specification.md:15343`
@@ -3656,7 +3656,7 @@
 
 - [x] **L4 L15855: 13.10 `PKG-001` パッケージmanifest・依存解決・ワークスペース・リソース** — `partial`
   - spec: `specification.md:15855`
-  - notes: Slice A–C: local packages + path-dep lock + math/japanese/graphics stubs + workspace.rpxm; registry/残schemaは意図的後回し（親overview）
+  - notes: Slice A–C: local packages + path-dep lock + Hybrid Native v1 graphics/math/japanese; registry/残schemaは意図的後回し。Direct Native v2: `lang/direct-native-v2-plan.md`
 
 - [x] **L5 L15856: DD-001 決定概要** — `meta`
   - spec: `specification.md:15856`
@@ -4336,7 +4336,7 @@
 
 - [x] **L5 L17260: Compiler-native package実装** — `deferred`
   - spec: `specification.md:17260`
-  - notes: native package swap deferred (OPEN-NATIVE-PKG)
+  - notes: Hybrid Native v1 ships today; Direct Native v2 is required (`lang/direct-native-v2-plan.md`); portable fallback stays OPEN-NATIVE-PKG-001
 
 - [x] **L6 L17273: 22.9 最終状態** — `meta`
   - spec: `specification.md:17273`

@@ -1,11 +1,13 @@
-# Package plan (PKG-001 + native std domain)
+# Package plan (PKG-001 + Hybrid Native v1)
 
-Goal: local-path package **API** (`package.rpxm`, `.rpi`, `import`) after Part II conformance, with **Rust native bodies** for hot domain packages (graphics / length / color / japanese / math / document). Portable `.rpx` bodies under `packages/*/src/` are interim only and are being retired per `lang/native-domain-plan.md`.
+**Role:** `lang/active-roadmap.md` Step 7 package実運用化のACTIVE詳細。現状は [`implemented-features.md`](implemented-features.md)。
+
+Goal: local-path package **API** (`package.rpxm`, `.rpi`, `import`) after Part II conformance, with **Hybrid Native v1** bodies for hot domain packages (graphics / length / color / japanese / math / document). Direct Native v2 is a required later milestone: [`direct-native-v2-plan.md`](direct-native-v2-plan.md). Portable `.rpx` bodies under `packages/*/src/` are interim only.
 
 ## Spec anchors
 
 - `PKG-001` — `specification.md` §13.10: manifest, public modules, deps, lockfile, workspace, resources
-- **Compiler-native package** (~L17260): keep package API; replace body with Rust native
+- **Compiler-native package** (~L17260): keep package API; Hybrid v1 uses synthetic RPX + Rust bridge; DN2 replaces that with typed Rust callables
 - `KER-001` (~L17300, ~L26350): domain vocabulary stays package-shaped; Rust implements as typed intrinsics with same observable meaning
 - SYN — `circle` / `page` / colors / units are **not** language builtins; packages supply constructors
 - `OPEN-PKG-001*` / `OPEN-NATIVE-PKG-001` — registry / ABI details: stub / defer where needed
@@ -18,7 +20,7 @@ Goal: local-path package **API** (`package.rpxm`, `.rpi`, `import`) after Part I
 | `crates/reciplexa-bind` | Module tree + package search path |
 | Document surface | **N5.2 dual-path done** + **GUI CST sync v2 S5b/S6a/S6b:** product `examples/` package-shaped; production keyword arms gated (`interim-surface`); pipeline always refuses bare `(page …)` |
 | `crates/reciplexa-std` | Rust typed façade (`visual` / `text` / `document` / `math` / …) — **authoritative body target** |
-| `packages/*/src/*.rpx` | **Interim portable bodies — migrate to native (see native-domain-plan)** |
+| `packages/*/src/*.rpx` | **Interim portable bodies — Hybrid v1 uses synthetic_source; DN2 removes that** |
 | `packages/*/interface/*.rpi` | Keep as public API surface |
 
 ## Ordered work
@@ -31,7 +33,7 @@ Local `package.rpxm`, path deps, aliases, `rpx.lock`, search roots — done.
 
 ~~Deepen as RPX source under `packages/*/src`~~ → **implement in Rust** (`reciplexa-std` + native module registry); keep `.rpi` + package names.
 
-Tracking: **`lang/native-domain-plan.md`** (units N0–N6).
+Tracking: Hybrid Native v1 is **stub complete** for std domain modules. Direct Native v2: [`direct-native-v2-plan.md`](direct-native-v2-plan.md).
 
 Interim RPX depth that already exists (`graphics` / `length` / `color` / `math` / `japanese`) remains until each unit’s native replacement is wired and examples pass; then delete the `.rpx` body only.
 
@@ -40,8 +42,8 @@ Interim RPX depth that already exists (`graphics` / `length` / `color` / `math` 
 - Package-defined constructors consumed by lower/eval (bridge live); pipeline auto-routes `(import graphics|document`
 - Markup expand emits graphics package `page`/`text`/`line`/`image` (not interim keyword heads)
 - GUI: package-shaped sources writable (nudge/size); markup expand soft-refuses; golden `black_circle.rpx` is package AST
-- **Keyword-table holdout (S6b done):** production keyword arms gated behind `interim-surface` / `cfg(test)`; fixture at `crates/reciplexa-lower/tests/fixtures/interim_page.rpx`; see `gui-cst-sync-v2-plan.md`
-- Tracking: `lang/native-domain-plan.md` Phase N5
+- **Keyword-table holdout (S6b done):** production keyword arms gated behind `interim-surface` / `cfg(test)`; fixture at `crates/reciplexa-lower/tests/fixtures/interim_page.rpx`; see `implemented-features.md`
+- Tracking: Hybrid v1 dual-path is in production; DN2 is [`direct-native-v2-plan.md`](direct-native-v2-plan.md)
 
 ### Slice E — workspace / resources / OPEN stubs
 
