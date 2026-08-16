@@ -22,3 +22,7 @@ reciplexa-core = { workspace = true }
 reciplexa-eval = { workspace = true }
 reciplexa-identity = { workspace = true }
 reciplexa-source = { workspace = true }
+
+[[test]]
+name = "resolve_tests"
+required-features = ["interim-surface"]

@@ -962,7 +962,7 @@ fn is_quarantined_head(node: &SyntaxNode) -> bool {
     if matches!(head.as_str(), "markup" | "src") {
         return true;
     }
-    interim_graphics_keyword(head.as_str())
+    graphics_quarantine_head(head.as_str())
 }
 
 fn list_atoms(node: &SyntaxNode) -> Vec<Atom> {
@@ -1147,9 +1147,14 @@ fn interim_surface_enabled() -> bool {
 }
 
 fn interim_graphics_keyword(name: &str) -> bool {
-    if !interim_surface_enabled() {
-        return false;
-    }
+    interim_surface_enabled() && graphics_quarantine_head(name)
+}
+
+/// Graphics/document heads that the language resolver must never interpret as
+/// language expressions. This quarantine is independent of S6b's production
+/// surface gate: disabling interim ingest must not make host vocabulary appear
+/// as unbound language identifiers.
+fn graphics_quarantine_head(name: &str) -> bool {
     matches!(
         name,
         "page"
