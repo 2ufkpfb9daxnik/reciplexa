@@ -225,6 +225,39 @@ fn diagnose_pkg005_registry_dependency() {
 }
 
 #[test]
+fn diagnose_pkg007_requires_lock_for_path_deps() {
+    use reciplexa_package::{diagnose_required_lockfile_missing, PackageManifest};
+
+    let m = PackageManifest {
+        name: "app".into(),
+        dependencies: vec![DependencySpec {
+            name: "local".into(),
+            version_req: "1".into(),
+            path: Some("../local".into()),
+            package: None,
+            source: None,
+        }],
+        ..Default::default()
+    };
+    let hit = diagnose_required_lockfile_missing(&m, false)
+        .into_iter()
+        .find(|d| d.code == "PKG007")
+        .expect("PKG007");
+    assert!(hit.message.contains("rpx.lock"));
+    assert_eq!(hit.package.as_deref(), Some("app"));
+
+    assert!(diagnose_required_lockfile_missing(&m, true).is_empty());
+    assert!(diagnose_required_lockfile_missing(
+        &PackageManifest {
+            dependencies: vec![],
+            ..m.clone()
+        },
+        false
+    )
+    .is_empty());
+}
+
+#[test]
 fn diagnose_pkg006_path_checksum_mismatch() {
     use reciplexa_package::{
         content_checksum, diagnose_lockfile_checksums, LockedPackage, Lockfile,

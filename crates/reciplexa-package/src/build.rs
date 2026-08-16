@@ -187,6 +187,28 @@ pub fn diagnose_lockfile_checksums(
     diags
 }
 
+/// PKG007: path dependencies require an `rpx.lock` (package-local or workspace-root).
+pub fn diagnose_required_lockfile_missing(
+    m: &PackageManifest,
+    lock_present: bool,
+) -> Vec<PackageDiagnostic> {
+    if lock_present {
+        return Vec::new();
+    }
+    let has_path = m.dependencies.iter().any(|d| d.path.is_some());
+    if !has_path {
+        return Vec::new();
+    }
+    vec![PackageDiagnostic {
+        code: "PKG007".into(),
+        message: format!(
+            "package `{}` has path dependencies but no rpx.lock; generate a lockfile before load",
+            m.name
+        ),
+        package: Some(m.name.clone()),
+    }]
+}
+
 /// PKG005 (lock surface): refuse `registry:` / `registry` locked sources (OPEN-PKG-001).
 pub fn diagnose_lockfile_registry_sources(
     lock: &crate::lockfile::Lockfile,

@@ -456,3 +456,96 @@ fn verify_lock_pkg006_blocks_elaborate() {
     good.write_rpx_lock(dir.join("rpx.lock")).unwrap();
     verify_package_lock_for_entry(&entry).unwrap();
 }
+
+#[test]
+fn verify_lock_pkg007_blocks_path_dep_without_lock() {
+    use reciplexa_package::{
+        elaborate_with_packages, parse_rpxm, verify_package_lock_for_entry, LocalPackageIndex,
+    };
+
+    let dir = tmp_dir("pkg007load");
+    let lib = dir.join("lib");
+    write_pkg(&lib, "lib", "1");
+    fs::write(
+        dir.join("package.rpxm"),
+        r#"(package app
+  format-version 1
+  version "1"
+  (dependencies
+    (lib
+      package lib
+      version "1"
+      path "lib")))"#,
+    )
+    .unwrap();
+    fs::write(dir.join("main.rpx"), "(import lib)\n(val main 1)\n").unwrap();
+
+    let entry = dir.join("main.rpx");
+    let err = verify_package_lock_for_entry(&entry).unwrap_err();
+    assert!(
+        err.to_string().contains("PKG007"),
+        "expected PKG007, got {err}"
+    );
+
+    let idx = LocalPackageIndex::discover(&[&dir]).unwrap();
+    let err = elaborate_with_packages(&entry, &idx).unwrap_err();
+    assert!(err.to_string().contains("lock verify"));
+    assert!(err.to_string().contains("PKG007"));
+
+    let consumer = parse_rpxm(&fs::read_to_string(dir.join("package.rpxm")).unwrap()).unwrap();
+    idx.lock_consumer(&consumer)
+        .unwrap()
+        .write_rpx_lock(dir.join("rpx.lock"))
+        .unwrap();
+    verify_package_lock_for_entry(&entry).unwrap();
+}
+
+#[test]
+fn examples_pkg_consumer_lock_is_valid() {
+    use reciplexa_package::{
+        content_checksum, elaborate_with_packages, verify_package_lock_for_entry, LocalPackageIndex,
+    };
+
+    let consumer = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/pkg_consumer");
+    let packages = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../packages");
+    let lock_path = consumer.join("rpx.lock");
+    assert!(
+        lock_path.is_file(),
+        "examples/pkg_consumer must ship rpx.lock for path-dep reproducibility"
+    );
+
+    let (idx, manifest) =
+        LocalPackageIndex::discover_with_consumer(&[&packages], &consumer).unwrap();
+    let lock = reciplexa_package::Lockfile::read_rpx_lock(&lock_path).unwrap();
+    lock.is_consistent_with_consumer(&manifest).unwrap();
+    let graphics = lock
+        .packages
+        .iter()
+        .find(|p| p.name == "graphics")
+        .expect("locked graphics");
+    assert!(graphics.source.starts_with("path:"));
+    let graphics_rpxm = packages.join("graphics/package.rpxm");
+    assert_eq!(
+        graphics.checksum.as_deref(),
+        Some(content_checksum(&graphics_rpxm).as_str())
+    );
+
+    let entry = consumer.join("src/main.rpx");
+    verify_package_lock_for_entry(&entry).unwrap();
+    elaborate_with_packages(&entry, &idx).unwrap();
+}
+
+#[test]
+#[ignore = "run with --ignored to refresh examples/pkg_consumer/rpx.lock"]
+fn refresh_pkg_consumer_example_lock() {
+    use reciplexa_package::LocalPackageIndex;
+
+    let consumer = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/pkg_consumer");
+    let packages = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../packages");
+    let (idx, manifest) =
+        LocalPackageIndex::discover_with_consumer(&[&packages], &consumer).unwrap();
+    let lock = idx.lock_consumer(&manifest).unwrap();
+    let lock_path = consumer.join("rpx.lock");
+    lock.write_rpx_lock(&lock_path).unwrap();
+    eprintln!("wrote {}", lock_path.display());
+}

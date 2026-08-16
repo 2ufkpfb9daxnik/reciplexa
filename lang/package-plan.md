@@ -59,6 +59,9 @@ Interim RPX depth that already exists (`graphics` / `length` / `color` / `math` 
 **Still OPEN / deferred:**
 - Full `package-resource` typed handle / resource effects / content hashes
 - Real registry network (`OPEN-PKG-001`); manifest + lock `registry:` sources refuse at load with PKG005
+- Full-tree / registry artifact content hashes (CS0 uses `package.rpxm` SHA-256 only)
+
+**Done (Step 7 lock reproducibility):** path dependencies require `rpx.lock` at load (PKG007); `examples/pkg_consumer/rpx.lock` is the committed fixture.
 
 ## Conventions (v1)
 

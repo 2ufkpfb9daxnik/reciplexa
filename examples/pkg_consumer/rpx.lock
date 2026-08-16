@@ -1,0 +1,18 @@
+{
+  "packages": [
+    {
+      "name": "graphics",
+      "version": "0.1.0",
+      "source": "path:../../packages/graphics",
+      "checksum": "sha256:18294eec97f40ccba92526abddcbd0cfac0bdbc7dae5ae2431e0d2e4908f089d"
+    },
+    {
+      "name": "pkg-consumer",
+      "version": "0.1.0",
+      "source": "workspace",
+      "dependencies": [
+        "graphics"
+      ]
+    }
+  ]
+}

@@ -42,7 +42,9 @@ a stub checksum but are **not** compared here (no `path:` prefix).
 
 Hosts that want a demo: write a path-dep `rpx.lock` via `lock_consumer`,
 then call `diagnose_lockfile_checksums`. Package load
-([`elaborate_with_packages`]) also calls [`verify_package_lock_for_entry`]
-when an enclosing `rpx.lock` exists (manifest consistency + PKG005/PKG006).
+([`elaborate_with_packages`]) calls [`verify_package_lock_for_entry`]:
+path dependencies require an `rpx.lock` (**PKG007**); when a lock exists,
+manifest consistency + PKG005/PKG006 are checked. See
+`examples/pkg_consumer/rpx.lock` for a committed fixture.
 [`eval_package_entry_main`] auto-materializes `(resource …)` on eval. Tip
 tests live in `tests/pkg_diagnose_tip_tests.rs`.

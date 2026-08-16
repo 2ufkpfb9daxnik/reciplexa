@@ -35,8 +35,8 @@ pub mod workspace;
 
 pub use build::{
     diagnose_lockfile_checksums, diagnose_lockfile_registry_sources, diagnose_manifest,
-    diagnose_manifest_with_root, BuildGraph, BuildNode, BuildNodeId, IncrementalCache,
-    InvalidationKind, PackageDiagnostic,
+    diagnose_manifest_with_root, diagnose_required_lockfile_missing, BuildGraph, BuildNode,
+    BuildNodeId, IncrementalCache, InvalidationKind, PackageDiagnostic,
 };
 pub use doc_preview::{
     count_ruby_tate_in_value, debug_layout_summary, preview_doc_text_metrics,

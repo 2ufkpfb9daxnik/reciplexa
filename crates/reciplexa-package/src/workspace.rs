@@ -4,8 +4,10 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::build::diagnose_lockfile_checksums;
-use crate::build::diagnose_lockfile_registry_sources;
+use crate::build::{
+    diagnose_lockfile_checksums, diagnose_lockfile_registry_sources,
+    diagnose_required_lockfile_missing,
+};
 use crate::lockfile::{content_checksum, LockedPackage, Lockfile};
 use crate::manifest::PackageManifest;
 use crate::resource_value::find_enclosing_package_root;
@@ -371,14 +373,26 @@ pub fn check_package_lock_consistency(
         .map_err(WorkspaceError::Lock)
 }
 
-/// When `entry_path` sits under a package root that has an `rpx.lock` (local or
-/// workspace-root), verify manifest/lock consistency, PKG005 registry refusal,
-/// and PKG006 path-dep checksums before package modules load.
+/// When `entry_path` sits under a package root, require `rpx.lock` for path
+/// dependencies (PKG007). When a lock is present (local or workspace-root),
+/// verify manifest/lock consistency, PKG005 registry refusal, and PKG006
+/// path-dep checksums before package modules load.
 pub fn verify_package_lock_for_entry(entry_path: &Path) -> Result<(), WorkspaceError> {
     let Some(package_root) = find_enclosing_package_root(entry_path) else {
         return Ok(());
     };
-    if !lock_file_present(&package_root)? {
+    let manifest_path = package_root.join("package.rpxm");
+    let src = fs::read_to_string(&manifest_path)
+        .map_err(|e| WorkspaceError::Io(format!("read `{}`: {e}", manifest_path.display())))?;
+    let manifest = parse_rpxm(&src).map_err(WorkspaceError::Manifest)?;
+    let lock_present = lock_file_present(&package_root)?;
+    if let Some(d) = diagnose_required_lockfile_missing(&manifest, lock_present)
+        .into_iter()
+        .next()
+    {
+        return Err(WorkspaceError::Lock(format!("{}: {}", d.code, d.message)));
+    }
+    if !lock_present {
         return Ok(());
     }
     check_package_lock_consistency(&package_root)?;
