@@ -1,6 +1,7 @@
 # Reciplexa 開発案内
 
 このファイルが、人間と実装AIの共通の入口です。
+`dump/` が開発文書の正本ディレクトリです。存在しない `lang/` を参照しないでください。
 
 ## 最初に読むもの
 
@@ -17,8 +18,8 @@
 - `active-roadmap.md`: いま何を、どの順で実装するかを定める唯一の実行計画
 - `implemented-features.md`: 現在動くもの、実測gate、OPEN事項の唯一の現状正本
 - `part2-conformance.md`: 第II部見出し単位の適合台帳。製品完成率ではない
-- `package-plan.md`: Step 7 package実運用化の詳細
-- `direct-native-v2-plan.md`: 将来必須のDirect Native v2詳細
+- `package-plan.md`: Step 7 package実運用化（local/offline slice完了、残存OPEN）の詳細
+- `direct-native-v2-plan.md`: 次に実行するDirect Native v2の実装順と完了条件
 
 coverage、deferred、meta、gap/partialの各ファイルは測定・監査用です。通常の実装判断では先に読む必要はありません。
 

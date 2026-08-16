@@ -5,11 +5,11 @@ alwaysApply: true
 
 # Reciplexa Project Rule
 
-- Start at `lang/README.md`.
-- Execution order and acceptance criteria: `lang/active-roadmap.md`.
-- Current implementation truth: `lang/implemented-features.md`.
-- Normative contracts: `lang/specification.md`.
-- Part II heading conformance: `lang/part2-conformance.md`; it is not product completion.
+- Start at `dump/README.md`.
+- Execution order and acceptance criteria: `dump/active-roadmap.md`.
+- Current implementation truth: `dump/implemented-features.md`.
+- Normative contracts: `dump/specification.md`.
+- Part II heading conformance: `dump/part2-conformance.md`; it is not product completion.
 
 ## Product direction
 

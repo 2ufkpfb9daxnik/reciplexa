@@ -17269,7 +17269,7 @@ package resource
 - Native化の有無で型、Effect、Failure、Resource lifetime、source identityを変えてはならない。
 - 未対応backendではportable版へfallbackできなければならない。
 - 対象選定、version negotiation、ABI、bootstrap、fallbackは`OPEN-NATIVE-PKG-001`で確定する。
-- 現行実装は Hybrid Native v1（package API + synthetic RPX + Rust builtin/bridge）である。Direct Native v2（BindingId から型付き Rust callable、`synthetic_source` 廃止）は必須の将来マイルストーンであり、詳細は `lang/direct-native-v2-plan.md`。portable fallback 契約は OPEN のまま残す。
+- 現行実装は Hybrid Native v1（package API + synthetic RPX + Rust builtin/bridge）である。Direct Native v2（BindingId から型付き Rust callable、`synthetic_source` 廃止）は必須の将来マイルストーンであり、詳細は `dump/direct-native-v2-plan.md`。portable fallback 契約は OPEN のまま残す。
 
 ###### 22.9 最終状態
 

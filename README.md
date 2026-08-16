@@ -2,12 +2,12 @@
 
 `.rpx` から PDF / SVG / PPTX を出し、egui GUI でキャンバスとソースを双方向同期するツールです。
 
-開発状況、読むべき文書、実装AIへの引き継ぎは、まず [`lang/README.md`](lang/README.md) を参照してください。
+開発状況、読むべき文書、実装AIへの引き継ぎは、まず [`dump/README.md`](dump/README.md) を参照してください。
 
-- 現在の実行順: [`lang/active-roadmap.md`](lang/active-roadmap.md)
-- 現在動く機能とOPEN事項: [`lang/implemented-features.md`](lang/implemented-features.md)
-- 規範仕様: [`lang/specification.md`](lang/specification.md)
-- 第II部適合台帳: [`lang/part2-conformance.md`](lang/part2-conformance.md)
+- 現在の実行順: [`dump/active-roadmap.md`](dump/active-roadmap.md)
+- 現在動く機能とOPEN事項: [`dump/implemented-features.md`](dump/implemented-features.md)
+- 規範仕様: [`dump/specification.md`](dump/specification.md)
+- 第II部適合台帳: [`dump/part2-conformance.md`](dump/part2-conformance.md)
 
 ```powershell
 $env:PATH = "$env:USERPROFILE\.cargo\bin;$env:PATH"

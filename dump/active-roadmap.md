@@ -17,11 +17,11 @@
 
 **Status:** complete (`4859e4c`)
 
-- 人間の入口を `lang/README.md` に一本化した
+- 人間の入口を `dump/README.md` に一本化した
 - 専門AI向け実行プロンプトと常時ルールを整備した
 - atomic commitとcommit前checkを固定した
 
-**Complete when:** 新しいAIが `lang/README.md` から、追加説明なしで次のStepとgateを特定できる。
+**Complete when:** 新しいAIが `dump/README.md` から、追加説明なしで次のStepとgateを特定できる。
 
 ## Step 1 — 品質gate復旧
 
@@ -41,7 +41,7 @@
 - 未完契約と有効な受入条件を現行文書へ移した
 - 移行済みの古い完了計画を削除し、残存リンクを直した
 
-**Complete when:** 人間は `lang/README.md`、AIは本roadmapと実行プロンプトだけで開始でき、削除済み文書へのリンクがない。
+**Complete when:** 人間は `dump/README.md`、AIは本roadmapと実行プロンプトだけで開始でき、削除済み文書へのリンクがない。
 
 ## Step 3 — Hybrid Native v1 / Direct Native v2
 
@@ -92,12 +92,19 @@
 
 ## Step 7 — 次工程
 
-**Status:** active (baseline HEAD `5d2c5bf`; SHA-256 lock checksum started)
+**Status:** active — item 1 local/offline slice complete; item 2 Direct Native v2 next
 
 順序:
 
-1. package実運用化: registry、暗号学的content hash（`package.rpxm` SHA-256 **unit complete**）、lock再現性、typed resource、自動materialize
-2. Direct Native v2: BindingIdから型付きRust callableへ段階移行
+1. package実運用化 local/offline slice: **complete**
+   - `package.rpxm` SHA-256、PKG005–PKG008、lock再現性
+   - typed resource light + 自動materialize
+   - offline local registry mirror
+   - network registry、full-tree artifact hash、Core resource effectは別OPENとして継続
+2. Direct Native v2: **next / planned**
+   - [`direct-native-v2-plan.md`](direct-native-v2-plan.md) のDN2-0から順に実行
+   - 最初のincrementはtyped callable基盤 + `length/units` dual-path
+   - `package/module/export` をregistry keyとし、bind時に`BindingId`へ対応付ける
 3. 製品級組版: font-backed JLReqとOpenType MATHを別エンジンとして本格化
 
 Step 7はSteps 1–6のgreen HEADを基準線として開始する。

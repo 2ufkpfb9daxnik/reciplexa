@@ -2,7 +2,7 @@
 
 ## 概要
 
-本チェックリストは、`lang/specification.md` の**第II部**（見出し行およそ `241`–`22618`）に現れる**すべての見出し**（深さ不問）を実装と突き合わせるための進捗台帳である。PKG Slice A（local packages）更新済み — 詳細は `lang/package-plan.md`。
+本チェックリストは、`dump/specification.md` の**第II部**（見出し行およそ `241`–`22618`）に現れる**すべての見出し**（深さ不問）を実装と突き合わせるための進捗台帳である。PKG Slice A（local packages）更新済み — 詳細は `dump/package-plan.md`。
 
 ### ステータス凡例
 
@@ -3656,7 +3656,7 @@
 
 - [x] **L4 L15855: 13.10 `PKG-001` パッケージmanifest・依存解決・ワークスペース・リソース** — `partial`
   - spec: `specification.md:15855`
-  - notes: Slice A–C: local packages + path-dep lock + Hybrid Native v1 graphics/math/japanese; registry/残schemaは意図的後回し。Direct Native v2: `lang/direct-native-v2-plan.md`
+  - notes: Slice A–C: local packages + path-dep lock + Hybrid Native v1 graphics/math/japanese; registry/残schemaは意図的後回し。Direct Native v2: `dump/direct-native-v2-plan.md`
 
 - [x] **L5 L15856: DD-001 決定概要** — `meta`
   - spec: `specification.md:15856`
@@ -4336,7 +4336,7 @@
 
 - [x] **L5 L17260: Compiler-native package実装** — `deferred`
   - spec: `specification.md:17260`
-  - notes: Hybrid Native v1 ships today; Direct Native v2 is required (`lang/direct-native-v2-plan.md`); portable fallback stays OPEN-NATIVE-PKG-001
+  - notes: Hybrid Native v1 ships today; Direct Native v2 is required (`dump/direct-native-v2-plan.md`); portable fallback stays OPEN-NATIVE-PKG-001
 
 - [x] **L6 L17273: 22.9 最終状態** — `meta`
   - spec: `specification.md:17273`
@@ -6530,4 +6530,4 @@
 1. Change each item's status token to one of: `unchecked`, `ok`, `partial`, `gap`, `deferred`, `meta`.
 2. Fill in `notes:` with evidence, gaps, or deferral reason.
 3. When status is not `unchecked`, set the checkbox to `[x]` (leave `[ ]` while still `unchecked`).
-4. Keep the top progress counters and `lang/part2-conformance-stats.json` in sync with the same counts.
+4. Keep the top progress counters and `dump/part2-conformance-stats.json` in sync with the same counts.

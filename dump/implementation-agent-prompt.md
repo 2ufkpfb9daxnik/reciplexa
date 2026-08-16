@@ -8,17 +8,17 @@
 
 ## 最初に読むもの
 
-1. `lang/README.md`
-2. `lang/active-roadmap.md`
-3. `lang/implemented-features.md`
-4. 対象Stepが変更する契約だけ `lang/specification.md`
+1. `dump/README.md`
+2. `dump/active-roadmap.md`
+3. `dump/implemented-features.md`
+4. 対象Stepが変更する契約だけ `dump/specification.md`
 
-第II部見出し単位の確認が必要なときだけ `lang/part2-conformance.md` を読む。coverage/deferred/metaの派生文書を最初から全読しない。
+第II部見出し単位の確認が必要なときだけ `dump/part2-conformance.md` を読む。coverage/deferred/metaの派生文書を最初から全読しない。
 
 ## 実行指示
 
-- `lang/active-roadmap.md` の最初の未完了Stepから開始し、受入条件が満たされるまで継続する。
-- Step 1〜6を順番に完了し、同じHEADで全gateをgreenにしてからStep 7へ進む。
+- `dump/active-roadmap.md` の最初の未完了Stepから開始し、受入条件が満たされるまで継続する。
+- Step 1〜6は完了済み。再実装せず、Step 7の最初の未完了itemから進む。
 - 安全な実装判断、crate責任分割、テスト構成は自律的に決める。確認待ちだけを理由に止まらない。
 - 仕様・製品挙動・データ互換性・破壊的操作を変える必要がある場合だけ、人間へ具体的な選択肢を示す。
 - ユーザーの既存変更を上書き、破棄、巻き戻ししない。
@@ -41,6 +41,12 @@ Direct Native v2は任意の改善ではなく、将来必須のマイルスト�
 
 portable fallbackは仕様上のOPEN契約として残す。暗黙に削除しない。
 
+DN2の実装順は [`direct-native-v2-plan.md`](direct-native-v2-plan.md) を正とする。
+最初はtyped callable基盤と `length/units` のdual-pathを実装し、Hybrid v1との差分試験が
+greenになるまで `synthetic_source` を削除しない。native registry keyは
+`package/module/export` とし、source-localな既存`BindingId`を永続ABI identityへ流用せず、
+bind時に対応付ける。
+
 ### 最初の製品Vertical Slice
 
 package形式の図形と文字の1ページを、GUI編集、source保存、再読込、PDF/SVG出力まで往復保証する。
@@ -61,10 +67,10 @@ package形式の図形と文字の1ページを、GUI編集、source保存、再
 
 ## 仕様と文書
 
-- 規範は `lang/specification.md`
-- 実行順は `lang/active-roadmap.md`
-- 現状は `lang/implemented-features.md`
-- 第II部適合は `lang/part2-conformance.md`
+- 規範は `dump/specification.md`
+- 実行順は `dump/active-roadmap.md`
+- 現状は `dump/implemented-features.md`
+- 第II部適合は `dump/part2-conformance.md`
 
 実装都合だけで仕様を変えない。仕様が矛盾または実装不能なら、根拠、影響、代案を示し、承認が必要な外部挙動でなければ仕様と実装を同じcommitで整合させる。
 
@@ -134,7 +140,7 @@ cargo run --offline -p reciplexa -- examples/text_line.rpx .tmp/smoke.pdf
 # window path: cargo run --offline -p reciplexa-gui -- examples/text_line.rpx
 ```
 
-高コストな全gateの前に対象crateのtest / Clippyを実行する。全gateの実測結果は `lang/implemented-features.md` に同じHEADの結果として記録する。
+高コストな全gateの前に対象crateのtest / Clippyを実行する。全gateの実測結果は `dump/implemented-features.md` に同じHEADの結果として記録する。
 
 ## 停止条件
 
@@ -150,7 +156,7 @@ cargo run --offline -p reciplexa -- examples/text_line.rpx .tmp/smoke.pdf
 
 ## 完了報告
 
-各Step完了時に以下を `lang/active-roadmap.md` と `lang/implemented-features.md` へ反映する。
+各Step完了時に以下を `dump/active-roadmap.md` と `dump/implemented-features.md` へ反映する。
 
 - 完了した受入条件
 - commit hashと目的
@@ -158,4 +164,4 @@ cargo run --offline -p reciplexa -- examples/text_line.rpx .tmp/smoke.pdf
 - 保証する範囲とnon-goals
 - 残るOPENと次のStep
 
-今すぐrepositoryを確認し、`lang/active-roadmap.md` の最初の未完了StepからAtomic Commitを積み重ねて実行してください。
+今すぐrepositoryを確認し、`dump/active-roadmap.md` の最初の未完了StepからAtomic Commitを積み重ねて実行してください。

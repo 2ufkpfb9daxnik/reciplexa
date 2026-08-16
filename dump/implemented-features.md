@@ -2,7 +2,7 @@
 
 **Authority:** 現在動くもの・現在のgate・OPEN事項の唯一の正本。実行順は [`active-roadmap.md`](active-roadmap.md)。規範は [`specification.md`](specification.md)。
 
-最終更新の根拠: 同じHEADの実装、`lang/part2-conformance-stats.json`、`lang/part2-deferred.md`、`lang/coverage-status.md`、`lang/package-plan.md`、および `crates/` / `packages/` 構成。
+最終更新の根拠: 同じHEADの実装、`dump/part2-conformance-stats.json`、`dump/part2-deferred.md`、`dump/coverage-status.md`、`dump/package-plan.md`、および `crates/` / `packages/` 構成。
 
 ### 製品ラベル（混ぜない）
 
@@ -21,7 +21,7 @@
 
 ## 1. 目的と見方
 
-この文書は、`lang/specification.md` **第II部**（言語基礎）に対し、**いま何が実装されていて、何が意図的に後回しか**を短く突き合わせるための索引であり、現状の唯一の正本である。
+この文書は、`dump/specification.md` **第II部**（言語基礎）に対し、**いま何が実装されていて、何が意図的に後回しか**を短く突き合わせるための索引であり、現状の唯一の正本である。
 
 | 読み方 | 意味 |
 |--------|------|
@@ -44,7 +44,7 @@
 
 ### 2.1 第II部 適合カウンタ
 
-出典: `lang/part2-conformance-stats.json`
+出典: `dump/part2-conformance-stats.json`
 
 | ステータス | 件数 | 割合（1589 見出し） |
 |------------|-----:|--------------------:|
@@ -61,7 +61,7 @@
 
 ### 2.2 `deferred` 分類
 
-出典: `lang/part2-deferred.md`
+出典: `dump/part2-deferred.md`
 
 | 分類 | 件数 |
 |------|-----:|
@@ -74,7 +74,7 @@
 
 ### 2.3 Rust ワークスペース領域カバレッジ概況
 
-出典: `lang/coverage-status.md`（llvm-cov region、BEST-ENTRY、7-crate impl `src/`）
+出典: `dump/coverage-status.md`（llvm-cov region、BEST-ENTRY、7-crate impl `src/`）
 
 - **Filtered BEST-ENTRY (7 crates):** **99.01%**（25614/25870; 256 missed）— **≥99% crossed** (N6 q); 目標はおおよそ 99%
 - 残ギャップが大きいファイル: `cli` / `document_pipeline` / `load` / `eval` / `check` / `cast`；`pipeline` と `graphics_value` は **≥99%**；`parse` は **98.98%**
@@ -200,8 +200,8 @@ pre-PKG カーネルは計画上 **COMPLETE（意図的 defer 付き）**。各�
 
 実行順の正本は [`active-roadmap.md`](active-roadmap.md)。完了済みの native-domain / GUI CST sync / host-layout / live-layout 深化は Git 履歴を参照する。
 
-1. **package 実運用化** — [`package-plan.md`](package-plan.md): レジストリ、暗号学的 content hash、lock 再現性、typed resource、自動 materialize。
-2. **Direct Native v2** — [`direct-native-v2-plan.md`](direct-native-v2-plan.md)。Hybrid v1 の `synthetic_source` を typed Rust callable へ置換するまで OPEN。
+1. **package 実運用化 local/offline slice** — [`package-plan.md`](package-plan.md): lock再現性、typed resource light、自動materialize、offline registry mirrorまで完了。network registry、full-tree hash、Core resource effectは別OPEN。
+2. **Direct Native v2（次に実行）** — [`direct-native-v2-plan.md`](direct-native-v2-plan.md) DN2-0から開始。最初のincrementはtyped callable基盤 + `length/units` dual-path。Hybrid v1 の `synthetic_source` を typed Rust callable へ置換するまで OPEN。
 3. **製品級組版** — font-backed JLReq と OpenType MATH は別エンジン。stub 層（Waves / HC / LL）は **stub complete** であり製品エンジンではない。
 
 ### いま OPEN（次に追うもの）

@@ -1,6 +1,6 @@
 # Package plan (PKG-001 + Hybrid Native v1)
 
-**Role:** `lang/active-roadmap.md` Step 7 package実運用化のACTIVE詳細。現状は [`implemented-features.md`](implemented-features.md)。
+**Role:** [`active-roadmap.md`](active-roadmap.md) Step 7 item 1の詳細。local/offline sliceは完了し、残るnetwork registry・full-tree hash・Core resource effectは別OPEN。現状は [`implemented-features.md`](implemented-features.md)。
 
 Goal: local-path package **API** (`package.rpxm`, `.rpi`, `import`) after Part II conformance, with **Hybrid Native v1** bodies for hot domain packages (graphics / length / color / japanese / math / document). Direct Native v2 is a required later milestone: [`direct-native-v2-plan.md`](direct-native-v2-plan.md). Portable `.rpx` bodies under `packages/*/src/` are interim only.
 
