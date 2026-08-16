@@ -118,6 +118,54 @@ pub fn typecheck_syntax(root: &SyntaxNode) -> Result<Type, TypeError> {
     Ok(Type::Document)
 }
 
+/// Type-check top-level `(perform)` / `(handle)` / `(src)` forms only.
+///
+/// Package-shaped sources keep `(import …)` / `(val …)` / `(markup …)` unchecked
+/// here; those go through package Core typecheck.
+pub fn typecheck_top_level_effects(input: &str) -> Result<(), TypeError> {
+    let parse = parse_source(input);
+    if !parse.errors.is_empty() {
+        let e = &parse.errors[0];
+        return Err(TypeError::at(
+            format!("parse error: {}", e.message),
+            e.start,
+            e.end,
+        ));
+    }
+    for form in parse.root.children() {
+        if form.kind() == SyntaxKind::StructuredComment {
+            continue;
+        }
+        let Ok((head, _, _)) = split_list(&form) else {
+            continue;
+        };
+        match head.as_str() {
+            "perform" | "handle" | "src" => {
+                check_form(&form)?;
+            }
+            _ => {}
+        }
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod top_level_effect_tests {
+    use super::typecheck_top_level_effects;
+
+    #[test]
+    fn skips_import_and_val() {
+        let src = "(import graphics/shapes only circle)\n(val main 1)\n";
+        typecheck_top_level_effects(src).expect("import/val are not effect forms");
+    }
+
+    #[test]
+    fn rejects_bad_perform() {
+        let src = "(src (perform log 1))\n(import graphics/shapes only circle)\n";
+        assert!(typecheck_top_level_effects(src).is_err());
+    }
+}
+
 fn check_form(node: &SyntaxNode) -> Result<Type, TypeError> {
     let (head, args, span) = split_list(node)?;
     match head.as_str() {
