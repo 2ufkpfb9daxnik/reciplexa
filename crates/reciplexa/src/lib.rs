@@ -7,8 +7,10 @@
 
 pub mod cli;
 pub mod document_pipeline;
+pub mod host_stack;
 pub mod pipeline;
 
+pub use host_stack::{run_on_host_stack, HOST_STACK_SIZE};
 pub use pipeline::{
     document_for_export, document_from_source, document_from_source_with_snapshot, expand,
     is_package_shaped_graphics_source, lower, refuse_interim_if_required, run_effects,

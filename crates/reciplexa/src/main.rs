@@ -16,6 +16,16 @@ use reciplexa_pptx::write_document as write_pptx;
 use reciplexa_svg::write_document_with_hints;
 
 fn main() -> ExitCode {
+    match reciplexa::run_on_host_stack("reciplexa", cli_main) {
+        Ok(code) => code,
+        Err(e) => {
+            eprintln!("error: {e}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
+fn cli_main() -> ExitCode {
     let mut args = env::args().skip(1);
     let Some(first) = args.next() else {
         print_usage();

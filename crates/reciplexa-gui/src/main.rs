@@ -111,8 +111,11 @@ fn suppress_ime_confirm_newline(ctx: &egui::Context, hold_frames: &mut u8) {
 }
 
 fn byte_to_char_index(s: &str, byte: usize) -> usize {
-    let byte = byte.min(s.len());
-    s[..byte].chars().count()
+    let mut b = byte.min(s.len());
+    while b > 0 && !s.is_char_boundary(b) {
+        b -= 1;
+    }
+    s[..b].chars().count()
 }
 
 fn highlight_source_range(ctx: &egui::Context, source: &str, start: usize, end: usize) {
@@ -159,7 +162,20 @@ fn set_window_title(ctx: &egui::Context, path: &Path, dirty: bool) {
 }
 
 fn main() -> ExitCode {
-    let (path, src) = match env::args().nth(1) {
+    match reciplexa::run_on_host_stack("reciplexa-gui", gui_main) {
+        Ok(code) => code,
+        Err(e) => {
+            eprintln!("error: {e}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
+fn gui_main() -> ExitCode {
+    let mut args: Vec<String> = env::args().skip(1).collect();
+    let smoke = args.iter().any(|a| a == "--smoke");
+    args.retain(|a| a != "--smoke");
+    let (path, src) = match args.first() {
         Some(p) => {
             let path = PathBuf::from(p);
             match fs::read_to_string(&path) {
@@ -178,6 +194,18 @@ fn main() -> ExitCode {
     // Keep the author's `.rpx` text. Expansion happens inside `pipeline_doc` /
     // export so Scribble `(markup …)` macros (`@title`, …) stay editable.
     let initial_error = pipeline_doc(&src).err();
+    if smoke {
+        return match initial_error {
+            None => {
+                println!("smoke: ok {}", path.display());
+                ExitCode::SUCCESS
+            }
+            Some(e) => {
+                eprintln!("smoke: {e}");
+                ExitCode::FAILURE
+            }
+        };
+    }
     if let Some(ref e) = initial_error {
         eprintln!("warn: opening with error (edit to fix): {e}");
     }
@@ -3693,5 +3721,19 @@ fn to_package_insert_form(form: &str) -> String {
             "(fill (ring 105 148.5 30 8) (rgb 0.95 0.55 0.15))".into()
         }
         other => other.to_string(),
+    }
+}
+
+#[cfg(test)]
+mod byte_index_tests {
+    use super::byte_to_char_index;
+
+    #[test]
+    fn mid_multibyte_does_not_panic() {
+        let s = "試abc。";
+        assert_eq!(byte_to_char_index(s, 0), 0);
+        assert_eq!(byte_to_char_index(s, 1), 0);
+        assert_eq!(byte_to_char_index(s, 3), 1);
+        assert_eq!(byte_to_char_index(s, s.len()), s.chars().count());
     }
 }

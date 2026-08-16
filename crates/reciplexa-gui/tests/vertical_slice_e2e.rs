@@ -95,6 +95,14 @@ fn vertical_slice_package_shapes_text_roundtrip() {
 }
 
 #[test]
+fn text_line_ingest_on_host_stack() {
+    reciplexa::run_on_host_stack("vslice-host-stack", || {
+        document_from_source(TEXT_LINE).expect("ingest");
+    })
+    .expect("join");
+}
+
+#[test]
 fn markup_authoring_still_soft_refuses_nudge() {
     let authoring = include_str!("../../../examples/markup_ja.rpx");
     let expanded = reciplexa_macro::expand_source(authoring).expect("expand markup");
