@@ -80,6 +80,39 @@
 - 残ギャップが大きいファイル: `cli` / `document_pipeline` / `load` / `eval` / `check` / `cast`；`pipeline` と `graphics_value` は **≥99%**；`parse` は **98.98%**
 - `graphics_bridge` live-hash **100%**；`unify` / `resolve` / `outcome` は ≥99% または 100%
 
+### 2.4 実測gate（HEAD `5d2c5bf`）
+
+Env D / offline。`CARGO_TARGET_DIR=d:\reciplexa\target`、`TEMP`/`TMP=d:\reciplexa\.tmp`。
+
+| Command | 結果 |
+|---------|------|
+| `cargo fmt --all --check` | green |
+| `cargo clippy --workspace --all-targets --offline -- -D warnings` | green |
+| `cargo test --offline -p reciplexa-lower --features interim-surface` | green |
+| `cargo test --offline -p reciplexa-types --features interim-surface` | green |
+| `cargo test --offline -p reciplexa-bind --features interim-surface` | green |
+| `cargo test --workspace --offline` | green |
+| `cargo check --workspace --all-targets --offline` | green |
+| `cargo check --offline -p reciplexa-gui` | green |
+| `cargo test --offline -p reciplexa-gui --test vertical_slice_e2e` | green |
+
+### 2.5 製品Vertical Slice（**product slice complete**）
+
+保証する範囲（package形式1ページ、`examples/text_line.rpx` 相当）:
+
+- circle / line / text 等の基本graphics
+- move、resize、insert、delete、reorder、text content 変更
+- 保存 → 再読込 → PDF/SVG に編集後の文字と図形が残る
+- interim `(page …)` を package ソースへ混入させない
+
+明示的非対象（read-only / soft-refuse）:
+
+- markup 作者同期
+- 製品級 JLReq / OpenType MATH
+- `document/page` の `doc-*` 作者編集
+
+これは長期 `roadmap.md` Phase 4 の Provenance / Shared Style / GUI Override 全体の完了ではない。
+
 ---
 
 ## 3. 言語機能マップ
@@ -133,7 +166,7 @@ pre-PKG カーネルは計画上 **COMPLETE（意図的 defer 付き）**。各�
 | ホスト | クレート | できること（現状） |
 |--------|----------|-------------------|
 | **CLI** | `reciplexa` | `parse` / `format` / `inspect-syntax` / `inspect-document` / `eval`；および `input.rpx → output.{pdf\|svg\|pptx}` エクスポート |
-| **GUI** | `reciplexa-gui` (+ `gui-runtime`, `view`) | egui 紙面プレビュー（M6 view 寄り）；PDF/SVG/PPTX 連携、ドラッグ等の編集は仕様 EDT 全体には未到達 |
+| **GUI** | `reciplexa-gui` (+ `gui-runtime`, `view`) | package 1ページの基本図形/文字を編集・保存・再読込・PDF/SVG（Vertical Slice **product slice complete**）。markup / `doc-*` は soft-refuse。仕様 EDT 全体には未到達 |
 | **PDF** | `reciplexa-pdf` | scene からの最小 PDF（フォント／画像経路あり；CJK は環境依存） |
 | **SVG** | `reciplexa-svg` | scene → SVG（GUI なし） |
 | **PPTX** | `reciplexa-pptx` | scene → 最小 OOXML PPTX |
