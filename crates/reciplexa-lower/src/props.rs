@@ -9,9 +9,9 @@ use reciplexa_syntax::{
 
 use crate::cst_walk::{find_list_covering, list_atoms, Child};
 use crate::sync::{
-    collect_layers_from_root, collect_size_targets_from_root, layer_opacity, layer_rotation_deg,
-    nudge_layer_page, parse_root, scale_size_target_axes, set_layer_opacity,
-    set_layer_rotation_deg, SyncError,
+    collect_layers_from_root, collect_layers_package, collect_size_targets_from_root,
+    is_package_shaped_authoring, layer_opacity, layer_rotation_deg, nudge_layer_authoring,
+    parse_root, scale_size_target_axes, set_layer_opacity, set_layer_rotation_deg, SyncError,
 };
 
 /// UI grouping for the properties panel.
@@ -71,7 +71,11 @@ fn layer_paint(
     flat_index: usize,
 ) -> Result<(SyntaxNode, SyntaxNode, String), SyncError> {
     let root = parse_root(src)?;
-    let layers = collect_layers_from_root(&root, page_index)?;
+    let layers = if is_package_shaped_authoring(src) {
+        collect_layers_package(src, page_index)?
+    } else {
+        collect_layers_from_root(&root, page_index)?
+    };
     let layer = layers
         .get(flat_index)
         .ok_or_else(|| SyncError::new("layer index out of range"))?;
@@ -168,13 +172,13 @@ pub fn set_layer_prop(
             let PropValue::Number(nx) = value else {
                 return Err(SyncError::new("layout.x expects a number"));
             };
-            nudge_layer_page(src, page_index, flat_index, nx - x0, 0.0)
+            nudge_layer_authoring(src, page_index, flat_index, nx - x0, 0.0)
         }
         "layout.y" => {
             let PropValue::Number(ny) = value else {
                 return Err(SyncError::new("layout.y expects a number"));
             };
-            nudge_layer_page(src, page_index, flat_index, 0.0, ny - y0)
+            nudge_layer_authoring(src, page_index, flat_index, 0.0, ny - y0)
         }
         "layout.w" => {
             let PropValue::Number(nw) = value else {

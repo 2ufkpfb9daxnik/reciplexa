@@ -25,10 +25,11 @@ pub use layers::{
 };
 pub use package::{
     collect_layers_package, collect_package_pages, collect_size_targets_package,
-    count_package_pages, find_main_expr, find_main_expr_in_source, find_package_page,
-    find_package_page_in_source, is_package_paint_wrapper, is_package_shaped_authoring,
-    is_package_transparent_wrapper, nudge_layer_package, package_page_content_nodes,
-    paint_wrapper_shape,
+    count_package_pages, delete_layer_package, duplicate_layer_package, find_main_expr,
+    find_main_expr_in_source, find_package_page, find_package_page_in_source, insert_layer_package,
+    is_package_paint_wrapper, is_package_shaped_authoring, is_package_transparent_wrapper,
+    nudge_layer_package, package_page_content_nodes, paint_wrapper_shape, reorder_layer_package,
+    set_text_content_package,
 };
 pub use pages::{count_pages, delete_page, find_page, insert_page_after, page_body_start};
 
@@ -142,4 +143,88 @@ pub fn parse_root(src: &str) -> Result<SyntaxNode, SyncError> {
     parse_source(src)
         .into_result()
         .map_err(|e| SyncError::new(format!("parse error: {}", e[0].message)))
+}
+
+/// Collect layers for package-shaped authoring, else interim `(page …)`.
+pub fn collect_layers_authoring(src: &str, page_index: usize) -> Result<Vec<LayerInfo>, SyncError> {
+    if is_package_shaped_authoring(src) {
+        collect_layers_package(src, page_index)
+    } else {
+        collect_layers_page(src, page_index)
+    }
+}
+
+/// Size targets for package-shaped authoring, else interim `(page …)`.
+pub fn collect_size_targets_authoring(
+    src: &str,
+    page_index: usize,
+) -> Result<Vec<SizeTarget>, SyncError> {
+    if is_package_shaped_authoring(src) {
+        collect_size_targets_package(src, page_index)
+    } else {
+        collect_size_targets_page(src, page_index)
+    }
+}
+
+pub fn insert_layer_authoring(
+    src: &str,
+    page_index: usize,
+    form: &str,
+) -> Result<(String, usize), SyncError> {
+    if is_package_shaped_authoring(src) {
+        insert_layer_package(src, page_index, form)
+    } else {
+        insert_layer_page(src, page_index, form)
+    }
+}
+
+pub fn delete_layer_authoring(
+    src: &str,
+    page_index: usize,
+    flat_index: usize,
+) -> Result<String, SyncError> {
+    if is_package_shaped_authoring(src) {
+        delete_layer_package(src, page_index, flat_index)
+    } else {
+        delete_layer_page(src, page_index, flat_index)
+    }
+}
+
+pub fn reorder_layer_authoring(
+    src: &str,
+    page_index: usize,
+    from: usize,
+    to: usize,
+) -> Result<String, SyncError> {
+    if is_package_shaped_authoring(src) {
+        reorder_layer_package(src, page_index, from, to)
+    } else {
+        reorder_layer_page(src, page_index, from, to)
+    }
+}
+
+pub fn nudge_layer_authoring(
+    src: &str,
+    page_index: usize,
+    flat_index: usize,
+    dx: f64,
+    dy: f64,
+) -> Result<String, SyncError> {
+    if is_package_shaped_authoring(src) {
+        nudge_layer_package(src, page_index, flat_index, dx, dy)
+    } else {
+        nudge_layer_page(src, page_index, flat_index, dx, dy)
+    }
+}
+
+pub fn duplicate_layer_authoring(
+    src: &str,
+    page_index: usize,
+    flat_index: usize,
+) -> Result<String, SyncError> {
+    if is_package_shaped_authoring(src) {
+        duplicate_layer_package(src, page_index, flat_index)
+    } else {
+        duplicate_layer_page(src, page_index, flat_index)
+    }
 }
