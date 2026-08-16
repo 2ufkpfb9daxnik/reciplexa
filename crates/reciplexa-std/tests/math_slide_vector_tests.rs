@@ -193,7 +193,10 @@ fn math_accent_clearance_table_covers_named_accents() {
         accent_clearance_em(MathAccentKind::Underbar),
         (0.0, ACCENT_UNDER_CLEARANCE_EM)
     );
-    assert!(ACCENT_UNDER_CLEARANCE_EM < UNDERBRACE_CLEARANCE_EM);
+    assert!(
+        std::hint::black_box(ACCENT_UNDER_CLEARANCE_EM)
+            < std::hint::black_box(UNDERBRACE_CLEARANCE_EM)
+    );
     assert_eq!(accent_clearance_em_named("nope"), None);
 
     let a = MathAtom::symbol(id(1), "x", MathClass::Ordinary);
@@ -338,7 +341,7 @@ fn estimate_style_text_shrinks_scripts_more_than_display() {
 
     assert!((EstimateStyle::Display.script_scale() - SCRIPT_SCALE).abs() < 1e-9);
     assert!((EstimateStyle::Text.script_scale() - SCRIPT_SCALE_TEXT).abs() < 1e-9);
-    assert!(SCRIPT_SCALE_TEXT < SCRIPT_SCALE);
+    assert!(std::hint::black_box(SCRIPT_SCALE_TEXT) < std::hint::black_box(SCRIPT_SCALE));
     assert_eq!(EstimateStyle::parse("text"), Some(EstimateStyle::Text));
     assert_eq!(
         EstimateStyle::parse("display"),

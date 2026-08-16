@@ -17,7 +17,7 @@ fn field<'a>(rec: &'a RuntimeValue, name: &str) -> &'a RuntimeValue {
 
 #[test]
 fn tip_wave17_estimate_style_and_math_box() {
-    assert!(SCRIPT_SCALE_TEXT < SCRIPT_SCALE);
+    assert!(std::hint::black_box(SCRIPT_SCALE_TEXT) < std::hint::black_box(SCRIPT_SCALE));
     let base = MathAtom::symbol(StableNodeId::new(0), "x", MathClass::Ordinary);
     let sup = MathAtom::symbol(StableNodeId::new(1), "2", MathClass::Ordinary);
     let scripts = MathAtom::scripts(StableNodeId::new(2), base, Some(sup), None);

@@ -675,7 +675,8 @@ fn hang_width_em_policy_stub() {
     assert!((hang_width_em_char('。') - HANG_WIDTH_EM).abs() < 1e-9);
     assert!((hang_width_em_char('、') - HANG_WIDTH_EM).abs() < 1e-9);
     assert_eq!(hang_width_em_char('あ'), 0.0);
-    assert!(HANG_WIDTH_EM > 0.0 && HANG_WIDTH_EM <= 1.0);
+    let configured_hang_width = std::hint::black_box(HANG_WIDTH_EM);
+    assert!(configured_hang_width > 0.0 && configured_hang_width <= 1.0);
 }
 
 #[test]

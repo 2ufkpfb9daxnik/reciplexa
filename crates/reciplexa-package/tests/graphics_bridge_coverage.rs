@@ -981,7 +981,7 @@ fn page_text_contents(doc: &reciplexa_scene::Document) -> Vec<String> {
 /// Live-layout phantom example: visible glyph inks; builtin math-phantom does not.
 #[test]
 fn live_math_phantom_skips_sigma_ink() {
-    let doc = document_from_live_layout_entry(&live_math_phantom_entry(), &index())
+    let doc = document_from_live_layout_entry(live_math_phantom_entry(), &index())
         .expect("live math phantom entry");
     let texts = page_text_contents(&doc);
     let joined: String = texts.concat();
@@ -1002,7 +1002,7 @@ fn live_math_phantom_skips_sigma_ink() {
 /// Package-entry bridge (GUI path) also evals ker `math-phantom` via primitive_env.
 #[test]
 fn live_math_phantom_opens_via_package_entry_bridge() {
-    let doc = document_from_package_entry(&live_math_phantom_entry(), &index())
+    let doc = document_from_package_entry(live_math_phantom_entry(), &index())
         .expect("phantom package entry");
     let texts = page_text_contents(&doc);
     assert!(
@@ -1018,7 +1018,7 @@ fn live_math_phantom_opens_via_package_entry_bridge() {
 /// pkg_live_math_phantom → SVG has paragraph/glyph text but not phantom Σ.
 #[test]
 fn live_math_phantom_svg_smoke_no_sigma() {
-    let doc = document_from_live_layout_entry(&live_math_phantom_entry(), &index())
+    let doc = document_from_live_layout_entry(live_math_phantom_entry(), &index())
         .expect("live math phantom bridge");
     let svg = reciplexa_svg::document_to_svg(&doc).expect("phantom svg");
     assert!(
@@ -1039,7 +1039,7 @@ fn live_math_phantom_svg_smoke_no_sigma() {
 /// pkg_live_math_phantom → PPTX has paragraph/glyph runs but not phantom Σ.
 #[test]
 fn live_math_phantom_pptx_smoke_no_sigma() {
-    let doc = document_from_live_layout_entry(&live_math_phantom_entry(), &index())
+    let doc = document_from_live_layout_entry(live_math_phantom_entry(), &index())
         .expect("live math phantom bridge");
     let bytes = reciplexa_pptx::document_to_pptx(&doc).expect("phantom pptx");
     let slide = slide1_xml_from_pptx(&bytes);
