@@ -160,13 +160,19 @@ fn workspace_shared_lock_roundtrip() {
             pkg.name
         );
         assert!(
-            expected.starts_with("stub-fnv1a64:"),
-            "OPEN stub prefix, got {expected}"
+            expected.starts_with("sha256:"),
+            "sha256 prefix, got {expected}"
         );
     }
     assert!(idx.lock_path().is_file());
     let read = idx.read_lock().unwrap();
     assert_eq!(read, written);
+    let written_again = idx.write_lock().unwrap();
+    assert_eq!(
+        written.to_json().unwrap(),
+        written_again.to_json().unwrap(),
+        "lock write is reproducible"
+    );
 }
 
 #[test]

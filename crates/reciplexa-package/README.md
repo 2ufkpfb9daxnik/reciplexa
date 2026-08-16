@@ -4,7 +4,7 @@ Local `package.rpxm`, path dependencies, `rpx.lock`, and workspace discovery
 (`PKG-001`). Domain bodies live in Rust (`reciplexa-std` + native registry);
 this crate is the host loader / lock / diagnose surface.
 
-## Lock checksums (OPEN stub)
+## Lock checksums (SHA-256 of `package.rpxm`)
 
 A dedicated `examples/pkg_checksum_demo.rpx` is **not** shipped — the
 contract is small enough to document here.
@@ -15,11 +15,11 @@ contract is small enough to document here.
 
 | Result | Meaning |
 |--------|---------|
-| `stub-fnv1a64:` + 16 hex chars | FNV-1a 64-bit of the file bytes |
+| `sha256:` + 64 hex chars | SHA-256 of the file bytes |
 | `stub-error:…` | read failed (missing path, I/O) |
 
-**OPEN:** this is **not** blake3 / sha256 and **not** registry artifact
-integrity. Only `package.rpxm` is hashed (not the full package tree).
+This is cryptographic integrity of **`package.rpxm` only**, not a full
+package-tree hash and not registry artifact verification (`OPEN-PKG-001`).
 
 ### Who writes `LockedPackage.checksum`
 

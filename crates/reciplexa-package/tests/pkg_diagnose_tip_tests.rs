@@ -90,7 +90,9 @@ fn tip_pkg006_lock_checksum_mismatch() {
             version: "1".into(),
             source: "path:lib".into(),
             dependencies: vec![],
-            checksum: Some("stub-fnv1a64:deadbeefdeadbeef".into()),
+            checksum: Some(
+                "sha256:deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef".into(),
+            ),
         }],
     };
     assert!(
@@ -166,10 +168,14 @@ fn tip_content_checksum_empty_file_and_missing_path() {
     std::fs::write(&empty, b"").unwrap();
     let hash = content_checksum(&empty);
     assert!(
-        hash.starts_with("stub-fnv1a64:"),
-        "empty file still uses OPEN stub prefix, got {hash}"
+        hash.starts_with("sha256:"),
+        "empty file uses sha256 prefix, got {hash}"
     );
-    assert_eq!(hash.len(), "stub-fnv1a64:".len() + 16);
+    assert_eq!(hash.len(), "sha256:".len() + 64);
+    assert_eq!(
+        hash,
+        "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    );
     assert_eq!(hash, content_checksum(&empty), "empty-file hash is stable");
 
     let missing = content_checksum(dir.join("no-such.bin"));
@@ -197,7 +203,9 @@ fn tip_pkg006_skips_workspace_source_even_with_checksum() {
             version: "1".into(),
             source: "workspace".into(),
             dependencies: vec![],
-            checksum: Some("stub-fnv1a64:deadbeefdeadbeef".into()),
+            checksum: Some(
+                "sha256:deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef".into(),
+            ),
         }],
     };
     assert!(
@@ -225,14 +233,16 @@ fn tip_pkg006_missing_rpxm_mismatches_stored_stub() {
             version: "1".into(),
             source: "path:lib".into(),
             dependencies: vec![],
-            checksum: Some("stub-fnv1a64:ffffffffffffffff".into()),
+            checksum: Some(
+                "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff".into(),
+            ),
         }],
     };
     let diags = diagnose_lockfile_checksums(&lock, &dir);
     let hit = diags.iter().find(|d| d.code == "PKG006").expect("PKG006");
     assert!(hit.message.contains("lib"), "{}", hit.message);
     assert!(
-        hit.message.contains("stub-error:") || hit.message.contains("stub-fnv1a64:"),
+        hit.message.contains("stub-error:") || hit.message.contains("sha256:"),
         "mismatch should cite stub hashes: {}",
         hit.message
     );

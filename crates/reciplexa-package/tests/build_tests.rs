@@ -264,7 +264,9 @@ fn diagnose_pkg006_path_checksum_mismatch() {
             version: "1".into(),
             source: "path:util".into(),
             dependencies: vec![],
-            checksum: Some("stub-fnv1a64:0000000000000000".into()),
+            checksum: Some(
+                "sha256:0000000000000000000000000000000000000000000000000000000000000000".into(),
+            ),
         }],
     };
     let diags = diagnose_lockfile_checksums(&mismatch, &dir);

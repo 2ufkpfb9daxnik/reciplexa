@@ -92,11 +92,11 @@
 
 ## Step 7 — 次工程
 
-**Status:** active (baseline HEAD `5d2c5bf`)
+**Status:** active (baseline HEAD `5d2c5bf`; SHA-256 lock checksum started)
 
 順序:
 
-1. package実運用化: registry、暗号学的content hash、lock再現性、typed resource、自動materialize
+1. package実運用化: registry、暗号学的content hash（`package.rpxm` SHA-256 **unit complete**）、lock再現性、typed resource、自動materialize
 2. Direct Native v2: BindingIdから型付きRust callableへ段階移行
 3. 製品級組版: font-backed JLReqとOpenType MATHを別エンジンとして本格化
 

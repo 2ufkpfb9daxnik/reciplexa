@@ -276,8 +276,7 @@ pub const OPEN_PKG_001_CODE: &str = "OPEN-PKG-001";
 /// Path-free dependencies that do not match a workspace member, or that set
 /// `source registry`, fail with [`crate::WorkspaceError::RegistryUnavailable`]
 /// and must not perform network I/O. Lockfile may carry an optional
-/// [`crate::LockedPackage::checksum`] string stub without verification.
-/// [`crate::content_checksum`] fills a non-crypto `stub-fnv1a64:…` until
-/// blake3/sha256 is added (OPEN).
+/// [`crate::LockedPackage::checksum`] SHA-256 of `package.rpxm`
+/// (`sha256:` + 64 hex). Registry artifact / full-tree hashes remain OPEN.
 pub const OPEN_PKG_001_REGISTRY: &str =
     "OPEN-PKG-001: package registry resolution is not implemented (no network)";

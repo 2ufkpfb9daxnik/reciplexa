@@ -76,7 +76,7 @@ fn lockfile_checksum_optional_roundtrip_no_verify() {
 }
 
 #[test]
-fn content_checksum_stub_fnv_is_stable_and_marks_open() {
+fn content_checksum_sha256_is_stable_and_prefixed() {
     use reciplexa_package::content_checksum;
     use std::io::Write;
 
@@ -97,11 +97,8 @@ fn content_checksum_stub_fnv_is_stable_and_marks_open() {
     let a = content_checksum(&path);
     let b = content_checksum(&path);
     assert_eq!(a, b);
-    assert!(
-        a.starts_with("stub-fnv1a64:"),
-        "OPEN stub prefix expected, got {a}"
-    );
-    assert_eq!(a.len(), "stub-fnv1a64:".len() + 16);
+    assert!(a.starts_with("sha256:"), "sha256 prefix expected, got {a}");
+    assert_eq!(a.len(), "sha256:".len() + 64);
     let missing = content_checksum(dir.join("no-such-file"));
     assert!(
         missing.starts_with("stub-error:"),

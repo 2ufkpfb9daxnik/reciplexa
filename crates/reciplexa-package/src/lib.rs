@@ -6,10 +6,11 @@
 //! registry protocol is not implemented. Resolvers must refuse registry-shaped
 //! dependencies without network I/O.
 //!
-//! [`content_checksum`]: lockfile content hash is a **non-crypto FNV-1a stub**
-//! (`stub-fnv1a64:…`) until blake3/sha256 lands in the workspace. Path-dep writers
-//! may fill `LockedPackage.checksum` from `package.rpxm` only (CS0); mismatch is
-//! reported as PKG006 via [`diagnose_lockfile_checksums`] (CS1).
+//! [`content_checksum`]: lockfile content hash is **SHA-256** of the hashed
+//! file (`sha256:` + 64 hex chars). Path-dep writers may fill
+//! `LockedPackage.checksum` from `package.rpxm` only (CS0); mismatch is
+//! reported as PKG006 via [`diagnose_lockfile_checksums`] (CS1). Registry
+//! artifact integrity and full-tree hashes remain OPEN-PKG-001.
 
 #![forbid(unsafe_code)]
 
