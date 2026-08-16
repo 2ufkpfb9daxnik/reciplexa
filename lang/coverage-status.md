@@ -75,7 +75,7 @@ Last remasure (N6 tip q): scoped `cargo llvm-cov --offline --json` for the 7 cra
 - **Diluted-file OR-live (N6 p/q):** file ratio &lt; 98.2% → OR live hashes + line-span collapse. Restores `pipeline` after mild re-dilution above the old 90% gate.
 - **Cont / dead-arm lesson (N6 q):** prefer delete permanently dead match arms (Identity-after-subtype, number/string pattern `None`, `open==0` after `starts_with('"')`) over tip matrices that grow denom.
 - **FS seam lesson (N6 k):** do not copy `graphics_bridge` fail injectors into `module.rs` / `cli.rs`.
-- Domain packages (`length`, `color`, `graphics`, `math`, `japanese`) are **Rust native** via `DomainNativeRegistry` / `domain_bodies` (see `lang/native-domain-plan.md`).
+- Domain packages (`length`, `color`, `graphics`, `math`, `japanese`) are **Hybrid Native v1** via `DomainNativeRegistry` / `domain_bodies` (see `lang/direct-native-v2-plan.md`).
 - N6 tip (2026-08-13 p): 7-crate BEST-ENTRY **98.60% → 98.76%**; **≥98.75% crossed**; **99% not crossed**.
 - N6 tip (2026-08-13 q): dead-arm deletes + Cont/pipeline/cli/syntax tips + OR-live thr 98.2%. 7-crate BEST-ENTRY **98.76% → 99.01%** (25614/25870; missed 319→256); 4-crate **98.96%**; `cli`/`string_lit`/`markup`/`lexer`/`parse` **→ ≥99%**; `pipeline` or-live restored **99.38%**. **≥99% crossed.**
 - N5.3 tip (2026-08-13): added tip tests for `document_value` (block stubs / levels / error arms), pipeline document+markup package paths, GUI `resolve_preview_layers` world kinds. Full 7-crate remasure not re-run this unit (N6 q BEST-ENTRY **99.01%** still stands); new paths covered by targeted tests.

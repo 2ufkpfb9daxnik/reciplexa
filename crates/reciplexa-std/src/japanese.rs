@@ -2,7 +2,7 @@
 //!
 //! Honest scope: useful Rust tables and APIs that package natives and future
 //! layout can call. This is **not** a full JLReq UCS membership matrix or a
-//! typesetting engine (`OPEN-TEXT-JA-001`). See `lang/ja-math-deepen-plan.md`.
+//! typesetting engine (`OPEN-TEXT-JA-001`). See `lang/implemented-features.md`.
 //!
 //! Package synthetic RPX (`japanese/*` in `reciplexa-package::domain_bodies`)
 //! remains the Core-evaluable import surface; prefer these Rust APIs for hosts.

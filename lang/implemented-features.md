@@ -1,12 +1,27 @@
-# RPX 実装済み機能サマリ（第II部対比）
+# RPX 実装済み機能サマリ（現状正本）
 
-最終更新の根拠: `lang/part2-conformance-stats.json`、`lang/part2-deferred.md`、`lang/coverage-status.md`、`lang/language-kernel-plan.md`、`lang/package-plan.md`、および `crates/` / `packages/` 構成。
+**Authority:** 現在動くもの・現在のgate・OPEN事項の唯一の正本。実行順は [`active-roadmap.md`](active-roadmap.md)。規範は [`specification.md`](specification.md)。
+
+最終更新の根拠: 同じHEADの実装、`lang/part2-conformance-stats.json`、`lang/part2-deferred.md`、`lang/coverage-status.md`、`lang/package-plan.md`、および `crates/` / `packages/` 構成。
+
+### 製品ラベル（混ぜない）
+
+| ラベル | 意味 |
+|--------|------|
+| **unit complete** | 対象ユニットのテストが通る |
+| **stub complete** | 意図したスタブ境界まで到達（本番エンジンではない） |
+| **spec conformant** | 当該見出しが適合台帳上 `ok`（製品完成ではない） |
+| **product slice complete** | Vertical Slice の受入条件を満たす |
+
+`gap=0`、`ok`件数、限定coverageを製品完成率として扱わない。
+
+現行標準packageは **Hybrid Native v1**（package API + synthetic RPX + Rust builtin/bridge）。Direct Native v2 は [`direct-native-v2-plan.md`](direct-native-v2-plan.md)。
 
 ---
 
 ## 1. 目的と見方
 
-この文書は、`lang/specification.md` **第II部**（言語基礎）に対し、**いま何が実装されていて、何が意図的に後回しか**を短く突き合わせるための索引である。
+この文書は、`lang/specification.md` **第II部**（言語基礎）に対し、**いま何が実装されていて、何が意図的に後回しか**を短く突き合わせるための索引であり、現状の唯一の正本である。
 
 | 読み方 | 意味 |
 |--------|------|
@@ -21,7 +36,7 @@
 - `deferred` が約半数近くある。優先度は `gap`/`partial` 埋めとは別枠（`part2-deferred.md`）。
 - Rust 領域カバレッジの高さと、言語仕様の網羅は別物である。
 
-関連リンク: [`part2-conformance.md`](part2-conformance.md) · [`part2-deferred.md`](part2-deferred.md) · [`coverage-status.md`](coverage-status.md) · [`package-plan.md`](package-plan.md) · [`language-kernel-plan.md`](language-kernel-plan.md)
+関連リンク: [`part2-conformance.md`](part2-conformance.md) · [`part2-deferred.md`](part2-deferred.md) · [`coverage-status.md`](coverage-status.md) · [`package-plan.md`](package-plan.md) · [`direct-native-v2-plan.md`](direct-native-v2-plan.md) · [`active-roadmap.md`](active-roadmap.md)
 
 ---
 
@@ -95,7 +110,7 @@ pre-PKG カーネルは計画上 **COMPLETE（意図的 defer 付き）**。各�
 
 ### 3.1 パッケージ Slice A（＋ B/C 薄層）— **実装は Rust native へ移行**
 
-仕様上の単位・色・図形は **言語組み込みではない**（パッケージ API 供給）。ホットドメインの **本文は Rust native**（`KER-001` / Compiler-native package）。詳細単位: [`native-domain-plan.md`](native-domain-plan.md)。
+仕様上の単位・色・図形は **言語組み込みではない**（パッケージ API 供給）。ホットドメインの本文は **Hybrid Native v1**（`KER-001` / Compiler-native package）。Direct Native v2: [`direct-native-v2-plan.md`](direct-native-v2-plan.md)。
 
 | パッケージ | 状況 | 内容の目安 |
 |------------|------|------------|
@@ -150,15 +165,11 @@ pre-PKG カーネルは計画上 **COMPLETE（意図的 defer 付き）**。各�
 
 ## 6. 次工程
 
-推奨順序:
+実行順の正本は [`active-roadmap.md`](active-roadmap.md)。完了済みの native-domain / GUI CST sync / host-layout / live-layout 深化は Git 履歴を参照する。
 
-1. **Native domain 移行** — [`native-domain-plan.md`](native-domain-plan.md) N0→N5.2 dual-path **done**（length/color → graphics → math → japanese → document）。keyword 表 production 隔離は GUI CST sync v2 S6b **done**。
-2. **カバレッジ締め（N6）** — **done**（7-crate BEST-ENTRY ≥99%）；N5.3 tip for document surface residuals。
-3. **GUI CST sync v2** — [`gui-cst-sync-v2-plan.md`](gui-cst-sync-v2-plan.md) S0–**S6b done**（package writable sync、examples package 化、production keyword 表隔離）。
-4. **PKG インフラ（Slice E）** — **done**（workspace lock / resources / OPEN-PKG-001 stub）；package API `resolve_package_resource`（R0）**done**。言語 `(resource "rel")` 軽量面 **done**（elaborate→`package-resource` タグ付き record；package root 無しでは deferred note）。host `materialize_package_resource` / `resolve_resource_value`（R3）**done**。package document path で value tree の `package-resource` に fail-soft `resolved-path` 付与（Wave 5 Y2）**done**。lockfile `LockedPackage.checksum` optional stub（Wave 8 B4）＋`content_checksum(path)` FNV-1a stub（`stub-fnv1a64:…`；blake3/sha256 未導入のため OPEN）**done**。path dep 書込時に `package.rpxm` のみから stub を埋める（CS0；`from_consumer_with_roots` / `lock_consumer`）**done**。workspace `build_lock` / `resolve_workspace_dependencies` も member `package.rpxm` stub を埋める **done**。`diagnose_lockfile_checksums` PKG006（`path:` lock checksum ≠ 現 `package.rpxm`；CS1）**done**；CS2 tip ＋ empty-file / missing-rpxm / workspace-source-skip tips **done**。契約は [`crates/reciplexa-package/README.md`](../crates/reciplexa-package/README.md)（`pkg_checksum_demo` 例は出さない）。`diagnose_manifest_with_root` PKG004（listed resource 欠落；Wave 11 E4）**done**。`diagnose_manifest` PKG005（`source registry` 静的拒否；HC13）**done**。`WorkspaceError::code()` / `OPEN_PKG_001_CODE`＋**workspace-level** registry fixture 拒否 **done**。**なお OPEN:** 実 `package-resource` 型・load 時強制 rewrite・レジストリ検証／ネットワーク・blake3·sha256・PKG006 の workspace-source 比較。
-5. **OPEN-TEXT-JA-001 / math layout** — 第一深化スライス **done**（[`ja-math-deepen-plan.md`](ja-math-deepen-plan.md) J0–J7 / M0–M3）。追加: eval `math_value` 橋 **done**；JA classify 拡張 **done**（なお subset）；言語ビルトイン `classify-char` / `break-between` / `break-line` **done**；例 `pkg_ja_classify.rpx` / `pkg_ja_break.rpx` **done**；`pkg_math` `estimate_box` 消費 **done**；**wave-3** `break_line` / `is_hangable` / `linearize` braces **done**；**wave-4** ruby / tate-chu-yoko box stubs、stretchy delimiter、accent clearance、`lines_to_text_shapes` **done**；**wave-5** UCS-ish classify broaden、`vertical_advance_em` / `break_line_vertical`、`justify_line`、`scripts_attachment_offsets`、package-resource auto-materialize **done**；**wave-6** ker builtins `break-line-vertical` / `justify-line`、`justify_line_to_text_shapes`、例 `pkg_ja_vertical_break.rpx`、`scripts_attachment_offsets_from_value`、`hang_width_em` **done**；**wave-7** denser `BREAK_PAIR_MATRIX`、`ruby-box` / `tate-chu-yoko-width` builtins、`doc-paragraph`→`break_line` Text shapes **done**；**wave-8** `matrix_column_widths` / cases left-align、`bigop_limit_offsets`、例 `pkg_ruby.rpx`、`wrap_text_shape_content`、lockfile `checksum` stub **done**；**wave-9** `fraction_rule_metrics` / `radical_vinculum_index_offsets`、graphics_value text `wrap-em`、builtin `hang-width`、例 `pkg_ja_hang.rpx` **done**；**wave-10** `stackrel_spacing_offsets` / `underbrace_spacing`、`aligned_column_x`、builtin `math-box`、例 `pkg_math_box.rpx`、`vertical_ruby_estimate_box` / `bou_estimate_box` **done**；**wave-11** `doc-heading` soft-wrap、builtins `vertical-ruby-box` / `bou-box`、package bridge 長文 JA paragraph→複数 Text、`stretch-factor` / `stretchy-delim`、PKG004 resource diagnose **done**；**wave-12** cl-08 inseparable glue、ASCII-space soft-wrap、`class_spacing_em`／Row muskip、例 `pkg_math_spacing.rpx` **done**；**wave-13** `needs_tate_rotation`／`VerticalGlyphOrientation` **done**；**wave-14** builtin `vertical-orientation`、`vertical_advance_em` taller/wider swap、`class_spacing_em` pair expand **done**；**wave-15** `indent_first_line`／`doc-paragraph` `indent-em`／`paragraph-indented`／例 `pkg_document_indent.rpx` **done**；**wave-16** `place_lines_horizontal`／`place_lines_vertical`／`KihonHanmen::line_pitch_em`／`lines_to_text_shapes` 配線 **done**；**wave-17** `EstimateStyle`／`SCRIPT_SCALE_TEXT`／`math-box` `style`／例 `pkg_math_box` text vs display **done**；**wave-18** `lines_to_vertical_text_shapes`／例 `pkg_ja_vertical_place.rpx` **done**；**wave-19** `phantom_box`／`smash_box` **done**；**wave-20** emoji/color → `CharClass::Other` **done**；**wave-21** builtins `math-phantom`／`math-smash`／例 `pkg_math_phantom.rpx` **done**；**wave-22** `measure_columns`／`doc-columns` **done**；**wave-23** `reciprocal_punctuation_widths_em`（fullwidth vs half mirror）**done**；**wave-24** builtin `measure-columns`／`document/page` `columns`／`block-columns`／例 `pkg_columns.rpx` **done**；**wave-25** cases left brace `nrows × row_height` stretch **done**；**wave-26** `trimming_width_em`／`justify_line` 行頭・行末詰め **done**；**wave-27** builtin `trimming-width`／例 `pkg_ja_hang_trim.rpx` **done**；**wave-28** `accent_clearance_em` 表拡張（check/breve/…／underbar） **done**；**wave-29** `CharClass::as_jlreq_id`／From／FromStr＋stub-layer status **done**（いずれも heuristics / subset）。**Waves 4–28 = host layout 実験向け stub 層として十分な完了度**；残フル OPEN-TEXT-JA: 完全 UCS・規範的 §C 禁則・本格 hanging／justification／詰め（`break_line`／`char_em_width` 未配線）・font-backed ruby/縦中横/傍点・OpenType `vert`／CSS `text-orientation`・OpenType MATH / 実 stretchy・文書パイプライン本番レイアウト消費・checksum 検証。
-6. **Host layout consume（HC）** — [`host-layout-consume-plan.md`](host-layout-consume-plan.md) **HC0–HC9 / HC11–HC21 done**（`preview_doc_text_metrics`＋`debug_layout_summary`＋optional ruby/tate、inspect-document layout note、GUI tooltip test（HC10 status chrome **skipped**）、`estimate_package_math_main` Display default、長文 JA → PDF/SVG/PPTX smoke、indent PDF/SVG smoke、vertical place PDF smoke、workspace-level OPEN-PKG registry fixture、PKG004/005 tip；HC15 **skipped**）。
-7. **Live layout consume（LL）** — [`live-layout-plan.md`](live-layout-plan.md) **LL0–LL32 done**：`layout_doc_page_to_scene`（std `break_line`/`place_lines`/`indent`/`measure_columns`）、`layout_math_to_shapes(value, origin, layout_style)`（Display/Text；`linearize`＋Scripts/`scripts_attachment_offsets`・BigOp/`bigop_limit_offsets`・Fraction/Radical Line rules（黒のまま；色付けは skip）・Delimiter stretchy fence `size_mm`・Matrix/`matrix_column_widths`・Cases left `{`/`cases_brace_total_height_em`・Accent/`accent_clearance_em`（overline/underline visual tip LL26）・Aligned/`aligned_column_x`・Stack/`stackrel_spacing_offsets`・underline/`underbrace_spacing`・`math-phantom`/`math-smash` は **no ink**、ネストも skip）、`estimate_package_math_main_with_style`／live-layout-demo `style`（既定 Display）、`pkg_live_layout.rpx` / `pkg_live_math.rpx` / `pkg_live_math_phantom.rpx`＋PDF/SVG/PPTX smoke；GUI/`document_from_source` が `wants_package_graphics_path` 経由で live-layout-demo を開き、entry eval は `primitive_env`（ker `math-phantom` 等）。markup 作者編集は package sync v2 でも **soft-refuse**（メッセージに明記）。**正直な限界:** fontless heuristic のみ — 完全 JLReq UCS/§C・OpenType MATH / stretchy assembly / `\fontdimen` / TeX smash-still-draws ではない。
+1. **package 実運用化** — [`package-plan.md`](package-plan.md): レジストリ、暗号学的 content hash、lock 再現性、typed resource、自動 materialize。
+2. **Direct Native v2** — [`direct-native-v2-plan.md`](direct-native-v2-plan.md)。Hybrid v1 の `synthetic_source` を typed Rust callable へ置換するまで OPEN。
+3. **製品級組版** — font-backed JLReq と OpenType MATH は別エンジン。stub 層（Waves / HC / LL）は **stub complete** であり製品エンジンではない。
 
 ### いま OPEN（次に追うもの）
 

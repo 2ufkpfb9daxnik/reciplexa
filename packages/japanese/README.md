@@ -53,4 +53,4 @@ Normative reference: [W3C JLReq](https://www.w3.org/TR/jlreq/) (JIS X 4051–bas
 - SYN `(markup @heading(…) …)` and `japanese/markup` records are parallel; std `Ruby` / `TateChuYoko` align with package tags for future Text IR.
 - **Status:** Waves 4–28 stub layer is **complete-enough for host layout experiments**; remaining work is full `OPEN-TEXT-JA-001` (normative UCS/§C, font-backed metrics, OpenType MATH, production document consumption).
 
-See also: [`lang/ja-math-deepen-plan.md`](../../lang/ja-math-deepen-plan.md).
+See also: [`lang/implemented-features.md`](../../lang/implemented-features.md) (`OPEN-TEXT-JA-001`).

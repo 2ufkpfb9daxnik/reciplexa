@@ -3,7 +3,7 @@
 //! Bridges package-shaped document sources to a scene [`Document`], then reports
 //! line / text-shape counts and light em box estimates for tests and future GUI.
 //! Optional ruby / tate-chu-yoko counts walk the eval value tree when present.
-//! Not production JLReq measure — see `lang/host-layout-consume-plan.md`.
+//! Not production JLReq measure — see `lang/implemented-features.md` (OPEN-TEXT-JA-001).
 
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};

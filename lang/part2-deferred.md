@@ -1041,307 +1041,307 @@
 
 ### L14870: 8.2 Wrapper
 - **機能ブロック**: `MOD`
-- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 - **分類**: 意図的後回し
 
 ### L14879: 8.3 .rpi内のimport
 - **機能ブロック**: `MOD`
-- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 - **分類**: 意図的後回し
 
 ### L14897: 8.5 Internal module
 - **機能ブロック**: `MOD`
-- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 - **分類**: 意図的後回し
 
 ### L14903: 8.6 Script／実行entry
 - **機能ブロック**: `MOD`
-- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 - **分類**: 意図的後回し
 
 ### L14907: 9. 推論シグネチャと抽象化境界
 - **機能ブロック**: `MOD`
-- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 - **分類**: 意図的後回し
 
 ### L14918: 9.3 Interface追加
 - **機能ブロック**: `MOD`
-- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 - **分類**: 意図的後回し
 
 ### L14924: 10. .rpiの値仕様
 - **機能ブロック**: `MOD`
-- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 - **分類**: 意図的後回し
 
 ### L14925: 10.1 type
 - **機能ブロック**: `MOD`
-- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 - **分類**: 意図的後回し
 
 ### L14938: 10.2 実装
 - **機能ブロック**: `MOD`
-- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 - **分類**: 意図的後回し
 
 ### L14946: 10.3 型注釈の省略
 - **機能ブロック**: `MOD`
-- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 - **分類**: 意図的後回し
 
 ### L14952: 10.4 実装側にも型がある場合
 - **機能ブロック**: `MOD`
-- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 - **分類**: 意図的後回し
 
 ### L14958: 11. 型の公開方法
 - **機能ブロック**: `MOD`
-- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 - **分類**: 意図的後回し
 
 ### L14959: 11.1 抽象型仕様
 - **機能ブロック**: `MOD`
-- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 - **分類**: 意図的後回し
 
 ### L14977: 11.2 Parameter付き抽象型
 - **機能ブロック**: `MOD`
-- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 - **分類**: 意図的後回し
 
 ### L14986: 11.3 Constructor公開data仕様
 - **機能ブロック**: `MOD`
-- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 - **分類**: 意図的後回し
 
 ### L14998: 11.4 実装との一致
 - **機能ブロック**: `MOD`
-- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 - **分類**: 意図的後回し
 
 ### L15011: 11.5 type-alias
 - **機能ブロック**: `MOD`
-- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 - **分類**: 意図的後回し
 
 ### L15025: 12. 名前付きシグネチャ
 - **機能ブロック**: `MOD`
-- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 - **分類**: 意図的後回し
 
 ### L15026: 12.1 基本構文
 - **機能ブロック**: `MOD`
-- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 - **分類**: 意図的後回し
 
 ### L15033: 12.2 日本語上の意味
 - **機能ブロック**: `MOD`
-- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 - **分類**: 意図的後回し
 
 ### L15042: 12.3 .rpiとの違い
 - **機能ブロック**: `MOD`
-- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 - **分類**: 意図的後回し
 
 ### L15049: 12.4 Signature identity
 - **機能ブロック**: `MOD`
-- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 - **分類**: 意図的後回し
 
 ### L15055: 13. シグネチャ指定
 - **機能ブロック**: `MOD`
-- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 - **分類**: 意図的後回し
 
 ### L15056: 13.1 基本構文
 - **機能ブロック**: `MOD`
-- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 - **分類**: 意図的後回し
 
 ### L15069: 13.2 適合判定
 - **機能ブロック**: `MOD`
-- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 - **分類**: 意図的後回し
 
 ### L15075: 13.3 追加構成要素
 - **機能ブロック**: `MOD`
-- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 - **分類**: 意図的後回し
 
 ### L15081: 13.4 抽象型identity
 - **機能ブロック**: `MOD`
-- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 - **分類**: 意図的後回し
 
 ### L15089: 13.5 実装内部のalias
 - **機能ブロック**: `MOD`
-- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 - **分類**: 意図的後回し
 
 ### L15103: 14. 下位モジュール仕様
 - **機能ブロック**: `MOD`
-- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 - **分類**: 意図的後回し
 
 ### L15104: 14.1 名前付きシグネチャ
 - **機能ブロック**: `MOD`
-- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 - **分類**: 意図的後回し
 
 ### L15119: 14.2 インラインシグネチャ
 - **機能ブロック**: `MOD`
-- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 - **分類**: 意図的後回し
 
 ### L15128: 14.3 下位モジュール型の参照
 - **機能ブロック**: `MOD`
-- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 - **分類**: 意図的後回し
 
 ### L15134: 14.4 抽象型の独立性
 - **機能ブロック**: `MOD`
-- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 - **分類**: 意図的後回し
 
 ### L15142: 14.5 非公開型の漏出
 - **機能ブロック**: `MOD`
-- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 - **分類**: 意図的後回し
 
 ### L15151: 15. シグネチャの精緻化と型共有
 - **機能ブロック**: `MOD`
-- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 - **分類**: 意図的後回し
 
 ### L15152: 15.1 基本構文
 - **機能ブロック**: `MOD`
-- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 - **分類**: 意図的後回し
 
 ### L15156: 15.2 抽象型の具体化
 - **機能ブロック**: `MOD`
-- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 - **分類**: 意図的後回し
 
 ### L15163: 15.3 別モジュールとの型共有
 - **機能ブロック**: `MOD`
-- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 - **分類**: 意図的後回し
 
 ### L15174: 15.4 日本語用語
 - **機能ブロック**: `MOD`
-- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 - **分類**: 意図的後回し
 
 ### L15185: 15.5 許可される精緻化
 - **機能ブロック**: `MOD`
-- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 - **分類**: 意図的後回し
 
 ### L15189: 15.6 禁止される変更
 - **機能ブロック**: `MOD`
-- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 - **分類**: 意図的後回し
 
 ### L15198: 15.7 Parameter付き型constructor
 - **機能ブロック**: `MOD`
-- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 - **分類**: 意図的後回し
 
 ### L15205: 15.8 下位モジュール内の型
 - **機能ブロック**: `MOD`
-- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; language-kernel-plan)
+- **notes**: MOD signatures/.rpi/refinement deferred (pre-PKG; implemented-features)
 - **分類**: 意図的後回し
 
 ### L15212: 16. Functor
 - **機能ブロック**: `MOD`
-- **notes**: full ML functors deferred (MOD-001 / language-kernel-plan)
+- **notes**: full ML functors deferred (MOD-001 / implemented-features)
 - **分類**: 意図的後回し
 
 ### L15213: 16.1 概念
 - **機能ブロック**: `MOD`
-- **notes**: full ML functors deferred (MOD-001 / language-kernel-plan)
+- **notes**: full ML functors deferred (MOD-001 / implemented-features)
 - **分類**: 意図的後回し
 
 ### L15223: 16.2 基本構文
 - **機能ブロック**: `MOD`
-- **notes**: full ML functors deferred (MOD-001 / language-kernel-plan)
+- **notes**: full ML functors deferred (MOD-001 / implemented-features)
 - **分類**: 意図的後回し
 
 ### L15233: 16.3 Parameter
 - **機能ブロック**: `MOD`
-- **notes**: full ML functors deferred (MOD-001 / language-kernel-plan)
+- **notes**: full ML functors deferred (MOD-001 / implemented-features)
 - **分類**: 意図的後回し
 
 ### L15243: 16.4 結果シグネチャ
 - **機能ブロック**: `MOD`
-- **notes**: full ML functors deferred (MOD-001 / language-kernel-plan)
+- **notes**: full ML functors deferred (MOD-001 / implemented-features)
 - **分類**: 意図的後回し
 
 ### L15249: 16.5 Fixed arity
 - **機能ブロック**: `MOD`
-- **notes**: full ML functors deferred (MOD-001 / language-kernel-plan)
+- **notes**: full ML functors deferred (MOD-001 / implemented-features)
 - **分類**: 意図的後回し
 
 ### L15255: 16.6 通常値ではない
 - **機能ブロック**: `MOD`
-- **notes**: full ML functors deferred (MOD-001 / language-kernel-plan)
+- **notes**: full ML functors deferred (MOD-001 / implemented-features)
 - **分類**: 意図的後回し
 
 ### L15261: 17. Functor適用
 - **機能ブロック**: `MOD`
-- **notes**: full ML functors deferred (MOD-001 / language-kernel-plan)
+- **notes**: full ML functors deferred (MOD-001 / implemented-features)
 - **分類**: 意図的後回し
 
 ### L15262: 17.1 基本構文
 - **機能ブロック**: `MOD`
-- **notes**: full ML functors deferred (MOD-001 / language-kernel-plan)
+- **notes**: full ML functors deferred (MOD-001 / implemented-features)
 - **分類**: 意図的後回し
 
 ### L15269: 17.2 複数引数
 - **機能ブロック**: `MOD`
-- **notes**: full ML functors deferred (MOD-001 / language-kernel-plan)
+- **notes**: full ML functors deferred (MOD-001 / implemented-features)
 - **分類**: 意図的後回し
 
 ### L15276: 17.3 名前付きモジュールのみ
 - **機能ブロック**: `MOD`
-- **notes**: full ML functors deferred (MOD-001 / language-kernel-plan)
+- **notes**: full ML functors deferred (MOD-001 / implemented-features)
 - **分類**: 意図的後回し
 
 ### L15282: 17.4 適用結果の再利用
 - **機能ブロック**: `MOD`
-- **notes**: full ML functors deferred (MOD-001 / language-kernel-plan)
+- **notes**: full ML functors deferred (MOD-001 / implemented-features)
 - **分類**: 意図的後回し
 
 ### L15294: 18. 適用的Functor
 - **機能ブロック**: `MOD`
-- **notes**: full ML functors deferred (MOD-001 / language-kernel-plan)
+- **notes**: full ML functors deferred (MOD-001 / implemented-features)
 - **分類**: 意図的後回し
 
 ### L15295: 18.1 基本規則
 - **機能ブロック**: `MOD`
-- **notes**: full ML functors deferred (MOD-001 / language-kernel-plan)
+- **notes**: full ML functors deferred (MOD-001 / implemented-features)
 - **分類**: 意図的後回し
 
 ### L15305: 18.2 同一入力
 - **機能ブロック**: `MOD`
-- **notes**: full ML functors deferred (MOD-001 / language-kernel-plan)
+- **notes**: full ML functors deferred (MOD-001 / implemented-features)
 - **分類**: 意図的後回し
 
 ### L15319: 18.3 異なる入力
 - **機能ブロック**: `MOD`
-- **notes**: full ML functors deferred (MOD-001 / language-kernel-plan)
+- **notes**: full ML functors deferred (MOD-001 / implemented-features)
 - **分類**: 意図的後回し
 
 ### L15333: 18.4 Aliasの影響
 - **機能ブロック**: `MOD`
-- **notes**: full ML functors deferred (MOD-001 / language-kernel-plan)
+- **notes**: full ML functors deferred (MOD-001 / implemented-features)
 - **分類**: 意図的後回し
 
 ### L15339: 18.5 生成的Functor
 - **機能ブロック**: `MOD`
-- **notes**: full ML functors deferred (MOD-001 / language-kernel-plan)
+- **notes**: full ML functors deferred (MOD-001 / implemented-features)
 - **分類**: 意図的後回し
 
 ### L15343: 19. 再公開とシグネチャ合成

@@ -43,7 +43,7 @@ Prefer **eliminate** over documenting when reachable. Items below are either sti
 
 ## N5 document-surface holdouts (not coverage gaps)
 
-1. **Interim keyword tables (`page`/`circle`/…)** — **S6b done:** production arms gated by `interim-surface` / `cfg(test)`; pipeline always refuses bare `(page …)`. Fixture: `crates/reciplexa-lower/tests/fixtures/interim_page.rpx`. Track in [`gui-cst-sync-v2-plan.md`](gui-cst-sync-v2-plan.md).
+1. **Interim keyword tables (`page`/`circle`/…)** — **S6b done:** production arms gated by `interim-surface` / `cfg(test)`; pipeline always refuses bare `(page …)`. Fixture: `crates/reciplexa-lower/tests/fixtures/interim_page.rpx`. Track in [`implemented-features.md`](implemented-features.md).
 2. **Package-shaped GUI edits** — S0–S6b done (package nudge/size/multipage + golden + example migration + keyword-arm quarantine); markup soft-refuse.
 
 ## Non-goals this pass

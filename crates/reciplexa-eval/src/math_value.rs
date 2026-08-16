@@ -109,7 +109,7 @@ pub fn math_atom_from_value(v: &RuntimeValue) -> Result<MathAtom, MathValueError
 /// `layout_style` selects [`EstimateStyle::Display`] vs [`EstimateStyle::Text`]
 /// for box estimates (script / limit shrink). `math-phantom` / `math-smash`
 /// metric records produce **no ink** (empty shape list). Not TeX `\mathsm@sh`
-/// or OpenType MATH — see `lang/live-layout-plan.md`.
+/// or OpenType MATH — see `lang/implemented-features.md`.
 pub fn layout_math_to_shapes(
     math_value: &RuntimeValue,
     origin: (f64, f64),

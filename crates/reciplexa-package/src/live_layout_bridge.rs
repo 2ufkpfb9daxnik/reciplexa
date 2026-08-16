@@ -2,7 +2,7 @@
 //!
 //! Package mains tagged `live-layout-demo` carry a `page` (`doc-page`) and a
 //! `math` tree; this module lays out both and merges shapes. Heuristic only —
-//! see `lang/live-layout-plan.md` (LL3).
+//! see `lang/implemented-features.md` (live layout / OPEN-TEXT-JA).
 
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};

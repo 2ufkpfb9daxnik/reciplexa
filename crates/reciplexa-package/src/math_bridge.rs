@@ -2,7 +2,7 @@
 //!
 //! Graphics pages embedding math-box records as children are unlikely; hosts
 //! should call this (or `estimate_math_box_from_value`) on math package trees.
-//! See `lang/host-layout-consume-plan.md` (HC4).
+//! See `lang/implemented-features.md` (math layout stubs / OpenType MATH OPEN).
 
 use std::path::Path;
 
