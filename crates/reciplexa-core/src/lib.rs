@@ -17,7 +17,8 @@ pub use cast::{
 };
 pub use check::{
     coerce_to_static, infer_expr, infer_with_effects, insert_implicit_casts,
-    typecheck_language_source, typecheck_value, CheckError, TypeEnv,
+    language_kernel_type_env, typecheck_core_expr, typecheck_language_source, typecheck_value,
+    CheckError, TypeEnv,
 };
 pub use elaborate::{elaborate_source, elaborate_with_data, DataEnv, ElaborateError};
 pub use expr::{first_unreachable_arm, CoreExpr, CoreLiteral, CorePattern, CoreValue, MatchArm};

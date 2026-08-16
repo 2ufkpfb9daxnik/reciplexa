@@ -1615,9 +1615,21 @@ pub fn typecheck_language_source(src: &str) -> Result<CoreType, CheckError> {
             message: e.message,
             range: e.range,
         })?;
+    typecheck_core_expr(&expr, data)
+}
+
+/// Infer a Core expression using the language-kernel builtin [`TypeEnv`].
+pub fn typecheck_core_expr(expr: &CoreExpr, data: DataEnv) -> Result<CoreType, CheckError> {
     let mut subst = Subst::new();
-    let mut env = TypeEnv::new();
+    let mut env = language_kernel_type_env();
     env.data = data;
+    let ty = infer_expr(expr, &env, &mut subst, TextRange::EMPTY)?;
+    Ok(subst.apply(&ty))
+}
+
+/// Builtin type environment shared by language-kernel and package Core typecheck.
+pub fn language_kernel_type_env() -> TypeEnv {
+    let mut env = TypeEnv::new();
     // KER-001 / DD-TYP-NUM-002: numeric builtins use promotion at application sites.
     let cmp2 = CoreType::Fun {
         args: vec![CoreType::Number, CoreType::Number],
@@ -1829,8 +1841,7 @@ pub fn typecheck_language_source(src: &str) -> Result<CoreType, CheckError> {
             effects: EffectRow::default(),
         },
     );
-    let ty = infer_expr(&expr, &env, &mut subst, TextRange::EMPTY)?;
-    Ok(subst.apply(&ty))
+    env
 }
 
 /// DD-TYP-DYN-005: coerce a value of `found` to static `needed`, inserting `Cast` when needed.
