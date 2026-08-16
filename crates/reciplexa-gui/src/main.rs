@@ -162,13 +162,9 @@ fn set_window_title(ctx: &egui::Context, path: &Path, dirty: bool) {
 }
 
 fn main() -> ExitCode {
-    match reciplexa::run_on_host_stack("reciplexa-gui", gui_main) {
-        Ok(code) => code,
-        Err(e) => {
-            eprintln!("error: {e}");
-            ExitCode::FAILURE
-        }
-    }
+    // winit refuses EventLoop off the process main thread on Windows.
+    // Package ingest stack is the PE `/STACK:8388608` from `build.rs`.
+    gui_main()
 }
 
 fn gui_main() -> ExitCode {

@@ -36,4 +36,4 @@ coverage、deferred、meta、gap/partialの各ファイルは測定・監査用�
 
 Vertical Slice完了時には、GUIで基本図形と文字を編集し、保存後に同じ表示へ戻ることを一度確認してください。
 
-コミット前には unit test だけでなく、変更したホストを `cargo run` で起動すること。GUI は `--smoke examples/text_line.rpx` でウィンドウなし確認ができる。
+コミット前には unit test だけでなく、変更したホストを `cargo run` で起動すること。`--smoke examples/text_line.rpx` は ingest のみで、winit の event loop は起動しない。ウィンドウ経路を触ったら `cargo run -p reciplexa-gui -- examples/text_line.rpx` も確認する。GUI の event loop はプロセスの main thread に置く。Windows の 8MiB スタックは PE `/STACK`（各ホストの `build.rs`）で上げる。

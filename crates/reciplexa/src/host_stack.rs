@@ -1,8 +1,9 @@
 //! Host thread stack for Hybrid Native v1 package typecheck/eval.
 //!
 //! Windows default stack is 1 MiB. Elaborated graphics/math synthetic bodies
-//! recurse past that in Core infer/eval. CLI, GUI, and deep package tests use
-//! [`HOST_STACK_SIZE`].
+//! recurse past that in Core infer/eval. CLI work and deep package tests use
+//! [`HOST_STACK_SIZE`]. The GUI event loop stays on the process main thread;
+//! `reciplexa-gui` / `reciplexa` `build.rs` raise the PE stack to 8 MiB.
 
 /// Stack size for host binaries that ingest package-shaped `.rpx`.
 pub const HOST_STACK_SIZE: usize = 8 * 1024 * 1024;

@@ -104,9 +104,10 @@ commit前に必ず確認:
 1. `git status --short`
 2. staged / unstaged diffの自己review
 3. 対象unit / integration test
-4. 変更したホストを実際に起動する。`cargo check` や unit test が通っても、Windows 既定スタックでの `cargo run` が落ちることがある。package 経路を触ったら少なくとも:
+4. 変更したホストを実際に起動する。`cargo check` や unit test が通っても、Windows 既定スタックでの `cargo run` が落ちることがある。`--smoke` は ingest のみで winit を起動しない。package 経路を触ったら少なくとも:
    `cargo run --offline -p reciplexa-gui -- --smoke examples/text_line.rpx`
    `cargo run --offline -p reciplexa -- examples/text_line.rpx .tmp/smoke.pdf`
+   GUI の event loop / ウィンドウ経路を触ったら、さらに `cargo run --offline -p reciplexa-gui -- examples/text_line.rpx` を起動し、winit が main thread 以外で panic しないことを確認する。event loop を worker に移さない。Windows の 8MiB スタックは PE `/STACK`（`build.rs`）で上げる。
 5. `cargo fmt --all --check`
 6. 変更範囲のClippy
 7. 公開契約を変えた場合のdocs / examples / conformance
@@ -130,6 +131,7 @@ cargo check --workspace --all-targets --offline
 cargo check --offline -p reciplexa-gui
 cargo run --offline -p reciplexa-gui -- --smoke examples/text_line.rpx
 cargo run --offline -p reciplexa -- examples/text_line.rpx .tmp/smoke.pdf
+# window path: cargo run --offline -p reciplexa-gui -- examples/text_line.rpx
 ```
 
 高コストな全gateの前に対象crateのtest / Clippyを実行する。全gateの実測結果は `lang/implemented-features.md` に同じHEADの結果として記録する。
