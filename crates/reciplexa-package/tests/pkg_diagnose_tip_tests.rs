@@ -80,7 +80,7 @@ fn tip_pkg006_lock_checksum_mismatch() {
         }],
     };
     assert!(
-        diagnose_lockfile_checksums(&ok, &dir).is_empty(),
+        diagnose_lockfile_checksums(&ok, &dir, None).is_empty(),
         "matching stub quiet"
     );
 
@@ -96,7 +96,7 @@ fn tip_pkg006_lock_checksum_mismatch() {
         }],
     };
     assert!(
-        diagnose_lockfile_checksums(&bad, &dir)
+        diagnose_lockfile_checksums(&bad, &dir, None)
             .iter()
             .any(|d| d.code == "PKG006"),
         "PKG006 tip"
@@ -149,7 +149,7 @@ fn tip_cs0_from_consumer_fills_rpxm_checksum() {
         locked.checksum.as_deref(),
         Some(content_checksum(&rpxm).as_str())
     );
-    assert!(diagnose_lockfile_checksums(&lf, &dir).is_empty());
+    assert!(diagnose_lockfile_checksums(&lf, &dir, None).is_empty());
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -209,7 +209,7 @@ fn tip_pkg006_skips_workspace_source_even_with_checksum() {
         }],
     };
     assert!(
-        diagnose_lockfile_checksums(&lock, &dir).is_empty(),
+        diagnose_lockfile_checksums(&lock, &dir, None).is_empty(),
         "PKG006 is path-dep only; workspace checksums are recorded, not compared"
     );
     let _ = std::fs::remove_dir_all(&dir);
@@ -238,7 +238,7 @@ fn tip_pkg006_missing_rpxm_mismatches_stored_stub() {
             ),
         }],
     };
-    let diags = diagnose_lockfile_checksums(&lock, &dir);
+    let diags = diagnose_lockfile_checksums(&lock, &dir, None);
     let hit = diags.iter().find(|d| d.code == "PKG006").expect("PKG006");
     assert!(hit.message.contains("lib"), "{}", hit.message);
     assert!(

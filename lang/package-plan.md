@@ -60,9 +60,11 @@ Interim RPX depth that already exists (`graphics` / `length` / `color` / `math` 
 
 **Done (Step 7 typed resource light):** materialize attaches `resource-id` (`{name}@{version}/{path}`), SHA-256 `content-hash`, and `effect: Resource`; replay mismatch → PKG008 (`diagnose_package_resource_replay`). Full resource effect typing / bracket separation remains OPEN (RSC-001).
 
+**Done (Step 7 registry mirror):** offline `registry/{name}/{version}/` mirror (or `RPIX_REGISTRY_ROOT`) resolves `source registry` / `registry:{name}@{version}` lock entries; network fetch remains OPEN.
+
 **Still OPEN / deferred:**
 - Full `package-resource` typed handle in Core types / resource effects bracket
-- Real registry network (`OPEN-PKG-001`); manifest + lock `registry:` sources refuse at load with PKG005
+- Network registry protocol / remote index fetch
 - Full-tree / registry artifact content hashes (CS0 uses `package.rpxm` SHA-256 only)
 
 ## Conventions (v1)

@@ -2,9 +2,10 @@
 //!
 //! # OPEN stubs
 //!
-//! [`OPEN_PKG_001_REGISTRY`] / [`WorkspaceError::RegistryUnavailable`]: the package
-//! registry protocol is not implemented. Resolvers must refuse registry-shaped
-//! dependencies without network I/O.
+//! [`OPEN_PKG_001_REGISTRY`] / [`WorkspaceError::RegistryUnavailable`]: network
+//! registry is not implemented. Resolvers may use [`LocalRegistryMirror`] under
+//! `registry/` or `RPIX_REGISTRY_ROOT` for offline `source registry` / `registry:`
+//! lock entries; otherwise refuse without network I/O.
 //!
 //! [`content_checksum`]: lockfile content hash is **SHA-256** of the hashed
 //! file (`sha256:` + 64 hex chars). Path-dep writers may fill
@@ -25,6 +26,7 @@ pub mod load;
 pub mod lockfile;
 pub mod manifest;
 pub mod math_bridge;
+pub mod registry;
 pub mod resolver;
 pub mod resource_value;
 pub mod rpi;
@@ -80,6 +82,9 @@ pub use manifest::{
 };
 pub use math_bridge::{
     estimate_package_math_main, estimate_package_math_main_with_style, MathBridgeError,
+};
+pub use registry::{
+    LocalRegistryMirror, RegistryResolveError, REGISTRY_LOCK_PREFIX, REGISTRY_ROOT_ENV,
 };
 pub use resolver::{resolve_packages, ResolveError, ResolvedGraph};
 pub use resource_value::{

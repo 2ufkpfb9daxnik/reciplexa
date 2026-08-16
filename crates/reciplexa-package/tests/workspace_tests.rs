@@ -344,39 +344,27 @@ fn resolve_registry_source_is_open_stub() {
     match &err {
         WorkspaceError::RegistryUnavailable(msg) => {
             assert!(msg.contains("OPEN-PKG-001"));
-            assert!(msg.contains("no network"));
+            assert!(msg.contains("mirror") || msg.contains("no network"));
         }
         other => panic!("expected RegistryUnavailable, got {other:?}"),
     }
 }
 
-/// Checked-in fixture: workspace-level `source registry` refuses with OPEN-PKG-001.
+/// Checked-in fixture: workspace-level `source registry` resolves from `registry/`.
 #[test]
-fn open_pkg_001_registry_fixture_refuses_with_code() {
+fn open_pkg_001_registry_fixture_resolves_from_mirror() {
     let root =
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/open_pkg_001_registry");
     let idx = discover_workspace(&root).expect("fixture workspace");
-    assert!(
-        idx.manifest
-            .dependencies
-            .iter()
-            .any(|d| d.source.as_deref() == Some("registry")),
-        "fixture should declare workspace-level registry dep"
-    );
-    let err = resolve_workspace_dependencies(&idx).expect_err("registry must refuse");
-    assert_eq!(
-        err.code(),
-        Some(reciplexa_package::OPEN_PKG_001_CODE),
-        "expected structured OPEN-PKG-001, got {err}"
-    );
-    let msg = err.to_string();
-    assert!(msg.contains("OPEN-PKG-001"));
-    assert!(msg.contains("no network"));
-    assert!(msg.contains("remote-kit") || msg.contains("registry"));
-    assert!(
-        msg.contains("workspace"),
-        "refusal should mention workspace-level resolve: {msg}"
-    );
+    let lock = resolve_workspace_dependencies(&idx).expect("registry mirror resolve");
+    let remote = lock
+        .packages
+        .iter()
+        .find(|p| p.name == "remote-kit")
+        .expect("locked remote-kit");
+    assert_eq!(remote.version, "1.0.0");
+    assert!(remote.source.starts_with("registry:"));
+    assert!(remote.checksum.as_deref().unwrap().starts_with("sha256:"));
 }
 
 #[test]

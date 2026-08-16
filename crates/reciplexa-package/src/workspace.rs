@@ -397,10 +397,15 @@ pub fn verify_package_lock_for_entry(entry_path: &Path) -> Result<(), WorkspaceE
     }
     check_package_lock_consistency(&package_root)?;
     let resolve_root = lock_diagnose_root(&package_root)?;
+    let mirror = crate::registry::LocalRegistryMirror::discover_near(&package_root);
     let (_lock_path, lock) = read_lock_for_package(&package_root)?;
-    if let Some(d) = diagnose_lockfile_registry_sources(&lock)
+    if let Some(d) = diagnose_lockfile_registry_sources(&lock, mirror.as_ref())
         .into_iter()
-        .chain(diagnose_lockfile_checksums(&lock, &resolve_root))
+        .chain(diagnose_lockfile_checksums(
+            &lock,
+            &resolve_root,
+            mirror.as_ref(),
+        ))
         .next()
     {
         return Err(WorkspaceError::Lock(format!("{}: {}", d.code, d.message)));
@@ -439,12 +444,29 @@ fn formal_dep_name(dep: &crate::manifest::DependencySpec) -> &str {
 /// Resolve path-free member dependencies preferring workspace members (PKG §21.3–21.6).
 ///
 /// - Matching member name+version → `source: workspace`
-/// - Explicit `source registry` or no matching member → [`WorkspaceError::RegistryUnavailable`]
+/// - Explicit `source registry` or missing member → local `registry/` mirror when present
 /// - Member dependency graph must be a DAG
 pub fn resolve_workspace_dependencies(ws: &WorkspaceIndex) -> Result<Lockfile, WorkspaceError> {
     use std::collections::{HashMap, HashSet};
 
-    // Workspace-level path-free deps: refuse registry / missing members (no network).
+    let mirror = crate::registry::LocalRegistryMirror::discover_near(&ws.root);
+    let mut registry_locked: Vec<LockedPackage> = Vec::new();
+
+    let mut remember_registry = |formal: &str, version_req: &str| -> Result<(), WorkspaceError> {
+        let Some(mirror) = mirror.as_ref() else {
+            return Err(WorkspaceError::registry_unavailable(format!(
+                "cannot resolve `{formal}` via registry (no local mirror)"
+            )));
+        };
+        let locked = mirror
+            .locked_package(formal, version_req)
+            .map_err(|e| WorkspaceError::registry_unavailable(e.to_string()))?;
+        if registry_locked.iter().all(|p| p.name != locked.name) {
+            registry_locked.push(locked);
+        }
+        Ok(())
+    };
+
     for dep in &ws.manifest.dependencies {
         if dep.path.is_some() {
             continue;
@@ -452,15 +474,12 @@ pub fn resolve_workspace_dependencies(ws: &WorkspaceIndex) -> Result<Lockfile, W
         let formal = formal_dep_name(dep);
         let source = dep.source.as_deref().unwrap_or("");
         if source == "registry" {
-            return Err(WorkspaceError::registry_unavailable(format!(
-                "workspace cannot resolve `{formal}` via registry"
-            )));
+            remember_registry(formal, &dep.version_req)?;
+            continue;
         }
         if source == "workspace" || source.is_empty() {
             if !ws.members.contains_key(formal) {
-                return Err(WorkspaceError::registry_unavailable(format!(
-                    "no workspace member matches workspace dependency `{formal}`"
-                )));
+                remember_registry(formal, &dep.version_req)?;
             }
             continue;
         }
@@ -469,7 +488,6 @@ pub fn resolve_workspace_dependencies(ws: &WorkspaceIndex) -> Result<Lockfile, W
         )));
     }
 
-    // formal name → list of formal dependency names resolved via workspace
     let mut edges: HashMap<String, Vec<String>> = HashMap::new();
 
     for (name, (_root, manifest)) in &ws.members {
@@ -482,22 +500,22 @@ pub fn resolve_workspace_dependencies(ws: &WorkspaceIndex) -> Result<Lockfile, W
             let formal = formal_dep_name(dep).to_string();
             let source = dep.source.as_deref().unwrap_or("");
             if source == "registry" {
-                return Err(WorkspaceError::registry_unavailable(format!(
-                    "cannot resolve `{formal}` via registry"
-                )));
+                remember_registry(&formal, &dep.version_req)?;
+                deps.push(formal);
+                continue;
             }
             if source == "workspace" || source.is_empty() {
-                let Some((_, member)) = ws.members.get(&formal) else {
-                    return Err(WorkspaceError::registry_unavailable(format!(
-                        "no workspace member matches `{formal}`"
-                    )));
-                };
-                if !version_satisfies(&dep.version_req, &member.version) {
-                    return Err(WorkspaceError::VersionMismatch(format!(
-                        "workspace member `{formal}` is version `{}` but `{}` requires `{}`",
-                        member.version, name, dep.version_req
-                    )));
+                if let Some((_, member)) = ws.members.get(&formal) {
+                    if !version_satisfies(&dep.version_req, &member.version) {
+                        return Err(WorkspaceError::VersionMismatch(format!(
+                            "workspace member `{formal}` is version `{}` but `{}` requires `{}`",
+                            member.version, name, dep.version_req
+                        )));
+                    }
+                    deps.push(formal);
+                    continue;
                 }
+                remember_registry(&formal, &dep.version_req)?;
                 deps.push(formal);
                 continue;
             }
@@ -556,6 +574,7 @@ pub fn resolve_workspace_dependencies(ws: &WorkspaceIndex) -> Result<Lockfile, W
             checksum: Some(content_checksum(root.join("package.rpxm"))),
         })
         .collect();
+    packages.append(&mut registry_locked);
     packages.sort_by(|a, b| a.name.cmp(&b.name));
     Ok(Lockfile { packages })
 }

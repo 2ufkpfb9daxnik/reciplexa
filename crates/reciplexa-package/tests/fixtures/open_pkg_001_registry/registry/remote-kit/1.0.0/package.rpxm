@@ -1,0 +1,4 @@
+(package remote-kit
+  format-version 1
+  version "1.0.0"
+  (public-modules kit))

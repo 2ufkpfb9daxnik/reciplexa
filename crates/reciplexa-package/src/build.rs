@@ -157,27 +157,39 @@ pub fn diagnose_manifest_with_root(
 /// PKG006: when a locked path dep carries a `checksum`, compare it to
 /// [`crate::content_checksum`] of `{resolve_root}/{path}/package.rpxm`.
 ///
+/// Registry mirror entries (`registry:{name}@{version}`) compare against
+/// `{mirror}/{name}/{version}/package.rpxm` when `mirror` is provided.
+///
 /// Missing checksums are skipped (pre-CS0 locks). Mismatch → error-severity
 /// diagnostic (hosts may treat any non-empty diagnose list as failure).
 pub fn diagnose_lockfile_checksums(
     lock: &crate::lockfile::Lockfile,
     resolve_root: &Path,
+    mirror: Option<&crate::registry::LocalRegistryMirror>,
 ) -> Vec<PackageDiagnostic> {
     let mut diags = Vec::new();
     for pkg in &lock.packages {
         let Some(expected) = &pkg.checksum else {
             continue;
         };
-        let Some(rel) = pkg.source.strip_prefix("path:") else {
+        let rpxm = if let Some(rel) = pkg.source.strip_prefix("path:") {
+            resolve_root.join(rel).join("package.rpxm")
+        } else if let Some((name, version)) =
+            crate::registry::LocalRegistryMirror::parse_lock_source(&pkg.source)
+        {
+            let Some(mirror) = mirror else {
+                continue;
+            };
+            mirror.package_dir(&name, &version).join("package.rpxm")
+        } else {
             continue;
         };
-        let rpxm = resolve_root.join(rel).join("package.rpxm");
         let actual = crate::content_checksum(&rpxm);
         if &actual != expected {
             diags.push(PackageDiagnostic {
                 code: "PKG006".into(),
                 message: format!(
-                    "path dependency `{}` checksum mismatch: lock has `{expected}`, package.rpxm has `{actual}`",
+                    "locked package `{}` checksum mismatch: lock has `{expected}`, package.rpxm has `{actual}`",
                     pkg.name
                 ),
                 package: Some(pkg.name.clone()),
@@ -230,13 +242,53 @@ pub fn diagnose_package_resource_replay(
     }
 }
 
-/// PKG005 (lock surface): refuse `registry:` / `registry` locked sources (OPEN-PKG-001).
+/// PKG005 (lock surface): refuse unresolved `registry:` / `registry` locked sources.
+///
+/// When a [`crate::registry::LocalRegistryMirror`] is available, resolvable
+/// `registry:{name}@{version}` entries are allowed (offline mirror).
 pub fn diagnose_lockfile_registry_sources(
     lock: &crate::lockfile::Lockfile,
+    mirror: Option<&crate::registry::LocalRegistryMirror>,
 ) -> Vec<PackageDiagnostic> {
     let mut diags = Vec::new();
     for pkg in &lock.packages {
-        if pkg.source.starts_with("registry:") || pkg.source == "registry" {
+        if let Some((name, version)) =
+            crate::registry::LocalRegistryMirror::parse_lock_source(&pkg.source)
+        {
+            if mirror
+                .and_then(|m| m.resolve(&name, &version).ok())
+                .is_some()
+            {
+                continue;
+            }
+            diags.push(PackageDiagnostic {
+                code: "PKG005".into(),
+                message: format!(
+                    "locked package `{}` uses source registry ({}) and no local mirror entry matches `{name}@{version}`",
+                    pkg.name,
+                    crate::manifest::OPEN_PKG_001_CODE
+                ),
+                package: Some(pkg.name.clone()),
+            });
+            continue;
+        }
+        if pkg
+            .source
+            .starts_with(crate::registry::REGISTRY_LOCK_PREFIX)
+        {
+            diags.push(PackageDiagnostic {
+                code: "PKG005".into(),
+                message: format!(
+                    "locked package `{}` uses malformed registry source `{}` ({})",
+                    pkg.name,
+                    pkg.source,
+                    crate::manifest::OPEN_PKG_001_CODE
+                ),
+                package: Some(pkg.name.clone()),
+            });
+            continue;
+        }
+        if pkg.source == "registry" {
             diags.push(PackageDiagnostic {
                 code: "PKG005".into(),
                 message: format!(

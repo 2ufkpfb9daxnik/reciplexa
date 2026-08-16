@@ -92,7 +92,14 @@ fn document_from_package_entry_eval_error() {
     )
     .unwrap();
     let err = document_from_package_entry(&entry, &idx).unwrap_err();
-    assert!(matches!(err, GraphicsBridgeError::Eval(_)), "{err:?}");
+    assert!(
+        matches!(
+            err,
+            GraphicsBridgeError::Eval(_) | GraphicsBridgeError::Load(_)
+        ),
+        "{err:?}"
+    );
+    assert!(err.to_string().contains("expected numeric value"));
 }
 
 #[test]

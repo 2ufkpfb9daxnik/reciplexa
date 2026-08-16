@@ -44,8 +44,10 @@ Hosts that want a demo: write a path-dep `rpx.lock` via `lock_consumer`,
 then call `diagnose_lockfile_checksums`. Package load
 ([`elaborate_with_packages`]) calls [`verify_package_lock_for_entry`]:
 path dependencies require an `rpx.lock` (**PKG007**); when a lock exists,
-manifest consistency + PKG005/PKG006 are checked. See
-`examples/pkg_consumer/rpx.lock` for a committed fixture.
+manifest consistency + PKG005/PKG006 are checked. Offline registry packages
+live under `registry/{name}/{version}/` or `RPIX_REGISTRY_ROOT`
+([`LocalRegistryMirror`]). See `examples/pkg_consumer/rpx.lock` for a path-dep
+fixture and `tests/fixtures/open_pkg_001_registry/` for a registry mirror.
 [`eval_package_entry_main`] auto-materializes `(resource …)` on eval, attaching
 `resource-id`, `content-hash`, `effect: Resource`, and `resolved-path`.
 Replay mismatch → **PKG008** via [`diagnose_package_resource_replay`]. Tip

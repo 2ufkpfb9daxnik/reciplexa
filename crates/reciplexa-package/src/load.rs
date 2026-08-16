@@ -10,6 +10,7 @@ use reciplexa_eval::{eval_expr, primitive_env, RuntimeValue, UnitHost};
 
 use crate::domain_native::{DomainNativeModule, DomainNativeRegistry};
 use crate::manifest::{DependencySpec, PackageManifest};
+use crate::registry::LocalRegistryMirror;
 use crate::resource_value::maybe_materialize_package_resources_for_entry;
 use crate::rpi::parse_rpi_exports;
 use crate::rpxm::{parse_rpxm, RpxmError};
@@ -195,6 +196,39 @@ impl LocalPackageIndex {
         Ok(())
     }
 
+    /// Register path-free `source registry` (and default-registry) deps from a local mirror.
+    pub fn register_registry_dependencies(
+        &mut self,
+        manifest: &PackageManifest,
+        mirror: &LocalRegistryMirror,
+    ) -> Result<(), PackageLoadError> {
+        for dep in &manifest.dependencies {
+            if dep.path.is_some() || dep.source.as_deref() == Some("workspace") {
+                continue;
+            }
+            if dep.source.as_deref() != Some("registry") && dep.source.is_some() {
+                continue;
+            }
+            let formal = dep.package.as_deref().unwrap_or(dep.name.as_str());
+            if self.packages.contains_key(formal) {
+                self.aliases.insert(dep.name.clone(), formal.to_string());
+                continue;
+            }
+            let (root, parsed) = mirror
+                .resolve(formal, &dep.version_req)
+                .map_err(|e| PackageLoadError::NotFound(e.to_string()))?;
+            if parsed.name != formal {
+                return Err(PackageLoadError::NotFound(format!(
+                    "registry dependency `{}` expects package `{formal}` but mirror has `{}`",
+                    dep.name, parsed.name
+                )));
+            }
+            self.packages.insert(formal.to_string(), (root, parsed));
+            self.aliases.insert(dep.name.clone(), formal.to_string());
+        }
+        Ok(())
+    }
+
     /// Discover search roots, then overlay a consumer manifest's path deps / aliases.
     pub fn discover_with_consumer(
         search_roots: &[impl AsRef<Path>],
@@ -208,6 +242,9 @@ impl LocalPackageIndex {
         })?;
         let manifest = parse_rpxm(&src)?;
         index.register_path_dependencies(consumer_root, &manifest)?;
+        if let Some(mirror) = LocalRegistryMirror::discover_near(consumer_root) {
+            index.register_registry_dependencies(&manifest, &mirror)?;
+        }
         Ok((index, manifest))
     }
 
@@ -336,17 +373,32 @@ impl LocalPackageIndex {
     ) -> Result<crate::lockfile::Lockfile, PackageLoadError> {
         let mut dep_triples: Vec<(DependencySpec, PackageManifest, PathBuf)> = Vec::new();
         for spec in &consumer.dependencies {
-            if spec.path.is_none() {
+            if spec.path.is_some() {
+                let formal = self.resolve_alias(&spec.name);
+                let (root, manifest) = self.packages.get(formal).ok_or_else(|| {
+                    PackageLoadError::NotFound(format!(
+                        "cannot lock missing path dependency `{}`",
+                        spec.name
+                    ))
+                })?;
+                dep_triples.push((spec.clone(), manifest.clone(), root.clone()));
                 continue;
             }
-            let formal = self.resolve_alias(&spec.name);
-            let (root, manifest) = self.packages.get(formal).ok_or_else(|| {
-                PackageLoadError::NotFound(format!(
-                    "cannot lock missing path dependency `{}`",
-                    spec.name
-                ))
-            })?;
-            dep_triples.push((spec.clone(), manifest.clone(), root.clone()));
+            if spec.source.as_deref() == Some("registry") {
+                let formal = self.resolve_alias(&spec.name);
+                let (root, manifest) = self.packages.get(formal).ok_or_else(|| {
+                    PackageLoadError::NotFound(format!(
+                        "cannot lock missing registry dependency `{}`",
+                        spec.name
+                    ))
+                })?;
+                let mirror = LocalRegistryMirror::discover_near(root);
+                if mirror.as_ref().is_some_and(|m| root.starts_with(m.root())) {
+                    let mut reg_spec = spec.clone();
+                    reg_spec.source = Some("registry".into());
+                    dep_triples.push((reg_spec, manifest.clone(), root.clone()));
+                }
+            }
         }
         let refs: Vec<(&DependencySpec, &PackageManifest, Option<&Path>)> = dep_triples
             .iter()

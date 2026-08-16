@@ -271,12 +271,7 @@ impl std::fmt::Display for ResourceCheckError {
 /// Machine-facing code for OPEN-PKG-001 registry refusal (no network).
 pub const OPEN_PKG_001_CODE: &str = "OPEN-PKG-001";
 
-/// OPEN-PKG-001: package registry protocol is not implemented.
-///
-/// Path-free dependencies that do not match a workspace member, or that set
-/// `source registry`, fail with [`crate::WorkspaceError::RegistryUnavailable`]
-/// and must not perform network I/O. Lockfile may carry an optional
-/// [`crate::LockedPackage::checksum`] SHA-256 of `package.rpxm`
-/// (`sha256:` + 64 hex). Registry artifact / full-tree hashes remain OPEN.
+/// OPEN-PKG-001: network registry is not implemented. Use a local mirror at
+/// `registry/{name}/{version}/` (or `RPIX_REGISTRY_ROOT`) for offline resolution.
 pub const OPEN_PKG_001_REGISTRY: &str =
-    "OPEN-PKG-001: package registry resolution is not implemented (no network)";
+    "OPEN-PKG-001: network registry is not implemented; use local registry mirror";

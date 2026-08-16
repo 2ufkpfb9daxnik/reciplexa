@@ -201,11 +201,14 @@ impl Lockfile {
             checksum: None,
         }];
         for (spec, manifest, root) in deps {
-            let source = match &spec.path {
-                Some(p) => format!("path:{p}"),
-                None => "workspace".into(),
+            let source = if let Some(p) = &spec.path {
+                format!("path:{p}")
+            } else if spec.source.as_deref() == Some("registry") {
+                crate::registry::LocalRegistryMirror::lock_source(&manifest.name, &manifest.version)
+            } else {
+                "workspace".into()
             };
-            let checksum = if spec.path.is_some() {
+            let checksum = if spec.path.is_some() || spec.source.as_deref() == Some("registry") {
                 root.map(|r| content_checksum(r.join("package.rpxm")))
             } else {
                 None

@@ -287,7 +287,7 @@ fn diagnose_pkg006_path_checksum_mismatch() {
         }],
     };
     assert!(
-        diagnose_lockfile_checksums(&matching, &dir).is_empty(),
+        diagnose_lockfile_checksums(&matching, &dir, None).is_empty(),
         "matching checksum should be quiet"
     );
 
@@ -302,7 +302,7 @@ fn diagnose_pkg006_path_checksum_mismatch() {
             ),
         }],
     };
-    let diags = diagnose_lockfile_checksums(&mismatch, &dir);
+    let diags = diagnose_lockfile_checksums(&mismatch, &dir, None);
     let hit = diags.iter().find(|d| d.code == "PKG006").expect("PKG006");
     assert!(hit.message.contains("util"));
     assert!(hit.message.contains(&actual));
@@ -317,7 +317,7 @@ fn diagnose_pkg006_path_checksum_mismatch() {
             checksum: None,
         }],
     };
-    assert!(!diagnose_lockfile_checksums(&bare, &dir)
+    assert!(!diagnose_lockfile_checksums(&bare, &dir, None)
         .iter()
         .any(|d| d.code == "PKG006"));
 
@@ -334,12 +334,12 @@ fn diagnose_lockfile_registry_source_pkg005() {
         packages: vec![LockedPackage {
             name: "remote".into(),
             version: "1".into(),
-            source: "registry:remote-kit".into(),
+            source: "registry:remote-kit@1.0.0".into(),
             dependencies: vec![],
             checksum: None,
         }],
     };
-    let diags = diagnose_lockfile_registry_sources(&lock);
+    let diags = diagnose_lockfile_registry_sources(&lock, None);
     let hit = diags.iter().find(|d| d.code == "PKG005").expect("PKG005");
     assert!(hit.message.contains("remote"));
     assert!(hit.message.contains(OPEN_PKG_001_CODE));
@@ -353,5 +353,43 @@ fn diagnose_lockfile_registry_source_pkg005() {
             checksum: None,
         }],
     };
-    assert!(diagnose_lockfile_registry_sources(&ok).is_empty());
+    assert!(diagnose_lockfile_registry_sources(&ok, None).is_empty());
+}
+
+#[test]
+fn diagnose_lockfile_registry_allows_local_mirror() {
+    use reciplexa_package::{
+        content_checksum, diagnose_lockfile_checksums, diagnose_lockfile_registry_sources,
+        LocalRegistryMirror, LockedPackage, Lockfile,
+    };
+
+    let dir = std::env::temp_dir().join(format!(
+        "reciplexa-reg-mirror-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0)
+    ));
+    let pkg = dir.join("registry/remote-kit/1.0.0");
+    std::fs::create_dir_all(&pkg).unwrap();
+    let rpxm = pkg.join("package.rpxm");
+    std::fs::write(
+        &rpxm,
+        "(package remote-kit format-version 1 version \"1.0.0\")\n",
+    )
+    .unwrap();
+    let mirror = LocalRegistryMirror::new(dir.join("registry"));
+    let lock = Lockfile {
+        packages: vec![LockedPackage {
+            name: "remote-kit".into(),
+            version: "1.0.0".into(),
+            source: LocalRegistryMirror::lock_source("remote-kit", "1.0.0"),
+            dependencies: vec![],
+            checksum: Some(content_checksum(&rpxm)),
+        }],
+    };
+    assert!(diagnose_lockfile_registry_sources(&lock, Some(&mirror)).is_empty());
+    assert!(diagnose_lockfile_checksums(&lock, &dir, Some(&mirror)).is_empty());
+    let _ = std::fs::remove_dir_all(&dir);
 }
