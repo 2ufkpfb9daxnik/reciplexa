@@ -209,6 +209,27 @@ pub fn diagnose_required_lockfile_missing(
     }]
 }
 
+/// PKG008: `package-resource` replay content-hash mismatch (TEST-RSC-003 light).
+pub fn diagnose_package_resource_replay(
+    v: &reciplexa_eval::RuntimeValue,
+) -> Vec<PackageDiagnostic> {
+    match crate::resource_value::verify_package_resource_replay(v) {
+        Ok(()) => Vec::new(),
+        Err(crate::resource_value::ResourceValueError::ContentHashMismatch {
+            resource,
+            expected,
+            actual,
+        }) => vec![PackageDiagnostic {
+            code: "PKG008".into(),
+            message: format!(
+                "package resource `{resource}` content-hash mismatch: record has `{expected}`, file has `{actual}`"
+            ),
+            package: None,
+        }],
+        Err(_) => Vec::new(),
+    }
+}
+
 /// PKG005 (lock surface): refuse `registry:` / `registry` locked sources (OPEN-PKG-001).
 pub fn diagnose_lockfile_registry_sources(
     lock: &crate::lockfile::Lockfile,

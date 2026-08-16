@@ -46,5 +46,7 @@ then call `diagnose_lockfile_checksums`. Package load
 path dependencies require an `rpx.lock` (**PKG007**); when a lock exists,
 manifest consistency + PKG005/PKG006 are checked. See
 `examples/pkg_consumer/rpx.lock` for a committed fixture.
-[`eval_package_entry_main`] auto-materializes `(resource …)` on eval. Tip
+[`eval_package_entry_main`] auto-materializes `(resource …)` on eval, attaching
+`resource-id`, `content-hash`, `effect: Resource`, and `resolved-path`.
+Replay mismatch → **PKG008** via [`diagnose_package_resource_replay`]. Tip
 tests live in `tests/pkg_diagnose_tip_tests.rs`.

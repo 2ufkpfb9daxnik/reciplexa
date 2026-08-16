@@ -554,6 +554,16 @@ mod eval_entry_tests {
             k == "resolved-path"
                 && matches!(v, RuntimeValue::String(s) if s.replace('\\', "/").ends_with("images/logo.png"))
         }));
+        assert!(fields.iter().any(|(k, v)| {
+            k == "resource-id"
+                && matches!(v, RuntimeValue::String(s) if s == "demo@1.0.0/images/logo.png")
+        }));
+        assert!(fields.iter().any(|(k, v)| {
+            k == "content-hash" && matches!(v, RuntimeValue::String(s) if s.starts_with("sha256:"))
+        }));
+        assert!(fields.iter().any(|(k, v)| {
+            k == "effect" && matches!(v, RuntimeValue::String(s) if s == "Resource")
+        }));
     }
 }
 

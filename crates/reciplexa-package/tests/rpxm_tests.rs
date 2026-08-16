@@ -513,6 +513,16 @@ fn auto_materialize_package_resource_tree_and_entry_helper() {
     assert!(resolved
         .replace('\\', "/")
         .ends_with("resources/images/logo.png"));
+    assert!(okf.iter().any(|(k, v)| {
+        k == "resource-id"
+            && matches!(v, RuntimeValue::String(s) if s == "demo@1.0.0/images/logo.png")
+    }));
+    assert!(okf.iter().any(|(k, v)| {
+        k == "content-hash" && matches!(v, RuntimeValue::String(s) if s.starts_with("sha256:"))
+    }));
+    assert!(okf.iter().any(|(k, v)| {
+        k == "effect" && matches!(v, RuntimeValue::String(s) if s == "Resource")
+    }));
 
     let bad = fields.iter().find(|(k, _)| k == "bad").unwrap().1.clone();
     let RuntimeValue::Record(badf) = bad else {

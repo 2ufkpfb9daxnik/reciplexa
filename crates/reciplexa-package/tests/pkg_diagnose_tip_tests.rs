@@ -248,3 +248,51 @@ fn tip_pkg006_missing_rpxm_mismatches_stored_stub() {
     );
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn tip_pkg008_resource_content_hash_replay() {
+    use reciplexa_eval::RuntimeValue;
+    use reciplexa_package::{
+        diagnose_package_resource_replay, resource_file_content_hash, PACKAGE_RESOURCE_TAG,
+    };
+
+    let dir = std::env::temp_dir().join(format!(
+        "reciplexa-pkg008-tip-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0)
+    ));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("logo.png");
+    std::fs::write(&path, b"png").unwrap();
+    let actual = resource_file_content_hash(&path);
+    let v = RuntimeValue::Record(vec![
+        (
+            "tag".into(),
+            RuntimeValue::String(PACKAGE_RESOURCE_TAG.into()),
+        ),
+        ("path".into(), RuntimeValue::String("logo.png".into())),
+        (
+            "resolved-path".into(),
+            RuntimeValue::String(path.to_string_lossy().into_owned()),
+        ),
+        (
+            "content-hash".into(),
+            RuntimeValue::String(
+                "sha256:deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef".into(),
+            ),
+        ),
+    ]);
+    let hit = diagnose_package_resource_replay(&v)
+        .into_iter()
+        .find(|d| d.code == "PKG008")
+        .expect("PKG008 tip");
+    assert!(hit.message.contains("logo.png"));
+    assert_ne!(
+        actual,
+        "sha256:deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}

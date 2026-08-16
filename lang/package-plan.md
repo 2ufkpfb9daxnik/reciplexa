@@ -56,12 +56,14 @@ Interim RPX depth that already exists (`graphics` / `length` / `color` / `math` 
 
 **R3 (host materialize):** `materialize_package_resource` / `resolve_resource_value(v, package_root, manifest)` — when a evaluated `package-resource` record is in hand and the package root is known, resolve to an absolute `PathBuf` via R0. **done** (helper + tests). [`eval_package_entry_main`] auto-materializes on every package load/eval path (graphics/math/doc/live bridges).
 
+**Done (Step 7 lock reproducibility):** path dependencies require `rpx.lock` at load (PKG007); `examples/pkg_consumer/rpx.lock` is the committed fixture.
+
+**Done (Step 7 typed resource light):** materialize attaches `resource-id` (`{name}@{version}/{path}`), SHA-256 `content-hash`, and `effect: Resource`; replay mismatch → PKG008 (`diagnose_package_resource_replay`). Full resource effect typing / bracket separation remains OPEN (RSC-001).
+
 **Still OPEN / deferred:**
-- Full `package-resource` typed handle / resource effects / content hashes
+- Full `package-resource` typed handle in Core types / resource effects bracket
 - Real registry network (`OPEN-PKG-001`); manifest + lock `registry:` sources refuse at load with PKG005
 - Full-tree / registry artifact content hashes (CS0 uses `package.rpxm` SHA-256 only)
-
-**Done (Step 7 lock reproducibility):** path dependencies require `rpx.lock` at load (PKG007); `examples/pkg_consumer/rpx.lock` is the committed fixture.
 
 ## Conventions (v1)
 

@@ -35,8 +35,9 @@ pub mod workspace;
 
 pub use build::{
     diagnose_lockfile_checksums, diagnose_lockfile_registry_sources, diagnose_manifest,
-    diagnose_manifest_with_root, diagnose_required_lockfile_missing, BuildGraph, BuildNode,
-    BuildNodeId, IncrementalCache, InvalidationKind, PackageDiagnostic,
+    diagnose_manifest_with_root, diagnose_package_resource_replay,
+    diagnose_required_lockfile_missing, BuildGraph, BuildNode, BuildNodeId, IncrementalCache,
+    InvalidationKind, PackageDiagnostic,
 };
 pub use doc_preview::{
     count_ruby_tate_in_value, debug_layout_summary, preview_doc_text_metrics,
@@ -82,9 +83,11 @@ pub use math_bridge::{
 };
 pub use resolver::{resolve_packages, ResolveError, ResolvedGraph};
 pub use resource_value::{
-    find_enclosing_package_root, materialize_package_resource,
+    find_enclosing_package_root, is_package_resource_value, materialize_package_resource,
     materialize_package_resources_in_tree, maybe_materialize_package_resources_for_entry,
-    resolve_resource_value, ResourceValueError,
+    package_resource_id, resolve_resource_value, resource_file_content_hash,
+    verify_package_resource_replay, ResourceValueError, PACKAGE_RESOURCE_EFFECT,
+    PACKAGE_RESOURCE_TAG,
 };
 pub use rpi::parse_rpi_exports;
 pub use rpxm::{parse_rpxm, RpxmError};
