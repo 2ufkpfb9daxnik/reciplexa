@@ -1,283 +1,154 @@
-# reciplexa実装AI向けプロンプト
+# Reciplexa 実装AI向け実行プロンプト
 
-以下をそのまま実装Agentへ渡すことを想定する。Repositoryの実際のcommand、構成、既存Codeに合わせて、Agent自身が最初に調査して具体化する。
+以下を専門のSoftware Engineering AIへそのまま渡してください。
 
 ---
 
-あなたは、reciplexa / RPXを実装する自律的なSoftware Engineering Agentです。
+あなたはReciplexa / RPXを継続実装する自律Agentです。作業ディレクトリはrepository rootです。
 
-## 最上位の指針
+## 最初に読むもの
 
-Repository内の`specification.md`を第一の設計指針とし、`roadmap.md`を実装順序の指針としてください。実装上の都合だけで、仕様の背景、目的、要件、外部仕様、Identity、Transaction、Lifetime、Failure分類を変更してはいけません。
+1. `lang/README.md`
+2. `lang/active-roadmap.md`
+3. `lang/implemented-features.md`
+4. 対象Stepが変更する契約だけ `lang/specification.md`
 
-仕様と実装が食い違う場合は、次のいずれかを行ってください。
+第II部見出し単位の確認が必要なときだけ `lang/part2-conformance.md` を読む。coverage/deferred/metaの派生文書を最初から全読しない。
 
-1. 実装を仕様へ合わせる。
-2. 仕様に矛盾、実装不能、安全性上の問題があることを具体的に示し、仕様と実装を同じCommitで修正する。
+## 実行指示
 
-暗黙の仕様変更は禁止です。
+- `lang/active-roadmap.md` の最初の未完了Stepから開始し、受入条件が満たされるまで継続する。
+- Step 1〜6を順番に完了し、同じHEADで全gateをgreenにしてからStep 7へ進む。
+- 安全な実装判断、crate責任分割、テスト構成は自律的に決める。確認待ちだけを理由に止まらない。
+- 仕様・製品挙動・データ互換性・破壊的操作を変える必要がある場合だけ、人間へ具体的な選択肢を示す。
+- ユーザーの既存変更を上書き、破棄、巻き戻ししない。
 
-## 作業の継続方針
+## 固定された製品方針
 
-小さく完結したCommitを積み重ね、原則として自律的に作業を継続してください。目安として約100個の有意味なAtomic Commitを一つの大きな実装Batchとします。ただし、Commit数を稼ぐために不自然に分割したり、空Commit、RenameだけのCommit、Testを意図的に後回しにしたCommitを作ってはいけません。
+### Hybrid Native v1
 
-約100 Commitへ到達したら、そこで新しい実装を増やすのを止め、Repository全体を監査し、次をまとめてください。
+現行標準packageは、package API、synthetic RPX、Rust builtin/bridgeを組み合わせた **Hybrid Native v1** である。`.rpx` body fileがないことだけを理由に「完全direct native」と表記しない。
 
-```text
-- 実装したMilestone
-- Commit一覧と各Commitの目的
-- 通過したTest／Build／Lint／Format
-- 追加した適合試験
-- 未解決のFailure
-- 仕様変更
-- 技術的負債
-- 次の推奨Batch
+### Direct Native v2
+
+Direct Native v2は任意の改善ではなく、将来必須のマイルストーンである。少なくとも次をすべて満たすまで完了扱いにしない。
+
+- 標準package本文を `synthetic_source` で供給しない
+- package公開名またはBindingIdから型付きRust callableを解決する
+- RPX作者が見るimport APIを維持する
+- Hybrid v1またはportable referenceとの観測可能な同値性を適合試験で検証する
+- 全品質gateをgreenにする
+
+portable fallbackは仕様上のOPEN契約として残す。暗黙に削除しない。
+
+### 最初の製品Vertical Slice
+
+package形式の図形と文字の1ページを、GUI編集、source保存、再読込、PDF/SVG出力まで往復保証する。
+
+対象:
+
+- circle、line、text等の基本graphics
+- move、resize、insert、delete、reorder、text content変更
+- authoring sourceを壊さないCST範囲書換え
+
+対象外:
+
+- markup作者同期
+- 製品級JLReq / OpenType MATH
+- `document/page`のdoc-*作者編集
+
+対象外機能は黙って変更せず、read-onlyまたは理由付きsoft-refuseにする。
+
+## 仕様と文書
+
+- 規範は `lang/specification.md`
+- 実行順は `lang/active-roadmap.md`
+- 現状は `lang/implemented-features.md`
+- 第II部適合は `lang/part2-conformance.md`
+
+実装都合だけで仕様を変えない。仕様が矛盾または実装不能なら、根拠、影響、代案を示し、承認が必要な外部挙動でなければ仕様と実装を同じcommitで整合させる。
+
+`gap=0`、`ok`件数、限定coverageを製品完成率として扱わない。`unit complete`、`stub complete`、`spec conformant`、`product slice complete`を区別する。
+
+## 作業開始前
+
+1. `git status --short --branch` で既存変更を確認する。
+2. 対象Stepの受入条件とnon-goalsを列挙する。
+3. 関連コード、既存テスト、CI commandを調べる。
+4. 変更前baselineを対象テストで再現する。
+5. 既存failureと新規failureを区別する。
+
+network access、dependency追加、大規模rename、破壊的git操作を安易に行わない。
+
+## Commit方針
+
+本計画中のcommit作成はユーザーから許可済み。各commit前の個別確認は不要。pushはしない。
+
+1 commitは1つの検証可能な目的に限定する。production変更と直接の回帰testは同じcommitに入れる。無関係な整形、生成物、別bugfixを混ぜない。
+
+推奨単位:
+
+- handoff / docs authority
+- 1つのgate failure修復
+- 1つの挙動を変えないrefactor
+- effect check API
+- package Core typecheck API
+- pipeline wiring
+- package AST CRUD
+- GUI routing / properties
+- Vertical Slice E2E
+- final status synchronization
+
+commit前に必ず確認:
+
+1. `git status --short`
+2. staged / unstaged diffの自己review
+3. 対象unit / integration test
+4. `cargo fmt --all --check`
+5. 変更範囲のClippy
+6. 公開契約を変えた場合のdocs / examples / conformance
+7. secret、credential、一時生成物、巨大binary、意図しない削除がない
+8. conflict markerとwhitespace errorがない
+9. 既存ユーザー変更を含めていない
+
+合理的な節目ごとにworkspace全gateを実行する。hook失敗後は原因を直して新しいcommitを作る。amend、rebase、force、pushを行わない。
+
+commit messageはrepositoryの直近履歴に合わせ、目的と理由が分かる簡潔なConventional Commit形式を使う。
+
+## 標準gate
+
+Windows / offlineを前提に、repositoryの既存環境を使う。
+
+```powershell
+cargo fmt --all --check
+cargo clippy --workspace --all-targets --offline -- -D warnings
+cargo test --workspace --offline
+cargo check --workspace --all-targets --offline
+cargo check --offline -p reciplexa-gui
 ```
 
-約100 Commitに達する前でも、以下の停止条件に該当する場合は停止し、状態を報告してください。
+高コストな全gateの前に対象crateのtest / Clippyを実行する。全gateの実測結果は `lang/implemented-features.md` に同じHEADの結果として記録する。
 
-```text
-- 仕様の根本矛盾
-- Data lossまたはSecurityの危険
-- 既存資産を破壊しないと進めない
-- Build／Test環境が外的要因で復旧不能
-- 同じFailureに合理的な修正を試しても進展がない
-- 履歴書換え、Credential、外部Service操作が必要
-```
+## 停止条件
 
-質問待ちで止まるのではなく、安全な範囲で最善の判断を行って進めてください。ただし、不明点を勝手に外部仕様として固定してはいけません。必要なら`specification.md`の「未決定」として明示し、依存しない範囲を先に実装してください。
+次の場合のみ停止して報告する。
 
-## 最初に必ず行うRepository調査
+- 仕様または製品方針の根本矛盾
+- data loss、security、互換性破壊の危険
+- credential、外部service、network、push、履歴書換えが必要
+- ユーザー変更を破棄しないと進めない
+- 同じfailureへ合理的な複数案を試しても進展しない
 
-Codeを変更する前に、次を実施してください。
+報告には、再現command、root cause、試した内容、安全な選択肢、推奨案を含める。
 
-1. `specification.md`と`roadmap.md`を読む。
-2. Repository tree、Workspace、Build system、Test command、Lint、Formatter、CIを調べる。
-3. 既存実装、Prototype、Experiment、Reference implementationを分類する。
-4. 現在のBuildとTestを一度実行し、Baselineを記録する。
-5. 既存Failureを、新規変更によるFailureと区別できるよう記録する。
-6. 最初のMilestoneと、そこへ至る10個前後の候補Commitを作業メモにする。
-7. 破壊的変更、Network access、大規模Dependency追加を避ける。
+## 完了報告
 
-Repository固有の正しいCommandを検出し、以後はそれを使ってください。存在しないCommandを仮定してはいけません。
+各Step完了時に以下を `lang/active-roadmap.md` と `lang/implemented-features.md` へ反映する。
 
-## 既存の参考実装の扱い
+- 完了した受入条件
+- commit hashと目的
+- 実行したvalidation
+- 保証する範囲とnon-goals
+- 残るOPENと次のStep
 
-既存実装を最初に削除して作り直してはいけません。まず次へ分類してください。
-
-```text
-A. 仕様に適合し、Testもある
-   → 維持して発展させる
-
-B. 仕様に部分適合し、境界が明確
-   → Adapterまたは段階的置換で利用する
-
-C. 実験用だが、意味やCaseの確認に有用
-   → reference／legacy領域へ隔離し、比較Testに利用する
-
-D. 仕様と矛盾し、依存もなく、価値がない
-   → 置換後に削除する
-
-E. 判定不能
-   → 削除せず、呼出し関係とTestを調べる
-```
-
-採用方針は原則としてStrangler Replacementです。Strangler Replacementとは、新しい実装を既存実装の隣に作り、呼出しを少しずつ新実装へ移し、適合試験で同値性を確認した後に旧実装を削除する方式です。
-
-次を禁止します。
-
-- 最初に既存実装を一括削除する
-- Testなしで置換する
-- 旧実装と新実装を同じPublic APIの裏で無秩序に混ぜる
-- Reference implementationへ新しいProduct依存を増やす
-
-既存実装を残すことで新設計の型や責任境界を歪める場合は、Compatibility Adapterを短命な移行層として作り、新Codeを旧設計へ合わせないでください。
-
-## Commitの単位
-
-一つのCommitは、一つの説明可能な契約変更、実装変更、または検証追加だけを扱います。
-
-良いCommitの例:
-
-```text
-- SourceIdとSourceRangeの値Objectを追加する
-- LexerへUnicode identifier tokenを追加しTestする
-- Parserへlist recoveryを追加する
-- StableNodeId allocatorを追加する
-- SetProperty Transactionをatomicにcommitする
-- RectangleをDocument ModelからGUI Descriptionへ射影する
-- Canvas dragをMoveNode Transactionへ変換する
-- Effect Handlerのone-shot検査を追加する
-```
-
-避けるCommit:
-
-```text
-- parser, type checker, GUIをまとめて実装
-- 大規模renameと意味変更を混ぜる
-- production codeだけ追加しTestを後回し
-- 複数の無関係なBug fix
-- 「misc」「cleanup」だけで説明できない変更
-```
-
-一つのCommitは、Reviewerが差分を読んで次を答えられる大きさにしてください。
-
-```text
-何を変えたか
-なぜ必要か
-どの仕様に対応するか
-どう検証したか
-何を変えていないか
-```
-
-## Commit前の必須Check
-
-Repositoryで利用可能なものを検出し、変更範囲に応じて次を実行してください。
-
-```text
-1. Formatter
-2. Static check／type check
-3. Linter
-4. 対象Unit Test
-5. 対象Property／Conformance Test
-6. Workspace全体Test
-7. Debug Build
-8. 必要ならRelease Build
-9. Documentation／exampleの検査
-10. git diff --check相当のWhitespace／Conflict marker検査
-```
-
-さらに毎Commit前に次を確認してください。
-
-- `git diff`を自分でReviewしたか
-- Secret、Credential、生成物、巨大Binaryを誤って追加していないか
-- Public API変更にDocumentとTestがあるか
-- Failure、Cancellation、Defectを混同していないか
-- Stable Identityを配列indexやMemory addressで代用していないか
-- Partial StateをCommitしていないか
-- CleanupとRollback PathにTestがあるか
-- 不要なDependencyを追加していないか
-- 既存の通信を伴うSetup commandを反復していないか
-- 既存のeffects関連環境を削除または破壊していないか
-
-Full Testが高Costの場合でも、対象Testを先に通し、Reasonableな節目ごとにWorkspace全体Testを実行してください。Commit時点では既知Failureを増やしてはいけません。
-
-## Commit Message
-
-Conventional Commitsに近い次の形式を使用してください。
-
-```text
-<type>(<scope>): <命令形の要約>
-
-Why:
-- 必要な理由
-
-Spec:
-- specification.mdの節
-
-Validation:
-- 実行したcommandと結果
-```
-
-推奨type:
-
-```text
-feat, fix, refactor, test, docs, perf, build, ci, chore
-```
-
-`chore`を意味変更の隠れ蓑にしないでください。
-
-## 実装順序
-
-`roadmap.md`に従い、次の順序を基本としてください。
-
-```text
-1. Workspaceと共通Identity／Outcome／Diagnostic
-2. Source Resource、Lexer、S式Parser
-3. Binding、Scope、最小Type Checker、参照Evaluator
-4. Stable Node ID付きEditable Document Model
-5. Document Transaction
-6. 最小Standard Visual Package
-7. Rectangle／Textの双方向Canvas
-8. Effect LoweringとStructured Runtime
-9. PerceusとOwnership／Reuse Verifier
-10. 段階化IR、SVG、Preview
-11. GUI Runtime本格化
-12. 永続化、Package、Native
-13. 日本語文書、数式、Slide、Vector標準Package
-```
-
-最初の重要な成果は、RectangleとTextについて、Source変更がCanvasへ反映され、Canvas操作がSourceへ戻るVertical Sliceです。それを完成する前に、多数Backendや高度なGUI装飾へ広げないでください。
-
-## Standard Package
-
-言語機能だけを実装して終わらないでください。次を段階的に実装してください。
-
-```text
-rpx.std.visual:
-Canvas, Group, Rectangle, Ellipse, Line, Path, Image,
-Fill, Stroke, Transform
-
-rpx.std.text:
-Text, TextBox, Span, Paragraph, Font, TextStyle
-
-rpx.std.document:
-Page, Section, Heading, List, Table, Figure, Reference
-
-rpx.std.math:
-Fraction, Radical, Script, Delimiter, Matrix, Alignment
-
-rpx.std.slide:
-Slide, Theme, Master, Placeholder, Notes, Transition
-
-rpx.std.vector:
-Path, Gradient, Boolean Operation, Marker, Constraint
-```
-
-まず`visual`と`text`の最小集合を双方向Vertical Sliceへ使い、その後に日本語文書、数式、Slide、Vectorの順に広げてください。
-
-## 品質原則
-
-- TODOで本質的な契約を先送りしない。
-- `unwrap`、panic、例外でProgram Failureを表現しない。
-- Error文字列を正本にしない。
-- Testだけを通す特殊Caseを実装しない。
-- MockをProduction semanticsの代用にしない。
-- Performance最適化より意味の正しさを優先する。
-- 既存Codeを尊重するが、旧設計へのCompatibilityを新Coreの責任にしない。
-- Networkを伴うDependency更新やInstallは最後の手段とし、必要ならまとめて最小回数で行う。
-
-## 各Commit後に記録する内容
-
-作業メモへ次を一行ずつ追加してください。
-
-```text
-Commit hash
-目的
-対応仕様節
-変更File
-実行したValidation
-次の依存作業
-```
-
-この作業メモ自体を毎Commit変更してCommit数を増やす必要はありません。適切な節目でまとめて更新してください。
-
-## Batch終了時の監査
-
-約100個の有意味なCommit、または一つのMilestone完了時に、次を実施してください。
-
-1. Clean checkout相当でBuildとTestを再実行する。
-2. FormatterとLinterを全体実行する。
-3. 未使用Code、Dead feature flag、一時Adapter、TODOを列挙する。
-4. `specification.md`と実装の差を確認する。
-5. `roadmap.md`の完了条件を確認する。
-6. Public APIとexampleを確認する。
-7. Resource leak、Cancellation、Rollback Testを確認する。
-8. Commit履歴に不自然な巨大Commitや無意味な分割がないか確認する。
-9. 次Batchへ持ち越す事項を優先順に整理する。
-
-履歴を勝手にsquash、rebase、force-pushしないでください。求められた場合だけ、別途安全に行ってください。
-
-## 最終指示
-
-今すぐRepositoryを調査し、Baselineを記録し、`roadmap.md`の最初の未完了Phaseから着手してください。確認待ちで止まらず、安全な範囲でAtomic Commitを積み重ねてください。Commit数ではなく、それぞれが仕様に対応し、Build可能で、Testされ、後からReviewできることを優先してください。
+今すぐrepositoryを確認し、`lang/active-roadmap.md` の最初の未完了StepからAtomic Commitを積み重ねて実行してください。

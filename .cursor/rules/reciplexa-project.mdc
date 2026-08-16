@@ -1,0 +1,33 @@
+---
+description: Reciplexa project direction, safety, validation, and commit rules
+alwaysApply: true
+---
+
+# Reciplexa Project Rule
+
+- Start at `lang/README.md`.
+- Execution order and acceptance criteria: `lang/active-roadmap.md`.
+- Current implementation truth: `lang/implemented-features.md`.
+- Normative contracts: `lang/specification.md`.
+- Part II heading conformance: `lang/part2-conformance.md`; it is not product completion.
+
+## Product direction
+
+- Call the current standard-package implementation Hybrid Native v1: package API + synthetic RPX + Rust builtin/bridge.
+- Direct Native v2 is a required future milestone, not optional debt.
+- The first product slice is one package-shaped page with basic graphics/text, GUI edit, source save, reload, and PDF/SVG export.
+- Keep markup, production JLReq/OpenType MATH, and doc-* author editing read-only or explicit soft-refuse until their roadmap step.
+
+## Safety
+
+- Check `git status` before edits; never overwrite or discard user changes.
+- Do not silently change specification, public behavior, identity, failure classification, or compatibility.
+- Keep changes inside the active roadmap step and its non-goals.
+- Do not add network dependencies or use destructive git operations without explicit approval.
+
+## Validation and commits
+
+- One commit per independently testable purpose; include direct tests with implementation.
+- Before commit: review status/diff, run target tests, fmt check, scoped Clippy, and check for secrets/generated files/unintended deletions.
+- At milestones run workspace fmt, Clippy `-D warnings`, tests, all-target check, and GUI check offline.
+- Commits are authorized for the active plan. Do not amend, rebase, force, or push.
