@@ -354,7 +354,7 @@ fn reorder_page_roots(
     Ok(rewrite_form_order(src, &forms))
 }
 
-fn reorder_among_shared_root(
+pub(super) fn reorder_among_shared_root(
     src: &str,
     layers: &[LayerInfo],
     from: usize,
@@ -389,7 +389,7 @@ fn reorder_among_shared_root(
 
 /// `forms` is the desired order of existing `(start,end)` list spans (without trivia).
 /// Callers always pass a non-empty slice (reorder of ≥2 roots/siblings).
-fn rewrite_form_order(src: &str, forms: &[(usize, usize)]) -> String {
+pub(super) fn rewrite_form_order(src: &str, forms: &[(usize, usize)]) -> String {
     let extents: Vec<(usize, usize)> = forms
         .iter()
         .map(|&(a, b)| extent_with_leading_ws(src, a, b))

@@ -8,7 +8,8 @@ use reciplexa_syntax::{
     format_drag_number, replace_token_text, SyntaxKind, SyntaxNode, SyntaxToken,
 };
 
-use super::{is_headed, parse_root, LayerInfo, SizeTarget, SyncError};
+use super::layers::{reorder_among_shared_root, rewrite_form_order};
+use super::{extent_with_leading_ws, is_headed, parse_root, LayerInfo, SizeTarget, SyncError};
 use crate::cst_walk::{find_list_covering, list_atoms, Child};
 
 /// Heads that wrap a single shape child at slot 1 (`fill`/`stroke`/`paint`).
@@ -101,7 +102,9 @@ pub fn collect_package_pages(main_expr: &SyntaxNode) -> Result<Vec<SyntaxNode>, 
 
 /// Shape / content children of a package `(page SIZE CONTENT)`.
 ///
-/// `CONTENT` may be a single shape or a `(list …)` of shapes.
+/// `CONTENT` may be a single shape, a `(list …)` of shapes, or
+/// `(group (list …))` / `(group child …)`. Group/list wrappers are flattened so
+/// each drawable root (fill/stroke/translate/…) is independently editable.
 pub fn package_page_content_nodes(page: &SyntaxNode) -> Result<Vec<SyntaxNode>, SyncError> {
     if !is_headed(page, "page") {
         return Err(SyncError::new("expected (page …)"));
@@ -112,18 +115,39 @@ pub fn package_page_content_nodes(page: &SyntaxNode) -> Result<Vec<SyntaxNode>, 
         return Err(SyncError::new("page missing content"));
     };
     match content {
-        Child::Node(n) if is_headed(n, "list") => {
-            let mut out = Vec::new();
-            for item in list_atoms(n).into_iter().skip(1) {
-                if let Child::Node(c) = item {
-                    out.push(c);
-                }
-            }
-            Ok(out)
-        }
-        Child::Node(n) => Ok(vec![n.clone()]),
+        Child::Node(n) => Ok(flatten_package_content_nodes(n)),
         _ => Err(SyncError::new("page content must be a list form")),
     }
+}
+
+fn flatten_package_content_nodes(n: &SyntaxNode) -> Vec<SyntaxNode> {
+    if is_headed(n, "list") {
+        let mut out = Vec::new();
+        for item in list_atoms(n).into_iter().skip(1) {
+            if let Child::Node(c) = item {
+                out.push(c);
+            }
+        }
+        return out;
+    }
+    if is_headed(n, "group") {
+        let kids: Vec<SyntaxNode> = list_atoms(n)
+            .into_iter()
+            .skip(1)
+            .filter_map(|c| match c {
+                Child::Node(inner) => Some(inner),
+                _ => None,
+            })
+            .collect();
+        if kids.len() == 1 && is_headed(&kids[0], "list") {
+            return flatten_package_content_nodes(&kids[0]);
+        }
+        if kids.is_empty() {
+            return vec![n.clone()];
+        }
+        return kids;
+    }
+    vec![n.clone()]
 }
 
 /// Immediate shape child under a paint wrapper (`fill`/`stroke`/`paint`), if any.
@@ -574,6 +598,257 @@ fn number_token_at(items: &[Child], slot: usize) -> Option<SyntaxToken> {
     }
 }
 
+/// Insert `form` as a new page-content child of package `(val main (page …))`.
+///
+/// `form` must be a complete list such as `(fill (circle 105 148.5 20) black)`.
+pub fn insert_layer_package(
+    src: &str,
+    page_index: usize,
+    form: &str,
+) -> Result<(String, usize), SyncError> {
+    let form = form.trim();
+    if form.is_empty() || !form.starts_with('(') || !form.ends_with(')') {
+        return Err(SyncError::new("insert form must be a complete (…) list"));
+    }
+    let root = parse_root(src)?;
+    let page = find_package_page(&root, page_index)?;
+    let wrap_span: Option<(usize, usize)> = {
+        let items = list_atoms(&page);
+        match items.get(2) {
+            Some(Child::Node(n)) if is_headed(n, "list") => None,
+            Some(Child::Node(n)) if is_headed(n, "group") => {
+                let has_list = list_atoms(n)
+                    .iter()
+                    .skip(1)
+                    .any(|c| matches!(c, Child::Node(inner) if is_headed(inner, "list")));
+                if has_list {
+                    None
+                } else {
+                    let r = n.text_range();
+                    Some((usize::from(r.start()), usize::from(r.end())))
+                }
+            }
+            Some(Child::Node(n)) => {
+                let r = n.text_range();
+                Some((usize::from(r.start()), usize::from(r.end())))
+            }
+            _ => None,
+        }
+    };
+    let out = if let Some((start, end)) = wrap_span {
+        let old = &src[start..end];
+        let wrapped = format!("(list {old} {form})");
+        let mut next = String::with_capacity(src.len() + wrapped.len());
+        next.push_str(&src[..start]);
+        next.push_str(&wrapped);
+        next.push_str(&src[end..]);
+        next
+    } else {
+        let insert_at = package_content_insert_at(src, &page)?;
+        let pad = if src[..insert_at].contains('\n') {
+            "\n        "
+        } else {
+            " "
+        };
+        let mut next = String::with_capacity(src.len() + form.len() + pad.len());
+        next.push_str(&src[..insert_at]);
+        next.push_str(pad);
+        next.push_str(form);
+        next.push_str(&src[insert_at..]);
+        next
+    };
+    let layers = collect_layers_package(&out, page_index)?;
+    let idx = layers
+        .len()
+        .checked_sub(1)
+        .ok_or_else(|| SyncError::new("insert produced no layers"))?;
+    Ok((out, idx))
+}
+
+fn package_content_insert_at(src: &str, page: &SyntaxNode) -> Result<usize, SyncError> {
+    let _ = src;
+    let items = list_atoms(page);
+    let Some(content) = items.get(2) else {
+        let page_end = usize::from(page.text_range().end());
+        return Ok(page_end.saturating_sub(1));
+    };
+    match content {
+        Child::Node(n) if is_headed(n, "list") => {
+            Ok(usize::from(n.text_range().end()).saturating_sub(1))
+        }
+        Child::Node(n) if is_headed(n, "group") => {
+            for item in list_atoms(n).into_iter().skip(1) {
+                if let Child::Node(inner) = item {
+                    if is_headed(&inner, "list") {
+                        return Ok(usize::from(inner.text_range().end()).saturating_sub(1));
+                    }
+                }
+            }
+            Ok(usize::from(n.text_range().end()).saturating_sub(1))
+        }
+        Child::Node(n) => Err(SyncError::new(format!(
+            "page content is a single form @{}..{}",
+            usize::from(n.text_range().start()),
+            usize::from(n.text_range().end())
+        ))),
+        _ => Err(SyncError::new("page content must be a list form")),
+    }
+}
+
+/// Remove flattened package layer `flat_index` (rewrites `.rpx`).
+pub fn delete_layer_package(
+    src: &str,
+    page_index: usize,
+    flat_index: usize,
+) -> Result<String, SyncError> {
+    let layers = collect_layers_package(src, page_index)?;
+    let layer = layers
+        .get(flat_index)
+        .ok_or_else(|| SyncError::new("layer index out of range"))?;
+    let root = (layer.root_start, layer.root_end);
+    let shared = layers
+        .iter()
+        .filter(|l| (l.root_start, l.root_end) == root)
+        .count();
+    let (cut_start, cut_end) = if shared <= 1 {
+        extent_with_leading_ws(src, root.0, root.1)
+    } else {
+        extent_with_leading_ws(src, layer.byte_start, layer.byte_end)
+    };
+    let mut out = String::with_capacity(src.len());
+    out.push_str(&src[..cut_start]);
+    out.push_str(&src[cut_end..]);
+    Ok(out)
+}
+
+/// Move flattened package layer `from` to flatten index `to`.
+pub fn reorder_layer_package(
+    src: &str,
+    page_index: usize,
+    from: usize,
+    to: usize,
+) -> Result<String, SyncError> {
+    if from == to {
+        return Ok(src.to_string());
+    }
+    let layers = collect_layers_package(src, page_index)?;
+    if from >= layers.len() || to >= layers.len() {
+        return Err(SyncError::new("layer index out of range"));
+    }
+    let from_root = (layers[from].root_start, layers[from].root_end);
+    let to_root = (layers[to].root_start, layers[to].root_end);
+    if from_root == to_root {
+        reorder_among_shared_root(src, &layers, from, to, from_root)
+    } else {
+        reorder_package_roots(src, page_index, from_root, to_root)
+    }
+}
+
+fn reorder_package_roots(
+    src: &str,
+    page_index: usize,
+    from_root: (usize, usize),
+    to_root: (usize, usize),
+) -> Result<String, SyncError> {
+    let root = parse_root(src).expect("parse ok after collect_layers_package");
+    let page = find_package_page(&root, page_index).expect("page exists after collect");
+    let contents = package_page_content_nodes(&page)?;
+    let mut forms: Vec<(usize, usize)> = Vec::new();
+    for n in &contents {
+        if is_headed(n, "list") {
+            for item in list_atoms(n).into_iter().skip(1) {
+                if let Child::Node(c) = item {
+                    let r = c.text_range();
+                    forms.push((usize::from(r.start()), usize::from(r.end())));
+                }
+            }
+        } else {
+            let r = n.text_range();
+            forms.push((usize::from(r.start()), usize::from(r.end())));
+        }
+    }
+    let mut fi = None;
+    let mut ti = None;
+    for (i, r) in forms.iter().enumerate() {
+        if *r == from_root {
+            fi = Some(i);
+        }
+        if *r == to_root {
+            ti = Some(i);
+        }
+    }
+    let fi = fi.ok_or_else(|| SyncError::new("from root missing on package page"))?;
+    let ti = ti.ok_or_else(|| SyncError::new("to root missing on package page"))?;
+    let item = forms.remove(fi);
+    forms.insert(ti, item);
+    Ok(rewrite_form_order(src, &forms))
+}
+
+/// Replace the string literal of a package `(text …)` leaf.
+pub fn set_text_content_package(
+    src: &str,
+    page_index: usize,
+    flat_index: usize,
+    text: &str,
+) -> Result<String, SyncError> {
+    let layers = collect_layers_package(src, page_index)?;
+    let layer = layers
+        .get(flat_index)
+        .ok_or_else(|| SyncError::new("layer index out of range"))?;
+    if layer.kind != "text" {
+        return Err(SyncError::new("text content only on text shapes"));
+    }
+    let root = parse_root(src)?;
+    let leaf = find_list_covering(&root, layer.byte_start, layer.byte_end)
+        .ok_or_else(|| SyncError::new("text leaf span missing"))?;
+    let items = list_atoms(&leaf);
+    let tok = items
+        .iter()
+        .find_map(|c| match c {
+            Child::Token(t) if t.kind() == SyntaxKind::String => Some(t.clone()),
+            _ => None,
+        })
+        .ok_or_else(|| SyncError::new("text content string missing"))?;
+    let escaped = reciplexa_syntax::encode_string_literal(text);
+    let (_, out) = replace_token_text(&tok, &escaped);
+    Ok(out)
+}
+
+/// Duplicate flattened package layer `flat_index` (inserts a copy after it).
+pub fn duplicate_layer_package(
+    src: &str,
+    page_index: usize,
+    flat_index: usize,
+) -> Result<String, SyncError> {
+    let layers = collect_layers_package(src, page_index)?;
+    let layer = layers
+        .get(flat_index)
+        .ok_or_else(|| SyncError::new("layer index out of range"))?;
+    let root = (layer.root_start, layer.root_end);
+    let shared = layers
+        .iter()
+        .filter(|l| (l.root_start, l.root_end) == root)
+        .count();
+    let (span_start, span_end) = if shared <= 1 {
+        (root.0, root.1)
+    } else {
+        (layer.byte_start, layer.byte_end)
+    };
+    let snippet = &src[span_start..span_end];
+    let insert_at = extent_with_leading_ws(src, span_start, span_end).1;
+    let pad = if src[..span_start].ends_with('\n') || snippet.contains('\n') {
+        "\n        "
+    } else {
+        " "
+    };
+    let mut out = String::with_capacity(src.len() + snippet.len() + pad.len());
+    out.push_str(&src[..insert_at]);
+    out.push_str(pad);
+    out.push_str(snippet);
+    out.push_str(&src[insert_at..]);
+    Ok(out)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -754,5 +1029,87 @@ mod tests {
         let out = nudge_layer_package(src, 1, 0, 1.0, 1.0).unwrap();
         assert!(out.contains("(circle 10 20 5)"), "page0 unchanged: {out}");
         assert!(out.contains("(circle 31 41 6)"), "page1 nudged: {out}");
+    }
+
+    #[test]
+    fn insert_delete_reorder_and_text_content_on_list_page() {
+        let src = r#"(import graphics/shapes only circle fill text)
+(import graphics/page only a4 page)
+(import graphics/color only black)
+(val main
+  (page a4
+    (list
+      (fill (text 30 260 8 "Reciplexa") black)
+      (fill (circle 105 120 25) black))))
+"#;
+        let (with_rect, idx) =
+            insert_layer_package(src, 0, "(fill (circle 10 20 5) black)").unwrap();
+        assert_eq!(idx, 2);
+        assert!(with_rect.contains("(circle 10 20 5)"));
+        let renamed = set_text_content_package(&with_rect, 0, 0, "Edited").unwrap();
+        assert!(renamed.contains("\"Edited\""));
+        assert!(!renamed.contains("\"Reciplexa\""));
+        let reordered = reorder_layer_package(&renamed, 0, 2, 0).unwrap();
+        let layers = collect_layers_package(&reordered, 0).unwrap();
+        assert_eq!(layers[0].kind, "circle");
+        let deleted = delete_layer_package(&reordered, 0, 0).unwrap();
+        assert_eq!(collect_layers_package(&deleted, 0).unwrap().len(), 2);
+        let dup = duplicate_layer_package(src, 0, 1).unwrap();
+        assert_eq!(collect_layers_package(&dup, 0).unwrap().len(), 3);
+    }
+
+    #[test]
+    fn text_line_group_insert_reorder_delete_keeps_page_form() {
+        let src = r#"(import graphics/shapes only circle line text translate fill stroke group)
+(import graphics/page only a4 page)
+(import graphics/color only black rgb)
+(val main
+  (page a4
+    (group
+      (list
+        (fill (text 30 260 8 "Reciplexa") black)
+        (stroke (line 30 250 180 250) 1 (rgb 0.784 0.157 0.157))
+        (translate 105 120
+          (fill (circle 0 0 25) (rgb 0.118 0.353 0.706)))))))
+"#;
+        let layers = collect_layers_package(src, 0).unwrap();
+        let (src4, inserted) =
+            insert_layer_package(src, 0, "(fill (circle 40 80 10) (rgb 0.2 0.4 0.6))").unwrap();
+        let src5 = reorder_layer_package(&src4, 0, inserted, 0).unwrap();
+        let src6 = delete_layer_package(&src5, 0, 0).unwrap();
+        assert!(
+            src6.contains("(page a4"),
+            "page form broken after group reorder/delete:\n{src6}"
+        );
+        assert!(src6.contains("(group"), "group lost:\n{src6}");
+        assert!(
+            src6.contains("(fill (text"),
+            "text fill wrapper lost:\n{src6}"
+        );
+        assert!(
+            src6.contains("(stroke (line"),
+            "line stroke wrapper lost:\n{src6}"
+        );
+        assert!(
+            src6.contains("(translate 105 120"),
+            "translate wrapper lost:\n{src6}"
+        );
+        assert_eq!(
+            collect_layers_package(&src6, 0).unwrap().len(),
+            layers.len()
+        );
+        assert!(!src6.contains("(circle 40 80 10)"));
+    }
+
+    #[test]
+    fn insert_wraps_single_shape_content() {
+        let (out, idx) =
+            insert_layer_package(PKG_CIRCLE, 0, "(fill (circle 1 2 3) black)").unwrap();
+        assert_eq!(idx, 1);
+        assert!(out.contains("(list "));
+        assert!(out.contains("(circle 1 2 3)"));
+        assert!(insert_layer_package(PKG_CIRCLE, 0, "not-a-list").is_err());
+        assert!(delete_layer_package(PKG_CIRCLE, 0, 9).is_err());
+        assert!(set_text_content_package(PKG_CIRCLE, 0, 0, "x").is_err());
     }
 }
