@@ -6,8 +6,11 @@ use std::path::{Path, PathBuf};
 
 use reciplexa_bind::{elaborate_units_with_interfaces, parse_imports, ElaboratedUnit, ModuleError};
 
+use reciplexa_eval::{eval_expr, primitive_env, RuntimeValue, UnitHost};
+
 use crate::domain_native::{DomainNativeModule, DomainNativeRegistry};
 use crate::manifest::{DependencySpec, PackageManifest};
+use crate::resource_value::maybe_materialize_package_resources_for_entry;
 use crate::rpi::parse_rpi_exports;
 use crate::rpxm::{parse_rpxm, RpxmError};
 use crate::workspace::verify_package_lock_for_entry;
@@ -483,6 +486,75 @@ pub fn elaborate_with_packages(
         .map(|(n, s)| (n.as_str(), s.as_str()))
         .collect();
     elaborate_units_with_interfaces(&refs, &interface_exports).map_err(Into::into)
+}
+
+/// Elaborate `entry_path`, eval its entry unit, and auto-materialize `(resource …)`
+/// records when an enclosing `package.rpxm` is known (PKG R3 load path).
+pub fn eval_package_entry_main(
+    entry_path: impl AsRef<Path>,
+    index: &LocalPackageIndex,
+) -> Result<RuntimeValue, PackageLoadError> {
+    let entry_path = entry_path.as_ref();
+    let units = elaborate_with_packages(entry_path, index)?;
+    let stem = utf8_file_stem(entry_path)?;
+    let demo = units
+        .iter()
+        .find(|u| u.name == stem)
+        .ok_or_else(|| PackageLoadError::NotFound(format!("missing elaborated unit `{stem}`")))?;
+    let v = eval_expr(&demo.expr, &primitive_env(), &mut UnitHost)
+        .map_err(|e| PackageLoadError::Module(ModuleError { message: e.message }))?;
+    Ok(maybe_materialize_package_resources_for_entry(
+        &v, entry_path,
+    ))
+}
+
+#[cfg(test)]
+mod eval_entry_tests {
+    use super::*;
+    use std::fs;
+    use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    use reciplexa_eval::RuntimeValue;
+
+    fn tmp_pkg(label: &str) -> (PathBuf, PathBuf) {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../.tmp")
+            .join(format!("pkg-eval-entry-{label}-{nanos}"));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("resources/images")).unwrap();
+        fs::write(root.join("resources/images/logo.png"), b"png").unwrap();
+        fs::write(
+            root.join("package.rpxm"),
+            r#"(package demo
+  format-version 1
+  version "1.0.0"
+  (public-modules main)
+  (resources "images/logo.png"))"#,
+        )
+        .unwrap();
+        let entry = root.join("main.rpx");
+        fs::write(&entry, r#"(val main (resource "images/logo.png"))"#).unwrap();
+        (root, entry)
+    }
+
+    #[test]
+    fn eval_package_entry_main_materializes_listed_resources() {
+        let (_root, entry) = tmp_pkg("mat");
+        let idx = LocalPackageIndex::default();
+        let v = eval_package_entry_main(&entry, &idx).unwrap();
+        let RuntimeValue::Record(fields) = v else {
+            panic!("record, got {v:?}");
+        };
+        assert!(fields.iter().any(|(k, v)| {
+            k == "resolved-path"
+                && matches!(v, RuntimeValue::String(s) if s.replace('\\', "/").ends_with("images/logo.png"))
+        }));
+    }
 }
 
 #[cfg(test)]

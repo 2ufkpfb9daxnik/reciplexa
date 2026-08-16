@@ -8,15 +8,13 @@ use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use reciplexa_eval::{
-    estimate_style_from_value, eval_expr, layout_doc_page_to_scene, layout_math_to_shapes,
-    primitive_env, RuntimeValue, UnitHost,
+    estimate_style_from_value, layout_doc_page_to_scene, layout_math_to_shapes, RuntimeValue,
 };
 use reciplexa_scene::{Document, Shape};
 use reciplexa_std::math::EstimateStyle;
 
 use crate::graphics_bridge::GraphicsBridgeError;
-use crate::load::{elaborate_with_packages, LocalPackageIndex};
-use crate::resource_value::maybe_materialize_package_resources_for_entry;
+use crate::load::{eval_package_entry_main, LocalPackageIndex};
 
 static TEMP_SEQ: AtomicU64 = AtomicU64::new(0);
 
@@ -106,19 +104,8 @@ pub fn document_from_live_layout_entry(
     entry_path: impl AsRef<Path>,
     index: &LocalPackageIndex,
 ) -> Result<Document, GraphicsBridgeError> {
-    let units = elaborate_with_packages(entry_path.as_ref(), index)?;
-    let stem = entry_path
-        .as_ref()
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .unwrap_or("main");
-    let demo = units
-        .iter()
-        .find(|u| u.name == stem)
-        .ok_or_else(|| GraphicsBridgeError::Load(format!("missing elaborated unit `{stem}`")))?;
-    let v = eval_expr(&demo.expr, &primitive_env(), &mut UnitHost)
-        .map_err(|e| GraphicsBridgeError::Eval(e.message))?;
-    let v = maybe_materialize_package_resources_for_entry(&v, entry_path.as_ref());
+    let v =
+        eval_package_entry_main(entry_path.as_ref(), index).map_err(GraphicsBridgeError::from)?;
     document_from_live_layout_value(&v)
 }
 

@@ -6,13 +6,10 @@
 
 use std::path::Path;
 
-use reciplexa_eval::{
-    estimate_math_box_from_value_with_style, eval_expr, primitive_env, RuntimeValue, UnitHost,
-};
+use reciplexa_eval::{estimate_math_box_from_value_with_style, RuntimeValue};
 use reciplexa_std::math::{EstimateStyle, MathBox};
 
-use crate::load::{elaborate_with_packages, LocalPackageIndex, PackageLoadError};
-use crate::resource_value::maybe_materialize_package_resources_for_entry;
+use crate::load::{eval_package_entry_main, LocalPackageIndex, PackageLoadError};
 
 /// Errors from package load/eval or math box estimate.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -62,15 +59,7 @@ pub fn estimate_package_math_main_with_style(
     layout_style: EstimateStyle,
 ) -> Result<MathBox, MathBridgeError> {
     let entry = entry_path.as_ref();
-    let units = elaborate_with_packages(entry, index)?;
-    let stem = entry.file_stem().and_then(|s| s.to_str()).unwrap_or("main");
-    let demo = units
-        .iter()
-        .find(|u| u.name == stem)
-        .ok_or_else(|| MathBridgeError::Load(format!("missing elaborated unit `{stem}`")))?;
-    let v = eval_expr(&demo.expr, &primitive_env(), &mut UnitHost)
-        .map_err(|e| MathBridgeError::Eval(e.message))?;
-    let v = maybe_materialize_package_resources_for_entry(&v, entry);
+    let v = eval_package_entry_main(entry, index).map_err(MathBridgeError::from)?;
     let target = math_estimate_target(&v);
     estimate_math_box_from_value_with_style(target, layout_style)
         .map_err(|e| MathBridgeError::Estimate(e.message))

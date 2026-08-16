@@ -187,6 +187,27 @@ pub fn diagnose_lockfile_checksums(
     diags
 }
 
+/// PKG005 (lock surface): refuse `registry:` / `registry` locked sources (OPEN-PKG-001).
+pub fn diagnose_lockfile_registry_sources(
+    lock: &crate::lockfile::Lockfile,
+) -> Vec<PackageDiagnostic> {
+    let mut diags = Vec::new();
+    for pkg in &lock.packages {
+        if pkg.source.starts_with("registry:") || pkg.source == "registry" {
+            diags.push(PackageDiagnostic {
+                code: "PKG005".into(),
+                message: format!(
+                    "locked package `{}` uses source registry ({})",
+                    pkg.name,
+                    crate::manifest::OPEN_PKG_001_CODE
+                ),
+                package: Some(pkg.name.clone()),
+            });
+        }
+    }
+    diags
+}
+
 fn diagnose_manifest_inner(
     m: &PackageManifest,
     package_root: Option<&Path>,

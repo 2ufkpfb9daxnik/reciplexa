@@ -34,8 +34,9 @@ pub mod typecheck;
 pub mod workspace;
 
 pub use build::{
-    diagnose_lockfile_checksums, diagnose_manifest, diagnose_manifest_with_root, BuildGraph,
-    BuildNode, BuildNodeId, IncrementalCache, InvalidationKind, PackageDiagnostic,
+    diagnose_lockfile_checksums, diagnose_lockfile_registry_sources, diagnose_manifest,
+    diagnose_manifest_with_root, BuildGraph, BuildNode, BuildNodeId, IncrementalCache,
+    InvalidationKind, PackageDiagnostic,
 };
 pub use doc_preview::{
     count_ruby_tate_in_value, debug_layout_summary, preview_doc_text_metrics,
@@ -68,8 +69,8 @@ pub use live_layout_bridge::{
     document_from_live_layout_value, document_from_live_layout_value_with_style,
 };
 pub use load::{
-    elaborate_with_packages, load_module_tree_with_packages, LocalPackageIndex, PackageLoadError,
-    ResolvedImport,
+    elaborate_with_packages, eval_package_entry_main, load_module_tree_with_packages,
+    LocalPackageIndex, PackageLoadError, ResolvedImport,
 };
 pub use lockfile::{content_checksum, LockedPackage, Lockfile};
 pub use manifest::{

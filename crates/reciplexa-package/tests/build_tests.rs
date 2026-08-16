@@ -290,3 +290,35 @@ fn diagnose_pkg006_path_checksum_mismatch() {
 
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn diagnose_lockfile_registry_source_pkg005() {
+    use reciplexa_package::{
+        diagnose_lockfile_registry_sources, LockedPackage, Lockfile, OPEN_PKG_001_CODE,
+    };
+
+    let lock = Lockfile {
+        packages: vec![LockedPackage {
+            name: "remote".into(),
+            version: "1".into(),
+            source: "registry:remote-kit".into(),
+            dependencies: vec![],
+            checksum: None,
+        }],
+    };
+    let diags = diagnose_lockfile_registry_sources(&lock);
+    let hit = diags.iter().find(|d| d.code == "PKG005").expect("PKG005");
+    assert!(hit.message.contains("remote"));
+    assert!(hit.message.contains(OPEN_PKG_001_CODE));
+
+    let ok = Lockfile {
+        packages: vec![LockedPackage {
+            name: "local".into(),
+            version: "1".into(),
+            source: "path:lib".into(),
+            dependencies: vec![],
+            checksum: None,
+        }],
+    };
+    assert!(diagnose_lockfile_registry_sources(&ok).is_empty());
+}

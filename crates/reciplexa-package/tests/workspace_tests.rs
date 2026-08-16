@@ -430,9 +430,8 @@ fn verify_lock_pkg006_blocks_elaborate() {
         .iter_mut()
         .find(|p| p.name == "lib")
         .expect("locked lib");
-    lib_entry.checksum = Some(
-        "sha256:deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef".into(),
-    );
+    lib_entry.checksum =
+        Some("sha256:deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef".into());
     lock.write_rpx_lock(dir.join("rpx.lock")).unwrap();
 
     let entry = dir.join("main.rpx");
@@ -448,8 +447,7 @@ fn verify_lock_pkg006_blocks_elaborate() {
 
     let good = idx.lock_consumer(&consumer).unwrap();
     assert_eq!(
-        good
-            .packages
+        good.packages
             .iter()
             .find(|p| p.name == "lib")
             .and_then(|p| p.checksum.as_deref()),

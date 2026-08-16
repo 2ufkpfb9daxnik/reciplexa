@@ -5,6 +5,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::build::diagnose_lockfile_checksums;
+use crate::build::diagnose_lockfile_registry_sources;
 use crate::lockfile::{content_checksum, LockedPackage, Lockfile};
 use crate::manifest::PackageManifest;
 use crate::resource_value::find_enclosing_package_root;
@@ -371,8 +372,8 @@ pub fn check_package_lock_consistency(
 }
 
 /// When `entry_path` sits under a package root that has an `rpx.lock` (local or
-/// workspace-root), verify manifest/lock consistency and PKG006 path-dep
-/// checksums before package modules load.
+/// workspace-root), verify manifest/lock consistency, PKG005 registry refusal,
+/// and PKG006 path-dep checksums before package modules load.
 pub fn verify_package_lock_for_entry(entry_path: &Path) -> Result<(), WorkspaceError> {
     let Some(package_root) = find_enclosing_package_root(entry_path) else {
         return Ok(());
@@ -383,8 +384,9 @@ pub fn verify_package_lock_for_entry(entry_path: &Path) -> Result<(), WorkspaceE
     check_package_lock_consistency(&package_root)?;
     let resolve_root = lock_diagnose_root(&package_root)?;
     let (_lock_path, lock) = read_lock_for_package(&package_root)?;
-    if let Some(d) = diagnose_lockfile_checksums(&lock, &resolve_root)
+    if let Some(d) = diagnose_lockfile_registry_sources(&lock)
         .into_iter()
+        .chain(diagnose_lockfile_checksums(&lock, &resolve_root))
         .next()
     {
         return Err(WorkspaceError::Lock(format!("{}: {}", d.code, d.message)));

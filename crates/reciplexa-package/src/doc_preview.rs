@@ -8,15 +8,12 @@
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use reciplexa_eval::{
-    document_from_graphics_value, eval_expr, primitive_env, RuntimeValue, UnitHost,
-};
+use reciplexa_eval::{document_from_graphics_value, RuntimeValue};
 use reciplexa_scene::{Document, Shape};
 use reciplexa_std::japanese::char_em_width;
 
 use crate::graphics_bridge::GraphicsBridgeError;
-use crate::load::{elaborate_with_packages, LocalPackageIndex};
-use crate::resource_value::maybe_materialize_package_resources_for_entry;
+use crate::load::{eval_package_entry_main, LocalPackageIndex};
 
 /// Soft-wrap em budget aligned with `reciplexa_eval::document_value` paragraphs.
 pub const DOC_TEXT_MAX_EM: f64 = 40.0;
@@ -228,15 +225,7 @@ pub fn preview_doc_text_metrics_from_entry(
     index: &LocalPackageIndex,
 ) -> Result<DocTextPreviewMetrics, GraphicsBridgeError> {
     let entry = entry_path.as_ref();
-    let units = elaborate_with_packages(entry, index)?;
-    let stem = entry.file_stem().and_then(|s| s.to_str()).unwrap_or("main");
-    let demo = units
-        .iter()
-        .find(|u| u.name == stem)
-        .ok_or_else(|| GraphicsBridgeError::Load(format!("missing elaborated unit `{stem}`")))?;
-    let v = eval_expr(&demo.expr, &primitive_env(), &mut UnitHost)
-        .map_err(|e| GraphicsBridgeError::Eval(e.message))?;
-    let v = maybe_materialize_package_resources_for_entry(&v, entry);
+    let v = eval_package_entry_main(entry, index).map_err(GraphicsBridgeError::from)?;
     let (ruby_count, tate_chu_yoko_count) = count_ruby_tate_in_value(&v);
     let doc = document_from_preview_value(&v)?;
     Ok(preview_doc_text_metrics_from_document_with_counts(

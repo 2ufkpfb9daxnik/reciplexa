@@ -8,14 +8,10 @@
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use reciplexa_eval::{
-    document_from_graphics_value, eval_expr, primitive_env, GraphicsValueError, RuntimeValue,
-    UnitHost,
-};
+use reciplexa_eval::{document_from_graphics_value, GraphicsValueError, RuntimeValue};
 use reciplexa_scene::Document;
 
-use crate::load::{elaborate_with_packages, LocalPackageIndex, PackageLoadError};
-use crate::resource_value::maybe_materialize_package_resources_for_entry;
+use crate::load::{eval_package_entry_main, LocalPackageIndex, PackageLoadError};
 
 /// Seq for unique temp dirs; module-level so llvm-cov marks static init covered.
 static TEMP_SEQ: AtomicU64 = AtomicU64::new(0);
@@ -96,19 +92,8 @@ pub fn document_from_package_entry(
     entry_path: impl AsRef<Path>,
     index: &LocalPackageIndex,
 ) -> Result<Document, GraphicsBridgeError> {
-    let units = elaborate_with_packages(entry_path.as_ref(), index)?;
-    let stem = entry_path
-        .as_ref()
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .unwrap_or("main");
-    let demo = units
-        .iter()
-        .find(|u| u.name == stem)
-        .ok_or_else(|| GraphicsBridgeError::Load(format!("missing elaborated unit `{stem}`")))?;
-    let v = eval_expr(&demo.expr, &primitive_env(), &mut UnitHost)
-        .map_err(|e| GraphicsBridgeError::Eval(e.message))?;
-    let v = maybe_materialize_package_resources_for_entry(&v, entry_path.as_ref());
+    let entry_path = entry_path.as_ref();
+    let v = eval_package_entry_main(entry_path, index).map_err(GraphicsBridgeError::from)?;
     // Live-layout demos (doc page + sibling math) are not graphics/page trees.
     if is_live_layout_demo_tag(&v) {
         return crate::live_layout_bridge::document_from_live_layout_value(&v);
