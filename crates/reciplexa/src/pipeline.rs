@@ -7,6 +7,10 @@
 //! no top-level interim `(page …)`, the pipeline opts into package eval +
 //! graphics/document value bridge instead of interim CST lower.
 //!
+//! Package ingest runs top-level effect typecheck, then Core typecheck after
+//! package elaborate, then eval/bridge. Load failures use stage `package`;
+//! static type mismatches use stage `type`.
+//!
 //! **S6b:** Interim keyword `(page)/(circle)/…` ingest is refused on the
 //! production pipeline. Author with `(import graphics/…)(val main (page …))`.
 //! Keyword tables remain behind `interim-surface` for fixture crates only.
@@ -16,10 +20,13 @@ use std::path::{Path, PathBuf};
 use reciplexa_effect::{list_head_ident, run_source_effects, EffectError, EffectHandler, Value};
 use reciplexa_lower::lower_source;
 use reciplexa_macro::expand_source;
-use reciplexa_package::{document_from_package_source, LocalPackageIndex};
+use reciplexa_package::{
+    document_from_package_source, typecheck_package_source, LocalPackageIndex,
+    PackageTypecheckError,
+};
 use reciplexa_scene::Document;
 use reciplexa_syntax::{parse_source, SyntaxKind};
-use reciplexa_types::typecheck_source;
+use reciplexa_types::{typecheck_source, typecheck_top_level_effects};
 
 use crate::document_pipeline::document_snapshot_from_source;
 
@@ -191,13 +198,31 @@ pub(crate) fn package_search_roots_near(hint: Option<&Path>) -> Vec<PathBuf> {
 }
 
 fn document_from_package_domain(expanded: &str) -> Result<Document, PipelineError> {
+    typecheck_top_level_effects(expanded).map_err(pipeline_type_error_from_surface)?;
     let package_src = strip_top_level_effect_forms(expanded);
     let search_roots = package_search_roots();
     let roots: Vec<&Path> = search_roots.iter().map(PathBuf::as_path).collect();
     let idx = LocalPackageIndex::discover(&roots)
         .map_err(|e| PipelineError::new("package", e.to_string()))?;
+    typecheck_package_source(&package_src, "entry", &idx)
+        .map_err(pipeline_type_error_from_package)?;
     document_from_package_source(&package_src, "entry", &idx)
-        .map_err(|e| PipelineError::new("package", format!("{e:?}")))
+        .map_err(|e| PipelineError::new("package", e.to_string()))
+}
+
+fn pipeline_type_error_from_surface(e: reciplexa_types::TypeError) -> PipelineError {
+    PipelineError::new("type", format!("{} @{}..{}", e.message, e.start, e.end))
+}
+
+fn pipeline_type_error_from_package(e: PackageTypecheckError) -> PipelineError {
+    match e {
+        PackageTypecheckError::Load(load) => PipelineError::new("package", load.to_string()),
+        PackageTypecheckError::Check(check) => {
+            let start = check.range.start().get();
+            let end = check.range.end().get();
+            PipelineError::new("type", format!("{} @{start}..{end}", check.message))
+        }
+    }
 }
 
 /// Drop top-level `(perform …)` / `(handle …)` / `(src …)` before package elaboration.
@@ -546,6 +571,44 @@ mod tests {
         )
         .unwrap();
         assert!(out.editable.is_none());
+    }
+
+    #[test]
+    fn package_route_effect_type_error_is_type_stage() {
+        let src = format!("(src (perform log 1))\n{PKG_CIRCLE}");
+        let err = document_from_source(&src).unwrap_err();
+        assert_eq!(err.stage, "type");
+    }
+
+    #[test]
+    fn package_route_core_type_mismatch_is_type_stage() {
+        let src = r#"
+(import graphics/shapes only circle fill)
+(import graphics/page only a4 page)
+(import graphics/color only black)
+(val main (page a4 (fill (circle 1 2) black)))
+"#;
+        let err = document_from_source(src).unwrap_err();
+        assert_eq!(err.stage, "type", "{}", err.message);
+    }
+
+    #[test]
+    fn package_route_unknown_import_is_package_stage() {
+        let src = "(import graphics/no-such only x)\n(val main 1)\n";
+        let err = document_from_source(src).unwrap_err();
+        assert_eq!(err.stage, "package");
+    }
+
+    #[test]
+    fn package_route_non_page_main_is_package_or_type_stage() {
+        let src = "(import graphics/shapes only circle)\n(val main 42)\n";
+        let err = document_from_source(src).unwrap_err();
+        assert!(
+            err.stage == "package" || err.stage == "type",
+            "unexpected stage {}: {}",
+            err.stage,
+            err.message
+        );
     }
 
     #[test]
