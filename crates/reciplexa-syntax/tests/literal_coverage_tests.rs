@@ -146,6 +146,8 @@ fn ident_validate_residual_matrix() {
     assert!(validate_package_path("/a").is_err());
     assert!(validate_package_path("a/").is_err());
     assert!(validate_package_path("A/b").is_err());
+    assert!(validate_package_path("ab--c").is_err());
+    assert!(validate_package_path("ab-").is_err());
     assert!(validate_ident(&format!("a{}", '\u{200b}')).is_err());
 }
 

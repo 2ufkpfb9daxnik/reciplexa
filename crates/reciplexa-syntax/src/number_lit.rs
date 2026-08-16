@@ -5,16 +5,13 @@
 
 /// True when the token text denotes an `f64` literal (fractional or scientific).
 pub fn is_f64_literal_form(text: &str) -> bool {
-    let (_, body) = match strip_sign(text) {
-        Ok(v) => v,
-        Err(_) => return false,
-    };
+    let (_, body) = strip_sign(text);
     body.contains('.') || body.contains('e') || body.contains('E')
 }
 
 /// Parse a SYN §7 integer literal into `i128` (DD-TYP-NUM-001 kernel subset).
 pub fn parse_int_literal(text: &str) -> Result<i128, String> {
-    let (signed, body) = strip_sign(text)?;
+    let (signed, body) = strip_sign(text);
     if body.is_empty() {
         return Err(format!("invalid number literal `{text}`"));
     }
@@ -55,7 +52,7 @@ fn parse_radix_i128(digits: &str, radix: u32, raw: &str) -> Result<i128, String>
 ///
 /// Underscores are ignored. Radix prefixes use lowercase `0b`/`0o`/`0x` only.
 pub fn parse_number_literal(text: &str) -> Result<f64, String> {
-    let (signed, body) = strip_sign(text)?;
+    let (signed, body) = strip_sign(text);
     if body.is_empty() {
         return Err(format!("invalid number literal `{text}`"));
     }
@@ -77,13 +74,13 @@ pub fn parse_number_literal(text: &str) -> Result<f64, String> {
     Ok(value)
 }
 
-fn strip_sign(text: &str) -> Result<(bool, &str), String> {
+fn strip_sign(text: &str) -> (bool, &str) {
     if let Some(rest) = text.strip_prefix('-') {
-        Ok((true, rest))
+        (true, rest)
     } else if let Some(rest) = text.strip_prefix('+') {
-        Ok((false, rest))
+        (false, rest)
     } else {
-        Ok((false, text))
+        (false, text)
     }
 }
 
