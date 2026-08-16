@@ -208,8 +208,8 @@ pre-PKG カーネルは計画上 **COMPLETE（意図的 defer 付き）**。各�
 
 履歴の「done」列ではなく、**まだ閉じていない契約**だけ:
 
-1. **OPEN-PKG-001** — レジストリ実ネットワーク。lock checksum は `package.rpxm` の SHA-256（`sha256:`）。PKG006 は `path:` のみ比較；workspace メンバー checksum は記録するが診断しない。full-tree / registry artifact hash は未着手。
-2. **package-resource** — R3 は opt-in materialize。load/eval 時の強制 rewrite・typed resource 効果は未着手。
+1. **OPEN-PKG-001** — レジストリ実ネットワーク。lock checksum は `package.rpxm` の SHA-256（`sha256:`）。`rpx.lock` がある package 読み込み時に manifest 整合 + PKG006（`path:` のみ）を検証。workspace メンバー checksum は記録するが PKG006 では比較しない。full-tree / registry artifact hash は未着手。
+2. **package-resource** — eval 後の bridge 経路は `maybe_materialize_package_resources_for_entry` で自動 materialize。load/elaborate 中の rewrite・typed resource 効果は未着手。
 3. **OPEN-TEXT-JA-001** — 完全 UCS / 規範的 §C / 実 glyph hanging・justification・詰め / OpenType `vert` / CSS `text-orientation` / font-backed ruby・縦中横・傍点。stub 層（Waves 4–29）は閉じない。
 4. **OpenType MATH** — stretchy assembly、MATH table、`\fontdimen`、実 glyph advance。live layout の Line/offset stubs は代替にならない。
 5. **本番ページ消費** — 文書・GUI が math box と JA break/justify を **editable first-class page** として載せる段階は未着手。いまは `live-layout-demo` sibling / ヒューリスティック Text（`layout_style` Display/Text、ker `math-phantom` を `primitive_env` で評価、`pkg_live_math_phantom` SVG/PPTX）。`document/page`（`doc-*`）の CST sync も非ゴールのまま。

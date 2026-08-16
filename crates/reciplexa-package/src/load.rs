@@ -10,6 +10,7 @@ use crate::domain_native::{DomainNativeModule, DomainNativeRegistry};
 use crate::manifest::{DependencySpec, PackageManifest};
 use crate::rpi::parse_rpi_exports;
 use crate::rpxm::{parse_rpxm, RpxmError};
+use crate::workspace::verify_package_lock_for_entry;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PackageLoadError {
@@ -464,6 +465,9 @@ pub fn elaborate_with_packages(
     entry_path: impl AsRef<Path>,
     index: &LocalPackageIndex,
 ) -> Result<Vec<ElaboratedUnit>, PackageLoadError> {
+    let entry_path = entry_path.as_ref();
+    verify_package_lock_for_entry(entry_path)
+        .map_err(|e| PackageLoadError::Io(format!("lock verify: {e}")))?;
     let loaded = load_module_tree_with_packages(entry_path, index)?;
     let mut interface_exports: HashMap<String, Vec<String>> = HashMap::new();
     for (name, _) in &loaded {

@@ -91,6 +91,6 @@ pub use target::{BuildTarget, RuntimeProfile};
 pub use typecheck::{typecheck_package_source, typecheck_with_packages, PackageTypecheckError};
 pub use workspace::{
     check_package_lock_consistency, discover_workspace, find_enclosing_workspace,
-    parse_workspace_rpxm, read_lock_for_package, resolve_workspace_dependencies, WorkspaceError,
-    WorkspaceIndex, WorkspaceManifest,
+    parse_workspace_rpxm, read_lock_for_package, resolve_workspace_dependencies,
+    verify_package_lock_for_entry, WorkspaceError, WorkspaceIndex, WorkspaceManifest,
 };

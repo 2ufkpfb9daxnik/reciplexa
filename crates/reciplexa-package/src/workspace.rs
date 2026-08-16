@@ -4,8 +4,10 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use crate::build::diagnose_lockfile_checksums;
 use crate::lockfile::{content_checksum, LockedPackage, Lockfile};
 use crate::manifest::PackageManifest;
+use crate::resource_value::find_enclosing_package_root;
 use crate::rpxm::{parse_rpxm, tokenize, RpxmError};
 
 /// Parsed workspace manifest (`workspace.rpxm`).
@@ -366,6 +368,46 @@ pub fn check_package_lock_consistency(
 
     lock.is_consistent_with_consumer(&manifest)
         .map_err(WorkspaceError::Lock)
+}
+
+/// When `entry_path` sits under a package root that has an `rpx.lock` (local or
+/// workspace-root), verify manifest/lock consistency and PKG006 path-dep
+/// checksums before package modules load.
+pub fn verify_package_lock_for_entry(entry_path: &Path) -> Result<(), WorkspaceError> {
+    let Some(package_root) = find_enclosing_package_root(entry_path) else {
+        return Ok(());
+    };
+    if !lock_file_present(&package_root)? {
+        return Ok(());
+    }
+    check_package_lock_consistency(&package_root)?;
+    let resolve_root = lock_diagnose_root(&package_root)?;
+    let (_lock_path, lock) = read_lock_for_package(&package_root)?;
+    if let Some(d) = diagnose_lockfile_checksums(&lock, &resolve_root)
+        .into_iter()
+        .next()
+    {
+        return Err(WorkspaceError::Lock(format!("{}: {}", d.code, d.message)));
+    }
+    Ok(())
+}
+
+fn lock_file_present(package_root: &Path) -> Result<bool, WorkspaceError> {
+    if let Some(ws) = find_enclosing_workspace(package_root)? {
+        if ws.contains_member_root(package_root) {
+            return Ok(ws.lock_path().is_file());
+        }
+    }
+    Ok(package_root.join("rpx.lock").is_file())
+}
+
+fn lock_diagnose_root(package_root: &Path) -> Result<PathBuf, WorkspaceError> {
+    if let Some(ws) = find_enclosing_workspace(package_root)? {
+        if ws.contains_member_root(package_root) {
+            return Ok(ws.root.clone());
+        }
+    }
+    Ok(package_root.to_path_buf())
 }
 
 fn version_satisfies(req: &str, version: &str) -> bool {

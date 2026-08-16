@@ -378,3 +378,83 @@ fn open_pkg_001_registry_fixture_refuses_with_code() {
         "refusal should mention workspace-level resolve: {msg}"
     );
 }
+
+#[test]
+fn verify_lock_skips_without_package_root_or_lock() {
+    use reciplexa_package::{
+        elaborate_with_packages, verify_package_lock_for_entry, LocalPackageIndex,
+    };
+
+    let dir = tmp_dir("nolock");
+    let entry = dir.join("main.rpx");
+    fs::write(&entry, "(val main 1)\n").unwrap();
+    verify_package_lock_for_entry(&entry).unwrap();
+
+    write_pkg(&dir, "solo", "1");
+    fs::write(dir.join("main.rpx"), "(val main 1)\n").unwrap();
+    verify_package_lock_for_entry(&dir.join("main.rpx")).unwrap();
+
+    let idx = LocalPackageIndex::default();
+    elaborate_with_packages(&entry, &idx).unwrap();
+}
+
+#[test]
+fn verify_lock_pkg006_blocks_elaborate() {
+    use reciplexa_package::{
+        elaborate_with_packages, parse_rpxm, verify_package_lock_for_entry, LocalPackageIndex,
+    };
+
+    let dir = tmp_dir("pkg006load");
+    let lib = dir.join("lib");
+    write_pkg(&lib, "lib", "1");
+    let rpxm = lib.join("package.rpxm");
+    fs::write(
+        dir.join("package.rpxm"),
+        r#"(package app
+  format-version 1
+  version "1"
+  (dependencies
+    (lib
+      package lib
+      version "1"
+      path "lib")))"#,
+    )
+    .unwrap();
+    fs::write(dir.join("main.rpx"), "(import lib)\n(val main 1)\n").unwrap();
+
+    let consumer = parse_rpxm(&fs::read_to_string(dir.join("package.rpxm")).unwrap()).unwrap();
+    let idx = LocalPackageIndex::discover(&[&dir]).unwrap();
+    let mut lock = idx.lock_consumer(&consumer).unwrap();
+    let lib_entry = lock
+        .packages
+        .iter_mut()
+        .find(|p| p.name == "lib")
+        .expect("locked lib");
+    lib_entry.checksum = Some(
+        "sha256:deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef".into(),
+    );
+    lock.write_rpx_lock(dir.join("rpx.lock")).unwrap();
+
+    let entry = dir.join("main.rpx");
+    let err = verify_package_lock_for_entry(&entry).unwrap_err();
+    assert!(
+        err.to_string().contains("PKG006"),
+        "expected PKG006, got {err}"
+    );
+
+    let err = elaborate_with_packages(&entry, &idx).unwrap_err();
+    assert!(err.to_string().contains("lock verify"));
+    assert!(err.to_string().contains("PKG006"));
+
+    let good = idx.lock_consumer(&consumer).unwrap();
+    assert_eq!(
+        good
+            .packages
+            .iter()
+            .find(|p| p.name == "lib")
+            .and_then(|p| p.checksum.as_deref()),
+        Some(content_checksum(&rpxm).as_str())
+    );
+    good.write_rpx_lock(dir.join("rpx.lock")).unwrap();
+    verify_package_lock_for_entry(&entry).unwrap();
+}

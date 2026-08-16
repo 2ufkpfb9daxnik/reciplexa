@@ -16,6 +16,7 @@ use reciplexa_std::math::EstimateStyle;
 
 use crate::graphics_bridge::GraphicsBridgeError;
 use crate::load::{elaborate_with_packages, LocalPackageIndex};
+use crate::resource_value::maybe_materialize_package_resources_for_entry;
 
 static TEMP_SEQ: AtomicU64 = AtomicU64::new(0);
 
@@ -117,6 +118,7 @@ pub fn document_from_live_layout_entry(
         .ok_or_else(|| GraphicsBridgeError::Load(format!("missing elaborated unit `{stem}`")))?;
     let v = eval_expr(&demo.expr, &primitive_env(), &mut UnitHost)
         .map_err(|e| GraphicsBridgeError::Eval(e.message))?;
+    let v = maybe_materialize_package_resources_for_entry(&v, entry_path.as_ref());
     document_from_live_layout_value(&v)
 }
 

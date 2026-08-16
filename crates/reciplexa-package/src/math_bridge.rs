@@ -12,6 +12,7 @@ use reciplexa_eval::{
 use reciplexa_std::math::{EstimateStyle, MathBox};
 
 use crate::load::{elaborate_with_packages, LocalPackageIndex, PackageLoadError};
+use crate::resource_value::maybe_materialize_package_resources_for_entry;
 
 /// Errors from package load/eval or math box estimate.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -69,6 +70,7 @@ pub fn estimate_package_math_main_with_style(
         .ok_or_else(|| MathBridgeError::Load(format!("missing elaborated unit `{stem}`")))?;
     let v = eval_expr(&demo.expr, &primitive_env(), &mut UnitHost)
         .map_err(|e| MathBridgeError::Eval(e.message))?;
+    let v = maybe_materialize_package_resources_for_entry(&v, entry);
     let target = math_estimate_target(&v);
     estimate_math_box_from_value_with_style(target, layout_style)
         .map_err(|e| MathBridgeError::Estimate(e.message))
