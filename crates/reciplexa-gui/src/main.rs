@@ -25,13 +25,13 @@ use reciplexa_effect::{seed_from_env, EffectError, EffectHandler, LcgRng, Value}
 use reciplexa_gui_runtime::GuiRuntimeHost;
 use reciplexa_identity::document::{DocumentIdentity, StableNodeId};
 use reciplexa_lower::{
-    collect_layer_props, collect_layers_page, collect_size_targets_page, delete_layer_page,
-    delete_page, duplicate_layer_page, group_layers_page, insert_layer_page, insert_page_after,
-    layer_rotation_deg, nudge_layer_page, reorder_layer_page, scale_layer_uniform,
-    scale_size_target, set_box_xywh, set_layer_prop, set_layer_rotation_deg, set_layers_fill_rgb,
-    set_layers_opacity, set_layers_stroke_rgb, set_layers_stroke_width, set_line_endpoint,
-    set_poly_vertex, set_text_box, ungroup_layer_page, LayerInfo, PropEditContext, PropGroup,
-    PropValue, SizeTarget,
+    collect_layer_props, collect_layers_authoring, collect_size_targets_authoring,
+    delete_layer_authoring, delete_page, duplicate_layer_authoring, group_layers_page,
+    insert_layer_authoring, insert_page_after, is_package_shaped_authoring, layer_rotation_deg,
+    nudge_layer_authoring, reorder_layer_authoring, scale_layer_uniform, scale_size_target,
+    set_box_xywh, set_layer_prop, set_layer_rotation_deg, set_layers_fill_rgb, set_layers_opacity,
+    set_layers_stroke_rgb, set_layers_stroke_width, set_line_endpoint, set_poly_vertex,
+    set_text_box, ungroup_layer_page, LayerInfo, PropEditContext, PropGroup, PropValue, SizeTarget,
 };
 use reciplexa_macro::expand_source;
 use reciplexa_pdf::write_document_with_base;
@@ -2093,7 +2093,7 @@ impl PreviewApp {
         }
         ui.separator();
         if !props.iter().any(|p| p.id == "geom.w") {
-            if let Ok(sizes) = collect_size_targets_page(&self.source, self.page_index) {
+            if let Ok(sizes) = collect_size_targets_authoring(&self.source, self.page_index) {
                 if let Some(SizeTarget::TextSize(idx)) = sizes.get(sel).copied() {
                     if ui
                             .button("Add layout box")
@@ -2207,14 +2207,14 @@ impl PreviewApp {
         if from == to {
             return;
         }
-        match reorder_layer_page(&self.source, self.page_index, from, to) {
+        match reorder_layer_authoring(&self.source, self.page_index, from, to) {
             Ok(new_src) => {
                 self.set_source_with_undo(new_src);
                 self.drag = None;
                 self.selected = vec![to];
                 self.error = pipeline_doc(&self.source).err();
                 self.rebuild_document_path();
-                if let Ok(layers) = collect_layers_page(&self.source, self.page_index) {
+                if let Ok(layers) = collect_layers_authoring(&self.source, self.page_index) {
                     if let Some(layer) = layers.get(to) {
                         self.pending_source_select = Some((layer.byte_start, layer.byte_end));
                     }
@@ -2238,10 +2238,11 @@ impl PreviewApp {
         let mut offset = 0usize;
         for &i in &indices {
             let from = i + offset;
-            match duplicate_layer_page(&src, self.page_index, from) {
+            match duplicate_layer_authoring(&src, self.page_index, from) {
                 Ok(dup) => {
                     let copy_i = from + 1;
-                    src = nudge_layer_page(&dup, self.page_index, copy_i, 5.0, -5.0).unwrap_or(dup);
+                    src = nudge_layer_authoring(&dup, self.page_index, copy_i, 5.0, -5.0)
+                        .unwrap_or(dup);
                     new_sel.push(copy_i);
                     offset += 1;
                 }
@@ -2257,7 +2258,7 @@ impl PreviewApp {
         self.error = pipeline_doc(&self.source).err();
         self.rebuild_document_path();
         if let Some(&last) = self.selected.last() {
-            if let Ok(layers) = collect_layers_page(&self.source, self.page_index) {
+            if let Ok(layers) = collect_layers_authoring(&self.source, self.page_index) {
                 if let Some(layer) = layers.get(last) {
                     self.pending_source_select = Some((layer.byte_start, layer.byte_end));
                 }
@@ -2266,7 +2267,7 @@ impl PreviewApp {
     }
 
     fn copy_selection_forms(&self) -> Option<String> {
-        let layers = collect_layers_page(&self.source, self.page_index).ok()?;
+        let layers = collect_layers_authoring(&self.source, self.page_index).ok()?;
         if self.selected.is_empty() {
             return None;
         }
@@ -2303,10 +2304,11 @@ impl PreviewApp {
         let mut src = self.source.clone();
         let mut new_sel = Vec::new();
         for form in forms {
-            match insert_layer_page(&src, self.page_index, form) {
+            match insert_layer_authoring(&src, self.page_index, form) {
                 Ok((next, idx)) => {
                     // Offset pasted copies slightly so they are visible.
-                    src = nudge_layer_page(&next, self.page_index, idx, 8.0, -8.0).unwrap_or(next);
+                    src = nudge_layer_authoring(&next, self.page_index, idx, 8.0, -8.0)
+                        .unwrap_or(next);
                     new_sel.push(idx);
                 }
                 Err(e) => {
@@ -2324,7 +2326,14 @@ impl PreviewApp {
     /// Insert a core shape form onto the current page and select it.
     fn insert_shape(&mut self, form: &str) {
         self.push_undo();
-        match insert_layer_page(&self.source, self.page_index, form) {
+        let package_form;
+        let form = if is_package_shaped_authoring(&self.source) {
+            package_form = to_package_insert_form(form);
+            package_form.as_str()
+        } else {
+            form
+        };
+        match insert_layer_authoring(&self.source, self.page_index, form) {
             Ok((new_src, idx)) => {
                 self.source = new_src;
                 self.drag = None;
@@ -2339,9 +2348,13 @@ impl PreviewApp {
                                 let dx = vx - cx;
                                 let dy = vy - cy;
                                 if dx.abs() > 1e-6 || dy.abs() > 1e-6 {
-                                    if let Ok(nudged) =
-                                        nudge_layer_page(&self.source, self.page_index, idx, dx, dy)
-                                    {
+                                    if let Ok(nudged) = nudge_layer_authoring(
+                                        &self.source,
+                                        self.page_index,
+                                        idx,
+                                        dx,
+                                        dy,
+                                    ) {
                                         self.source = nudged;
                                     }
                                 }
@@ -2352,7 +2365,7 @@ impl PreviewApp {
                 self.selected = vec![idx];
                 self.error = pipeline_doc(&self.source).err();
                 self.rebuild_document_path();
-                if let Ok(layers) = collect_layers_page(&self.source, self.page_index) {
+                if let Ok(layers) = collect_layers_authoring(&self.source, self.page_index) {
                     if let Some(layer) = layers.get(idx) {
                         self.pending_source_select = Some((layer.byte_start, layer.byte_end));
                     }
@@ -2500,7 +2513,11 @@ impl PreviewApp {
         }
         self.path = PathBuf::from("untitled.rpx");
         self.source =
-            "(import graphics/page only a4 page)\n(val main (page a4 (list)))\n".to_string();
+            "(import graphics/shapes only circle rect ellipse line text fill stroke group)\n\
+             (import graphics/page only a4 page)\n\
+             (import graphics/color only black rgb)\n\
+             (val main (page a4 (list)))\n"
+                .to_string();
         self.drag = None;
         self.clear_selection();
         self.page_index = 0;
@@ -2527,7 +2544,7 @@ impl PreviewApp {
         self.push_undo();
         // Delete high indices first so lower indices stay valid.
         for &i in indices.iter().rev() {
-            match delete_layer_page(&self.source, self.page_index, i) {
+            match delete_layer_authoring(&self.source, self.page_index, i) {
                 Ok(new_src) => self.source = new_src,
                 Err(e) => {
                     self.error = Some(e.message);
@@ -2697,7 +2714,7 @@ impl PreviewApp {
         self.push_undo();
         let mut src = self.source.clone();
         while let Some(&from) = remaining.first() {
-            let n = match collect_layers_page(&src, self.page_index) {
+            let n = match collect_layers_authoring(&src, self.page_index) {
                 Ok(l) => l.len(),
                 Err(e) => {
                     self.error = Some(e.message);
@@ -2707,7 +2724,7 @@ impl PreviewApp {
             if from >= n {
                 break;
             }
-            match reorder_layer_page(&src, self.page_index, from, n - 1) {
+            match reorder_layer_authoring(&src, self.page_index, from, n - 1) {
                 Ok(new_src) => src = new_src,
                 Err(e) => {
                     self.error = Some(e.message);
@@ -2721,7 +2738,7 @@ impl PreviewApp {
                 }
             }
         }
-        let n = collect_layers_page(&src, self.page_index)
+        let n = collect_layers_authoring(&src, self.page_index)
             .map(|l| l.len())
             .unwrap_or(0);
         self.source = src;
@@ -2746,7 +2763,7 @@ impl PreviewApp {
         while let Some(&from) = remaining.last() {
             let slot = remaining.len() - 1; // destination among back slots
             if from != slot {
-                match reorder_layer_page(&src, self.page_index, from, slot) {
+                match reorder_layer_authoring(&src, self.page_index, from, slot) {
                     Ok(new_src) => src = new_src,
                     Err(e) => {
                         self.error = Some(e.message);
@@ -2790,7 +2807,7 @@ impl PreviewApp {
         };
         for i in order {
             let from = sel[i];
-            let n = match collect_layers_page(&src, self.page_index) {
+            let n = match collect_layers_authoring(&src, self.page_index) {
                 Ok(l) => l.len(),
                 Err(e) => {
                     self.error = Some(e.message);
@@ -2808,7 +2825,7 @@ impl PreviewApp {
             if sel.contains(&to) {
                 continue;
             }
-            match reorder_layer_page(&src, self.page_index, from, to) {
+            match reorder_layer_authoring(&src, self.page_index, from, to) {
                 Ok(new_src) => src = new_src,
                 Err(e) => {
                     self.error = Some(e.message);
@@ -3369,7 +3386,7 @@ impl eframe::App for PreviewApp {
                 Ok(doc) => flatten_page(&doc, self.page_index)
                     .map(|(_, shapes)| resolve_preview_layers(&expanded, self.page_index, &shapes))
                     .unwrap_or_default(),
-                Err(_) => collect_layers_page(&expanded, self.page_index).unwrap_or_default(),
+                Err(_) => collect_layers_authoring(&expanded, self.page_index).unwrap_or_default(),
             }
         };
 
@@ -3643,5 +3660,38 @@ impl eframe::App for PreviewApp {
             self.persist_gui_prefs();
             self.viewport_prefs_dirty = false;
         }
+    }
+}
+
+fn to_package_insert_form(form: &str) -> String {
+    match form.trim() {
+        "(circle 105 148.5 20 (rgb 0.85 0.3 0.35))" => {
+            "(fill (circle 105 148.5 20) (rgb 0.85 0.3 0.35))".into()
+        }
+        "(rect 60 120 90 60 (rgb 0.25 0.55 0.9))" => {
+            "(fill (rect 60 120 90 60) (rgb 0.25 0.55 0.9))".into()
+        }
+        "(ellipse 105 148.5 40 25 (rgb 0.3 0.72 0.45))" => {
+            "(fill (ellipse 105 148.5 40 25) (rgb 0.3 0.72 0.45))".into()
+        }
+        "(frame 50 100 110 80 1.5 (rgb 0.15 0.35 0.75))" => {
+            "(fill (frame 50 100 110 80 1.5) (rgb 0.15 0.35 0.75))".into()
+        }
+        "(line 40 200 170 200 (rgb 0.9 0.35 0.2) 1.2)" => {
+            "(stroke (line 40 200 170 200) 1.2 (rgb 0.9 0.35 0.2))".into()
+        }
+        "(polyline 40 180 80 220 120 190 160 210 (rgb 0.2 0.55 0.85) 1.2)" => {
+            "(stroke (polyline 40 180 80 220 120 190 160 210) 1.2 (rgb 0.2 0.55 0.85))".into()
+        }
+        "(polygon 60 140 100 180 140 140 (rgb 0.85 0.55 0.2))" => {
+            "(fill (polygon 60 140 100 180 140 140) (rgb 0.85 0.55 0.2))".into()
+        }
+        "(text 40 200 12 60 24 \"Text\" (rgb 0.15 0.15 0.2))" => {
+            "(fill (text 40 200 12 \"Text\") (rgb 0.15 0.15 0.2))".into()
+        }
+        "(ring 105 148.5 30 8 (rgb 0.95 0.55 0.15))" => {
+            "(fill (ring 105 148.5 30 8) (rgb 0.95 0.55 0.15))".into()
+        }
+        other => other.to_string(),
     }
 }
