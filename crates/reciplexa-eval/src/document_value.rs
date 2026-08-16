@@ -6,7 +6,8 @@
 
 use reciplexa_scene::{Color, Document, Page, PaperSize, Shape};
 use reciplexa_std::japanese::{
-    layout_column_paragraph_shapes, layout_wrapped_paragraph_shapes, DOC_TEXT_MAX_EM,
+    layout_column_paragraph_shapes, layout_wrapped_paragraph_shapes, ParagraphSceneLayout,
+    DOC_TEXT_MAX_EM,
 };
 
 use crate::graphics_value::GraphicsValueError;
@@ -198,17 +199,15 @@ fn push_doc_columns(
     }
     let size_mm = 4.0;
     let pitch = -(size_mm + DOC_LINE_PITCH_EXTRA_MM);
-    let (col_shapes, min_y) = layout_column_paragraph_shapes(
-        &texts,
-        total_em,
-        count,
-        gutter_em,
-        DOC_BASE_X_MM,
-        *cursor_y,
+    let layout = ParagraphSceneLayout {
+        base_x_mm: DOC_BASE_X_MM,
+        start_y_mm: *cursor_y,
         size_mm,
-        pitch,
-        Color::BLACK,
-    );
+        pitch_mm: pitch,
+        fill: Color::BLACK,
+    };
+    let (col_shapes, min_y) =
+        layout_column_paragraph_shapes(&texts, total_em, count, gutter_em, &layout);
     shapes.extend(col_shapes.into_iter().map(Shape::Text));
     // After a block of lines, advance past the last baseline by one pitch step.
     *cursor_y = if texts.is_empty() {
@@ -228,16 +227,14 @@ fn push_soft_wrapped_text(
     shapes: &mut Vec<Shape>,
 ) {
     let pitch = -(size_mm + DOC_LINE_PITCH_EXTRA_MM);
-    let texts = layout_wrapped_paragraph_shapes(
-        text,
-        DOC_TEXT_MAX_EM,
-        indent_em,
-        DOC_BASE_X_MM,
-        *cursor_y,
+    let layout = ParagraphSceneLayout {
+        base_x_mm: DOC_BASE_X_MM,
+        start_y_mm: *cursor_y,
         size_mm,
-        pitch,
-        Color::BLACK,
-    );
+        pitch_mm: pitch,
+        fill: Color::BLACK,
+    };
+    let texts = layout_wrapped_paragraph_shapes(text, DOC_TEXT_MAX_EM, indent_em, &layout);
     let n = texts.len().max(1);
     shapes.extend(texts.into_iter().map(Shape::Text));
     *cursor_y += pitch * n as f64;

@@ -30,10 +30,10 @@ pub use japanese::{
     place_lines_vertical, reciprocal_punctuation_mirror_em, reciprocal_punctuation_widths_em,
     ruby_estimate_box, tate_chu_yoko_estimate_box, trimming_width_em, trimming_width_em_char,
     vertical_advance_em, vertical_glyph_orientation, vertical_ruby_estimate_box,
-    wrap_text_shape_content, BouBox, BreakOpportunity, CharClass, KihonHanmen, Ruby, RubyBox,
-    RubyKind, TateChuYoko, TateChuYokoBox, TategakiParagraph, VerticalGlyphOrientation,
-    VerticalRubyBox, WritingMode, BOU_MARK_SIZE_EM, BOU_SIDE_OFFSET_EM, BREAK_PAIR_MATRIX,
-    BREAK_PAIR_MATRIX_DIM, DOC_TEXT_MAX_EM, HANG_WIDTH_EM, TRIMMING_WIDTH_EM,
+    wrap_text_shape_content, BouBox, BreakOpportunity, CharClass, KihonHanmen,
+    ParagraphSceneLayout, Ruby, RubyBox, RubyKind, TateChuYoko, TateChuYokoBox, TategakiParagraph,
+    VerticalGlyphOrientation, VerticalRubyBox, WritingMode, BOU_MARK_SIZE_EM, BOU_SIDE_OFFSET_EM,
+    BREAK_PAIR_MATRIX, BREAK_PAIR_MATRIX_DIM, DOC_TEXT_MAX_EM, HANG_WIDTH_EM, TRIMMING_WIDTH_EM,
     VERTICAL_RUBY_SIDE_EM,
 };
 pub use layout::{Align, Axis, Column, LayoutChild, Padding, Row, Stack};
