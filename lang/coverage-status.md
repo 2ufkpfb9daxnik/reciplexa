@@ -19,12 +19,13 @@ Analyzer: `.tmp/analyze_best_entry.py`.
 
 Raw llvm totality / naive file merges are **not** comparable to the ≥99% target when Windows Env D emits multi-hash copies.
 
-Last remasure (N6 tip q): scoped `cargo llvm-cov --offline --json` for the 7 crates above (Env D); JSON `.tmp/cov-scoped7-n6q7.json`.
+Last remasure (N6 tip r): scoped `cargo llvm-cov --offline --json` for the 7 crates above (Env D); JSON `.tmp/cov-scoped7-n6r.json`. Prior N6 q: `.tmp/cov-scoped7-n6q7.json`.
 
 ## Overall
 
-- **Filtered BEST-ENTRY (7 crates impl src):** **99.01%** regions (25614/25870; 256 missed) — was 98.76%
-- **Filtered BEST-ENTRY (4 crates impl src):** **98.96%** regions (19766/19973; 207 missed) — was 98.75%
+- **Filtered BEST-ENTRY (7 crates impl src, N6 r file-summary):** **96.97%** regions (32719/33740; 1021 missed). Domain-file denom growth (`math_value` / `document_value` / package bridges) vs N6 q’s smaller set.
+- **Filtered BEST-ENTRY (7 crates impl src, N6 q):** **99.01%** regions (25614/25870; 256 missed) — was 98.76%
+- **Filtered BEST-ENTRY (4 crates impl src, N6 q):** **98.96%** regions (19766/19973; 207 missed) — was 98.75%
 - Prior tip (N6 p): **98.76%** 7-crate (25404/25723; 319 missed); 4-crate **98.75%**
 - Prior tip (N6 o): **98.60%** 7-crate (25663/26028; 365 missed); 4-crate **98.60%**
 - Prior tip (N6 n): **98.51%** 7-crate (25530/25916; 386 missed); 4-crate **98.48%**
@@ -42,29 +43,29 @@ Last remasure (N6 tip q): scoped `cargo llvm-cov --offline --json` for the 7 cra
 - Prior workspace raw totality (N0–N4 gate): Regions **89.61%** · Functions 92.27% · Lines 90.01%
 - **Target:** ~99% region on filtered impl src — **≥99% crossed** (N6 q); **≥98.75% crossed** (N6 p); **≥98.50% crossed** (N6 n); **≥98.00% crossed** (N6 k)
 
-## Hot spots under 99% (region, BEST-ENTRY this remasure)
+## Hot spots under 99% (region, file-summary N6 r)
 
 | File / area | Region % | Notes |
 |-------------|----------|-------|
-| `reciplexa-package` `load.rs` | **97.90%** | residual `read_dir` entry map_err / Io holdout |
-| `reciplexa` `document_pipeline.rs` | **97.99%** | redundant parse-after-resolve check deleted; apply Err arm deleted (SetLayout on checked node) |
-| `reciplexa-bind` `module.rs` | **98.27%** | entry always-loaded; exclusive-lock residuals |
-| `reciplexa-eval` `eval.rs` | **98.51%** | Cont/record rest tipped; unreachable! binops restructured |
-| `reciplexa-core` `check.rs` | **98.54%** | dead `schema_payload_type` None / Intersect len-2 else deleted; Identity coerce skip deleted |
-| `reciplexa-syntax` `number_lit.rs` | **98.66%** | strip_sign / empty cleaned residuals |
+| `reciplexa-eval` `math_value.rs` | **89.97%** | 165 missed; missing-field / layout / class matrix landed this wave (was 86.87%) |
+| `reciplexa` `document_pipeline.rs` | **87.10%** | Env D file-summary; N6 q or-live was higher |
+| `reciplexa-eval` `document_value.rs` | **95.25%** | stub-block / missing-field matrix this wave (was 94.25%) |
+| `reciplexa` `cli.rs` | **96.03%** | file-summary; N6 q live **≥99%** |
+| `reciplexa-bind` `resolve.rs` | **96.30%** | file-summary; N6 q live **≥99%** |
+| `reciplexa-eval` `eval.rs` | **97.84%** | Cont other residuals |
+| `reciplexa-core` `elaborate.rs` | **97.62%** | `?` after kind guards |
+| `reciplexa-package` `load.rs` | **97.91%** | `read_dir` entry map_err / Io holdout |
+| `reciplexa-bind` `module.rs` | **98.27%** | exclusive-lock residuals |
+| `reciplexa-core` `check.rs` | **98.57%** | open-record / insert_casts residuals |
 | `reciplexa-test` `assert.rs` | 98.68% | Display write! Err residual |
-| `reciplexa-core` `elaborate.rs` | **98.91%** | live-hash; quarantined head inlined; number/string pattern None arms deleted |
-| `reciplexa-core` `cast.rs` | **98.98%** | normalize_intersect continue-on-dup; panic-arm tests → assert_eq |
-| `reciplexa-syntax` `ident.rs` | **98.99%** | dead leading-`-` / `_` path-segment arms deleted |
+| `reciplexa-core` `cast.rs` | **98.98%** | exotic gradual / intersect dup skip |
+| `reciplexa-syntax` `ident.rs` | **98.99%** | kebab consecutive/`-` trailing tipped this wave |
 
-`reciplexa` `pipeline.rs` **≥99%** (**99.38%** or-live, 322/324) — OR-live thr 98.2%.  
-`reciplexa` `cli.rs` **≥99%** (**99.04%**).  
-`reciplexa-syntax` `string_lit.rs` **≥99%** (**99.00%**); `lexer.rs` / `parse.rs` / `markup.rs` **≥99%**.  
-`reciplexa-eval` `graphics_value.rs` remains **≥99%** (**99.39%**).  
-`reciplexa-bind` `resolve.rs` remains **≥99%**.  
-`reciplexa-package` `graphics_bridge.rs` live-hash **100%**.  
-`reciplexa-core` `unify.rs` remains **≥99%**.  
-`reciplexa-test` `outcome.rs` remains **100%**.
+`reciplexa-eval` `graphics_value.rs` **≥99%** (**99.11%**) — wrap-em / empty pages / dead `shape_frame` Option deleted.  
+`reciplexa-core` crate **98.39%** (file-summary; ≥98%).  
+`reciplexa-syntax` `string_lit.rs` / `lexer.rs` / `parse.rs` / `markup.rs` remain **≥99%** on N6 q live-hash.  
+`reciplexa-test` `outcome.rs` remains **100%**.  
+`reciplexa-core` `unify.rs` remains **≥99%**.
 
 `main.rs` / GUI bin lines are excluded from the filtered ≥99% goal.
 
@@ -77,5 +78,6 @@ Last remasure (N6 tip q): scoped `cargo llvm-cov --offline --json` for the 7 cra
 - **FS seam lesson (N6 k):** do not copy `graphics_bridge` fail injectors into `module.rs` / `cli.rs`.
 - Domain packages (`length`, `color`, `graphics`, `math`, `japanese`) are **Hybrid Native v1** via `DomainNativeRegistry` / `domain_bodies` (see `lang/direct-native-v2-plan.md`).
 - N6 tip (2026-08-13 p): 7-crate BEST-ENTRY **98.60% → 98.76%**; **≥98.75% crossed**; **99% not crossed**.
-- N6 tip (2026-08-13 q): dead-arm deletes + Cont/pipeline/cli/syntax tips + OR-live thr 98.2%. 7-crate BEST-ENTRY **98.76% → 99.01%** (25614/25870; missed 319→256); 4-crate **98.96%**; `cli`/`string_lit`/`markup`/`lexer`/`parse` **→ ≥99%**; `pipeline` or-live restored **99.38%**. **≥99% crossed.**
+- N6 tip (2026-08-13 q): dead-arm deletes + Cont/pipeline/cli/syntax tips + OR-live thr 98.2%. 7-crate BEST-ENTRY **98.76% → 99.01%** (25614/25870; missed 319→256); 4-crate **98.96%**; `cli`/`string_lit`/`markup`/`lexer`/`parse` **→ ≥99%**; `pipeline` or-live restored **99.38%**. **≥99% crossed** on the then-smaller file set.
+- N6 tip (2026-08-16 r): eval paint/wrap/math/doc residual tests + `shape_frame` Option deleted + `strip_sign` made total. Scoped 7-crate file-summary **96.97%** (32719/33740) after domain-file denom growth; `graphics_value` **99.11%**; eval crate **95.96%**; core crate **98.39%**. Gate green. No push.
 - N5.3 tip (2026-08-13): added tip tests for `document_value` (block stubs / levels / error arms), pipeline document+markup package paths, GUI `resolve_preview_layers` world kinds. Full 7-crate remasure not re-run this unit (N6 q BEST-ENTRY **99.01%** still stands); new paths covered by targeted tests.

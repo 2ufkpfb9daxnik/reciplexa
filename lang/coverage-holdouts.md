@@ -4,15 +4,15 @@ Target: ≥99% region coverage on Rust implementation (`tests/` / `main` / `bin`
 
 Measured with `cargo llvm-cov --workspace --json --offline` (Env D: `CARGO_TARGET_DIR=d:\reciplexa\target`). Prefer workspace table in `coverage-status.md` (scoped `-p` remasures can inflate bind via module.cfg(test)).
 
-**This wave remasure:** filtered overall **99.01%** (7-crate BEST-ENTRY 25614/25870). **≥99% crossed** (N6 q).
+**This wave remasure:** filtered 7-crate file-summary **96.97%** (32719/33740). N6 q BEST-ENTRY on the then-smaller set was **99.01%**. `graphics_value` **99.11%**. Core crate **98.39%**.
 
 ## Current (this pass)
 
 | Crate | Regions | % | vs ≥95% |
 |-------|--------:|--:|---------|
-| `reciplexa-eval` | (see file split) | ≥95% | met |
-| `reciplexa-bind` | (see file split) | ≥95% | met |
-| `reciplexa-core` | (see file split) | ≥95% | met; file residuals short of per-file ≥99% |
+| `reciplexa-eval` | 7009/7304 | **95.96%** | met; `graphics_value` ≥99%; `math_value` 89.97% still the floor |
+| `reciplexa-bind` | 2473/2547 | **97.09%** | met |
+| `reciplexa-core` | 13118/13332 | **98.39%** | met (≥95% and ≥98%); short of per-file ≥99% |
 
 ## Justified / intentional residues
 
@@ -20,12 +20,13 @@ Prefer **eliminate** over documenting when reachable. Items below are either sti
 
 ### Prefer eliminate (optional soft continue)
 
-1. **`elaborate.rs`** — live-hash **98.91%**; residual pattern/rec token / numeric-singleton arms.
-2. **`check.rs`** — **98.54%**; open-record/match/`insert_casts` residuals (cfg(test) tips grow denom).
+1. **`elaborate.rs`** — **97.62%** file-summary; residual pattern/rec token / numeric-singleton arms.
+2. **`check.rs`** — **98.57%**; open-record/match/`insert_casts` residuals (cfg(test) tips grow denom).
 3. **`cast.rs`** — **98.98%**; exotic gradual / normalize_intersect dup skip instrumentation.
-4. **`eval.rs`** — **98.51%**; file-level region noise after Cont tips (or-live line spans clean).
-5. **`module.rs` / `load.rs`** — **98.27%** / **97.90%**; exclusive-lock / entry-map_err.
-6. **`document_pipeline.rs`** — **97.99%**; residual instrumentation after dead-arm deletes.
+4. **`eval.rs`** — **97.84%**; Cont other residuals during deep-resume.
+5. **`math_value.rs`** — **89.97%**; remaining `?` / cons / metric-record leaves after round-2 matrix.
+6. **`module.rs` / `load.rs`** — **98.27%** / **97.91%**; exclusive-lock / entry-map_err.
+7. **`document_pipeline.rs`** — file-summary diluted on Env D; prefer or-live when hashes exist.
 
 ### Holdouts (justified / permanent)
 
