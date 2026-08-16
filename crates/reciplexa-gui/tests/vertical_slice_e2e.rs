@@ -81,7 +81,7 @@ fn vertical_slice_package_shapes_text_roundtrip() {
 
     let doc_reload = document_from_source(&reloaded).expect("reload ingest");
     let texts = text_contents(&doc_reload.pages[0].shapes);
-    assert!(texts.iter().any(|t| *t == "Edited"), "texts={texts:?}");
+    assert!(texts.contains(&"Edited"), "texts={texts:?}");
 
     let (doc_export, _) =
         document_for_export(&mut TestHandler::default(), &reloaded).expect("export");
