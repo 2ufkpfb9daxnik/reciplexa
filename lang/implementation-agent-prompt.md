@@ -104,12 +104,15 @@ commit前に必ず確認:
 1. `git status --short`
 2. staged / unstaged diffの自己review
 3. 対象unit / integration test
-4. `cargo fmt --all --check`
-5. 変更範囲のClippy
-6. 公開契約を変えた場合のdocs / examples / conformance
-7. secret、credential、一時生成物、巨大binary、意図しない削除がない
-8. conflict markerとwhitespace errorがない
-9. 既存ユーザー変更を含めていない
+4. 変更したホストを実際に起動する。`cargo check` や unit test が通っても、Windows 既定スタックでの `cargo run` が落ちることがある。package 経路を触ったら少なくとも:
+   `cargo run --offline -p reciplexa-gui -- --smoke examples/text_line.rpx`
+   `cargo run --offline -p reciplexa -- examples/text_line.rpx .tmp/smoke.pdf`
+5. `cargo fmt --all --check`
+6. 変更範囲のClippy
+7. 公開契約を変えた場合のdocs / examples / conformance
+8. secret、credential、一時生成物、巨大binary、意図しない削除がない
+9. conflict markerとwhitespace errorがない
+10. 既存ユーザー変更を含めていない
 
 合理的な節目ごとにworkspace全gateを実行する。hook失敗後は原因を直して新しいcommitを作る。amend、rebase、force、pushを行わない。
 
@@ -125,6 +128,8 @@ cargo clippy --workspace --all-targets --offline -- -D warnings
 cargo test --workspace --offline
 cargo check --workspace --all-targets --offline
 cargo check --offline -p reciplexa-gui
+cargo run --offline -p reciplexa-gui -- --smoke examples/text_line.rpx
+cargo run --offline -p reciplexa -- examples/text_line.rpx .tmp/smoke.pdf
 ```
 
 高コストな全gateの前に対象crateのtest / Clippyを実行する。全gateの実測結果は `lang/implemented-features.md` に同じHEADの結果として記録する。

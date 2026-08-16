@@ -28,6 +28,6 @@ alwaysApply: true
 ## Validation and commits
 
 - One commit per independently testable purpose; include direct tests with implementation.
-- Before commit: review status/diff, run target tests, fmt check, scoped Clippy, and check for secrets/generated files/unintended deletions.
-- At milestones run workspace fmt, Clippy `-D warnings`, tests, all-target check, and GUI check offline.
+- Before commit: review status/diff, run target tests, fmt check, scoped Clippy, **run the changed host binary** (`cargo run -p reciplexa-gui -- --smoke examples/text_line.rpx` and/or CLI export of the same file), and check for secrets/generated files/unintended deletions.
+- At milestones run workspace fmt, Clippy `-D warnings`, tests, all-target check, GUI check, and the GUI/CLI smoke `cargo run` commands offline.
 - Commits are authorized for the active plan. Do not amend, rebase, force, or push.

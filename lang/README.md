@@ -35,3 +35,5 @@ coverage、deferred、meta、gap/partialの各ファイルは測定・監査用�
 通常は専門AIに自律実行させて構いません。人間の判断が必要なのは、仕様・製品挙動・データ互換性・破壊的変更が変わる場合です。
 
 Vertical Slice完了時には、GUIで基本図形と文字を編集し、保存後に同じ表示へ戻ることを一度確認してください。
+
+コミット前には unit test だけでなく、変更したホストを `cargo run` で起動すること。GUI は `--smoke examples/text_line.rpx` でウィンドウなし確認ができる。
