@@ -127,7 +127,17 @@ doc record constructorsをtyped callableへ移し、live-layout / document bridg
 
 Until DN2-6, keep incremental migration **OPEN**. DN2-6/7 plus production stub bind,
 isolated hybrid overrides, type/Failure differential coverage, and workspace gates
-complete the required milestone; portable fallback stays `OPEN-NATIVE-PKG-001` only.
+complete the required **shipping** milestone; portable fallback stays `OPEN-NATIVE-PKG-001` only.
+
+### DN2-8 — observational hardening (before product typesetting)
+
+Shipping DN2 is in production. Before font-backed JLReq / OpenType MATH, close the
+remaining observational gaps without treating 300 exports as a coverage target:
+
+1. Differential eval on deeper existing examples (`pkg_graphics_shapes`, `pkg_columns`, `pkg_math`).
+2. `japanese/linebreak` dynamic exports: predicates and `classify-sample` where Hybrid and std agree; `break-between` **kind** on Hybrid-covered pairs. Notes and the full pair matrix follow `reciplexa_std` (DN2-4), not the Hybrid nested-if stub.
+3. Structured Failure conversion (later increment).
+4. Skip native stub body elaboration (later increment).
 
 ## Portable fallback
 

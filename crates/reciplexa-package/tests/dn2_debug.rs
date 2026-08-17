@@ -2,9 +2,10 @@ use std::path::PathBuf;
 
 use reciplexa_core::elaborate::elaborate_source;
 use reciplexa_core::expr::CoreExpr;
+use reciplexa_eval::RuntimeValue;
 use reciplexa_package::{
-    differential_eval_both_fail, differential_eval_package_modules, register_test_ping_module,
-    std_domain_natives, DomainNativeRegistry, LocalPackageIndex,
+    differential_eval_both_fail, differential_eval_package_modules, eval_package_entry_main,
+    register_test_ping_module, std_domain_natives, DomainNativeRegistry, LocalPackageIndex,
 };
 
 #[test]
@@ -100,6 +101,14 @@ fn dn2_graphics_shapes_hybrid_and_direct_native_agree_on_pkg_circle() {
     let idx = LocalPackageIndex::discover(&[packages.as_path()]).unwrap();
     differential_eval_package_modules(&entry, &idx, &["graphics/shapes"])
         .expect("graphics/shapes hybrid and DN2 agree on pkg_circle");
+}
+
+#[test]
+fn dn2_graphics_modules_hybrid_and_direct_native_agree_on_pkg_graphics_shapes() {
+    assert_example_differential(
+        "pkg_graphics_shapes.rpx",
+        &["graphics/color", "graphics/page", "graphics/shapes"],
+    );
 }
 
 #[test]
@@ -306,6 +315,79 @@ fn dn2_japanese_linebreak_static_exports_hybrid_and_direct_native_agree() {
 }
 
 #[test]
+fn dn2_japanese_linebreak_predicates_and_classify_sample_agree() {
+    let idx = LocalPackageIndex::default().with_native(reciplexa_package::std_domain_natives());
+    let src = r#"(import japanese/linebreak only
+  line-head-prohibited-class? line-end-prohibited-class? inseparable-pair?
+  hangable-class? numeric-before-close-prohibited? classify-sample
+  opportunity pair-rule)
+(val main
+  (record
+    (head2 (line-head-prohibited-class? 2))
+    (head6 (line-head-prohibited-class? 6))
+    (head15 (line-head-prohibited-class? 15))
+    (end1 (line-end-prohibited-class? 1))
+    (end12 (line-end-prohibited-class? 12))
+    (end15 (line-end-prohibited-class? 15))
+    (insep88 (inseparable-pair? 8 8))
+    (insep819 (inseparable-pair? 8 19))
+    (insep2424 (inseparable-pair? 24 24))
+    (insep1515 (inseparable-pair? 15 15))
+    (hang6 (hangable-class? 6))
+    (hang15 (hangable-class? 15))
+    (num202 (numeric-before-close-prohibited? 20 2))
+    (num152 (numeric-before-close-prohibited? 15 2))
+    (cl-open (classify-sample "「"))
+    (cl-close (classify-sample "」"))
+    (cl-ellipsis (classify-sample "…"))
+    (cl-hi (classify-sample "あ"))
+    (cl-A (classify-sample "A"))
+    (opp (opportunity "allowed" 19 19 "ideograph run"))
+    (rule (pair-rule 15 2 "prohibited" "letter + close"))))
+"#;
+    let entry = write_temp_rpx("reciplexa-dn2-ja-lb-dyn", src);
+    differential_eval_package_modules(&entry, &idx, &["japanese/linebreak"])
+        .expect("japanese/linebreak predicates and classify-sample hybrid and DN2 agree");
+}
+
+#[test]
+fn dn2_japanese_linebreak_break_between_kind_agrees_on_hybrid_covered_pairs() {
+    let idx = LocalPackageIndex::default().with_native(reciplexa_package::std_domain_natives());
+    let src = r#"(import japanese/linebreak only break-between)
+(val main
+  (record
+    (p88 (break-between 8 8))
+    (p819 (break-between 8 19))
+    (p115 (break-between 1 15))
+    (p152 (break-between 15 2))
+    (p156 (break-between 15 6))
+    (p157 (break-between 15 7))
+    (p1610 (break-between 16 10))
+    (p1220 (break-between 12 20))
+    (p201 (break-between 20 1))
+    (p202 (break-between 20 2))
+    (p1919 (break-between 19 19))))
+"#;
+    let entry = write_temp_rpx("reciplexa-dn2-ja-lb-kind", src);
+    let hybrid_idx = idx
+        .with_hybrid_reference_bodies(&["japanese/linebreak"])
+        .expect("hybrid linebreak body");
+    let hybrid = eval_package_entry_main(&entry, &hybrid_idx).expect("hybrid eval");
+    let dn2 = eval_package_entry_main(&entry, &idx).expect("dn2 eval");
+    let keys = [
+        "p88", "p819", "p115", "p152", "p156", "p157", "p1610", "p1220", "p201", "p202", "p1919",
+    ];
+    for key in keys {
+        let hk = opportunity_kind(record_field(&hybrid, key), key);
+        let dk = opportunity_kind(record_field(&dn2, key), key);
+        assert_eq!(
+            hk, dk,
+            "break-between kind mismatch on `{key}`: hybrid={hk} dn2={dk}"
+        );
+    }
+}
+
+#[test]
 fn dn2_japanese_linebreak_std_parity_via_domain_native() {
     use reciplexa_eval::{call_domain_native, domain_native::JapaneseLinebreakOp, DomainNativeOp};
     use reciplexa_package::linebreak_parity_samples;
@@ -409,6 +491,31 @@ fn dn2_document_page_hybrid_and_direct_native_agree_on_pkg_document_indent() {
 }
 
 #[test]
+fn dn2_document_page_hybrid_and_direct_native_agree_on_pkg_columns() {
+    assert_example_differential("pkg_columns.rpx", &["document/page"]);
+}
+
+#[test]
+fn dn2_math_modules_hybrid_and_direct_native_agree_on_pkg_math() {
+    assert_example_differential(
+        "pkg_math.rpx",
+        &[
+            "math/atoms",
+            "math/scripts",
+            "math/frac",
+            "math/sqrt",
+            "math/delimiters",
+            "math/matrix",
+            "math/accents",
+            "math/bigops",
+            "math/cases",
+            "math/align",
+            "math/stack",
+        ],
+    );
+}
+
+#[test]
 fn dn2_document_page_module_has_typed_exports_for_all_rpi_names() {
     use reciplexa_package::document_page_module;
     let m = document_page_module();
@@ -507,6 +614,65 @@ fn dn2_length_units_arity_failure_agrees_on_hybrid_and_direct_native() {
     std::fs::write(&entry, src).unwrap();
     differential_eval_both_fail(&entry, &idx, &["length/units"])
         .expect("mm arity Failure on both hybrid and DN2");
+}
+
+fn repo_example(name: &str) -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../examples")
+        .join(name)
+}
+
+fn assert_example_differential(example: &'static str, modules: &'static [&'static str]) {
+    std::thread::Builder::new()
+        .name(format!("dn2-{example}"))
+        .stack_size(8 * 1024 * 1024)
+        .spawn(move || {
+            let packages = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../packages");
+            let entry = repo_example(example);
+            assert!(
+                entry.is_file(),
+                "missing example {example} at {}",
+                entry.display()
+            );
+            let idx = LocalPackageIndex::discover(&[packages.as_path()]).unwrap();
+            differential_eval_package_modules(&entry, &idx, modules)
+                .unwrap_or_else(|e| panic!("{example}: {e}"));
+        })
+        .expect("spawn dn2 differential thread")
+        .join()
+        .unwrap_or_else(|payload| std::panic::resume_unwind(payload));
+}
+
+fn write_temp_rpx(prefix: &str, src: &str) -> PathBuf {
+    let dir = std::env::temp_dir().join(format!(
+        "{prefix}-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0)
+    ));
+    std::fs::create_dir_all(&dir).unwrap();
+    let entry = dir.join("main.rpx");
+    std::fs::write(&entry, src).unwrap();
+    entry
+}
+
+fn record_field<'a>(value: &'a RuntimeValue, key: &str) -> &'a RuntimeValue {
+    let RuntimeValue::Record(fields) = value else {
+        panic!("expected record, got {value:?}");
+    };
+    fields
+        .iter()
+        .find(|(k, _)| k == key)
+        .map(|(_, v)| v)
+        .unwrap_or_else(|| panic!("missing field `{key}` in {value:?}"))
+}
+
+fn opportunity_kind<'a>(value: &'a RuntimeValue, ctx: &str) -> &'a str {
+    match record_field(value, "kind") {
+        RuntimeValue::String(s) => s.as_str(),
+        other => panic!("`{ctx}` kind should be string, got {other:?}"),
+    }
 }
 
 fn collect_bindings(expr: &CoreExpr) -> std::collections::HashMap<String, CoreExpr> {
