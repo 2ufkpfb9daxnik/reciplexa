@@ -624,6 +624,30 @@ fn dn2_length_units_type_failure_is_structured_on_direct_native() {
     assert!(report.message.contains("length/units/to-mm"));
 }
 
+#[test]
+fn dn2_color_and_japanese_type_failures_are_structured() {
+    let idx = LocalPackageIndex::default().with_native(std_domain_natives());
+    let from_byte = write_temp_rpx(
+        "reciplexa-dn2-from-byte-type",
+        "(import color/srgb only from-byte)\n(val main (from-byte \"a\" \"b\" \"c\"))\n",
+    );
+    let err = eval_package_entry_main(&from_byte, &idx).expect_err("DN2 from-byte type");
+    let report = reciplexa_eval::parse_package_failure(&err.to_string()).expect("structured");
+    assert_eq!(report.code.as_path(), "package/type");
+    assert!(report.message.contains("color/srgb from-byte"));
+
+    let classify = write_temp_rpx(
+        "reciplexa-dn2-classify-type",
+        "(import japanese/linebreak only classify-sample)\n(val main (classify-sample 1))\n",
+    );
+    let err = eval_package_entry_main(&classify, &idx).expect_err("DN2 classify-sample type");
+    let report = reciplexa_eval::parse_package_failure(&err.to_string()).expect("structured");
+    assert_eq!(report.code.as_path(), "package/type");
+    assert!(report
+        .message
+        .contains("japanese/linebreak classify-sample"));
+}
+
 fn repo_example(name: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../examples")

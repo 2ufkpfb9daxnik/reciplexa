@@ -3,7 +3,9 @@
 use crate::domain_native::{
     ColorSrgbOp, DomainNativeOp, GraphicsColorOp, GraphicsPageOp, GraphicsShapesOp,
 };
-use crate::domain_native_failure::{take1, take2, take3, take4, take5, take6};
+use crate::domain_native_failure::{
+    expect_number, expect_record_field, take1, take2, take3, take4, take5, take6,
+};
 use crate::value::RuntimeValue;
 use crate::EvalError;
 
@@ -37,12 +39,13 @@ fn call_color_srgb(op: ColorSrgbOp, args: &[RuntimeValue]) -> Result<RuntimeValu
             rgba_tag_record(r, g, b, a)
         }
         ColorSrgbOp::FromByte => {
-            let [r, g, b] = take3(args, "`color/srgb from-byte`")?;
+            let export = "`color/srgb from-byte`";
+            let [r, g, b] = take3(args, export)?;
             Ok(record(vec![
                 ("tag".into(), str_val("rgb")),
-                ("r".into(), num_val(as_f64(r, "r")? / 255.0)),
-                ("g".into(), num_val(as_f64(g, "g")? / 255.0)),
-                ("b".into(), num_val(as_f64(b, "b")? / 255.0)),
+                ("r".into(), num_val(expect_number(r, export)? / 255.0)),
+                ("g".into(), num_val(expect_number(g, export)? / 255.0)),
+                ("b".into(), num_val(expect_number(b, export)? / 255.0)),
             ]))
         }
         ColorSrgbOp::Gray => {
@@ -77,12 +80,13 @@ fn call_color_srgb(op: ColorSrgbOp, args: &[RuntimeValue]) -> Result<RuntimeValu
             ("a".into(), int_val(0)),
         ])),
         ColorSrgbOp::WithAlpha => {
-            let [color, a] = take2(args, "`color/srgb with-alpha`")?;
+            let export = "`color/srgb with-alpha`";
+            let [color, a] = take2(args, export)?;
             Ok(record(vec![
                 ("tag".into(), str_val("rgba")),
-                ("r".into(), field_value(color, "r")?),
-                ("g".into(), field_value(color, "g")?),
-                ("b".into(), field_value(color, "b")?),
+                ("r".into(), expect_record_field(color, "r", export)?),
+                ("g".into(), expect_record_field(color, "g", export)?),
+                ("b".into(), expect_record_field(color, "b", export)?),
                 ("a".into(), a.clone()),
             ]))
         }
@@ -364,29 +368,4 @@ fn int_val(n: i128) -> RuntimeValue {
 
 fn num_val(n: f64) -> RuntimeValue {
     RuntimeValue::Number(n)
-}
-
-fn as_f64(v: &RuntimeValue, ctx: &str) -> Result<f64, EvalError> {
-    match v {
-        RuntimeValue::Number(n) | RuntimeValue::F64(n) => Ok(*n),
-        RuntimeValue::Int(n) => Ok(*n as f64),
-        other => Err(EvalError {
-            message: format!("{ctx}: expected number, got {other}"),
-        }),
-    }
-}
-
-fn field_value(rec: &RuntimeValue, key: &str) -> Result<RuntimeValue, EvalError> {
-    match rec {
-        RuntimeValue::Record(fields) => fields
-            .iter()
-            .find(|(k, _)| k == key)
-            .map(|(_, v)| v.clone())
-            .ok_or_else(|| EvalError {
-                message: format!("record missing field `{key}`"),
-            }),
-        other => Err(EvalError {
-            message: format!("expected record, got {other}"),
-        }),
-    }
 }

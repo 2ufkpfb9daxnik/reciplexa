@@ -109,7 +109,7 @@
 2b. DN2 観測同値の硬化: **active**（製品級組版の前）
    - 既存 example による深い hybrid↔DN2 差分
    - `japanese/linebreak` の動的 export（kind 一致。note / 全matrix は std 正本）
-   - 構造化 Failure: DN2 arity を `package/arity` へ（`length/units` の type は `package/type`）。effect row はまだ pure
+   - 構造化 Failure: DN2 arity を `package/arity` へ。type は `length/units` に加え `color/srgb`・`japanese/*` の契約違反も `package/type`。effect row はまだ pure
    - native stub の body elaboration 省略は後続
 3. 製品級組版: font-backed JLReqとOpenType MATHを別エンジンとして本格化
 

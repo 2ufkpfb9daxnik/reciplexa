@@ -8,7 +8,10 @@ use reciplexa_std::japanese::{
 use crate::domain_native::{
     DomainNativeOp, JapaneseClassesOp, JapaneseKihonOp, JapaneseLinebreakOp, JapaneseMarkupOp,
 };
-use crate::domain_native_failure::{take0, take1, take2, take3, take4, take5};
+use crate::domain_native_failure::{
+    expect_class_id, expect_nonempty_char, expect_number, expect_record_field, take0, take1,
+    take1_class_id, take2, take2_class_ids, take3, take4, take5,
+};
 use crate::value::RuntimeValue;
 use crate::EvalError;
 
@@ -74,12 +77,12 @@ fn call_japanese_classes(
             Ok(all_class_ids_list())
         }
         JapaneseClassesOp::ClassName => {
-            let [class_id] = take1(args, "`japanese/classes class-name`")?;
-            Ok(str_val(class_name(class_id_from_value(class_id)?)))
+            let id = take1_class_id(args, "`japanese/classes class-name`")?;
+            Ok(str_val(class_name(id)))
         }
         JapaneseClassesOp::ClassNameJa => {
-            let [class_id] = take1(args, "`japanese/classes class-name-ja`")?;
-            Ok(str_val(class_name_ja(class_id_from_value(class_id)?)))
+            let id = take1_class_id(args, "`japanese/classes class-name-ja`")?;
+            Ok(str_val(class_name_ja(id)))
         }
         JapaneseClassesOp::Cl01 => cl_record(0, args),
         JapaneseClassesOp::Cl02 => cl_record(1, args),
@@ -112,26 +115,24 @@ fn call_japanese_classes(
         JapaneseClassesOp::Cl29 => cl_record(28, args),
         JapaneseClassesOp::Cl30 => cl_record(29, args),
         JapaneseClassesOp::AdvanceEm => {
-            let [class_id] = take1(args, "`japanese/classes advance-em`")?;
-            Ok(num_val(advance_em(class_id_from_value(class_id)?)))
+            let id = take1_class_id(args, "`japanese/classes advance-em`")?;
+            Ok(num_val(advance_em(id)))
         }
         JapaneseClassesOp::IsSquareLetter => {
-            let [class_id] = take1(args, "`japanese/classes is-square-letter?`")?;
-            Ok(bool_val(is_square_letter(class_id_from_value(class_id)?)))
+            let id = take1_class_id(args, "`japanese/classes is-square-letter?`")?;
+            Ok(bool_val(is_square_letter(id)))
         }
         JapaneseClassesOp::IsPunctuationClass => {
-            let [class_id] = take1(args, "`japanese/classes is-punctuation-class?`")?;
-            Ok(bool_val(is_punctuation_class(class_id_from_value(
-                class_id,
-            )?)))
+            let id = take1_class_id(args, "`japanese/classes is-punctuation-class?`")?;
+            Ok(bool_val(is_punctuation_class(id)))
         }
         JapaneseClassesOp::IsKanaClass => {
-            let [class_id] = take1(args, "`japanese/classes is-kana-class?`")?;
-            Ok(bool_val(is_kana_class(class_id_from_value(class_id)?)))
+            let id = take1_class_id(args, "`japanese/classes is-kana-class?`")?;
+            Ok(bool_val(is_kana_class(id)))
         }
         JapaneseClassesOp::IsWesternClass => {
-            let [class_id] = take1(args, "`japanese/classes is-western-class?`")?;
-            Ok(bool_val(is_western_class(class_id_from_value(class_id)?)))
+            let id = take1_class_id(args, "`japanese/classes is-western-class?`")?;
+            Ok(bool_val(is_western_class(id)))
         }
     }
 }
@@ -165,8 +166,7 @@ fn call_japanese_linebreak(
             Ok(break_opportunity_record(kind, before, after, note))
         }
         JapaneseLinebreakOp::LineHeadProhibitedClass => {
-            let [class_id] = take1(args, "`japanese/linebreak line-head-prohibited-class?`")?;
-            let id = class_id_from_value(class_id)?;
+            let id = take1_class_id(args, "`japanese/linebreak line-head-prohibited-class?`")?;
             Ok(bool_val(
                 CharClass::from_id(id)
                     .map(is_line_head_prohibited)
@@ -174,8 +174,7 @@ fn call_japanese_linebreak(
             ))
         }
         JapaneseLinebreakOp::LineEndProhibitedClass => {
-            let [class_id] = take1(args, "`japanese/linebreak line-end-prohibited-class?`")?;
-            let id = class_id_from_value(class_id)?;
+            let id = take1_class_id(args, "`japanese/linebreak line-end-prohibited-class?`")?;
             Ok(bool_val(
                 CharClass::from_id(id)
                     .map(is_line_end_prohibited)
@@ -183,9 +182,8 @@ fn call_japanese_linebreak(
             ))
         }
         JapaneseLinebreakOp::InseparablePair => {
-            let [before, after] = take2(args, "`japanese/linebreak inseparable-pair?`")?;
-            let before_id = class_id_from_value(before)?;
-            let after_id = class_id_from_value(after)?;
+            let (before_id, after_id) =
+                take2_class_ids(args, "`japanese/linebreak inseparable-pair?`")?;
             Ok(bool_val(
                 CharClass::from_id(before_id).is_some()
                     && CharClass::from_id(after_id).is_some()
@@ -201,9 +199,10 @@ fn call_japanese_linebreak(
             Ok(sample_pair_rules())
         }
         JapaneseLinebreakOp::BreakBetween => {
-            let [before, after] = take2(args, "`japanese/linebreak break-between`")?;
-            let before_id = class_id_from_value(before)?;
-            let after_id = class_id_from_value(after)?;
+            let export = "`japanese/linebreak break-between`";
+            let [before, after] = take2(args, export)?;
+            let before_id = expect_class_id(before, export)?;
+            let after_id = expect_class_id(after, export)?;
             let kind = break_pair_matrix_cell(before_id, after_id);
             Ok(break_opportunity_record(
                 &str_val(kind.as_str()),
@@ -213,19 +212,16 @@ fn call_japanese_linebreak(
             ))
         }
         JapaneseLinebreakOp::HangableClass => {
-            let [class_id] = take1(args, "`japanese/linebreak hangable-class?`")?;
-            let id = class_id_from_value(class_id)?;
+            let id = take1_class_id(args, "`japanese/linebreak hangable-class?`")?;
             Ok(bool_val(
                 CharClass::from_id(id).map(is_hangable).unwrap_or(false),
             ))
         }
         JapaneseLinebreakOp::NumericBeforeCloseProhibited => {
-            let [before, after] = take2(
+            let (before_id, after_id) = take2_class_ids(
                 args,
                 "`japanese/linebreak numeric-before-close-prohibited?`",
             )?;
-            let before_id = class_id_from_value(before)?;
-            let after_id = class_id_from_value(after)?;
             Ok(bool_val(
                 before_id == 20 && (after_id == 1 || after_id == 2),
             ))
@@ -235,20 +231,11 @@ fn call_japanese_linebreak(
             Ok(kinsoku_profile())
         }
         JapaneseLinebreakOp::ClassifySample => {
-            let [glyph] = take1(args, "`japanese/linebreak classify-sample`")?;
-            match glyph {
-                RuntimeValue::String(s) => {
-                    let ch = s.chars().next().ok_or_else(|| EvalError {
-                        message: "`japanese/linebreak classify-sample`: empty string".into(),
-                    })?;
-                    Ok(int_val(classify_char(ch).id() as i128))
-                }
-                other => Err(EvalError {
-                    message: format!(
-                        "`japanese/linebreak classify-sample`: expected string, got {other}"
-                    ),
-                }),
-            }
+            let export = "`japanese/linebreak classify-sample`";
+            let [glyph] = take1(args, export)?;
+            Ok(int_val(
+                classify_char(expect_nonempty_char(glyph, export)?).id() as i128,
+            ))
         }
     }
 }
@@ -295,9 +282,10 @@ fn call_japanese_kihon(
             ]))
         }
         JapaneseKihonOp::LineMetrics => {
-            let [char_size_em, line_rate] = take2(args, "`japanese/kihon line-metrics`")?;
-            let cs = as_f64(char_size_em, "char-size-em")?;
-            let lr = as_f64(line_rate, "line-rate")?;
+            let export = "`japanese/kihon line-metrics`";
+            let [char_size_em, line_rate] = take2(args, export)?;
+            let cs = expect_number(char_size_em, export)?;
+            let lr = expect_number(line_rate, export)?;
             Ok(record(vec![
                 ("tag".into(), str_val("jlreq-line-metrics")),
                 ("char-size-em".into(), char_size_em.clone()),
@@ -307,12 +295,12 @@ fn call_japanese_kihon(
             ]))
         }
         JapaneseKihonOp::KihonHanmen => {
-            let [char_size_em, line_length, line_count, line_rate, mode] =
-                take5(args, "`japanese/kihon kihon-hanmen`")?;
-            let cs = as_f64(char_size_em, "char-size-em")?;
-            let ll = as_f64(line_length, "line-length")?;
-            let lc = as_f64(line_count, "line-count")?;
-            let lr = as_f64(line_rate, "line-rate")?;
+            let export = "`japanese/kihon kihon-hanmen`";
+            let [char_size_em, line_length, line_count, line_rate, mode] = take5(args, export)?;
+            let cs = expect_number(char_size_em, export)?;
+            let ll = expect_number(line_length, export)?;
+            let lc = expect_number(line_count, export)?;
+            let lr = expect_number(line_rate, export)?;
             let line_gap = cs * (lr - 1.0);
             Ok(record(vec![
                 ("tag".into(), str_val("kihon-hanmen")),
@@ -339,16 +327,18 @@ fn call_japanese_kihon(
             Ok(default_vertical_kihon())
         }
         JapaneseKihonOp::HeadingBandEm => {
-            let [kihon, lines] = take2(args, "`japanese/kihon heading-band-em`")?;
-            let cs = as_f64(&field_value(kihon, "char-size-em")?, "char-size-em")?;
-            let gap = as_f64(&field_value(kihon, "line-gap-em")?, "line-gap-em")?;
-            let n = as_f64(lines, "lines")?;
+            let export = "`japanese/kihon heading-band-em`";
+            let [kihon, lines] = take2(args, export)?;
+            let cs = expect_number(&expect_record_field(kihon, "char-size-em", export)?, export)?;
+            let gap = expect_number(&expect_record_field(kihon, "line-gap-em", export)?, export)?;
+            let n = expect_number(lines, export)?;
             Ok(num_val(cs * n + gap * (n - 1.0)))
         }
         JapaneseKihonOp::IndentEm => {
-            let [kihon, chars] = take2(args, "`japanese/kihon indent-em`")?;
-            let cs = as_f64(&field_value(kihon, "char-size-em")?, "char-size-em")?;
-            let n = as_f64(chars, "chars")?;
+            let export = "`japanese/kihon indent-em`";
+            let [kihon, chars] = take2(args, export)?;
+            let cs = expect_number(&expect_record_field(kihon, "char-size-em", export)?, export)?;
+            let n = expect_number(chars, export)?;
             Ok(num_val(cs * n))
         }
         JapaneseKihonOp::TrimSize => {
@@ -919,45 +909,6 @@ fn constant_int(value: i128, args: &[RuntimeValue], ctx: &str) -> Result<Runtime
 fn constant_bool(value: bool, args: &[RuntimeValue], ctx: &str) -> Result<RuntimeValue, EvalError> {
     take0(args, ctx)?;
     Ok(bool_val(value))
-}
-
-fn class_id_from_value(v: &RuntimeValue) -> Result<u8, EvalError> {
-    match v {
-        RuntimeValue::Int(n) if (0..=255).contains(n) => Ok(*n as u8),
-        RuntimeValue::Number(n) | RuntimeValue::F64(n)
-            if n.fract() == 0.0 && (0.0..=255.0).contains(n) =>
-        {
-            Ok(*n as u8)
-        }
-        other => Err(EvalError {
-            message: format!("expected class id (0..255 int), got {other}"),
-        }),
-    }
-}
-
-fn as_f64(v: &RuntimeValue, ctx: &str) -> Result<f64, EvalError> {
-    match v {
-        RuntimeValue::Number(n) | RuntimeValue::F64(n) => Ok(*n),
-        RuntimeValue::Int(n) => Ok(*n as f64),
-        other => Err(EvalError {
-            message: format!("{ctx}: expected number, got {other}"),
-        }),
-    }
-}
-
-fn field_value(rec: &RuntimeValue, key: &str) -> Result<RuntimeValue, EvalError> {
-    match rec {
-        RuntimeValue::Record(fields) => fields
-            .iter()
-            .find(|(k, _)| k == key)
-            .map(|(_, v)| v.clone())
-            .ok_or_else(|| EvalError {
-                message: format!("record missing field `{key}`"),
-            }),
-        other => Err(EvalError {
-            message: format!("expected record, got {other}"),
-        }),
-    }
 }
 
 fn cons_list_from(items: impl IntoIterator<Item = RuntimeValue>) -> RuntimeValue {

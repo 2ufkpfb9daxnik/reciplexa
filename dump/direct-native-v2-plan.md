@@ -136,7 +136,7 @@ remaining observational gaps without treating 300 exports as a coverage target:
 
 1. Differential eval on deeper existing examples (`pkg_graphics_shapes`, `pkg_columns`, `pkg_math`).
 2. `japanese/linebreak` dynamic exports: predicates and `classify-sample` where Hybrid and std agree; `break-between` **kind** on Hybrid-covered pairs. Notes and the full pair matrix follow `reciplexa_std` (DN2-4), not the Hybrid nested-if stub.
-3. Structured Failure: DN2 arity uses `package/arity` across std modules; `length/units` type uses `package/type`. Not yet a `failure` effect.
+3. Structured Failure: DN2 arity uses `package/arity` across std modules; type uses `package/type` for `length/units`, `color/srgb`, and `japanese/*` contract checks. Not yet a `failure` effect.
 4. Skip native stub body elaboration (later increment).
 
 ## Portable fallback

@@ -216,7 +216,7 @@ pre-PKG カーネルは計画上 **COMPLETE（意図的 defer 付き）**。各�
 
 1. **package 実運用化 local/offline slice** — [`package-plan.md`](package-plan.md): lock再現性、typed resource light、自動materialize、offline registry mirrorまで完了。network registry、full-tree hash、Core resource effectは別OPEN。
 2. **Direct Native v2** — [`direct-native-v2-plan.md`](direct-native-v2-plan.md) **shipping complete**（DN2-0〜DN2-7 + 本番 stub BindingId bind）。標準packageは DN2 stub + compilation BindingId + typed Rust callable。Hybrid 参照本文は `LocalPackageIndex` override のみ。portable fallback は `OPEN-NATIVE-PKG-001` で明示追跡（未実装）。
-2b. **DN2 観測同値の硬化** — 製品級組版の前。深い example 差分、`japanese/linebreak` 動的 export、DN2 arity の構造化 Failure（`package/arity`；`length/units` は `package/type` も）。詳細は plan DN2-8。
+2b. **DN2 観測同値の硬化** — 製品級組版の前。深い example 差分、`japanese/linebreak` 動的 export、DN2 arity の構造化 Failure（`package/arity`）。type は `length/units`・`color/srgb`・`japanese/*` が `package/type`。詳細は plan DN2-8。
 3. **製品級組版** — font-backed JLReq と OpenType MATH は別エンジン。stub 層（Waves / HC / LL）は **stub complete** であり製品エンジンではない。
 
 ### いま OPEN（次に追うもの）

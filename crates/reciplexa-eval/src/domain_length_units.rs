@@ -1,7 +1,9 @@
 //! Direct Native v2 runtime for `length/units` (DN2-1).
 
 use crate::domain_native::DomainNativeOp;
-use crate::domain_native_failure::{take0, take1, take2, type_error};
+use crate::domain_native_failure::{
+    expect_number, expect_record_field, take0, take1, take2, type_error,
+};
 use crate::value::RuntimeValue;
 use crate::EvalError;
 
@@ -33,7 +35,10 @@ pub fn call_length_units(
         }
         DomainNativeOp::LengthUnitsFromMm => {
             let [value] = take1(args, "length/units/from-mm")?;
-            Ok(length_record("mm", as_f64(value, "length/units/from-mm")?))
+            Ok(length_record(
+                "mm",
+                expect_number(value, "length/units/from-mm")?,
+            ))
         }
         DomainNativeOp::LengthUnitsAddMm => {
             let [a, b] = take2(args, "length/units/add-mm")?;
@@ -44,7 +49,7 @@ pub fn call_length_units(
             let [len, factor] = take2(args, "length/units/scale-length")?;
             let unit = field_string(len, "unit", "length/units/scale-length")?;
             let value = field_number(len, "value", "length/units/scale-length")?
-                * as_f64(factor, "length/units/scale-length")?;
+                * expect_number(factor, "length/units/scale-length")?;
             Ok(length_record(&unit, value))
         }
         other => Err(EvalError {
@@ -55,7 +60,7 @@ pub fn call_length_units(
 
 fn unit_ctor(export: &str, unit: &str, args: &[RuntimeValue]) -> Result<RuntimeValue, EvalError> {
     let [value] = take1(args, export)?;
-    Ok(length_record(unit, as_f64(value, export)?))
+    Ok(length_record(unit, expect_number(value, export)?))
 }
 
 pub fn length_record(unit: &str, value: f64) -> RuntimeValue {
@@ -80,39 +85,15 @@ pub fn to_mm(len: &RuntimeValue, export: &str) -> Result<f64, EvalError> {
     })
 }
 
-fn as_f64(v: &RuntimeValue, export: &str) -> Result<f64, EvalError> {
-    match v {
-        RuntimeValue::Number(n) | RuntimeValue::F64(n) => Ok(*n),
-        RuntimeValue::Int(n) => Ok(*n as f64),
-        other => Err(type_error(export, "number", other)),
-    }
-}
-
 fn field_string(rec: &RuntimeValue, key: &str, export: &str) -> Result<String, EvalError> {
-    match rec {
-        RuntimeValue::Record(fields) => fields
-            .iter()
-            .find(|(k, _)| k == key)
-            .map(|(_, v)| match v {
-                RuntimeValue::String(s) => Ok(s.clone()),
-                other => Err(type_error(export, "string", other)),
-            })
-            .transpose()?
-            .ok_or_else(|| type_error(export, &format!("record field `{key}`"), "missing field")),
-        other => Err(type_error(export, "record", other)),
+    match expect_record_field(rec, key, export)? {
+        RuntimeValue::String(s) => Ok(s),
+        other => Err(type_error(export, "string", other)),
     }
 }
 
 fn field_number(rec: &RuntimeValue, key: &str, export: &str) -> Result<f64, EvalError> {
-    match rec {
-        RuntimeValue::Record(fields) => fields
-            .iter()
-            .find(|(k, _)| k == key)
-            .map(|(_, v)| as_f64(v, export))
-            .transpose()?
-            .ok_or_else(|| type_error(export, &format!("record field `{key}`"), "missing field")),
-        other => Err(type_error(export, "record", other)),
-    }
+    expect_number(&expect_record_field(rec, key, export)?, export)
 }
 
 #[cfg(test)]

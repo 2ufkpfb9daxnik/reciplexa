@@ -45,6 +45,65 @@ pub fn type_error(export: &str, expected: &str, got: impl std::fmt::Display) -> 
     )
 }
 
+pub(crate) fn expect_number(v: &RuntimeValue, export: &str) -> Result<f64, EvalError> {
+    match v {
+        RuntimeValue::Number(n) | RuntimeValue::F64(n) => Ok(*n),
+        RuntimeValue::Int(n) => Ok(*n as f64),
+        other => Err(type_error(export, "number", other)),
+    }
+}
+
+pub(crate) fn expect_string<'a>(v: &'a RuntimeValue, export: &str) -> Result<&'a str, EvalError> {
+    match v {
+        RuntimeValue::String(s) => Ok(s.as_str()),
+        other => Err(type_error(export, "string", other)),
+    }
+}
+
+pub(crate) fn expect_nonempty_char(v: &RuntimeValue, export: &str) -> Result<char, EvalError> {
+    let s = expect_string(v, export)?;
+    s.chars()
+        .next()
+        .ok_or_else(|| type_error(export, "non-empty string", "empty string"))
+}
+
+pub(crate) fn expect_class_id(v: &RuntimeValue, export: &str) -> Result<u8, EvalError> {
+    match v {
+        RuntimeValue::Int(n) if (0..=255).contains(n) => Ok(*n as u8),
+        RuntimeValue::Number(n) | RuntimeValue::F64(n)
+            if n.fract() == 0.0 && (0.0..=255.0).contains(n) =>
+        {
+            Ok(*n as u8)
+        }
+        other => Err(type_error(export, "class id (0..255 int)", other)),
+    }
+}
+
+pub(crate) fn expect_record_field(
+    rec: &RuntimeValue,
+    key: &str,
+    export: &str,
+) -> Result<RuntimeValue, EvalError> {
+    match rec {
+        RuntimeValue::Record(fields) => fields
+            .iter()
+            .find(|(k, _)| k == key)
+            .map(|(_, v)| v.clone())
+            .ok_or_else(|| type_error(export, &format!("record field `{key}`"), "missing field")),
+        other => Err(type_error(export, "record", other)),
+    }
+}
+
+pub(crate) fn take1_class_id(args: &[RuntimeValue], export: &str) -> Result<u8, EvalError> {
+    let [v] = take1(args, export)?;
+    expect_class_id(v, export)
+}
+
+pub(crate) fn take2_class_ids(args: &[RuntimeValue], export: &str) -> Result<(u8, u8), EvalError> {
+    let [a, b] = take2(args, export)?;
+    Ok((expect_class_id(a, export)?, expect_class_id(b, export)?))
+}
+
 pub(crate) fn take0(args: &[RuntimeValue], export: &str) -> Result<(), EvalError> {
     if args.is_empty() {
         Ok(())
@@ -185,6 +244,45 @@ mod tests {
             DomainNativeOp::DocumentPage(DocumentPageOp::Heading),
             &[],
             2,
+        );
+    }
+
+    fn assert_type(op: crate::DomainNativeOp, args: &[crate::RuntimeValue]) {
+        let err = crate::call_domain_native(op, args).expect_err("type");
+        let report = err.failure_report().expect("structured");
+        assert_eq!(report.code.as_path(), "package/type", "{op:?}: {report:?}");
+    }
+
+    #[test]
+    fn std_module_type_failures_are_package_type() {
+        use crate::domain_native::{
+            ColorSrgbOp, JapaneseClassesOp, JapaneseKihonOp, JapaneseLinebreakOp,
+        };
+        use crate::DomainNativeOp;
+        let s = crate::RuntimeValue::String("x".into());
+        assert_type(
+            DomainNativeOp::ColorSrgb(ColorSrgbOp::FromByte),
+            &[s.clone(), s.clone(), s.clone()],
+        );
+        assert_type(
+            DomainNativeOp::ColorSrgb(ColorSrgbOp::WithAlpha),
+            &[s.clone(), crate::RuntimeValue::Int(1)],
+        );
+        assert_type(
+            DomainNativeOp::JapaneseLinebreak(JapaneseLinebreakOp::ClassifySample),
+            &[crate::RuntimeValue::Int(1)],
+        );
+        assert_type(
+            DomainNativeOp::JapaneseLinebreak(JapaneseLinebreakOp::ClassifySample),
+            &[crate::RuntimeValue::String(String::new())],
+        );
+        assert_type(
+            DomainNativeOp::JapaneseClasses(JapaneseClassesOp::ClassName),
+            std::slice::from_ref(&s),
+        );
+        assert_type(
+            DomainNativeOp::JapaneseKihon(JapaneseKihonOp::LineMetrics),
+            &[s.clone(), s],
         );
     }
 }
