@@ -25,27 +25,15 @@
 
 ## 固定された製品方針
 
-### Hybrid Native v1
+### Hybrid Native v1（参照）
 
-現行標準packageは、package API、synthetic RPX、Rust builtin/bridgeを組み合わせた **Hybrid Native v1** である。`.rpx` body fileがないことだけを理由に「完全direct native」と表記しない。
+Hybrid Native v1 は差分試験の参照経路である。標準packageの本番loadは Direct Native v2。`.rpx` body fileがないことだけを理由に「完全direct native」と表記しない（portable fallback は `OPEN-NATIVE-PKG-001`）。
 
 ### Direct Native v2
 
-Direct Native v2は任意の改善ではなく、将来必須のマイルストーンである。少なくとも次をすべて満たすまで完了扱いにしない。
+Direct Native v2 は必須マイルストーンである。完了条件と現状は [`direct-native-v2-plan.md`](direct-native-v2-plan.md)。portable fallbackは仕様上のOPEN契約として残す。暗黙に削除しない。
 
-- 標準package本文を `synthetic_source` で供給しない
-- package公開名またはBindingIdから型付きRust callableを解決する
-- RPX作者が見るimport APIを維持する
-- Hybrid v1またはportable referenceとの観測可能な同値性を適合試験で検証する
-- 全品質gateをgreenにする
-
-portable fallbackは仕様上のOPEN契約として残す。暗黙に削除しない。
-
-DN2の実装順は [`direct-native-v2-plan.md`](direct-native-v2-plan.md) を正とする。
-最初はtyped callable基盤と `length/units` のdual-pathを実装し、Hybrid v1との差分試験が
-greenになるまで `synthetic_source` を削除しない。native registry keyは
-`package/module/export` とし、source-localな既存`BindingId`を永続ABI identityへ流用せず、
-bind時に対応付ける。
+native registry keyは `package/module/export` とし、source-localな既存`BindingId`を永続ABI identityへ流用せず、stub bind時に compilation `BindingId` へ対応付ける。
 
 ### 最初の製品Vertical Slice
 

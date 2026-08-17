@@ -4,8 +4,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use reciplexa_package::{
-    OPEN_NATIVE_PKG_001_CODE, OPEN_NATIVE_PKG_001_FALLBACK, DomainNativeRegistry,
-    LocalPackageIndex,
+    DomainNativeRegistry, LocalPackageIndex, OPEN_NATIVE_PKG_001_CODE, OPEN_NATIVE_PKG_001_FALLBACK,
 };
 
 fn scratch() -> PathBuf {

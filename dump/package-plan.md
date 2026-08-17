@@ -1,13 +1,13 @@
-# Package plan (PKG-001 + Hybrid Native v1)
+# Package plan (PKG-001 + Direct Native v2)
 
 **Role:** [`active-roadmap.md`](active-roadmap.md) Step 7 item 1の詳細。local/offline sliceは完了し、残るnetwork registry・full-tree hash・Core resource effectは別OPEN。現状は [`implemented-features.md`](implemented-features.md)。
 
-Goal: local-path package **API** (`package.rpxm`, `.rpi`, `import`) after Part II conformance, with **Hybrid Native v1** bodies for hot domain packages (graphics / length / color / japanese / math / document). Direct Native v2 is a required later milestone: [`direct-native-v2-plan.md`](direct-native-v2-plan.md). Portable `.rpx` bodies under `packages/*/src/` are interim only.
+Goal: local-path package **API** (`package.rpxm`, `.rpi`, `import`) after Part II conformance, with **Direct Native v2** bodies for hot domain packages (graphics / length / color / japanese / math / document). Hybrid v1 reference RPX remains for differential tests. Portable fallback is OPEN: [`direct-native-v2-plan.md`](direct-native-v2-plan.md) / `OPEN-NATIVE-PKG-001`.
 
 ## Spec anchors
 
 - `PKG-001` — `specification.md` §13.10: manifest, public modules, deps, lockfile, workspace, resources
-- **Compiler-native package** (~L17260): keep package API; Hybrid v1 uses synthetic RPX + Rust bridge; DN2 replaces that with typed Rust callables
+- **Compiler-native package** (~L17260): keep package API; DN2 uses typed Rust callables; Hybrid v1 RPX is differential reference only
 - `KER-001` (~L17300, ~L26350): domain vocabulary stays package-shaped; Rust implements as typed intrinsics with same observable meaning
 - SYN — `circle` / `page` / colors / units are **not** language builtins; packages supply constructors
 - `OPEN-PKG-001*` / `OPEN-NATIVE-PKG-001` — registry / ABI details: stub / defer where needed
@@ -20,7 +20,7 @@ Goal: local-path package **API** (`package.rpxm`, `.rpi`, `import`) after Part I
 | `crates/reciplexa-bind` | Module tree + package search path |
 | Document surface | **N5.2 dual-path done** + **GUI CST sync v2 S5b/S6a/S6b:** product `examples/` package-shaped; production keyword arms gated (`interim-surface`); pipeline always refuses bare `(page …)` |
 | `crates/reciplexa-std` | Rust typed façade (`visual` / `text` / `document` / `math` / …) — **authoritative body target** |
-| `packages/*/src/*.rpx` | **Interim portable bodies — Hybrid v1 uses synthetic_source; DN2 removes that** |
+| `packages/*/src/*.rpx` | **Retired for std natives; non-native packages still load disk `.rpx`** |
 | `packages/*/interface/*.rpi` | Keep as public API surface |
 
 ## Ordered work
@@ -33,9 +33,7 @@ Local `package.rpxm`, path deps, aliases, `rpx.lock`, search roots — done.
 
 ~~Deepen as RPX source under `packages/*/src`~~ → **implement in Rust** (`reciplexa-std` + native module registry); keep `.rpi` + package names.
 
-Tracking: Hybrid Native v1 is **stub complete** for std domain modules. Direct Native v2: [`direct-native-v2-plan.md`](direct-native-v2-plan.md).
-
-Interim RPX depth that already exists (`graphics` / `length` / `color` / `math` / `japanese`) remains until each unit’s native replacement is wired and examples pass; then delete the `.rpx` body only.
+Tracking: Direct Native v2 is **complete** for std domain modules ([`direct-native-v2-plan.md`](direct-native-v2-plan.md)). Production load uses DN2 stubs + typed callables. Hybrid v1 RPX remains for differential tests only. Portable fallback remains `OPEN-NATIVE-PKG-001`.
 
 ### Slice D — document migration (strangler) — **N5.2 dual-path done**
 
@@ -43,7 +41,7 @@ Interim RPX depth that already exists (`graphics` / `length` / `color` / `math` 
 - Markup expand emits graphics package `page`/`text`/`line`/`image` (not interim keyword heads)
 - GUI: package-shaped sources writable (nudge/size); markup expand soft-refuses; golden `black_circle.rpx` is package AST
 - **Keyword-table holdout (S6b done):** production keyword arms gated behind `interim-surface` / `cfg(test)`; fixture at `crates/reciplexa-lower/tests/fixtures/interim_page.rpx`; see `implemented-features.md`
-- Tracking: Hybrid v1 dual-path is in production; DN2 is [`direct-native-v2-plan.md`](direct-native-v2-plan.md)
+- Tracking: Direct Native v2 is in production for std packages; Hybrid v1 RPX is differential reference only ([`direct-native-v2-plan.md`](direct-native-v2-plan.md))
 
 ### Slice E — workspace / resources / OPEN stubs
 

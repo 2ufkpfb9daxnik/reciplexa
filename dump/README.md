@@ -19,15 +19,15 @@
 - `implemented-features.md`: 現在動くもの、実測gate、OPEN事項の唯一の現状正本
 - `part2-conformance.md`: 第II部見出し単位の適合台帳。製品完成率ではない
 - `package-plan.md`: Step 7 package実運用化（local/offline slice完了、残存OPEN）の詳細
-- `direct-native-v2-plan.md`: 次に実行するDirect Native v2の実装順と完了条件
+- `direct-native-v2-plan.md`: Direct Native v2（標準package）の実装順と完了条件
 
 coverage、deferred、meta、gap/partialの各ファイルは測定・監査用です。通常の実装判断では先に読む必要はありません。
 
 ## 現在の方向性
 
-- 現行標準package実装は **Hybrid Native v1** と呼ぶ。
-- Hybrid Native v1は、package API、synthetic RPX、Rust builtin/bridgeの組合せである。
-- 本来の型付きRust callableへ直接接続する **Direct Native v2** は必須の将来マイルストーンであり、任意の改善扱いにしない。
+- 現行標準package実装は **Direct Native v2**（DN2 stub + 型付き Rust callable）である。
+- Hybrid Native v1 の合成RPXは差分試験の参照本文として残す。本番loadには使わない。
+- portable fallback / ABI negotiation は `OPEN-NATIVE-PKG-001` として OPEN のまま追跡する。
 - 最初に閉じる製品体験は、package形式の図形と文字の1ページをGUIで編集し、保存、再読込、PDF/SVG出力まで往復できるVertical Sliceである。
 - markup、製品級JLReq/OpenType MATH、`document/page`のdoc-*作者編集はこのSliceの対象外とし、read-onlyまたは明示的soft-refuseにする。
 

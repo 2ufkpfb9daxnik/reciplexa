@@ -32,10 +32,10 @@ author import
 → graphics / math / document bridge
 ```
 
-`BindingId` は現在 source resolve 用であり、package export callable の安定 ABI ID
-としては未接続である。DN2 では registry key をまず
-`package/module/export` とし、bind 時にその compilation の `BindingId` へ対応付ける。
-既存の source-local `BindingId` をそのまま永続 ABI identity にしない。
+`BindingId` は source resolve 用であり、永続 ABI identity ではない。DN2 の registry key は
+`package/module/export` とし、本番 `eval_package_entry_main` / `typecheck_with_packages`
+は stub を language binder で解決したうえで compilation `BindingId` を割り当て、
+`DomainNativeBindMap::op_for` で typed callable を引ける。
 
 ## Architecture
 
@@ -125,8 +125,9 @@ doc record constructorsをtyped callableへ移し、live-layout / document bridg
 4. Observable behavior matches Hybrid v1 or a portable reference, proven by differential conformance tests.
 5. All quality gates are green on the same HEAD.
 
-Until DN2-6, keep incremental migration **OPEN**. DN2-6/7 complete the required
-milestone; portable fallback stays tracked as `OPEN-NATIVE-PKG-001` only.
+Until DN2-6, keep incremental migration **OPEN**. DN2-6/7 plus production stub bind,
+isolated hybrid overrides, type/Failure differential coverage, and workspace gates
+complete the required milestone; portable fallback stays `OPEN-NATIVE-PKG-001` only.
 
 ## Portable fallback
 

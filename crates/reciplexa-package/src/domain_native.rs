@@ -82,11 +82,13 @@ fn export_is_eager_value(ty: &CoreType) -> bool {
 }
 
 /// Registry of module paths implemented in Rust instead of portable `.rpx`.
+///
+/// Production load always uses [`DomainNativeModule::effective_source`] (DN2 stub).
+/// Hybrid v1 reference RPX is applied only via
+/// [`crate::load::LocalPackageIndex`] differential overrides, not this registry.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct DomainNativeRegistry {
     modules: BTreeMap<String, DomainNativeModule>,
-    /// Differential / test harness: substitute portable reference RPX for listed paths.
-    reference_bodies: BTreeMap<String, String>,
 }
 
 impl DomainNativeRegistry {
@@ -137,50 +139,14 @@ impl DomainNativeRegistry {
             .get(module_path)
             .and_then(|m| m.typed_exports.get(export_name))
     }
-
-    /// Override the loaded RPX body for one module (differential harness / ad-hoc tests).
-    pub fn set_reference_body(&mut self, module_path: &str, source: impl Into<String>) -> bool {
-        if !self.contains(module_path) {
-            return false;
-        }
-        self.reference_bodies
-            .insert(module_path.to_string(), source.into());
-        true
-    }
-
-    /// Source text for loaders: reference override when set, else DN2 stub.
-    pub fn module_source(&self, module_path: &str, module: &DomainNativeModule) -> String {
-        self.reference_bodies
-            .get(module_path)
-            .cloned()
-            .unwrap_or_else(|| module.effective_source())
-    }
-
-    /// Clone registry with Hybrid v1 reference bodies for differential comparison.
-    pub fn with_hybrid_reference_bodies(
-        &self,
-        module_paths: &[&str],
-    ) -> Result<Self, String> {
-        let mut out = self.clone();
-        for path in module_paths {
-            if !out.contains(path) {
-                return Err(format!("unknown native module `{path}`"));
-            }
-            let source = crate::domain_bodies::hybrid_reference_source(path).ok_or_else(|| {
-                format!("no hybrid reference body registered for `{path}`")
-            })?;
-            out.reference_bodies
-                .insert((*path).to_string(), source.to_string());
-        }
-        Ok(out)
-    }
 }
 
-/// Maps `package/module/export` qualified keys to compilation [`BindingId`] values.
+/// Maps this compilation's [`BindingId`] values to `package/module/export` callables.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct DomainNativeBindMap {
     qualified_to_binding: BTreeMap<String, BindingId>,
     binding_to_qualified: BTreeMap<BindingId, String>,
+    binding_to_op: BTreeMap<BindingId, DomainNativeOp>,
 }
 
 impl DomainNativeBindMap {
@@ -189,6 +155,7 @@ impl DomainNativeBindMap {
         alloc: &mut BindingIdAllocator,
         module_path: &str,
         export_name: &str,
+        op: DomainNativeOp,
     ) -> BindingId {
         let qualified = qualified_export_key(module_path, export_name);
         if let Some(id) = self.qualified_to_binding.get(&qualified) {
@@ -197,6 +164,7 @@ impl DomainNativeBindMap {
         let id = alloc.allocate();
         self.qualified_to_binding.insert(qualified.clone(), id);
         self.binding_to_qualified.insert(id, qualified);
+        self.binding_to_op.insert(id, op);
         id
     }
 
@@ -210,16 +178,38 @@ impl DomainNativeBindMap {
         self.binding_to_qualified.get(&id).map(String::as_str)
     }
 
-    pub fn populate_from_registry(
-        &mut self,
-        alloc: &mut BindingIdAllocator,
-        registry: &DomainNativeRegistry,
-    ) {
+    /// Typed callable for a compilation BindingId assigned from a DN2 stub.
+    pub fn op_for(&self, id: BindingId) -> Option<DomainNativeOp> {
+        self.binding_to_op.get(&id).copied()
+    }
+
+    /// Bind every typed export by resolving the DN2 stub with the language binder.
+    ///
+    /// Registry key remains `package/module/export`. [`BindingId`] values are
+    /// allocated for this compilation after the stub's `val` binders are found;
+    /// they are not reused as a persistent ABI identity.
+    pub fn bind_stubs(registry: &DomainNativeRegistry) -> Result<Self, String> {
+        let mut map = Self::default();
+        let mut alloc = BindingIdAllocator::new();
         for module in registry.modules.values() {
-            for export_name in module.typed_exports.keys() {
-                self.bind(alloc, &module.module_path, export_name);
+            let stub = module.effective_source();
+            let resolved = reciplexa_bind::resolve_language_source(&stub);
+            for (name, export) in &module.typed_exports {
+                let declared = resolved
+                    .binding_map
+                    .definitions
+                    .values()
+                    .any(|site| site.name == *name);
+                if !declared {
+                    return Err(format!(
+                        "DN2 bind: `{}/{}` is not a `val` binder in the Direct Native stub",
+                        module.module_path, name
+                    ));
+                }
+                map.bind(&mut alloc, &module.module_path, name, export.op);
             }
         }
+        Ok(map)
     }
 }
 
@@ -243,12 +233,11 @@ mod tests {
             "native/test",
             vec!["ping".into()],
         ));
-        reg.set_reference_body("native/test", "(val ping 1)\n");
         assert_eq!(reg.len(), 1);
         assert!(reg.contains("native/test"));
         let m = reg.get("native/test").expect("registered");
         assert_eq!(m.exports, vec!["ping"]);
-        assert!(reg.module_source("native/test", m).contains("ping"));
+        assert!(m.effective_source().is_empty() || m.effective_source() == "\n");
         assert!(!reg.contains("length/units"));
         assert_eq!(reg.paths().collect::<Vec<_>>(), vec!["native/test"]);
     }
@@ -278,14 +267,21 @@ mod tests {
         let mut module = DomainNativeModule::direct_native("native/test", vec!["ping".into()]);
         module.typed_exports.insert(
             "ping".into(),
-            DomainNativeExport::new("ping", CoreType::Int, DomainNativeOp::TestPing),
+            DomainNativeExport::new(
+                "ping",
+                CoreType::Fun {
+                    args: vec![],
+                    ret: Box::new(CoreType::Int),
+                    effects: reciplexa_core::ty::EffectRow::default(),
+                },
+                DomainNativeOp::TestPing,
+            ),
         );
         reg.register(module);
-        let mut alloc = BindingIdAllocator::new();
-        let mut map = DomainNativeBindMap::default();
-        map.populate_from_registry(&mut alloc, &reg);
+        let map = DomainNativeBindMap::bind_stubs(&reg).expect("stub bind");
         let id = map.binding_for("native/test", "ping").expect("bound");
         assert!(id.is_valid());
         assert_eq!(map.qualified_for(id), Some("native/test/ping"));
+        assert_eq!(map.op_for(id), Some(DomainNativeOp::TestPing));
     }
 }

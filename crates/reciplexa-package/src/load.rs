@@ -8,7 +8,7 @@ use reciplexa_bind::{elaborate_units_with_interfaces, parse_imports, ElaboratedU
 
 use reciplexa_eval::{eval_expr_with_extra, primitive_env, RuntimeValue, UnitHost};
 
-use crate::domain_native::{DomainNativeModule, DomainNativeRegistry};
+use crate::domain_native::{DomainNativeBindMap, DomainNativeModule, DomainNativeRegistry};
 use crate::domain_native_env::build_domain_native_eval_env;
 use crate::manifest::{DependencySpec, PackageManifest};
 use crate::registry::LocalRegistryMirror;
@@ -69,6 +69,8 @@ pub struct LocalPackageIndex {
     aliases: BTreeMap<String, String>,
     /// Modules whose bodies are Rust-synthesized (skip `src/*.rpx`).
     native: DomainNativeRegistry,
+    /// Differential / test harness only. Production [`Self::discover`] leaves this empty.
+    hybrid_source_overrides: BTreeMap<String, String>,
 }
 
 impl LocalPackageIndex {
@@ -93,6 +95,44 @@ impl LocalPackageIndex {
     /// Register a single native module on this index.
     pub fn register_native(&mut self, module: DomainNativeModule) {
         self.native.register(module);
+    }
+
+    /// Load a native module from Hybrid/portable RPX instead of the DN2 stub.
+    ///
+    /// Production hosts never call this. Differential tests use it to compare
+    /// reference bodies with Direct Native without putting those bodies on
+    /// [`DomainNativeRegistry`].
+    pub fn set_hybrid_source_override(
+        &mut self,
+        module_path: &str,
+        source: impl Into<String>,
+    ) -> bool {
+        if !self.native.contains(module_path) {
+            return false;
+        }
+        self.hybrid_source_overrides
+            .insert(module_path.to_string(), source.into());
+        true
+    }
+
+    /// Apply Hybrid v1 reference bodies for the listed native modules.
+    pub fn with_hybrid_reference_bodies(&self, module_paths: &[&str]) -> Result<Self, String> {
+        let mut out = self.clone();
+        for path in module_paths {
+            let source = crate::domain_bodies::hybrid_reference_source(path)
+                .ok_or_else(|| format!("no hybrid reference body registered for `{path}`"))?;
+            if !out.set_hybrid_source_override(path, source) {
+                return Err(format!("unknown native module `{path}`"));
+            }
+        }
+        Ok(out)
+    }
+
+    fn native_module_source(&self, module_path: &str, native: &DomainNativeModule) -> String {
+        self.hybrid_source_overrides
+            .get(module_path)
+            .cloned()
+            .unwrap_or_else(|| native.effective_source())
     }
     /// Scan each search root for immediate child directories containing `package.rpxm`.
     pub fn discover(search_roots: &[impl AsRef<Path>]) -> Result<Self, PackageLoadError> {
@@ -134,6 +174,7 @@ impl LocalPackageIndex {
             packages,
             aliases: BTreeMap::new(),
             native: crate::domain_bodies::std_domain_natives(),
+            hybrid_source_overrides: BTreeMap::new(),
         })
     }
 
@@ -277,7 +318,7 @@ impl LocalPackageIndex {
             }) {
                 return Ok(ResolvedImport {
                     unit_name: import_path.to_string(),
-                    source: self.native.module_source(import_path, native),
+                    source: self.native_module_source(import_path, native),
                     interface_exports: Some(native.exports.clone()),
                 });
             }
@@ -329,7 +370,7 @@ impl LocalPackageIndex {
                 };
             return Ok(ResolvedImport {
                 unit_name: import_path.to_string(),
-                source: self.native.module_source(&native_key, native),
+                source: self.native_module_source(&native_key, native),
                 interface_exports,
             });
         }
@@ -551,6 +592,8 @@ pub fn eval_package_entry_main(
 ) -> Result<RuntimeValue, PackageLoadError> {
     let entry_path = entry_path.as_ref();
     let units = elaborate_with_packages(entry_path, index)?;
+    DomainNativeBindMap::bind_stubs(index.native())
+        .map_err(|e| PackageLoadError::Module(ModuleError { message: e }))?;
     let stem = utf8_file_stem(entry_path)?;
     let demo = units
         .iter()
@@ -570,6 +613,8 @@ pub fn eval_elaborated_package_expr(
     index: &LocalPackageIndex,
 ) -> Result<RuntimeValue, PackageLoadError> {
     let extra = build_domain_native_eval_env(index.native());
+    DomainNativeBindMap::bind_stubs(index.native())
+        .map_err(|e| PackageLoadError::Module(ModuleError { message: e }))?;
     eval_expr_with_extra(expr, &primitive_env(), &extra, &mut UnitHost)
         .map_err(|e| PackageLoadError::Module(ModuleError { message: e.message }))
 }

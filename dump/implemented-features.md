@@ -15,7 +15,7 @@
 
 `gap=0`、`ok`件数、限定coverageを製品完成率として扱わない。
 
-現行標準packageは **Hybrid Native v1**（package API + synthetic RPX + Rust builtin/bridge）。Direct Native v2 は [`direct-native-v2-plan.md`](direct-native-v2-plan.md)。
+現行標準packageは **Direct Native v2**（package API + DN2 stub + typed Rust callable）。Hybrid v1 合成RPXは差分試験の参照のみ。portable fallback は `OPEN-NATIVE-PKG-001`。詳細は [`direct-native-v2-plan.md`](direct-native-v2-plan.md)。
 
 ---
 
@@ -96,6 +96,20 @@ Env D / offline。`CARGO_TARGET_DIR=d:\reciplexa\target`、`TEMP`/`TMP=d:\recipl
 | `cargo check --offline -p reciplexa-gui` | green |
 | `cargo test --offline -p reciplexa-gui --test vertical_slice_e2e` | green |
 
+### 2.4.1 Direct Native v2 完了gate
+
+Env D / offline。DN2 本番 stub bind・Hybrid 参照分離・型/Failure 差分試験を含む同一作業木。`vertical_slice_e2e` は `cargo test --workspace` 内で green。
+
+| Command | 結果 |
+|---------|------|
+| `cargo fmt --all --check` | green |
+| `cargo clippy --workspace --all-targets --offline -- -D warnings` | green |
+| `cargo test --workspace --offline` | green |
+| `cargo check --workspace --all-targets --offline` | green |
+| `cargo check --offline -p reciplexa-gui` | green |
+| `cargo run --offline -p reciplexa-gui -- --smoke examples/text_line.rpx` | green (`smoke: ok`) |
+| `cargo run --offline -p reciplexa -- examples/text_line.rpx .tmp/dn2-complete-smoke.pdf` | green |
+
 ### 2.5 製品Vertical Slice（**product slice complete**）
 
 保証する範囲（package形式1ページ、`examples/text_line.rpx` 相当）:
@@ -143,7 +157,7 @@ pre-PKG カーネルは計画上 **COMPLETE（意図的 defer 付き）**。各�
 
 ### 3.1 パッケージ Slice A（＋ B/C 薄層）— **実装は Rust native へ移行**
 
-仕様上の単位・色・図形は **言語組み込みではない**（パッケージ API 供給）。ホットドメインの本文は **Hybrid Native v1**（`KER-001` / Compiler-native package）。Direct Native v2: [`direct-native-v2-plan.md`](direct-native-v2-plan.md)。
+仕様上の単位・色・図形は **言語組み込みではない**（パッケージ API 供給）。ホットドメインの本文は **Direct Native v2**（DN2 stub + typed Rust callable；`KER-001` / Compiler-native package）。Hybrid v1 合成RPXは差分試験の参照のみ。[`direct-native-v2-plan.md`](direct-native-v2-plan.md)。
 
 | パッケージ | 状況 | 内容の目安 |
 |------------|------|------------|
@@ -201,7 +215,7 @@ pre-PKG カーネルは計画上 **COMPLETE（意図的 defer 付き）**。各�
 実行順の正本は [`active-roadmap.md`](active-roadmap.md)。完了済みの native-domain / GUI CST sync / host-layout / live-layout 深化は Git 履歴を参照する。
 
 1. **package 実運用化 local/offline slice** — [`package-plan.md`](package-plan.md): lock再現性、typed resource light、自動materialize、offline registry mirrorまで完了。network registry、full-tree hash、Core resource effectは別OPEN。
-2. **Direct Native v2** — [`direct-native-v2-plan.md`](direct-native-v2-plan.md) **complete**（DN2-0〜DN2-7）。標準packageは DN2 stub + typed Rust callable。portable fallback は `OPEN-NATIVE-PKG-001` で明示追跡（未実装）。
+2. **Direct Native v2** — [`direct-native-v2-plan.md`](direct-native-v2-plan.md) **complete**（DN2-0〜DN2-7 + 本番 stub BindingId bind）。標準packageは DN2 stub + compilation BindingId + typed Rust callable。Hybrid 参照本文は `LocalPackageIndex` override のみ。portable fallback は `OPEN-NATIVE-PKG-001` で明示追跡（未実装）。
 3. **製品級組版** — font-backed JLReq と OpenType MATH は別エンジン。stub 層（Waves / HC / LL）は **stub complete** であり製品エンジンではない。
 
 ### いま OPEN（次に追うもの）

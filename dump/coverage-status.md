@@ -76,7 +76,7 @@ Last remasure (N6 tip r): scoped `cargo llvm-cov --offline --json` for the 7 cra
 - **Diluted-file OR-live (N6 p/q):** file ratio &lt; 98.2% → OR live hashes + line-span collapse. Restores `pipeline` after mild re-dilution above the old 90% gate.
 - **Cont / dead-arm lesson (N6 q):** prefer delete permanently dead match arms (Identity-after-subtype, number/string pattern `None`, `open==0` after `starts_with('"')`) over tip matrices that grow denom.
 - **FS seam lesson (N6 k):** do not copy `graphics_bridge` fail injectors into `module.rs` / `cli.rs`.
-- Domain packages (`length`, `color`, `graphics`, `math`, `japanese`) are **Hybrid Native v1** via `DomainNativeRegistry` / `domain_bodies` (see `dump/direct-native-v2-plan.md`).
+- Domain packages (`length`, `color`, `graphics`, `math`, `japanese`) are **Direct Native v2** via `DomainNativeRegistry` / typed callables. Hybrid v1 RPX in `domain_bodies` is differential reference only (see `dump/direct-native-v2-plan.md`).
 - N6 tip (2026-08-13 p): 7-crate BEST-ENTRY **98.60% → 98.76%**; **≥98.75% crossed**; **99% not crossed**.
 - N6 tip (2026-08-13 q): dead-arm deletes + Cont/pipeline/cli/syntax tips + OR-live thr 98.2%. 7-crate BEST-ENTRY **98.76% → 99.01%** (25614/25870; missed 319→256); 4-crate **98.96%**; `cli`/`string_lit`/`markup`/`lexer`/`parse` **→ ≥99%**; `pipeline` or-live restored **99.38%**. **≥99% crossed** on the then-smaller file set.
 - N6 tip (2026-08-16 r): eval paint/wrap/math/doc residual tests + `shape_frame` Option deleted + `strip_sign` made total. Scoped 7-crate file-summary **96.97%** (32719/33740) after domain-file denom growth; `graphics_value` **99.11%**; eval crate **95.96%**; core crate **98.39%**. Gate green. No push.

@@ -2,11 +2,9 @@
 
 use std::path::Path;
 
-use reciplexa_eval::{RuntimeValue};
+use reciplexa_eval::RuntimeValue;
 
-use crate::load::{
-    eval_package_entry_main, LocalPackageIndex, PackageLoadError,
-};
+use crate::load::{eval_package_entry_main, LocalPackageIndex, PackageLoadError};
 
 /// Failure from differential comparison.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -49,11 +47,9 @@ pub fn differential_eval_package_modules(
     module_paths: &[&str],
 ) -> Result<(), DifferentialError> {
     let entry_path = entry_path.as_ref();
-    let reference_native = base_index
-        .native()
+    let hybrid_index = base_index
         .with_hybrid_reference_bodies(module_paths)
         .map_err(|e| DifferentialError::Load(PackageLoadError::NotFound(e)))?;
-    let hybrid_index = base_index.clone().with_native(reference_native);
     let hybrid_v = eval_package_entry_main(entry_path, &hybrid_index)
         .map_err(|e| DifferentialError::HybridEval(e.to_string()))?;
 
@@ -64,6 +60,60 @@ pub fn differential_eval_package_modules(
         return Err(DifferentialError::ValueMismatch {
             hybrid: format!("{hybrid_v:?}"),
             direct_native: format!("{dn2_v:?}"),
+        });
+    }
+    Ok(())
+}
+
+/// Both Hybrid reference and Direct Native must fail (arity / type Failure).
+pub fn differential_eval_both_fail(
+    entry_path: impl AsRef<Path>,
+    base_index: &LocalPackageIndex,
+    module_paths: &[&str],
+) -> Result<(), DifferentialError> {
+    let entry_path = entry_path.as_ref();
+    let hybrid_index = base_index
+        .with_hybrid_reference_bodies(module_paths)
+        .map_err(|e| DifferentialError::Load(PackageLoadError::NotFound(e)))?;
+    let hybrid = eval_package_entry_main(entry_path, &hybrid_index);
+    let dn2 = eval_package_entry_main(entry_path, base_index);
+    match (hybrid, dn2) {
+        (Err(_), Err(_)) => Ok(()),
+        (Ok(v), Err(e)) => Err(DifferentialError::ValueMismatch {
+            hybrid: format!("ok {v:?}"),
+            direct_native: format!("err {e}"),
+        }),
+        (Err(e), Ok(v)) => Err(DifferentialError::ValueMismatch {
+            hybrid: format!("err {e}"),
+            direct_native: format!("ok {v:?}"),
+        }),
+        (Ok(a), Ok(b)) => Err(DifferentialError::ValueMismatch {
+            hybrid: format!("{a:?}"),
+            direct_native: format!("{b:?}"),
+        }),
+    }
+}
+
+/// Typecheck `entry_path` on Hybrid reference and Direct Native paths.
+pub fn differential_typecheck_package_modules(
+    entry_path: impl AsRef<Path>,
+    base_index: &LocalPackageIndex,
+    module_paths: &[&str],
+) -> Result<(), DifferentialError> {
+    use crate::typecheck::typecheck_with_packages;
+
+    let entry_path = entry_path.as_ref();
+    let hybrid_index = base_index
+        .with_hybrid_reference_bodies(module_paths)
+        .map_err(|e| DifferentialError::Load(PackageLoadError::NotFound(e)))?;
+    let hybrid_ty = typecheck_with_packages(entry_path, &hybrid_index)
+        .map_err(|e| DifferentialError::HybridEval(e.to_string()))?;
+    let dn2_ty = typecheck_with_packages(entry_path, base_index)
+        .map_err(|e| DifferentialError::DirectNativeEval(e.to_string()))?;
+    if hybrid_ty != dn2_ty {
+        return Err(DifferentialError::ValueMismatch {
+            hybrid: format!("{hybrid_ty:?}"),
+            direct_native: format!("{dn2_ty:?}"),
         });
     }
     Ok(())

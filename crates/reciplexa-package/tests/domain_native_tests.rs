@@ -34,8 +34,7 @@ fn register_reference_module(
     source: &str,
 ) {
     idx.register_native(DomainNativeModule::direct_native(module_path, exports));
-    idx.native_mut()
-        .set_reference_body(module_path, source.to_string());
+    idx.set_hybrid_source_override(module_path, source.to_string());
 }
 
 #[test]
@@ -45,18 +44,18 @@ fn native_index_with_set_and_mut() {
         "cov/ping",
         vec!["ping".into()],
     ));
-    reg.set_reference_body("cov/ping", "(val ping 1)\n");
-    let idx = LocalPackageIndex::default().with_native(reg.clone());
+    let mut idx = LocalPackageIndex::default().with_native(reg.clone());
+    idx.set_hybrid_source_override("cov/ping", "(val ping 1)\n");
     assert!(idx.native().contains("cov/ping"));
 
     let mut idx2 = LocalPackageIndex::default();
     idx2.set_native(reg);
-    idx2.native_mut().register(DomainNativeModule::direct_native(
-        "cov/pong",
-        vec!["pong".into()],
-    ));
     idx2.native_mut()
-        .set_reference_body("cov/pong", "(val pong 2)\n");
+        .register(DomainNativeModule::direct_native(
+            "cov/pong",
+            vec!["pong".into()],
+        ));
+    idx2.set_hybrid_source_override("cov/pong", "(val pong 2)\n");
     assert!(idx2.native().contains("cov/pong"));
     let resolved = idx2.resolve_import_detailed("cov/pong").unwrap();
     assert!(resolved.source.contains("pong"));

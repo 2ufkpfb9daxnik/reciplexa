@@ -60,8 +60,8 @@ pub use doc_preview::{
 pub use domain_bodies::{
     color_srgb_module, color_srgb_source, document_page_module, document_page_source,
     graphics_color_module, graphics_color_source, graphics_page_module, graphics_page_source,
-    graphics_shapes_module, graphics_shapes_source, japanese_classes_module,
-    japanese_classes_source, japanese_kihon_module, japanese_kihon_source,
+    graphics_shapes_module, graphics_shapes_source, hybrid_reference_source,
+    japanese_classes_module, japanese_classes_source, japanese_kihon_module, japanese_kihon_source,
     japanese_linebreak_module, japanese_linebreak_source, japanese_markup_module,
     japanese_markup_source, length_units_module, length_units_source, math_accents_module,
     math_accents_source, math_align_module, math_align_source, math_atoms_module,
@@ -69,10 +69,11 @@ pub use domain_bodies::{
     math_cases_source, math_delimiters_module, math_delimiters_source, math_frac_module,
     math_frac_source, math_matrix_module, math_matrix_source, math_scripts_module,
     math_scripts_source, math_sqrt_module, math_sqrt_source, math_stack_module, math_stack_source,
-    hybrid_reference_source, std_domain_natives,
+    std_domain_natives,
 };
 pub use domain_differential::{
-    differential_eval_package_modules, eval_package_entry_main_dn2, DifferentialError,
+    differential_eval_both_fail, differential_eval_package_modules,
+    differential_typecheck_package_modules, eval_package_entry_main_dn2, DifferentialError,
 };
 pub use domain_document_constructors::populate_document_page_typed_exports;
 pub use domain_japanese_constructors::{
@@ -109,18 +110,18 @@ pub use live_layout_bridge::{
     document_from_live_layout_value, document_from_live_layout_value_with_style,
 };
 pub use load::{
-    elaborate_with_packages, eval_elaborated_package_expr, eval_package_entry_main, load_module_tree_with_packages,
-    LocalPackageIndex, PackageLoadError, ResolvedImport,
+    elaborate_with_packages, eval_elaborated_package_expr, eval_package_entry_main,
+    load_module_tree_with_packages, LocalPackageIndex, PackageLoadError, ResolvedImport,
 };
 pub use lockfile::{content_checksum, LockedPackage, Lockfile};
 pub use manifest::{
     normalize_resource_path, resolve_package_resource, DependencySpec, PackageManifest,
     ResourceCheckError, ResourceResolveError, OPEN_PKG_001_CODE, OPEN_PKG_001_REGISTRY,
 };
-pub use native_fallback::{OPEN_NATIVE_PKG_001_CODE, OPEN_NATIVE_PKG_001_FALLBACK};
 pub use math_bridge::{
     estimate_package_math_main, estimate_package_math_main_with_style, MathBridgeError,
 };
+pub use native_fallback::{OPEN_NATIVE_PKG_001_CODE, OPEN_NATIVE_PKG_001_FALLBACK};
 pub use registry::{
     LocalRegistryMirror, RegistryResolveError, REGISTRY_LOCK_PREFIX, REGISTRY_ROOT_ENV,
 };

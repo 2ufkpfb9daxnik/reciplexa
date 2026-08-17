@@ -3,8 +3,8 @@ use std::path::PathBuf;
 use reciplexa_core::elaborate::elaborate_source;
 use reciplexa_core::expr::CoreExpr;
 use reciplexa_package::{
-    differential_eval_package_modules, register_test_ping_module, std_domain_natives,
-    DomainNativeRegistry, LocalPackageIndex,
+    differential_eval_both_fail, differential_eval_package_modules, register_test_ping_module,
+    std_domain_natives, DomainNativeRegistry, LocalPackageIndex,
 };
 
 #[test]
@@ -431,7 +431,7 @@ fn dn2_std_modules_use_stub_not_synthetic_fallback() {
             "module {}",
             module.module_path
         );
-        let source = reg.module_source(&module.module_path, module);
+        let source = module.effective_source();
         assert!(
             source.contains("dn2slot-"),
             "module {} should load DN2 stub, got: {source}",
@@ -443,6 +443,70 @@ fn dn2_std_modules_use_stub_not_synthetic_fallback() {
             module.module_path
         );
     }
+}
+
+#[test]
+fn dn2_bind_stubs_assigns_compilation_binding_ids_for_all_std_exports() {
+    use reciplexa_package::DomainNativeBindMap;
+    let reg = std_domain_natives();
+    let map = DomainNativeBindMap::bind_stubs(&reg).expect("std stubs bind");
+    for module in reg.modules() {
+        for name in module.typed_exports.keys() {
+            let id = map
+                .binding_for(&module.module_path, name)
+                .unwrap_or_else(|| panic!("unbound {}/{name}", module.module_path));
+            assert!(id.is_valid());
+            assert_eq!(
+                map.op_for(id),
+                Some(module.typed_exports[name].op),
+                "{}/{}",
+                module.module_path,
+                name
+            );
+        }
+    }
+}
+
+#[test]
+fn dn2_length_units_package_typechecks_and_exports_are_pure() {
+    use reciplexa_package::{length_units_module, typecheck_with_packages};
+    let packages = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../packages");
+    let entry = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/pkg_length.rpx");
+    if !entry.is_file() {
+        return;
+    }
+    let idx = LocalPackageIndex::discover(&[packages.as_path()]).unwrap();
+    typecheck_with_packages(&entry, &idx).expect("DN2 typechecks pkg_length");
+    for export in length_units_module().typed_exports.values() {
+        match &export.ty {
+            reciplexa_core::ty::CoreType::Fun { effects, .. } => {
+                assert!(
+                    effects.ops.is_empty(),
+                    "`{}` should be pure, got {effects:?}",
+                    export.name
+                );
+            }
+            other => panic!("`{}` should be Fun, got {other:?}", export.name),
+        }
+    }
+}
+
+#[test]
+fn dn2_length_units_arity_failure_agrees_on_hybrid_and_direct_native() {
+    let idx = LocalPackageIndex::default().with_native(std_domain_natives());
+    let src = "(import length/units only mm)\n(val main (mm))\n";
+    let dir = std::env::temp_dir().join(format!(
+        "reciplexa-dn2-mm-arity-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0)
+    ));
+    std::fs::create_dir_all(&dir).unwrap();
+    let entry = dir.join("main.rpx");
+    std::fs::write(&entry, src).unwrap();
+    differential_eval_both_fail(&entry, &idx, &["length/units"])
+        .expect("mm arity Failure on both hybrid and DN2");
 }
 
 fn collect_bindings(expr: &CoreExpr) -> std::collections::HashMap<String, CoreExpr> {

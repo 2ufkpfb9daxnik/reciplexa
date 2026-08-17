@@ -512,7 +512,7 @@ Motion IRは静的Vertical Sliceの後に追加してよい。
 
 ## 13. Phase 11: Native PackageとForeign Boundary
 
-現行の標準packageは Hybrid Native v1 である。必須マイルストーン Direct Native v2（`synthetic_source` 廃止、BindingId → 型付き Rust callable、import API 維持、v1/reference 差分適合、gate green）は [`direct-native-v2-plan.md`](direct-native-v2-plan.md)。portable fallback は `OPEN-NATIVE-PKG-001` として残す。
+現行の標準packageは Direct Native v2 である（`synthetic_source` 廃止、`package/module/export` → compilation BindingId → 型付き Rust callable、import API 維持、v1/reference 差分適合）。詳細は [`direct-native-v2-plan.md`](direct-native-v2-plan.md)。portable fallback は `OPEN-NATIVE-PKG-001` として残す。
 
 ### 13.1 実装順
 

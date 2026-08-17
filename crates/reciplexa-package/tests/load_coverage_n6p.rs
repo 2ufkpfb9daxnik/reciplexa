@@ -114,8 +114,7 @@ fn load_n6p_discover_dup_and_interface() {
         "widgets/shapes",
         vec!["circle".into()],
     ));
-    idx.native_mut()
-        .set_reference_body("widgets/shapes", "(val circle 1)\n");
+    idx.set_hybrid_source_override("widgets/shapes", "(val circle 1)\n");
     let entry = root3.join("entry.rpx");
     fs::write(
         &entry,
@@ -173,8 +172,7 @@ fn load_n6p_locked_manifest_and_rpi() {
         "widgets/shapes",
         vec!["circle".into()],
     ));
-    idx.native_mut()
-        .set_reference_body("widgets/shapes", "(val circle 1)\n");
+    idx.set_hybrid_source_override("widgets/shapes", "(val circle 1)\n");
     let entry = root.join("entry.rpx");
     fs::write(
         &entry,

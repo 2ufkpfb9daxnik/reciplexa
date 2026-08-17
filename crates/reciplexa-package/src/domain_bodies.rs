@@ -66,7 +66,7 @@ pub fn length_units_module() -> DomainNativeModule {
             "add-mm".into(),
             "scale-length".into(),
         ],
-        );
+    );
     populate_length_units_typed_exports(&mut module);
     module
 }
@@ -132,7 +132,7 @@ pub fn color_srgb_module() -> DomainNativeModule {
             "transparent".into(),
             "with-alpha".into(),
         ],
-        );
+    );
     populate_color_srgb_typed_exports(&mut module);
     module
 }
@@ -182,7 +182,7 @@ pub fn graphics_color_module() -> DomainNativeModule {
             "gray".into(),
             "transparent".into(),
         ],
-        );
+    );
     populate_graphics_color_typed_exports(&mut module);
     module
 }
@@ -218,7 +218,7 @@ pub fn graphics_page_module() -> DomainNativeModule {
             "pages".into(),
             "page-size".into(),
         ],
-        );
+    );
     populate_graphics_page_typed_exports(&mut module);
     module
 }
@@ -266,7 +266,7 @@ pub fn graphics_shapes_module() -> DomainNativeModule {
             "stroke".into(),
             "paint".into(),
         ],
-        );
+    );
     populate_graphics_shapes_typed_exports(&mut module);
     module
 }
@@ -351,7 +351,7 @@ pub fn math_atoms_module() -> DomainNativeModule {
             "superscript".into(),
             "subscript".into(),
         ],
-        );
+    );
     populate_math_atoms_typed_exports(&mut module);
     module
 }
@@ -430,7 +430,7 @@ pub fn math_scripts_module() -> DomainNativeModule {
             "over".into(),
             "under".into(),
         ],
-        );
+    );
     populate_math_scripts_typed_exports(&mut module);
     module
 }
@@ -482,10 +482,8 @@ pub fn math_scripts_source() -> &'static str {
 
 /// N3.2 — `math/frac` fraction constructors.
 pub fn math_frac_module() -> DomainNativeModule {
-    let mut module = DomainNativeModule::direct_native(
-        "math/frac",
-        vec!["fraction".into(), "over".into()],
-        );
+    let mut module =
+        DomainNativeModule::direct_native("math/frac", vec!["fraction".into(), "over".into()]);
     populate_math_frac_typed_exports(&mut module);
     module
 }
@@ -512,7 +510,7 @@ pub fn math_sqrt_module() -> DomainNativeModule {
             "radical-indexed".into(),
             "root".into(),
         ],
-        );
+    );
     populate_math_sqrt_typed_exports(&mut module);
     module
 }
@@ -551,7 +549,7 @@ pub fn math_delimiters_module() -> DomainNativeModule {
             "floor".into(),
             "ceil".into(),
         ],
-        );
+    );
     populate_math_delimiters_typed_exports(&mut module);
     module
 }
@@ -595,7 +593,7 @@ pub fn math_matrix_module() -> DomainNativeModule {
             "bmatrix-env".into(),
             "pmatrix-env".into(),
         ],
-        );
+    );
     populate_math_matrix_typed_exports(&mut module);
     module
 }
@@ -653,7 +651,7 @@ pub fn math_accents_module() -> DomainNativeModule {
             "widehat".into(),
             "widetilde".into(),
         ],
-        );
+    );
     populate_math_accents_typed_exports(&mut module);
     module
 }
@@ -722,7 +720,7 @@ pub fn math_bigops_module() -> DomainNativeModule {
             "integral-scripts".into(),
             "oint-scripts".into(),
         ],
-        );
+    );
     populate_math_bigops_typed_exports(&mut module);
     module
 }
@@ -828,7 +826,7 @@ pub fn math_cases_module() -> DomainNativeModule {
             "piecewise".into(),
             "otherwise".into(),
         ],
-        );
+    );
     populate_math_cases_typed_exports(&mut module);
     module
 }
@@ -871,7 +869,7 @@ pub fn math_align_module() -> DomainNativeModule {
             "align-at".into(),
             "align-eq".into(),
         ],
-        );
+    );
     populate_math_align_typed_exports(&mut module);
     module
 }
@@ -909,7 +907,7 @@ pub fn math_stack_module() -> DomainNativeModule {
             "atop".into(),
             "substack".into(),
         ],
-        );
+    );
     populate_math_stack_typed_exports(&mut module);
     module
 }
@@ -977,7 +975,7 @@ pub fn japanese_classes_module() -> DomainNativeModule {
             "is-kana-class?".into(),
             "is-western-class?".into(),
         ],
-        );
+    );
     populate_japanese_classes_typed_exports(&mut module);
     module
 }
@@ -1169,7 +1167,7 @@ pub fn japanese_linebreak_module() -> DomainNativeModule {
             "kinsoku-profile".into(),
             "classify-sample".into(),
         ],
-        );
+    );
     populate_japanese_linebreak_typed_exports(&mut module);
     module
 }
@@ -1342,7 +1340,7 @@ pub fn japanese_kihon_module() -> DomainNativeModule {
             "place-vertical-text".into(),
             "vertical-text-stack".into(),
         ],
-        );
+    );
     populate_japanese_kihon_typed_exports(&mut module);
     module
 }
@@ -1482,7 +1480,7 @@ pub fn japanese_markup_module() -> DomainNativeModule {
             "ul".into(),
             "doc".into(),
         ],
-        );
+    );
     populate_japanese_markup_typed_exports(&mut module);
     module
 }
@@ -1569,7 +1567,7 @@ pub fn document_page_module() -> DomainNativeModule {
             "block-figure".into(),
             "block-spacer".into(),
         ],
-        );
+    );
     populate_document_page_typed_exports(&mut module);
     module
 }

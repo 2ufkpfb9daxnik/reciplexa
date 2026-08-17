@@ -3656,7 +3656,7 @@
 
 - [x] **L4 L15855: 13.10 `PKG-001` パッケージmanifest・依存解決・ワークスペース・リソース** — `partial`
   - spec: `specification.md:15855`
-  - notes: Slice A–C: local packages + path-dep lock + Hybrid Native v1 graphics/math/japanese; registry/残schemaは意図的後回し。Direct Native v2: `dump/direct-native-v2-plan.md`
+  - notes: Slice A–C: local packages + path-dep lock + Direct Native v2 graphics/math/japanese; Hybrid v1 RPX is differential reference only; registry/残schemaは意図的後回し。`dump/direct-native-v2-plan.md`
 
 - [x] **L5 L15856: DD-001 決定概要** — `meta`
   - spec: `specification.md:15856`

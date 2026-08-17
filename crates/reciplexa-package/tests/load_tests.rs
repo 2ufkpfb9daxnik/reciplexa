@@ -3,8 +3,8 @@ use std::path::PathBuf;
 use reciplexa_eval::{estimate_math_box_from_value, RuntimeValue};
 use reciplexa_package::{
     elaborate_with_packages, eval_elaborated_package_expr, japanese_classes_source,
-    japanese_kihon_source, japanese_linebreak_source, load_module_tree_with_packages,
-    parse_rpxm, LocalPackageIndex, Lockfile,
+    japanese_kihon_source, japanese_linebreak_source, load_module_tree_with_packages, parse_rpxm,
+    LocalPackageIndex, Lockfile,
 };
 
 fn workspace_packages() -> PathBuf {

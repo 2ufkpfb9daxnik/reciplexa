@@ -49,6 +49,8 @@ pub fn typecheck_with_packages(
     index: &LocalPackageIndex,
 ) -> Result<CoreType, PackageTypecheckError> {
     let units = elaborate_with_packages(entry_path.as_ref(), index)?;
+    crate::domain_native::DomainNativeBindMap::bind_stubs(index.native())
+        .map_err(|e| PackageLoadError::Module(reciplexa_bind::ModuleError { message: e }))?;
     let stem = entry_path
         .as_ref()
         .file_stem()

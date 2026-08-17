@@ -59,8 +59,7 @@ fn load_n6o2_native_locked_rpi_io() {
         "widgets/shapes",
         vec!["circle".into()],
     ));
-    idx.native_mut()
-        .set_reference_body("widgets/shapes", "(val circle 1)\n");
+    idx.set_hybrid_source_override("widgets/shapes", "(val circle 1)\n");
     let entry = scratch().join("entry.rpx");
     fs::write(
         &entry,
@@ -78,7 +77,6 @@ fn load_n6o2_native_locked_rpi_io() {
         "widgets/shapes",
         vec!["circle".into()],
     ));
-    idx.native_mut()
-        .set_reference_body("widgets/shapes", "(val circle 1)\n");
+    idx.set_hybrid_source_override("widgets/shapes", "(val circle 1)\n");
     let _ = elaborate_with_packages(&entry, &idx);
 }

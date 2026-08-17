@@ -12,7 +12,7 @@ use reciplexa_core::{
 };
 use reciplexa_eval::{eval_expr, eval_source, primitive_env, RuntimeValue, UnitHost};
 use reciplexa_macro::{expand_language, expand_language_with_map};
-use reciplexa_package::{elaborate_with_packages, LocalPackageIndex};
+use reciplexa_package::{elaborate_with_packages, eval_elaborated_package_expr, LocalPackageIndex};
 use reciplexa_test::{run_conformance, ConformanceCase};
 
 fn workspace_packages() -> PathBuf {
@@ -441,9 +441,10 @@ fn lang_pkg_length_and_color_imports() {
 "#,
         )
         .unwrap();
-        let units = elaborate_with_packages(&entry, &package_index()).unwrap();
+        let idx = package_index();
+        let units = elaborate_with_packages(&entry, &idx).unwrap();
         let demo = units.iter().find(|u| u.name == "demo").unwrap();
-        let v = eval_expr(&demo.expr, &primitive_env(), &mut UnitHost).unwrap();
+        let v = eval_elaborated_package_expr(&demo.expr, &idx).unwrap();
         let s = format!("{v}");
         assert!(s.contains("cm") || s.contains("blue"), "got {s}");
         let _ = std::fs::remove_dir_all(&dir);
@@ -556,9 +557,10 @@ fn lang_pkg_graphics_shapes_import() {
         std::fs::create_dir_all(&dir).unwrap();
         let entry = dir.join("demo.rpx");
         std::fs::write(&entry, src).unwrap();
-        let units = elaborate_with_packages(&entry, &package_index()).unwrap();
+        let idx = package_index();
+        let units = elaborate_with_packages(&entry, &idx).unwrap();
         let demo = units.iter().find(|u| u.name == "demo").unwrap();
-        let v = eval_expr(&demo.expr, &primitive_env(), &mut UnitHost).unwrap();
+        let v = eval_elaborated_package_expr(&demo.expr, &idx).unwrap();
         let s = format!("{v}");
         assert!(
             s.contains("circle") || s.contains("105"),
@@ -583,7 +585,7 @@ fn lang_pkg_path_dep_alias_import() {
         let entry = consumer.join("src/main.rpx");
         let units = elaborate_with_packages(&entry, &idx).unwrap();
         let main = units.iter().find(|u| u.name == "main").unwrap();
-        let v = eval_expr(&main.expr, &primitive_env(), &mut UnitHost).unwrap();
+        let v = eval_elaborated_package_expr(&main.expr, &idx).unwrap();
         let s = format!("{v}");
         assert!(s.contains("circle") || s.contains("10"), "got {s}");
     });
@@ -613,7 +615,7 @@ fn lang_pkg_math_and_japanese_stubs() {
         .unwrap();
         let units = elaborate_with_packages(&entry, &idx).unwrap();
         let demo = units.iter().find(|u| u.name == "demo").unwrap();
-        let v = eval_expr(&demo.expr, &primitive_env(), &mut UnitHost).unwrap();
+        let v = eval_elaborated_package_expr(&demo.expr, &idx).unwrap();
         let s = format!("{v}");
         assert!(s.contains("ja-heading") || s.contains("ok"), "got {s}");
         let _ = std::fs::remove_dir_all(&dir);
@@ -641,9 +643,10 @@ fn lang_pkg_graphics_page_and_ring() {
 "#,
         )
         .unwrap();
-        let units = elaborate_with_packages(&entry, &package_index()).unwrap();
+        let idx = package_index();
+        let units = elaborate_with_packages(&entry, &idx).unwrap();
         let demo = units.iter().find(|u| u.name == "demo").unwrap();
-        let v = eval_expr(&demo.expr, &primitive_env(), &mut UnitHost).unwrap();
+        let v = eval_elaborated_package_expr(&demo.expr, &idx).unwrap();
         let s = format!("{v}");
         assert!(
             s.contains("page") || s.contains("ring"),
