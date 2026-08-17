@@ -45,12 +45,20 @@ pub fn type_error(export: &str, expected: &str, got: impl std::fmt::Display) -> 
     )
 }
 
+pub(crate) fn take0(args: &[RuntimeValue], export: &str) -> Result<(), EvalError> {
+    if args.is_empty() {
+        Ok(())
+    } else {
+        Err(arity_error(export, 0, args.len()))
+    }
+}
+
 pub(crate) fn take1<'a>(
     args: &'a [RuntimeValue],
     export: &str,
-) -> Result<&'a RuntimeValue, EvalError> {
+) -> Result<[&'a RuntimeValue; 1], EvalError> {
     match args {
-        [a] => Ok(a),
+        [a] => Ok([a]),
         _ => Err(arity_error(export, 1, args.len())),
     }
 }
@@ -62,6 +70,46 @@ pub(crate) fn take2<'a>(
     match args {
         [a, b] => Ok([a, b]),
         _ => Err(arity_error(export, 2, args.len())),
+    }
+}
+
+pub(crate) fn take3<'a>(
+    args: &'a [RuntimeValue],
+    export: &str,
+) -> Result<[&'a RuntimeValue; 3], EvalError> {
+    match args {
+        [a, b, c] => Ok([a, b, c]),
+        _ => Err(arity_error(export, 3, args.len())),
+    }
+}
+
+pub(crate) fn take4<'a>(
+    args: &'a [RuntimeValue],
+    export: &str,
+) -> Result<[&'a RuntimeValue; 4], EvalError> {
+    match args {
+        [a, b, c, d] => Ok([a, b, c, d]),
+        _ => Err(arity_error(export, 4, args.len())),
+    }
+}
+
+pub(crate) fn take5<'a>(
+    args: &'a [RuntimeValue],
+    export: &str,
+) -> Result<[&'a RuntimeValue; 5], EvalError> {
+    match args {
+        [a, b, c, d, e] => Ok([a, b, c, d, e]),
+        _ => Err(arity_error(export, 5, args.len())),
+    }
+}
+
+pub(crate) fn take6<'a>(
+    args: &'a [RuntimeValue],
+    export: &str,
+) -> Result<[&'a RuntimeValue; 6], EvalError> {
+    match args {
+        [a, b, c, d, e, f] => Ok([a, b, c, d, e, f]),
+        _ => Err(arity_error(export, 6, args.len())),
     }
 }
 
@@ -100,5 +148,43 @@ mod tests {
     #[test]
     fn kernel_arity_message_is_not_package_failure() {
         assert!(parse_package_failure("arity mismatch: expected 1 args, got 0").is_none());
+    }
+
+    fn assert_arity(op: crate::DomainNativeOp, extra: &[RuntimeValue], expected: usize) {
+        let err = crate::call_domain_native(op, extra).expect_err("arity");
+        let report = err.failure_report().expect("structured");
+        assert_eq!(report.code.as_path(), "package/arity", "{op:?}");
+        assert!(
+            report
+                .message
+                .contains(&format!("expects {expected} args, got {}", extra.len())),
+            "{op:?}: {}",
+            report.message
+        );
+    }
+
+    #[test]
+    fn std_module_arity_failures_are_package_arity() {
+        use crate::domain_native::{
+            DocumentPageOp, GraphicsShapesOp, JapaneseLinebreakOp, MathAtomsOp,
+        };
+        use crate::DomainNativeOp;
+        assert_arity(DomainNativeOp::TestPing, &[crate::RuntimeValue::Int(1)], 0);
+        assert_arity(
+            DomainNativeOp::GraphicsShapes(GraphicsShapesOp::Circle),
+            &[],
+            3,
+        );
+        assert_arity(DomainNativeOp::MathAtoms(MathAtomsOp::Ord), &[], 1);
+        assert_arity(
+            DomainNativeOp::JapaneseLinebreak(JapaneseLinebreakOp::ClassifySample),
+            &[],
+            1,
+        );
+        assert_arity(
+            DomainNativeOp::DocumentPage(DocumentPageOp::Heading),
+            &[],
+            2,
+        );
     }
 }

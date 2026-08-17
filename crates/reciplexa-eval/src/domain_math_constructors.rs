@@ -4,6 +4,7 @@ use crate::domain_native::{
     DomainNativeOp, MathAccentsOp, MathAlignOp, MathAtomsOp, MathBigopsOp, MathCasesOp,
     MathDelimitersOp, MathFracOp, MathMatrixOp, MathScriptsOp, MathSqrtOp, MathStackOp,
 };
+use crate::domain_native_failure::{take0, take1, take2, take3, take4};
 use crate::value::RuntimeValue;
 use crate::EvalError;
 
@@ -132,11 +133,7 @@ fn call_math_atoms(op: MathAtomsOp, args: &[RuntimeValue]) -> Result<RuntimeValu
 fn call_math_scripts(op: MathScriptsOp, args: &[RuntimeValue]) -> Result<RuntimeValue, EvalError> {
     match op {
         MathScriptsOp::Absent => {
-            if !args.is_empty() {
-                return Err(EvalError {
-                    message: format!("`math/scripts absent` expects 0 args, got {}", args.len()),
-                });
-            }
+            take0(args, "`math/scripts absent`")?;
             Ok(math_absent())
         }
         MathScriptsOp::Superscript => {
@@ -246,14 +243,7 @@ fn call_math_frac(op: MathFracOp, args: &[RuntimeValue]) -> Result<RuntimeValue,
 fn call_math_sqrt(op: MathSqrtOp, args: &[RuntimeValue]) -> Result<RuntimeValue, EvalError> {
     match op {
         MathSqrtOp::AbsentIndex => {
-            if !args.is_empty() {
-                return Err(EvalError {
-                    message: format!(
-                        "`math/sqrt absent-index` expects 0 args, got {}",
-                        args.len()
-                    ),
-                });
-            }
+            take0(args, "`math/sqrt absent-index`")?;
             Ok(math_absent())
         }
         MathSqrtOp::Sqrt | MathSqrtOp::Radical => {
@@ -713,11 +703,7 @@ fn call_math_stack(op: MathStackOp, args: &[RuntimeValue]) -> Result<RuntimeValu
 }
 
 fn constant_str(value: &str, args: &[RuntimeValue], ctx: &str) -> Result<RuntimeValue, EvalError> {
-    if !args.is_empty() {
-        return Err(EvalError {
-            message: format!("{ctx} expects 0 args, got {}", args.len()),
-        });
-    }
+    take0(args, ctx)?;
     Ok(str_val(value))
 }
 
@@ -889,40 +875,4 @@ fn str_val(s: &str) -> RuntimeValue {
 
 fn bool_val(b: bool) -> RuntimeValue {
     RuntimeValue::Bool(b)
-}
-
-fn take1<'a>(args: &'a [RuntimeValue], ctx: &str) -> Result<[&'a RuntimeValue; 1], EvalError> {
-    match args {
-        [a] => Ok([a]),
-        _ => Err(EvalError {
-            message: format!("{ctx} expects 1 arg, got {}", args.len()),
-        }),
-    }
-}
-
-fn take2<'a>(args: &'a [RuntimeValue], ctx: &str) -> Result<[&'a RuntimeValue; 2], EvalError> {
-    match args {
-        [a, b] => Ok([a, b]),
-        _ => Err(EvalError {
-            message: format!("{ctx} expects 2 args, got {}", args.len()),
-        }),
-    }
-}
-
-fn take3<'a>(args: &'a [RuntimeValue], ctx: &str) -> Result<[&'a RuntimeValue; 3], EvalError> {
-    match args {
-        [a, b, c] => Ok([a, b, c]),
-        _ => Err(EvalError {
-            message: format!("{ctx} expects 3 args, got {}", args.len()),
-        }),
-    }
-}
-
-fn take4<'a>(args: &'a [RuntimeValue], ctx: &str) -> Result<[&'a RuntimeValue; 4], EvalError> {
-    match args {
-        [a, b, c, d] => Ok([a, b, c, d]),
-        _ => Err(EvalError {
-            message: format!("{ctx} expects 4 args, got {}", args.len()),
-        }),
-    }
 }

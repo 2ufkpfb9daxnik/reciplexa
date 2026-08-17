@@ -1,7 +1,7 @@
 //! Direct Native v2 runtime for `length/units` (DN2-1).
 
 use crate::domain_native::DomainNativeOp;
-use crate::domain_native_failure::{arity_error, take1, take2, type_error};
+use crate::domain_native_failure::{take0, take1, take2, type_error};
 use crate::value::RuntimeValue;
 use crate::EvalError;
 
@@ -24,17 +24,15 @@ pub fn call_length_units(
         DomainNativeOp::LengthUnitsPx => unit_ctor("length/units/px", "px", args),
         DomainNativeOp::LengthUnitsEm => unit_ctor("length/units/em", "em", args),
         DomainNativeOp::LengthUnitsZero => {
-            if !args.is_empty() {
-                return Err(arity_error("length/units/zero", 0, args.len()));
-            }
+            take0(args, "length/units/zero")?;
             Ok(length_record("mm", 0.0))
         }
         DomainNativeOp::LengthUnitsToMm => {
-            let len = take1(args, "length/units/to-mm")?;
+            let [len] = take1(args, "length/units/to-mm")?;
             Ok(RuntimeValue::Number(to_mm(len, "length/units/to-mm")?))
         }
         DomainNativeOp::LengthUnitsFromMm => {
-            let value = take1(args, "length/units/from-mm")?;
+            let [value] = take1(args, "length/units/from-mm")?;
             Ok(length_record("mm", as_f64(value, "length/units/from-mm")?))
         }
         DomainNativeOp::LengthUnitsAddMm => {
@@ -56,7 +54,7 @@ pub fn call_length_units(
 }
 
 fn unit_ctor(export: &str, unit: &str, args: &[RuntimeValue]) -> Result<RuntimeValue, EvalError> {
-    let value = take1(args, export)?;
+    let [value] = take1(args, export)?;
     Ok(length_record(unit, as_f64(value, export)?))
 }
 

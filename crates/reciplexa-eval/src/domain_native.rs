@@ -472,11 +472,7 @@ pub fn call_domain_native(
 ) -> Result<RuntimeValue, EvalError> {
     match op {
         DomainNativeOp::TestPing => {
-            if !args.is_empty() {
-                return Err(EvalError {
-                    message: format!("`native/test ping` expects 0 args, got {}", args.len()),
-                });
-            }
+            crate::domain_native_failure::take0(args, "native/test/ping")?;
             Ok(RuntimeValue::Int(42))
         }
         DomainNativeOp::LengthUnitsMm

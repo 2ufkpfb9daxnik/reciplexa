@@ -8,6 +8,7 @@ use reciplexa_std::japanese::{
 use crate::domain_native::{
     DomainNativeOp, JapaneseClassesOp, JapaneseKihonOp, JapaneseLinebreakOp, JapaneseMarkupOp,
 };
+use crate::domain_native_failure::{take0, take1, take2, take3, take4, take5};
 use crate::value::RuntimeValue;
 use crate::EvalError;
 
@@ -69,15 +70,7 @@ fn call_japanese_classes(
             Ok(jlreq_class_record(id, code, name, name_ja))
         }
         JapaneseClassesOp::AllClassIds | JapaneseClassesOp::AllClasses => {
-            if !args.is_empty() {
-                return Err(EvalError {
-                    message: format!(
-                        "`japanese/classes {:?}` expects 0 args, got {}",
-                        op,
-                        args.len()
-                    ),
-                });
-            }
+            take0(args, &format!("`japanese/classes {:?}`", op))?;
             Ok(all_class_ids_list())
         }
         JapaneseClassesOp::ClassName => {
@@ -144,15 +137,7 @@ fn call_japanese_classes(
 }
 
 fn cl_record(index: usize, args: &[RuntimeValue]) -> Result<RuntimeValue, EvalError> {
-    if !args.is_empty() {
-        return Err(EvalError {
-            message: format!(
-                "`japanese/classes {}` expects 0 args, got {}",
-                CLASSES[index].1,
-                args.len()
-            ),
-        });
-    }
+    take0(args, &format!("`japanese/classes {}`", CLASSES[index].1))?;
     let (id, code, name, name_ja) = CLASSES[index];
     Ok(jlreq_class_static(id, code, name, name_ja))
 }
@@ -212,14 +197,7 @@ fn call_japanese_linebreak(
             Ok(pair_rule_record(before, after, kind, note))
         }
         JapaneseLinebreakOp::SamplePairRules => {
-            if !args.is_empty() {
-                return Err(EvalError {
-                    message: format!(
-                        "`japanese/linebreak sample-pair-rules` expects 0 args, got {}",
-                        args.len()
-                    ),
-                });
-            }
+            take0(args, "`japanese/linebreak sample-pair-rules`")?;
             Ok(sample_pair_rules())
         }
         JapaneseLinebreakOp::BreakBetween => {
@@ -253,14 +231,7 @@ fn call_japanese_linebreak(
             ))
         }
         JapaneseLinebreakOp::KinsokuProfile => {
-            if !args.is_empty() {
-                return Err(EvalError {
-                    message: format!(
-                        "`japanese/linebreak kinsoku-profile` expects 0 args, got {}",
-                        args.len()
-                    ),
-                });
-            }
+            take0(args, "`japanese/linebreak kinsoku-profile`")?;
             Ok(kinsoku_profile())
         }
         JapaneseLinebreakOp::ClassifySample => {
@@ -360,25 +331,11 @@ fn call_japanese_kihon(
             ]))
         }
         JapaneseKihonOp::DefaultHorizontalKihon => {
-            if !args.is_empty() {
-                return Err(EvalError {
-                    message: format!(
-                        "`japanese/kihon default-horizontal-kihon` expects 0 args, got {}",
-                        args.len()
-                    ),
-                });
-            }
+            take0(args, "`japanese/kihon default-horizontal-kihon`")?;
             Ok(default_horizontal_kihon())
         }
         JapaneseKihonOp::DefaultVerticalKihon => {
-            if !args.is_empty() {
-                return Err(EvalError {
-                    message: format!(
-                        "`japanese/kihon default-vertical-kihon` expects 0 args, got {}",
-                        args.len()
-                    ),
-                });
-            }
+            take0(args, "`japanese/kihon default-vertical-kihon`")?;
             Ok(default_vertical_kihon())
         }
         JapaneseKihonOp::HeadingBandEm => {
@@ -936,11 +893,7 @@ fn trim_record(
     args: &[RuntimeValue],
     ctx: &str,
 ) -> Result<RuntimeValue, EvalError> {
-    if !args.is_empty() {
-        return Err(EvalError {
-            message: format!("`japanese/kihon {ctx}` expects 0 args, got {}", args.len()),
-        });
-    }
+    take0(args, &format!("`japanese/kihon {ctx}`"))?;
     Ok(record(vec![
         ("tag".into(), str_val("jlreq-trim-size")),
         ("width-mm".into(), int_val(width)),
@@ -949,38 +902,22 @@ fn trim_record(
 }
 
 fn constant_str(value: &str, args: &[RuntimeValue], ctx: &str) -> Result<RuntimeValue, EvalError> {
-    if !args.is_empty() {
-        return Err(EvalError {
-            message: format!("{ctx} expects 0 args, got {}", args.len()),
-        });
-    }
+    take0(args, ctx)?;
     Ok(str_val(value))
 }
 
 fn constant_num(value: f64, args: &[RuntimeValue], ctx: &str) -> Result<RuntimeValue, EvalError> {
-    if !args.is_empty() {
-        return Err(EvalError {
-            message: format!("{ctx} expects 0 args, got {}", args.len()),
-        });
-    }
+    take0(args, ctx)?;
     Ok(num_val(value))
 }
 
 fn constant_int(value: i128, args: &[RuntimeValue], ctx: &str) -> Result<RuntimeValue, EvalError> {
-    if !args.is_empty() {
-        return Err(EvalError {
-            message: format!("{ctx} expects 0 args, got {}", args.len()),
-        });
-    }
+    take0(args, ctx)?;
     Ok(int_val(value))
 }
 
 fn constant_bool(value: bool, args: &[RuntimeValue], ctx: &str) -> Result<RuntimeValue, EvalError> {
-    if !args.is_empty() {
-        return Err(EvalError {
-            message: format!("{ctx} expects 0 args, got {}", args.len()),
-        });
-    }
+    take0(args, ctx)?;
     Ok(bool_val(value))
 }
 
@@ -1059,49 +996,4 @@ fn num_val(n: f64) -> RuntimeValue {
 
 fn bool_val(b: bool) -> RuntimeValue {
     RuntimeValue::Bool(b)
-}
-
-fn take1<'a>(args: &'a [RuntimeValue], ctx: &str) -> Result<[&'a RuntimeValue; 1], EvalError> {
-    match args {
-        [a] => Ok([a]),
-        _ => Err(EvalError {
-            message: format!("{ctx} expects 1 arg, got {}", args.len()),
-        }),
-    }
-}
-
-fn take2<'a>(args: &'a [RuntimeValue], ctx: &str) -> Result<[&'a RuntimeValue; 2], EvalError> {
-    match args {
-        [a, b] => Ok([a, b]),
-        _ => Err(EvalError {
-            message: format!("{ctx} expects 2 args, got {}", args.len()),
-        }),
-    }
-}
-
-fn take3<'a>(args: &'a [RuntimeValue], ctx: &str) -> Result<[&'a RuntimeValue; 3], EvalError> {
-    match args {
-        [a, b, c] => Ok([a, b, c]),
-        _ => Err(EvalError {
-            message: format!("{ctx} expects 3 args, got {}", args.len()),
-        }),
-    }
-}
-
-fn take4<'a>(args: &'a [RuntimeValue], ctx: &str) -> Result<[&'a RuntimeValue; 4], EvalError> {
-    match args {
-        [a, b, c, d] => Ok([a, b, c, d]),
-        _ => Err(EvalError {
-            message: format!("{ctx} expects 4 args, got {}", args.len()),
-        }),
-    }
-}
-
-fn take5<'a>(args: &'a [RuntimeValue], ctx: &str) -> Result<[&'a RuntimeValue; 5], EvalError> {
-    match args {
-        [a, b, c, d, e] => Ok([a, b, c, d, e]),
-        _ => Err(EvalError {
-            message: format!("{ctx} expects 5 args, got {}", args.len()),
-        }),
-    }
 }

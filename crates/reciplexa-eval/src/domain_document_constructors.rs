@@ -1,6 +1,7 @@
 //! Direct Native v2 runtime for `document/page` record constructors (DN2-5).
 
 use crate::domain_native::{DocumentPageOp, DomainNativeOp};
+use crate::domain_native_failure::{take1, take2, take4};
 use crate::value::RuntimeValue;
 use crate::EvalError;
 
@@ -173,31 +174,4 @@ fn num_val(n: f64) -> RuntimeValue {
 
 fn bool_val(b: bool) -> RuntimeValue {
     RuntimeValue::Bool(b)
-}
-
-fn take1<'a>(args: &'a [RuntimeValue], ctx: &str) -> Result<[&'a RuntimeValue; 1], EvalError> {
-    match args {
-        [a] => Ok([a]),
-        _ => Err(EvalError {
-            message: format!("{ctx} expects 1 arg, got {}", args.len()),
-        }),
-    }
-}
-
-fn take2<'a>(args: &'a [RuntimeValue], ctx: &str) -> Result<[&'a RuntimeValue; 2], EvalError> {
-    match args {
-        [a, b] => Ok([a, b]),
-        _ => Err(EvalError {
-            message: format!("{ctx} expects 2 args, got {}", args.len()),
-        }),
-    }
-}
-
-fn take4<'a>(args: &'a [RuntimeValue], ctx: &str) -> Result<[&'a RuntimeValue; 4], EvalError> {
-    match args {
-        [a, b, c, d] => Ok([a, b, c, d]),
-        _ => Err(EvalError {
-            message: format!("{ctx} expects 4 args, got {}", args.len()),
-        }),
-    }
 }

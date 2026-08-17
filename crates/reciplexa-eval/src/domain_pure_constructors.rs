@@ -3,6 +3,7 @@
 use crate::domain_native::{
     ColorSrgbOp, DomainNativeOp, GraphicsColorOp, GraphicsPageOp, GraphicsShapesOp,
 };
+use crate::domain_native_failure::{take1, take2, take3, take4, take5, take6};
 use crate::value::RuntimeValue;
 use crate::EvalError;
 
@@ -386,60 +387,6 @@ fn field_value(rec: &RuntimeValue, key: &str) -> Result<RuntimeValue, EvalError>
             }),
         other => Err(EvalError {
             message: format!("expected record, got {other}"),
-        }),
-    }
-}
-
-fn take1<'a>(args: &'a [RuntimeValue], ctx: &str) -> Result<[&'a RuntimeValue; 1], EvalError> {
-    match args {
-        [a] => Ok([a]),
-        _ => Err(EvalError {
-            message: format!("{ctx} expects 1 arg, got {}", args.len()),
-        }),
-    }
-}
-
-fn take2<'a>(args: &'a [RuntimeValue], ctx: &str) -> Result<[&'a RuntimeValue; 2], EvalError> {
-    match args {
-        [a, b] => Ok([a, b]),
-        _ => Err(EvalError {
-            message: format!("{ctx} expects 2 args, got {}", args.len()),
-        }),
-    }
-}
-
-fn take3<'a>(args: &'a [RuntimeValue], ctx: &str) -> Result<[&'a RuntimeValue; 3], EvalError> {
-    match args {
-        [a, b, c] => Ok([a, b, c]),
-        _ => Err(EvalError {
-            message: format!("{ctx} expects 3 args, got {}", args.len()),
-        }),
-    }
-}
-
-fn take4<'a>(args: &'a [RuntimeValue], ctx: &str) -> Result<[&'a RuntimeValue; 4], EvalError> {
-    match args {
-        [a, b, c, d] => Ok([a, b, c, d]),
-        _ => Err(EvalError {
-            message: format!("{ctx} expects 4 args, got {}", args.len()),
-        }),
-    }
-}
-
-fn take5<'a>(args: &'a [RuntimeValue], ctx: &str) -> Result<[&'a RuntimeValue; 5], EvalError> {
-    match args {
-        [a, b, c, d, e] => Ok([a, b, c, d, e]),
-        _ => Err(EvalError {
-            message: format!("{ctx} expects 5 args, got {}", args.len()),
-        }),
-    }
-}
-
-fn take6<'a>(args: &'a [RuntimeValue], ctx: &str) -> Result<[&'a RuntimeValue; 6], EvalError> {
-    match args {
-        [a, b, c, d, e, f] => Ok([a, b, c, d, e, f]),
-        _ => Err(EvalError {
-            message: format!("{ctx} expects 6 args, got {}", args.len()),
         }),
     }
 }
