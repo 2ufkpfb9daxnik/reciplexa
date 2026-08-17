@@ -1,6 +1,6 @@
 # Direct Native v2
 
-**Status:** shipping for standard packages (DN2-6 complete); DN2-7 portable fallback OPEN  
+**Status:** complete (DN2-0〜DN2-7); portable fallback remains `OPEN-NATIVE-PKG-001`  
 **Current shipping model:** Direct Native v2 (std packages)  
 **Execution order:** [`active-roadmap.md`](active-roadmap.md) Step 7 item 2（package local/offline slice の後）
 **Normative anchors:** `specification.md` Compiler-native package (~L17260), `KER-001`, `OPEN-NATIVE-PKG-001`
@@ -105,11 +105,12 @@ doc record constructorsをtyped callableへ移し、live-layout / document bridg
 - standard moduleについてsynthetic RPX fallbackへ暗黙に戻らないことを試験した（`dn2_std_modules_use_stub_not_synthetic_fallback`）。
 - 現状正本を更新した。
 
-### DN2-7 — portable fallback contract — **OPEN**
+### DN2-7 — portable fallback contract — **done**
 
-非native packageの通常 `.rpx` loadは維持する。標準packageのportable fallback、
-ABI/version negotiation、native unavailable時の挙動は
-`OPEN-NATIVE-PKG-001` として明示的に追跡し、DN2実装に紛れて削除しない。
+- 非native packageの通常 `.rpx` loadを試験で固定した。
+- 標準packageのportable fallback、ABI/version negotiation、native unavailable時の挙動を
+  `OPEN-NATIVE-PKG-001` としてコードと現状正本に明示追跡した（実装は defer）。
+- 標準moduleが disk `.rpx` へ暗黙 fallback しないことを DN2-6 と合わせて固定した。
 
 ## First implementation increment
 
@@ -124,7 +125,8 @@ ABI/version negotiation、native unavailable時の挙動は
 4. Observable behavior matches Hybrid v1 or a portable reference, proven by differential conformance tests.
 5. All quality gates are green on the same HEAD.
 
-Until then, keep DN2 **OPEN**. Do not mark native-domain work complete as DN2.
+Until DN2-6, keep incremental migration **OPEN**. DN2-6/7 complete the required
+milestone; portable fallback stays tracked as `OPEN-NATIVE-PKG-001` only.
 
 ## Portable fallback
 

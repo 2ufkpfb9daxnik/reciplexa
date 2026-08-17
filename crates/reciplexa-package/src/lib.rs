@@ -12,6 +12,9 @@
 //! `LockedPackage.checksum` from `package.rpxm` only (CS0); mismatch is
 //! reported as PKG006 via [`diagnose_lockfile_checksums`] (CS1). Registry
 //! artifact integrity and full-tree hashes remain OPEN-PKG-001.
+//!
+//! [`OPEN_NATIVE_PKG_001_FALLBACK`]: standard-package portable `.rpx` fallback
+//! and native-unavailable routing remain OPEN; see [`native_fallback`].
 
 #![forbid(unsafe_code)]
 
@@ -33,6 +36,7 @@ pub mod load;
 pub mod lockfile;
 pub mod manifest;
 pub mod math_bridge;
+pub mod native_fallback;
 pub mod registry;
 pub mod resolver;
 pub mod resource_value;
@@ -113,6 +117,7 @@ pub use manifest::{
     normalize_resource_path, resolve_package_resource, DependencySpec, PackageManifest,
     ResourceCheckError, ResourceResolveError, OPEN_PKG_001_CODE, OPEN_PKG_001_REGISTRY,
 };
+pub use native_fallback::{OPEN_NATIVE_PKG_001_CODE, OPEN_NATIVE_PKG_001_FALLBACK};
 pub use math_bridge::{
     estimate_package_math_main, estimate_package_math_main_with_style, MathBridgeError,
 };

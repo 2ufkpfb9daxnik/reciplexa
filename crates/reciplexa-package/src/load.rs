@@ -312,6 +312,8 @@ impl LocalPackageIndex {
 
         let native_key = format!("{pkg_name}/{module_path}");
         if let Some(native) = self.native.get(&native_key) {
+            // Direct Native v2: registry wins over any on-disk `src/*.rpx` for this module.
+            // Portable fallback when native is unavailable: OPEN-NATIVE-PKG-001 (not implemented).
             let interface_exports =
                 if let Some(rpi) = manifest.module_interface_path(root, &module_path) {
                     if rpi.is_file() {

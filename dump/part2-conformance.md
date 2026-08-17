@@ -4336,7 +4336,7 @@
 
 - [x] **L5 L17260: Compiler-native package実装** — `deferred`
   - spec: `specification.md:17260`
-  - notes: Hybrid Native v1 ships today; Direct Native v2 is required (`dump/direct-native-v2-plan.md`); portable fallback stays OPEN-NATIVE-PKG-001
+  - notes: Direct Native v2 ships for std packages (`dump/direct-native-v2-plan.md` complete); portable fallback stays OPEN-NATIVE-PKG-001
 
 - [x] **L6 L17273: 22.9 最終状態** — `meta`
   - spec: `specification.md:17273`

@@ -201,7 +201,7 @@ pre-PKG カーネルは計画上 **COMPLETE（意図的 defer 付き）**。各�
 実行順の正本は [`active-roadmap.md`](active-roadmap.md)。完了済みの native-domain / GUI CST sync / host-layout / live-layout 深化は Git 履歴を参照する。
 
 1. **package 実運用化 local/offline slice** — [`package-plan.md`](package-plan.md): lock再現性、typed resource light、自動materialize、offline registry mirrorまで完了。network registry、full-tree hash、Core resource effectは別OPEN。
-2. **Direct Native v2** — [`direct-native-v2-plan.md`](direct-native-v2-plan.md) DN2-0〜DN2-6完了。標準packageは DN2 stub + typed Rust callable。`synthetic_source` 廃止。残りは DN2-7（`OPEN-NATIVE-PKG-001` portable fallback 契約）。
+2. **Direct Native v2** — [`direct-native-v2-plan.md`](direct-native-v2-plan.md) **complete**（DN2-0〜DN2-7）。標準packageは DN2 stub + typed Rust callable。portable fallback は `OPEN-NATIVE-PKG-001` で明示追跡（未実装）。
 3. **製品級組版** — font-backed JLReq と OpenType MATH は別エンジン。stub 層（Waves / HC / LL）は **stub complete** であり製品エンジンではない。
 
 ### いま OPEN（次に追うもの）
@@ -209,12 +209,13 @@ pre-PKG カーネルは計画上 **COMPLETE（意図的 defer 付き）**。各�
 履歴の「done」列ではなく、**まだ閉じていない契約**だけ:
 
 1. **OPEN-PKG-001** — ネットワーク registry は未実装。ローカルミラー `registry/{name}/{version}/`（または `RPIX_REGISTRY_ROOT`）で `source registry` / `registry:` lock をオフライン解決。ミラーなしは PKG005 / OPEN-PKG-001 拒否。lock checksum は `package.rpxm` SHA-256。path 依存は PKG007 必須。full-tree / registry artifact hash は未着手。
-2. **package-resource** — package load/eval は [`eval_package_entry_main`] で `(resource …)` を自動 materialize（`resource-id` / `content-hash` / `effect: Resource` / `resolved-path`）。replay 不一致は PKG008。Core 型の resource effect / bracket 分離は未着手（RSC-001）。
-3. **OPEN-TEXT-JA-001** — 完全 UCS / 規範的 §C / 実 glyph hanging・justification・詰め / OpenType `vert` / CSS `text-orientation` / font-backed ruby・縦中横・傍点。stub 層（Waves 4–29）は閉じない。
-4. **OpenType MATH** — stretchy assembly、MATH table、`\fontdimen`、実 glyph advance。live layout の Line/offset stubs は代替にならない。
-5. **本番ページ消費** — 文書・GUI が math box と JA break/justify を **editable first-class page** として載せる段階は未着手。いまは `live-layout-demo` sibling / ヒューリスティック Text（`layout_style` Display/Text、ker `math-phantom` を `primitive_env` で評価、`pkg_live_math_phantom` SVG/PPTX）。`document/page`（`doc-*`）の CST sync も非ゴールのまま。
-6. **markup 作者同期** — GUI CST sync v2 は package AST のみ。`(markup …)` 展開ページは soft-refuse（意図的）。
-7. **その他意図的 skip** — 分数ルール色付け（既に黒）；`pkg_checksum_demo` 例（crate README で足りる）。
+2. **OPEN-NATIVE-PKG-001** — 標準packageの portable `.rpx` fallback、ABI/version negotiation、native unavailable 時のルーティングは未実装。本番は Direct Native v2 のみ。非native package の disk `.rpx` load は維持。定数は `reciplexa_package::OPEN_NATIVE_PKG_001_*`。
+3. **package-resource** — package load/eval は [`eval_package_entry_main`] で `(resource …)` を自動 materialize（`resource-id` / `content-hash` / `effect: Resource` / `resolved-path`）。replay 不一致は PKG008。Core 型の resource effect / bracket 分離は未着手（RSC-001）。
+4. **OPEN-TEXT-JA-001** — 完全 UCS / 規範的 §C / 実 glyph hanging・justification・詰め / OpenType `vert` / CSS `text-orientation` / font-backed ruby・縦中横・傍点。stub 層（Waves 4–29）は閉じない。
+5. **OpenType MATH** — stretchy assembly、MATH table、`\fontdimen`、実 glyph advance。live layout の Line/offset stubs は代替にならない。
+6. **本番ページ消費** — 文書・GUI が math box と JA break/justify を **editable first-class page** として載せる段階は未着手。いまは `live-layout-demo` sibling / ヒューリスティック Text（`layout_style` Display/Text、ker `math-phantom` を `primitive_env` で評価、`pkg_live_math_phantom` SVG/PPTX）。`document/page`（`doc-*`）の CST sync も非ゴールのまま。
+7. **markup 作者同期** — GUI CST sync v2 は package AST のみ。`(markup …)` 展開ページは soft-refuse（意図的）。
+8. **その他意図的 skip** — 分数ルール色付け（既に黒）；`pkg_checksum_demo` 例（crate README で足りる）。
 
 これらはバグ一覧ではなく、仕様 / 計画上まだ追わない（または別エンジンが必要な）項目である。
 ---
