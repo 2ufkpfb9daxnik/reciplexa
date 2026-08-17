@@ -31,9 +31,9 @@ pub fn std_domain_natives() -> DomainNativeRegistry {
 
 /// N1.1 — `length/units` constructors (parity with former `packages/length/src/units.rpx`).
 pub fn length_units_module() -> DomainNativeModule {
-    DomainNativeModule {
-        module_path: "length/units".into(),
-        exports: vec![
+    DomainNativeModule::hybrid(
+        "length/units",
+        vec![
             "mm".into(),
             "cm".into(),
             "pt".into(),
@@ -48,8 +48,8 @@ pub fn length_units_module() -> DomainNativeModule {
             "add-mm".into(),
             "scale-length".into(),
         ],
-        synthetic_source: length_units_source().into(),
-    }
+        length_units_source(),
+    )
 }
 
 /// Rust-owned source for `length/units` (package API unchanged).
@@ -92,9 +92,9 @@ pub fn length_units_source() -> &'static str {
 
 /// N1.4 — `color/srgb` (standalone color package).
 pub fn color_srgb_module() -> DomainNativeModule {
-    DomainNativeModule {
-        module_path: "color/srgb".into(),
-        exports: vec![
+    DomainNativeModule::hybrid(
+        "color/srgb",
+        vec![
             "srgb".into(),
             "rgb".into(),
             "rgba".into(),
@@ -113,8 +113,8 @@ pub fn color_srgb_module() -> DomainNativeModule {
             "transparent".into(),
             "with-alpha".into(),
         ],
-        synthetic_source: color_srgb_source().into(),
-    }
+        color_srgb_source(),
+    )
 }
 
 pub fn color_srgb_source() -> &'static str {
@@ -149,9 +149,9 @@ pub fn color_srgb_source() -> &'static str {
 
 /// N1.4 — `graphics/color` (subset used by graphics demos; shared rgb tags).
 pub fn graphics_color_module() -> DomainNativeModule {
-    DomainNativeModule {
-        module_path: "graphics/color".into(),
-        exports: vec![
+    DomainNativeModule::hybrid(
+        "graphics/color",
+        vec![
             "rgb".into(),
             "rgba".into(),
             "black".into(),
@@ -162,8 +162,8 @@ pub fn graphics_color_module() -> DomainNativeModule {
             "gray".into(),
             "transparent".into(),
         ],
-        synthetic_source: graphics_color_source().into(),
-    }
+        graphics_color_source(),
+    )
 }
 
 pub fn graphics_color_source() -> &'static str {
@@ -184,9 +184,9 @@ pub fn graphics_color_source() -> &'static str {
 
 /// N2.2 — `graphics/page` paper sizes + page/pages constructors.
 pub fn graphics_page_module() -> DomainNativeModule {
-    DomainNativeModule {
-        module_path: "graphics/page".into(),
-        exports: vec![
+    DomainNativeModule::hybrid(
+        "graphics/page",
+        vec![
             "a4".into(),
             "letter".into(),
             "a5".into(),
@@ -197,8 +197,8 @@ pub fn graphics_page_module() -> DomainNativeModule {
             "pages".into(),
             "page-size".into(),
         ],
-        synthetic_source: graphics_page_source().into(),
-    }
+        graphics_page_source(),
+    )
 }
 
 pub fn graphics_page_source() -> &'static str {
@@ -220,9 +220,9 @@ pub fn graphics_page_source() -> &'static str {
 
 /// N2.3–N2.7 — `graphics/shapes` constructors (full parity with former shapes.rpx).
 pub fn graphics_shapes_module() -> DomainNativeModule {
-    DomainNativeModule {
-        module_path: "graphics/shapes".into(),
-        exports: vec![
+    DomainNativeModule::hybrid(
+        "graphics/shapes",
+        vec![
             "circle".into(),
             "rect".into(),
             "ellipse".into(),
@@ -244,8 +244,8 @@ pub fn graphics_shapes_module() -> DomainNativeModule {
             "stroke".into(),
             "paint".into(),
         ],
-        synthetic_source: graphics_shapes_source().into(),
-    }
+        graphics_shapes_source(),
+    )
 }
 
 pub fn graphics_shapes_source() -> &'static str {
@@ -299,9 +299,9 @@ pub fn graphics_shapes_source() -> &'static str {
 
 /// N3.1 — `math/atoms` atom class + symbol/row constructors.
 pub fn math_atoms_module() -> DomainNativeModule {
-    DomainNativeModule {
-        module_path: "math/atoms".into(),
-        exports: vec![
+    DomainNativeModule::hybrid(
+        "math/atoms",
+        vec![
             "class-ord".into(),
             "class-op".into(),
             "class-bin".into(),
@@ -328,8 +328,8 @@ pub fn math_atoms_module() -> DomainNativeModule {
             "superscript".into(),
             "subscript".into(),
         ],
-        synthetic_source: math_atoms_source().into(),
-    }
+        math_atoms_source(),
+    )
 }
 
 pub fn math_atoms_source() -> &'static str {
@@ -388,9 +388,9 @@ pub fn math_atoms_source() -> &'static str {
 
 /// N3.2 — `math/scripts` superscript / subscript / under / over.
 pub fn math_scripts_module() -> DomainNativeModule {
-    DomainNativeModule {
-        module_path: "math/scripts".into(),
-        exports: vec![
+    DomainNativeModule::hybrid(
+        "math/scripts",
+        vec![
             "absent".into(),
             "superscript".into(),
             "subscript".into(),
@@ -406,8 +406,8 @@ pub fn math_scripts_module() -> DomainNativeModule {
             "over".into(),
             "under".into(),
         ],
-        synthetic_source: math_scripts_source().into(),
-    }
+        math_scripts_source(),
+    )
 }
 
 pub fn math_scripts_source() -> &'static str {
@@ -457,11 +457,11 @@ pub fn math_scripts_source() -> &'static str {
 
 /// N3.2 — `math/frac` fraction constructors.
 pub fn math_frac_module() -> DomainNativeModule {
-    DomainNativeModule {
-        module_path: "math/frac".into(),
-        exports: vec!["fraction".into(), "over".into()],
-        synthetic_source: math_frac_source().into(),
-    }
+    DomainNativeModule::hybrid(
+        "math/frac",
+        vec!["fraction".into(), "over".into()],
+        math_frac_source(),
+    )
 }
 
 pub fn math_frac_source() -> &'static str {
@@ -477,17 +477,17 @@ pub fn math_frac_source() -> &'static str {
 
 /// N3.2 — `math/sqrt` radical constructors.
 pub fn math_sqrt_module() -> DomainNativeModule {
-    DomainNativeModule {
-        module_path: "math/sqrt".into(),
-        exports: vec![
+    DomainNativeModule::hybrid(
+        "math/sqrt",
+        vec![
             "absent-index".into(),
             "sqrt".into(),
             "radical".into(),
             "radical-indexed".into(),
             "root".into(),
         ],
-        synthetic_source: math_sqrt_source().into(),
-    }
+        math_sqrt_source(),
+    )
 }
 
 pub fn math_sqrt_source() -> &'static str {
@@ -512,9 +512,9 @@ pub fn math_sqrt_source() -> &'static str {
 
 /// N3.3 — `math/delimiters` delimiter / fence wrappers.
 pub fn math_delimiters_module() -> DomainNativeModule {
-    DomainNativeModule {
-        module_path: "math/delimiters".into(),
-        exports: vec![
+    DomainNativeModule::hybrid(
+        "math/delimiters",
+        vec![
             "delimiter".into(),
             "paren".into(),
             "brackets".into(),
@@ -524,8 +524,8 @@ pub fn math_delimiters_module() -> DomainNativeModule {
             "floor".into(),
             "ceil".into(),
         ],
-        synthetic_source: math_delimiters_source().into(),
-    }
+        math_delimiters_source(),
+    )
 }
 
 pub fn math_delimiters_source() -> &'static str {
@@ -552,9 +552,9 @@ pub fn math_delimiters_source() -> &'static str {
 
 /// N3.4 — `math/matrix` matrix constructors.
 pub fn math_matrix_module() -> DomainNativeModule {
-    DomainNativeModule {
-        module_path: "math/matrix".into(),
-        exports: vec![
+    DomainNativeModule::hybrid(
+        "math/matrix",
+        vec![
             "matrix".into(),
             "bmatrix".into(),
             "pmatrix".into(),
@@ -567,8 +567,8 @@ pub fn math_matrix_module() -> DomainNativeModule {
             "bmatrix-env".into(),
             "pmatrix-env".into(),
         ],
-        synthetic_source: math_matrix_source().into(),
-    }
+        math_matrix_source(),
+    )
 }
 
 pub fn math_matrix_source() -> &'static str {
@@ -603,9 +603,9 @@ pub fn math_matrix_source() -> &'static str {
 
 /// N3.4 — `math/accents` accent wrappers.
 pub fn math_accents_module() -> DomainNativeModule {
-    DomainNativeModule {
-        module_path: "math/accents".into(),
-        exports: vec![
+    DomainNativeModule::hybrid(
+        "math/accents",
+        vec![
             "accent".into(),
             "hat".into(),
             "bar".into(),
@@ -624,8 +624,8 @@ pub fn math_accents_module() -> DomainNativeModule {
             "widehat".into(),
             "widetilde".into(),
         ],
-        synthetic_source: math_accents_source().into(),
-    }
+        math_accents_source(),
+    )
 }
 
 pub fn math_accents_source() -> &'static str {
@@ -669,9 +669,9 @@ pub fn math_accents_source() -> &'static str {
 
 /// N3.4 — `math/bigops` large operators with optional limits.
 pub fn math_bigops_module() -> DomainNativeModule {
-    DomainNativeModule {
-        module_path: "math/bigops".into(),
-        exports: vec![
+    DomainNativeModule::hybrid(
+        "math/bigops",
+        vec![
             "bigop".into(),
             "sum".into(),
             "prod".into(),
@@ -692,8 +692,8 @@ pub fn math_bigops_module() -> DomainNativeModule {
             "integral-scripts".into(),
             "oint-scripts".into(),
         ],
-        synthetic_source: math_bigops_source().into(),
-    }
+        math_bigops_source(),
+    )
 }
 
 pub fn math_bigops_source() -> &'static str {
@@ -785,9 +785,9 @@ pub fn math_bigops_source() -> &'static str {
 
 /// N3.3 — `math/cases` piecewise / cases constructs.
 pub fn math_cases_module() -> DomainNativeModule {
-    DomainNativeModule {
-        module_path: "math/cases".into(),
-        exports: vec![
+    DomainNativeModule::hybrid(
+        "math/cases",
+        vec![
             "case-arm".into(),
             "cases".into(),
             "cases-lr".into(),
@@ -797,8 +797,8 @@ pub fn math_cases_module() -> DomainNativeModule {
             "piecewise".into(),
             "otherwise".into(),
         ],
-        synthetic_source: math_cases_source().into(),
-    }
+        math_cases_source(),
+    )
 }
 
 pub fn math_cases_source() -> &'static str {
@@ -827,9 +827,9 @@ pub fn math_cases_source() -> &'static str {
 
 /// N3.5 — `math/align` alignment rows.
 pub fn math_align_module() -> DomainNativeModule {
-    DomainNativeModule {
-        module_path: "math/align".into(),
-        exports: vec![
+    DomainNativeModule::hybrid(
+        "math/align",
+        vec![
             "align-row".into(),
             "aligned".into(),
             "align".into(),
@@ -839,8 +839,8 @@ pub fn math_align_module() -> DomainNativeModule {
             "align-at".into(),
             "align-eq".into(),
         ],
-        synthetic_source: math_align_source().into(),
-    }
+        math_align_source(),
+    )
 }
 
 pub fn math_align_source() -> &'static str {
@@ -866,9 +866,9 @@ pub fn math_align_source() -> &'static str {
 
 /// N3.5 — `math/stack` vertical stacks and relation symbols.
 pub fn math_stack_module() -> DomainNativeModule {
-    DomainNativeModule {
-        module_path: "math/stack".into(),
-        exports: vec![
+    DomainNativeModule::hybrid(
+        "math/stack",
+        vec![
             "stack".into(),
             "stackrel".into(),
             "overset-rel".into(),
@@ -876,8 +876,8 @@ pub fn math_stack_module() -> DomainNativeModule {
             "atop".into(),
             "substack".into(),
         ],
-        synthetic_source: math_stack_source().into(),
-    }
+        math_stack_source(),
+    )
 }
 
 pub fn math_stack_source() -> &'static str {
@@ -899,9 +899,9 @@ pub fn math_stack_source() -> &'static str {
 
 /// N4.1 — `japanese/classes` JLReq character class tables (cl-01..cl-30).
 pub fn japanese_classes_module() -> DomainNativeModule {
-    DomainNativeModule {
-        module_path: "japanese/classes".into(),
-        exports: vec![
+    DomainNativeModule::hybrid(
+        "japanese/classes",
+        vec![
             "class".into(),
             "all-class-ids".into(),
             "all-classes".into(),
@@ -943,8 +943,8 @@ pub fn japanese_classes_module() -> DomainNativeModule {
             "is-kana-class?".into(),
             "is-western-class?".into(),
         ],
-        synthetic_source: japanese_classes_source().into(),
-    }
+        japanese_classes_source(),
+    )
 }
 
 pub fn japanese_classes_source() -> &'static str {
@@ -1116,9 +1116,9 @@ pub fn japanese_classes_source() -> &'static str {
 
 /// N4.2 — `japanese/linebreak` kinsoku / break-opportunity stubs.
 pub fn japanese_linebreak_module() -> DomainNativeModule {
-    DomainNativeModule {
-        module_path: "japanese/linebreak".into(),
-        exports: vec![
+    DomainNativeModule::hybrid(
+        "japanese/linebreak",
+        vec![
             "sample-line-head-prohibited".into(),
             "sample-line-end-prohibited".into(),
             "sample-inseparable".into(),
@@ -1134,8 +1134,8 @@ pub fn japanese_linebreak_module() -> DomainNativeModule {
             "kinsoku-profile".into(),
             "classify-sample".into(),
         ],
-        synthetic_source: japanese_linebreak_source().into(),
-    }
+        japanese_linebreak_source(),
+    )
 }
 
 pub fn japanese_linebreak_source() -> &'static str {
@@ -1271,9 +1271,9 @@ pub fn japanese_linebreak_source() -> &'static str {
 
 /// N4.3 — `japanese/kihon` kihon-hanmen / line-rate / vertical stubs.
 pub fn japanese_kihon_module() -> DomainNativeModule {
-    DomainNativeModule {
-        module_path: "japanese/kihon".into(),
-        exports: vec![
+    DomainNativeModule::hybrid(
+        "japanese/kihon",
+        vec![
             "writing-mode-horizontal".into(),
             "writing-mode-vertical".into(),
             "line-rate-solid".into(),
@@ -1306,8 +1306,8 @@ pub fn japanese_kihon_module() -> DomainNativeModule {
             "place-vertical-text".into(),
             "vertical-text-stack".into(),
         ],
-        synthetic_source: japanese_kihon_source().into(),
-    }
+        japanese_kihon_source(),
+    )
 }
 
 pub fn japanese_kihon_source() -> &'static str {
@@ -1425,9 +1425,9 @@ pub fn japanese_kihon_source() -> &'static str {
 
 /// N4.4 — `japanese/markup` document-oriented JP markup helpers.
 pub fn japanese_markup_module() -> DomainNativeModule {
-    DomainNativeModule {
-        module_path: "japanese/markup".into(),
-        exports: vec![
+    DomainNativeModule::hybrid(
+        "japanese/markup",
+        vec![
             "heading".into(),
             "section".into(),
             "paragraph".into(),
@@ -1445,8 +1445,8 @@ pub fn japanese_markup_module() -> DomainNativeModule {
             "ul".into(),
             "doc".into(),
         ],
-        synthetic_source: japanese_markup_source().into(),
-    }
+        japanese_markup_source(),
+    )
 }
 
 pub fn japanese_markup_source() -> &'static str {
@@ -1502,9 +1502,9 @@ pub fn japanese_markup_source() -> &'static str {
 /// Tags use the `doc-*` prefix so they stay distinct from `graphics/page` scene tags.
 /// Interim CST `(page)/(circle)` keyword tables are intentionally untouched.
 pub fn document_page_module() -> DomainNativeModule {
-    DomainNativeModule {
-        module_path: "document/page".into(),
-        exports: vec![
+    DomainNativeModule::hybrid(
+        "document/page",
+        vec![
             "a4".into(),
             "letter".into(),
             "a5".into(),
@@ -1531,8 +1531,8 @@ pub fn document_page_module() -> DomainNativeModule {
             "block-figure".into(),
             "block-spacer".into(),
         ],
-        synthetic_source: document_page_source().into(),
-    }
+        document_page_source(),
+    )
 }
 
 pub fn document_page_source() -> &'static str {

@@ -1620,9 +1620,21 @@ pub fn typecheck_language_source(src: &str) -> Result<CoreType, CheckError> {
 
 /// Infer a Core expression using the language-kernel builtin [`TypeEnv`].
 pub fn typecheck_core_expr(expr: &CoreExpr, data: DataEnv) -> Result<CoreType, CheckError> {
+    typecheck_core_expr_with_vars(expr, data, &std::collections::HashMap::new())
+}
+
+/// Like [`typecheck_core_expr`], with extra variable typings (e.g. DN2 slots).
+pub fn typecheck_core_expr_with_vars(
+    expr: &CoreExpr,
+    data: DataEnv,
+    extra_vars: &std::collections::HashMap<String, CoreType>,
+) -> Result<CoreType, CheckError> {
     let mut subst = Subst::new();
     let mut env = language_kernel_type_env();
     env.data = data;
+    for (name, ty) in extra_vars {
+        env.insert(name, ty.clone());
+    }
     let ty = infer_expr(expr, &env, &mut subst, TextRange::EMPTY)?;
     Ok(subst.apply(&ty))
 }

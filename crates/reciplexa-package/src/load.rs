@@ -257,7 +257,7 @@ impl LocalPackageIndex {
     /// Resolve an import and load the optional `.rpi` export list (MOD §8 / §2.3).
     ///
     /// When the resolved `package/module` path is in [`DomainNativeRegistry`], the
-    /// `.rpx` body is **not** read; [`DomainNativeModule::synthetic_source`] is used.
+    /// `.rpx` body is **not** read; [`DomainNativeModule::effective_source`] is used.
     pub fn resolve_import_detailed(
         &self,
         import_path: &str,
@@ -276,7 +276,7 @@ impl LocalPackageIndex {
             }) {
                 return Ok(ResolvedImport {
                     unit_name: import_path.to_string(),
-                    source: native.synthetic_source.clone(),
+                    source: native.effective_source(),
                     interface_exports: Some(native.exports.clone()),
                 });
             }
@@ -326,7 +326,7 @@ impl LocalPackageIndex {
                 };
             return Ok(ResolvedImport {
                 unit_name: import_path.to_string(),
-                source: native.synthetic_source.clone(),
+                source: native.effective_source(),
                 interface_exports,
             });
         }

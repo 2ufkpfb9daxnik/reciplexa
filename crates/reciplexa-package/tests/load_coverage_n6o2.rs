@@ -55,11 +55,11 @@ fn load_n6o2_native_locked_rpi_io() {
     let _guard = exclusive_write(&rpi, b"(val circle)\n");
 
     let mut idx = LocalPackageIndex::discover(&[root.as_path()]).expect("discover");
-    idx.register_native(DomainNativeModule {
-        module_path: "widgets/shapes".into(),
-        exports: vec!["circle".into()],
-        synthetic_source: "(val circle 1)\n".into(),
-    });
+    idx.register_native(DomainNativeModule::hybrid(
+        "widgets/shapes".into(),
+        vec!["circle".into()],
+        "(val circle 1)\n".into(),
+    ));
     let entry = scratch().join("entry.rpx");
     fs::write(
         &entry,
@@ -73,10 +73,10 @@ fn load_n6o2_native_locked_rpi_io() {
     // Unlocked: native + existing rpi → read Ok then parse_rpi
     fs::write(&rpi, b"(val circle)\n").unwrap();
     let mut idx = LocalPackageIndex::discover(&[root.as_path()]).expect("discover");
-    idx.register_native(DomainNativeModule {
-        module_path: "widgets/shapes".into(),
-        exports: vec!["circle".into()],
-        synthetic_source: "(val circle 1)\n".into(),
-    });
+    idx.register_native(DomainNativeModule::hybrid(
+        "widgets/shapes".into(),
+        vec!["circle".into()],
+        "(val circle 1)\n".into(),
+    ));
     let _ = elaborate_with_packages(&entry, &idx);
 }

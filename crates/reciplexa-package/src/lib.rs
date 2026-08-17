@@ -18,7 +18,9 @@
 pub mod build;
 pub mod doc_preview;
 pub mod domain_bodies;
+pub mod domain_differential;
 pub mod domain_native;
+pub mod domain_native_env;
 pub mod graphics_bridge;
 pub mod japanese_bridge;
 pub mod live_layout_bridge;
@@ -60,7 +62,16 @@ pub use domain_bodies::{
     math_scripts_source, math_sqrt_module, math_sqrt_source, math_stack_module, math_stack_source,
     std_domain_natives,
 };
-pub use domain_native::{DomainNativeModule, DomainNativeRegistry};
+pub use domain_differential::{
+    differential_eval_package_modules, eval_package_entry_main_dn2, DifferentialError,
+};
+pub use domain_native::{
+    DomainNativeBindMap, DomainNativeExport, DomainNativeMode, DomainNativeModule,
+    DomainNativeRegistry,
+};
+pub use domain_native_env::{
+    build_domain_native_eval_env, build_domain_native_type_env, register_test_ping_module,
+};
 pub use graphics_bridge::{
     document_from_package_entry, document_from_package_source, GraphicsBridgeError,
 };

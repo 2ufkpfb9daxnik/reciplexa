@@ -49,6 +49,8 @@ pub enum RuntimeValue {
     },
     /// KER-001 numeric / comparison primitive.
     Builtin(BuiltinOp),
+    /// Direct Native v2 package export callable (separate from kernel builtins).
+    DomainNative(crate::domain_native::DomainNativeOp),
     Record(Vec<(String, RuntimeValue)>),
     Bytes(Vec<u8>),
     Variant {
@@ -154,6 +156,7 @@ impl fmt::Debug for RuntimeValue {
                 .field("body", body)
                 .finish(),
             Self::Builtin(op) => f.debug_tuple("Builtin").field(op).finish(),
+            Self::DomainNative(op) => f.debug_tuple("DomainNative").field(op).finish(),
             Self::Record(fields) => f.debug_tuple("Record").field(fields).finish(),
             Self::Bytes(b) => f.debug_tuple("Bytes").field(b).finish(),
             Self::Variant { tag, payload } => f
@@ -215,6 +218,7 @@ impl PartialEq for RuntimeValue {
                 },
             ) => o1 == o2 && p1 == p2 && b1 == b2,
             (Self::Builtin(a), Self::Builtin(b)) => a == b,
+            (Self::DomainNative(a), Self::DomainNative(b)) => a == b,
             (Self::Record(a), Self::Record(b)) => a == b,
             (Self::Bytes(a), Self::Bytes(b)) => a == b,
             (
@@ -254,6 +258,7 @@ impl RuntimeValue {
                 ret: Box::new(CoreType::dyn_any()),
                 effects: Default::default(),
             },
+            Self::DomainNative(_) => CoreType::dyn_any(),
             Self::Closure { params, .. } => CoreType::Fun {
                 args: params
                     .iter()
@@ -294,6 +299,7 @@ impl fmt::Display for RuntimeValue {
             Self::OneShotResume { .. } => "resume".to_string(),
             Self::Handler { op, .. } => format!("handler({op})"),
             Self::Builtin(op) => format!("builtin({op:?})"),
+            Self::DomainNative(op) => format!("domain-native({op:?})"),
             Self::Closure { params, .. } => format!("closure({})", params.join(", ")),
             Self::Record(fields) => {
                 let parts: Vec<String> = fields.iter().map(|(k, v)| format!("{k}: {v}")).collect();

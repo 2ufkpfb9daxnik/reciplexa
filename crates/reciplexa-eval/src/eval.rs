@@ -13,6 +13,7 @@ use reciplexa_core::ty::CoreType;
 use crate::control::{
     identity_resume, EffectHost, EvalError, EvalResult, Outcome, ResumeCont, UnitHost,
 };
+use crate::domain_native::call_domain_native;
 use crate::value::{BuiltinOp, RuntimeValue};
 
 /// Seed environment with KER-001 numeric / comparison primitives.
@@ -130,6 +131,31 @@ pub fn eval_source_with_host(src: &str, host: &mut dyn EffectHost) -> EvalResult
 }
 
 pub fn eval_expr(
+    expr: &CoreExpr,
+    env: &HashMap<String, RuntimeValue>,
+    host: &mut dyn EffectHost,
+) -> EvalResult {
+    eval_expr_with_extra(expr, env, &HashMap::new(), host)
+}
+
+/// Evaluate with additional bindings (e.g. Direct Native v2 `__dn2__…` slots).
+pub fn eval_expr_with_extra(
+    expr: &CoreExpr,
+    env: &HashMap<String, RuntimeValue>,
+    extra: &HashMap<String, RuntimeValue>,
+    host: &mut dyn EffectHost,
+) -> EvalResult {
+    if extra.is_empty() {
+        return eval_expr_inner(expr, env, host);
+    }
+    let mut merged = env.clone();
+    for (k, v) in extra {
+        merged.insert(k.clone(), v.clone());
+    }
+    eval_expr_inner(expr, &merged, host)
+}
+
+fn eval_expr_inner(
     expr: &CoreExpr,
     env: &HashMap<String, RuntimeValue>,
     host: &mut dyn EffectHost,
@@ -975,6 +1001,7 @@ fn apply_value(
             }
         }
         RuntimeValue::Builtin(op) => apply_builtin(op, arg_vs),
+        RuntimeValue::DomainNative(op) => Ok(Outcome::Value(call_domain_native(op, &arg_vs)?)),
         RuntimeValue::Closure {
             params,
             body,

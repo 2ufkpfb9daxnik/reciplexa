@@ -6,8 +6,9 @@
 
 use std::path::Path;
 
-use reciplexa_core::{typecheck_core_expr, CheckError, CoreType, DataEnv};
+use reciplexa_core::{typecheck_core_expr_with_vars, CheckError, CoreType, DataEnv};
 
+use crate::domain_native_env::build_domain_native_type_env;
 use crate::load::{elaborate_with_packages, LocalPackageIndex, PackageLoadError};
 
 /// Failures from package Core typecheck.
@@ -57,7 +58,11 @@ pub fn typecheck_with_packages(
         .iter()
         .find(|u| u.name == stem)
         .ok_or_else(|| PackageLoadError::NotFound(format!("missing elaborated unit `{stem}`")))?;
-    Ok(typecheck_core_expr(&demo.expr, DataEnv::default())?)
+    Ok(typecheck_core_expr_with_vars(
+        &demo.expr,
+        DataEnv::default(),
+        &build_domain_native_type_env(index.native()),
+    )?)
 }
 
 /// Write `source` to a temp entry and [`typecheck_with_packages`].

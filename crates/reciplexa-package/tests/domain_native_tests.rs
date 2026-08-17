@@ -30,21 +30,21 @@ fn scratch() -> PathBuf {
 #[test]
 fn native_index_with_set_and_mut() {
     let mut reg = DomainNativeRegistry::empty();
-    reg.register(DomainNativeModule {
-        module_path: "cov/ping".into(),
-        exports: vec!["ping".into()],
-        synthetic_source: "(val ping 1)\n".into(),
-    });
+    reg.register(DomainNativeModule::hybrid(
+        "cov/ping".into(),
+        vec!["ping".into()],
+        "(val ping 1)\n".into(),
+    ));
     let idx = LocalPackageIndex::default().with_native(reg.clone());
     assert!(idx.native().contains("cov/ping"));
 
     let mut idx2 = LocalPackageIndex::default();
     idx2.set_native(reg);
-    idx2.native_mut().register(DomainNativeModule {
-        module_path: "cov/pong".into(),
-        exports: vec!["pong".into()],
-        synthetic_source: "(val pong 2)\n".into(),
-    });
+    idx2.native_mut().register(DomainNativeModule::hybrid(
+        "cov/pong".into(),
+        vec!["pong".into()],
+        "(val pong 2)\n".into(),
+    ));
     assert!(idx2.native().contains("cov/pong"));
     let resolved = idx2.resolve_import_detailed("cov/pong").unwrap();
     assert!(resolved.source.contains("pong"));
@@ -68,11 +68,11 @@ fn native_missing_rpi_uses_registry_exports() {
     fs::write(pkg.join("src/shapes.rpx"), "(val circle 1)\n").unwrap();
     // interface-root declared but no shapes.rpi on disk — native path supplies exports.
     let mut idx = LocalPackageIndex::discover(&[&root]).unwrap();
-    idx.register_native(DomainNativeModule {
-        module_path: "widgets/shapes".into(),
-        exports: vec!["circle".into(), "rect".into()],
-        synthetic_source: "(val circle 1)\n(val rect 2)\n".into(),
-    });
+    idx.register_native(DomainNativeModule::hybrid(
+        "widgets/shapes".into(),
+        vec!["circle".into(), "rect".into()],
+        "(val circle 1)\n(val rect 2)\n".into(),
+    ));
     let resolved = idx.resolve_import_detailed("widgets/shapes").unwrap();
     assert_eq!(
         resolved.interface_exports.as_ref().unwrap(),
@@ -104,11 +104,11 @@ fn native_with_rpi_file_reads_exports_from_disk() {
     )
     .unwrap();
     let mut idx = LocalPackageIndex::discover(&[&root]).unwrap();
-    idx.register_native(DomainNativeModule {
-        module_path: "widgets/shapes".into(),
-        exports: vec!["circle".into(), "native-only".into()],
-        synthetic_source: "(val circle 1)\n".into(),
-    });
+    idx.register_native(DomainNativeModule::hybrid(
+        "widgets/shapes".into(),
+        vec!["circle".into(), "native-only".into()],
+        "(val circle 1)\n".into(),
+    ));
     let resolved = idx.resolve_import_detailed("widgets/shapes").unwrap();
     let exports = resolved.interface_exports.unwrap();
     assert!(exports.iter().any(|e| e == "disk-only"));
@@ -118,11 +118,11 @@ fn native_with_rpi_file_reads_exports_from_disk() {
 #[test]
 fn n0_4_pure_native_test_module_skips_disk_package() {
     let mut idx = LocalPackageIndex::default();
-    idx.register_native(DomainNativeModule {
-        module_path: "native/test".into(),
-        exports: vec!["ping".into()],
-        synthetic_source: "(val ping 42)\n".into(),
-    });
+    idx.register_native(DomainNativeModule::hybrid(
+        "native/test".into(),
+        vec!["ping".into()],
+        "(val ping 42)\n".into(),
+    ));
     let resolved = idx.resolve_import_detailed("native/test").unwrap();
     assert_eq!(resolved.unit_name, "native/test");
     assert!(resolved.source.contains("42"));
