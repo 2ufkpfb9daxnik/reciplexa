@@ -4,6 +4,7 @@
 
 pub mod control;
 pub mod document_value;
+pub mod domain_length_units;
 pub mod domain_native;
 pub mod eval;
 pub mod graphics_value;

@@ -1,5 +1,6 @@
 //! Native bodies for std domain packages (synthesized RPX until eval binds constructors).
 
+use crate::domain_length_units::populate_length_units_typed_exports;
 use crate::domain_native::{DomainNativeModule, DomainNativeRegistry};
 
 /// Seed registry with std domain natives that are ready to replace `.rpx` bodies.
@@ -31,7 +32,7 @@ pub fn std_domain_natives() -> DomainNativeRegistry {
 
 /// N1.1 — `length/units` constructors (parity with former `packages/length/src/units.rpx`).
 pub fn length_units_module() -> DomainNativeModule {
-    DomainNativeModule::hybrid(
+    let mut module = DomainNativeModule::hybrid(
         "length/units",
         vec![
             "mm".into(),
@@ -49,7 +50,9 @@ pub fn length_units_module() -> DomainNativeModule {
             "scale-length".into(),
         ],
         length_units_source(),
-    )
+    );
+    populate_length_units_typed_exports(&mut module);
+    module
 }
 
 /// Rust-owned source for `length/units` (package API unchanged).

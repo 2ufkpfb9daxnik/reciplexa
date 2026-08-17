@@ -79,10 +79,14 @@ impl DomainNativeModule {
     pub fn dn2_stub_source(&self) -> String {
         let lines: Vec<String> = self
             .typed_exports
-            .keys()
-            .map(|export_name| {
-                let slot = dn2_slot(&self.module_path, export_name);
-                format!("(val {export_name} ({slot}))")
+            .values()
+            .map(|export| {
+                let slot = dn2_slot(&self.module_path, &export.name);
+                if export_is_eager_value(&export.ty) {
+                    format!("(val {} ({slot}))", export.name)
+                } else {
+                    format!("(val {} {slot})", export.name)
+                }
             })
             .collect();
         format!("{}\n", lines.join("\n"))
@@ -91,6 +95,11 @@ impl DomainNativeModule {
     pub fn is_direct_native(&self) -> bool {
         self.mode == DomainNativeMode::DirectNative
     }
+}
+
+/// Nullary exports are applied eagerly in the stub (constants); others bind the callable.
+fn export_is_eager_value(ty: &CoreType) -> bool {
+    matches!(ty, CoreType::Fun { args, .. } if args.is_empty())
 }
 
 /// Registry of module paths implemented in Rust instead of portable `.rpx`.
@@ -255,7 +264,15 @@ mod tests {
         module.mode = DomainNativeMode::DirectNative;
         module.typed_exports.insert(
             "ping".into(),
-            DomainNativeExport::new("ping", CoreType::Int, DomainNativeOp::TestPing),
+            DomainNativeExport::new(
+                "ping",
+                CoreType::Fun {
+                    args: vec![],
+                    ret: Box::new(CoreType::Int),
+                    effects: reciplexa_core::ty::EffectRow::default(),
+                },
+                DomainNativeOp::TestPing,
+            ),
         );
         let stub = module.dn2_stub_source();
         assert!(stub.contains("(val ping (dn2slot-native-test-ping))"));

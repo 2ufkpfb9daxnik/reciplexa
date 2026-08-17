@@ -99,11 +99,11 @@ pub fn eval_package_entry_main_dn2(
 }
 
 fn runtime_values_equivalent(a: &RuntimeValue, b: &RuntimeValue) -> bool {
+    if numeric_equivalent(a, b) {
+        return true;
+    }
     match (a, b) {
         (RuntimeValue::Unit, RuntimeValue::Unit) => true,
-        (RuntimeValue::Number(x), RuntimeValue::Number(y)) => x == y,
-        (RuntimeValue::Int(x), RuntimeValue::Int(y)) => x == y,
-        (RuntimeValue::F64(x), RuntimeValue::F64(y)) => x == y,
         (RuntimeValue::String(x), RuntimeValue::String(y)) => x == y,
         (RuntimeValue::Bool(x), RuntimeValue::Bool(y)) => x == y,
         (RuntimeValue::ShapeTag(x), RuntimeValue::ShapeTag(y)) => x == y,
@@ -136,5 +136,20 @@ fn runtime_values_equivalent(a: &RuntimeValue, b: &RuntimeValue) -> bool {
                 }
         }
         _ => false,
+    }
+}
+
+fn numeric_equivalent(a: &RuntimeValue, b: &RuntimeValue) -> bool {
+    match (as_f64(a), as_f64(b)) {
+        (Some(x), Some(y)) => x == y,
+        _ => false,
+    }
+}
+
+fn as_f64(v: &RuntimeValue) -> Option<f64> {
+    match v {
+        RuntimeValue::Number(n) | RuntimeValue::F64(n) => Some(*n),
+        RuntimeValue::Int(n) => Some(*n as f64),
+        _ => None,
     }
 }

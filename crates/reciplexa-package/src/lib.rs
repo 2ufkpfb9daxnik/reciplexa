@@ -19,6 +19,7 @@ pub mod build;
 pub mod doc_preview;
 pub mod domain_bodies;
 pub mod domain_differential;
+pub mod domain_length_units;
 pub mod domain_native;
 pub mod domain_native_env;
 pub mod graphics_bridge;
@@ -65,6 +66,7 @@ pub use domain_bodies::{
 pub use domain_differential::{
     differential_eval_package_modules, eval_package_entry_main_dn2, DifferentialError,
 };
+pub use domain_length_units::populate_length_units_typed_exports;
 pub use domain_native::{
     DomainNativeBindMap, DomainNativeExport, DomainNativeMode, DomainNativeModule,
     DomainNativeRegistry,

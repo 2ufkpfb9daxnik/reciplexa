@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use reciplexa_core::elaborate::elaborate_source;
 use reciplexa_core::expr::CoreExpr;
 use reciplexa_package::{
@@ -51,6 +53,31 @@ fn dn2_test_ping_module_hybrid_and_direct_native_agree() {
     std::fs::write(&entry, src).unwrap();
     differential_eval_package_modules(&entry, &idx, &["native/test"])
         .expect("hybrid and DN2 agree");
+}
+
+#[test]
+fn dn2_length_units_hybrid_and_direct_native_agree_on_pkg_length() {
+    let packages = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../packages");
+    let entry = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/pkg_length.rpx");
+    if !entry.is_file() {
+        return;
+    }
+    let idx = LocalPackageIndex::discover(&[packages.as_path()]).unwrap();
+    differential_eval_package_modules(&entry, &idx, &["length/units"])
+        .expect("length/units hybrid and DN2 agree on pkg_length");
+}
+
+#[test]
+fn dn2_length_units_module_has_typed_exports_for_all_rpi_names() {
+    use reciplexa_package::length_units_module;
+    let m = length_units_module();
+    assert_eq!(m.typed_exports.len(), m.exports.len());
+    for name in &m.exports {
+        assert!(
+            m.typed_exports.contains_key(name),
+            "missing typed export `{name}`"
+        );
+    }
 }
 
 fn collect_bindings(expr: &CoreExpr) -> std::collections::HashMap<String, CoreExpr> {

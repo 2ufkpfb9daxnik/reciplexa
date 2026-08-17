@@ -11,6 +11,20 @@ use crate::EvalError;
 pub enum DomainNativeOp {
     /// DN2-0 harness: `(native/test ping)` → `42`.
     TestPing,
+    /// DN2-1 — `length/units` unit constructors and helpers.
+    LengthUnitsMm,
+    LengthUnitsCm,
+    LengthUnitsPt,
+    LengthUnitsBp,
+    LengthUnitsInch,
+    LengthUnitsQ,
+    LengthUnitsPx,
+    LengthUnitsEm,
+    LengthUnitsZero,
+    LengthUnitsToMm,
+    LengthUnitsFromMm,
+    LengthUnitsAddMm,
+    LengthUnitsScaleLength,
 }
 
 /// Qualified registry key: `package/module/export`.
@@ -36,6 +50,21 @@ pub fn call_domain_native(
                 });
             }
             Ok(RuntimeValue::Int(42))
+        }
+        DomainNativeOp::LengthUnitsMm
+        | DomainNativeOp::LengthUnitsCm
+        | DomainNativeOp::LengthUnitsPt
+        | DomainNativeOp::LengthUnitsBp
+        | DomainNativeOp::LengthUnitsInch
+        | DomainNativeOp::LengthUnitsQ
+        | DomainNativeOp::LengthUnitsPx
+        | DomainNativeOp::LengthUnitsEm
+        | DomainNativeOp::LengthUnitsZero
+        | DomainNativeOp::LengthUnitsToMm
+        | DomainNativeOp::LengthUnitsFromMm
+        | DomainNativeOp::LengthUnitsAddMm
+        | DomainNativeOp::LengthUnitsScaleLength => {
+            crate::domain_length_units::call_length_units(op, args)
         }
     }
 }

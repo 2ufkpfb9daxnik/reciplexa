@@ -48,7 +48,15 @@ pub fn register_test_ping_module(registry: &mut DomainNativeRegistry) {
         DomainNativeModule::hybrid("native/test", vec!["ping".into()], "(val ping 42)\n");
     module.typed_exports.insert(
         "ping".into(),
-        DomainNativeExport::new("ping", CoreType::Int, DomainNativeOp::TestPing),
+        DomainNativeExport::new(
+            "ping",
+            CoreType::Fun {
+                args: vec![],
+                ret: Box::new(CoreType::Int),
+                effects: reciplexa_core::ty::EffectRow::default(),
+            },
+            DomainNativeOp::TestPing,
+        ),
     );
     registry.register(module);
 }
