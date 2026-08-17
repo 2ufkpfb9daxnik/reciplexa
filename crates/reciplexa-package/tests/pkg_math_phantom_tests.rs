@@ -1,7 +1,7 @@
 //! Example `pkg_math_phantom.rpx` — math-phantom / math-smash builtin demo.
 
-use reciplexa_eval::{eval_expr, primitive_env, RuntimeValue, UnitHost};
-use reciplexa_package::{elaborate_with_packages, LocalPackageIndex};
+use reciplexa_eval::RuntimeValue;
+use reciplexa_package::{elaborate_with_packages, eval_elaborated_package_expr, LocalPackageIndex};
 use std::path::PathBuf;
 
 fn workspace_packages() -> PathBuf {
@@ -37,7 +37,7 @@ fn pkg_math_phantom_example_elaborates_and_eval() {
     assert!(units.iter().any(|u| u.name == "pkg_math_phantom"));
 
     let demo = units.iter().find(|u| u.name == "pkg_math_phantom").unwrap();
-    let v = eval_expr(&demo.expr, &primitive_env(), &mut UnitHost).unwrap();
+    let v = eval_elaborated_package_expr(&demo.expr, &idx).unwrap();
     assert_eq!(
         field(&v, "tag"),
         &RuntimeValue::String("math-phantom-smash-demo".into())

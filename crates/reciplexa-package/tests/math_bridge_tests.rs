@@ -6,7 +6,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use reciplexa_eval::estimate_math_box_from_value_with_style;
 use reciplexa_package::{
     elaborate_with_packages, estimate_package_math_main, estimate_package_math_main_with_style,
-    LocalPackageIndex,
+    eval_elaborated_package_expr, LocalPackageIndex,
 };
 use reciplexa_std::math::EstimateStyle;
 
@@ -65,12 +65,7 @@ fn estimate_package_math_main_forces_display_style() {
         .iter()
         .find(|u| u.name == "math_display_main")
         .unwrap();
-    let v = reciplexa_eval::eval_expr(
-        &demo.expr,
-        &reciplexa_eval::primitive_env(),
-        &mut reciplexa_eval::UnitHost,
-    )
-    .unwrap();
+    let v = eval_elaborated_package_expr(&demo.expr, &idx).unwrap();
     let text = estimate_math_box_from_value_with_style(&v, EstimateStyle::Text).unwrap();
     let display = estimate_math_box_from_value_with_style(&v, EstimateStyle::Display).unwrap();
     assert!(

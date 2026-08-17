@@ -1,13 +1,11 @@
-//! Differential evaluation: Hybrid v1 vs Direct Native v2 on the same consumer.
+//! Differential evaluation: Hybrid v1 reference vs Direct Native v2 on the same consumer.
 
 use std::path::Path;
 
-use reciplexa_eval::{eval_expr_with_extra, primitive_env, RuntimeValue, UnitHost};
+use reciplexa_eval::{RuntimeValue};
 
-use crate::domain_native::DomainNativeMode;
-use crate::domain_native_env::build_domain_native_eval_env;
 use crate::load::{
-    elaborate_with_packages, eval_package_entry_main, LocalPackageIndex, PackageLoadError,
+    eval_package_entry_main, LocalPackageIndex, PackageLoadError,
 };
 
 /// Failure from differential comparison.
@@ -44,26 +42,22 @@ impl From<PackageLoadError> for DifferentialError {
     }
 }
 
-/// Evaluate `entry_path` on Hybrid and Direct Native paths for `module_paths`.
+/// Evaluate `entry_path` on Hybrid reference and Direct Native paths for `module_paths`.
 pub fn differential_eval_package_modules(
     entry_path: impl AsRef<Path>,
     base_index: &LocalPackageIndex,
     module_paths: &[&str],
 ) -> Result<(), DifferentialError> {
     let entry_path = entry_path.as_ref();
-    let hybrid_v = eval_package_entry_main(entry_path, base_index)
+    let reference_native = base_index
+        .native()
+        .with_hybrid_reference_bodies(module_paths)
+        .map_err(|e| DifferentialError::Load(PackageLoadError::NotFound(e)))?;
+    let hybrid_index = base_index.clone().with_native(reference_native);
+    let hybrid_v = eval_package_entry_main(entry_path, &hybrid_index)
         .map_err(|e| DifferentialError::HybridEval(e.to_string()))?;
 
-    let mut dn2_native = base_index.native().clone();
-    for path in module_paths {
-        if !dn2_native.set_mode(path, DomainNativeMode::DirectNative) {
-            return Err(DifferentialError::Load(PackageLoadError::NotFound(
-                format!("differential: unknown native module `{path}`"),
-            )));
-        }
-    }
-    let dn2_index = base_index.clone().with_native(dn2_native);
-    let dn2_v = eval_package_entry_main_dn2(entry_path, &dn2_index)
+    let dn2_v = eval_package_entry_main(entry_path, base_index)
         .map_err(|e| DifferentialError::DirectNativeEval(e.to_string()))?;
 
     if !runtime_values_equivalent(&hybrid_v, &dn2_v) {
@@ -75,27 +69,12 @@ pub fn differential_eval_package_modules(
     Ok(())
 }
 
-/// Evaluate with DN2 slot bindings injected (Direct Native path).
+/// Evaluate with DN2 slot bindings injected (alias of production [`eval_package_entry_main`]).
 pub fn eval_package_entry_main_dn2(
     entry_path: impl AsRef<Path>,
     index: &LocalPackageIndex,
 ) -> Result<RuntimeValue, PackageLoadError> {
-    let entry_path = entry_path.as_ref();
-    let units = elaborate_with_packages(entry_path, index)?;
-    let stem = entry_path
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .ok_or_else(|| PackageLoadError::NotFound("entry path has no stem".into()))?;
-    let demo = units
-        .iter()
-        .find(|u| u.name == stem)
-        .ok_or_else(|| PackageLoadError::NotFound(format!("missing elaborated unit `{stem}`")))?;
-    let extra = build_domain_native_eval_env(index.native());
-    let v =
-        eval_expr_with_extra(&demo.expr, &primitive_env(), &extra, &mut UnitHost).map_err(|e| {
-            PackageLoadError::Module(reciplexa_bind::ModuleError { message: e.message })
-        })?;
-    Ok(crate::resource_value::maybe_materialize_package_resources_for_entry(&v, entry_path))
+    eval_package_entry_main(entry_path, index)
 }
 
 fn runtime_values_equivalent(a: &RuntimeValue, b: &RuntimeValue) -> bool {

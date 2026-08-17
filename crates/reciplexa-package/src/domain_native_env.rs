@@ -6,9 +6,10 @@ use reciplexa_core::ty::CoreType;
 use reciplexa_eval::domain_native::dn2_slot;
 use reciplexa_eval::{DomainNativeOp, RuntimeValue};
 
-use crate::domain_native::{
-    DomainNativeExport, DomainNativeMode, DomainNativeModule, DomainNativeRegistry,
-};
+use crate::domain_native::{DomainNativeExport, DomainNativeModule, DomainNativeRegistry};
+
+/// Hybrid v1 reference body for the differential `native/test` ping module.
+pub const TEST_PING_REFERENCE_SOURCE: &str = "(val ping 42)\n";
 
 /// Runtime bindings for DN2 internal slots (`__dn2__…` identifiers).
 pub fn build_domain_native_eval_env(
@@ -16,9 +17,6 @@ pub fn build_domain_native_eval_env(
 ) -> HashMap<String, RuntimeValue> {
     let mut env = HashMap::new();
     for module in registry.modules() {
-        if module.mode != DomainNativeMode::DirectNative {
-            continue;
-        }
         for export in module.typed_exports.values() {
             let slot = dn2_slot(&module.module_path, &export.name);
             env.insert(slot, RuntimeValue::DomainNative(export.op));
@@ -31,9 +29,6 @@ pub fn build_domain_native_eval_env(
 pub fn build_domain_native_type_env(registry: &DomainNativeRegistry) -> HashMap<String, CoreType> {
     let mut env = HashMap::new();
     for module in registry.modules() {
-        if module.mode != DomainNativeMode::DirectNative {
-            continue;
-        }
         for export in module.typed_exports.values() {
             let slot = dn2_slot(&module.module_path, &export.name);
             env.insert(slot, export.ty.clone());
@@ -44,8 +39,7 @@ pub fn build_domain_native_type_env(registry: &DomainNativeRegistry) -> HashMap<
 
 /// Test helper: register a minimal DN2 module for differential harness smoke tests.
 pub fn register_test_ping_module(registry: &mut DomainNativeRegistry) {
-    let mut module =
-        DomainNativeModule::hybrid("native/test", vec!["ping".into()], "(val ping 42)\n");
+    let mut module = DomainNativeModule::direct_native("native/test", vec!["ping".into()]);
     module.typed_exports.insert(
         "ping".into(),
         DomainNativeExport::new(

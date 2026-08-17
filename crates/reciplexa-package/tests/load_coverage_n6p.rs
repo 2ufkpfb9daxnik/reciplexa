@@ -110,11 +110,12 @@ fn load_n6p_discover_dup_and_interface() {
     .unwrap();
     // no shapes.rpi
     let mut idx = LocalPackageIndex::discover(&[root3.as_path()]).expect("discover");
-    idx.register_native(DomainNativeModule::hybrid(
-        "widgets/shapes".into(),
+    idx.register_native(DomainNativeModule::direct_native(
+        "widgets/shapes",
         vec!["circle".into()],
-        "(val circle 1)\n".into(),
     ));
+    idx.native_mut()
+        .set_reference_body("widgets/shapes", "(val circle 1)\n");
     let entry = root3.join("entry.rpx");
     fs::write(
         &entry,
@@ -168,11 +169,12 @@ fn load_n6p_locked_manifest_and_rpi() {
     let rpi = pkg.join("interface/shapes.rpi");
     let _lock = exclusive_write(&rpi, b"(val circle)\n");
     let mut idx = LocalPackageIndex::discover(&[root.as_path()]).expect("discover");
-    idx.register_native(DomainNativeModule::hybrid(
-        "widgets/shapes".into(),
+    idx.register_native(DomainNativeModule::direct_native(
+        "widgets/shapes",
         vec!["circle".into()],
-        "(val circle 1)\n".into(),
     ));
+    idx.native_mut()
+        .set_reference_body("widgets/shapes", "(val circle 1)\n");
     let entry = root.join("entry.rpx");
     fs::write(
         &entry,

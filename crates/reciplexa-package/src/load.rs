@@ -6,9 +6,10 @@ use std::path::{Path, PathBuf};
 
 use reciplexa_bind::{elaborate_units_with_interfaces, parse_imports, ElaboratedUnit, ModuleError};
 
-use reciplexa_eval::{eval_expr, primitive_env, RuntimeValue, UnitHost};
+use reciplexa_eval::{eval_expr_with_extra, primitive_env, RuntimeValue, UnitHost};
 
 use crate::domain_native::{DomainNativeModule, DomainNativeRegistry};
+use crate::domain_native_env::build_domain_native_eval_env;
 use crate::manifest::{DependencySpec, PackageManifest};
 use crate::registry::LocalRegistryMirror;
 use crate::resource_value::maybe_materialize_package_resources_for_entry;
@@ -257,7 +258,7 @@ impl LocalPackageIndex {
     /// Resolve an import and load the optional `.rpi` export list (MOD §8 / §2.3).
     ///
     /// When the resolved `package/module` path is in [`DomainNativeRegistry`], the
-    /// `.rpx` body is **not** read; [`DomainNativeModule::effective_source`] is used.
+    /// `.rpx` body is **not** read; [`DomainNativeRegistry::module_source`] is used.
     pub fn resolve_import_detailed(
         &self,
         import_path: &str,
@@ -276,7 +277,7 @@ impl LocalPackageIndex {
             }) {
                 return Ok(ResolvedImport {
                     unit_name: import_path.to_string(),
-                    source: native.effective_source(),
+                    source: self.native.module_source(import_path, native),
                     interface_exports: Some(native.exports.clone()),
                 });
             }
@@ -326,7 +327,7 @@ impl LocalPackageIndex {
                 };
             return Ok(ResolvedImport {
                 unit_name: import_path.to_string(),
-                source: native.effective_source(),
+                source: self.native.module_source(&native_key, native),
                 interface_exports,
             });
         }
@@ -553,11 +554,22 @@ pub fn eval_package_entry_main(
         .iter()
         .find(|u| u.name == stem)
         .ok_or_else(|| PackageLoadError::NotFound(format!("missing elaborated unit `{stem}`")))?;
-    let v = eval_expr(&demo.expr, &primitive_env(), &mut UnitHost)
+    let extra = build_domain_native_eval_env(index.native());
+    let v = eval_expr_with_extra(&demo.expr, &primitive_env(), &extra, &mut UnitHost)
         .map_err(|e| PackageLoadError::Module(ModuleError { message: e.message }))?;
     Ok(maybe_materialize_package_resources_for_entry(
         &v, entry_path,
     ))
+}
+
+/// Evaluate an elaborated package unit with production DN2 slot bindings.
+pub fn eval_elaborated_package_expr(
+    expr: &reciplexa_core::expr::CoreExpr,
+    index: &LocalPackageIndex,
+) -> Result<RuntimeValue, PackageLoadError> {
+    let extra = build_domain_native_eval_env(index.native());
+    eval_expr_with_extra(expr, &primitive_env(), &extra, &mut UnitHost)
+        .map_err(|e| PackageLoadError::Module(ModuleError { message: e.message }))
 }
 
 #[cfg(test)]

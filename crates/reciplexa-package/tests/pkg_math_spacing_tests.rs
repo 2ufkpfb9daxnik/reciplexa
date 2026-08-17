@@ -1,8 +1,8 @@
 //! Example `pkg_math_spacing.rpx` — Row class_spacing_em via math-box.
 
-use reciplexa_eval::{eval_expr, primitive_env, RuntimeValue, UnitHost};
+use reciplexa_eval::RuntimeValue;
 use reciplexa_identity::document::StableNodeId;
-use reciplexa_package::{elaborate_with_packages, LocalPackageIndex};
+use reciplexa_package::{elaborate_with_packages, eval_elaborated_package_expr, LocalPackageIndex};
 use reciplexa_std::math::{class_spacing_em, MathAtom, MathClass, MED_MUSKIP_EM, THICK_MUSKIP_EM};
 use std::path::PathBuf;
 
@@ -35,7 +35,7 @@ fn pkg_math_spacing_example_row_gaps_match_class_spacing_em() {
     let idx = LocalPackageIndex::discover(&[workspace_packages()]).unwrap();
     let units = elaborate_with_packages(&entry, &idx).unwrap();
     let demo = units.iter().find(|u| u.name == "pkg_math_spacing").unwrap();
-    let v = eval_expr(&demo.expr, &primitive_env(), &mut UnitHost).unwrap();
+    let v = eval_elaborated_package_expr(&demo.expr, &idx).unwrap();
     assert_eq!(
         field(&v, "tag"),
         &RuntimeValue::String("math-spacing-demo".into())

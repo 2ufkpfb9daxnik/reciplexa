@@ -1,12 +1,10 @@
-use std::collections::HashMap;
 use std::path::PathBuf;
 
-use reciplexa_eval::{
-    estimate_math_box_from_value, eval_expr, primitive_env, RuntimeValue, UnitHost,
-};
+use reciplexa_eval::{estimate_math_box_from_value, RuntimeValue};
 use reciplexa_package::{
-    elaborate_with_packages, load_module_tree_with_packages, parse_rpxm, LocalPackageIndex,
-    Lockfile,
+    elaborate_with_packages, eval_elaborated_package_expr, japanese_classes_source,
+    japanese_kihon_source, japanese_linebreak_source, load_module_tree_with_packages,
+    parse_rpxm, LocalPackageIndex, Lockfile,
 };
 
 fn workspace_packages() -> PathBuf {
@@ -41,7 +39,7 @@ fn parses_graphics_manifest_from_disk() {
 fn resolves_graphics_shapes_module() {
     let (name, src) = index().resolve_import("graphics/shapes").unwrap();
     assert_eq!(name, "graphics/shapes");
-    assert!(src.contains("(val circle"));
+    assert!(src.contains("dn2slot-graphics-shapes-circle"));
 }
 
 #[test]
@@ -71,9 +69,10 @@ fn elaborate_and_eval_circle_from_package() {
 "#,
     )
     .unwrap();
-    let units = elaborate_with_packages(&entry, &index()).unwrap();
+    let idx = index();
+    let units = elaborate_with_packages(&entry, &idx).unwrap();
     let demo = units.iter().find(|u| u.name == "demo").unwrap();
-    let v = eval_expr(&demo.expr, &HashMap::new(), &mut UnitHost).unwrap();
+    let v = eval_elaborated_package_expr(&demo.expr, &idx).unwrap();
     let s = format!("{v}");
     assert!(
         s.contains("circle") || s.contains("105"),
@@ -90,7 +89,7 @@ fn path_dep_alias_resolves_import() {
     assert_eq!(idx.resolve_alias("g"), "graphics");
     let (name, src) = idx.resolve_import("g/shapes").unwrap();
     assert_eq!(name, "g/shapes");
-    assert!(src.contains("(val circle"));
+    assert!(src.contains("dn2slot-graphics-shapes-circle"));
 }
 
 #[test]
@@ -116,9 +115,9 @@ fn path_dep_lockfile_roundtrip() {
 fn resolve_math_and_japanese_stubs() {
     let idx = index();
     let (_, math) = idx.resolve_import("math/atoms").unwrap();
-    assert!(math.contains("math-symbol") || math.contains("symbol"));
+    assert!(math.contains("dn2slot-math-atoms"));
     let (_, ja) = idx.resolve_import("japanese/markup").unwrap();
-    assert!(ja.contains("ja-heading") || ja.contains("heading"));
+    assert!(ja.contains("dn2slot-japanese-markup"));
 }
 
 #[test]
@@ -133,19 +132,20 @@ fn resolve_japanese_jlreq_modules() {
         let (name, src) = idx.resolve_import(mod_path).unwrap();
         assert_eq!(name, mod_path);
         assert!(!src.is_empty(), "{mod_path} empty");
+        assert!(src.contains("dn2slot-"), "{mod_path} should use DN2 stub");
     }
-    let (_, classes) = idx.resolve_import("japanese/classes").unwrap();
+    let classes = japanese_classes_source();
     assert!(classes.contains("cl-01") && classes.contains("all-class-ids"));
     assert!(classes.contains("cl-19") && classes.contains("class-name"));
     assert!(classes.contains("cl-30") && classes.contains("is-punctuation-class?"));
-    let (_, lb) = idx.resolve_import("japanese/linebreak").unwrap();
+    let lb = japanese_linebreak_source();
     assert!(lb.contains("break-between") && lb.contains("kinsoku-profile"));
     assert!(lb.contains("sample-pair-rules"));
     assert!(
         lb.contains("classify_char") || lb.contains("future intrinsic"),
-        "linebreak source should note std classify intrinsic"
+        "linebreak reference should note std classify intrinsic"
     );
-    let (_, kihon) = idx.resolve_import("japanese/kihon").unwrap();
+    let kihon = japanese_kihon_source();
     assert!(kihon.contains("kihon-hanmen") && kihon.contains("line-rate-default"));
     assert!(kihon.contains("a5-trim") && kihon.contains("place-hanmen"));
     let exports = idx
@@ -217,7 +217,7 @@ fn elaborate_and_eval_japanese_jlreq_example() {
         .iter()
         .find(|u| u.name == "pkg_japanese_jlreq")
         .unwrap();
-    let v = eval_expr(&demo.expr, &primitive_env(), &mut UnitHost).unwrap();
+    let v = eval_elaborated_package_expr(&demo.expr, &idx).unwrap();
     let s = format!("{v}");
     assert!(
         s.contains("ja-jlreq-demo")
@@ -249,7 +249,7 @@ fn elaborate_and_eval_math_package_example() {
             assert!(units.iter().any(|(n, _)| n == "math/scripts"));
             let units = elaborate_with_packages(&entry, &idx).unwrap();
             let demo = units.iter().find(|u| u.name == "pkg_math").unwrap();
-            let v = eval_expr(&demo.expr, &primitive_env(), &mut UnitHost).unwrap();
+            let v = eval_elaborated_package_expr(&demo.expr, &idx).unwrap();
             let s = format!("{v}");
             assert!(
                 s.contains("math-demo")
@@ -280,7 +280,7 @@ fn pkg_math_main_tree_estimates_box_via_math_value() {
                 PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/pkg_math.rpx");
             let units = elaborate_with_packages(&entry, &idx).unwrap();
             let demo = units.iter().find(|u| u.name == "pkg_math").unwrap();
-            let v = eval_expr(&demo.expr, &primitive_env(), &mut UnitHost).unwrap();
+            let v = eval_elaborated_package_expr(&demo.expr, &idx).unwrap();
             let RuntimeValue::Record(fields) = &v else {
                 panic!("pkg_math main should be a record, got {v}");
             };
@@ -346,7 +346,7 @@ fn elaborate_and_eval_pkg_markup_ja_example() {
                 PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/pkg_markup_ja.rpx");
             let units = elaborate_with_packages(&entry, &idx).unwrap();
             let demo = units.iter().find(|u| u.name == "pkg_markup_ja").unwrap();
-            let v = eval_expr(&demo.expr, &primitive_env(), &mut UnitHost).unwrap();
+            let v = eval_elaborated_package_expr(&demo.expr, &idx).unwrap();
             let s = format!("{v}");
             assert!(
                 s.contains("markup-ja-package-demo")
@@ -375,7 +375,7 @@ fn elaborate_and_eval_pkg_japanese_vertical_example() {
                 .iter()
                 .find(|u| u.name == "pkg_japanese_vertical")
                 .unwrap();
-            let v = eval_expr(&demo.expr, &primitive_env(), &mut UnitHost).unwrap();
+            let v = eval_elaborated_package_expr(&demo.expr, &idx).unwrap();
             let s = format!("{v}");
             assert!(
                 s.contains("ja-vertical-demo")
@@ -398,7 +398,7 @@ fn elaborate_consumer_via_alias_import() {
     let entry = consumer.join("src/main.rpx");
     let units = elaborate_with_packages(&entry, &idx).unwrap();
     let main = units.iter().find(|u| u.name == "main").unwrap();
-    let v = eval_expr(&main.expr, &HashMap::new(), &mut UnitHost).unwrap();
+    let v = eval_elaborated_package_expr(&main.expr, &idx).unwrap();
     let s = format!("{v}");
     assert!(s.contains("circle") || s.contains("10"), "got {s}");
 }
@@ -489,7 +489,7 @@ fn elaborate_and_eval_static_graphics_surface() {
     .unwrap();
     let units = elaborate_with_packages(&entry, &idx).unwrap();
     let demo = units.iter().find(|u| u.name == "demo").unwrap();
-    let v = eval_expr(&demo.expr, &HashMap::new(), &mut UnitHost).unwrap();
+    let v = eval_elaborated_package_expr(&demo.expr, &idx).unwrap();
     let s = format!("{v}");
     assert!(
         s.contains("page") || s.contains("circle") || s.contains("fill") || s.contains("210"),
@@ -519,7 +519,7 @@ fn graphics_value_bridge_matches_a4_circle_geometry() {
     .unwrap();
     let units = elaborate_with_packages(&entry, &idx).unwrap();
     let demo = units.iter().find(|u| u.name == "bridge").unwrap();
-    let v = eval_expr(&demo.expr, &HashMap::new(), &mut UnitHost).unwrap();
+    let v = eval_elaborated_package_expr(&demo.expr, &idx).unwrap();
     let from_pkg = document_from_graphics_value(&v).expect("package bridge");
     assert_eq!(from_pkg.pages.len(), 1);
     assert_eq!(from_pkg.pages[0].paper, PaperSize::a4());
@@ -565,7 +565,7 @@ fn graphics_value_bridge_grows_ellipse_text_transform_opacity() {
     .unwrap();
     let units = elaborate_with_packages(&entry, &idx).unwrap();
     let demo = units.iter().find(|u| u.name == "bridge_more").unwrap();
-    let v = eval_expr(&demo.expr, &HashMap::new(), &mut UnitHost).unwrap();
+    let v = eval_elaborated_package_expr(&demo.expr, &idx).unwrap();
     let from_pkg = document_from_graphics_value(&v).expect("package bridge");
     assert_eq!(from_pkg.pages.len(), 1);
     match &from_pkg.pages[0].shapes[0] {
@@ -606,7 +606,7 @@ fn graphics_value_bridge_multipage_pages_constructor() {
     .unwrap();
     let units = elaborate_with_packages(&entry, &idx).unwrap();
     let demo = units.iter().find(|u| u.name == "bridge_pages").unwrap();
-    let v = eval_expr(&demo.expr, &HashMap::new(), &mut UnitHost).unwrap();
+    let v = eval_elaborated_package_expr(&demo.expr, &idx).unwrap();
     let from_pkg = document_from_graphics_value(&v).expect("multipage bridge");
     assert_eq!(from_pkg.pages.len(), 2);
 }
@@ -703,7 +703,7 @@ fn load_full_graphics_package_tree_and_eval_transforms() {
     assert!(units.iter().any(|(n, _)| n == "graphics/color"));
     let units = elaborate_with_packages(&entry, &idx).unwrap();
     let demo = units.iter().find(|u| u.name == "xf").unwrap();
-    let v = eval_expr(&demo.expr, &HashMap::new(), &mut UnitHost).unwrap();
+    let v = eval_elaborated_package_expr(&demo.expr, &idx).unwrap();
     let s = format!("{v}");
     assert!(
         s.contains("opacity")
@@ -755,7 +755,7 @@ fn tip_pkg_math_ja_layout_stubs_integration() {
                 PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/pkg_math.rpx");
             let units = elaborate_with_packages(&entry, &idx).unwrap();
             let demo = units.iter().find(|u| u.name == "pkg_math").unwrap();
-            let v = eval_expr(&demo.expr, &primitive_env(), &mut UnitHost).unwrap();
+            let v = eval_elaborated_package_expr(&demo.expr, &idx).unwrap();
             let RuntimeValue::Record(fields) = &v else {
                 panic!("pkg_math main should be a record, got {v}");
             };

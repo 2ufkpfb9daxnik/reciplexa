@@ -10,14 +10,6 @@ use reciplexa_core::ty::CoreType;
 use reciplexa_eval::domain_native::{dn2_slot, qualified_export_key, DomainNativeOp};
 use reciplexa_identity::binding::{BindingId, BindingIdAllocator};
 
-/// Hybrid v1 uses synthesized RPX; Direct Native v2 uses typed Rust callables.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum DomainNativeMode {
-    #[default]
-    Hybrid,
-    DirectNative,
-}
-
 /// One typed export on a Direct Native module.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DomainNativeExport {
@@ -47,32 +39,23 @@ pub struct DomainNativeModule {
     pub module_path: String,
     /// Public binding names (mirrors `.rpi` exports).
     pub exports: Vec<String>,
-    /// Hybrid v1: RPX-shaped body synthesized by Rust.
-    pub synthetic_source: String,
-    /// Per-module path selection between Hybrid and Direct Native v2.
-    pub mode: DomainNativeMode,
     /// Direct Native v2 typed exports (`export name` → callable + type).
     pub typed_exports: BTreeMap<String, DomainNativeExport>,
 }
 
 impl DomainNativeModule {
-    /// Hybrid Native v1 module (synthetic RPX body).
-    pub fn hybrid(module_path: &str, exports: Vec<String>, synthetic_source: &str) -> Self {
+    /// Direct Native v2 module (stub RPX + typed Rust callables).
+    pub fn direct_native(module_path: &str, exports: Vec<String>) -> Self {
         Self {
             module_path: module_path.to_string(),
             exports,
-            synthetic_source: synthetic_source.to_string(),
-            mode: DomainNativeMode::Hybrid,
             typed_exports: BTreeMap::new(),
         }
     }
 
     /// Source text used by loaders and elaboration for this module.
     pub fn effective_source(&self) -> String {
-        match self.mode {
-            DomainNativeMode::Hybrid => self.synthetic_source.clone(),
-            DomainNativeMode::DirectNative => self.dn2_stub_source(),
-        }
+        self.dn2_stub_source()
     }
 
     /// Minimal RPX stub that aliases public exports to internal DN2 eval slots.
@@ -91,10 +74,6 @@ impl DomainNativeModule {
             .collect();
         format!("{}\n", lines.join("\n"))
     }
-
-    pub fn is_direct_native(&self) -> bool {
-        self.mode == DomainNativeMode::DirectNative
-    }
 }
 
 /// Nullary exports are applied eagerly in the stub (constants); others bind the callable.
@@ -106,6 +85,8 @@ fn export_is_eager_value(ty: &CoreType) -> bool {
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct DomainNativeRegistry {
     modules: BTreeMap<String, DomainNativeModule>,
+    /// Differential / test harness: substitute portable reference RPX for listed paths.
+    reference_bodies: BTreeMap<String, String>,
 }
 
 impl DomainNativeRegistry {
@@ -153,28 +134,45 @@ impl DomainNativeRegistry {
     /// Lookup a typed export by `package/module/export`.
     pub fn export(&self, module_path: &str, export_name: &str) -> Option<&DomainNativeExport> {
         self.modules
-            .get(module_path)?
-            .typed_exports
-            .get(export_name)
+            .get(module_path)
+            .and_then(|m| m.typed_exports.get(export_name))
     }
 
-    /// Set one module to Direct Native v2 (others unchanged).
-    pub fn set_mode(&mut self, module_path: &str, mode: DomainNativeMode) -> bool {
-        if let Some(module) = self.modules.get_mut(module_path) {
-            module.mode = mode;
-            true
-        } else {
-            false
+    /// Override the loaded RPX body for one module (differential harness / ad-hoc tests).
+    pub fn set_reference_body(&mut self, module_path: &str, source: impl Into<String>) -> bool {
+        if !self.contains(module_path) {
+            return false;
         }
+        self.reference_bodies
+            .insert(module_path.to_string(), source.into());
+        true
     }
 
-    /// Clone registry with selected modules switched to Direct Native v2.
-    pub fn with_direct_native_modules(&self, module_paths: &[&str]) -> Self {
+    /// Source text for loaders: reference override when set, else DN2 stub.
+    pub fn module_source(&self, module_path: &str, module: &DomainNativeModule) -> String {
+        self.reference_bodies
+            .get(module_path)
+            .cloned()
+            .unwrap_or_else(|| module.effective_source())
+    }
+
+    /// Clone registry with Hybrid v1 reference bodies for differential comparison.
+    pub fn with_hybrid_reference_bodies(
+        &self,
+        module_paths: &[&str],
+    ) -> Result<Self, String> {
         let mut out = self.clone();
         for path in module_paths {
-            out.set_mode(path, DomainNativeMode::DirectNative);
+            if !out.contains(path) {
+                return Err(format!("unknown native module `{path}`"));
+            }
+            let source = crate::domain_bodies::hybrid_reference_source(path).ok_or_else(|| {
+                format!("no hybrid reference body registered for `{path}`")
+            })?;
+            out.reference_bodies
+                .insert((*path).to_string(), source.to_string());
         }
-        out
+        Ok(out)
     }
 }
 
@@ -218,9 +216,6 @@ impl DomainNativeBindMap {
         registry: &DomainNativeRegistry,
     ) {
         for module in registry.modules.values() {
-            if module.mode != DomainNativeMode::DirectNative {
-                continue;
-            }
             for export_name in module.typed_exports.keys() {
                 self.bind(alloc, &module.module_path, export_name);
             }
@@ -244,24 +239,23 @@ mod tests {
     #[test]
     fn register_and_lookup_test_module() {
         let mut reg = DomainNativeRegistry::new();
-        reg.register(DomainNativeModule::hybrid(
+        reg.register(DomainNativeModule::direct_native(
             "native/test",
             vec!["ping".into()],
-            "(val ping 1)\n",
         ));
+        reg.set_reference_body("native/test", "(val ping 1)\n");
         assert_eq!(reg.len(), 1);
         assert!(reg.contains("native/test"));
         let m = reg.get("native/test").expect("registered");
         assert_eq!(m.exports, vec!["ping"]);
-        assert!(m.synthetic_source.contains("ping"));
+        assert!(reg.module_source("native/test", m).contains("ping"));
         assert!(!reg.contains("length/units"));
         assert_eq!(reg.paths().collect::<Vec<_>>(), vec!["native/test"]);
     }
 
     #[test]
     fn dn2_stub_source_aliases_slots() {
-        let mut module = DomainNativeModule::hybrid("native/test", vec!["ping".into()], "");
-        module.mode = DomainNativeMode::DirectNative;
+        let mut module = DomainNativeModule::direct_native("native/test", vec!["ping".into()]);
         module.typed_exports.insert(
             "ping".into(),
             DomainNativeExport::new(
@@ -281,8 +275,7 @@ mod tests {
     #[test]
     fn bind_map_tracks_qualified_exports() {
         let mut reg = DomainNativeRegistry::new();
-        let mut module = DomainNativeModule::hybrid("native/test", vec!["ping".into()], "");
-        module.mode = DomainNativeMode::DirectNative;
+        let mut module = DomainNativeModule::direct_native("native/test", vec!["ping".into()]);
         module.typed_exports.insert(
             "ping".into(),
             DomainNativeExport::new("ping", CoreType::Int, DomainNativeOp::TestPing),

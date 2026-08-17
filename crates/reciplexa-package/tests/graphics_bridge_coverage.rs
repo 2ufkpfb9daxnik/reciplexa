@@ -953,14 +953,7 @@ fn live_layout_with_style_overrides_record_field() {
     let dir = scratch();
     let entry = dir.join("live_style_force.rpx");
     std::fs::write(&entry, &source).unwrap();
-    let units = elaborate_with_packages(&entry, &index()).unwrap();
-    let demo = units.iter().find(|u| u.name == "live_style_force").unwrap();
-    let v = reciplexa_eval::eval_expr(
-        &demo.expr,
-        &std::collections::HashMap::new(),
-        &mut reciplexa_eval::UnitHost,
-    )
-    .unwrap();
+    let v = reciplexa_package::eval_package_entry_main(&entry, &index()).unwrap();
     let forced =
         document_from_live_layout_value_with_style(&v, EstimateStyle::Text).expect("forced text");
     let th = first_math_glyph_height(&forced);

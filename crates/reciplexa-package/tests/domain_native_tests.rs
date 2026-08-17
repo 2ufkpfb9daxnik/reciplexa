@@ -27,24 +27,36 @@ fn scratch() -> PathBuf {
     dir
 }
 
+fn register_reference_module(
+    idx: &mut LocalPackageIndex,
+    module_path: &str,
+    exports: Vec<String>,
+    source: &str,
+) {
+    idx.register_native(DomainNativeModule::direct_native(module_path, exports));
+    idx.native_mut()
+        .set_reference_body(module_path, source.to_string());
+}
+
 #[test]
 fn native_index_with_set_and_mut() {
     let mut reg = DomainNativeRegistry::empty();
-    reg.register(DomainNativeModule::hybrid(
-        "cov/ping".into(),
+    reg.register(DomainNativeModule::direct_native(
+        "cov/ping",
         vec!["ping".into()],
-        "(val ping 1)\n".into(),
     ));
+    reg.set_reference_body("cov/ping", "(val ping 1)\n");
     let idx = LocalPackageIndex::default().with_native(reg.clone());
     assert!(idx.native().contains("cov/ping"));
 
     let mut idx2 = LocalPackageIndex::default();
     idx2.set_native(reg);
-    idx2.native_mut().register(DomainNativeModule::hybrid(
-        "cov/pong".into(),
+    idx2.native_mut().register(DomainNativeModule::direct_native(
+        "cov/pong",
         vec!["pong".into()],
-        "(val pong 2)\n".into(),
     ));
+    idx2.native_mut()
+        .set_reference_body("cov/pong", "(val pong 2)\n");
     assert!(idx2.native().contains("cov/pong"));
     let resolved = idx2.resolve_import_detailed("cov/pong").unwrap();
     assert!(resolved.source.contains("pong"));
@@ -68,11 +80,12 @@ fn native_missing_rpi_uses_registry_exports() {
     fs::write(pkg.join("src/shapes.rpx"), "(val circle 1)\n").unwrap();
     // interface-root declared but no shapes.rpi on disk — native path supplies exports.
     let mut idx = LocalPackageIndex::discover(&[&root]).unwrap();
-    idx.register_native(DomainNativeModule::hybrid(
-        "widgets/shapes".into(),
+    register_reference_module(
+        &mut idx,
+        "widgets/shapes",
         vec!["circle".into(), "rect".into()],
-        "(val circle 1)\n(val rect 2)\n".into(),
-    ));
+        "(val circle 1)\n(val rect 2)\n",
+    );
     let resolved = idx.resolve_import_detailed("widgets/shapes").unwrap();
     assert_eq!(
         resolved.interface_exports.as_ref().unwrap(),
@@ -104,11 +117,12 @@ fn native_with_rpi_file_reads_exports_from_disk() {
     )
     .unwrap();
     let mut idx = LocalPackageIndex::discover(&[&root]).unwrap();
-    idx.register_native(DomainNativeModule::hybrid(
-        "widgets/shapes".into(),
+    register_reference_module(
+        &mut idx,
+        "widgets/shapes",
         vec!["circle".into(), "native-only".into()],
-        "(val circle 1)\n".into(),
-    ));
+        "(val circle 1)\n",
+    );
     let resolved = idx.resolve_import_detailed("widgets/shapes").unwrap();
     let exports = resolved.interface_exports.unwrap();
     assert!(exports.iter().any(|e| e == "disk-only"));
@@ -118,11 +132,12 @@ fn native_with_rpi_file_reads_exports_from_disk() {
 #[test]
 fn n0_4_pure_native_test_module_skips_disk_package() {
     let mut idx = LocalPackageIndex::default();
-    idx.register_native(DomainNativeModule::hybrid(
-        "native/test".into(),
+    register_reference_module(
+        &mut idx,
+        "native/test",
         vec!["ping".into()],
-        "(val ping 42)\n".into(),
-    ));
+        "(val ping 42)\n",
+    );
     let resolved = idx.resolve_import_detailed("native/test").unwrap();
     assert_eq!(resolved.unit_name, "native/test");
     assert!(resolved.source.contains("42"));
@@ -134,8 +149,8 @@ fn n1_length_units_comes_from_native_not_rpx_file() {
     let idx = LocalPackageIndex::discover(&[workspace_packages()]).unwrap();
     assert!(idx.native().contains("length/units"));
     let resolved = idx.resolve_import_detailed("length/units").unwrap();
-    assert!(resolved.source.contains("native: length/units"));
-    assert_eq!(resolved.source, length_units_source());
+    assert!(resolved.source.contains("dn2slot-length-units"));
+    assert_ne!(resolved.source, length_units_source());
     // Disk .rpx may be absent after N1.2; native path must still work.
     let rpx = workspace_packages().join("length/src/units.rpx");
     if rpx.is_file() {
@@ -177,9 +192,9 @@ fn length_units_module_exports_align_with_rpi() {
 fn n1_color_modules_are_native() {
     let idx = LocalPackageIndex::discover(&[workspace_packages()]).unwrap();
     let srgb = idx.resolve_import_detailed("color/srgb").unwrap();
-    assert!(srgb.source.contains("native: color/srgb"));
+    assert!(srgb.source.contains("dn2slot-color-srgb"));
     let gcolor = idx.resolve_import_detailed("graphics/color").unwrap();
-    assert!(gcolor.source.contains("native: graphics/color"));
+    assert!(gcolor.source.contains("dn2slot-graphics-color"));
     assert!(!workspace_packages().join("color/src/srgb.rpx").is_file());
     assert!(!workspace_packages()
         .join("graphics/src/color.rpx")
@@ -190,8 +205,7 @@ fn n1_color_modules_are_native() {
 fn n2_graphics_page_is_native() {
     let idx = LocalPackageIndex::discover(&[workspace_packages()]).unwrap();
     let page = idx.resolve_import_detailed("graphics/page").unwrap();
-    assert!(page.source.contains("native: graphics/page"));
-    assert!(page.source.contains("(val a4 "));
+    assert!(page.source.contains("dn2slot-graphics-page"));
     assert!(!workspace_packages().join("graphics/src/page.rpx").is_file());
 }
 
@@ -199,9 +213,7 @@ fn n2_graphics_page_is_native() {
 fn n2_graphics_shapes_is_native() {
     let idx = LocalPackageIndex::discover(&[workspace_packages()]).unwrap();
     let shapes = idx.resolve_import_detailed("graphics/shapes").unwrap();
-    assert!(shapes.source.contains("native: graphics/shapes"));
-    assert!(shapes.source.contains("(val circle "));
-    assert!(shapes.source.contains("shapes-internal-tag"));
+    assert!(shapes.source.contains("dn2slot-graphics-shapes"));
     let exports = shapes.interface_exports.unwrap();
     assert!(exports.iter().any(|e| e == "circle"));
     assert!(!exports.iter().any(|e| e == "shapes-internal-tag"));
@@ -231,12 +243,8 @@ fn n3_math_modules_are_native() {
         assert!(idx.native().contains(&path), "missing native {path}");
         let resolved = idx.resolve_import_detailed(&path).unwrap();
         assert!(
-            resolved.source.contains("native: math/"),
-            "{path} source missing native marker"
-        );
-        assert!(
-            resolved.source.contains(&format!("native: math/{name}")),
-            "{path} marker mismatch"
+            resolved.source.contains("dn2slot-math-"),
+            "{path} source missing DN2 stub marker"
         );
         assert!(
             !workspace_packages()
@@ -256,14 +264,8 @@ fn n4_japanese_modules_are_native() {
         assert!(idx.native().contains(&path), "missing native {path}");
         let resolved = idx.resolve_import_detailed(&path).unwrap();
         assert!(
-            resolved.source.contains("native: japanese/"),
-            "{path} source missing native marker"
-        );
-        assert!(
-            resolved
-                .source
-                .contains(&format!("native: japanese/{name}")),
-            "{path} marker mismatch"
+            resolved.source.contains("dn2slot-japanese-"),
+            "{path} source missing DN2 stub marker"
         );
         assert!(
             !workspace_packages()
@@ -279,8 +281,7 @@ fn n5_1_document_page_is_native() {
     let idx = LocalPackageIndex::discover(&[workspace_packages()]).unwrap();
     assert!(idx.native().contains("document/page"));
     let page = idx.resolve_import_detailed("document/page").unwrap();
-    assert!(page.source.contains("native: document/page"));
-    assert!(page.source.contains("(tag \"doc-page\")"));
+    assert!(page.source.contains("dn2slot-document-page"));
     let exports = page.interface_exports.unwrap();
     for name in [
         "page",

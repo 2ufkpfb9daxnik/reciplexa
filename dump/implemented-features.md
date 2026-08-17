@@ -201,7 +201,7 @@ pre-PKG カーネルは計画上 **COMPLETE（意図的 defer 付き）**。各�
 実行順の正本は [`active-roadmap.md`](active-roadmap.md)。完了済みの native-domain / GUI CST sync / host-layout / live-layout 深化は Git 履歴を参照する。
 
 1. **package 実運用化 local/offline slice** — [`package-plan.md`](package-plan.md): lock再現性、typed resource light、自動materialize、offline registry mirrorまで完了。network registry、full-tree hash、Core resource effectは別OPEN。
-2. **Direct Native v2（次に実行）** — [`direct-native-v2-plan.md`](direct-native-v2-plan.md) DN2-0から開始。最初のincrementはtyped callable基盤 + `length/units` dual-path。Hybrid v1 の `synthetic_source` を typed Rust callable へ置換するまで OPEN。
+2. **Direct Native v2** — [`direct-native-v2-plan.md`](direct-native-v2-plan.md) DN2-0〜DN2-6完了。標準packageは DN2 stub + typed Rust callable。`synthetic_source` 廃止。残りは DN2-7（`OPEN-NATIVE-PKG-001` portable fallback 契約）。
 3. **製品級組版** — font-backed JLReq と OpenType MATH は別エンジン。stub 層（Waves / HC / LL）は **stub complete** であり製品エンジンではない。
 
 ### いま OPEN（次に追うもの）

@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use reciplexa_core::elaborate::elaborate_source;
 use reciplexa_core::expr::CoreExpr;
 use reciplexa_package::{
-    differential_eval_package_modules, register_test_ping_module, DomainNativeMode,
+    differential_eval_package_modules, register_test_ping_module, std_domain_natives,
     DomainNativeRegistry, LocalPackageIndex,
 };
 
@@ -11,7 +11,6 @@ use reciplexa_package::{
 fn dn2_stub_elaborates_to_var_ref() {
     let mut reg = DomainNativeRegistry::empty();
     register_test_ping_module(&mut reg);
-    reg.set_mode("native/test", DomainNativeMode::DirectNative);
     let stub = reg.get("native/test").unwrap().effective_source();
     let expr = elaborate_source(&stub).expect("stub elaborates");
     let ping = collect_bindings(&expr).get("ping").cloned().expect("ping");
@@ -22,7 +21,6 @@ fn dn2_stub_elaborates_to_var_ref() {
 fn dn2_single_unit_via_elaborate_units() {
     let mut reg = DomainNativeRegistry::empty();
     register_test_ping_module(&mut reg);
-    reg.set_mode("native/test", DomainNativeMode::DirectNative);
     let stub = reg.get("native/test").unwrap().effective_source();
     let units = reciplexa_bind::elaborate_units(&[("native/test", stub.as_str())]).unwrap();
     let ping = collect_bindings(&units[0].expr)
@@ -419,6 +417,30 @@ fn dn2_document_page_module_has_typed_exports_for_all_rpi_names() {
         assert!(
             m.typed_exports.contains_key(name),
             "missing typed export `{name}`"
+        );
+    }
+}
+
+#[test]
+fn dn2_std_modules_use_stub_not_synthetic_fallback() {
+    let reg = std_domain_natives();
+    for module in reg.modules() {
+        assert_eq!(
+            module.typed_exports.len(),
+            module.exports.len(),
+            "module {}",
+            module.module_path
+        );
+        let source = reg.module_source(&module.module_path, module);
+        assert!(
+            source.contains("dn2slot-"),
+            "module {} should load DN2 stub, got: {source}",
+            module.module_path
+        );
+        assert!(
+            !source.contains("native:"),
+            "module {} must not fall back to synthetic RPX",
+            module.module_path
         );
     }
 }

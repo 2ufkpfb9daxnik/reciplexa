@@ -1,7 +1,7 @@
 //! Example `pkg_ruby.rpx` — ruby-box builtin + document/page surface.
 
-use reciplexa_eval::{eval_expr, primitive_env, RuntimeValue, UnitHost};
-use reciplexa_package::{elaborate_with_packages, LocalPackageIndex};
+use reciplexa_eval::RuntimeValue;
+use reciplexa_package::{elaborate_with_packages, eval_elaborated_package_expr, LocalPackageIndex};
 use reciplexa_std::japanese::Ruby;
 use std::path::PathBuf;
 
@@ -34,7 +34,7 @@ fn pkg_ruby_example_elaborates_and_eval() {
             assert!(units.iter().any(|u| u.name == "document/page"));
 
             let demo = units.iter().find(|u| u.name == "pkg_ruby").unwrap();
-            let v = eval_expr(&demo.expr, &primitive_env(), &mut UnitHost).unwrap();
+            let v = eval_elaborated_package_expr(&demo.expr, &idx).unwrap();
             assert_eq!(
                 field(&v, "tag"),
                 &RuntimeValue::String("ja-ruby-demo".into())

@@ -1,30 +1,30 @@
 # Direct Native v2
 
-**Status:** required future milestone (not optional debt)  
-**Current shipping model:** Hybrid Native v1  
+**Status:** shipping for standard packages (DN2-6 complete); DN2-7 portable fallback OPEN  
+**Current shipping model:** Direct Native v2 (std packages)  
 **Execution order:** [`active-roadmap.md`](active-roadmap.md) Step 7 item 2（package local/offline slice の後）
 **Normative anchors:** `specification.md` Compiler-native package (~L17260), `KER-001`, `OPEN-NATIVE-PKG-001`
 
-## Hybrid Native v1 (current)
+## Hybrid Native v1 (reference / differential only)
 
-Standard packages today are **Hybrid Native v1**:
+Standard packages **shipped** Hybrid Native v1 until DN2-6:
 
 - authors still `import` package APIs (`.rpi` + package path)
-- hot-domain bodies are supplied as `synthetic_source` RPX
-- Rust builtins / eval bridges implement the observable behavior
+- hot-domain bodies were supplied as synthesized RPX (`*_source()` helpers remain for differential tests)
+- Rust builtins / eval bridges implemented the observable behavior
 
-Absence of a checked-in `.rpx` body file is **not** Direct Native. Do not call v1 “fully native”.
+DN2-6 removed `DomainNativeModule.synthetic_source`; production load uses DN2 stubs + typed callables.
 
-## Direct Native v2 (required)
+## Direct Native v2 (current for std packages)
 
 DN2 replaces synthetic RPX elaboration with a typed Rust callable bound from the package public name or BindingId.
 
-## Current Hybrid v1 path
+## Historical Hybrid v1 path (differential harness)
 
 ```text
 author import
 → LocalPackageIndex / DomainNativeRegistry
-→ DomainNativeModule.synthetic_source
+→ hybrid_reference_source (differential only)
 → RPX parse + elaborate
 → Core typecheck
 → eval_expr + primitive_env
@@ -98,14 +98,14 @@ font-backed JLReqはDN2の範囲外。
 doc record constructorsをtyped callableへ移し、live-layout / document bridgeとの
 観測同値性を固定する。doc-*作者編集はこのmilestoneの非対象。
 
-### DN2-6 — remove Hybrid standard bodies
+### DN2-6 — remove Hybrid standard bodies — **done**
 
 - 全標準packageでtyped callable経路を使用する。
-- `DomainNativeModule.synthetic_source` を削除する。
-- standard moduleについてsynthetic RPX fallbackへ暗黙に戻らないことを試験する。
-- 同一HEADで全gateを実行し、現状正本と適合台帳を更新する。
+- `DomainNativeModule.synthetic_source` を削除した。
+- standard moduleについてsynthetic RPX fallbackへ暗黙に戻らないことを試験した（`dn2_std_modules_use_stub_not_synthetic_fallback`）。
+- 現状正本を更新した。
 
-### DN2-7 — portable fallback contract
+### DN2-7 — portable fallback contract — **OPEN**
 
 非native packageの通常 `.rpx` loadは維持する。標準packageのportable fallback、
 ABI/version negotiation、native unavailable時の挙動は

@@ -65,7 +65,7 @@ pub use domain_bodies::{
     math_cases_source, math_delimiters_module, math_delimiters_source, math_frac_module,
     math_frac_source, math_matrix_module, math_matrix_source, math_scripts_module,
     math_scripts_source, math_sqrt_module, math_sqrt_source, math_stack_module, math_stack_source,
-    std_domain_natives,
+    hybrid_reference_source, std_domain_natives,
 };
 pub use domain_differential::{
     differential_eval_package_modules, eval_package_entry_main_dn2, DifferentialError,
@@ -85,8 +85,7 @@ pub use domain_math_constructors::{
     populate_math_stack_typed_exports,
 };
 pub use domain_native::{
-    DomainNativeBindMap, DomainNativeExport, DomainNativeMode, DomainNativeModule,
-    DomainNativeRegistry,
+    DomainNativeBindMap, DomainNativeExport, DomainNativeModule, DomainNativeRegistry,
 };
 pub use domain_native_env::{
     build_domain_native_eval_env, build_domain_native_type_env, register_test_ping_module,
@@ -106,7 +105,7 @@ pub use live_layout_bridge::{
     document_from_live_layout_value, document_from_live_layout_value_with_style,
 };
 pub use load::{
-    elaborate_with_packages, eval_package_entry_main, load_module_tree_with_packages,
+    elaborate_with_packages, eval_elaborated_package_expr, eval_package_entry_main, load_module_tree_with_packages,
     LocalPackageIndex, PackageLoadError, ResolvedImport,
 };
 pub use lockfile::{content_checksum, LockedPackage, Lockfile};

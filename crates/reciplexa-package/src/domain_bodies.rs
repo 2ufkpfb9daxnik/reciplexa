@@ -1,4 +1,4 @@
-//! Native bodies for std domain packages (synthesized RPX until eval binds constructors).
+//! Native bodies for std domain packages (Direct Native v2 stubs + reference RPX for differential tests).
 
 use crate::domain_document_constructors::populate_document_page_typed_exports;
 use crate::domain_japanese_constructors::{
@@ -49,7 +49,7 @@ pub fn std_domain_natives() -> DomainNativeRegistry {
 
 /// N1.1 — `length/units` constructors (parity with former `packages/length/src/units.rpx`).
 pub fn length_units_module() -> DomainNativeModule {
-    let mut module = DomainNativeModule::hybrid(
+    let mut module = DomainNativeModule::direct_native(
         "length/units",
         vec![
             "mm".into(),
@@ -66,8 +66,7 @@ pub fn length_units_module() -> DomainNativeModule {
             "add-mm".into(),
             "scale-length".into(),
         ],
-        length_units_source(),
-    );
+        );
     populate_length_units_typed_exports(&mut module);
     module
 }
@@ -112,7 +111,7 @@ pub fn length_units_source() -> &'static str {
 
 /// N1.4 — `color/srgb` (standalone color package).
 pub fn color_srgb_module() -> DomainNativeModule {
-    let mut module = DomainNativeModule::hybrid(
+    let mut module = DomainNativeModule::direct_native(
         "color/srgb",
         vec![
             "srgb".into(),
@@ -133,8 +132,7 @@ pub fn color_srgb_module() -> DomainNativeModule {
             "transparent".into(),
             "with-alpha".into(),
         ],
-        color_srgb_source(),
-    );
+        );
     populate_color_srgb_typed_exports(&mut module);
     module
 }
@@ -171,7 +169,7 @@ pub fn color_srgb_source() -> &'static str {
 
 /// N1.4 — `graphics/color` (subset used by graphics demos; shared rgb tags).
 pub fn graphics_color_module() -> DomainNativeModule {
-    let mut module = DomainNativeModule::hybrid(
+    let mut module = DomainNativeModule::direct_native(
         "graphics/color",
         vec![
             "rgb".into(),
@@ -184,8 +182,7 @@ pub fn graphics_color_module() -> DomainNativeModule {
             "gray".into(),
             "transparent".into(),
         ],
-        graphics_color_source(),
-    );
+        );
     populate_graphics_color_typed_exports(&mut module);
     module
 }
@@ -208,7 +205,7 @@ pub fn graphics_color_source() -> &'static str {
 
 /// N2.2 — `graphics/page` paper sizes + page/pages constructors.
 pub fn graphics_page_module() -> DomainNativeModule {
-    let mut module = DomainNativeModule::hybrid(
+    let mut module = DomainNativeModule::direct_native(
         "graphics/page",
         vec![
             "a4".into(),
@@ -221,8 +218,7 @@ pub fn graphics_page_module() -> DomainNativeModule {
             "pages".into(),
             "page-size".into(),
         ],
-        graphics_page_source(),
-    );
+        );
     populate_graphics_page_typed_exports(&mut module);
     module
 }
@@ -246,7 +242,7 @@ pub fn graphics_page_source() -> &'static str {
 
 /// N2.3–N2.7 — `graphics/shapes` constructors (full parity with former shapes.rpx).
 pub fn graphics_shapes_module() -> DomainNativeModule {
-    let mut module = DomainNativeModule::hybrid(
+    let mut module = DomainNativeModule::direct_native(
         "graphics/shapes",
         vec![
             "circle".into(),
@@ -270,8 +266,7 @@ pub fn graphics_shapes_module() -> DomainNativeModule {
             "stroke".into(),
             "paint".into(),
         ],
-        graphics_shapes_source(),
-    );
+        );
     populate_graphics_shapes_typed_exports(&mut module);
     module
 }
@@ -327,7 +322,7 @@ pub fn graphics_shapes_source() -> &'static str {
 
 /// N3.1 — `math/atoms` atom class + symbol/row constructors.
 pub fn math_atoms_module() -> DomainNativeModule {
-    let mut module = DomainNativeModule::hybrid(
+    let mut module = DomainNativeModule::direct_native(
         "math/atoms",
         vec![
             "class-ord".into(),
@@ -356,8 +351,7 @@ pub fn math_atoms_module() -> DomainNativeModule {
             "superscript".into(),
             "subscript".into(),
         ],
-        math_atoms_source(),
-    );
+        );
     populate_math_atoms_typed_exports(&mut module);
     module
 }
@@ -418,7 +412,7 @@ pub fn math_atoms_source() -> &'static str {
 
 /// N3.2 — `math/scripts` superscript / subscript / under / over.
 pub fn math_scripts_module() -> DomainNativeModule {
-    let mut module = DomainNativeModule::hybrid(
+    let mut module = DomainNativeModule::direct_native(
         "math/scripts",
         vec![
             "absent".into(),
@@ -436,8 +430,7 @@ pub fn math_scripts_module() -> DomainNativeModule {
             "over".into(),
             "under".into(),
         ],
-        math_scripts_source(),
-    );
+        );
     populate_math_scripts_typed_exports(&mut module);
     module
 }
@@ -489,11 +482,10 @@ pub fn math_scripts_source() -> &'static str {
 
 /// N3.2 — `math/frac` fraction constructors.
 pub fn math_frac_module() -> DomainNativeModule {
-    let mut module = DomainNativeModule::hybrid(
+    let mut module = DomainNativeModule::direct_native(
         "math/frac",
         vec!["fraction".into(), "over".into()],
-        math_frac_source(),
-    );
+        );
     populate_math_frac_typed_exports(&mut module);
     module
 }
@@ -511,7 +503,7 @@ pub fn math_frac_source() -> &'static str {
 
 /// N3.2 — `math/sqrt` radical constructors.
 pub fn math_sqrt_module() -> DomainNativeModule {
-    let mut module = DomainNativeModule::hybrid(
+    let mut module = DomainNativeModule::direct_native(
         "math/sqrt",
         vec![
             "absent-index".into(),
@@ -520,8 +512,7 @@ pub fn math_sqrt_module() -> DomainNativeModule {
             "radical-indexed".into(),
             "root".into(),
         ],
-        math_sqrt_source(),
-    );
+        );
     populate_math_sqrt_typed_exports(&mut module);
     module
 }
@@ -548,7 +539,7 @@ pub fn math_sqrt_source() -> &'static str {
 
 /// N3.3 — `math/delimiters` delimiter / fence wrappers.
 pub fn math_delimiters_module() -> DomainNativeModule {
-    let mut module = DomainNativeModule::hybrid(
+    let mut module = DomainNativeModule::direct_native(
         "math/delimiters",
         vec![
             "delimiter".into(),
@@ -560,8 +551,7 @@ pub fn math_delimiters_module() -> DomainNativeModule {
             "floor".into(),
             "ceil".into(),
         ],
-        math_delimiters_source(),
-    );
+        );
     populate_math_delimiters_typed_exports(&mut module);
     module
 }
@@ -590,7 +580,7 @@ pub fn math_delimiters_source() -> &'static str {
 
 /// N3.4 — `math/matrix` matrix constructors.
 pub fn math_matrix_module() -> DomainNativeModule {
-    let mut module = DomainNativeModule::hybrid(
+    let mut module = DomainNativeModule::direct_native(
         "math/matrix",
         vec![
             "matrix".into(),
@@ -605,8 +595,7 @@ pub fn math_matrix_module() -> DomainNativeModule {
             "bmatrix-env".into(),
             "pmatrix-env".into(),
         ],
-        math_matrix_source(),
-    );
+        );
     populate_math_matrix_typed_exports(&mut module);
     module
 }
@@ -643,7 +632,7 @@ pub fn math_matrix_source() -> &'static str {
 
 /// N3.4 — `math/accents` accent wrappers.
 pub fn math_accents_module() -> DomainNativeModule {
-    let mut module = DomainNativeModule::hybrid(
+    let mut module = DomainNativeModule::direct_native(
         "math/accents",
         vec![
             "accent".into(),
@@ -664,8 +653,7 @@ pub fn math_accents_module() -> DomainNativeModule {
             "widehat".into(),
             "widetilde".into(),
         ],
-        math_accents_source(),
-    );
+        );
     populate_math_accents_typed_exports(&mut module);
     module
 }
@@ -711,7 +699,7 @@ pub fn math_accents_source() -> &'static str {
 
 /// N3.4 — `math/bigops` large operators with optional limits.
 pub fn math_bigops_module() -> DomainNativeModule {
-    let mut module = DomainNativeModule::hybrid(
+    let mut module = DomainNativeModule::direct_native(
         "math/bigops",
         vec![
             "bigop".into(),
@@ -734,8 +722,7 @@ pub fn math_bigops_module() -> DomainNativeModule {
             "integral-scripts".into(),
             "oint-scripts".into(),
         ],
-        math_bigops_source(),
-    );
+        );
     populate_math_bigops_typed_exports(&mut module);
     module
 }
@@ -829,7 +816,7 @@ pub fn math_bigops_source() -> &'static str {
 
 /// N3.3 — `math/cases` piecewise / cases constructs.
 pub fn math_cases_module() -> DomainNativeModule {
-    let mut module = DomainNativeModule::hybrid(
+    let mut module = DomainNativeModule::direct_native(
         "math/cases",
         vec![
             "case-arm".into(),
@@ -841,8 +828,7 @@ pub fn math_cases_module() -> DomainNativeModule {
             "piecewise".into(),
             "otherwise".into(),
         ],
-        math_cases_source(),
-    );
+        );
     populate_math_cases_typed_exports(&mut module);
     module
 }
@@ -873,7 +859,7 @@ pub fn math_cases_source() -> &'static str {
 
 /// N3.5 — `math/align` alignment rows.
 pub fn math_align_module() -> DomainNativeModule {
-    let mut module = DomainNativeModule::hybrid(
+    let mut module = DomainNativeModule::direct_native(
         "math/align",
         vec![
             "align-row".into(),
@@ -885,8 +871,7 @@ pub fn math_align_module() -> DomainNativeModule {
             "align-at".into(),
             "align-eq".into(),
         ],
-        math_align_source(),
-    );
+        );
     populate_math_align_typed_exports(&mut module);
     module
 }
@@ -914,7 +899,7 @@ pub fn math_align_source() -> &'static str {
 
 /// N3.5 — `math/stack` vertical stacks and relation symbols.
 pub fn math_stack_module() -> DomainNativeModule {
-    let mut module = DomainNativeModule::hybrid(
+    let mut module = DomainNativeModule::direct_native(
         "math/stack",
         vec![
             "stack".into(),
@@ -924,8 +909,7 @@ pub fn math_stack_module() -> DomainNativeModule {
             "atop".into(),
             "substack".into(),
         ],
-        math_stack_source(),
-    );
+        );
     populate_math_stack_typed_exports(&mut module);
     module
 }
@@ -949,7 +933,7 @@ pub fn math_stack_source() -> &'static str {
 
 /// N4.1 — `japanese/classes` JLReq character class tables (cl-01..cl-30).
 pub fn japanese_classes_module() -> DomainNativeModule {
-    let mut module = DomainNativeModule::hybrid(
+    let mut module = DomainNativeModule::direct_native(
         "japanese/classes",
         vec![
             "class".into(),
@@ -993,8 +977,7 @@ pub fn japanese_classes_module() -> DomainNativeModule {
             "is-kana-class?".into(),
             "is-western-class?".into(),
         ],
-        japanese_classes_source(),
-    );
+        );
     populate_japanese_classes_typed_exports(&mut module);
     module
 }
@@ -1168,7 +1151,7 @@ pub fn japanese_classes_source() -> &'static str {
 
 /// N4.2 — `japanese/linebreak` kinsoku / break-opportunity stubs.
 pub fn japanese_linebreak_module() -> DomainNativeModule {
-    let mut module = DomainNativeModule::hybrid(
+    let mut module = DomainNativeModule::direct_native(
         "japanese/linebreak",
         vec![
             "sample-line-head-prohibited".into(),
@@ -1186,8 +1169,7 @@ pub fn japanese_linebreak_module() -> DomainNativeModule {
             "kinsoku-profile".into(),
             "classify-sample".into(),
         ],
-        japanese_linebreak_source(),
-    );
+        );
     populate_japanese_linebreak_typed_exports(&mut module);
     module
 }
@@ -1325,7 +1307,7 @@ pub fn japanese_linebreak_source() -> &'static str {
 
 /// N4.3 — `japanese/kihon` kihon-hanmen / line-rate / vertical stubs.
 pub fn japanese_kihon_module() -> DomainNativeModule {
-    let mut module = DomainNativeModule::hybrid(
+    let mut module = DomainNativeModule::direct_native(
         "japanese/kihon",
         vec![
             "writing-mode-horizontal".into(),
@@ -1360,8 +1342,7 @@ pub fn japanese_kihon_module() -> DomainNativeModule {
             "place-vertical-text".into(),
             "vertical-text-stack".into(),
         ],
-        japanese_kihon_source(),
-    );
+        );
     populate_japanese_kihon_typed_exports(&mut module);
     module
 }
@@ -1481,7 +1462,7 @@ pub fn japanese_kihon_source() -> &'static str {
 
 /// N4.4 — `japanese/markup` document-oriented JP markup helpers.
 pub fn japanese_markup_module() -> DomainNativeModule {
-    let mut module = DomainNativeModule::hybrid(
+    let mut module = DomainNativeModule::direct_native(
         "japanese/markup",
         vec![
             "heading".into(),
@@ -1501,8 +1482,7 @@ pub fn japanese_markup_module() -> DomainNativeModule {
             "ul".into(),
             "doc".into(),
         ],
-        japanese_markup_source(),
-    );
+        );
     populate_japanese_markup_typed_exports(&mut module);
     module
 }
@@ -1560,7 +1540,7 @@ pub fn japanese_markup_source() -> &'static str {
 /// Tags use the `doc-*` prefix so they stay distinct from `graphics/page` scene tags.
 /// Interim CST `(page)/(circle)` keyword tables are intentionally untouched.
 pub fn document_page_module() -> DomainNativeModule {
-    let mut module = DomainNativeModule::hybrid(
+    let mut module = DomainNativeModule::direct_native(
         "document/page",
         vec![
             "a4".into(),
@@ -1589,8 +1569,7 @@ pub fn document_page_module() -> DomainNativeModule {
             "block-figure".into(),
             "block-spacer".into(),
         ],
-        document_page_source(),
-    );
+        );
     populate_document_page_typed_exports(&mut module);
     module
 }
@@ -1644,6 +1623,35 @@ pub fn document_page_source() -> &'static str {
 (val block-spacer (fn (spacer)
   (record (tag "doc-block") (kind "spacer") (spacer spacer))))
 "#
+}
+
+/// Hybrid v1 reference RPX for differential conformance (not used in production load).
+pub fn hybrid_reference_source(module_path: &str) -> Option<&'static str> {
+    match module_path {
+        "length/units" => Some(length_units_source()),
+        "color/srgb" => Some(color_srgb_source()),
+        "graphics/color" => Some(graphics_color_source()),
+        "graphics/page" => Some(graphics_page_source()),
+        "graphics/shapes" => Some(graphics_shapes_source()),
+        "math/atoms" => Some(math_atoms_source()),
+        "math/scripts" => Some(math_scripts_source()),
+        "math/frac" => Some(math_frac_source()),
+        "math/sqrt" => Some(math_sqrt_source()),
+        "math/delimiters" => Some(math_delimiters_source()),
+        "math/matrix" => Some(math_matrix_source()),
+        "math/accents" => Some(math_accents_source()),
+        "math/bigops" => Some(math_bigops_source()),
+        "math/cases" => Some(math_cases_source()),
+        "math/align" => Some(math_align_source()),
+        "math/stack" => Some(math_stack_source()),
+        "japanese/classes" => Some(japanese_classes_source()),
+        "japanese/linebreak" => Some(japanese_linebreak_source()),
+        "japanese/kihon" => Some(japanese_kihon_source()),
+        "japanese/markup" => Some(japanese_markup_source()),
+        "document/page" => Some(document_page_source()),
+        "native/test" => Some(crate::domain_native_env::TEST_PING_REFERENCE_SOURCE),
+        _ => None,
+    }
 }
 
 #[cfg(test)]
