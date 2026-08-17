@@ -355,6 +355,36 @@ pub enum JapaneseMarkupOp {
     Doc,
 }
 
+/// DN2-5 — `document/page` flow-oriented doc record constructors.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum DocumentPageOp {
+    A4,
+    Letter,
+    A5,
+    A3,
+    Legal,
+    Page,
+    Flow,
+    Section,
+    Heading,
+    Paragraph,
+    ParagraphIndented,
+    Columns,
+    UnorderedList,
+    OrderedList,
+    ListItem,
+    Table,
+    Figure,
+    Spacer,
+    BlockHeading,
+    BlockParagraph,
+    BlockColumns,
+    BlockList,
+    BlockTable,
+    BlockFigure,
+    BlockSpacer,
+}
+
 /// DN2-2 — `graphics/shapes` pure constructors.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum GraphicsShapesOp {
@@ -421,6 +451,8 @@ pub enum DomainNativeOp {
     JapaneseLinebreak(JapaneseLinebreakOp),
     JapaneseKihon(JapaneseKihonOp),
     JapaneseMarkup(JapaneseMarkupOp),
+    /// DN2-5 — `document/page` doc record constructors.
+    DocumentPage(DocumentPageOp),
 }
 
 /// Qualified registry key: `package/module/export`.
@@ -486,6 +518,9 @@ pub fn call_domain_native(
         | DomainNativeOp::JapaneseKihon(_)
         | DomainNativeOp::JapaneseMarkup(_) => {
             crate::domain_japanese_constructors::call_japanese_constructor(op, args)
+        }
+        DomainNativeOp::DocumentPage(_) => {
+            crate::domain_document_constructors::call_document_constructor(op, args)
         }
     }
 }

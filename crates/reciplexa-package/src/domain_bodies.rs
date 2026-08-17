@@ -1,5 +1,6 @@
 //! Native bodies for std domain packages (synthesized RPX until eval binds constructors).
 
+use crate::domain_document_constructors::populate_document_page_typed_exports;
 use crate::domain_japanese_constructors::{
     populate_japanese_classes_typed_exports, populate_japanese_kihon_typed_exports,
     populate_japanese_linebreak_typed_exports, populate_japanese_markup_typed_exports,
@@ -1559,7 +1560,7 @@ pub fn japanese_markup_source() -> &'static str {
 /// Tags use the `doc-*` prefix so they stay distinct from `graphics/page` scene tags.
 /// Interim CST `(page)/(circle)` keyword tables are intentionally untouched.
 pub fn document_page_module() -> DomainNativeModule {
-    DomainNativeModule::hybrid(
+    let mut module = DomainNativeModule::hybrid(
         "document/page",
         vec![
             "a4".into(),
@@ -1589,7 +1590,9 @@ pub fn document_page_module() -> DomainNativeModule {
             "block-spacer".into(),
         ],
         document_page_source(),
-    )
+    );
+    populate_document_page_typed_exports(&mut module);
+    module
 }
 
 pub fn document_page_source() -> &'static str {

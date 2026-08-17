@@ -385,6 +385,44 @@ fn dn2_japanese_modules_have_typed_exports_for_all_rpi_names() {
     }
 }
 
+#[test]
+fn dn2_document_page_hybrid_and_direct_native_agree_on_pkg_document() {
+    let packages = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../packages");
+    let entry = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/pkg_document.rpx");
+    if !entry.is_file() {
+        return;
+    }
+    let idx = LocalPackageIndex::discover(&[packages.as_path()]).unwrap();
+    differential_eval_package_modules(&entry, &idx, &["document/page"])
+        .expect("document/page hybrid and DN2 agree on pkg_document");
+}
+
+#[test]
+fn dn2_document_page_hybrid_and_direct_native_agree_on_pkg_document_indent() {
+    let packages = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../packages");
+    let entry =
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/pkg_document_indent.rpx");
+    if !entry.is_file() {
+        return;
+    }
+    let idx = LocalPackageIndex::discover(&[packages.as_path()]).unwrap();
+    differential_eval_package_modules(&entry, &idx, &["document/page"])
+        .expect("document/page hybrid and DN2 agree on pkg_document_indent");
+}
+
+#[test]
+fn dn2_document_page_module_has_typed_exports_for_all_rpi_names() {
+    use reciplexa_package::document_page_module;
+    let m = document_page_module();
+    assert_eq!(m.typed_exports.len(), m.exports.len());
+    for name in &m.exports {
+        assert!(
+            m.typed_exports.contains_key(name),
+            "missing typed export `{name}`"
+        );
+    }
+}
+
 fn collect_bindings(expr: &CoreExpr) -> std::collections::HashMap<String, CoreExpr> {
     let mut map = std::collections::HashMap::new();
     fn walk(expr: &CoreExpr, map: &mut std::collections::HashMap<String, CoreExpr>) {

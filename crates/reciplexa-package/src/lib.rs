@@ -19,6 +19,7 @@ pub mod build;
 pub mod doc_preview;
 pub mod domain_bodies;
 pub mod domain_differential;
+pub mod domain_document_constructors;
 pub mod domain_japanese_constructors;
 pub mod domain_length_units;
 pub mod domain_math_constructors;
@@ -69,6 +70,7 @@ pub use domain_bodies::{
 pub use domain_differential::{
     differential_eval_package_modules, eval_package_entry_main_dn2, DifferentialError,
 };
+pub use domain_document_constructors::populate_document_page_typed_exports;
 pub use domain_japanese_constructors::{
     populate_japanese_classes_typed_exports, populate_japanese_kihon_typed_exports,
     populate_japanese_linebreak_typed_exports, populate_japanese_markup_typed_exports,
