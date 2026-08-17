@@ -172,6 +172,26 @@ fn elaborate_units_empty_body_and_interface_exports() {
     let v = eval_expr(&main.expr, &HashMap::new(), &mut UnitHost).unwrap();
     assert_eq!(v, RuntimeValue::Int(1));
 
+    let native_expr = CoreExpr::Let {
+        name: "ping".into(),
+        value: Box::new(CoreExpr::Lit(reciplexa_core::expr::CoreLiteral::Int(7))),
+        body: Box::new(CoreExpr::Var("ping".into())),
+    };
+    let units = elaborate_units_with_bodies(
+        &[
+            ("native/test", UnitBody::Native(&native_expr)),
+            (
+                "main",
+                UnitBody::Source("(import native/test only ping)\n(val main ping)"),
+            ),
+        ],
+        &HashMap::new(),
+    )
+    .unwrap();
+    let main = units.iter().find(|u| u.name == "main").unwrap();
+    let v = eval_expr(&main.expr, &HashMap::new(), &mut UnitHost).unwrap();
+    assert_eq!(v, RuntimeValue::Int(7));
+
     let err = elaborate_units_with_interfaces(
         &[
             ("lib", "(val id 1)"),

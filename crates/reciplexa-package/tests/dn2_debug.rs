@@ -35,6 +35,23 @@ fn dn2_single_unit_via_elaborate_units() {
 }
 
 #[test]
+fn dn2_stub_core_expr_matches_elaborated_stub() {
+    let mut reg = DomainNativeRegistry::empty();
+    register_test_ping_module(&mut reg);
+    let ping = reg.get("native/test").unwrap();
+    assert_eq!(
+        ping.stub_core_expr(),
+        elaborate_source(&ping.effective_source()).expect("ping stub elaborates")
+    );
+
+    let length = reciplexa_package::length_units_module();
+    assert_eq!(
+        length.stub_core_expr(),
+        elaborate_source(&length.effective_source()).expect("length stub elaborates")
+    );
+}
+
+#[test]
 fn dn2_test_ping_module_hybrid_and_direct_native_agree() {
     let mut reg = DomainNativeRegistry::empty();
     register_test_ping_module(&mut reg);

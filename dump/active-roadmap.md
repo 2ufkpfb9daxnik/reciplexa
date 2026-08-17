@@ -92,7 +92,7 @@
 
 ## Step 7 — 次工程
 
-**Status:** active — item 1 local/offline slice complete; item 2 Direct Native v2 shipping complete; item 2b hardening active
+**Status:** active — item 1 local/offline slice complete; item 2 Direct Native v2 shipping complete; item 2b hardening complete; item 3 planned
 
 順序:
 
@@ -106,11 +106,11 @@
    - 標準packageは DN2 stub + compilation BindingId + typed Rust callable
    - Hybrid 参照本文は `LocalPackageIndex` override（差分試験のみ）
    - portable fallback は `OPEN-NATIVE-PKG-001` で明示追跡（未実装）
-2b. DN2 観測同値の硬化: **active**（製品級組版の前）
+2b. DN2 観測同値の硬化: **complete**（製品級組版の前）
    - 既存 example による深い hybrid↔DN2 差分
    - `japanese/linebreak` の動的 export（kind 一致。note / 全matrix は std 正本）
    - 構造化 Failure: DN2 arity を `package/arity` へ。type は `length/units` に加え `color/srgb`・`japanese/*` の契約違反も `package/type`。effect row はまだ pure
-   - native stub の body elaboration 省略は後続
+   - native stub の body elaboration 省略（typed export から Core を合成。Hybrid override は従来の RPX elaborate）
 3. 製品級組版: font-backed JLReqとOpenType MATHを別エンジンとして本格化
 
 Step 7はSteps 1–6のgreen HEADを基準線として開始する。

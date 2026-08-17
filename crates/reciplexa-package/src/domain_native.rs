@@ -6,6 +6,7 @@
 
 use std::collections::BTreeMap;
 
+use reciplexa_core::expr::CoreExpr;
 use reciplexa_core::ty::CoreType;
 use reciplexa_eval::domain_native::{dn2_slot, qualified_export_key, DomainNativeOp};
 use reciplexa_identity::binding::{BindingId, BindingIdAllocator};
@@ -53,9 +54,43 @@ impl DomainNativeModule {
         }
     }
 
-    /// Source text used by loaders and elaboration for this module.
+    /// Source text used by loaders for Hybrid overrides and debug dumps.
+    ///
+    /// Production elaboration uses [`Self::stub_core_expr`] and does not parse this.
     pub fn effective_source(&self) -> String {
         self.dn2_stub_source()
+    }
+
+    /// Core Let spine equivalent to [`Self::dn2_stub_source`], without RPX parse.
+    pub fn stub_core_expr(&self) -> CoreExpr {
+        let bindings: Vec<(String, CoreExpr)> = self
+            .typed_exports
+            .values()
+            .map(|export| {
+                let slot = CoreExpr::Var(dn2_slot(&self.module_path, &export.name));
+                let value = if export_is_eager_value(&export.ty) {
+                    CoreExpr::App {
+                        fun: Box::new(slot),
+                        args: vec![],
+                    }
+                } else {
+                    slot
+                };
+                (export.name.clone(), value)
+            })
+            .collect();
+        let body = bindings
+            .last()
+            .map(|(name, _)| CoreExpr::Var(name.clone()))
+            .unwrap_or(CoreExpr::Seq(vec![]));
+        bindings
+            .into_iter()
+            .rev()
+            .fold(body, |body, (name, value)| CoreExpr::Let {
+                name,
+                value: Box::new(value),
+                body: Box::new(body),
+            })
     }
 
     /// Minimal RPX stub that aliases public exports to internal DN2 eval slots.
@@ -83,8 +118,8 @@ fn export_is_eager_value(ty: &CoreType) -> bool {
 
 /// Registry of module paths implemented in Rust instead of portable `.rpx`.
 ///
-/// Production load always uses [`DomainNativeModule::effective_source`] (DN2 stub).
-/// Hybrid v1 reference RPX is applied only via
+/// Production load synthesizes [`DomainNativeModule::stub_core_expr`] (no stub
+/// RPX elaboration). Hybrid v1 reference RPX is applied only via
 /// [`crate::load::LocalPackageIndex`] differential overrides, not this registry.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct DomainNativeRegistry {
@@ -183,29 +218,16 @@ impl DomainNativeBindMap {
         self.binding_to_op.get(&id).copied()
     }
 
-    /// Bind every typed export by resolving the DN2 stub with the language binder.
+    /// Bind every typed export to a compilation [`BindingId`].
     ///
     /// Registry key remains `package/module/export`. [`BindingId`] values are
-    /// allocated for this compilation after the stub's `val` binders are found;
-    /// they are not reused as a persistent ABI identity.
+    /// allocated for this compilation from the typed export table; they are not
+    /// reused as a persistent ABI identity. Stub RPX is not resolved.
     pub fn bind_stubs(registry: &DomainNativeRegistry) -> Result<Self, String> {
         let mut map = Self::default();
         let mut alloc = BindingIdAllocator::new();
         for module in registry.modules.values() {
-            let stub = module.effective_source();
-            let resolved = reciplexa_bind::resolve_language_source(&stub);
             for (name, export) in &module.typed_exports {
-                let declared = resolved
-                    .binding_map
-                    .definitions
-                    .values()
-                    .any(|site| site.name == *name);
-                if !declared {
-                    return Err(format!(
-                        "DN2 bind: `{}/{}` is not a `val` binder in the Direct Native stub",
-                        module.module_path, name
-                    ));
-                }
                 map.bind(&mut alloc, &module.module_path, name, export.op);
             }
         }

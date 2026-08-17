@@ -10,8 +10,9 @@ pub mod resolve;
 pub mod scope;
 
 pub use module::{
-    elaborate_module_tree, elaborate_units, elaborate_units_with_interfaces, load_module_tree,
-    parse_imports, ElaboratedUnit, ImportDecl, ImportItem, ModuleError, ModuleSkeleton, ModuleUnit,
+    elaborate_module_tree, elaborate_units, elaborate_units_with_bodies,
+    elaborate_units_with_interfaces, load_module_tree, parse_imports, ElaboratedUnit, ImportDecl,
+    ImportItem, ModuleError, ModuleSkeleton, ModuleUnit, UnitBody,
 };
 pub use package::{resolve_package, PackageResolveResult};
 pub use reciplexa_syntax::is_reserved_special_form;

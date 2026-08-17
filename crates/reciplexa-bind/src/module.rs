@@ -102,6 +102,15 @@ impl From<ElaborateError> for ModuleError {
     }
 }
 
+/// Source text or a prebuilt Direct Native v2 Core body.
+#[derive(Debug, Clone, Copy)]
+pub enum UnitBody<'a> {
+    /// Parse imports and elaborate the RPX body.
+    Source(&'a str),
+    /// Skip parse/elaborate; the value is the module's Let spine of native slots.
+    Native(&'a CoreExpr),
+}
+
 /// Elaborate multiple in-memory units and link `(import …)` skeletons.
 ///
 /// Each `(name, src)` pair is one outer module. Imports refer to sibling names
@@ -116,6 +125,19 @@ pub fn elaborate_units(units: &[(&str, &str)]) -> Result<Vec<ElaboratedUnit>, Mo
 /// exports from the implementation.
 pub fn elaborate_units_with_interfaces(
     units: &[(&str, &str)],
+    interface_exports: &HashMap<String, Vec<String>>,
+) -> Result<Vec<ElaboratedUnit>, ModuleError> {
+    let wrapped: Vec<(&str, UnitBody<'_>)> = units
+        .iter()
+        .map(|(name, src)| (*name, UnitBody::Source(src)))
+        .collect();
+    elaborate_units_with_bodies(&wrapped, interface_exports)
+}
+
+/// Like [`elaborate_units_with_interfaces`], but a unit may supply a prebuilt
+/// Core body instead of RPX source (Direct Native v2: skip stub elaboration).
+pub fn elaborate_units_with_bodies(
+    units: &[(&str, UnitBody<'_>)],
     interface_exports: &HashMap<String, Vec<String>>,
 ) -> Result<Vec<ElaboratedUnit>, ModuleError> {
     if units.is_empty() {
@@ -139,31 +161,36 @@ pub fn elaborate_units_with_interfaces(
 
     type IndexedUnit = (String, Vec<(usize, ImportDecl)>, CoreExpr, Vec<String>);
     let mut parsed: Vec<IndexedUnit> = Vec::new();
-    for (name, src) in units {
-        let (imports, body_src) = split_imports(src)?;
-        let mut indexed_imports = Vec::with_capacity(imports.len());
-        for imp in imports {
-            let Some(&idx) = name_order.get(&imp.module) else {
-                return Err(ModuleError::new(format!(
-                    "module `{name}` imports unknown unit `{}`",
-                    imp.module
-                )));
-            };
-            if imp.module == *name {
-                return Err(ModuleError::new(format!(
-                    "module `{name}` cannot import itself"
-                )));
+    for (name, body) in units {
+        let (indexed_imports, expr) = match body {
+            UnitBody::Source(src) => {
+                let (imports, body_src) = split_imports(src)?;
+                let mut indexed_imports = Vec::with_capacity(imports.len());
+                for imp in imports {
+                    let Some(&idx) = name_order.get(&imp.module) else {
+                        return Err(ModuleError::new(format!(
+                            "module `{name}` imports unknown unit `{}`",
+                            imp.module
+                        )));
+                    };
+                    if imp.module == *name {
+                        return Err(ModuleError::new(format!(
+                            "module `{name}` cannot import itself"
+                        )));
+                    }
+                    indexed_imports.push((idx, imp));
+                }
+                let plain: Vec<ImportDecl> =
+                    indexed_imports.iter().map(|(_, i)| i.clone()).collect();
+                check_import_local_collisions(name, &plain)?;
+                let expr = if body_src.trim().is_empty() {
+                    CoreExpr::Seq(vec![])
+                } else {
+                    elaborate_source(&body_src)?
+                };
+                (indexed_imports, expr)
             }
-            indexed_imports.push((idx, imp));
-        }
-        // MOD-001 §7.4: same identity via multiple imports is ok; colliding
-        // local names from different module identities are errors.
-        let plain: Vec<ImportDecl> = indexed_imports.iter().map(|(_, i)| i.clone()).collect();
-        check_import_local_collisions(name, &plain)?;
-        let expr = if body_src.trim().is_empty() {
-            CoreExpr::Seq(vec![])
-        } else {
-            elaborate_source(&body_src)?
+            UnitBody::Native(expr) => (Vec::new(), (*expr).clone()),
         };
         let impl_exports = collect_export_names(&expr);
         let exports = if let Some(iface) = interface_exports.get(*name) {

@@ -4,7 +4,10 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use reciplexa_bind::{elaborate_units_with_interfaces, parse_imports, ElaboratedUnit, ModuleError};
+use reciplexa_bind::{
+    elaborate_units_with_bodies, parse_imports, ElaboratedUnit, ModuleError, UnitBody,
+};
+use reciplexa_core::expr::CoreExpr;
 
 use reciplexa_eval::{eval_expr_with_extra, primitive_env, RuntimeValue, UnitHost};
 
@@ -577,11 +580,30 @@ pub fn elaborate_with_packages(
             }
         }
     }
-    let refs: Vec<(&str, &str)> = loaded
+    let mut native_bodies: HashMap<String, CoreExpr> = HashMap::new();
+    for (name, _) in &loaded {
+        if is_hybrid_override(index, name) {
+            continue;
+        }
+        if let Some(native) = index.native.get(name) {
+            native_bodies.insert(name.clone(), native.stub_core_expr());
+        }
+    }
+    let units: Vec<(&str, UnitBody<'_>)> = loaded
         .iter()
-        .map(|(n, s)| (n.as_str(), s.as_str()))
+        .map(|(name, src)| {
+            if let Some(expr) = native_bodies.get(name) {
+                (name.as_str(), UnitBody::Native(expr))
+            } else {
+                (name.as_str(), UnitBody::Source(src.as_str()))
+            }
+        })
         .collect();
-    elaborate_units_with_interfaces(&refs, &interface_exports).map_err(Into::into)
+    elaborate_units_with_bodies(&units, &interface_exports).map_err(Into::into)
+}
+
+fn is_hybrid_override(index: &LocalPackageIndex, module_path: &str) -> bool {
+    index.hybrid_source_overrides.contains_key(module_path)
 }
 
 /// Elaborate `entry_path`, eval its entry unit, and auto-materialize `(resource …)`
