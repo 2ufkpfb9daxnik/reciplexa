@@ -234,6 +234,127 @@ pub enum MathStackOp {
     Substack,
 }
 
+/// DN2-4 — `japanese/classes` JLReq character class tables.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum JapaneseClassesOp {
+    Class,
+    AllClassIds,
+    AllClasses,
+    ClassName,
+    ClassNameJa,
+    Cl01,
+    Cl02,
+    Cl03,
+    Cl04,
+    Cl05,
+    Cl06,
+    Cl07,
+    Cl08,
+    Cl09,
+    Cl10,
+    Cl11,
+    Cl12,
+    Cl13,
+    Cl14,
+    Cl15,
+    Cl16,
+    Cl17,
+    Cl18,
+    Cl19,
+    Cl20,
+    Cl21,
+    Cl22,
+    Cl23,
+    Cl24,
+    Cl25,
+    Cl26,
+    Cl27,
+    Cl28,
+    Cl29,
+    Cl30,
+    AdvanceEm,
+    IsSquareLetter,
+    IsPunctuationClass,
+    IsKanaClass,
+    IsWesternClass,
+}
+
+/// DN2-4 — `japanese/linebreak` kinsoku / break-opportunity exports.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum JapaneseLinebreakOp {
+    SampleLineHeadProhibited,
+    SampleLineEndProhibited,
+    SampleInseparable,
+    Opportunity,
+    LineHeadProhibitedClass,
+    LineEndProhibitedClass,
+    InseparablePair,
+    PairRule,
+    SamplePairRules,
+    BreakBetween,
+    HangableClass,
+    NumericBeforeCloseProhibited,
+    KinsokuProfile,
+    ClassifySample,
+}
+
+/// DN2-4 — `japanese/kihon` kihon-hanmen / line-rate / vertical stubs.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum JapaneseKihonOp {
+    WritingModeHorizontal,
+    WritingModeVertical,
+    LineRateSolid,
+    LineRateCompact,
+    LineRateDefault,
+    LineRateRelaxed,
+    LineRateLoose,
+    SolidSetting,
+    CharacterFrame,
+    LineMetrics,
+    KihonHanmen,
+    DefaultHorizontalKihon,
+    DefaultVerticalKihon,
+    HeadingBandEm,
+    IndentEm,
+    TrimSize,
+    A5Trim,
+    B5JisTrim,
+    A4Trim,
+    Margins,
+    PlaceHanmen,
+    ColumnCountOne,
+    ColumnCountTwo,
+    MultiColumn,
+    VerticalFlow,
+    TateDigits,
+    VerticalStack,
+    TateChuYokoSpan,
+    VerticalText,
+    PlaceVerticalText,
+    VerticalTextStack,
+}
+
+/// DN2-4 — `japanese/markup` document-oriented JP markup helpers.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum JapaneseMarkupOp {
+    Heading,
+    Section,
+    Paragraph,
+    Note,
+    Emphasis,
+    Warn,
+    Todo,
+    Ruby,
+    JukugoRuby,
+    TateChuYoko,
+    TategakiParagraph,
+    TategakiText,
+    MarkupBridge,
+    DocWithMarkup,
+    Ul,
+    Doc,
+}
+
 /// DN2-2 — `graphics/shapes` pure constructors.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum GraphicsShapesOp {
@@ -295,6 +416,11 @@ pub enum DomainNativeOp {
     MathCases(MathCasesOp),
     MathAlign(MathAlignOp),
     MathStack(MathStackOp),
+    /// DN2-4 — japanese record constructors.
+    JapaneseClasses(JapaneseClassesOp),
+    JapaneseLinebreak(JapaneseLinebreakOp),
+    JapaneseKihon(JapaneseKihonOp),
+    JapaneseMarkup(JapaneseMarkupOp),
 }
 
 /// Qualified registry key: `package/module/export`.
@@ -354,6 +480,12 @@ pub fn call_domain_native(
         | DomainNativeOp::MathAlign(_)
         | DomainNativeOp::MathStack(_) => {
             crate::domain_math_constructors::call_math_constructor(op, args)
+        }
+        DomainNativeOp::JapaneseClasses(_)
+        | DomainNativeOp::JapaneseLinebreak(_)
+        | DomainNativeOp::JapaneseKihon(_)
+        | DomainNativeOp::JapaneseMarkup(_) => {
+            crate::domain_japanese_constructors::call_japanese_constructor(op, args)
         }
     }
 }

@@ -1,5 +1,9 @@
 //! Native bodies for std domain packages (synthesized RPX until eval binds constructors).
 
+use crate::domain_japanese_constructors::{
+    populate_japanese_classes_typed_exports, populate_japanese_kihon_typed_exports,
+    populate_japanese_linebreak_typed_exports, populate_japanese_markup_typed_exports,
+};
 use crate::domain_length_units::populate_length_units_typed_exports;
 use crate::domain_math_constructors::{
     populate_math_accents_typed_exports, populate_math_align_typed_exports,
@@ -944,7 +948,7 @@ pub fn math_stack_source() -> &'static str {
 
 /// N4.1 — `japanese/classes` JLReq character class tables (cl-01..cl-30).
 pub fn japanese_classes_module() -> DomainNativeModule {
-    DomainNativeModule::hybrid(
+    let mut module = DomainNativeModule::hybrid(
         "japanese/classes",
         vec![
             "class".into(),
@@ -989,7 +993,9 @@ pub fn japanese_classes_module() -> DomainNativeModule {
             "is-western-class?".into(),
         ],
         japanese_classes_source(),
-    )
+    );
+    populate_japanese_classes_typed_exports(&mut module);
+    module
 }
 
 pub fn japanese_classes_source() -> &'static str {
@@ -1161,7 +1167,7 @@ pub fn japanese_classes_source() -> &'static str {
 
 /// N4.2 — `japanese/linebreak` kinsoku / break-opportunity stubs.
 pub fn japanese_linebreak_module() -> DomainNativeModule {
-    DomainNativeModule::hybrid(
+    let mut module = DomainNativeModule::hybrid(
         "japanese/linebreak",
         vec![
             "sample-line-head-prohibited".into(),
@@ -1180,7 +1186,9 @@ pub fn japanese_linebreak_module() -> DomainNativeModule {
             "classify-sample".into(),
         ],
         japanese_linebreak_source(),
-    )
+    );
+    populate_japanese_linebreak_typed_exports(&mut module);
+    module
 }
 
 pub fn japanese_linebreak_source() -> &'static str {
@@ -1316,7 +1324,7 @@ pub fn japanese_linebreak_source() -> &'static str {
 
 /// N4.3 — `japanese/kihon` kihon-hanmen / line-rate / vertical stubs.
 pub fn japanese_kihon_module() -> DomainNativeModule {
-    DomainNativeModule::hybrid(
+    let mut module = DomainNativeModule::hybrid(
         "japanese/kihon",
         vec![
             "writing-mode-horizontal".into(),
@@ -1352,7 +1360,9 @@ pub fn japanese_kihon_module() -> DomainNativeModule {
             "vertical-text-stack".into(),
         ],
         japanese_kihon_source(),
-    )
+    );
+    populate_japanese_kihon_typed_exports(&mut module);
+    module
 }
 
 pub fn japanese_kihon_source() -> &'static str {
@@ -1470,7 +1480,7 @@ pub fn japanese_kihon_source() -> &'static str {
 
 /// N4.4 — `japanese/markup` document-oriented JP markup helpers.
 pub fn japanese_markup_module() -> DomainNativeModule {
-    DomainNativeModule::hybrid(
+    let mut module = DomainNativeModule::hybrid(
         "japanese/markup",
         vec![
             "heading".into(),
@@ -1491,7 +1501,9 @@ pub fn japanese_markup_module() -> DomainNativeModule {
             "doc".into(),
         ],
         japanese_markup_source(),
-    )
+    );
+    populate_japanese_markup_typed_exports(&mut module);
+    module
 }
 
 pub fn japanese_markup_source() -> &'static str {

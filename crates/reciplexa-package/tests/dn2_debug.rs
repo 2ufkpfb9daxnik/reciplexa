@@ -255,6 +255,136 @@ fn dn2_math_modules_have_typed_exports_for_all_rpi_names() {
     }
 }
 
+#[test]
+fn dn2_japanese_classes_kihon_markup_agree_on_smoke_consumer() {
+    let idx = LocalPackageIndex::default().with_native(reciplexa_package::std_domain_natives());
+    let src = r#"(import japanese/classes only cl-19 class-name)
+(import japanese/kihon only a5-trim default-horizontal-kihon)
+(import japanese/markup only heading paragraph doc)
+(val main
+  (record (tag "ja-smoke")
+    (cl cl-19)
+    (name (class-name 19))
+    (trim a5-trim)
+    (kihon default-horizontal-kihon)
+    (doc (doc "title" (list (heading "h") (paragraph "p"))))))
+"#;
+    let dir = std::env::temp_dir().join(format!(
+        "reciplexa-dn2-ja-smoke-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0)
+    ));
+    std::fs::create_dir_all(&dir).unwrap();
+    let entry = dir.join("main.rpx");
+    std::fs::write(&entry, src).unwrap();
+    differential_eval_package_modules(
+        &entry,
+        &idx,
+        &["japanese/classes", "japanese/kihon", "japanese/markup"],
+    )
+    .expect("japanese classes/kihon/markup hybrid and DN2 agree on smoke consumer");
+}
+
+#[test]
+fn dn2_japanese_linebreak_static_exports_hybrid_and_direct_native_agree() {
+    let idx = LocalPackageIndex::default().with_native(reciplexa_package::std_domain_natives());
+    let src = r#"(import japanese/linebreak only kinsoku-profile sample-line-head-prohibited)
+(val main (record (profile kinsoku-profile) (head sample-line-head-prohibited)))
+"#;
+    let dir = std::env::temp_dir().join(format!(
+        "reciplexa-dn2-ja-lb-static-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0)
+    ));
+    std::fs::create_dir_all(&dir).unwrap();
+    let entry = dir.join("main.rpx");
+    std::fs::write(&entry, src).unwrap();
+    differential_eval_package_modules(&entry, &idx, &["japanese/linebreak"])
+        .expect("japanese/linebreak static exports hybrid and DN2 agree");
+}
+
+#[test]
+fn dn2_japanese_linebreak_std_parity_via_domain_native() {
+    use reciplexa_eval::{call_domain_native, domain_native::JapaneseLinebreakOp, DomainNativeOp};
+    use reciplexa_package::linebreak_parity_samples;
+    use reciplexa_std::japanese::{classify_char, BreakOpportunity};
+
+    for sample in linebreak_parity_samples() {
+        let prev_id = classify_char(sample.prev).id() as i128;
+        let next_id = classify_char(sample.next).id() as i128;
+        let got = call_domain_native(
+            DomainNativeOp::JapaneseLinebreak(JapaneseLinebreakOp::BreakBetween),
+            &[
+                reciplexa_eval::RuntimeValue::Int(prev_id),
+                reciplexa_eval::RuntimeValue::Int(next_id),
+            ],
+        )
+        .expect("break-between");
+        let reciplexa_eval::RuntimeValue::Record(fields) = got else {
+            panic!("expected record for {}→{}", sample.prev, sample.next);
+        };
+        let kind = fields
+            .iter()
+            .find(|(k, _)| k == "kind")
+            .and_then(|(_, v)| match v {
+                reciplexa_eval::RuntimeValue::String(s) => Some(s.as_str()),
+                _ => None,
+            })
+            .unwrap_or("");
+        assert_eq!(
+            kind, sample.expected,
+            "break-between parity {}→{} ({})",
+            sample.prev, sample.next, sample.note
+        );
+
+        let glyph = sample.prev.to_string();
+        let class = call_domain_native(
+            DomainNativeOp::JapaneseLinebreak(JapaneseLinebreakOp::ClassifySample),
+            &[reciplexa_eval::RuntimeValue::String(glyph)],
+        )
+        .expect("classify-sample");
+        let reciplexa_eval::RuntimeValue::Int(id) = class else {
+            panic!("classify-sample should return Int");
+        };
+        assert_eq!(id, prev_id, "classify-sample parity for {}", sample.prev);
+    }
+
+    // Sanity: std matrix matches itself for a known inseparable pair.
+    assert_eq!(BreakOpportunity::Inseparable.as_str(), "inseparable");
+}
+
+#[test]
+fn dn2_japanese_modules_have_typed_exports_for_all_rpi_names() {
+    use reciplexa_package::{
+        japanese_classes_module, japanese_kihon_module, japanese_linebreak_module,
+        japanese_markup_module,
+    };
+    for m in [
+        japanese_classes_module(),
+        japanese_linebreak_module(),
+        japanese_kihon_module(),
+        japanese_markup_module(),
+    ] {
+        assert_eq!(
+            m.typed_exports.len(),
+            m.exports.len(),
+            "module {}",
+            m.module_path
+        );
+        for name in &m.exports {
+            assert!(
+                m.typed_exports.contains_key(name),
+                "module {} missing typed export `{name}`",
+                m.module_path
+            );
+        }
+    }
+}
+
 fn collect_bindings(expr: &CoreExpr) -> std::collections::HashMap<String, CoreExpr> {
     let mut map = std::collections::HashMap::new();
     fn walk(expr: &CoreExpr, map: &mut std::collections::HashMap<String, CoreExpr>) {
