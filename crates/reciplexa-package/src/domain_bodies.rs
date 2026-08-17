@@ -2,6 +2,10 @@
 
 use crate::domain_length_units::populate_length_units_typed_exports;
 use crate::domain_native::{DomainNativeModule, DomainNativeRegistry};
+use crate::domain_pure_constructors::{
+    populate_color_srgb_typed_exports, populate_graphics_color_typed_exports,
+    populate_graphics_page_typed_exports, populate_graphics_shapes_typed_exports,
+};
 
 /// Seed registry with std domain natives that are ready to replace `.rpx` bodies.
 pub fn std_domain_natives() -> DomainNativeRegistry {
@@ -95,7 +99,7 @@ pub fn length_units_source() -> &'static str {
 
 /// N1.4 — `color/srgb` (standalone color package).
 pub fn color_srgb_module() -> DomainNativeModule {
-    DomainNativeModule::hybrid(
+    let mut module = DomainNativeModule::hybrid(
         "color/srgb",
         vec![
             "srgb".into(),
@@ -117,7 +121,9 @@ pub fn color_srgb_module() -> DomainNativeModule {
             "with-alpha".into(),
         ],
         color_srgb_source(),
-    )
+    );
+    populate_color_srgb_typed_exports(&mut module);
+    module
 }
 
 pub fn color_srgb_source() -> &'static str {
@@ -152,7 +158,7 @@ pub fn color_srgb_source() -> &'static str {
 
 /// N1.4 — `graphics/color` (subset used by graphics demos; shared rgb tags).
 pub fn graphics_color_module() -> DomainNativeModule {
-    DomainNativeModule::hybrid(
+    let mut module = DomainNativeModule::hybrid(
         "graphics/color",
         vec![
             "rgb".into(),
@@ -166,7 +172,9 @@ pub fn graphics_color_module() -> DomainNativeModule {
             "transparent".into(),
         ],
         graphics_color_source(),
-    )
+    );
+    populate_graphics_color_typed_exports(&mut module);
+    module
 }
 
 pub fn graphics_color_source() -> &'static str {
@@ -187,7 +195,7 @@ pub fn graphics_color_source() -> &'static str {
 
 /// N2.2 — `graphics/page` paper sizes + page/pages constructors.
 pub fn graphics_page_module() -> DomainNativeModule {
-    DomainNativeModule::hybrid(
+    let mut module = DomainNativeModule::hybrid(
         "graphics/page",
         vec![
             "a4".into(),
@@ -201,7 +209,9 @@ pub fn graphics_page_module() -> DomainNativeModule {
             "page-size".into(),
         ],
         graphics_page_source(),
-    )
+    );
+    populate_graphics_page_typed_exports(&mut module);
+    module
 }
 
 pub fn graphics_page_source() -> &'static str {
@@ -223,7 +233,7 @@ pub fn graphics_page_source() -> &'static str {
 
 /// N2.3–N2.7 — `graphics/shapes` constructors (full parity with former shapes.rpx).
 pub fn graphics_shapes_module() -> DomainNativeModule {
-    DomainNativeModule::hybrid(
+    let mut module = DomainNativeModule::hybrid(
         "graphics/shapes",
         vec![
             "circle".into(),
@@ -248,7 +258,9 @@ pub fn graphics_shapes_module() -> DomainNativeModule {
             "paint".into(),
         ],
         graphics_shapes_source(),
-    )
+    );
+    populate_graphics_shapes_typed_exports(&mut module);
+    module
 }
 
 pub fn graphics_shapes_source() -> &'static str {

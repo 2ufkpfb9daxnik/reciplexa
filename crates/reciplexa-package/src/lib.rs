@@ -22,6 +22,7 @@ pub mod domain_differential;
 pub mod domain_length_units;
 pub mod domain_native;
 pub mod domain_native_env;
+pub mod domain_pure_constructors;
 pub mod graphics_bridge;
 pub mod japanese_bridge;
 pub mod live_layout_bridge;
@@ -73,6 +74,10 @@ pub use domain_native::{
 };
 pub use domain_native_env::{
     build_domain_native_eval_env, build_domain_native_type_env, register_test_ping_module,
+};
+pub use domain_pure_constructors::{
+    populate_color_srgb_typed_exports, populate_graphics_color_typed_exports,
+    populate_graphics_page_typed_exports, populate_graphics_shapes_typed_exports,
 };
 pub use graphics_bridge::{
     document_from_package_entry, document_from_package_source, GraphicsBridgeError,

@@ -80,6 +80,74 @@ fn dn2_length_units_module_has_typed_exports_for_all_rpi_names() {
     }
 }
 
+#[test]
+fn dn2_color_srgb_hybrid_and_direct_native_agree_on_pkg_color() {
+    let packages = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../packages");
+    let entry = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/pkg_color.rpx");
+    if !entry.is_file() {
+        return;
+    }
+    let idx = LocalPackageIndex::discover(&[packages.as_path()]).unwrap();
+    differential_eval_package_modules(&entry, &idx, &["color/srgb"])
+        .expect("color/srgb hybrid and DN2 agree on pkg_color");
+}
+
+#[test]
+fn dn2_graphics_shapes_hybrid_and_direct_native_agree_on_pkg_circle() {
+    let packages = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../packages");
+    let entry = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/pkg_circle.rpx");
+    if !entry.is_file() {
+        return;
+    }
+    let idx = LocalPackageIndex::discover(&[packages.as_path()]).unwrap();
+    differential_eval_package_modules(&entry, &idx, &["graphics/shapes"])
+        .expect("graphics/shapes hybrid and DN2 agree on pkg_circle");
+}
+
+#[test]
+fn dn2_graphics_modules_hybrid_and_direct_native_agree_on_pkg_graphics_static() {
+    let packages = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../packages");
+    let entry =
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/pkg_graphics_static.rpx");
+    if !entry.is_file() {
+        return;
+    }
+    let idx = LocalPackageIndex::discover(&[packages.as_path()]).unwrap();
+    differential_eval_package_modules(
+        &entry,
+        &idx,
+        &["graphics/color", "graphics/page", "graphics/shapes"],
+    )
+    .expect("graphics modules hybrid and DN2 agree on pkg_graphics_static");
+}
+
+#[test]
+fn dn2_pure_constructor_modules_have_typed_exports_for_all_rpi_names() {
+    use reciplexa_package::{
+        color_srgb_module, graphics_color_module, graphics_page_module, graphics_shapes_module,
+    };
+    for m in [
+        color_srgb_module(),
+        graphics_color_module(),
+        graphics_page_module(),
+        graphics_shapes_module(),
+    ] {
+        assert_eq!(
+            m.typed_exports.len(),
+            m.exports.len(),
+            "module {}",
+            m.module_path
+        );
+        for name in &m.exports {
+            assert!(
+                m.typed_exports.contains_key(name),
+                "module {} missing typed export `{name}`",
+                m.module_path
+            );
+        }
+    }
+}
+
 fn collect_bindings(expr: &CoreExpr) -> std::collections::HashMap<String, CoreExpr> {
     let mut map = std::collections::HashMap::new();
     fn walk(expr: &CoreExpr, map: &mut std::collections::HashMap<String, CoreExpr>) {

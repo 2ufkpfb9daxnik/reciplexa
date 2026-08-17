@@ -6,6 +6,81 @@
 use crate::value::RuntimeValue;
 use crate::EvalError;
 
+/// DN2-2 — `color/srgb` pure constructors.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ColorSrgbOp {
+    Srgb,
+    Rgb,
+    Rgba,
+    FromByte,
+    Gray,
+    Black,
+    White,
+    Red,
+    Green,
+    Blue,
+    Yellow,
+    Cyan,
+    Magenta,
+    Orange,
+    Gray50,
+    Transparent,
+    WithAlpha,
+}
+
+/// DN2-2 — `graphics/color` pure constructors.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum GraphicsColorOp {
+    Rgb,
+    Rgba,
+    Black,
+    White,
+    Red,
+    Green,
+    Blue,
+    Gray,
+    Transparent,
+}
+
+/// DN2-2 — `graphics/page` pure constructors.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum GraphicsPageOp {
+    A4,
+    Letter,
+    A5,
+    A3,
+    Legal,
+    Square,
+    Page,
+    Pages,
+    PageSize,
+}
+
+/// DN2-2 — `graphics/shapes` pure constructors.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum GraphicsShapesOp {
+    Circle,
+    Rect,
+    Ellipse,
+    Line,
+    Path,
+    Polyline,
+    Polygon,
+    Ring,
+    Frame,
+    Group,
+    Text,
+    TextBox,
+    Image,
+    Translate,
+    Rotate,
+    Scale,
+    Opacity,
+    Fill,
+    Stroke,
+    Paint,
+}
+
 /// Stable dispatch id for a typed package export callable.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum DomainNativeOp {
@@ -25,6 +100,11 @@ pub enum DomainNativeOp {
     LengthUnitsFromMm,
     LengthUnitsAddMm,
     LengthUnitsScaleLength,
+    /// DN2-2 — pure record constructors.
+    ColorSrgb(ColorSrgbOp),
+    GraphicsColor(GraphicsColorOp),
+    GraphicsPage(GraphicsPageOp),
+    GraphicsShapes(GraphicsShapesOp),
 }
 
 /// Qualified registry key: `package/module/export`.
@@ -65,6 +145,12 @@ pub fn call_domain_native(
         | DomainNativeOp::LengthUnitsAddMm
         | DomainNativeOp::LengthUnitsScaleLength => {
             crate::domain_length_units::call_length_units(op, args)
+        }
+        DomainNativeOp::ColorSrgb(_)
+        | DomainNativeOp::GraphicsColor(_)
+        | DomainNativeOp::GraphicsPage(_)
+        | DomainNativeOp::GraphicsShapes(_) => {
+            crate::domain_pure_constructors::call_pure_constructor(op, args)
         }
     }
 }
