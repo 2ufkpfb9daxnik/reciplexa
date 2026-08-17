@@ -20,6 +20,7 @@ pub mod doc_preview;
 pub mod domain_bodies;
 pub mod domain_differential;
 pub mod domain_length_units;
+pub mod domain_math_constructors;
 pub mod domain_native;
 pub mod domain_native_env;
 pub mod domain_pure_constructors;
@@ -68,6 +69,14 @@ pub use domain_differential::{
     differential_eval_package_modules, eval_package_entry_main_dn2, DifferentialError,
 };
 pub use domain_length_units::populate_length_units_typed_exports;
+pub use domain_math_constructors::{
+    populate_math_accents_typed_exports, populate_math_align_typed_exports,
+    populate_math_atoms_typed_exports, populate_math_bigops_typed_exports,
+    populate_math_cases_typed_exports, populate_math_delimiters_typed_exports,
+    populate_math_frac_typed_exports, populate_math_matrix_typed_exports,
+    populate_math_scripts_typed_exports, populate_math_sqrt_typed_exports,
+    populate_math_stack_typed_exports,
+};
 pub use domain_native::{
     DomainNativeBindMap, DomainNativeExport, DomainNativeMode, DomainNativeModule,
     DomainNativeRegistry,

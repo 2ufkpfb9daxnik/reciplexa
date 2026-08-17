@@ -148,6 +148,113 @@ fn dn2_pure_constructor_modules_have_typed_exports_for_all_rpi_names() {
     }
 }
 
+#[test]
+fn dn2_math_atoms_hybrid_and_direct_native_agree_on_pkg_math_spacing() {
+    let packages = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../packages");
+    let entry =
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/pkg_math_spacing.rpx");
+    if !entry.is_file() {
+        return;
+    }
+    let idx = LocalPackageIndex::discover(&[packages.as_path()]).unwrap();
+    differential_eval_package_modules(&entry, &idx, &["math/atoms"])
+        .expect("math/atoms hybrid and DN2 agree on pkg_math_spacing");
+}
+
+#[test]
+fn dn2_math_modules_hybrid_and_direct_native_agree_on_smoke_consumer() {
+    let idx = LocalPackageIndex::default().with_native(reciplexa_package::std_domain_natives());
+    let src = r#"(import math/atoms only ord)
+(import math/scripts only superscript)
+(import math/frac only fraction)
+(import math/sqrt only sqrt)
+(import math/delimiters only paren)
+(import math/matrix only matrix-row)
+(import math/accents only hat)
+(import math/bigops only sum)
+(import math/cases only case-arm)
+(import math/align only align-row)
+(import math/stack only stack)
+(val x (ord "x"))
+(val main
+  (record (tag "dn2-math-smoke")
+    (scripts (superscript x x))
+    (frac (fraction x x))
+    (rad (sqrt x))
+    (delim (paren x))
+    (row (matrix-row (list x x)))
+    (accent (hat x))
+    (op (sum x x x))
+    (arm (case-arm x x))
+    (align (align-row (list x)))
+    (stk (stack (list x)))))
+"#;
+    let dir = std::env::temp_dir().join(format!(
+        "reciplexa-dn2-math-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0)
+    ));
+    std::fs::create_dir_all(&dir).unwrap();
+    let entry = dir.join("main.rpx");
+    std::fs::write(&entry, src).unwrap();
+    differential_eval_package_modules(
+        &entry,
+        &idx,
+        &[
+            "math/atoms",
+            "math/scripts",
+            "math/frac",
+            "math/sqrt",
+            "math/delimiters",
+            "math/matrix",
+            "math/accents",
+            "math/bigops",
+            "math/cases",
+            "math/align",
+            "math/stack",
+        ],
+    )
+    .expect("math modules hybrid and DN2 agree on smoke consumer");
+}
+
+#[test]
+fn dn2_math_modules_have_typed_exports_for_all_rpi_names() {
+    use reciplexa_package::{
+        math_accents_module, math_align_module, math_atoms_module, math_bigops_module,
+        math_cases_module, math_delimiters_module, math_frac_module, math_matrix_module,
+        math_scripts_module, math_sqrt_module, math_stack_module,
+    };
+    for m in [
+        math_atoms_module(),
+        math_scripts_module(),
+        math_frac_module(),
+        math_sqrt_module(),
+        math_delimiters_module(),
+        math_matrix_module(),
+        math_accents_module(),
+        math_bigops_module(),
+        math_cases_module(),
+        math_align_module(),
+        math_stack_module(),
+    ] {
+        assert_eq!(
+            m.typed_exports.len(),
+            m.exports.len(),
+            "module {}",
+            m.module_path
+        );
+        for name in &m.exports {
+            assert!(
+                m.typed_exports.contains_key(name),
+                "module {} missing typed export `{name}`",
+                m.module_path
+            );
+        }
+    }
+}
+
 fn collect_bindings(expr: &CoreExpr) -> std::collections::HashMap<String, CoreExpr> {
     let mut map = std::collections::HashMap::new();
     fn walk(expr: &CoreExpr, map: &mut std::collections::HashMap<String, CoreExpr>) {

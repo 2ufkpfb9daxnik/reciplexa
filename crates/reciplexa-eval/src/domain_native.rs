@@ -56,6 +56,184 @@ pub enum GraphicsPageOp {
     PageSize,
 }
 
+/// DN2-3 — `math/atoms` constructors and class constants.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum MathAtomsOp {
+    ClassOrd,
+    ClassOp,
+    ClassBin,
+    ClassRel,
+    ClassOpen,
+    ClassClose,
+    ClassPunct,
+    ClassFence,
+    Symbol,
+    Ord,
+    Op,
+    Bin,
+    Rel,
+    Open,
+    Close,
+    Punct,
+    Fence,
+    Row,
+    Operatorname,
+    Mathrm,
+    Mathbf,
+    Textop,
+    Fraction,
+    Superscript,
+    Subscript,
+}
+
+/// DN2-3 — `math/scripts` superscript / subscript / over / under.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum MathScriptsOp {
+    Absent,
+    Superscript,
+    Subscript,
+    Scripts,
+    Super,
+    Sub,
+    Overline,
+    Underline,
+    Overbrace,
+    Underbrace,
+    Overset,
+    Underset,
+    Over,
+    Under,
+}
+
+/// DN2-3 — `math/frac` fraction constructors.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum MathFracOp {
+    Fraction,
+    Over,
+}
+
+/// DN2-3 — `math/sqrt` radical constructors.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum MathSqrtOp {
+    AbsentIndex,
+    Sqrt,
+    Radical,
+    RadicalIndexed,
+    Root,
+}
+
+/// DN2-3 — `math/delimiters` delimiter / fence wrappers.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum MathDelimitersOp {
+    Delimiter,
+    Paren,
+    Brackets,
+    Braces,
+    Angles,
+    Abs,
+    Floor,
+    Ceil,
+}
+
+/// DN2-3 — `math/matrix` matrix constructors.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum MathMatrixOp {
+    Matrix,
+    Bmatrix,
+    Pmatrix,
+    Vmatrix,
+    MatrixRow,
+    Smallmatrix,
+    MatrixEnv,
+    ArrayEnv,
+    MatrixDelim,
+    BmatrixEnv,
+    PmatrixEnv,
+}
+
+/// DN2-3 — `math/accents` accent wrappers.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum MathAccentsOp {
+    Accent,
+    Hat,
+    Bar,
+    Vec,
+    Tilde,
+    Dot,
+    Ddot,
+    Check,
+    Breve,
+    Acute,
+    Grave,
+    Ring,
+    Overline,
+    Underline,
+    Underbar,
+    Widehat,
+    Widetilde,
+}
+
+/// DN2-3 — `math/bigops` large operators with optional limits.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum MathBigopsOp {
+    Bigop,
+    Sum,
+    Prod,
+    Integral,
+    Oint,
+    Lim,
+    Limsup,
+    Liminf,
+    Max,
+    Min,
+    Withlimits,
+    Nolimits,
+    SumNolimits,
+    IntegralNolimits,
+    BigopScripts,
+    SumScripts,
+    ProdScripts,
+    IntegralScripts,
+    OintScripts,
+}
+
+/// DN2-3 — `math/cases` piecewise / cases constructs.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum MathCasesOp {
+    CaseArm,
+    Cases,
+    CasesLr,
+    CasesDelim,
+    LeftCases,
+    RightCases,
+    Piecewise,
+    Otherwise,
+}
+
+/// DN2-3 — `math/align` alignment rows.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum MathAlignOp {
+    AlignRow,
+    Aligned,
+    Align,
+    AlignLeft,
+    AlignCenter,
+    AlignRight,
+    AlignAt,
+    AlignEq,
+}
+
+/// DN2-3 — `math/stack` vertical stacks and relation symbols.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum MathStackOp {
+    Stack,
+    Stackrel,
+    OversetRel,
+    UndersetRel,
+    Atop,
+    Substack,
+}
+
 /// DN2-2 — `graphics/shapes` pure constructors.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum GraphicsShapesOp {
@@ -105,6 +283,18 @@ pub enum DomainNativeOp {
     GraphicsColor(GraphicsColorOp),
     GraphicsPage(GraphicsPageOp),
     GraphicsShapes(GraphicsShapesOp),
+    /// DN2-3 — math record constructors.
+    MathAtoms(MathAtomsOp),
+    MathScripts(MathScriptsOp),
+    MathFrac(MathFracOp),
+    MathSqrt(MathSqrtOp),
+    MathDelimiters(MathDelimitersOp),
+    MathMatrix(MathMatrixOp),
+    MathAccents(MathAccentsOp),
+    MathBigops(MathBigopsOp),
+    MathCases(MathCasesOp),
+    MathAlign(MathAlignOp),
+    MathStack(MathStackOp),
 }
 
 /// Qualified registry key: `package/module/export`.
@@ -151,6 +341,19 @@ pub fn call_domain_native(
         | DomainNativeOp::GraphicsPage(_)
         | DomainNativeOp::GraphicsShapes(_) => {
             crate::domain_pure_constructors::call_pure_constructor(op, args)
+        }
+        DomainNativeOp::MathAtoms(_)
+        | DomainNativeOp::MathScripts(_)
+        | DomainNativeOp::MathFrac(_)
+        | DomainNativeOp::MathSqrt(_)
+        | DomainNativeOp::MathDelimiters(_)
+        | DomainNativeOp::MathMatrix(_)
+        | DomainNativeOp::MathAccents(_)
+        | DomainNativeOp::MathBigops(_)
+        | DomainNativeOp::MathCases(_)
+        | DomainNativeOp::MathAlign(_)
+        | DomainNativeOp::MathStack(_) => {
+            crate::domain_math_constructors::call_math_constructor(op, args)
         }
     }
 }

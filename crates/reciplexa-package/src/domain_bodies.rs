@@ -1,6 +1,14 @@
 //! Native bodies for std domain packages (synthesized RPX until eval binds constructors).
 
 use crate::domain_length_units::populate_length_units_typed_exports;
+use crate::domain_math_constructors::{
+    populate_math_accents_typed_exports, populate_math_align_typed_exports,
+    populate_math_atoms_typed_exports, populate_math_bigops_typed_exports,
+    populate_math_cases_typed_exports, populate_math_delimiters_typed_exports,
+    populate_math_frac_typed_exports, populate_math_matrix_typed_exports,
+    populate_math_scripts_typed_exports, populate_math_sqrt_typed_exports,
+    populate_math_stack_typed_exports,
+};
 use crate::domain_native::{DomainNativeModule, DomainNativeRegistry};
 use crate::domain_pure_constructors::{
     populate_color_srgb_typed_exports, populate_graphics_color_typed_exports,
@@ -314,7 +322,7 @@ pub fn graphics_shapes_source() -> &'static str {
 
 /// N3.1 — `math/atoms` atom class + symbol/row constructors.
 pub fn math_atoms_module() -> DomainNativeModule {
-    DomainNativeModule::hybrid(
+    let mut module = DomainNativeModule::hybrid(
         "math/atoms",
         vec![
             "class-ord".into(),
@@ -344,7 +352,9 @@ pub fn math_atoms_module() -> DomainNativeModule {
             "subscript".into(),
         ],
         math_atoms_source(),
-    )
+    );
+    populate_math_atoms_typed_exports(&mut module);
+    module
 }
 
 pub fn math_atoms_source() -> &'static str {
@@ -403,7 +413,7 @@ pub fn math_atoms_source() -> &'static str {
 
 /// N3.2 — `math/scripts` superscript / subscript / under / over.
 pub fn math_scripts_module() -> DomainNativeModule {
-    DomainNativeModule::hybrid(
+    let mut module = DomainNativeModule::hybrid(
         "math/scripts",
         vec![
             "absent".into(),
@@ -422,7 +432,9 @@ pub fn math_scripts_module() -> DomainNativeModule {
             "under".into(),
         ],
         math_scripts_source(),
-    )
+    );
+    populate_math_scripts_typed_exports(&mut module);
+    module
 }
 
 pub fn math_scripts_source() -> &'static str {
@@ -472,11 +484,13 @@ pub fn math_scripts_source() -> &'static str {
 
 /// N3.2 — `math/frac` fraction constructors.
 pub fn math_frac_module() -> DomainNativeModule {
-    DomainNativeModule::hybrid(
+    let mut module = DomainNativeModule::hybrid(
         "math/frac",
         vec!["fraction".into(), "over".into()],
         math_frac_source(),
-    )
+    );
+    populate_math_frac_typed_exports(&mut module);
+    module
 }
 
 pub fn math_frac_source() -> &'static str {
@@ -492,7 +506,7 @@ pub fn math_frac_source() -> &'static str {
 
 /// N3.2 — `math/sqrt` radical constructors.
 pub fn math_sqrt_module() -> DomainNativeModule {
-    DomainNativeModule::hybrid(
+    let mut module = DomainNativeModule::hybrid(
         "math/sqrt",
         vec![
             "absent-index".into(),
@@ -502,7 +516,9 @@ pub fn math_sqrt_module() -> DomainNativeModule {
             "root".into(),
         ],
         math_sqrt_source(),
-    )
+    );
+    populate_math_sqrt_typed_exports(&mut module);
+    module
 }
 
 pub fn math_sqrt_source() -> &'static str {
@@ -527,7 +543,7 @@ pub fn math_sqrt_source() -> &'static str {
 
 /// N3.3 — `math/delimiters` delimiter / fence wrappers.
 pub fn math_delimiters_module() -> DomainNativeModule {
-    DomainNativeModule::hybrid(
+    let mut module = DomainNativeModule::hybrid(
         "math/delimiters",
         vec![
             "delimiter".into(),
@@ -540,7 +556,9 @@ pub fn math_delimiters_module() -> DomainNativeModule {
             "ceil".into(),
         ],
         math_delimiters_source(),
-    )
+    );
+    populate_math_delimiters_typed_exports(&mut module);
+    module
 }
 
 pub fn math_delimiters_source() -> &'static str {
@@ -567,7 +585,7 @@ pub fn math_delimiters_source() -> &'static str {
 
 /// N3.4 — `math/matrix` matrix constructors.
 pub fn math_matrix_module() -> DomainNativeModule {
-    DomainNativeModule::hybrid(
+    let mut module = DomainNativeModule::hybrid(
         "math/matrix",
         vec![
             "matrix".into(),
@@ -583,7 +601,9 @@ pub fn math_matrix_module() -> DomainNativeModule {
             "pmatrix-env".into(),
         ],
         math_matrix_source(),
-    )
+    );
+    populate_math_matrix_typed_exports(&mut module);
+    module
 }
 
 pub fn math_matrix_source() -> &'static str {
@@ -618,7 +638,7 @@ pub fn math_matrix_source() -> &'static str {
 
 /// N3.4 — `math/accents` accent wrappers.
 pub fn math_accents_module() -> DomainNativeModule {
-    DomainNativeModule::hybrid(
+    let mut module = DomainNativeModule::hybrid(
         "math/accents",
         vec![
             "accent".into(),
@@ -640,7 +660,9 @@ pub fn math_accents_module() -> DomainNativeModule {
             "widetilde".into(),
         ],
         math_accents_source(),
-    )
+    );
+    populate_math_accents_typed_exports(&mut module);
+    module
 }
 
 pub fn math_accents_source() -> &'static str {
@@ -684,7 +706,7 @@ pub fn math_accents_source() -> &'static str {
 
 /// N3.4 — `math/bigops` large operators with optional limits.
 pub fn math_bigops_module() -> DomainNativeModule {
-    DomainNativeModule::hybrid(
+    let mut module = DomainNativeModule::hybrid(
         "math/bigops",
         vec![
             "bigop".into(),
@@ -708,7 +730,9 @@ pub fn math_bigops_module() -> DomainNativeModule {
             "oint-scripts".into(),
         ],
         math_bigops_source(),
-    )
+    );
+    populate_math_bigops_typed_exports(&mut module);
+    module
 }
 
 pub fn math_bigops_source() -> &'static str {
@@ -800,7 +824,7 @@ pub fn math_bigops_source() -> &'static str {
 
 /// N3.3 — `math/cases` piecewise / cases constructs.
 pub fn math_cases_module() -> DomainNativeModule {
-    DomainNativeModule::hybrid(
+    let mut module = DomainNativeModule::hybrid(
         "math/cases",
         vec![
             "case-arm".into(),
@@ -813,7 +837,9 @@ pub fn math_cases_module() -> DomainNativeModule {
             "otherwise".into(),
         ],
         math_cases_source(),
-    )
+    );
+    populate_math_cases_typed_exports(&mut module);
+    module
 }
 
 pub fn math_cases_source() -> &'static str {
@@ -842,7 +868,7 @@ pub fn math_cases_source() -> &'static str {
 
 /// N3.5 — `math/align` alignment rows.
 pub fn math_align_module() -> DomainNativeModule {
-    DomainNativeModule::hybrid(
+    let mut module = DomainNativeModule::hybrid(
         "math/align",
         vec![
             "align-row".into(),
@@ -855,7 +881,9 @@ pub fn math_align_module() -> DomainNativeModule {
             "align-eq".into(),
         ],
         math_align_source(),
-    )
+    );
+    populate_math_align_typed_exports(&mut module);
+    module
 }
 
 pub fn math_align_source() -> &'static str {
@@ -881,7 +909,7 @@ pub fn math_align_source() -> &'static str {
 
 /// N3.5 — `math/stack` vertical stacks and relation symbols.
 pub fn math_stack_module() -> DomainNativeModule {
-    DomainNativeModule::hybrid(
+    let mut module = DomainNativeModule::hybrid(
         "math/stack",
         vec![
             "stack".into(),
@@ -892,7 +920,9 @@ pub fn math_stack_module() -> DomainNativeModule {
             "substack".into(),
         ],
         math_stack_source(),
-    )
+    );
+    populate_math_stack_typed_exports(&mut module);
+    module
 }
 
 pub fn math_stack_source() -> &'static str {
