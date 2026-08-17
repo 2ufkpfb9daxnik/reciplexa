@@ -136,7 +136,7 @@ remaining observational gaps without treating 300 exports as a coverage target:
 
 1. Differential eval on deeper existing examples (`pkg_graphics_shapes`, `pkg_columns`, `pkg_math`).
 2. `japanese/linebreak` dynamic exports: predicates and `classify-sample` where Hybrid and std agree; `break-between` **kind** on Hybrid-covered pairs. Notes and the full pair matrix follow `reciplexa_std` (DN2-4), not the Hybrid nested-if stub.
-3. Structured Failure conversion (later increment).
+3. Structured Failure conversion for `length/units` arity/type (`package/arity`, `package/type` on the eval abort; not yet a `failure` effect). Other std modules still use unstructured `EvalError` strings.
 4. Skip native stub body elaboration (later increment).
 
 ## Portable fallback

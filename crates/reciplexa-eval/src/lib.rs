@@ -9,6 +9,7 @@ pub mod domain_japanese_constructors;
 pub mod domain_length_units;
 pub mod domain_math_constructors;
 pub mod domain_native;
+pub mod domain_native_failure;
 pub mod domain_pure_constructors;
 pub mod eval;
 pub mod graphics_value;
@@ -23,6 +24,9 @@ pub use domain_native::{
     JapaneseKihonOp, JapaneseLinebreakOp, JapaneseMarkupOp, MathAccentsOp, MathAlignOp,
     MathAtomsOp, MathBigopsOp, MathCasesOp, MathDelimitersOp, MathFracOp, MathMatrixOp,
     MathScriptsOp, MathSqrtOp, MathStackOp,
+};
+pub use domain_native_failure::{
+    parse_package_failure, PACKAGE_FAILURE_ARITY, PACKAGE_FAILURE_NS, PACKAGE_FAILURE_TYPE,
 };
 pub use eval::{
     eval_expr, eval_expr_with_extra, eval_source, eval_source_with_host, primitive_env,

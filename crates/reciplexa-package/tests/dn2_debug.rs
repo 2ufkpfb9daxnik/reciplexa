@@ -602,18 +602,26 @@ fn dn2_length_units_package_typechecks_and_exports_are_pure() {
 fn dn2_length_units_arity_failure_agrees_on_hybrid_and_direct_native() {
     let idx = LocalPackageIndex::default().with_native(std_domain_natives());
     let src = "(import length/units only mm)\n(val main (mm))\n";
-    let dir = std::env::temp_dir().join(format!(
-        "reciplexa-dn2-mm-arity-{}",
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_nanos())
-            .unwrap_or(0)
-    ));
-    std::fs::create_dir_all(&dir).unwrap();
-    let entry = dir.join("main.rpx");
-    std::fs::write(&entry, src).unwrap();
+    let entry = write_temp_rpx("reciplexa-dn2-mm-arity", src);
     differential_eval_both_fail(&entry, &idx, &["length/units"])
         .expect("mm arity Failure on both hybrid and DN2");
+    let err = eval_package_entry_main(&entry, &idx).expect_err("DN2 mm arity");
+    let report = reciplexa_eval::parse_package_failure(&err.to_string()).expect("structured");
+    assert_eq!(report.code.as_path(), "package/arity");
+    assert!(report.message.contains("length/units/mm"));
+}
+
+#[test]
+fn dn2_length_units_type_failure_is_structured_on_direct_native() {
+    let idx = LocalPackageIndex::default().with_native(std_domain_natives());
+    let src = "(import length/units only to-mm)\n(val main (to-mm 1))\n";
+    let entry = write_temp_rpx("reciplexa-dn2-tomm-type", src);
+    differential_eval_both_fail(&entry, &idx, &["length/units"])
+        .expect("to-mm type Failure on both hybrid and DN2");
+    let err = eval_package_entry_main(&entry, &idx).expect_err("DN2 to-mm type");
+    let report = reciplexa_eval::parse_package_failure(&err.to_string()).expect("structured");
+    assert_eq!(report.code.as_path(), "package/type");
+    assert!(report.message.contains("length/units/to-mm"));
 }
 
 fn repo_example(name: &str) -> PathBuf {

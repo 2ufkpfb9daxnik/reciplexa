@@ -19,6 +19,11 @@ impl EvalError {
             message: format!("unhandled failure: {report}"),
         }
     }
+
+    /// Structured package Failure when this abort came from a DN2 contract violation.
+    pub fn failure_report(&self) -> Option<reciplexa_outcome::FailureReport> {
+        crate::domain_native_failure::parse_package_failure(&self.message)
+    }
 }
 
 pub type EvalResult = Result<RuntimeValue, EvalError>;
