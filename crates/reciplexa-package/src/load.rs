@@ -61,6 +61,11 @@ pub struct ResolvedImport {
     pub source: String,
     /// When `interface-root` is set, the public export names from the `.rpi` stub.
     pub interface_exports: Option<Vec<String>>,
+    /// Canonical `package/module` native registry key, when this import is native-backed.
+    ///
+    /// Distinct from [`Self::unit_name`], which keeps the author import spelling
+    /// (`g/shapes`, bare `graphics`, or `graphics/shapes`).
+    pub native_module_path: Option<String>,
 }
 
 /// Index of packages discovered under local search roots (`packages/` dirs).
@@ -321,8 +326,9 @@ impl LocalPackageIndex {
             }) {
                 return Ok(ResolvedImport {
                     unit_name: import_path.to_string(),
-                    source: self.native_module_source(import_path, native),
+                    source: self.native_module_source(&native.module_path, native),
                     interface_exports: Some(native.exports.clone()),
+                    native_module_path: Some(native.module_path.clone()),
                 });
             }
         }
@@ -375,6 +381,7 @@ impl LocalPackageIndex {
                 unit_name: import_path.to_string(),
                 source: self.native_module_source(&native_key, native),
                 interface_exports,
+                native_module_path: Some(native.module_path.clone()),
             });
         }
 
@@ -407,6 +414,7 @@ impl LocalPackageIndex {
             unit_name: import_path.to_string(),
             source: src,
             interface_exports,
+            native_module_path: None,
         })
     }
 
@@ -567,27 +575,46 @@ pub fn elaborate_with_packages(
     entry_path: impl AsRef<Path>,
     index: &LocalPackageIndex,
 ) -> Result<Vec<ElaboratedUnit>, PackageLoadError> {
+    let bind_map = DomainNativeBindMap::bind_stubs(index.native())
+        .map_err(|e| PackageLoadError::Module(ModuleError { message: e }))?;
+    elaborate_with_packages_bound(entry_path, index, &bind_map)
+}
+
+pub(crate) fn elaborate_with_packages_bound(
+    entry_path: impl AsRef<Path>,
+    index: &LocalPackageIndex,
+    bind_map: &DomainNativeBindMap,
+) -> Result<Vec<ElaboratedUnit>, PackageLoadError> {
     let entry_path = entry_path.as_ref();
     verify_package_lock_for_entry(entry_path)
         .map_err(|e| PackageLoadError::Io(format!("lock verify: {e}")))?;
     let loaded = load_module_tree_with_packages(entry_path, index)?;
     let mut interface_exports: HashMap<String, Vec<String>> = HashMap::new();
-    for (name, _) in &loaded {
-        // Sibling units have no package interface; package imports do.
-        if let Ok(resolved) = index.resolve_import_detailed(name) {
-            if let Some(exports) = resolved.interface_exports {
-                interface_exports.insert(name.clone(), exports);
-            }
-        }
-    }
     let mut native_bodies: HashMap<String, CoreExpr> = HashMap::new();
     for (name, _) in &loaded {
-        if is_hybrid_override(index, name) {
+        // Sibling units have no package interface; package imports do.
+        let Ok(resolved) = index.resolve_import_detailed(name) else {
+            continue;
+        };
+        if let Some(exports) = resolved.interface_exports {
+            interface_exports.insert(name.clone(), exports);
+        }
+        let Some(native_path) = resolved.native_module_path.as_deref() else {
+            continue;
+        };
+        if is_hybrid_override(index, native_path) {
             continue;
         }
-        if let Some(native) = index.native.get(name) {
-            native_bodies.insert(name.clone(), native.stub_core_expr());
+        let Some(native) = index.native.get(native_path) else {
+            continue;
+        };
+        if native.typed_exports.is_empty() {
+            continue;
         }
+        let expr = native
+            .stub_core_expr(bind_map)
+            .map_err(|e| PackageLoadError::Module(ModuleError { message: e }))?;
+        native_bodies.insert(name.clone(), expr);
     }
     let units: Vec<(&str, UnitBody<'_>)> = loaded
         .iter()
@@ -613,15 +640,15 @@ pub fn eval_package_entry_main(
     index: &LocalPackageIndex,
 ) -> Result<RuntimeValue, PackageLoadError> {
     let entry_path = entry_path.as_ref();
-    let units = elaborate_with_packages(entry_path, index)?;
-    DomainNativeBindMap::bind_stubs(index.native())
+    let bind_map = DomainNativeBindMap::bind_stubs(index.native())
         .map_err(|e| PackageLoadError::Module(ModuleError { message: e }))?;
+    let units = elaborate_with_packages_bound(entry_path, index, &bind_map)?;
     let stem = utf8_file_stem(entry_path)?;
     let demo = units
         .iter()
         .find(|u| u.name == stem)
         .ok_or_else(|| PackageLoadError::NotFound(format!("missing elaborated unit `{stem}`")))?;
-    let extra = build_domain_native_eval_env(index.native());
+    let extra = build_domain_native_eval_env(&bind_map);
     let v = eval_expr_with_extra(&demo.expr, &primitive_env(), &extra, &mut UnitHost)
         .map_err(|e| PackageLoadError::Module(ModuleError { message: e.message }))?;
     Ok(maybe_materialize_package_resources_for_entry(
@@ -629,14 +656,17 @@ pub fn eval_package_entry_main(
     ))
 }
 
-/// Evaluate an elaborated package unit with production DN2 slot bindings.
+/// Evaluate an elaborated package unit with production DN2 BindingId slot bindings.
+///
+/// [`DomainNativeBindMap::bind_stubs`] is deterministic (BTreeMap export order), so a
+/// map rebuilt here matches the IDs used by a prior [`elaborate_with_packages`].
 pub fn eval_elaborated_package_expr(
     expr: &reciplexa_core::expr::CoreExpr,
     index: &LocalPackageIndex,
 ) -> Result<RuntimeValue, PackageLoadError> {
-    let extra = build_domain_native_eval_env(index.native());
-    DomainNativeBindMap::bind_stubs(index.native())
+    let bind_map = DomainNativeBindMap::bind_stubs(index.native())
         .map_err(|e| PackageLoadError::Module(ModuleError { message: e }))?;
+    let extra = build_domain_native_eval_env(&bind_map);
     eval_expr_with_extra(expr, &primitive_env(), &extra, &mut UnitHost)
         .map_err(|e| PackageLoadError::Module(ModuleError { message: e.message }))
 }

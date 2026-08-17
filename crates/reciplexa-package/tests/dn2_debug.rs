@@ -5,7 +5,8 @@ use reciplexa_core::expr::CoreExpr;
 use reciplexa_eval::RuntimeValue;
 use reciplexa_package::{
     differential_eval_both_fail, differential_eval_package_modules, eval_package_entry_main,
-    register_test_ping_module, std_domain_natives, DomainNativeRegistry, LocalPackageIndex,
+    register_test_ping_module, std_domain_natives, DomainNativeBindMap, DomainNativeRegistry,
+    LocalPackageIndex,
 };
 
 #[test]
@@ -35,20 +36,36 @@ fn dn2_single_unit_via_elaborate_units() {
 }
 
 #[test]
-fn dn2_stub_core_expr_matches_elaborated_stub() {
+fn dn2_stub_core_expr_uses_binding_id_slots() {
     let mut reg = DomainNativeRegistry::empty();
     register_test_ping_module(&mut reg);
+    let map = DomainNativeBindMap::bind_stubs(&reg).expect("stub bind");
     let ping = reg.get("native/test").unwrap();
-    assert_eq!(
-        ping.stub_core_expr(),
-        elaborate_source(&ping.effective_source()).expect("ping stub elaborates")
+    let production = ping.stub_core_expr(&map).expect("production Core");
+    let debug_stub = elaborate_source(&ping.effective_source()).expect("ping stub elaborates");
+    let debug_dump = format!("{debug_stub:?}");
+    assert!(
+        debug_dump.contains("dn2slot-"),
+        "debug stub RPX should still name dn2slot identifiers, got {debug_dump}"
+    );
+    let id = map.binding_for("native/test", "ping").expect("bound");
+    let production_dump = format!("{production:?}");
+    assert!(
+        production_dump.contains(&DomainNativeBindMap::slot_key(id)),
+        "production Core should name BindingId slots, got {production_dump}"
+    );
+    assert!(
+        !production_dump.contains("dn2slot-"),
+        "production Core must not use debug stub identifiers, got {production_dump}"
     );
 
     let length = reciplexa_package::length_units_module();
-    assert_eq!(
-        length.stub_core_expr(),
-        elaborate_source(&length.effective_source()).expect("length stub elaborates")
-    );
+    let std = reciplexa_package::std_domain_natives();
+    let std_map = DomainNativeBindMap::bind_stubs(&std).expect("std bind");
+    let length_core = length.stub_core_expr(&std_map).expect("length Core");
+    let length_dump = format!("{length_core:?}");
+    assert!(length_dump.contains("dn2bid-"));
+    assert!(!length_dump.contains("dn2slot-"));
 }
 
 #[test]

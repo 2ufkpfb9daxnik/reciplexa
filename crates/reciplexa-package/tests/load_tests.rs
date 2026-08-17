@@ -71,6 +71,19 @@ fn elaborate_and_eval_circle_from_package() {
     .unwrap();
     let idx = index();
     let units = elaborate_with_packages(&entry, &idx).unwrap();
+    let shapes = units
+        .iter()
+        .find(|u| u.name == "graphics/shapes")
+        .expect("shapes unit");
+    let shapes_dump = format!("{:?}", shapes.expr);
+    assert!(
+        shapes_dump.contains("dn2bid-"),
+        "qualified native Core should use BindingId slots, got {shapes_dump}"
+    );
+    assert!(
+        !shapes_dump.contains("dn2slot-"),
+        "qualified native Core must skip debug stub RPX, got {shapes_dump}"
+    );
     let demo = units.iter().find(|u| u.name == "demo").unwrap();
     let v = eval_elaborated_package_expr(&demo.expr, &idx).unwrap();
     let s = format!("{v}");
@@ -90,6 +103,12 @@ fn path_dep_alias_resolves_import() {
     let (name, src) = idx.resolve_import("g/shapes").unwrap();
     assert_eq!(name, "g/shapes");
     assert!(src.contains("dn2slot-graphics-shapes-circle"));
+    let detailed = idx.resolve_import_detailed("g/shapes").unwrap();
+    assert_eq!(detailed.unit_name, "g/shapes");
+    assert_eq!(
+        detailed.native_module_path.as_deref(),
+        Some("graphics/shapes")
+    );
 }
 
 #[test]
@@ -401,6 +420,86 @@ fn elaborate_consumer_via_alias_import() {
     let v = eval_elaborated_package_expr(&main.expr, &idx).unwrap();
     let s = format!("{v}");
     assert!(s.contains("circle") || s.contains("10"), "got {s}");
+    let shapes = units
+        .iter()
+        .find(|u| u.name == "g/shapes")
+        .expect("alias unit");
+    let dump = format!("{:?}", shapes.expr);
+    assert!(
+        dump.contains("dn2bid-"),
+        "alias native Core should use BindingId slots, got {dump}"
+    );
+    assert!(
+        !dump.contains("dn2slot-"),
+        "alias native Core must skip debug stub RPX, got {dump}"
+    );
+}
+
+#[test]
+fn alias_hybrid_override_uses_canonical_native_path() {
+    let consumer = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/pkg_consumer");
+    let (idx, _) =
+        LocalPackageIndex::discover_with_consumer(&[workspace_packages()], &consumer).unwrap();
+    let idx = idx
+        .with_hybrid_reference_bodies(&["graphics/shapes"])
+        .expect("hybrid graphics/shapes");
+    let entry = consumer.join("src/main.rpx");
+    let units = elaborate_with_packages(&entry, &idx).unwrap();
+    let shapes = units
+        .iter()
+        .find(|u| u.name == "g/shapes")
+        .expect("alias unit");
+    let dump = format!("{:?}", shapes.expr);
+    assert!(
+        !dump.contains("dn2bid-"),
+        "hybrid override must elaborate RPX, not BindingId slots, got {dump}"
+    );
+    assert!(
+        dump.contains("Lambda") || dump.contains("circle"),
+        "hybrid override source should bind circle, got {dump}"
+    );
+}
+
+#[test]
+fn bare_package_import_skips_stub_elaboration_and_evals() {
+    let idx = index();
+    let resolved = idx.resolve_import_detailed("graphics").unwrap();
+    assert_eq!(resolved.unit_name, "graphics");
+    assert_eq!(
+        resolved.native_module_path.as_deref(),
+        Some("graphics/shapes")
+    );
+
+    let dir = tempfile_dir();
+    let entry = dir.join("demo.rpx");
+    std::fs::write(
+        &entry,
+        r#"(import graphics only circle)
+(val main (circle 105 148.5 40))
+"#,
+    )
+    .unwrap();
+    let units = elaborate_with_packages(&entry, &idx).unwrap();
+    let graphics = units
+        .iter()
+        .find(|u| u.name == "graphics")
+        .expect("bare graphics unit");
+    let dump = format!("{:?}", graphics.expr);
+    assert!(
+        dump.contains("dn2bid-"),
+        "bare native Core should use BindingId slots, got {dump}"
+    );
+    assert!(
+        !dump.contains("dn2slot-"),
+        "bare native Core must skip debug stub RPX, got {dump}"
+    );
+    let demo = units.iter().find(|u| u.name == "demo").unwrap();
+    let v = eval_elaborated_package_expr(&demo.expr, &idx).unwrap();
+    let s = format!("{v}");
+    assert!(
+        s.contains("circle") || s.contains("105"),
+        "expected circle record value, got {s}"
+    );
 }
 
 #[test]

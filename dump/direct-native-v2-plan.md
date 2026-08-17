@@ -34,8 +34,9 @@ author import
 
 `BindingId` は source resolve 用であり、永続 ABI identity ではない。DN2 の registry key は
 `package/module/export` とし、本番 `eval_package_entry_main` / `typecheck_with_packages`
-は stub を language binder で解決したうえで compilation `BindingId` を割り当て、
-`DomainNativeBindMap::op_for` で typed callable を引ける。
+は compilation `BindingId` を割り当て、`DomainNativeBindMap::op_for` で typed callable を
+`dn2bid-{id}` extra-env スロットへ入れる。author の import 綴り（修飾、alias、bare package）は
+canonical `package/module` へ対応付けて stub RPX elaboration を省略する。
 
 ## Architecture
 
@@ -137,7 +138,7 @@ remaining observational gaps without treating 300 exports as a coverage target:
 1. Differential eval on deeper existing examples (`pkg_graphics_shapes`, `pkg_columns`, `pkg_math`).
 2. `japanese/linebreak` dynamic exports: predicates and `classify-sample` where Hybrid and std agree; `break-between` **kind** on Hybrid-covered pairs. Notes and the full pair matrix follow `reciplexa_std` (DN2-4), not the Hybrid nested-if stub.
 3. Structured Failure: DN2 arity uses `package/arity` across std modules; type uses `package/type` for `length/units`, `color/srgb`, and `japanese/*` contract checks. Not yet a `failure` effect.
-4. Skip native stub body elaboration: production native units synthesize Core from typed exports (`stub_core_expr` / `UnitBody::Native`). Hybrid reference bodies still elaborate RPX.
+4. Skip native stub body elaboration: production native units synthesize Core from typed exports (`stub_core_expr` / `UnitBody::Native`) keyed by compilation BindingId (`dn2bid-*` via `DomainNativeBindMap::op_for`). Author import spelling (qualified, alias, or bare package) maps to the canonical `package/module` native path. Hybrid reference bodies still elaborate RPX.
 
 ## Portable fallback
 

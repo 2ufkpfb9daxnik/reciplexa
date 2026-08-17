@@ -61,36 +61,43 @@ impl DomainNativeModule {
         self.dn2_stub_source()
     }
 
-    /// Core Let spine equivalent to [`Self::dn2_stub_source`], without RPX parse.
-    pub fn stub_core_expr(&self) -> CoreExpr {
-        let bindings: Vec<(String, CoreExpr)> = self
-            .typed_exports
-            .values()
-            .map(|export| {
-                let slot = CoreExpr::Var(dn2_slot(&self.module_path, &export.name));
-                let value = if export_is_eager_value(&export.ty) {
-                    CoreExpr::App {
-                        fun: Box::new(slot),
-                        args: vec![],
-                    }
-                } else {
-                    slot
-                };
-                (export.name.clone(), value)
-            })
-            .collect();
+    /// Core Let spine for production load: public names alias compilation [`BindingId`] slots.
+    ///
+    /// Debug stub RPX from [`Self::dn2_stub_source`] still names `dn2slot-*` identifiers.
+    pub fn stub_core_expr(&self, bind_map: &DomainNativeBindMap) -> Result<CoreExpr, String> {
+        let mut bindings = Vec::with_capacity(self.typed_exports.len());
+        for export in self.typed_exports.values() {
+            let id = bind_map
+                .binding_for(&self.module_path, &export.name)
+                .ok_or_else(|| {
+                    format!(
+                        "DN2 bind: `{}/{}` has no compilation BindingId",
+                        self.module_path, export.name
+                    )
+                })?;
+            let slot = CoreExpr::Var(DomainNativeBindMap::slot_key(id));
+            let value = if export_is_eager_value(&export.ty) {
+                CoreExpr::App {
+                    fun: Box::new(slot),
+                    args: vec![],
+                }
+            } else {
+                slot
+            };
+            bindings.push((export.name.clone(), value));
+        }
         let body = bindings
             .last()
             .map(|(name, _)| CoreExpr::Var(name.clone()))
             .unwrap_or(CoreExpr::Seq(vec![]));
-        bindings
+        Ok(bindings
             .into_iter()
             .rev()
             .fold(body, |body, (name, value)| CoreExpr::Let {
                 name,
                 value: Box::new(value),
                 body: Box::new(body),
-            })
+            }))
     }
 
     /// Minimal RPX stub that aliases public exports to internal DN2 eval slots.
@@ -182,6 +189,7 @@ pub struct DomainNativeBindMap {
     qualified_to_binding: BTreeMap<String, BindingId>,
     binding_to_qualified: BTreeMap<BindingId, String>,
     binding_to_op: BTreeMap<BindingId, DomainNativeOp>,
+    binding_to_site: BTreeMap<BindingId, (String, String)>,
 }
 
 impl DomainNativeBindMap {
@@ -200,7 +208,26 @@ impl DomainNativeBindMap {
         self.qualified_to_binding.insert(qualified.clone(), id);
         self.binding_to_qualified.insert(id, qualified);
         self.binding_to_op.insert(id, op);
+        self.binding_to_site
+            .insert(id, (module_path.to_string(), export_name.to_string()));
         id
+    }
+
+    /// Eval/typecheck extra-env key for a compilation [`BindingId`].
+    pub fn slot_key(id: BindingId) -> String {
+        format!("dn2bid-{}", id.get())
+    }
+
+    /// `(module_path, export_name)` recorded for `id`.
+    pub fn site_for(&self, id: BindingId) -> Option<(&str, &str)> {
+        self.binding_to_site
+            .get(&id)
+            .map(|(module, name)| (module.as_str(), name.as_str()))
+    }
+
+    /// Bound callables in BindingId order.
+    pub fn iter_ops(&self) -> impl Iterator<Item = (BindingId, DomainNativeOp)> + '_ {
+        self.binding_to_op.iter().map(|(id, op)| (*id, *op))
     }
 
     pub fn binding_for(&self, module_path: &str, export_name: &str) -> Option<BindingId> {
@@ -305,5 +332,18 @@ mod tests {
         assert!(id.is_valid());
         assert_eq!(map.qualified_for(id), Some("native/test/ping"));
         assert_eq!(map.op_for(id), Some(DomainNativeOp::TestPing));
+        assert_eq!(map.site_for(id), Some(("native/test", "ping")));
+        assert_eq!(
+            DomainNativeBindMap::slot_key(id),
+            format!("dn2bid-{}", id.get())
+        );
+        let expr = reg
+            .get("native/test")
+            .unwrap()
+            .stub_core_expr(&map)
+            .expect("production Core");
+        let dump = format!("{expr:?}");
+        assert!(dump.contains(&DomainNativeBindMap::slot_key(id)));
+        assert!(!dump.contains("dn2slot-"));
     }
 }

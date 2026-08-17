@@ -8,8 +8,9 @@ use std::path::Path;
 
 use reciplexa_core::{typecheck_core_expr_with_vars, CheckError, CoreType, DataEnv};
 
+use crate::domain_native::DomainNativeBindMap;
 use crate::domain_native_env::build_domain_native_type_env;
-use crate::load::{elaborate_with_packages, LocalPackageIndex, PackageLoadError};
+use crate::load::{elaborate_with_packages_bound, LocalPackageIndex, PackageLoadError};
 
 /// Failures from package Core typecheck.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -48,9 +49,9 @@ pub fn typecheck_with_packages(
     entry_path: impl AsRef<Path>,
     index: &LocalPackageIndex,
 ) -> Result<CoreType, PackageTypecheckError> {
-    let units = elaborate_with_packages(entry_path.as_ref(), index)?;
-    crate::domain_native::DomainNativeBindMap::bind_stubs(index.native())
+    let bind_map = DomainNativeBindMap::bind_stubs(index.native())
         .map_err(|e| PackageLoadError::Module(reciplexa_bind::ModuleError { message: e }))?;
+    let units = elaborate_with_packages_bound(entry_path.as_ref(), index, &bind_map)?;
     let stem = entry_path
         .as_ref()
         .file_stem()
@@ -63,7 +64,7 @@ pub fn typecheck_with_packages(
     Ok(typecheck_core_expr_with_vars(
         &demo.expr,
         DataEnv::default(),
-        &build_domain_native_type_env(index.native()),
+        &build_domain_native_type_env(&bind_map, index.native()),
     )?)
 }
 
