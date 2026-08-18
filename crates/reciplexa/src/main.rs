@@ -11,7 +11,7 @@ use reciplexa::document_pipeline::{document_snapshot_from_source, provenance_hin
 use reciplexa::pipeline::{document_for_export, PipelineError};
 use reciplexa_effect::{seed_from_env, EffectError, EffectHandler, LcgRng, Value};
 use reciplexa_identity::document::DocumentIdentity;
-use reciplexa_pdf::write_document_with_base;
+use reciplexa_pdf::write_document_with_host_fonts;
 use reciplexa_pptx::write_document as write_pptx;
 use reciplexa_svg::write_document_with_hints;
 
@@ -160,7 +160,7 @@ fn render(input: &str, output: &str) -> Result<(), String> {
         .filter(|p| !p.as_os_str().is_empty())
         .map(|p| p.to_path_buf());
     match export_kind(&path) {
-        ExportKind::Pdf => write_document_with_base(&doc, base.as_deref(), &mut file)
+        ExportKind::Pdf => write_document_with_host_fonts(&doc, base.as_deref(), &mut file)
             .map_err(|e| format!("pdf: {e:?}"))?,
         ExportKind::Svg => {
             let hints = document_snapshot_from_source(&src, DocumentIdentity::new(1))

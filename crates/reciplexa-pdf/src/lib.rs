@@ -130,6 +130,93 @@ pub fn document_to_pdf_with_base(doc: &Document, base: Option<&Path>) -> Result<
     ))
 }
 
+/// PDF emission that subsets `font_bytes`.
+///
+/// This API does not compare against a separate layout identity. Use
+/// [`document_to_pdf_matching_layout`] when the layout [`FontId`] is known.
+pub fn document_to_pdf_with_layout_font(
+    doc: &Document,
+    base: Option<&Path>,
+    font_bytes: &[u8],
+    font_label: &str,
+) -> Result<Vec<u8>, PdfError> {
+    let font = reciplexa_text_layout::LoadedFont::from_bytes(font_bytes.to_vec(), font_label)
+        .map_err(|e| PdfError::InvalidShape(e.to_string()))?;
+    document_to_pdf_with_loaded_font(doc, base, &font)
+}
+
+/// Embed `emit` only when it matches `layout_id` (digest). Mismatch is
+/// [`LayoutError::SubstitutionRequiresRelayout`], not a silent face swap.
+pub fn document_to_pdf_matching_layout(
+    doc: &Document,
+    base: Option<&Path>,
+    layout_id: &reciplexa_text_layout::FontId,
+    emit: &reciplexa_text_layout::LoadedFont,
+) -> Result<Vec<u8>, PdfError> {
+    reciplexa_text_layout::select_font(layout_id, emit)
+        .map_err(|e| PdfError::InvalidShape(e.to_string()))?;
+    document_to_pdf_with_loaded_font(doc, base, emit)
+}
+
+/// Embed `font` (same digest that drove layout) for non-ASCII text.
+pub fn document_to_pdf_with_loaded_font(
+    doc: &Document,
+    base: Option<&Path>,
+    font: &reciplexa_text_layout::LoadedFont,
+) -> Result<Vec<u8>, PdfError> {
+    if doc.pages.is_empty() {
+        return Err(PdfError::EmptyDocument);
+    }
+    let cjk_chars = collect_non_ascii_chars(doc);
+    let cjk = if cjk_chars.is_empty() {
+        None
+    } else {
+        Some(CjkFontEmbed::build_from_bytes_at(
+            font.bytes(),
+            &font.id.as_key(),
+            &cjk_chars,
+            font.face_index(),
+        )?)
+    };
+    let mut store = ImageStore::new(base);
+    let mut page_contents = Vec::with_capacity(doc.pages.len());
+    let mut page_sizes = Vec::with_capacity(doc.pages.len());
+    for (i, page) in doc.pages.iter().enumerate() {
+        if !page.paper.is_positive() {
+            return Err(PdfError::InvalidPage(format!(
+                "page {i}: non-positive paper size"
+            )));
+        }
+        let w_pt = mm_to_pt(page.paper.width_mm);
+        let h_pt = mm_to_pt(page.paper.height_mm);
+        page_sizes.push((w_pt, h_pt));
+        page_contents.push(render_page_content(page, i, &mut store, cjk.as_ref())?);
+    }
+    Ok(assemble_pdf(
+        &page_sizes,
+        &page_contents,
+        &store.images,
+        cjk.as_ref(),
+    ))
+}
+
+/// Host PDF write: embed the same face [`host_product_font`] used for layout.
+///
+/// No system-CJK fallback when that face is the rectangle fixture — that would
+/// be a metric-changing substitution. Latin-only documents still use Helvetica.
+pub fn document_to_pdf_with_host_fonts(
+    doc: &Document,
+    base: Option<&Path>,
+) -> Result<Vec<u8>, PdfError> {
+    let cjk_chars = collect_non_ascii_chars(doc);
+    if cjk_chars.is_empty() {
+        return document_to_pdf_with_base(doc, base);
+    }
+    let layout = reciplexa_text_layout::host_product_font()
+        .map_err(|e| PdfError::InvalidShape(e.to_string()))?;
+    document_to_pdf_matching_layout(doc, base, &layout.id, &layout)
+}
+
 pub fn write_document(doc: &Document, w: &mut dyn std::io::Write) -> Result<(), PdfError> {
     write_document_with_base(doc, None, w)
 }
@@ -140,6 +227,17 @@ pub fn write_document_with_base(
     w: &mut dyn std::io::Write,
 ) -> Result<(), PdfError> {
     let bytes = document_to_pdf_with_base(doc, base)?;
+    w.write_all(&bytes)
+        .map_err(|e| PdfError::Write(e.to_string()))?;
+    Ok(())
+}
+
+pub fn write_document_with_host_fonts(
+    doc: &Document,
+    base: Option<&Path>,
+    w: &mut dyn std::io::Write,
+) -> Result<(), PdfError> {
+    let bytes = document_to_pdf_with_host_fonts(doc, base)?;
     w.write_all(&bytes)
         .map_err(|e| PdfError::Write(e.to_string()))?;
     Ok(())

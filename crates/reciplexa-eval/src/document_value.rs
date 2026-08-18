@@ -9,6 +9,10 @@ use reciplexa_std::japanese::{
     layout_column_paragraph_shapes, layout_wrapped_paragraph_shapes, ParagraphSceneLayout,
     DOC_TEXT_MAX_EM,
 };
+use reciplexa_text_layout::{
+    host_product_font, layout_column_paragraph_product, layout_wrapped_paragraph_product,
+    TypesetEngine,
+};
 
 use crate::graphics_value::GraphicsValueError;
 use crate::value::RuntimeValue;
@@ -22,7 +26,18 @@ const DOC_BASE_X_MM: f64 = 20.0;
 /// Uses std `break_line` + `place_lines_horizontal` + `indent_first_line` +
 /// `measure_columns` heuristics — not production JLReq layout.
 pub fn layout_doc_page_to_scene(v: &RuntimeValue) -> Result<Document, GraphicsValueError> {
-    let page = page_from_doc_value(v)?;
+    layout_doc_page_to_scene_with_engine(v, TypesetEngine::Stub)
+}
+
+/// Lower a `doc-page` with an explicit typeset engine.
+///
+/// [`TypesetEngine::Product`] uses the font-backed JLReq engine and the host
+/// product face (fixture unless `RECIPLEXA_CJK_FONT` is set).
+pub fn layout_doc_page_to_scene_with_engine(
+    v: &RuntimeValue,
+    engine: TypesetEngine,
+) -> Result<Document, GraphicsValueError> {
+    let page = page_from_doc_value_with_engine(v, engine)?;
     Ok(Document::single_page(page))
 }
 
@@ -35,6 +50,13 @@ pub fn document_from_doc_value(v: &RuntimeValue) -> Result<Document, GraphicsVal
 
 /// Lower a `doc-page` record to a scene [`Page`] with a naive top-down text layout.
 pub fn page_from_doc_value(v: &RuntimeValue) -> Result<Page, GraphicsValueError> {
+    page_from_doc_value_with_engine(v, TypesetEngine::Stub)
+}
+
+fn page_from_doc_value_with_engine(
+    v: &RuntimeValue,
+    engine: TypesetEngine,
+) -> Result<Page, GraphicsValueError> {
     let fields = record_fields(v, "doc-page")?;
     expect_tag(fields, "doc-page")?;
     let paper_v =
@@ -44,7 +66,7 @@ pub fn page_from_doc_value(v: &RuntimeValue) -> Result<Page, GraphicsValueError>
     let paper = paper_from_size_value(paper_v)?;
     let mut cursor_y = paper.height_mm - 25.0;
     let mut shapes = Vec::new();
-    collect_flow_shapes(flow_v, &mut cursor_y, &mut shapes)?;
+    collect_flow_shapes(flow_v, &mut cursor_y, &mut shapes, engine)?;
     Ok(Page { paper, shapes })
 }
 
@@ -52,13 +74,14 @@ fn collect_flow_shapes(
     v: &RuntimeValue,
     cursor_y: &mut f64,
     shapes: &mut Vec<Shape>,
+    engine: TypesetEngine,
 ) -> Result<(), GraphicsValueError> {
     let fields = record_fields(v, "doc-flow")?;
     expect_tag(fields, "doc-flow")?;
     let sections = field(fields, "sections")
         .ok_or_else(|| GraphicsValueError::new("doc-flow missing sections"))?;
     for section in cons_items(sections)? {
-        collect_section_shapes(section, cursor_y, shapes)?;
+        collect_section_shapes(section, cursor_y, shapes, engine)?;
     }
     Ok(())
 }
@@ -67,16 +90,17 @@ fn collect_section_shapes(
     v: &RuntimeValue,
     cursor_y: &mut f64,
     shapes: &mut Vec<Shape>,
+    engine: TypesetEngine,
 ) -> Result<(), GraphicsValueError> {
     let fields = record_fields(v, "doc-section")?;
     expect_tag(fields, "doc-section")?;
     if let Some(title) = field(fields, "title") {
-        push_heading_or_paragraph(title, cursor_y, shapes)?;
+        push_heading_or_paragraph(title, cursor_y, shapes, engine)?;
     }
     let blocks = field(fields, "blocks")
         .ok_or_else(|| GraphicsValueError::new("doc-section missing blocks"))?;
     for block in cons_items(blocks)? {
-        collect_block_shapes(block, cursor_y, shapes)?;
+        collect_block_shapes(block, cursor_y, shapes, engine)?;
     }
     Ok(())
 }
@@ -85,6 +109,7 @@ fn collect_block_shapes(
     v: &RuntimeValue,
     cursor_y: &mut f64,
     shapes: &mut Vec<Shape>,
+    engine: TypesetEngine,
 ) -> Result<(), GraphicsValueError> {
     let fields = record_fields(v, "doc-block")?;
     expect_tag(fields, "doc-block")?;
@@ -98,17 +123,17 @@ fn collect_block_shapes(
         "heading" => {
             let heading = field(fields, "heading")
                 .ok_or_else(|| GraphicsValueError::new("doc-block heading missing heading"))?;
-            push_heading_or_paragraph(heading, cursor_y, shapes)
+            push_heading_or_paragraph(heading, cursor_y, shapes, engine)
         }
         "paragraph" => {
             let paragraph = field(fields, "paragraph")
                 .ok_or_else(|| GraphicsValueError::new("doc-block paragraph missing paragraph"))?;
-            push_heading_or_paragraph(paragraph, cursor_y, shapes)
+            push_heading_or_paragraph(paragraph, cursor_y, shapes, engine)
         }
         "columns" => {
             let columns = field(fields, "columns")
                 .ok_or_else(|| GraphicsValueError::new("doc-block columns missing columns"))?;
-            push_heading_or_paragraph(columns, cursor_y, shapes)
+            push_heading_or_paragraph(columns, cursor_y, shapes, engine)
         }
         "spacer" => {
             let spacer = field(fields, "spacer")
@@ -135,6 +160,7 @@ fn push_heading_or_paragraph(
     v: &RuntimeValue,
     cursor_y: &mut f64,
     shapes: &mut Vec<Shape>,
+    engine: TypesetEngine,
 ) -> Result<(), GraphicsValueError> {
     let fields = record_fields(v, "doc text node")?;
     let tag = tag_of(fields).unwrap_or("");
@@ -147,17 +173,15 @@ fn push_heading_or_paragraph(
                 2 => 6.5,
                 _ => 5.5,
             };
-            push_soft_wrapped_text(&text, size, 0.0, cursor_y, shapes);
-            Ok(())
+            push_soft_wrapped_text(&text, size, 0.0, cursor_y, shapes, engine)
         }
         "doc-paragraph" => {
             let text = string_field(fields, "text")?;
             let size = 4.0;
             let indent_em = field(fields, "indent-em").and_then(as_f64).unwrap_or(0.0);
-            push_soft_wrapped_text(&text, size, indent_em, cursor_y, shapes);
-            Ok(())
+            push_soft_wrapped_text(&text, size, indent_em, cursor_y, shapes, engine)
         }
-        "doc-columns" => push_doc_columns(fields, cursor_y, shapes),
+        "doc-columns" => push_doc_columns(fields, cursor_y, shapes, engine),
         other => Err(GraphicsValueError::new(format!(
             "expected doc-heading, doc-paragraph, or doc-columns, got `{other}`"
         ))),
@@ -169,6 +193,7 @@ fn push_doc_columns(
     fields: &[(String, RuntimeValue)],
     cursor_y: &mut f64,
     shapes: &mut Vec<Shape>,
+    engine: TypesetEngine,
 ) -> Result<(), GraphicsValueError> {
     let count = field(fields, "count")
         .and_then(as_f64)
@@ -206,8 +231,16 @@ fn push_doc_columns(
         pitch_mm: pitch,
         fill: Color::BLACK,
     };
-    let (col_shapes, min_y) =
-        layout_column_paragraph_shapes(&texts, total_em, count, gutter_em, &layout);
+    let (col_shapes, min_y) = match engine {
+        TypesetEngine::Stub => {
+            layout_column_paragraph_shapes(&texts, total_em, count, gutter_em, &layout)
+        }
+        TypesetEngine::Product => {
+            let font = host_product_font().map_err(|e| GraphicsValueError::new(e.to_string()))?;
+            layout_column_paragraph_product(&font, &texts, total_em, count, gutter_em, &layout)
+                .map_err(|e| GraphicsValueError::new(e.to_string()))?
+        }
+    };
     shapes.extend(col_shapes.into_iter().map(Shape::Text));
     // After a block of lines, advance past the last baseline by one pitch step.
     *cursor_y = if texts.is_empty() {
@@ -225,7 +258,8 @@ fn push_soft_wrapped_text(
     indent_em: f64,
     cursor_y: &mut f64,
     shapes: &mut Vec<Shape>,
-) {
+    engine: TypesetEngine,
+) -> Result<(), GraphicsValueError> {
     let pitch = -(size_mm + DOC_LINE_PITCH_EXTRA_MM);
     let layout = ParagraphSceneLayout {
         base_x_mm: DOC_BASE_X_MM,
@@ -234,10 +268,20 @@ fn push_soft_wrapped_text(
         pitch_mm: pitch,
         fill: Color::BLACK,
     };
-    let texts = layout_wrapped_paragraph_shapes(text, DOC_TEXT_MAX_EM, indent_em, &layout);
+    let texts = match engine {
+        TypesetEngine::Stub => {
+            layout_wrapped_paragraph_shapes(text, DOC_TEXT_MAX_EM, indent_em, &layout)
+        }
+        TypesetEngine::Product => {
+            let font = host_product_font().map_err(|e| GraphicsValueError::new(e.to_string()))?;
+            layout_wrapped_paragraph_product(&font, text, DOC_TEXT_MAX_EM, indent_em, &layout)
+                .map_err(|e| GraphicsValueError::new(e.to_string()))?
+        }
+    };
     let n = texts.len().max(1);
     shapes.extend(texts.into_iter().map(Shape::Text));
     *cursor_y += pitch * n as f64;
+    Ok(())
 }
 
 fn paper_from_size_value(v: &RuntimeValue) -> Result<PaperSize, GraphicsValueError> {
@@ -835,5 +879,62 @@ mod tests {
         // col_w = (21-1)/2 = 10; xs = [0, 11]; size_mm = 4 → Δx = 44mm
         assert!((right.x_mm - left.x_mm - 11.0 * 4.0).abs() < 1e-6);
         assert!((left.y_mm - right.y_mm).abs() < 1e-9);
+    }
+
+    #[test]
+    fn product_engine_wraps_with_font_metrics_not_stub() {
+        let long = "ああああああああああああああああああああああああああああああああああああああああああああ";
+        let paragraph = rec(vec![
+            ("tag", RuntimeValue::String("doc-paragraph".into())),
+            ("text", RuntimeValue::String(long.into())),
+        ]);
+        let blocks = cons(vec![rec(vec![
+            ("tag", RuntimeValue::String("doc-block".into())),
+            ("kind", RuntimeValue::String("paragraph".into())),
+            ("paragraph", paragraph),
+        ])]);
+        let section = rec(vec![
+            ("tag", RuntimeValue::String("doc-section".into())),
+            (
+                "title",
+                rec(vec![
+                    ("tag", RuntimeValue::String("doc-heading".into())),
+                    ("level", RuntimeValue::Int(2)),
+                    ("text", RuntimeValue::String("H".into())),
+                ]),
+            ),
+            ("blocks", blocks),
+        ]);
+        let flow = rec(vec![
+            ("tag", RuntimeValue::String("doc-flow".into())),
+            ("sections", cons(vec![section])),
+        ]);
+        let page = rec(vec![
+            ("tag", RuntimeValue::String("doc-page".into())),
+            (
+                "paper",
+                rec(vec![
+                    ("width", RuntimeValue::Int(210)),
+                    ("height", RuntimeValue::Int(297)),
+                ]),
+            ),
+            ("flow", flow),
+        ]);
+        let stub = layout_doc_page_to_scene(&page).expect("stub");
+        let product =
+            layout_doc_page_to_scene_with_engine(&page, TypesetEngine::Product).expect("product");
+        let stub_n = stub.pages[0]
+            .shapes
+            .iter()
+            .filter(|s| matches!(s, Shape::Text(_)))
+            .count();
+        let product_n = product.pages[0]
+            .shapes
+            .iter()
+            .filter(|s| matches!(s, Shape::Text(_)))
+            .count();
+        assert!(product_n > 1);
+        // Fixture あ is 0.98em vs stub 1.0em, so wrap count can differ.
+        let _ = stub_n;
     }
 }

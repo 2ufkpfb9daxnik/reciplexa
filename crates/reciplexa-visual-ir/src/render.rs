@@ -83,6 +83,23 @@ pub enum RenderNode {
         corners_mm: [(f64, f64); 4],
         alpha: f64,
     },
+    /// Cluster-preserving glyph run (IR-001). Font identity is a content digest,
+    /// not a native handle.
+    GlyphRun {
+        id: RenderNodeId,
+        font_digest: String,
+        font_label: String,
+        x_mm: f64,
+        y_mm: f64,
+        size_mm: f64,
+        content: String,
+        fill: Color,
+        alpha: f64,
+        gids: Vec<u16>,
+        advances_mm: Vec<f64>,
+        cluster_starts: Vec<u32>,
+        cluster_ends: Vec<u32>,
+    },
 }
 
 impl RenderNode {
@@ -93,7 +110,8 @@ impl RenderNode {
             | Self::Polygon { id, .. }
             | Self::Text { id, .. }
             | Self::Path { id, .. }
-            | Self::Image { id, .. } => *id,
+            | Self::Image { id, .. }
+            | Self::GlyphRun { id, .. } => *id,
         }
     }
 }

@@ -1319,3 +1319,57 @@ fn text_ops_skips_line_when_cid_missing() {
     assert!(ops.contains("BT"));
     let _ = path;
 }
+
+#[test]
+fn product_layout_font_embeds_fixture_cjk_without_system_font() {
+    use reciplexa_pdf::document_to_pdf_with_layout_font;
+    let font = reciplexa_text_layout::LoadedFont::fixture();
+    let doc = Document::single_page(Page {
+        paper: PaperSize::a4(),
+        shapes: vec![Shape::Text(Text {
+            x_mm: 20.0,
+            y_mm: 200.0,
+            size_mm: 5.0,
+            width_mm: None,
+            height_mm: None,
+            content: "日本語".into(),
+            fill: Color::BLACK,
+        })],
+    });
+    let bytes = document_to_pdf_with_layout_font(&doc, None, font.bytes(), &font.id.as_key())
+        .expect("fixture subset");
+    let text = String::from_utf8_lossy(&bytes);
+    assert!(text.contains("/Identity-H"));
+    assert!(text.contains("Tj"));
+    assert!(!text.contains("(日本語)"));
+}
+
+#[test]
+fn matching_layout_rejects_digest_mismatch() {
+    use reciplexa_pdf::document_to_pdf_matching_layout;
+    use reciplexa_text_layout::{FontId, LoadedFont};
+    let font = LoadedFont::fixture();
+    let doc = Document::single_page(Page {
+        paper: PaperSize::a4(),
+        shapes: vec![Shape::Text(Text {
+            x_mm: 20.0,
+            y_mm: 200.0,
+            size_mm: 5.0,
+            width_mm: None,
+            height_mm: None,
+            content: "あ".into(),
+            fill: Color::BLACK,
+        })],
+    });
+    let layout_id = FontId {
+        label: "layout".into(),
+        digest: "not-this-face".into(),
+    };
+    let err = document_to_pdf_matching_layout(&doc, None, &layout_id, &font)
+        .expect_err("mismatch must fail");
+    let msg = format!("{err:?}");
+    assert!(
+        msg.contains("relayout") || msg.contains("substitution") || msg.contains("digest"),
+        "{msg}"
+    );
+}

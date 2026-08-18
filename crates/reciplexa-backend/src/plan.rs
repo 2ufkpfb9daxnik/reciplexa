@@ -162,7 +162,7 @@ fn representation_for(
         RenderNode::Rect { .. } => Representation::SvgRect,
         RenderNode::Circle { .. } => Representation::SvgCircle,
         RenderNode::Polygon { .. } => Representation::SvgPolygon,
-        RenderNode::Text { .. } => Representation::SvgText,
+        RenderNode::Text { .. } | RenderNode::GlyphRun { .. } => Representation::SvgText,
         RenderNode::Path { .. } => Representation::SvgPath,
         RenderNode::Image { .. } => Representation::SvgImage,
     };
@@ -188,7 +188,7 @@ fn raster_representation_for(
             };
             (Representation::RasterPath, Some(loss))
         }
-        RenderNode::Text { .. } => {
+        RenderNode::Text { .. } | RenderNode::GlyphRun { .. } => {
             if cap.raster_text {
                 (Representation::RasterTextOmit, None)
             } else {

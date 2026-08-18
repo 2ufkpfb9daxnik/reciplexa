@@ -4,6 +4,7 @@
 **Current shipping model:** Direct Native v2 (std packages)  
 **Execution order:** [`active-roadmap.md`](active-roadmap.md) Step 7 item 2（package local/offline slice の後）
 **Normative anchors:** `specification.md` Compiler-native package (~L17260), `KER-001`, `OPEN-NATIVE-PKG-001`
+**Successor:** [`product-typesetting-plan.md`](product-typesetting-plan.md) Step 7 item 3
 
 ## Hybrid Native v1 (reference / differential only)
 

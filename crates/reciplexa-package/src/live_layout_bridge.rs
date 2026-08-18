@@ -1,17 +1,19 @@
 //! Host live-layout consume: compose doc-page + sibling math into one scene.
 //!
 //! Package mains tagged `live-layout-demo` carry a `page` (`doc-page`) and a
-//! `math` tree; this module lays out both and merges shapes. Heuristic only —
-//! see `lang/implemented-features.md` (live layout / OPEN-TEXT-JA).
+//! `math` tree. Product engine is the host default; `RECIPLEXA_TYPESET_ENGINE=stub`
+//! keeps the fontless heuristic. Scene still lowers MATH to `Text` (GID OPEN).
 
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use reciplexa_eval::{
-    estimate_style_from_value, layout_doc_page_to_scene, layout_math_to_shapes, RuntimeValue,
+    estimate_style_from_value, layout_doc_page_to_scene, layout_doc_page_to_scene_with_engine,
+    layout_math_to_shapes, layout_math_to_shapes_product, RuntimeValue,
 };
 use reciplexa_scene::{Document, Shape};
 use reciplexa_std::math::EstimateStyle;
+use reciplexa_text_layout::TypesetEngine;
 
 use crate::graphics_bridge::GraphicsBridgeError;
 use crate::load::{eval_package_entry_main, LocalPackageIndex};
@@ -33,6 +35,21 @@ pub fn document_from_live_layout_value(v: &RuntimeValue) -> Result<Document, Gra
 /// demo record is ignored.
 pub fn document_from_live_layout_value_with_style(
     v: &RuntimeValue,
+    layout_style: EstimateStyle,
+) -> Result<Document, GraphicsBridgeError> {
+    document_from_live_layout_value_with_engine_and_style(v, TypesetEngine::Stub, layout_style)
+}
+
+pub fn document_from_live_layout_value_with_engine(
+    v: &RuntimeValue,
+    engine: TypesetEngine,
+) -> Result<Document, GraphicsBridgeError> {
+    document_from_live_layout_value_with_engine_and_style(v, engine, estimate_style_from_value(v))
+}
+
+pub fn document_from_live_layout_value_with_engine_and_style(
+    v: &RuntimeValue,
+    engine: TypesetEngine,
     layout_style: EstimateStyle,
 ) -> Result<Document, GraphicsBridgeError> {
     let fields = match v {
@@ -68,10 +85,17 @@ pub fn document_from_live_layout_value_with_style(
         .map(|(_, v)| v)
         .ok_or_else(|| GraphicsBridgeError::Bridge("live-layout-demo missing math".into()))?;
 
-    let mut doc = layout_doc_page_to_scene(page_v).map_err(GraphicsBridgeError::from)?;
+    let mut doc = match engine {
+        TypesetEngine::Stub => layout_doc_page_to_scene(page_v),
+        TypesetEngine::Product => layout_doc_page_to_scene_with_engine(page_v, engine),
+    }
+    .map_err(GraphicsBridgeError::from)?;
     let origin = math_origin_below_doc(&doc);
-    let math_shapes = layout_math_to_shapes(math_v, origin, layout_style)
-        .map_err(|e| GraphicsBridgeError::Bridge(e.message))?;
+    let math_shapes = match engine {
+        TypesetEngine::Stub => layout_math_to_shapes(math_v, origin, layout_style),
+        TypesetEngine::Product => layout_math_to_shapes_product(math_v, origin, layout_style),
+    }
+    .map_err(|e| GraphicsBridgeError::Bridge(e.message))?;
     if let Some(page) = doc.pages.first_mut() {
         page.shapes.extend(math_shapes);
     }

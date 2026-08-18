@@ -17,7 +17,10 @@ pub mod math_value;
 pub mod value;
 
 pub use control::{EffectHost, EvalError, EvalResult, MemoryFsHost, UnitHost};
-pub use document_value::{document_from_doc_value, layout_doc_page_to_scene, page_from_doc_value};
+pub use document_value::{
+    document_from_doc_value, layout_doc_page_to_scene, layout_doc_page_to_scene_with_engine,
+    page_from_doc_value,
+};
 pub use domain_native::{
     call_domain_native, dn2_slot, qualified_export_key, ColorSrgbOp, DocumentPageOp,
     DomainNativeOp, GraphicsColorOp, GraphicsPageOp, GraphicsShapesOp, JapaneseClassesOp,
@@ -36,8 +39,9 @@ pub use graphics_value::{
     shape_from_graphics_value, GraphicsValueError,
 };
 pub use math_value::{
-    estimate_math_box_from_value, estimate_math_box_from_value_with_style,
-    estimate_style_from_value, layout_math_to_shapes, math_atom_from_value,
-    scripts_attachment_offsets_from_value, MathValueError,
+    document_from_math_demo_value, estimate_math_box_from_value,
+    estimate_math_box_from_value_with_style, estimate_style_from_value, layout_math_to_shapes,
+    layout_math_to_shapes_product, math_atom_from_value, scripts_attachment_offsets_from_value,
+    MathValueError,
 };
 pub use value::{BuiltinOp, RuntimeValue};

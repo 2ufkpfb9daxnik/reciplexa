@@ -7,11 +7,12 @@
 use std::cell::Cell;
 
 use reciplexa_identity::document::StableNodeId;
-use reciplexa_scene::Shape;
+use reciplexa_scene::{Document, Page, PaperSize, Shape};
 use reciplexa_std::math::{
     layout_math_atom_to_shapes_with_style, scripts_attachment_offsets, EstimateStyle,
     MathAccentKind, MathAtom, MathBox, MathClass, MathMatrixKind, MathStackKind,
 };
+use reciplexa_text_layout::TypesetEngine;
 
 use crate::value::RuntimeValue;
 
@@ -126,6 +127,62 @@ pub fn layout_math_to_shapes(
         origin,
         layout_style,
     ))
+}
+
+/// Font-backed MATH layout (Profile v1). Stub [`layout_math_to_shapes`] is unchanged.
+pub fn layout_math_to_shapes_product(
+    math_value: &RuntimeValue,
+    origin: (f64, f64),
+    layout_style: EstimateStyle,
+) -> Result<Vec<Shape>, MathValueError> {
+    if let Ok(fields) = record_fields(math_value) {
+        if matches!(tag_of(fields), Some("math-phantom" | "math-smash")) {
+            return Ok(Vec::new());
+        }
+    }
+    let atom = math_atom_from_value(math_value)?;
+    let font =
+        reciplexa_text_layout::host_math_font().map_err(|e| MathValueError::new(e.to_string()))?;
+    let laid = reciplexa_text_layout::layout_math_atom(&font, &atom, layout_style)
+        .map_err(|e| MathValueError::new(e.to_string()))?;
+    Ok(reciplexa_text_layout::positioned_math_to_shapes(
+        &laid,
+        origin,
+        reciplexa_std::math::MATH_LAYOUT_EM_TO_MM,
+        reciplexa_scene::Color::BLACK,
+    ))
+}
+
+/// Lower a `math-demo` (or bare math tagged) record to a one-page scene.
+///
+/// `tree` is laid out with the selected engine. Used by host preview/export so
+/// `examples/pkg_math.rpx` consumes the product MATH engine.
+pub fn document_from_math_demo_value(
+    v: &RuntimeValue,
+    engine: TypesetEngine,
+) -> Result<Document, MathValueError> {
+    let tree = math_demo_tree(v);
+    let origin = (20.0, 200.0);
+    let style = estimate_style_from_value(tree);
+    let shapes = match engine {
+        TypesetEngine::Stub => layout_math_to_shapes(tree, origin, style)?,
+        TypesetEngine::Product => layout_math_to_shapes_product(tree, origin, style)?,
+    };
+    Ok(Document::single_page(Page {
+        paper: PaperSize::a4(),
+        shapes,
+    }))
+}
+
+fn math_demo_tree(v: &RuntimeValue) -> &RuntimeValue {
+    match v {
+        RuntimeValue::Record(fields) => fields
+            .iter()
+            .find(|(k, _)| k == "tree")
+            .map(|(_, tree)| tree)
+            .unwrap_or(v),
+        _ => v,
+    }
 }
 
 #[derive(Default)]

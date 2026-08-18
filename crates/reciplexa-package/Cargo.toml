@@ -14,6 +14,7 @@ reciplexa-eval = { workspace = true }
 reciplexa-core = { workspace = true }
 reciplexa-scene = { workspace = true }
 reciplexa-std = { workspace = true }
+reciplexa-text-layout = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 

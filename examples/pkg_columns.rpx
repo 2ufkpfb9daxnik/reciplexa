@@ -1,5 +1,5 @@
-(// language-only: document columns via measure_columns / doc-columns stub.
- // Not balanced newspaper columns / jlreq-multi-column books.)
+(// language-only: document columns via measure_columns / doc-columns.
+ // Host product engine places the page; not balanced newspaper columns.)
 (import document/page only
   a4 page flow section heading paragraph columns
   block-heading block-columns)

@@ -36,7 +36,7 @@ use reciplexa_lower::{
     set_text_box, ungroup_layer_page, LayerInfo, PropEditContext, PropGroup, PropValue, SizeTarget,
 };
 use reciplexa_macro::expand_source;
-use reciplexa_pdf::write_document_with_base;
+use reciplexa_pdf::write_document_with_host_fonts;
 use reciplexa_view::{
     flatten_page, hit_test_shapes, shapes_intersecting_aabb, PaperLayout, WorldShape,
 };
@@ -3002,7 +3002,7 @@ impl PreviewApp {
                                 .map_err(|e| e.to_string()),
                             "pptx" => reciplexa_pptx::write_document(&doc, &mut f)
                                 .map_err(|e| e.to_string()),
-                            _ => write_document_with_base(&doc, base, &mut f)
+                            _ => write_document_with_host_fonts(&doc, base, &mut f)
                                 .map_err(|e| format!("{e:?}")),
                         }
                     });

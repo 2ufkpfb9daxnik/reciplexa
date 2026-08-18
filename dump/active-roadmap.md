@@ -92,7 +92,7 @@
 
 ## Step 7 — 次工程
 
-**Status:** active — item 1 local/offline slice complete; item 2 Direct Native v2 shipping complete; item 2b hardening complete; item 3 planned
+**Status:** active — item 1 local/offline slice complete; item 2 Direct Native v2 shipping complete; item 2b hardening complete; item 3 engines landed, host cutover not complete
 
 順序:
 
@@ -112,6 +112,12 @@
    - `japanese/linebreak` の動的 export（kind 一致。note / 全matrix は std 正本）
    - 構造化 Failure: DN2 arity を `package/arity` へ。type は `length/units` に加え `color/srgb`・`japanese/*` の契約違反も `package/type`。effect row はまだ pure
    - native stub の body elaboration 省略（typed export から BindingId スロット Core を合成。alias / bare import を含む。Hybrid override は従来の RPX elaborate）
-3. 製品級組版: font-backed JLReqとOpenType MATHを別エンジンとして本格化
+3. 製品級組版: **active** — JLReq / MATH Profile v1 エンジンは `reciplexa-text-layout` に実装。ホスト cutover は部分的
+   - ライブラリ `document_from_package_entry` / `layout_doc_page_to_scene` / `layout_math_to_shapes` は stub 参照
+   - ホスト `document_from_package_source_host` は `doc-page` / `live-layout-demo` / `math-demo` が product。graphics `text` は従来の scene `Text`
+   - ホスト PDF は layout と同じ `host_product_font` を subset（digest 不一致は relayout）。Latin-only は Helvetica
+   - MATH は `host_math_font`（既定 fixture）。JA 行組版は `host_product_font`
+   - `RECIPLEXA_TYPESET_ENGINE=stub` で参照ヒューリスティックを強制
+   - 残 OPEN: GlyphRun GID を Visual IR / PDF 本番経路へ、ruby/`vert`、完全 MATH assembly、混在 MATH/JA face、egui ≠ layout
 
 Step 7はSteps 1–6のgreen HEADを基準線として開始する。

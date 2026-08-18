@@ -1,13 +1,13 @@
 [package]
-name = "reciplexa-visual-ir"
+name = "reciplexa-text-layout"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "Layered visual IR: domain, layout, render (Phase 7)"
+description = "Font-backed text/math layout substrate (Step 7 item 3)"
 publish = false
 
 [dependencies]
 reciplexa-identity = { workspace = true }
 reciplexa-scene = { workspace = true }
-reciplexa-view = { workspace = true }
-reciplexa-text-layout = { workspace = true }
+reciplexa-std = { workspace = true }
+ttf-parser = { workspace = true }

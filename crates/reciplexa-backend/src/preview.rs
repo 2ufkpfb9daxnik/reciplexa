@@ -176,6 +176,27 @@ fn drawable_for(
             alpha: *alpha,
         }),
         (
+            Representation::SvgText,
+            RenderNode::GlyphRun {
+                x_mm,
+                y_mm,
+                size_mm,
+                content,
+                fill,
+                alpha,
+                ..
+            },
+        ) => Ok(PreviewDrawable::Text {
+            artifact_element_id: id,
+            x_mm: *x_mm,
+            y_mm: *y_mm,
+            size_mm: *size_mm,
+            rotation_deg: 0.0,
+            content: content.clone(),
+            fill: *fill,
+            alpha: *alpha,
+        }),
+        (
             Representation::SvgPath,
             RenderNode::Path {
                 points_mm,

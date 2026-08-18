@@ -365,3 +365,27 @@ fn axis_aligned_rect(points: &[(f64, f64)]) -> Option<(f64, f64, f64, f64)> {
     }
     Some((min_x, min_y, w, h))
 }
+
+/// Lower a product [`reciplexa_text_layout::GlyphRun`] to Render IR (IR-001).
+pub fn render_from_glyph_run(
+    id: RenderNodeId,
+    run: &reciplexa_text_layout::GlyphRun,
+    fill: reciplexa_scene::Color,
+    alpha: f64,
+) -> RenderNode {
+    RenderNode::GlyphRun {
+        id,
+        font_digest: run.font.digest.clone(),
+        font_label: run.font.label.clone(),
+        x_mm: run.glyphs.first().map(|g| g.x_mm).unwrap_or(0.0),
+        y_mm: run.glyphs.first().map(|g| g.y_mm).unwrap_or(0.0),
+        size_mm: run.size_mm,
+        content: run.content.clone(),
+        fill,
+        alpha,
+        gids: run.glyphs.iter().map(|g| g.gid).collect(),
+        advances_mm: run.glyphs.iter().map(|g| g.advance_mm).collect(),
+        cluster_starts: run.glyphs.iter().map(|g| g.cluster_start as u32).collect(),
+        cluster_ends: run.glyphs.iter().map(|g| g.cluster_end as u32).collect(),
+    }
+}

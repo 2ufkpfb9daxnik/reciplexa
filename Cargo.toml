@@ -36,6 +36,7 @@ members = [
     "crates/reciplexa-macro",
     "crates/reciplexa-effect",
     "crates/reciplexa-std",
+    "crates/reciplexa-text-layout",
     "crates/reciplexa",
     "crates/reciplexa-gui",
 ]
@@ -54,6 +55,7 @@ egui = "0.31"
 eframe = "0.31"
 rfd = "0.15"
 subsetter = "0.2"
+ttf-parser = "0.25"
 reciplexa-source = { path = "crates/reciplexa-source" }
 reciplexa-identity = { path = "crates/reciplexa-identity" }
 reciplexa-outcome = { path = "crates/reciplexa-outcome" }
@@ -74,6 +76,7 @@ reciplexa-opt = { path = "crates/reciplexa-opt" }
 reciplexa-harden = { path = "crates/reciplexa-harden" }
 reciplexa-proof = { path = "crates/reciplexa-proof" }
 reciplexa-std = { path = "crates/reciplexa-std" }
+reciplexa-text-layout = { path = "crates/reciplexa-text-layout" }
 reciplexa-backend = { path = "crates/reciplexa-backend" }
 reciplexa-gui-runtime = { path = "crates/reciplexa-gui-runtime" }
 reciplexa-codec = { path = "crates/reciplexa-codec" }

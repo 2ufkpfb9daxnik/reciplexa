@@ -236,6 +236,36 @@ fn write_planned_node(
             Ok(())
         }
         (
+            Representation::SvgText,
+            RenderNode::GlyphRun {
+                x_mm,
+                y_mm,
+                size_mm,
+                content,
+                fill,
+                alpha,
+                font_label,
+                ..
+            },
+        ) => {
+            let font = if font_label.is_empty() {
+                planned.font_family.as_deref().unwrap_or("sans-serif")
+            } else {
+                font_label.as_str()
+            };
+            let escape = xml_escape(content);
+            let _ = writeln!(
+                s,
+                r#"      <text id="{id}" x="0" y="0" font-size="{}" font-family="{font}" {} transform="translate({} {}) scale(1 -1) rotate(0)">{}</text>"#,
+                fmt_num(*size_mm),
+                color_attr(*fill, *alpha),
+                fmt_num(*x_mm),
+                fmt_num(*y_mm),
+                escape
+            );
+            Ok(())
+        }
+        (
             Representation::SvgPath,
             RenderNode::Path {
                 points_mm,

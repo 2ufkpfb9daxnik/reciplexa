@@ -115,6 +115,31 @@ fn validate_node(page: usize, node: &RenderNode) -> Result<(), RenderValidationE
                 return Err(bad("alpha out of range"));
             }
         }
+        RenderNode::GlyphRun {
+            size_mm,
+            alpha,
+            content,
+            gids,
+            advances_mm,
+            cluster_starts,
+            cluster_ends,
+            ..
+        } => {
+            if *size_mm <= 0.0 {
+                return Err(bad("glyph run size must be positive"));
+            }
+            if !alpha.is_finite() || !(0.0..=1.0).contains(alpha) {
+                return Err(bad("alpha out of range"));
+            }
+            let n = content.chars().count();
+            if gids.len() != n
+                || advances_mm.len() != n
+                || cluster_starts.len() != n
+                || cluster_ends.len() != n
+            {
+                return Err(bad("glyph run cluster/gid length mismatch"));
+            }
+        }
     }
     Ok(())
 }

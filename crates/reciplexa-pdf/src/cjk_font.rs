@@ -36,8 +36,32 @@ impl CjkFontEmbed {
         })?;
         // `system_cjk_font_path` only returns existing files; treat I/O failure as parse failure.
         let data = std::fs::read(&path).unwrap_or_default();
-        let face = Face::parse(&data, 0)
-            .map_err(|e| PdfError::InvalidShape(format!("parse font {}: {e}", path.display())))?;
+        Self::build_from_bytes(&data, &path.display().to_string(), chars)
+    }
+
+    /// Subset `data` (TrueType) for `chars`. Used by the product typeset path so
+    /// preview/export embed the same face that drove layout.
+    pub fn build_from_bytes(
+        data: &[u8],
+        source_label: &str,
+        chars: &BTreeSet<char>,
+    ) -> Result<Self, PdfError> {
+        Self::build_from_bytes_at(data, source_label, chars, 0)
+    }
+
+    pub fn build_from_bytes_at(
+        data: &[u8],
+        source_label: &str,
+        chars: &BTreeSet<char>,
+        face_index: u32,
+    ) -> Result<Self, PdfError> {
+        if chars.is_empty() {
+            return Err(PdfError::InvalidShape(
+                "internal: empty CJK char set".into(),
+            ));
+        }
+        let face = Face::parse(data, face_index)
+            .map_err(|e| PdfError::InvalidShape(format!("parse font {source_label}: {e}")))?;
         let units = u32::from(face.units_per_em()).max(1);
 
         let mut remapper = GlyphRemapper::new();
@@ -58,7 +82,8 @@ impl CjkFontEmbed {
             unicode_to_old.insert(*ch as u32, gid.0);
         }
 
-        let subset_ttf = subset(&data, 0, &remapper).expect("subset after successful face parse");
+        let subset_ttf =
+            subset(data, face_index, &remapper).expect("subset after successful face parse");
 
         let mut unicode_to_cid = BTreeMap::new();
         let mut cid_widths = BTreeMap::new();

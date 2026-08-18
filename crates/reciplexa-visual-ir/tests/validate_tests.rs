@@ -376,6 +376,21 @@ fn accepts_valid_minimal_all_kinds() {
             corners_mm: [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
             alpha: 1.0,
         },
+        RenderNode::GlyphRun {
+            id: RenderNodeId::new(7),
+            font_digest: "abc".into(),
+            font_label: "ReciplexaFixture".into(),
+            x_mm: 0.0,
+            y_mm: 0.0,
+            size_mm: 4.0,
+            content: "A".into(),
+            fill: Color::BLACK,
+            alpha: 1.0,
+            gids: vec![1],
+            advances_mm: vec![2.4],
+            cluster_starts: vec![0],
+            cluster_ends: vec![1],
+        },
     ]);
     assert!(validate_render_document(&doc).is_ok());
 }

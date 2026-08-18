@@ -10,6 +10,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use reciplexa_eval::{document_from_graphics_value, GraphicsValueError, RuntimeValue};
 use reciplexa_scene::Document;
+use reciplexa_text_layout::{host_typeset_engine, TypesetEngine};
 
 use crate::load::{eval_package_entry_main, LocalPackageIndex, PackageLoadError};
 
@@ -92,25 +93,73 @@ pub fn document_from_package_entry(
     entry_path: impl AsRef<Path>,
     index: &LocalPackageIndex,
 ) -> Result<Document, GraphicsBridgeError> {
+    document_from_package_entry_with_engine(entry_path, index, TypesetEngine::Stub)
+}
+
+/// Host preview/export path: uses [`host_typeset_engine`] (product unless
+/// `RECIPLEXA_TYPESET_ENGINE=stub`).
+pub fn document_from_package_entry_host(
+    entry_path: impl AsRef<Path>,
+    index: &LocalPackageIndex,
+) -> Result<Document, GraphicsBridgeError> {
+    document_from_package_entry_with_engine(entry_path, index, host_typeset_engine())
+}
+
+pub fn document_from_package_entry_with_engine(
+    entry_path: impl AsRef<Path>,
+    index: &LocalPackageIndex,
+    engine: TypesetEngine,
+) -> Result<Document, GraphicsBridgeError> {
     let entry_path = entry_path.as_ref();
     let v = eval_package_entry_main(entry_path, index).map_err(GraphicsBridgeError::from)?;
-    // Live-layout demos (doc page + sibling math) are not graphics/page trees.
     if is_live_layout_demo_tag(&v) {
-        return crate::live_layout_bridge::document_from_live_layout_value(&v);
+        return crate::live_layout_bridge::document_from_live_layout_value_with_engine(&v, engine);
+    }
+    if is_math_demo_tag(&v) {
+        return reciplexa_eval::document_from_math_demo_value(&v, engine)
+            .map_err(|e| GraphicsBridgeError::Bridge(e.message));
+    }
+    if engine == TypesetEngine::Product {
+        if let Ok(fields) = match &v {
+            RuntimeValue::Record(f) => Ok(f.as_slice()),
+            _ => Err(()),
+        } {
+            let tag = fields
+                .iter()
+                .find(|(k, _)| k == "tag")
+                .and_then(|(_, val)| match val {
+                    RuntimeValue::String(s) | RuntimeValue::ShapeTag(s) => Some(s.as_str()),
+                    _ => None,
+                });
+            if tag == Some("doc-page") {
+                return reciplexa_eval::layout_doc_page_to_scene_with_engine(&v, engine)
+                    .map_err(Into::into);
+            }
+        }
     }
     document_from_graphics_value(&v).map_err(Into::into)
 }
 
 fn is_live_layout_demo_tag(v: &RuntimeValue) -> bool {
+    record_tag(v) == Some("live-layout-demo")
+}
+
+fn is_math_demo_tag(v: &RuntimeValue) -> bool {
+    record_tag(v) == Some("math-demo")
+}
+
+fn record_tag(v: &RuntimeValue) -> Option<&str> {
     let RuntimeValue::Record(fields) = v else {
-        return false;
+        return None;
     };
-    fields.iter().any(|(k, val)| {
-        k == "tag"
-            && matches!(
-                val,
-                RuntimeValue::String(s) | RuntimeValue::ShapeTag(s) if s == "live-layout-demo"
-            )
+    fields.iter().find_map(|(k, val)| {
+        if k != "tag" {
+            return None;
+        }
+        match val {
+            RuntimeValue::String(s) | RuntimeValue::ShapeTag(s) => Some(s.as_str()),
+            _ => None,
+        }
     })
 }
 
@@ -129,4 +178,21 @@ pub fn document_from_package_source(
     let entry = dir.join(format!("{entry_stem}.rpx"));
     fs_write(&entry, source).map_err(|e| GraphicsBridgeError::Load(e.to_string()))?;
     document_from_package_entry(&entry, index)
+}
+
+/// Like [`document_from_package_source`] using the host typeset engine.
+pub fn document_from_package_source_host(
+    source: &str,
+    entry_stem: &str,
+    index: &LocalPackageIndex,
+) -> Result<Document, GraphicsBridgeError> {
+    let seq = TEMP_SEQ.fetch_add(1, Ordering::Relaxed);
+    let dir = std::env::temp_dir().join(format!(
+        "reciplexa-pkg-host-{}-{entry_stem}-{seq}",
+        std::process::id()
+    ));
+    fs_create_dir_all(&dir).map_err(|e| GraphicsBridgeError::Load(e.to_string()))?;
+    let entry = dir.join(format!("{entry_stem}.rpx"));
+    fs_write(&entry, source).map_err(|e| GraphicsBridgeError::Load(e.to_string()))?;
+    document_from_package_entry_host(&entry, index)
 }

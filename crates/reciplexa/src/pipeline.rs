@@ -21,7 +21,7 @@ use reciplexa_effect::{list_head_ident, run_source_effects, EffectError, EffectH
 use reciplexa_lower::lower_source;
 use reciplexa_macro::expand_source;
 use reciplexa_package::{
-    document_from_package_source, typecheck_package_source, LocalPackageIndex,
+    document_from_package_source_host, typecheck_package_source, LocalPackageIndex,
     PackageTypecheckError,
 };
 use reciplexa_scene::Document;
@@ -206,7 +206,7 @@ fn document_from_package_domain(expanded: &str) -> Result<Document, PipelineErro
         .map_err(|e| PipelineError::new("package", e.to_string()))?;
     typecheck_package_source(&package_src, "entry", &idx)
         .map_err(pipeline_type_error_from_package)?;
-    document_from_package_source(&package_src, "entry", &idx)
+    document_from_package_source_host(&package_src, "entry", &idx)
         .map_err(|e| PipelineError::new("package", e.to_string()))
 }
 

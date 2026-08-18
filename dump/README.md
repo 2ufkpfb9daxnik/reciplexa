@@ -20,6 +20,7 @@
 - `part2-conformance.md`: 第II部見出し単位の適合台帳。製品完成率ではない
 - `package-plan.md`: Step 7 package実運用化（local/offline slice完了、残存OPEN）の詳細
 - `direct-native-v2-plan.md`: Direct Native v2（標準package）の実装順と完了条件
+- `product-typesetting-plan.md`: Step 7 item 3（font-backed JLReq / OpenType MATH）の実装順と完了条件
 
 coverage、deferred、meta、gap/partialの各ファイルは測定・監査用です。通常の実装判断では先に読む必要はありません。
 

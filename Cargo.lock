@@ -2940,6 +2940,7 @@ dependencies = [
  "reciplexa-scene",
  "reciplexa-std",
  "reciplexa-syntax",
+ "reciplexa-text-layout",
 ]
 
 [[package]]
@@ -3063,6 +3064,7 @@ dependencies = [
  "reciplexa-std",
  "reciplexa-svg",
  "reciplexa-syntax",
+ "reciplexa-text-layout",
  "serde",
  "serde_json",
  "zip",
@@ -3075,6 +3077,7 @@ dependencies = [
  "jpeg-decoder",
  "png 0.17.16",
  "reciplexa-scene",
+ "reciplexa-text-layout",
  "reciplexa-view",
  "subsetter",
  "ttf-parser",
@@ -3182,6 +3185,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "reciplexa-text-layout"
+version = "0.1.0"
+dependencies = [
+ "reciplexa-identity",
+ "reciplexa-scene",
+ "reciplexa-std",
+ "ttf-parser",
+]
+
+[[package]]
 name = "reciplexa-types"
 version = "0.1.0"
 dependencies = [
@@ -3212,6 +3225,7 @@ version = "0.1.0"
 dependencies = [
  "reciplexa-identity",
  "reciplexa-scene",
+ "reciplexa-text-layout",
  "reciplexa-view",
 ]
 

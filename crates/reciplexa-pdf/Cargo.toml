@@ -11,8 +11,9 @@ reciplexa-scene = { workspace = true }
 reciplexa-view = { workspace = true }
 png = "0.17"
 jpeg-decoder = "0.3"
-ttf-parser = "0.25"
+ttf-parser = { workspace = true }
 subsetter = { workspace = true }
+reciplexa-text-layout = { workspace = true }
 
 [dev-dependencies]
 png = "0.17"

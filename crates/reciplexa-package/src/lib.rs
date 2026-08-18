@@ -100,7 +100,9 @@ pub use domain_pure_constructors::{
     populate_graphics_page_typed_exports, populate_graphics_shapes_typed_exports,
 };
 pub use graphics_bridge::{
-    document_from_package_entry, document_from_package_source, GraphicsBridgeError,
+    document_from_package_entry, document_from_package_entry_host,
+    document_from_package_entry_with_engine, document_from_package_source,
+    document_from_package_source_host, GraphicsBridgeError,
 };
 pub use japanese_bridge::{
     check_linebreak_std_parity, linebreak_parity_samples, LinebreakParitySample,

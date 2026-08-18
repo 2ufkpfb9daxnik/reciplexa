@@ -18,7 +18,7 @@
 ## 実行指示
 
 - `dump/active-roadmap.md` の最初の未完了Stepから開始し、受入条件が満たされるまで継続する。
-- Step 1〜6は完了済み。再実装せず、Step 7の最初の未完了itemから進む（いまは item 3 製品級組版。item 2/2b Direct Native v2 は完了）。
+- Step 1〜6は完了済み。再実装せず、Step 7の最初の未完了itemから進む（いまは item 3 製品級組版。[`product-typesetting-plan.md`](product-typesetting-plan.md) の最初の未完了 slice から実行する。item 2/2b Direct Native v2 は完了）。
 - 安全な実装判断、crate責任分割、テスト構成は自律的に決める。確認待ちだけを理由に止まらない。
 - 仕様・製品挙動・データ互換性・破壊的操作を変える必要がある場合だけ、人間へ具体的な選択肢を示す。
 - ユーザーの既存変更を上書き、破棄、巻き戻ししない。
@@ -34,6 +34,13 @@ Hybrid Native v1 は差分試験の参照経路である。標準packageの本�
 Direct Native v2 は必須マイルストーンである。完了条件と現状は [`direct-native-v2-plan.md`](direct-native-v2-plan.md)。portable fallbackは仕様上のOPEN契約として残す。暗黙に削除しない。
 
 native registry keyは `package/module/export` とし、source-localな既存`BindingId`を永続ABI identityへ流用せず、stub bind時に compilation `BindingId` へ対応付ける。
+
+### 製品級組版
+
+実行順、stub 参照方針、JLReq / MATH Profile v1、完了条件は
+[`product-typesetting-plan.md`](product-typesetting-plan.md) を正とする。Waves / HC / LL の
+fontless heuristic を製品エンジンへ昇格させず、共有 font/shaping 基盤の上に JLReq 行組版と
+OpenType MATH box 組版を別エンジンとして実装する。
 
 ### 最初の製品Vertical Slice
 

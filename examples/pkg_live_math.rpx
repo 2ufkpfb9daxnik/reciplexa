@@ -1,5 +1,5 @@
 (// language-only: live-layout math demo — frac + scripts + delimiter (LL16).
- // Host composes via document_from_live_layout_* ; not OpenType MATH.)
+ // Host product engine lays this out; scene Text cannot paint MATH variant GIDs.)
 
 (import document/page only
   a4 page flow section heading paragraph
