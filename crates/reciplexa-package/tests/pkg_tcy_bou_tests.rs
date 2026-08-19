@@ -25,15 +25,15 @@ fn field<'a>(rec: &'a RuntimeValue, name: &str) -> &'a RuntimeValue {
 
 fn walk_shapes(
     shapes: &[reciplexa_scene::Shape],
-    runs: &mut Vec<(String, f64, f64)>,
-    circles: &mut usize,
+    runs: &mut Vec<(String, f64, f64, f64)>,
+    circles: &mut Vec<(f64, f64)>,
 ) {
     for s in shapes {
         match s {
             reciplexa_scene::Shape::GlyphRun(g) => {
-                runs.push((g.content.clone(), g.x_mm, g.y_mm));
+                runs.push((g.content.clone(), g.x_mm, g.y_mm, g.size_mm));
             }
-            reciplexa_scene::Shape::Circle(_) => *circles += 1,
+            reciplexa_scene::Shape::Circle(c) => circles.push((c.x_mm, c.y_mm)),
             reciplexa_scene::Shape::Group { children, .. }
             | reciplexa_scene::Shape::Opacity { children, .. } => {
                 walk_shapes(children, runs, circles);
@@ -43,10 +43,10 @@ fn walk_shapes(
     }
 }
 
-fn run_y(runs: &[(String, f64, f64)], ch: &str) -> f64 {
+fn run_y(runs: &[(String, f64, f64, f64)], ch: &str) -> f64 {
     runs.iter()
-        .find(|(c, _, _)| c == ch)
-        .map(|(_, _, y)| *y)
+        .find(|(c, _, _, _)| c == ch)
+        .map(|(_, _, y, _)| *y)
         .unwrap_or_else(|| panic!("missing {ch} in {runs:?}"))
 }
 
@@ -92,17 +92,17 @@ fn pkg_tcy_bou_host_product_emits_tcy_and_marks() {
             let host = document_from_package_entry_host(&entry, &idx).expect("host tcy/bou");
             let paper_h = host.pages[0].paper.height_mm;
             let mut runs = Vec::new();
-            let mut circles = 0usize;
+            let mut circles = Vec::new();
             walk_shapes(&host.pages[0].shapes, &mut runs, &mut circles);
-            let joined: String = runs.iter().map(|(c, _, _)| c.as_str()).collect();
+            let joined: String = runs.iter().map(|(c, _, _, _)| c.as_str()).collect();
             assert!(
                 joined.contains('令') && joined.contains('1') && joined.contains('重'),
                 "tcy column and bou body: {runs:?}"
             );
             let title_t_ys: Vec<f64> = runs
                 .iter()
-                .filter(|(c, _, _)| c == "T")
-                .map(|(_, _, y)| *y)
+                .filter(|(c, _, _, _)| c == "T")
+                .map(|(_, _, y, _)| *y)
                 .collect();
             assert_eq!(
                 title_t_ys.len(),
@@ -112,8 +112,8 @@ fn pkg_tcy_bou_host_product_emits_tcy_and_marks() {
             let heading_y = title_t_ys[0];
             let rei_y = run_y(&runs, "令");
             let year_y = run_y(&runs, "年");
-            let one = runs.iter().find(|(c, _, _)| c == "1").expect("digit 1");
-            let two = runs.iter().find(|(c, _, _)| c == "2").expect("digit 2");
+            let one = runs.iter().find(|(c, _, _, _)| c == "1").expect("digit 1");
+            let two = runs.iter().find(|(c, _, _, _)| c == "2").expect("digit 2");
             for (ch, y) in [("T", heading_y), ("令", rei_y), ("1", one.2), ("年", year_y)] {
                 assert!(
                     y > 20.0 && y < paper_h - 10.0,
@@ -139,8 +139,29 @@ fn pkg_tcy_bou_host_product_emits_tcy_and_marks() {
                 "digits must sit side by side, not stacked"
             );
             assert!(
-                circles >= 4,
-                "horizontal + vertical bou marks, got {circles}"
+                circles.len() >= 4,
+                "horizontal + vertical bou marks, got {}",
+                circles.len()
+            );
+            let juu: Vec<_> = runs.iter().filter(|(c, _, _, _)| c == "重").collect();
+            assert_eq!(juu.len(), 2, "horizontal and vertical 重, got {juu:?}");
+            let (horiz, vert) = if juu[0].1 < juu[1].1 {
+                (juu[0], juu[1])
+            } else {
+                (juu[1], juu[0])
+            };
+            let size = horiz.3;
+            assert!(
+                circles.iter().any(|(cx, cy)| {
+                    (*cx - (horiz.1 + size * 0.5)).abs() < size * 0.6 && *cy > horiz.2 + size
+                }),
+                "horizontal bou must sit above 重, glyph={horiz:?} circles={circles:?}"
+            );
+            assert!(
+                circles.iter().any(|(cx, cy)| {
+                    *cx > vert.1 + size && (*cy - (vert.2 + size * 0.5)).abs() < size * 0.6
+                }),
+                "vertical bou must sit beside 重, glyph={vert:?} circles={circles:?}"
             );
             let pdf = reciplexa_pdf::document_to_pdf_with_host_fonts(&host, None).expect("pdf");
             assert!(pdf.starts_with(b"%PDF"));

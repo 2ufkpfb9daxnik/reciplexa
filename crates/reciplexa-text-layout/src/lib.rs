@@ -23,6 +23,7 @@ pub mod vert;
 pub use bou::{
     layout_bou_horizontal, layout_bou_vertical, positioned_bou_horizontal_to_shapes,
     positioned_bou_vertical_to_shapes, PositionedBouHorizontal, PositionedBouVertical,
+    BOU_PARENT_GAP_EM,
 };
 pub use engine::{host_typeset_engine, TypesetEngine};
 pub use error::LayoutError;

@@ -598,6 +598,19 @@ fn text_clip_rect(
     clip.expand(pad).intersect(painter.clip_rect())
 }
 
+/// Offset from galley top-left to the first glyph's pen (baseline).
+///
+/// egui's line box is taller than the em-square. Hanging the galley by
+/// `size.y` puts CJK above the layout origin that circles / PDF use.
+fn galley_pen_offset(galley: &egui::Galley) -> egui::Vec2 {
+    galley
+        .rows
+        .first()
+        .and_then(|row| row.glyphs.first())
+        .map(|g| egui::vec2(g.pos.x, g.pos.y))
+        .unwrap_or_else(|| egui::vec2(0.0, galley.size().y))
+}
+
 fn paint_baseline_galley(
     painter: &egui::Painter,
     rect: egui::Rect,
@@ -610,8 +623,8 @@ fn paint_baseline_galley(
     let (bx, by) = layout.mm_to_px(x_mm, y_mm);
     let baseline = rect.min + egui::vec2(bx, by);
     let angle = rotation_deg.to_radians() as f32;
-    let h = galley.size().y;
-    let tl_rel = egui::vec2(0.0, -h);
+    let pen = galley_pen_offset(&galley);
+    let tl_rel = -pen;
     let (s, c) = (angle.sin(), angle.cos());
     let top_left = baseline + egui::vec2(tl_rel.x * c + tl_rel.y * s, -tl_rel.x * s + tl_rel.y * c);
     painter.add(egui::epaint::TextShape::new(top_left, galley, color).with_angle(angle));
@@ -654,6 +667,25 @@ mod tests {
     fn snap_mm_rounds_to_grid() {
         assert!((snap_mm(12.0, 5.0) - 10.0).abs() < 1e-9);
         assert!((snap_mm(13.0, 5.0) - 15.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn galley_pen_is_ascent_not_line_box() {
+        with_painter(|_ctx, _rect, painter| {
+            let galley = painter.layout_no_wrap(
+                "東".into(),
+                egui::FontId::proportional(40.0),
+                egui::Color32::BLACK,
+            );
+            let pen = galley_pen_offset(&galley);
+            assert!(pen.y > 1.0, "CJK must have a baseline inside the galley");
+            assert!(
+                pen.y + 1.0 < galley.size().y,
+                "line box extends below the baseline (pen y={}, box h={}); hanging from size.y sits ink too high vs circles",
+                pen.y,
+                galley.size().y
+            );
+        });
     }
 
     #[test]

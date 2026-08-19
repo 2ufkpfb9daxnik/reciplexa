@@ -4,7 +4,7 @@ use reciplexa_std::japanese::{char_em_width, TateChuYoko, BOU_MARK_SIZE_EM};
 use reciplexa_text_layout::{
     layout_bou_horizontal, layout_bou_vertical, layout_tate_chu_yoko, layout_vertical_run,
     positioned_bou_horizontal_to_shapes, positioned_bou_vertical_to_shapes,
-    positioned_tcy_to_shapes, LayoutError, LoadedFont,
+    positioned_tcy_to_shapes, LayoutError, LoadedFont, BOU_PARENT_GAP_EM,
 };
 
 fn font() -> LoadedFont {
@@ -93,10 +93,31 @@ fn bou_horizontal_marks_sit_above_body() {
         .collect();
     assert_eq!(marks.len(), 2);
     let radius = size * BOU_MARK_SIZE_EM * 0.5;
+    let clear = size * BOU_PARENT_GAP_EM + radius;
+    let juu = laid
+        .body
+        .run
+        .glyphs
+        .iter()
+        .find(|g| g.ch == '重')
+        .expect("重");
     for m in &marks {
-        assert!(m.y_mm > 40.0 + size, "mark must sit above the em-square");
+        assert!(
+            m.y_mm + 1e-9 >= juu.y_mm + size + clear,
+            "mark must sit above the em-square plus gap, y={} want>={}",
+            m.y_mm,
+            juu.y_mm + size + clear
+        );
         assert!((m.radius_mm - radius).abs() < 1e-9);
     }
+    let mark_juu = marks
+        .iter()
+        .min_by(|a, b| a.x_mm.partial_cmp(&b.x_mm).unwrap())
+        .unwrap();
+    assert!(
+        (mark_juu.x_mm - (juu.x_mm + juu.advance_mm * 0.5)).abs() < 1e-6,
+        "horizontal bou is centered on the parent advance"
+    );
 }
 
 #[test]
@@ -113,7 +134,16 @@ fn bou_vertical_marks_sit_beside_column() {
             _ => None,
         })
         .expect("mark");
-    assert!(mark.x_mm > x + size * 0.5, "vertical bou sits to the side");
+    assert!(
+        mark.x_mm + 1e-9 >= x + size * (1.0 + BOU_PARENT_GAP_EM),
+        "vertical bou sits to the right of the em-square, x={} origin={}",
+        mark.x_mm,
+        x
+    );
+    assert!(
+        (mark.y_mm - (90.0 + size * 0.5)).abs() < 1e-6,
+        "vertical bou is centered on the parent em-square"
+    );
 }
 
 #[test]
