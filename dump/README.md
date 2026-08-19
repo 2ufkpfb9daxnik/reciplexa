@@ -21,6 +21,7 @@
 - `package-plan.md`: Step 7 package実運用化（local/offline slice完了、残存OPEN）の詳細
 - `direct-native-v2-plan.md`: Direct Native v2（標準package）の実装順と完了条件
 - `product-typesetting-plan.md`: Step 7 item 3（font-backed JLReq / OpenType MATH）の実装順と完了条件
+- `jlreq-followup-plan.md`: Step 8（font-backed simple ruby ほか JLReq follow-up）
 
 coverage、deferred、meta、gap/partialの各ファイルは測定・監査用です。通常の実装判断では先に読む必要はありません。
 
@@ -31,7 +32,7 @@ coverage、deferred、meta、gap/partialの各ファイルは測定・監査用�
 - portable fallback / ABI negotiation は `OPEN-NATIVE-PKG-001` として OPEN のまま追跡する。
 - 最初に閉じる製品体験は、package形式の図形と文字の1ページをGUIで編集し、保存、再読込、PDF/SVG出力まで往復できるVertical Sliceである。
 - markup、`document/page`のdoc-*作者編集はこのSliceの対象外とし、read-onlyまたは明示的soft-refuseにする。
-- Step 7 item 3 の JLReq / MATH Profile v1 は landed（stub 参照経路は残す）。ruby/`vert`、完全 MATH assembly、`OPEN-TEXT-LAYOUT-001` 残 bullets、first-class editable math は OPEN。
+- Step 7 item 3 の JLReq / MATH Profile v1 は landed（stub 参照経路は残す）。Step 8 は JLReq follow-up（simple ruby から）。完全 appendix C、`vert`、縦中横、傍点、完全 MATH assembly、first-class editable math は OPEN。
 
 ## 人間が確認すること
 

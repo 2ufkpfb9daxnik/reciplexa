@@ -226,12 +226,13 @@ pre-PKG カーネルは計画上 **COMPLETE（意図的 defer 付き）**。各�
 
 ## 6. 次工程
 
-実行順の正本は [`active-roadmap.md`](active-roadmap.md)。Step 7 items 1–3 は完了（item 3 は Profile v1。残 OPEN は下記）。新しい実行 Step は roadmap へ人間が追加するまでない。完了済みの native-domain / GUI CST sync / host-layout / live-layout 深化は Git 履歴を参照する。
+実行順の正本は [`active-roadmap.md`](active-roadmap.md)。Step 7 items 1–3 は完了（item 3 は Profile v1）。Step 8 は [`jlreq-followup-plan.md`](jlreq-followup-plan.md)（simple ruby から）。完了済みの native-domain / GUI CST sync / host-layout / live-layout 深化は Git 履歴を参照する。
 
 1. **package 実運用化 local/offline slice** — [`package-plan.md`](package-plan.md): lock再現性、typed resource light、自動materialize、offline registry mirrorまで完了。network registry、full-tree hash、Core resource effectは別OPEN。
 2. **Direct Native v2** — [`direct-native-v2-plan.md`](direct-native-v2-plan.md) **shipping complete**（DN2-0〜DN2-7 + 本番 BindingId dispatch via `op_for`）。標準packageは DN2 stub + compilation BindingId（`dn2bid-*`）+ typed Rust callable。author import 綴り（修飾 / alias / bare）は canonical `package/module` へ対応。Hybrid 参照本文は `LocalPackageIndex` override のみ。portable fallback は `OPEN-NATIVE-PKG-001` で明示追跡（未実装）。
 2b. **DN2 観測同値の硬化** — 製品級組版の前。深い example 差分、`japanese/linebreak` 動的 export、構造化 Failure（`package/arity` / `package/type`）、native stub の body elaboration 省略（BindingId スロット、alias / bare を含む）。詳細は plan DN2-8。
 3. **製品級組版** — [`product-typesetting-plan.md`](product-typesetting-plan.md) **complete（Profile v1; gates `3087565`）**。`reciplexa-text-layout` が共有 font/shaping 基盤。JLReq Profile v1 と Math Profile v1 は別エンジン。`doc-page` / `live-layout-demo` / `math-demo` / graphics `text` のホスト経路は product `Shape::GlyphRun`（Visual IR / PDF は layout GID。graphics は authoring 1 ノード = 1 cluster run）。GUI preview は digest family + layout advances。`pkg_live_math` の math origin は `text_y_mm`。ライブラリ stub API は従来。author `import japanese/*` / `import math/*` は未変更。
+4. **JLReq follow-up** — [`jlreq-followup-plan.md`](jlreq-followup-plan.md) **active（simple ruby landed; `vert` 等は未着手）**。
 
 ### いま OPEN（次に追うもの）
 
@@ -241,7 +242,7 @@ pre-PKG カーネルは計画上 **COMPLETE（意図的 defer 付き）**。各�
 2. **OPEN-NATIVE-PKG-001** — 標準packageの portable `.rpx` fallback、ABI/version negotiation、native unavailable 時のルーティングは未実装。本番は Direct Native v2 のみ。非native package の disk `.rpx` load は維持。定数は `reciplexa_package::OPEN_NATIVE_PKG_001_*`。
 3. **package-resource** — package load/eval は [`eval_package_entry_main`] で `(resource …)` を自動 materialize（`resource-id` / `content-hash` / `effect: Resource` / `resolved-path`）。replay 不一致は PKG008。Core 型の resource effect / bracket 分離は未着手（RSC-001）。
 4. **OPEN-TEXT-LAYOUT-001** — 共通 Text Layout protocol の正確な型、font fallback、HarfBuzz 級 shaping、bidi。Profile v1 の行分割・行調整は font-backed。残りの bullets は閉じない。
-5. **OPEN-TEXT-JA-001** — 完全 UCS / 規範的 appendix C 全体 / OpenType `vert` / CSS `text-orientation` / font-backed ruby・縦中横・傍点。Profile v1 はクラス行列・cl-08 glue・hang/trim/justify の font-backed 行組版まで。stub 層（Waves 4–29）は参照のまま閉じない。
+5. **OPEN-TEXT-JA-001** — 完全 UCS / 規範的 appendix C 全体 / OpenType `vert` / CSS `text-orientation` / jukugo 配分・縦ルビ・overhang / 縦中横・傍点。Profile v1 はクラス行列・cl-08 glue・hang/trim/justify。Step 8 item 1 は横組 simple ruby（font-backed GlyphRun）。stub 層（Waves 4–29）は参照のまま閉じない。
 6. **OpenType MATH（Profile v1 以降）** — 完全 glyph assembly、MATH kern、`\fontdimen`、GUI 上の first-class editable math。Profile v1 は fixture MATH constants、font advance、scripts/fraction/radical（rule thickness）、stretchy は MATH Variants construction の prepared GID（cmap `(` ではない。scene `GlyphRun` / PDF Identity-H）、hat/tilde/dot/vec / bar-underline rules、display bigop variants、matrix/stack。check/breve 等の ASCII 代用はしない。`reciplexa-std::math` ヒューリスティックは参照。
 7. **本番ページ消費（editable）** — math / JA を GUI の first-class 編集対象にする段階は未着手。`doc-page` / `live-layout-demo` のホスト preview は product engine。graphics `text` のホスト preview/export は cluster `GlyphRun`（package CST の 1 text ノードは flatten 1 面のまま）。`document/page` CST sync は非ゴール。
 8. **Font emission 残差** — ホスト PDF は layout digest ごとに CID face を subset（`host_product_font` と `host_math_font`。同一 digest なら一面）。`Shape::GlyphRun` は layout GID を塗る。cmap 経路の非 ASCII `Text` は product face。digest 不一致は relayout エラー。Latin-only `Text` は Helvetica。GUI preview は同じ digest の egui family で `GlyphRun` を layout advance 位置に置く（cmap グリフ。construction-only GID のアウトラインは egui では Unicode 代用）。SVG/PPTX は Unicode クラスタを同じ座標で出す。

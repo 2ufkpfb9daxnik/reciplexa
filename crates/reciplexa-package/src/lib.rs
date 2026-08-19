@@ -42,6 +42,7 @@ pub mod resolver;
 pub mod resource_value;
 pub mod rpi;
 pub mod rpxm;
+pub mod ruby_bridge;
 pub mod target;
 pub mod typecheck;
 pub mod workspace;

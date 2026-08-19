@@ -17,8 +17,8 @@
 
 ## 実行指示
 
-- `dump/active-roadmap.md` の最初の未完了Stepから開始し、受入条件が満たされるまで継続する。未完了 Step がなければ完了報告して停止する。
-- Step 1〜7は完了済み。再実装せず、新しい Step が [`active-roadmap.md`](active-roadmap.md) に追加されるまで着手しない。残 OPEN（`OPEN-TEXT-LAYOUT-001` 残 bullets、ruby/`vert`、完全 MATH assembly、first-class editable math、`OPEN-NATIVE-PKG-001`）は [`implemented-features.md`](implemented-features.md) に列挙済み。勝手に閉じない。
+- `dump/active-roadmap.md` の最初の未完了Stepから開始し、受入条件が満たされるまで継続する。
+- Step 1〜7は完了済み。いまは Step 8 item 1（font-backed simple ruby。[`jlreq-followup-plan.md`](jlreq-followup-plan.md)）。jukugo / `vert` / 縦中横 / 傍点 / 完全 MATH assembly / `OPEN-NATIVE-PKG-001` は勝手に閉じない。
 - 安全な実装判断、crate責任分割、テスト構成は自律的に決める。確認待ちだけを理由に止まらない。
 - 仕様・製品挙動・データ互換性・破壊的操作を変える必要がある場合だけ、人間へ具体的な選択肢を示す。
 - ユーザーの既存変更を上書き、破棄、巻き戻ししない。

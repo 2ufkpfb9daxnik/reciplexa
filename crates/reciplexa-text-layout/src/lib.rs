@@ -1,4 +1,4 @@
-//! Font-backed text/math layout substrate (Step 7 item 3).
+//! Font-backed text/math layout substrate (Step 7 item 3; Step 8 simple ruby).
 //!
 //! Shared face/shaping data with two engines: JLReq Profile v1 and Math Profile v1.
 //! `reciplexa-std` heuristics remain the explicit stub/reference path.
@@ -14,6 +14,7 @@ pub mod ja_tables;
 pub mod math_layout;
 pub mod policy;
 pub mod position;
+pub mod ruby;
 pub mod shape;
 
 pub use engine::{host_typeset_engine, TypesetEngine};
@@ -41,4 +42,5 @@ pub use position::{
     productize_document_text, productize_shape_text, Direction, GlyphRun, PositionedGlyph,
     PositionedLine, WritingMode,
 };
+pub use ruby::{layout_simple_ruby, positioned_ruby_to_shapes, PositionedRuby};
 pub use shape::{clusters_cover_input, shape_run, ShapedGlyph, ShapedRun};

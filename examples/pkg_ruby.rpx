@@ -1,11 +1,14 @@
-(// language-only: ker builtin ruby-box + document/page demo.
- // Metrics from Ruby::estimate_box; page is a tagged document surface stub.)
+(// language-only: ker builtin ruby-box + japanese/markup ruby.
+ // Stub preview uses nested document/page. Host product lays out `placed`.)
+
+(import japanese/markup only ruby)
 
 (import document/page only
   a4 page flow section heading paragraph
   block-heading block-paragraph)
 
-(val ruby (ruby-box "東京" "とうきょう"))
+(val placed (ruby "東京" "とうきょう"))
+(val metrics (ruby-box "東京" "とうきょう"))
 
 (val title (heading 1 "Ruby box"))
 (val body (paragraph "東京（とうきょう）— fontless ruby-box metrics, not JLReq placement."))
@@ -13,7 +16,8 @@
 (val main
   (record
     (tag "ja-ruby-demo")
-    (ruby ruby)
+    (ruby metrics)
+    (placed placed)
     (page
       (page a4
         (flow

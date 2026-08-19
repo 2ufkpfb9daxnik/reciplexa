@@ -121,6 +121,9 @@ pub fn document_from_package_entry_with_engine(
         return reciplexa_eval::document_from_math_demo_value(&v, engine)
             .map_err(|e| GraphicsBridgeError::Bridge(e.message));
     }
+    if is_ruby_demo_tag(&v) {
+        return crate::ruby_bridge::document_from_ruby_demo_value(&v, engine);
+    }
     if engine == TypesetEngine::Product {
         if let Ok(fields) = match &v {
             RuntimeValue::Record(f) => Ok(f.as_slice()),
@@ -154,6 +157,10 @@ fn is_live_layout_demo_tag(v: &RuntimeValue) -> bool {
 
 fn is_math_demo_tag(v: &RuntimeValue) -> bool {
     record_tag(v) == Some("math-demo")
+}
+
+fn is_ruby_demo_tag(v: &RuntimeValue) -> bool {
+    matches!(record_tag(v), Some("ja-ruby-demo" | "ja-ruby"))
 }
 
 fn record_tag(v: &RuntimeValue) -> Option<&str> {

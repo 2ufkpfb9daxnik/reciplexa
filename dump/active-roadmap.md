@@ -123,6 +123,21 @@
 
 **Complete when:** items 1–3 の受入と、item 3 の workspace gate が同じコード HEAD で記録される。 → `3087565`
 
-新しい Step は本文書へ人間が追加するまで着手しない。ruby/`vert` / 完全 assembly / HarfBuzz 級 shaping をこの Step の完了条件として閉じない。
-
 Step 7はSteps 1–6のgreen HEADを基準線として開始した。
+
+## Step 8 — JLReq follow-ups
+
+**Status:** active — item 1 simple ruby complete; item 2 `vert` planned
+
+人間が Vertical Slice の GUI 確認を済ませたあとの次工程。[`jlreq-followup-plan.md`](jlreq-followup-plan.md)
+
+順序:
+
+1. Font-backed simple ruby: **complete** (`layout_simple_ruby`; host `ja-ruby-demo` / `placed`)
+   - 横組の simple ruby を font advance で測り、annotation を親文字の上に置く
+   - `japanese/markup ruby` と `Ruby::estimate_box` stub は変えない
+   - jukugo 配分、縦ルビ、overhang、`vert`、縦中横、傍点は非ゴール
+2. OpenType `vert` / 縦組: planned
+3. Tate-chu-yoko / bou: planned
+
+**Complete when:** slice 1 の受入（font vs stub 差、GlyphRun、host consume）を満たし、残 follow-up が OPEN のまま列挙される。

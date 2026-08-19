@@ -90,6 +90,28 @@ impl PositionedLine {
             width_mm: x,
         }
     }
+
+    /// Position a whole shaped run at `size_mm` (no hang/trim).
+    pub fn from_shaped_run(
+        font: FontId,
+        run: &crate::shape::ShapedRun,
+        origin_x_mm: f64,
+        origin_y_mm: f64,
+        size_mm: f64,
+        language: &str,
+    ) -> Self {
+        let seg = LineSegment {
+            text: run.text.clone(),
+            start_byte: 0,
+            end_byte: run.text.len(),
+            natural_width_em: run.width_em(),
+            hang_em: 0.0,
+            trim_em: 0.0,
+            reason: crate::ja::BreakReason::End,
+            glyphs: run.glyphs.clone(),
+        };
+        Self::from_segment(font, &seg, origin_x_mm, origin_y_mm, size_mm, language)
+    }
 }
 
 /// Coarse adapter: one scene [`Text`] per line (string, not GIDs).
