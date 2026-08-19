@@ -35,8 +35,8 @@ pub use math_layout::{
 };
 pub use policy::{select_font, FontRegistry};
 pub use position::{
-    glyph_run_from_shaped, positioned_line_to_glyph_texts, positioned_line_to_scene_text,
-    positioned_lines_to_shapes, positioned_math_to_shapes, Direction, GlyphRun, PositionedGlyph,
-    PositionedLine, WritingMode,
+    glyph_run_from_shaped, positioned_line_to_glyph_shapes, positioned_line_to_glyph_texts,
+    positioned_line_to_scene_text, positioned_lines_to_shapes, positioned_math_to_shapes,
+    Direction, GlyphRun, PositionedGlyph, PositionedLine, WritingMode,
 };
 pub use shape::{clusters_cover_input, shape_run, ShapedGlyph, ShapedRun};

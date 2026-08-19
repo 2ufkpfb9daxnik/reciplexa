@@ -217,7 +217,7 @@ pre-PKG カーネルは計画上 **COMPLETE（意図的 defer 付き）**。各�
 1. **package 実運用化 local/offline slice** — [`package-plan.md`](package-plan.md): lock再現性、typed resource light、自動materialize、offline registry mirrorまで完了。network registry、full-tree hash、Core resource effectは別OPEN。
 2. **Direct Native v2** — [`direct-native-v2-plan.md`](direct-native-v2-plan.md) **shipping complete**（DN2-0〜DN2-7 + 本番 BindingId dispatch via `op_for`）。標準packageは DN2 stub + compilation BindingId（`dn2bid-*`）+ typed Rust callable。author import 綴り（修飾 / alias / bare）は canonical `package/module` へ対応。Hybrid 参照本文は `LocalPackageIndex` override のみ。portable fallback は `OPEN-NATIVE-PKG-001` で明示追跡（未実装）。
 2b. **DN2 観測同値の硬化** — 製品級組版の前。深い example 差分、`japanese/linebreak` 動的 export、構造化 Failure（`package/arity` / `package/type`）、native stub の body elaboration 省略（BindingId スロット、alias / bare を含む）。詳細は plan DN2-8。
-3. **製品級組版** — [`product-typesetting-plan.md`](product-typesetting-plan.md) **active（エンジン landed / ホスト cutover 部分完了）**。`reciplexa-text-layout` が共有 font/shaping 基盤。JLReq Profile v1 と Math Profile v1 は別エンジン。`doc-page` / `live-layout-demo` / `math-demo` のホスト経路は product。graphics `text` とライブラリ stub API は従来。author `import japanese/*` / `import math/*` は未変更。
+3. **製品級組版** — [`product-typesetting-plan.md`](product-typesetting-plan.md) **active（エンジン landed / ホスト GlyphRun cutover）**。`reciplexa-text-layout` が共有 font/shaping 基盤。JLReq Profile v1 と Math Profile v1 は別エンジン。`doc-page` / `live-layout-demo` / `math-demo` のホスト経路は product `Shape::GlyphRun`（Visual IR / PDF は layout GID）。graphics `text` とライブラリ stub API は従来。author `import japanese/*` / `import math/*` は未変更。
 
 ### いま OPEN（次に追うもの）
 
@@ -227,12 +227,11 @@ pre-PKG カーネルは計画上 **COMPLETE（意図的 defer 付き）**。各�
 2. **OPEN-NATIVE-PKG-001** — 標準packageの portable `.rpx` fallback、ABI/version negotiation、native unavailable 時のルーティングは未実装。本番は Direct Native v2 のみ。非native package の disk `.rpx` load は維持。定数は `reciplexa_package::OPEN_NATIVE_PKG_001_*`。
 3. **package-resource** — package load/eval は [`eval_package_entry_main`] で `(resource …)` を自動 materialize（`resource-id` / `content-hash` / `effect: Resource` / `resolved-path`）。replay 不一致は PKG008。Core 型の resource effect / bracket 分離は未着手（RSC-001）。
 4. **OPEN-TEXT-JA-001** — 完全 UCS / 規範的 appendix C 全体 / OpenType `vert` / CSS `text-orientation` / font-backed ruby・縦中横・傍点。Profile v1 はクラス行列・cl-08 glue・hang/trim/justify の font-backed 行組版まで。stub 層（Waves 4–29）は参照のまま閉じない。
-5. **OpenType MATH（Profile v1 以降）** — 完全 glyph assembly、MATH kern、`\fontdimen`、GUI 上の first-class editable math。Profile v1 は fixture MATH constants、font advance、scripts/fraction/radical（rule thickness）、stretchy variant GID + scene size、hat/tilde/dot/vec / bar-underline rules、display bigop variants、matrix/stack。check/breve 等の ASCII 代用はしない。`reciplexa-std::math` ヒューリスティックは参照。
+5. **OpenType MATH（Profile v1 以降）** — 完全 glyph assembly、MATH kern、`\fontdimen`、GUI 上の first-class editable math。Profile v1 は fixture MATH constants、font advance、scripts/fraction/radical（rule thickness）、stretchy variant GID（scene `GlyphRun` / PDF Identity-H）、hat/tilde/dot/vec / bar-underline rules、display bigop variants、matrix/stack。check/breve 等の ASCII 代用はしない。`reciplexa-std::math` ヒューリスティックは参照。
 6. **本番ページ消費（editable）** — math / JA を GUI の first-class 編集対象にする段階は未着手。`doc-page` / `live-layout-demo` のホスト preview は product engine。graphics `text` は stub scene。`document/page` CST sync は非ゴール。
-7. **Font emission 残差** — ホスト PDF は `host_product_font` と同じ face を subset（`document_to_pdf_matching_layout` が layout `FontId` と emit digest を比較）。digest 不一致は relayout エラー。Latin-only `Text` は Helvetica。GUI egui 面は layout face と同一ではない。MATH 既定 face は fixture、JA は CJK のことがある（混在ページは JA face で非 ASCII を塗る）。
-8. **GlyphRun 配線** — JA/MATH の scene lower は位置保持のためグリフ単位 `Text`。Visual IR `RenderNode::GlyphRun` はあるが production lower は scene 経由。PDF は文字列を埋め込み face で再 advance する（`width_mm: None` なので再ラップはしない）。
-9. **markup 作者同期** — GUI CST sync v2 は package AST のみ。`(markup …)` 展開ページは soft-refuse（意図的）。
-10. **その他意図的 skip** — 分数ルール色付け（既に黒）；`pkg_checksum_demo` 例（crate README で足りる）。
+7. **Font emission 残差** — ホスト PDF は layout digest ごとに CID face を subset（`host_product_font` と `host_math_font`。同一 digest なら一面）。`Shape::GlyphRun` は layout GID を塗る。cmap 経路の非 ASCII `Text` は product face。digest 不一致は relayout エラー。Latin-only `Text` は Helvetica。GUI egui 面は layout face と同一ではない。SVG/PPTX は Unicode クラスタを同じ座標で出す。
+8. **markup 作者同期** — GUI CST sync v2 は package AST のみ。`(markup …)` 展開ページは soft-refuse（意図的）。
+9. **その他意図的 skip** — 分数ルール色付け（既に黒）；`pkg_checksum_demo` 例（crate README で足りる）。
 
 これらはバグ一覧ではなく、仕様 / 計画上まだ追わない（または別エンジンが必要な）項目である。
 ---

@@ -1,6 +1,6 @@
 # Product Typesetting (Step 7 item 3)
 
-**Status:** active (PT-0〜PT-8 engines landed; host cutover partial — not product-complete)  
+**Status:** active (PT-0〜PT-9 engines + GlyphRun host/PDF cutover — remaining OPEN listed below)  
 **Current model:** font-backed JLReq Profile v1 + Math Profile v1 on a shared `ttf-parser` substrate; `reciplexa-std` heuristics remain the explicit stub/reference path  
 **Execution order:** [`active-roadmap.md`](active-roadmap.md) Step 7 item 3, after Direct Native v2 item 2/2b  
 **Normative anchors:** `specification.md` Part IV §16–18, `IR-001` GlyphRun, `OPEN-TEXT-LAYOUT-001`, `OPEN-TEXT-JA-001`, Font Policy §39  
@@ -188,10 +188,10 @@ PT-0〜PT-9 landed in `crates/reciplexa-text-layout` plus host adapters:
 
 - PT-0: pinned generated fixture TTF, `LoadedFont` (TTC face index), shaped clusters, structured missing font/glyph.
 - PT-1/2/3: font advances, versioned class-matrix (`jlreq-profile-v1.0`), hang/trim/justify applied onto `PositionedLine` glyph x.
-- PT-4/5: MATH constants drive script/fraction/radical/bigop placement; stretchy delimiter GIDs are recorded and scene size carries stretch (scene `Text` still cannot paint the variant GID). Accents: hat/tilde/dot/vec marks and bar/underline rules; check/breve/acute/grave/ring refuse ASCII substitution. Full assembly / MATH kern remain OPEN.
-- PT-6: `GlyphRun` / `PositionedLine`; product JA/MATH scene adapters emit one `Text` per glyph so trim/justify and intra-row x survive. Visual IR `GlyphRun` is still not the production lower.
+- PT-4/5: MATH constants drive script/fraction/radical/bigop placement; stretchy delimiter GIDs are recorded and painted via scene `GlyphRun`. Accents: hat/tilde/dot/vec marks and bar/underline rules; check/breve/acute/grave/ring refuse ASCII substitution. Full assembly / MATH kern remain OPEN.
+- PT-6: `GlyphRun` / `PositionedLine`; product JA/MATH scene adapters emit one `Shape::GlyphRun` per glyph so trim/justify, intra-row x, and layout GIDs survive.
 - PT-7: `layout_doc_page_to_scene_with_engine` / `layout_math_to_shapes_product` / `document_from_math_demo_value`; host pipeline uses product for `doc-page`, `live-layout-demo`, and `math-demo`.
-- PT-8: `document_to_pdf_matching_layout` compares layout `FontId` digest to the emit face; host PDF embeds `host_product_font` (no silent system-CJK swap).
+- PT-8: production Visual IR lower emits `RenderNode::GlyphRun`; host PDF paints layout GIDs (`encode_gid_hex`) and embeds one CID face per layout digest (`host_product_font` + `host_math_font`). Digest mismatch is relayout. Latin-only `Text` is Helvetica. SVG/PPTX keep Unicode clusters at the same positions.
 - PT-9: stub remains `document_from_package_entry` (tests/reference); `RECIPLEXA_TYPESET_ENGINE=stub` forces heuristics; cutover tests cover the declared examples.
 
 Library APIs `layout_doc_page_to_scene` and `layout_math_to_shapes` stay stub so existing differential tests remain the reference baseline.

@@ -11,7 +11,7 @@ use crate::font::LoadedFont;
 use crate::shape::{shape_run, ShapedGlyph};
 
 /// Declared Math Profile v1: symbols, rows, scripts, fractions, radicals,
-/// stretchy delimiter variants (GID recorded; scene size carries stretch),
+/// stretchy delimiter variants (GID recorded and painted via scene GlyphRun),
 /// hat/tilde/dot/vec marks, bar/underline rules, display big operators,
 /// matrices, aligned/stack. Check/breve/acute/grave/ring marks error rather
 /// than ASCII substitution. Full glyph assembly recipes remain OPEN.

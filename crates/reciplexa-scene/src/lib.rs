@@ -217,6 +217,28 @@ impl Text {
     }
 }
 
+/// One positioned glyph from product layout (IR-001).
+///
+/// PDF/Visual IR paint `gid` from the face identified by `font_digest`.
+/// `content` is the source cluster (ToUnicode, GUI, SVG).
+#[derive(Debug, Clone, PartialEq)]
+pub struct GlyphRunShape {
+    pub x_mm: f64,
+    pub y_mm: f64,
+    pub size_mm: f64,
+    pub content: String,
+    pub fill: Color,
+    pub gid: u16,
+    pub font_digest: String,
+    pub advance_mm: f64,
+}
+
+impl GlyphRunShape {
+    pub fn is_drawable(&self) -> bool {
+        self.size_mm > 0.0 && !self.content.is_empty() && self.fill.is_channel_valid()
+    }
+}
+
 /// Stroked line segment in local millimeters.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Line {
@@ -294,6 +316,8 @@ pub enum Shape {
     Ring(Ring),
     Frame(Frame),
     Text(Text),
+    /// Product layout glyph (GID + font digest). Graphics `text` stays [`Shape::Text`].
+    GlyphRun(GlyphRunShape),
     Line(Line),
     Polyline(Polyline),
     Polygon(Polygon),
@@ -323,6 +347,37 @@ pub struct Document {
 impl Document {
     pub fn single_page(page: Page) -> Self {
         Self { pages: vec![page] }
+    }
+}
+
+impl Shape {
+    /// Unicode cluster for [`Shape::Text`] or [`Shape::GlyphRun`].
+    pub fn text_content(&self) -> Option<&str> {
+        match self {
+            Self::Text(t) => Some(t.content.as_str()),
+            Self::GlyphRun(g) => Some(g.content.as_str()),
+            _ => None,
+        }
+    }
+
+    pub fn is_text_like(&self) -> bool {
+        matches!(self, Self::Text(_) | Self::GlyphRun(_))
+    }
+
+    pub fn text_x_mm(&self) -> Option<f64> {
+        match self {
+            Self::Text(t) => Some(t.x_mm),
+            Self::GlyphRun(g) => Some(g.x_mm),
+            _ => None,
+        }
+    }
+
+    pub fn text_y_mm(&self) -> Option<f64> {
+        match self {
+            Self::Text(t) => Some(t.y_mm),
+            Self::GlyphRun(g) => Some(g.y_mm),
+            _ => None,
+        }
     }
 }
 

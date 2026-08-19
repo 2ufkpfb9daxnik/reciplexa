@@ -182,6 +182,9 @@ fn world_shape_to_domain(
             stable_node_id,
             source_byte_start,
             source_byte_end,
+            glyph_id: t.glyph_id,
+            font_digest: t.font_digest.clone(),
+            glyph_advance_mm: t.glyph_advance_mm,
         },
         WorldShape::Path(p) => DomainNode::Path {
             id,
@@ -296,19 +299,43 @@ fn domain_to_render(node: &DomainNode) -> RenderNode {
             content,
             fill,
             alpha,
+            glyph_id,
+            font_digest,
+            glyph_advance_mm,
             ..
-        } => RenderNode::Text {
-            id: RenderNodeId::new(id.0),
-            x_mm: *x_mm,
-            y_mm: *y_mm,
-            size_mm: *size_mm,
-            width_mm: *width_mm,
-            height_mm: *height_mm,
-            rotation_deg: *rotation_deg,
-            content: content.clone(),
-            fill: *fill,
-            alpha: *alpha,
-        },
+        } => {
+            if let (Some(gid), Some(digest)) = (*glyph_id, font_digest.as_ref()) {
+                let cluster_end = content.len() as u32;
+                RenderNode::GlyphRun {
+                    id: RenderNodeId::new(id.0),
+                    font_digest: digest.clone(),
+                    font_label: String::new(),
+                    x_mm: *x_mm,
+                    y_mm: *y_mm,
+                    size_mm: *size_mm,
+                    content: content.clone(),
+                    fill: *fill,
+                    alpha: *alpha,
+                    gids: vec![gid],
+                    advances_mm: vec![glyph_advance_mm.unwrap_or(*width_mm)],
+                    cluster_starts: vec![0],
+                    cluster_ends: vec![cluster_end],
+                }
+            } else {
+                RenderNode::Text {
+                    id: RenderNodeId::new(id.0),
+                    x_mm: *x_mm,
+                    y_mm: *y_mm,
+                    size_mm: *size_mm,
+                    width_mm: *width_mm,
+                    height_mm: *height_mm,
+                    rotation_deg: *rotation_deg,
+                    content: content.clone(),
+                    fill: *fill,
+                    alpha: *alpha,
+                }
+            }
+        }
         DomainNode::Path {
             id,
             points_mm,

@@ -122,11 +122,8 @@ fn pt3_wrapped_lines_apply_trim_to_positioned_glyphs() {
     let texts =
         reciplexa_text_layout::layout_wrapped_paragraph_product(&f, "「あ」", 10.0, 0.0, &layout)
             .expect("product wrap");
-    assert!(
-        texts[0].x_mm < layout.base_x_mm,
-        "trim must reach scene Text x ({})",
-        texts[0].x_mm
-    );
+    let x = texts[0].text_x_mm().expect("glyph x");
+    assert!(x < layout.base_x_mm, "trim must reach scene glyph x ({x})");
 }
 
 #[test]
@@ -185,11 +182,11 @@ fn pt6_positioned_output_one_text_per_glyph() {
     let n_glyphs: usize = lines.iter().map(|l| l.run.glyphs.len()).sum();
     assert_eq!(shapes.len(), n_glyphs);
     let first = match &shapes[0] {
-        reciplexa_scene::Shape::Text(t) => t,
-        other => panic!("expected Text, got {other:?}"),
+        reciplexa_scene::Shape::GlyphRun(g) => g,
+        other => panic!("expected GlyphRun, got {other:?}"),
     };
     assert_eq!(first.content.chars().count(), 1);
-    assert!(first.width_mm.is_none());
+    assert!(first.gid > 0);
 }
 
 #[test]
@@ -238,12 +235,17 @@ fn math_scene_adapter_keeps_intra_row_x() {
         ],
     );
     let laid = layout_math_atom(&f, &atom, EstimateStyle::Display).unwrap();
-    let shapes =
-        positioned_math_to_shapes(&laid, (10.0, 100.0), 4.0, reciplexa_scene::Color::BLACK);
+    let shapes = positioned_math_to_shapes(
+        &laid,
+        (10.0, 100.0),
+        4.0,
+        reciplexa_scene::Color::BLACK,
+        &f.id,
+    );
     let texts: Vec<_> = shapes
         .iter()
         .filter_map(|s| match s {
-            reciplexa_scene::Shape::Text(t) => Some(t),
+            reciplexa_scene::Shape::GlyphRun(t) => Some(t),
             _ => None,
         })
         .collect();
@@ -261,19 +263,24 @@ fn math_scene_adapter_fraction_is_y_up() {
         MathAtom::symbol(StableNodeId::new(3), "b", MathClass::Ordinary),
     );
     let laid = layout_math_atom(&f, &frac, EstimateStyle::Display).unwrap();
-    let shapes =
-        positioned_math_to_shapes(&laid, (10.0, 100.0), 4.0, reciplexa_scene::Color::BLACK);
+    let shapes = positioned_math_to_shapes(
+        &laid,
+        (10.0, 100.0),
+        4.0,
+        reciplexa_scene::Color::BLACK,
+        &f.id,
+    );
     let a = shapes
         .iter()
         .find_map(|s| match s {
-            reciplexa_scene::Shape::Text(t) if t.content == "a" => Some(t.y_mm),
+            reciplexa_scene::Shape::GlyphRun(t) if t.content == "a" => Some(t.y_mm),
             _ => None,
         })
         .expect("num");
     let b = shapes
         .iter()
         .find_map(|s| match s {
-            reciplexa_scene::Shape::Text(t) if t.content == "b" => Some(t.y_mm),
+            reciplexa_scene::Shape::GlyphRun(t) if t.content == "b" => Some(t.y_mm),
             _ => None,
         })
         .expect("den");
@@ -310,8 +317,13 @@ fn pt5_fraction_rule_uses_math_thickness() {
     let th = laid.rules[0].thickness_em;
     let expect = f64::from(FIXTURE_FRACTION_RULE_THICKNESS) / 1000.0;
     assert!((th - expect).abs() < 1e-9, "thickness {th} vs {expect}");
-    let shapes =
-        positioned_math_to_shapes(&laid, (10.0, 100.0), 4.0, reciplexa_scene::Color::BLACK);
+    let shapes = positioned_math_to_shapes(
+        &laid,
+        (10.0, 100.0),
+        4.0,
+        reciplexa_scene::Color::BLACK,
+        &f.id,
+    );
     let w = shapes
         .iter()
         .find_map(|s| match s {
@@ -323,7 +335,7 @@ fn pt5_fraction_rule_uses_math_thickness() {
 }
 
 #[test]
-fn pt5_stretchy_delim_scale_visible_without_gid() {
+fn pt5_stretchy_delim_gid_reaches_scene_glyph_run() {
     let f = font();
     let delim = MathAtom::delimiter_with_stretch(
         StableNodeId::new(1),
@@ -338,9 +350,23 @@ fn pt5_stretchy_delim_scale_visible_without_gid() {
         .iter()
         .find(|g| g.glyph.ch == '(')
         .expect("left");
+    let shapes = positioned_math_to_shapes(
+        &laid,
+        (10.0, 100.0),
+        4.0,
+        reciplexa_scene::Color::BLACK,
+        &f.id,
+    );
+    let painted = shapes
+        .iter()
+        .find_map(|s| match s {
+            reciplexa_scene::Shape::GlyphRun(g) if g.content == "(" => Some(g),
+            _ => None,
+        })
+        .expect("scene glyph");
+    assert_eq!(painted.gid, left.glyph.gid);
     assert!(
-        left.scale > 1.0,
-        "stretch must enlarge scene size when GID is dropped, got {}",
-        left.scale
+        left.scale > 1.0 || left.glyph.gid != f.glyph_id('(').unwrap(),
+        "stretchy must scale or pick a variant GID"
     );
 }

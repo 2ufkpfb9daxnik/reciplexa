@@ -1373,3 +1373,46 @@ fn matching_layout_rejects_digest_mismatch() {
         "{msg}"
     );
 }
+
+#[test]
+fn glyph_run_pdf_paints_layout_gid_not_cmap() {
+    use reciplexa_pdf::{document_to_pdf_with_loaded_font, CjkFontEmbed};
+    use reciplexa_scene::GlyphRunShape;
+    let font = reciplexa_text_layout::LoadedFont::fixture();
+    let a_gid = font.glyph_id('A').expect("A");
+    let paren_gid = font.glyph_id('(').expect("(");
+    assert_ne!(a_gid, paren_gid);
+    let doc = Document::single_page(Page {
+        paper: PaperSize::a4(),
+        shapes: vec![Shape::GlyphRun(GlyphRunShape {
+            x_mm: 20.0,
+            y_mm: 200.0,
+            size_mm: 8.0,
+            content: "(".into(),
+            fill: Color::BLACK,
+            gid: a_gid,
+            font_digest: font.id.digest.clone(),
+            advance_mm: 4.0,
+        })],
+    });
+    let bytes = document_to_pdf_with_loaded_font(&doc, None, &font).expect("pdf");
+    let text = String::from_utf8_lossy(&bytes);
+    let embed = CjkFontEmbed::build_from_glyphs(
+        font.bytes(),
+        &font.id.as_key(),
+        &[(a_gid, '('), (paren_gid, '(')],
+        font.face_index(),
+    )
+    .expect("embed");
+    let painted = embed.encode_gid_hex(a_gid).expect("A cid");
+    let cmap = embed.encode_gid_hex(paren_gid).expect("paren cid");
+    assert_ne!(painted, cmap);
+    assert!(
+        text.contains(&format!("<{painted}> Tj")),
+        "PDF must paint the layout GID, got {text}"
+    );
+    assert!(
+        !text.contains(&format!("<{cmap}> Tj")),
+        "PDF must not cmap-remap content to the default GID"
+    );
+}

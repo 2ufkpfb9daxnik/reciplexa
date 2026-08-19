@@ -150,6 +150,7 @@ pub fn layout_math_to_shapes_product(
         origin,
         reciplexa_std::math::MATH_LAYOUT_EM_TO_MM,
         reciplexa_scene::Color::BLACK,
+        &font.id,
     ))
 }
 

@@ -73,7 +73,7 @@ pub fn document_from_scene_page_with_layers(
             layers.get(layer_idx),
             syntax_ids.get(layer_idx).and_then(|o| *o),
         );
-        if matches!(shape, Shape::Rect(_) | Shape::Text(_)) {
+        if matches!(shape, Shape::Rect(_) | Shape::Text(_) | Shape::GlyphRun(_)) {
             layer_idx += 1;
         }
     }
@@ -128,6 +128,27 @@ fn ingest_shape(
                 NodeProperty::Fill(FillColor(*fill)),
                 NodeProperty::Text(TextContent {
                     text: content.clone(),
+                }),
+            ];
+            snap.provenance
+                .insert(id, provenance_for_layer(source_id, layer, syntax_node_id));
+            snap.references.link(parent, id);
+        }
+        Shape::GlyphRun(g) => {
+            let id = snap
+                .nodes
+                .insert_child(parent, DocumentNodeKind::Text)
+                .unwrap();
+            let w = if g.advance_mm > 0.0 {
+                g.advance_mm
+            } else {
+                g.size_mm
+            };
+            snap.nodes.get_mut(id).expect("just inserted").properties = vec![
+                NodeProperty::Layout(LayoutBox::new(g.x_mm, g.y_mm, w, g.size_mm)),
+                NodeProperty::Fill(FillColor(g.fill)),
+                NodeProperty::Text(TextContent {
+                    text: g.content.clone(),
                 }),
             ];
             snap.provenance

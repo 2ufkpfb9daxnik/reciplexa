@@ -2,7 +2,7 @@
 //!
 //! Package mains tagged `live-layout-demo` carry a `page` (`doc-page`) and a
 //! `math` tree. Product engine is the host default; `RECIPLEXA_TYPESET_ENGINE=stub`
-//! keeps the fontless heuristic. Scene still lowers MATH to `Text` (GID OPEN).
+//! keeps the fontless heuristic. Product MATH/JA lower to [`reciplexa_scene::Shape::GlyphRun`].
 
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};

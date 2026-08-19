@@ -6,7 +6,6 @@ use reciplexa_package::{
     document_from_package_entry, document_from_package_entry_host,
     document_from_package_entry_with_engine, eval_package_entry_main, LocalPackageIndex,
 };
-use reciplexa_scene::Shape;
 use reciplexa_text_layout::TypesetEngine;
 
 fn on_host_stack<T, F>(name: &str, f: F) -> T
@@ -43,7 +42,7 @@ fn text_count(doc: &reciplexa_scene::Document) -> usize {
     doc.pages
         .iter()
         .flat_map(|p| p.shapes.iter())
-        .filter(|s| matches!(s, Shape::Text(_)))
+        .filter(|s| s.is_text_like())
         .count()
 }
 
@@ -71,7 +70,7 @@ fn pt9_pkg_columns_and_indent_host_product() {
                 host.pages[0]
                     .shapes
                     .iter()
-                    .any(|s| matches!(s, Shape::Text(t) if !t.content.is_empty())),
+                    .any(|s| s.text_content().is_some_and(|c| !c.is_empty())),
                 "{name} host has text"
             );
         }
@@ -89,10 +88,7 @@ fn pt9_pkg_live_math_product_keeps_delimiter_and_fraction() {
         let texts: Vec<_> = product.pages[0]
             .shapes
             .iter()
-            .filter_map(|s| match s {
-                Shape::Text(t) => Some(t.content.as_str()),
-                _ => None,
-            })
+            .filter_map(|s| s.text_content())
             .collect();
         let joined: String = texts.concat();
         assert!(
@@ -120,10 +116,7 @@ fn pt9_pkg_math_demo_uses_product_engine() {
         let contents: Vec<_> = doc.pages[0]
             .shapes
             .iter()
-            .filter_map(|s| match s {
-                Shape::Text(t) => Some(t.content.as_str()),
-                _ => None,
-            })
+            .filter_map(|s| s.text_content())
             .collect();
         assert!(contents.contains(&"x"), "expected x in {contents:?}");
     });

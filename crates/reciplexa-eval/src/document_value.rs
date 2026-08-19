@@ -231,17 +231,22 @@ fn push_doc_columns(
         pitch_mm: pitch,
         fill: Color::BLACK,
     };
-    let (col_shapes, min_y) = match engine {
+    let min_y = match engine {
         TypesetEngine::Stub => {
-            layout_column_paragraph_shapes(&texts, total_em, count, gutter_em, &layout)
+            let (t, min_y) =
+                layout_column_paragraph_shapes(&texts, total_em, count, gutter_em, &layout);
+            shapes.extend(t.into_iter().map(Shape::Text));
+            min_y
         }
         TypesetEngine::Product => {
             let font = host_product_font().map_err(|e| GraphicsValueError::new(e.to_string()))?;
-            layout_column_paragraph_product(&font, &texts, total_em, count, gutter_em, &layout)
-                .map_err(|e| GraphicsValueError::new(e.to_string()))?
+            let (s, min_y) =
+                layout_column_paragraph_product(&font, &texts, total_em, count, gutter_em, &layout)
+                    .map_err(|e| GraphicsValueError::new(e.to_string()))?;
+            shapes.extend(s);
+            min_y
         }
     };
-    shapes.extend(col_shapes.into_iter().map(Shape::Text));
     // After a block of lines, advance past the last baseline by one pitch step.
     *cursor_y = if texts.is_empty() {
         *cursor_y
@@ -270,17 +275,22 @@ fn push_soft_wrapped_text(
     };
     let texts = match engine {
         TypesetEngine::Stub => {
-            layout_wrapped_paragraph_shapes(text, DOC_TEXT_MAX_EM, indent_em, &layout)
+            let t = layout_wrapped_paragraph_shapes(text, DOC_TEXT_MAX_EM, indent_em, &layout);
+            let n = t.len().max(1);
+            shapes.extend(t.into_iter().map(Shape::Text));
+            n
         }
         TypesetEngine::Product => {
             let font = host_product_font().map_err(|e| GraphicsValueError::new(e.to_string()))?;
-            layout_wrapped_paragraph_product(&font, text, DOC_TEXT_MAX_EM, indent_em, &layout)
-                .map_err(|e| GraphicsValueError::new(e.to_string()))?
+            let t =
+                layout_wrapped_paragraph_product(&font, text, DOC_TEXT_MAX_EM, indent_em, &layout)
+                    .map_err(|e| GraphicsValueError::new(e.to_string()))?;
+            let n = t.len().max(1);
+            shapes.extend(t);
+            n
         }
     };
-    let n = texts.len().max(1);
-    shapes.extend(texts.into_iter().map(Shape::Text));
-    *cursor_y += pitch * n as f64;
+    *cursor_y += pitch * texts as f64;
     Ok(())
 }
 
@@ -931,7 +941,7 @@ mod tests {
         let product_n = product.pages[0]
             .shapes
             .iter()
-            .filter(|s| matches!(s, Shape::Text(_)))
+            .filter(|s| s.is_text_like())
             .count();
         assert!(product_n > 1);
         // Fixture あ is 0.98em vs stub 1.0em, so wrap count can differ.

@@ -9,7 +9,7 @@
 
 mod cjk_font;
 
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::path::{Path, PathBuf};
 
 use reciplexa_scene::{Affine, Color, Document, Page, Shape};
@@ -95,6 +95,9 @@ pub fn document_to_pdf(doc: &Document) -> Result<Vec<u8>, PdfError> {
 /// Render a scene document; resolve `(image "…")` paths relative to `base` when set
 /// (typically the directory containing the `.rpx` source).
 pub fn document_to_pdf_with_base(doc: &Document, base: Option<&Path>) -> Result<Vec<u8>, PdfError> {
+    if document_has_glyph_runs(doc) {
+        return document_to_pdf_with_host_fonts(doc, base);
+    }
     if doc.pages.is_empty() {
         return Err(PdfError::EmptyDocument);
     }
@@ -106,28 +109,7 @@ pub fn document_to_pdf_with_base(doc: &Document, base: Option<&Path>) -> Result<
         Some(CjkFontEmbed::build(&cjk_chars)?)
     };
 
-    let mut store = ImageStore::new(base);
-    let mut page_contents = Vec::with_capacity(doc.pages.len());
-    let mut page_sizes = Vec::with_capacity(doc.pages.len());
-
-    for (i, page) in doc.pages.iter().enumerate() {
-        if !page.paper.is_positive() {
-            return Err(PdfError::InvalidPage(format!(
-                "page {i}: non-positive paper size"
-            )));
-        }
-        let w_pt = mm_to_pt(page.paper.width_mm);
-        let h_pt = mm_to_pt(page.paper.height_mm);
-        page_sizes.push((w_pt, h_pt));
-        page_contents.push(render_page_content(page, i, &mut store, cjk.as_ref())?);
-    }
-
-    Ok(assemble_pdf(
-        &page_sizes,
-        &page_contents,
-        &store.images,
-        cjk.as_ref(),
-    ))
+    emit_document(doc, base, cjk, Vec::new())
 }
 
 /// PDF emission that subsets `font_bytes`.
@@ -158,25 +140,107 @@ pub fn document_to_pdf_matching_layout(
     document_to_pdf_with_loaded_font(doc, base, emit)
 }
 
-/// Embed `font` (same digest that drove layout) for non-ASCII text.
+/// Embed `font` (same digest that drove layout) for cmap-path non-ASCII and
+/// [`Shape::GlyphRun`] paints that match this digest.
 pub fn document_to_pdf_with_loaded_font(
     doc: &Document,
     base: Option<&Path>,
     font: &reciplexa_text_layout::LoadedFont,
 ) -> Result<Vec<u8>, PdfError> {
+    document_to_pdf_with_loaded_fonts(doc, base, std::slice::from_ref(font))
+}
+
+/// Embed each provided layout face; GID paints select by digest.
+pub fn document_to_pdf_with_loaded_fonts(
+    doc: &Document,
+    base: Option<&Path>,
+    fonts: &[reciplexa_text_layout::LoadedFont],
+) -> Result<Vec<u8>, PdfError> {
     if doc.pages.is_empty() {
         return Err(PdfError::EmptyDocument);
     }
-    let cjk_chars = collect_non_ascii_chars(doc);
-    let cjk = if cjk_chars.is_empty() {
+    let cmap_chars = collect_non_ascii_chars(doc);
+    let paints = collect_glyph_paints(doc);
+    let cmap = if cmap_chars.is_empty() {
         None
     } else {
+        let font = fonts.first().ok_or_else(|| {
+            PdfError::InvalidShape("non-ASCII text without a layout face to embed".into())
+        })?;
         Some(CjkFontEmbed::build_from_bytes_at(
             font.bytes(),
             &font.id.as_key(),
-            &cjk_chars,
+            &cmap_chars,
             font.face_index(),
         )?)
+    };
+    let mut gid = Vec::new();
+    for (digest, gmap) in paints {
+        let font = fonts
+            .iter()
+            .find(|f| f.id.digest == digest)
+            .ok_or_else(|| {
+                PdfError::InvalidShape(format!(
+                    "layout GID paint uses digest {digest} which is not in the emit font list"
+                ))
+            })?;
+        let glyphs: Vec<(u16, char)> = gmap.into_iter().collect();
+        let embed = CjkFontEmbed::build_from_glyphs(
+            font.bytes(),
+            &font.id.as_key(),
+            &glyphs,
+            font.face_index(),
+        )?;
+        gid.push((digest, embed));
+    }
+    emit_document(doc, base, cmap, gid)
+}
+
+/// Host PDF write: embed [`host_product_font`] and [`host_math_font`].
+///
+/// GlyphRun paints use layout GIDs. Non-ASCII [`Shape::Text`] still uses cmap
+/// on the product face. Latin-only documents without glyph runs use Helvetica.
+pub fn document_to_pdf_with_host_fonts(
+    doc: &Document,
+    base: Option<&Path>,
+) -> Result<Vec<u8>, PdfError> {
+    let cmap_chars = collect_non_ascii_chars(doc);
+    let paints = collect_glyph_paints(doc);
+    if cmap_chars.is_empty() && paints.is_empty() {
+        return document_to_pdf_with_base(doc, base);
+    }
+    let ja = reciplexa_text_layout::host_product_font()
+        .map_err(|e| PdfError::InvalidShape(e.to_string()))?;
+    let math = reciplexa_text_layout::host_math_font()
+        .map_err(|e| PdfError::InvalidShape(e.to_string()))?;
+    let fonts = if ja.id.digest == math.id.digest {
+        vec![ja]
+    } else {
+        vec![ja, math]
+    };
+    document_to_pdf_with_loaded_fonts(doc, base, &fonts)
+}
+
+fn emit_document(
+    doc: &Document,
+    base: Option<&Path>,
+    cmap: Option<CjkFontEmbed>,
+    gid: Vec<(String, CjkFontEmbed)>,
+) -> Result<Vec<u8>, PdfError> {
+    if doc.pages.is_empty() {
+        return Err(PdfError::EmptyDocument);
+    }
+    let gid_refs: Vec<(&str, &CjkFontEmbed, String)> = gid
+        .iter()
+        .enumerate()
+        .map(|(i, (digest, embed))| {
+            let n = 2 + usize::from(cmap.is_some()) + i;
+            (digest.as_str(), embed, format!("F{n}"))
+        })
+        .collect();
+    let fonts = EmitFonts {
+        cmap: cmap.as_ref(),
+        gid: gid_refs,
     };
     let mut store = ImageStore::new(base);
     let mut page_contents = Vec::with_capacity(doc.pages.len());
@@ -190,31 +254,21 @@ pub fn document_to_pdf_with_loaded_font(
         let w_pt = mm_to_pt(page.paper.width_mm);
         let h_pt = mm_to_pt(page.paper.height_mm);
         page_sizes.push((w_pt, h_pt));
-        page_contents.push(render_page_content(page, i, &mut store, cjk.as_ref())?);
+        page_contents.push(render_page_content(page, i, &mut store, &fonts)?);
+    }
+    let mut cid_list = Vec::new();
+    if let Some(c) = cmap.as_ref() {
+        cid_list.push(c);
+    }
+    for (_, e) in &gid {
+        cid_list.push(e);
     }
     Ok(assemble_pdf(
         &page_sizes,
         &page_contents,
         &store.images,
-        cjk.as_ref(),
+        &cid_list,
     ))
-}
-
-/// Host PDF write: embed the same face [`host_product_font`] used for layout.
-///
-/// No system-CJK fallback when that face is the rectangle fixture — that would
-/// be a metric-changing substitution. Latin-only documents still use Helvetica.
-pub fn document_to_pdf_with_host_fonts(
-    doc: &Document,
-    base: Option<&Path>,
-) -> Result<Vec<u8>, PdfError> {
-    let cjk_chars = collect_non_ascii_chars(doc);
-    if cjk_chars.is_empty() {
-        return document_to_pdf_with_base(doc, base);
-    }
-    let layout = reciplexa_text_layout::host_product_font()
-        .map_err(|e| PdfError::InvalidShape(e.to_string()))?;
-    document_to_pdf_matching_layout(doc, base, &layout.id, &layout)
 }
 
 pub fn write_document(doc: &Document, w: &mut dyn std::io::Write) -> Result<(), PdfError> {
@@ -411,17 +465,84 @@ fn collect_shape_chars(shape: &Shape, out: &mut BTreeSet<char>) {
     }
 }
 
+fn document_has_glyph_runs(doc: &Document) -> bool {
+    doc.pages
+        .iter()
+        .any(|p| p.shapes.iter().any(shape_has_glyph_run))
+}
+
+fn shape_has_glyph_run(shape: &Shape) -> bool {
+    match shape {
+        Shape::GlyphRun(_) => true,
+        Shape::Opacity { children, .. } | Shape::Group { children, .. } => {
+            children.iter().any(shape_has_glyph_run)
+        }
+        _ => false,
+    }
+}
+
+fn collect_glyph_paints(doc: &Document) -> BTreeMap<String, BTreeMap<u16, char>> {
+    let mut out = BTreeMap::new();
+    for page in &doc.pages {
+        for shape in &page.shapes {
+            collect_shape_glyph_paints(shape, &mut out);
+        }
+    }
+    out
+}
+
+fn collect_shape_glyph_paints(shape: &Shape, out: &mut BTreeMap<String, BTreeMap<u16, char>>) {
+    match shape {
+        Shape::GlyphRun(g) => {
+            let ch = g.content.chars().next().unwrap_or('\u{FFFD}');
+            out.entry(g.font_digest.clone())
+                .or_default()
+                .entry(g.gid)
+                .or_insert(ch);
+        }
+        Shape::Opacity { children, .. } | Shape::Group { children, .. } => {
+            for child in children {
+                collect_shape_glyph_paints(child, out);
+            }
+        }
+        _ => {}
+    }
+}
+
+struct EmitFonts<'a> {
+    cmap: Option<&'a CjkFontEmbed>,
+    gid: Vec<(&'a str, &'a CjkFontEmbed, String)>,
+}
+
+impl<'a> EmitFonts<'a> {
+    fn gid_res(&self, digest: &str) -> Result<(&'a CjkFontEmbed, &str), PdfError> {
+        self.gid
+            .iter()
+            .find(|(d, _, _)| *d == digest)
+            .map(|(_, e, r)| (*e, r.as_str()))
+            .ok_or_else(|| {
+                PdfError::InvalidShape(format!("no embedded face for layout digest {digest}"))
+            })
+    }
+}
+
 fn render_page_content(
     page: &Page,
     index: usize,
     store: &mut ImageStore,
-    cjk: Option<&CjkFontEmbed>,
+    fonts: &EmitFonts<'_>,
 ) -> Result<PageEmit, PdfError> {
     let mut ops = String::new();
     let mut opacities = BTreeSet::new();
     let mut images = BTreeSet::new();
     for (si, shape) in page.shapes.iter().enumerate() {
-        let emit = render_shape(shape, &format!("page {index} shape {si}"), 1.0, store, cjk)?;
+        let emit = render_shape(
+            shape,
+            &format!("page {index} shape {si}"),
+            1.0,
+            store,
+            fonts,
+        )?;
         ops.push_str(&emit.ops);
         opacities.extend(emit.opacities);
         images.extend(emit.images);
@@ -438,7 +559,7 @@ fn render_shape(
     ctx: &str,
     parent_alpha: f64,
     store: &mut ImageStore,
-    cjk: Option<&CjkFontEmbed>,
+    fonts: &EmitFonts<'_>,
 ) -> Result<PageEmit, PdfError> {
     match shape {
         Shape::Circle(c) => {
@@ -513,8 +634,17 @@ fn render_shape(
                 t.height_mm,
                 &t.content,
                 t.fill,
-                cjk,
+                fonts.cmap,
             )?))
+        }
+        Shape::GlyphRun(g) => {
+            if !g.is_drawable() {
+                return Err(PdfError::InvalidShape(format!(
+                    "{ctx}: glyph run not drawable"
+                )));
+            }
+            let (embed, res) = fonts.gid_res(&g.font_digest)?;
+            Ok(ops_only(glyph_run_ops(g, embed, res)?))
         }
         Shape::Line(l) => {
             if !l.is_drawable() {
@@ -565,7 +695,7 @@ fn render_shape(
             let mut opacities = BTreeSet::from([pct]);
             let mut images = BTreeSet::new();
             for (i, child) in children.iter().enumerate() {
-                let emit = render_shape(child, &format!("{ctx}/{i}"), combined, store, cjk)?;
+                let emit = render_shape(child, &format!("{ctx}/{i}"), combined, store, fonts)?;
                 ops.push_str(&emit.ops);
                 opacities.extend(emit.opacities);
                 images.extend(emit.images);
@@ -591,7 +721,7 @@ fn render_shape(
             let mut opacities = BTreeSet::new();
             let mut images = BTreeSet::new();
             for (i, child) in children.iter().enumerate() {
-                let emit = render_shape(child, &format!("{ctx}/{i}"), parent_alpha, store, cjk)?;
+                let emit = render_shape(child, &format!("{ctx}/{i}"), parent_alpha, store, fonts)?;
                 ops.push_str(&emit.ops);
                 opacities.extend(emit.opacities);
                 images.extend(emit.images);
@@ -866,6 +996,24 @@ pub fn text_ops(
     Ok(ops)
 }
 
+fn glyph_run_ops(
+    g: &reciplexa_scene::GlyphRunShape,
+    embed: &CjkFontEmbed,
+    res: &str,
+) -> Result<String, PdfError> {
+    let size_pt = mm_to_pt(g.size_mm);
+    let hex = embed.encode_gid_hex(g.gid)?;
+    Ok(format!(
+        "BT\n/{res} {size:.4} Tf\n{r:.4} {gch:.4} {b:.4} rg\n{x:.4} {y:.4} Td\n<{hex}> Tj\nET\n",
+        size = size_pt,
+        r = g.fill.r,
+        gch = g.fill.g,
+        b = g.fill.b,
+        x = mm_to_pt(g.x_mm),
+        y = mm_to_pt(g.y_mm),
+    ))
+}
+
 fn pdf_escape_ascii(s: &str) -> Result<String, PdfError> {
     let mut out = String::with_capacity(s.len());
     for c in s.chars() {
@@ -905,20 +1053,70 @@ fn mm_to_pt(mm: f64) -> f64 {
     mm * 72.0 / 25.4
 }
 
-/// Assemble PDF-1.4 with Helvetica, optional CJK CID font, and image XObjects.
+fn push_cid_font_objects(objects: &mut Vec<Vec<u8>>, cjk: &CjkFontEmbed, obj0: usize) {
+    let cid = obj0 + 1;
+    let desc = obj0 + 2;
+    let file = obj0 + 3;
+    let tounicode = obj0 + 4;
+    let name = &cjk.base_name;
+    objects.push(
+        format!(
+            "<< /Type /Font /Subtype /Type0 /BaseFont /{name} \
+             /Encoding /Identity-H /DescendantFonts [{cid} 0 R] \
+             /ToUnicode {tounicode} 0 R >>"
+        )
+        .into_bytes(),
+    );
+    let w = cjk.widths_array();
+    let [bx0, by0, bx1, by1] = cjk.font_bbox;
+    objects.push(
+        format!(
+            "<< /Type /Font /Subtype /CIDFontType2 /BaseFont /{name} \
+             /CIDSystemInfo << /Registry (Adobe) /Ordering (Identity) /Supplement 0 >> \
+             /FontDescriptor {desc} 0 R /DW 1000 /W {w} /CIDToGIDMap /Identity >>"
+        )
+        .into_bytes(),
+    );
+    objects.push(
+        format!(
+            "<< /Type /FontDescriptor /FontName /{name} /Flags 4 \
+             /FontBBox [{bx0} {by0} {bx1} {by1}] /ItalicAngle 0 \
+             /Ascent {} /Descent {} /CapHeight {} /StemV 80 \
+             /FontFile2 {file} 0 R >>",
+            cjk.ascent, cjk.descent, cjk.ascent
+        )
+        .into_bytes(),
+    );
+    let font_bytes = &cjk.subset_ttf;
+    let mut ff = format!(
+        "<< /Length {} /Length1 {} >>\nstream\n",
+        font_bytes.len(),
+        font_bytes.len()
+    )
+    .into_bytes();
+    ff.extend_from_slice(font_bytes);
+    ff.extend_from_slice(b"\nendstream");
+    objects.push(ff);
+    let cmap = cjk.to_unicode_cmap();
+    let mut tu = format!("<< /Length {} >>\nstream\n", cmap.len()).into_bytes();
+    tu.extend_from_slice(cmap.as_bytes());
+    tu.extend_from_slice(b"\nendstream");
+    objects.push(tu);
+}
+
+/// Assemble PDF-1.4 with Helvetica, optional CID fonts, and image XObjects.
 fn assemble_pdf(
     page_sizes: &[(f64, f64)],
     contents: &[PageEmit],
     images: &[EmbeddedImage],
-    cjk: Option<&CjkFontEmbed>,
+    cid_fonts: &[&CjkFontEmbed],
 ) -> Vec<u8> {
     assert_eq!(page_sizes.len(), contents.len());
     let n = page_sizes.len();
     let img_n = images.len();
     let helvetica_obj = 3usize;
-    // Optional Type0 stack: Type0, CIDFont, FontDescriptor, FontFile2, ToUnicode
     let cjk_obj0 = 4usize;
-    let cjk_objs = if cjk.is_some() { 5usize } else { 0 };
+    let cjk_objs = cid_fonts.len() * 5;
     let image_obj0 = cjk_obj0 + cjk_objs;
     let page_obj0 = image_obj0 + img_n;
     let content_obj0 = page_obj0 + n;
@@ -937,55 +1135,9 @@ fn assemble_pdf(
             .to_vec(),
     );
 
-    if let Some(cjk) = cjk {
-        let cid = cjk_obj0 + 1;
-        let desc = cjk_obj0 + 2;
-        let file = cjk_obj0 + 3;
-        let tounicode = cjk_obj0 + 4;
-        let name = &cjk.base_name;
-        objects.push(
-            format!(
-                "<< /Type /Font /Subtype /Type0 /BaseFont /{name} \
-                 /Encoding /Identity-H /DescendantFonts [{cid} 0 R] \
-                 /ToUnicode {tounicode} 0 R >>"
-            )
-            .into_bytes(),
-        );
-        let w = cjk.widths_array();
-        let [bx0, by0, bx1, by1] = cjk.font_bbox;
-        objects.push(
-            format!(
-                "<< /Type /Font /Subtype /CIDFontType2 /BaseFont /{name} \
-                 /CIDSystemInfo << /Registry (Adobe) /Ordering (Identity) /Supplement 0 >> \
-                 /FontDescriptor {desc} 0 R /DW 1000 /W {w} /CIDToGIDMap /Identity >>"
-            )
-            .into_bytes(),
-        );
-        objects.push(
-            format!(
-                "<< /Type /FontDescriptor /FontName /{name} /Flags 4 \
-                 /FontBBox [{bx0} {by0} {bx1} {by1}] /ItalicAngle 0 \
-                 /Ascent {} /Descent {} /CapHeight {} /StemV 80 \
-                 /FontFile2 {file} 0 R >>",
-                cjk.ascent, cjk.descent, cjk.ascent
-            )
-            .into_bytes(),
-        );
-        let font_bytes = &cjk.subset_ttf;
-        let mut ff = format!(
-            "<< /Length {} /Length1 {} >>\nstream\n",
-            font_bytes.len(),
-            font_bytes.len()
-        )
-        .into_bytes();
-        ff.extend_from_slice(font_bytes);
-        ff.extend_from_slice(b"\nendstream");
-        objects.push(ff);
-        let cmap = cjk.to_unicode_cmap();
-        let mut tu = format!("<< /Length {} >>\nstream\n", cmap.len()).into_bytes();
-        tu.extend_from_slice(cmap.as_bytes());
-        tu.extend_from_slice(b"\nendstream");
-        objects.push(tu);
+    for (fi, cjk) in cid_fonts.iter().enumerate() {
+        let obj0 = cjk_obj0 + fi * 5;
+        push_cid_font_objects(&mut objects, cjk, obj0);
     }
 
     for img in images {
@@ -996,11 +1148,13 @@ fn assemble_pdf(
         let content_id = content_obj0 + i;
         let gs = ext_gstate_dict(&contents[i].opacities);
         let xo = xobject_dict(&contents[i].images, image_obj0);
-        let font_res = if cjk.is_some() {
-            format!("/Font << /F1 {helvetica_obj} 0 R /F2 {cjk_obj0} 0 R >>")
-        } else {
-            format!("/Font << /F1 {helvetica_obj} 0 R >>")
-        };
+        let mut font_res = format!("/Font << /F1 {helvetica_obj} 0 R");
+        for fi in 0..cid_fonts.len() {
+            let obj = cjk_obj0 + fi * 5;
+            let name = 2 + fi;
+            font_res.push_str(&format!(" /F{name} {obj} 0 R"));
+        }
+        font_res.push_str(" >>");
         let page_id_body = format!(
             "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {w:.4} {h:.4}] \
              /Contents {content_id} 0 R \

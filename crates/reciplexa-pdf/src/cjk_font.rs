@@ -11,8 +11,11 @@ use crate::PdfError;
 /// Subset TTF + CID maps for `/Identity-H` text that is copyable in PDF readers.
 pub struct CjkFontEmbed {
     pub subset_ttf: Vec<u8>,
-    /// Unicode scalar → remapped CID (== subset GID).
+    /// Unicode scalar → remapped CID (== subset GID). First GID wins if several
+    /// layout GIDs share a cluster.
     pub unicode_to_cid: BTreeMap<u32, u16>,
+    /// Layout (source-font) GID → remapped CID.
+    pub gid_to_cid: BTreeMap<u16, u16>,
     /// CID → advance width in 1000-em PDF units.
     pub cid_widths: BTreeMap<u16, u16>,
     pub font_bbox: [i32; 4],
@@ -55,19 +58,9 @@ impl CjkFontEmbed {
         chars: &BTreeSet<char>,
         face_index: u32,
     ) -> Result<Self, PdfError> {
-        if chars.is_empty() {
-            return Err(PdfError::InvalidShape(
-                "internal: empty CJK char set".into(),
-            ));
-        }
         let face = Face::parse(data, face_index)
             .map_err(|e| PdfError::InvalidShape(format!("parse font {source_label}: {e}")))?;
-        let units = u32::from(face.units_per_em()).max(1);
-
-        let mut remapper = GlyphRemapper::new();
-        remapper.remap(0); // .notdef
-
-        let mut unicode_to_old: BTreeMap<u32, u16> = BTreeMap::new();
+        let mut glyphs = Vec::new();
         for ch in chars {
             if ch.is_control() {
                 continue;
@@ -78,19 +71,44 @@ impl CjkFontEmbed {
                     *ch as u32
                 )));
             };
-            remapper.remap(gid.0);
-            unicode_to_old.insert(*ch as u32, gid.0);
+            glyphs.push((gid.0, *ch));
+        }
+        Self::build_from_glyphs(data, source_label, &glyphs, face_index)
+    }
+
+    /// Subset by layout GIDs. `glyphs` is `(source_gid, cluster_char)` for ToUnicode.
+    pub fn build_from_glyphs(
+        data: &[u8],
+        source_label: &str,
+        glyphs: &[(u16, char)],
+        face_index: u32,
+    ) -> Result<Self, PdfError> {
+        if glyphs.is_empty() {
+            return Err(PdfError::InvalidShape(
+                "internal: empty glyph set for font embed".into(),
+            ));
+        }
+        let face = Face::parse(data, face_index)
+            .map_err(|e| PdfError::InvalidShape(format!("parse font {source_label}: {e}")))?;
+        let units = u32::from(face.units_per_em()).max(1);
+
+        let mut remapper = GlyphRemapper::new();
+        remapper.remap(0); // .notdef
+
+        for &(gid, _) in glyphs {
+            remapper.remap(gid);
         }
 
         let subset_ttf =
             subset(data, face_index, &remapper).expect("subset after successful face parse");
 
         let mut unicode_to_cid = BTreeMap::new();
+        let mut gid_to_cid = BTreeMap::new();
         let mut cid_widths = BTreeMap::new();
-        for (uni, old_gid) in unicode_to_old {
-            // Remapper always retains ids passed to `remap` above.
+        for &(old_gid, ch) in glyphs {
             let cid = remapper.get(old_gid).expect("remapped CID");
-            unicode_to_cid.insert(uni, cid);
+            gid_to_cid.insert(old_gid, cid);
+            unicode_to_cid.entry(ch as u32).or_insert(cid);
             let adv = face
                 .glyph_hor_advance(GlyphId(old_gid))
                 .map(u32::from)
@@ -98,20 +116,17 @@ impl CjkFontEmbed {
             let w = ((adv * 1000) / units) as u16;
             cid_widths.insert(cid, w);
         }
-        // `.notdef` (gid 0) is remapped for subsetting; remappers may omit CID 0
-        // from the post-subset lookup table, so do not require a width entry.
         let _ = remapper.get(0);
 
         let scale = 1000.0 / f64::from(units);
         let (bbox, ascent, descent) = metrics_1000(&face, scale);
-
-        // Tag must be 6 uppercase A–Z for PDF subset fonts.
         let tag = subset_tag(&subset_ttf);
         let base_name = format!("{tag}+ReciplexaCJK");
 
         Ok(Self {
             subset_ttf,
             unicode_to_cid,
+            gid_to_cid,
             cid_widths,
             font_bbox: bbox,
             ascent,
@@ -135,6 +150,14 @@ impl CjkFontEmbed {
             hex.push_str(&format!("{cid:04X}"));
         }
         Ok(hex)
+    }
+
+    pub fn encode_gid_hex(&self, gid: u16) -> Result<String, PdfError> {
+        let cid = self
+            .gid_to_cid
+            .get(&gid)
+            .ok_or_else(|| PdfError::InvalidShape(format!("no CID for layout GID {gid}")))?;
+        Ok(format!("{cid:04X}"))
     }
 
     pub fn to_unicode_cmap(&self) -> String {

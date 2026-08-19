@@ -44,6 +44,10 @@ pub struct WorldText {
     pub content: String,
     pub fill: Color,
     pub alpha: f64,
+    /// Layout GID when this world text came from [`reciplexa_scene::Shape::GlyphRun`].
+    pub glyph_id: Option<u16>,
+    pub font_digest: Option<String>,
+    pub glyph_advance_mm: Option<f64>,
 }
 
 /// Open or closed stroked path in page millimeters.
@@ -231,6 +235,29 @@ fn flatten_shape(
                 content: t.content.clone(),
                 fill: t.fill,
                 alpha,
+                glyph_id: None,
+                font_digest: None,
+                glyph_advance_mm: None,
+            }));
+        }
+        Shape::GlyphRun(g) => {
+            let (x, y) = parent.transform_point(g.x_mm, g.y_mm);
+            let scale = linear_scale(parent);
+            let size = g.size_mm * scale;
+            let (ew, eh) = text_extent_mm(&g.content, size);
+            out.push(WorldShape::Text(WorldText {
+                x_mm: x,
+                y_mm: y,
+                size_mm: size,
+                width_mm: ew,
+                height_mm: eh,
+                rotation_deg: parent.rotation_deg(),
+                content: g.content.clone(),
+                fill: g.fill,
+                alpha,
+                glyph_id: Some(g.gid),
+                font_digest: Some(g.font_digest.clone()),
+                glyph_advance_mm: Some(g.advance_mm * scale),
             }));
         }
         Shape::Line(l) => {
@@ -1054,6 +1081,9 @@ mod tests {
             content: "A\nBC".into(),
             fill: Color::BLACK,
             alpha: 1.0,
+            glyph_id: None,
+            font_digest: None,
+            glyph_advance_mm: None,
         };
         let corners = text_corners_mm(&t);
         let (x0, y0, x1, y1) = bounds_of_points(&corners).unwrap();
@@ -1454,6 +1484,9 @@ mod tests {
             content: "x".into(),
             fill: Color::BLACK,
             alpha: 1.0,
+            glyph_id: None,
+            font_digest: None,
+            glyph_advance_mm: None,
         });
         let img = WorldShape::Image(WorldImage {
             path: "a.png".into(),

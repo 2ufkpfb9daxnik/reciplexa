@@ -143,7 +143,7 @@ fn collect_shape_hints(
     use reciplexa_scene::Shape;
     for shape in shapes {
         match shape {
-            Shape::Rect(_) | Shape::Text(_) => {
+            Shape::Rect(_) | Shape::Text(_) | Shape::GlyphRun(_) => {
                 out.push(drawables.next().and_then(|id| hint_for_node(snap, id)));
             }
             Shape::Opacity { children, .. } | Shape::Group { children, .. } => {

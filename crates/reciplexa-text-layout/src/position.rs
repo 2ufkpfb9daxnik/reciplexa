@@ -1,6 +1,6 @@
-//! Positioned text IR and scene adapter (one scene Text per glyph so x survives).
+//! Positioned text IR and scene adapter (one GlyphRun per glyph so GID survives).
 
-use reciplexa_scene::{Color, Shape, Text};
+use reciplexa_scene::{Color, GlyphRunShape, Shape, Text};
 
 use crate::error::LayoutError;
 use crate::font::FontId;
@@ -105,7 +105,7 @@ pub fn positioned_line_to_scene_text(line: &PositionedLine, fill: Color) -> Text
     }
 }
 
-/// Product adapter: one [`Text`] per glyph so trim/justify x reaches preview/export.
+/// Product adapter: one [`GlyphRunShape`] per glyph so trim/justify x and GIDs reach export.
 pub fn positioned_line_to_glyph_texts(line: &PositionedLine, fill: Color) -> Vec<Text> {
     if line.run.glyphs.is_empty() {
         return vec![positioned_line_to_scene_text(line, fill)];
@@ -125,39 +125,67 @@ pub fn positioned_line_to_glyph_texts(line: &PositionedLine, fill: Color) -> Vec
         .collect()
 }
 
-pub fn positioned_lines_to_shapes(lines: &[PositionedLine], fill: Color) -> Vec<Shape> {
-    lines
+fn positioned_glyph_to_shape(
+    g: &PositionedGlyph,
+    size_mm: f64,
+    font_digest: &str,
+    fill: Color,
+) -> Shape {
+    Shape::GlyphRun(GlyphRunShape {
+        x_mm: g.x_mm,
+        y_mm: g.y_mm,
+        size_mm,
+        content: g.ch.to_string(),
+        fill,
+        gid: g.gid,
+        font_digest: font_digest.to_string(),
+        advance_mm: g.advance_mm,
+    })
+}
+
+pub fn positioned_line_to_glyph_shapes(line: &PositionedLine, fill: Color) -> Vec<Shape> {
+    if line.run.glyphs.is_empty() {
+        return vec![Shape::Text(positioned_line_to_scene_text(line, fill))];
+    }
+    line.run
+        .glyphs
         .iter()
-        .flat_map(|l| {
-            positioned_line_to_glyph_texts(l, fill)
-                .into_iter()
-                .map(Shape::Text)
-        })
+        .map(|g| positioned_glyph_to_shape(g, line.run.size_mm, &line.run.font.digest, fill))
         .collect()
 }
 
-/// Lower a math layout to scene text + rules.
+pub fn positioned_lines_to_shapes(lines: &[PositionedLine], fill: Color) -> Vec<Shape> {
+    lines
+        .iter()
+        .flat_map(|l| positioned_line_to_glyph_shapes(l, fill))
+        .collect()
+}
+
+/// Lower a math layout to scene glyph paints + rules.
 ///
-/// One [`Text`] per glyph so intra-row x (class spacing, scripts, delimiters)
-/// survives. Page space is y-up (scene/PDF); engine `y_em` is also up from the
+/// One [`GlyphRunShape`] per glyph so intra-row x and layout GIDs survive.
+/// Page space is y-up (scene/PDF); engine `y_em` is also up from the
 /// math baseline, so `y_mm = origin.1 + y_em * em_to_mm`.
 pub fn positioned_math_to_shapes(
     math: &PositionedMath,
     origin: (f64, f64),
     em_to_mm: f64,
     fill: Color,
+    font: &FontId,
 ) -> Vec<Shape> {
     use reciplexa_scene::Line;
     let mut shapes = Vec::new();
     for g in &math.glyphs {
-        shapes.push(Shape::Text(Text {
+        let size_mm = g.scale * em_to_mm;
+        shapes.push(Shape::GlyphRun(GlyphRunShape {
             x_mm: origin.0 + g.x_em * em_to_mm,
             y_mm: origin.1 + g.y_em * em_to_mm,
-            size_mm: g.scale * em_to_mm,
-            width_mm: None,
-            height_mm: None,
+            size_mm,
             content: g.glyph.ch.to_string(),
             fill,
+            gid: g.glyph.gid,
+            font_digest: font.digest.clone(),
+            advance_mm: g.glyph.advance_em * size_mm,
         }));
     }
     for r in &math.rules {

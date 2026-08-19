@@ -1,6 +1,6 @@
 //! JLReq Profile v1 line engine (font-backed). Stub APIs in `reciplexa-std` stay unchanged.
 
-use reciplexa_scene::Text;
+use reciplexa_scene::{Shape, Text};
 use reciplexa_std::japanese::{CharClass, ParagraphSceneLayout};
 
 use crate::error::LayoutError;
@@ -9,7 +9,7 @@ use crate::ja_tables::{
     class_of, hang_em, hangable, line_end_prohibited, line_head_prohibited, pair_break,
     trim_em as table_trim_em, trimmable_line_end, trimmable_line_head,
 };
-use crate::position::{positioned_line_to_glyph_texts, PositionedLine};
+use crate::position::{positioned_line_to_glyph_shapes, PositionedLine};
 use crate::shape::{shape_run, ShapedGlyph, ShapedRun};
 
 pub use crate::ja_tables::JLREQ_PROFILE_V1_TABLES;
@@ -347,17 +347,17 @@ pub fn layout_wrapped_paragraph_product_lines(
     Ok(out)
 }
 
-/// Font-backed paragraph wrap + first-line indent → one scene Text per glyph.
+/// Font-backed paragraph wrap + first-line indent → one scene glyph per cluster.
 pub fn layout_wrapped_paragraph_product(
     font: &LoadedFont,
     text: &str,
     max_em: f64,
     indent_em: f64,
     layout: &ParagraphSceneLayout,
-) -> Result<Vec<Text>, LayoutError> {
+) -> Result<Vec<Shape>, LayoutError> {
     let lines = layout_wrapped_paragraph_product_lines(font, text, max_em, indent_em, layout)?;
     if lines.is_empty() {
-        return Ok(vec![Text {
+        return Ok(vec![Shape::Text(Text {
             x_mm: layout.base_x_mm,
             y_mm: layout.start_y_mm,
             size_mm: layout.size_mm,
@@ -365,11 +365,11 @@ pub fn layout_wrapped_paragraph_product(
             height_mm: None,
             content: String::new(),
             fill: layout.fill,
-        }]);
+        })]);
     }
     Ok(lines
         .iter()
-        .flat_map(|l| positioned_line_to_glyph_texts(l, layout.fill))
+        .flat_map(|l| positioned_line_to_glyph_shapes(l, layout.fill))
         .collect())
 }
 
@@ -381,7 +381,7 @@ pub fn layout_column_paragraph_product(
     count: u32,
     gutter_em: f64,
     layout: &ParagraphSceneLayout,
-) -> Result<(Vec<Text>, f64), LayoutError> {
+) -> Result<(Vec<Shape>, f64), LayoutError> {
     let n = count.max(1) as f64;
     let gutter_total = gutter_em * (n - 1.0);
     let col_w = ((total_em - gutter_total) / n).max(0.0);
@@ -395,9 +395,11 @@ pub fn layout_column_paragraph_product(
             ..*layout
         };
         let col_shapes = layout_wrapped_paragraph_product(font, text, budget, 0.0, &column_layout)?;
-        for t in &col_shapes {
-            if t.y_mm < min_y {
-                min_y = t.y_mm;
+        for s in &col_shapes {
+            if let Some(y) = s.text_y_mm() {
+                if y < min_y {
+                    min_y = y;
+                }
             }
         }
         shapes.extend(col_shapes);
