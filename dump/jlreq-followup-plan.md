@@ -17,6 +17,6 @@ Jukugo per-character distribution, ruby overhang / 親文字送り, and vertical
 
 1. Fixture-font simple ruby widths differ from stub `char_em_width` estimates.
 2. Product output is `Shape::GlyphRun` (layout GIDs) for base and annotation.
-3. Annotation sits above the base in page Y-up at `RUBY_ANNOTATION_SCALE`.
+3. Annotation sits **above the parent em-square** (baseline = parent baseline + 1 em), half-size at `RUBY_ANNOTATION_SCALE`. The bump is not an overlap into the parent body.
 4. `RECIPLEXA_TYPESET_ENGINE=stub` does not switch the `ruby-box` builtin to product metrics.
 5. Host preview/export of `ja-ruby-demo` / `ja-ruby` uses the product engine unless stub is forced.

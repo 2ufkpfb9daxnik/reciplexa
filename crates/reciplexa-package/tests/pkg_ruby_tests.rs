@@ -96,10 +96,41 @@ fn pkg_ruby_host_product_emits_glyph_runs() {
                 .collect();
             let joined: String = runs.concat();
             assert!(
-                joined.contains('東') && joined.contains('と'),
-                "base and annotation glyphs: {runs:?}"
+                joined.contains('東') && joined.contains('と') && joined.contains('漢'),
+                "heading-adjacent ruby samples: {runs:?}"
             );
             assert!(runs.iter().any(|c| *c == "東" || *c == "京"));
+            assert!(
+                joined.contains("Simple ruby") || joined.contains("親文字"),
+                "nested page caption should remain on the product page, got {runs:?}"
+            );
+            let east = host.pages[0]
+                .shapes
+                .iter()
+                .find_map(|s| match s {
+                    reciplexa_scene::Shape::GlyphRun(g) if g.content == "東" => Some(g),
+                    _ => None,
+                })
+                .expect("base 東");
+            let to = host.pages[0]
+                .shapes
+                .iter()
+                .find_map(|s| match s {
+                    reciplexa_scene::Shape::GlyphRun(g)
+                        if g.content == "と" && (g.size_mm - east.size_mm * 0.5).abs() < 1e-6 =>
+                    {
+                        Some(g)
+                    }
+                    _ => None,
+                })
+                .expect("annotation と");
+            assert!(
+                to.y_mm + 1e-9 >= east.y_mm + east.size_mm,
+                "annotation must sit above the parent em-square: base y={} size={} ann y={}",
+                east.y_mm,
+                east.size_mm,
+                to.y_mm
+            );
             let pdf =
                 reciplexa_pdf::document_to_pdf_with_host_fonts(&host, None).expect("ruby pdf");
             assert!(pdf.starts_with(b"%PDF"));

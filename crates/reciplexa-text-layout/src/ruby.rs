@@ -23,8 +23,9 @@ pub struct PositionedRuby {
 /// Layout [`RubyKind::Simple`] with font advances.
 ///
 /// Annotation is drawn at [`RUBY_ANNOTATION_SCALE`] of `base_size_mm`, centered
-/// on the combined advance, with baseline [`RUBY_HEIGHT_BUMP_EM`] × base size
-/// above the parent baseline.
+/// on the combined advance. Its baseline sits one parent em above the parent
+/// baseline so the half-size ruby band occupies [`RUBY_HEIGHT_BUMP_EM`] *above*
+/// the parent em-square instead of overlapping it.
 pub fn layout_simple_ruby(
     font: &LoadedFont,
     ruby: &Ruby,
@@ -53,7 +54,8 @@ pub fn layout_simple_ruby(
     let advance_mm = base_w.max(ann_w);
     let base_x = origin_x_mm + (advance_mm - base_w) / 2.0;
     let ann_x = origin_x_mm + (advance_mm - ann_w) / 2.0;
-    let ann_y = origin_y_mm + base_size_mm * RUBY_HEIGHT_BUMP_EM;
+    // Parent em-square is 1 em; the bump band is the annotation itself.
+    let ann_y = origin_y_mm + base_size_mm * (1.0 + RUBY_HEIGHT_BUMP_EM - RUBY_ANNOTATION_SCALE);
     Ok(PositionedRuby {
         base: PositionedLine::from_shaped_run(
             font.id.clone(),

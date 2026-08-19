@@ -43,9 +43,19 @@ fn simple_ruby_annotation_sits_above_base() {
     let size = 12.0;
     let laid = layout_simple_ruby(&f, &ruby, 10.0, origin_y, size).expect("layout");
     assert!((laid.base.y_mm - origin_y).abs() < 1e-9);
-    assert!((laid.annotation.y_mm - (origin_y + size * RUBY_HEIGHT_BUMP_EM)).abs() < 1e-9);
+    assert!(
+        (laid.annotation.y_mm - (origin_y + size)).abs() < 1e-9,
+        "annotation baseline must sit on top of the parent em-square, got {}",
+        laid.annotation.y_mm
+    );
     assert_eq!(laid.annotation.run.size_mm, size * RUBY_ANNOTATION_SCALE);
-    assert!(laid.annotation.y_mm > laid.base.y_mm);
+    let parent_top = laid.base.y_mm + size;
+    assert!(
+        laid.annotation.y_mm + 1e-9 >= parent_top,
+        "ruby must not overlap the parent body"
+    );
+    let box_top = laid.annotation.y_mm + size * RUBY_ANNOTATION_SCALE;
+    assert!((box_top - (origin_y + size * (1.0 + RUBY_HEIGHT_BUMP_EM))).abs() < 1e-9);
 }
 
 #[test]

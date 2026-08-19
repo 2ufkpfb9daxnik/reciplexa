@@ -1,5 +1,6 @@
-(// language-only: ker builtin ruby-box + japanese/markup ruby.
- // Stub preview uses nested document/page. Host product lays out `placed`.)
+(// Simple horizontal ruby demo (Step 8 item 1).
+ // Product preview: heading + three samples. Annotation is half-size, centered
+ // above the parent em-square. jukugo / vert are not this file.)
 
 (import japanese/markup only ruby)
 
@@ -8,16 +9,20 @@
   block-heading block-paragraph)
 
 (val placed (ruby "東京" "とうきょう"))
+(val kanji (ruby "漢字" "かんじ"))
+(val one (ruby "一" "いち"))
+(val samples (list placed kanji one))
 (val metrics (ruby-box "東京" "とうきょう"))
 
-(val title (heading 1 "Ruby box"))
-(val body (paragraph "東京（とうきょう）— fontless ruby-box metrics, not JLReq placement."))
+(val title (heading 1 "Simple ruby"))
+(val body (paragraph "親文字の真上に半分サイズのルビ。ルビが長いときは全体幅の中央に置く。"))
 
 (val main
   (record
     (tag "ja-ruby-demo")
     (ruby metrics)
     (placed placed)
+    (samples samples)
     (page
       (page a4
         (flow

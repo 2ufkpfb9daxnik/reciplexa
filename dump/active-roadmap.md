@@ -133,9 +133,9 @@ Step 7はSteps 1–6のgreen HEADを基準線として開始した。
 
 順序:
 
-1. Font-backed simple ruby: **complete** (`layout_simple_ruby`; host `ja-ruby-demo` / `placed`)
-   - 横組の simple ruby を font advance で測り、annotation を親文字の上に置く
-   - `japanese/markup ruby` と `Ruby::estimate_box` stub は変えない
+1. Font-backed simple ruby: **complete** (`layout_simple_ruby`; host `ja-ruby-demo` / `placed` / `samples`)
+   - 横組の simple ruby を font advance で測り、annotation を親 em の真上に置く
+   - `examples/pkg_ruby.rpx` は見出し＋3見本。`japanese/markup ruby` と `Ruby::estimate_box` stub は変えない
    - jukugo 配分、縦ルビ、overhang、`vert`、縦中横、傍点は非ゴール
 2. OpenType `vert` / 縦組: planned
 3. Tate-chu-yoko / bou: planned
