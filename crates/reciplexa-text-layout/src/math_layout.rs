@@ -468,8 +468,9 @@ fn stretchy_delim(
         advance_em: f64::from(chosen_adv) / upem,
         italic_correction_em: 0.0,
     };
-    // Scene still emits Unicode `ch`, so size must carry stretch when the
-    // variant GID cannot be painted.
+    // Prepared variants carry height via MATH advanceMeasurement. Remaining
+    // stretch beyond the largest variant is still visual scale; full glyph
+    // assembly remains OPEN.
     let visual_scale = scale * (target_em / chosen_h).max(1.0);
     let w = g.advance_em * visual_scale;
     Ok(PositionedMath {

@@ -156,9 +156,13 @@ fn pt5_math_profile_scripts_fraction_stretchy() {
     assert!(laid.metrics.width > 0.0);
     assert!(!laid.glyphs.is_empty());
     assert!(!laid.rules.is_empty(), "fraction rule");
-    // Stretchy paren uses a vertical variant gid (may equal base or tall).
     let left = &laid.glyphs[0];
     assert_eq!(left.glyph.ch, '(');
+    let cmap = f.glyph_id('(').unwrap();
+    assert_ne!(
+        left.glyph.gid, cmap,
+        "stretchy '(' must select the construction-only tall variant, not cmap GID {cmap}"
+    );
 }
 
 #[test]
@@ -365,8 +369,9 @@ fn pt5_stretchy_delim_gid_reaches_scene_glyph_run() {
         })
         .expect("scene glyph");
     assert_eq!(painted.gid, left.glyph.gid);
-    assert!(
-        left.scale > 1.0 || left.glyph.gid != f.glyph_id('(').unwrap(),
-        "stretchy must scale or pick a variant GID"
+    let cmap = f.glyph_id('(').unwrap();
+    assert_ne!(
+        left.glyph.gid, cmap,
+        "stretchy '(' must paint a MATH variant GID, not cmap {cmap}"
     );
 }

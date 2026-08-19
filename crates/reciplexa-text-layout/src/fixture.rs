@@ -11,6 +11,10 @@ pub const FIXTURE_SUPERSCRIPT_SHIFT_UP: i16 = 420;
 pub const FIXTURE_SUBSCRIPT_SHIFT_DOWN: i16 = 210;
 pub const FIXTURE_RADICAL_RULE_THICKNESS: i16 = 70;
 pub const FIXTURE_DISPLAY_OPERATOR_MIN_HEIGHT: u16 = 1400;
+/// MATH Variants `advanceMeasurement` for the cmap `(` glyph (design units).
+pub const FIXTURE_PAREN_VARIANT_ADVANCE: u16 = 1000;
+/// MATH Variants `advanceMeasurement` for the construction-only tall paren.
+pub const FIXTURE_TALL_PAREN_VARIANT_ADVANCE: u16 = 1800;
 
 /// Extra CJK ideographs used by Step 7 examples (hiragana/katakana are full ranges).
 const EXTRA_IDEOGRAPHS: &str =
@@ -569,33 +573,40 @@ fn build_math_constants() -> Vec<u8> {
     c
 }
 
+/// MATH Variants Coverage Format 1 for one glyph: format + count + glyphId.
+const MATH_VARIANTS_COVERAGE_LEN: u16 = 6;
+/// After minConnectorOverlap, two coverage offsets, two counts, one vert offset.
+const MATH_VARIANTS_COVERAGE_OFFSET: u16 = 12;
+const MATH_VARIANTS_CONSTRUCTION_OFFSET: u16 =
+    MATH_VARIANTS_COVERAGE_OFFSET + MATH_VARIANTS_COVERAGE_LEN;
+
 fn build_math_variants(paren_gid: u16, tall_paren_gid: u16) -> Vec<u8> {
-    // Layout (offsets relative to start of variants table):
-    // 0 minConnectorOverlap
-    // 2 vertCoverage offset
-    // 4 horizCoverage offset = 0
-    // 6 vertCount = 1
-    // 8 horizCount = 0
-    // 10 vertConstructionOffset[0]
-    // then coverage, then construction
+    // Offsets are relative to the start of the MATH Variants table.
+    //  0 minConnectorOverlap
+    //  2 VertGlyphCoverageOffset → 12
+    //  4 HorizGlyphCoverageOffset = 0
+    //  6 VertGlyphCount = 1
+    //  8 HorizGlyphCount = 0
+    // 10 VertGlyphConstructionOffsets[0] → 18
+    // 12 Coverage Format 1 (6 bytes)
+    // 18 MathGlyphConstruction (no assembly, two prepared variants)
     let mut v = Vec::new();
     put_u16(&mut v, 50);
-    put_u16(&mut v, 12); // vert coverage at 12
+    put_u16(&mut v, MATH_VARIANTS_COVERAGE_OFFSET);
     put_u16(&mut v, 0);
     put_u16(&mut v, 1);
     put_u16(&mut v, 0);
-    put_u16(&mut v, 20); // construction at 20
-                         // coverage format 1 at 12 (8 bytes): format, count, glyphId
+    put_u16(&mut v, MATH_VARIANTS_CONSTRUCTION_OFFSET);
     put_u16(&mut v, 1);
     put_u16(&mut v, 1);
     put_u16(&mut v, paren_gid);
-    // construction at 20: assembly offset 0, variantCount 2, two variants
+    debug_assert_eq!(v.len(), MATH_VARIANTS_CONSTRUCTION_OFFSET as usize);
     put_u16(&mut v, 0);
     put_u16(&mut v, 2);
     put_u16(&mut v, paren_gid);
-    put_u16(&mut v, 1000);
+    put_u16(&mut v, FIXTURE_PAREN_VARIANT_ADVANCE);
     put_u16(&mut v, tall_paren_gid);
-    put_u16(&mut v, 1800);
+    put_u16(&mut v, FIXTURE_TALL_PAREN_VARIANT_ADVANCE);
     v
 }
 
@@ -609,4 +620,34 @@ fn put_i16(b: &mut Vec<u8>, v: i16) {
 
 fn put_u32(b: &mut Vec<u8>, v: u32) {
     b.extend_from_slice(&v.to_be_bytes());
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ttf_parser::Face;
+
+    #[test]
+    fn math_vertical_construction_exposes_tall_paren() {
+        let face = Face::parse(fixture_font_bytes(), 0).expect("fixture face");
+        let paren = face.glyph_index('(').expect("paren cmap");
+        let variants = face
+            .tables()
+            .math
+            .expect("MATH")
+            .variants
+            .expect("MATH variants");
+        let cons = variants
+            .vertical_constructions
+            .get(paren)
+            .expect("vertical construction for '('");
+        assert_eq!(cons.variants.len(), 2);
+        let base = cons.variants.get(0).expect("base variant");
+        let tall = cons.variants.get(1).expect("tall variant");
+        assert_eq!(base.variant_glyph, paren);
+        assert_eq!(base.advance_measurement, FIXTURE_PAREN_VARIANT_ADVANCE);
+        assert_ne!(tall.variant_glyph, paren);
+        assert_eq!(tall.advance_measurement, FIXTURE_TALL_PAREN_VARIANT_ADVANCE);
+        assert!(face.glyph_hor_advance(tall.variant_glyph).is_some());
+    }
 }

@@ -20,7 +20,8 @@ pub use engine::{host_typeset_engine, TypesetEngine};
 pub use error::LayoutError;
 pub use fixture::{
     fixture_font_bytes, FIXTURE_AXIS_HEIGHT, FIXTURE_FRACTION_RULE_THICKNESS,
-    FIXTURE_SCRIPT_PERCENT_SCALE_DOWN, FIXTURE_SCRIPT_SCRIPT_PERCENT_SCALE_DOWN,
+    FIXTURE_PAREN_VARIANT_ADVANCE, FIXTURE_SCRIPT_PERCENT_SCALE_DOWN,
+    FIXTURE_SCRIPT_SCRIPT_PERCENT_SCALE_DOWN, FIXTURE_TALL_PAREN_VARIANT_ADVANCE,
 };
 pub use font::{content_digest, host_math_font, host_product_font, FontId, LoadedFont};
 pub use ja::{
