@@ -4,14 +4,14 @@
 //! paper via shared std live-layout helpers (`break_line` / `place_lines` / indent /
 //! columns). Interim CST `(page)/(circle)` keyword tables stay untouched.
 
-use reciplexa_scene::{Color, Document, Page, PaperSize, Shape};
+use reciplexa_scene::{Color, Document, Page, PaperSize, Shape, Text};
 use reciplexa_std::japanese::{
     layout_column_paragraph_shapes, layout_wrapped_paragraph_shapes, ParagraphSceneLayout,
     DOC_TEXT_MAX_EM,
 };
 use reciplexa_text_layout::{
-    host_product_font, layout_column_paragraph_product, layout_wrapped_paragraph_product,
-    TypesetEngine,
+    host_product_font, layout_column_paragraph_product, layout_wrapped_paragraph_product_lines,
+    positioned_lines_to_shapes, TypesetEngine,
 };
 
 use crate::graphics_value::GraphicsValueError;
@@ -273,7 +273,9 @@ fn push_soft_wrapped_text(
         pitch_mm: pitch,
         fill: Color::BLACK,
     };
-    let texts = match engine {
+    // Product emits one GlyphRun per cluster; pitch must step by wrapped
+    // lines, not glyph count, or the next block falls off the page.
+    let n_lines = match engine {
         TypesetEngine::Stub => {
             let t = layout_wrapped_paragraph_shapes(text, DOC_TEXT_MAX_EM, indent_em, &layout);
             let n = t.len().max(1);
@@ -282,15 +284,32 @@ fn push_soft_wrapped_text(
         }
         TypesetEngine::Product => {
             let font = host_product_font().map_err(|e| GraphicsValueError::new(e.to_string()))?;
-            let t =
-                layout_wrapped_paragraph_product(&font, text, DOC_TEXT_MAX_EM, indent_em, &layout)
-                    .map_err(|e| GraphicsValueError::new(e.to_string()))?;
-            let n = t.len().max(1);
-            shapes.extend(t);
-            n
+            let lines = layout_wrapped_paragraph_product_lines(
+                &font,
+                text,
+                DOC_TEXT_MAX_EM,
+                indent_em,
+                &layout,
+            )
+            .map_err(|e| GraphicsValueError::new(e.to_string()))?;
+            if lines.is_empty() {
+                shapes.push(Shape::Text(Text {
+                    x_mm: layout.base_x_mm,
+                    y_mm: layout.start_y_mm,
+                    size_mm: layout.size_mm,
+                    width_mm: None,
+                    height_mm: None,
+                    content: String::new(),
+                    fill: layout.fill,
+                }));
+                1
+            } else {
+                shapes.extend(positioned_lines_to_shapes(&lines, layout.fill));
+                lines.len()
+            }
         }
     };
-    *cursor_y += pitch * texts as f64;
+    *cursor_y += pitch * n_lines as f64;
     Ok(())
 }
 
@@ -946,5 +965,74 @@ mod tests {
         assert!(product_n > 1);
         // Fixture あ is 0.98em vs stub 1.0em, so wrap count can differ.
         let _ = stub_n;
+    }
+
+    #[test]
+    fn product_doc_advances_cursor_by_line_not_glyph_count() {
+        // Ten Latin glyphs on one line. Pitch is size+3; the next block must
+        // sit one step below, not ten glyph-counts down the page.
+        let heading = rec(vec![
+            ("tag", RuntimeValue::String("doc-heading".into())),
+            ("level", RuntimeValue::Int(1)),
+            ("text", RuntimeValue::String("ABCDEFGHIJ".into())),
+        ]);
+        let paragraph = rec(vec![
+            ("tag", RuntimeValue::String("doc-paragraph".into())),
+            ("text", RuntimeValue::String("X".into())),
+        ]);
+        let blocks = cons(vec![
+            rec(vec![
+                ("tag", RuntimeValue::String("doc-block".into())),
+                ("kind", RuntimeValue::String("heading".into())),
+                ("heading", heading),
+            ]),
+            rec(vec![
+                ("tag", RuntimeValue::String("doc-block".into())),
+                ("kind", RuntimeValue::String("paragraph".into())),
+                ("paragraph", paragraph),
+            ]),
+        ]);
+        let section = rec(vec![
+            ("tag", RuntimeValue::String("doc-section".into())),
+            ("blocks", blocks),
+        ]);
+        let flow = rec(vec![
+            ("tag", RuntimeValue::String("doc-flow".into())),
+            ("sections", cons(vec![section])),
+        ]);
+        let page = rec(vec![
+            ("tag", RuntimeValue::String("doc-page".into())),
+            (
+                "paper",
+                rec(vec![
+                    ("width", RuntimeValue::Int(210)),
+                    ("height", RuntimeValue::Int(297)),
+                ]),
+            ),
+            ("flow", flow),
+        ]);
+        let doc =
+            layout_doc_page_to_scene_with_engine(&page, TypesetEngine::Product).expect("product");
+        let y_of = |ch: &str| {
+            doc.pages[0]
+                .shapes
+                .iter()
+                .find_map(|s| match s {
+                    Shape::GlyphRun(g) if g.content == ch => Some(g.y_mm),
+                    _ => None,
+                })
+                .unwrap_or_else(|| panic!("missing {ch}"))
+        };
+        let heading_y = y_of("A");
+        let body_y = y_of("X");
+        let pitch = -(8.0 + DOC_LINE_PITCH_EXTRA_MM);
+        assert!(
+            (body_y - (heading_y + pitch)).abs() < 1e-6,
+            "body must be one line-pitch below the heading, got heading={heading_y} body={body_y}"
+        );
+        assert!(
+            body_y > 250.0,
+            "one-line 10-glyph heading must not shove the next block down the page, body y={body_y}"
+        );
     }
 }

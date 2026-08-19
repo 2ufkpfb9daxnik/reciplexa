@@ -23,10 +23,16 @@ fn field<'a>(rec: &'a RuntimeValue, name: &str) -> &'a RuntimeValue {
     }
 }
 
-fn walk_shapes(shapes: &[reciplexa_scene::Shape], runs: &mut Vec<String>, circles: &mut usize) {
+fn walk_shapes(
+    shapes: &[reciplexa_scene::Shape],
+    runs: &mut Vec<(String, f64, f64)>,
+    circles: &mut usize,
+) {
     for s in shapes {
         match s {
-            reciplexa_scene::Shape::GlyphRun(g) => runs.push(g.content.clone()),
+            reciplexa_scene::Shape::GlyphRun(g) => {
+                runs.push((g.content.clone(), g.x_mm, g.y_mm));
+            }
             reciplexa_scene::Shape::Circle(_) => *circles += 1,
             reciplexa_scene::Shape::Group { children, .. }
             | reciplexa_scene::Shape::Opacity { children, .. } => {
@@ -35,6 +41,13 @@ fn walk_shapes(shapes: &[reciplexa_scene::Shape], runs: &mut Vec<String>, circle
             _ => {}
         }
     }
+}
+
+fn run_y(runs: &[(String, f64, f64)], ch: &str) -> f64 {
+    runs.iter()
+        .find(|(c, _, _)| c == ch)
+        .map(|(_, _, y)| *y)
+        .unwrap_or_else(|| panic!("missing {ch} in {runs:?}"))
 }
 
 #[test]
@@ -77,40 +90,52 @@ fn pkg_tcy_bou_host_product_emits_tcy_and_marks() {
                 .iter()
                 .any(|s| s.text_content().is_some()));
             let host = document_from_package_entry_host(&entry, &idx).expect("host tcy/bou");
+            let paper_h = host.pages[0].paper.height_mm;
             let mut runs = Vec::new();
             let mut circles = 0usize;
             walk_shapes(&host.pages[0].shapes, &mut runs, &mut circles);
-            let joined: String = runs.concat();
+            let joined: String = runs.iter().map(|(c, _, _)| c.as_str()).collect();
             assert!(
                 joined.contains('令') && joined.contains('1') && joined.contains('重'),
                 "tcy column and bou body: {runs:?}"
             );
-            let ones: Vec<_> = host.pages[0]
-                .shapes
+            let title_t_ys: Vec<f64> = runs
                 .iter()
-                .filter_map(|s| match s {
-                    reciplexa_scene::Shape::GlyphRun(g) if g.content == "1" => Some(g),
-                    _ => None,
-                })
+                .filter(|(c, _, _)| c == "T")
+                .map(|(_, _, y)| *y)
                 .collect();
-            let twos: Vec<_> = host.pages[0]
-                .shapes
-                .iter()
-                .filter_map(|s| match s {
-                    reciplexa_scene::Shape::GlyphRun(g) if g.content == "2" => Some(g),
-                    _ => None,
-                })
-                .collect();
-            assert!(!ones.is_empty() && !twos.is_empty());
-            let (one, two) = (ones[0], twos[0]);
+            assert_eq!(
+                title_t_ys.len(),
+                1,
+                "section title must not be painted twice, T ys={title_t_ys:?}"
+            );
+            let heading_y = title_t_ys[0];
+            let rei_y = run_y(&runs, "令");
+            let year_y = run_y(&runs, "年");
+            let one = runs.iter().find(|(c, _, _)| c == "1").expect("digit 1");
+            let two = runs.iter().find(|(c, _, _)| c == "2").expect("digit 2");
+            for (ch, y) in [("T", heading_y), ("令", rei_y), ("1", one.2), ("年", year_y)] {
+                assert!(
+                    y > 20.0 && y < paper_h - 10.0,
+                    "{ch} must stay on A4, y={y} paper_h={paper_h}"
+                );
+            }
             assert!(
-                (one.y_mm - two.y_mm).abs() < 1e-6,
-                "tate-chu-yoko digits share a baseline, got {} vs {}",
-                one.y_mm,
-                two.y_mm
+                heading_y > 250.0,
+                "English heading belongs at the top, y={heading_y}"
             );
             assert!(
-                two.x_mm > one.x_mm,
+                rei_y < heading_y && rei_y > 100.0,
+                "令和 must sit below the heading and not at the page foot, 令 y={rei_y} heading y={heading_y}"
+            );
+            assert!(
+                (one.2 - two.2).abs() < 1e-6,
+                "tate-chu-yoko digits share a baseline, got {} vs {}",
+                one.2,
+                two.2
+            );
+            assert!(
+                two.1 > one.1,
                 "digits must sit side by side, not stacked"
             );
             assert!(

@@ -6,7 +6,7 @@
 
 (import document/page only
   a4 page flow section heading paragraph
-  block-heading block-paragraph)
+  block-paragraph)
 
 (val tcy (tate-chu-yoko "12"))
 (val emp (emphasis "重要"))
@@ -29,5 +29,4 @@
           (list
             (section title
               (list
-                (block-heading title)
                 (block-paragraph body)))))))))
