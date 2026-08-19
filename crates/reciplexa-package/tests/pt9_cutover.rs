@@ -99,6 +99,31 @@ fn pt9_pkg_live_math_product_keeps_delimiter_and_fraction() {
             texts.contains(&"a") && texts.contains(&"b"),
             "fraction glyphs placed separately: {texts:?}"
         );
+        let ja_min = product.pages[0]
+            .shapes
+            .iter()
+            .filter(|s| s.text_content().is_some_and(|c| c.contains('括')))
+            .filter_map(|s| s.text_y_mm())
+            .fold(f64::INFINITY, f64::min);
+        let math_left = product.pages[0]
+            .shapes
+            .iter()
+            .find(|s| s.text_content() == Some("("))
+            .and_then(|s| s.text_y_mm())
+            .expect("math left delimiter");
+        let fallback = product.pages[0].paper.height_mm - 40.0;
+        assert!(
+            ja_min.is_finite(),
+            "product JA GlyphRun baseline missing: {texts:?}"
+        );
+        assert!(
+            (math_left - fallback).abs() > 10.0,
+            "math origin must follow JA GlyphRun, not Text-only fallback; math_left={math_left} ja_min={ja_min} fallback={fallback}"
+        );
+        assert!(
+            math_left < ja_min,
+            "math sits below JA in page Y-up; math_left={math_left} ja_min={ja_min}"
+        );
         let _ = stub;
     });
 }

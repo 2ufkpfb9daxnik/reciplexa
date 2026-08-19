@@ -218,8 +218,7 @@ Library APIs `layout_doc_page_to_scene` and `layout_math_to_shapes` stay stub so
    host smoke are green on the same HEAD.
 
 Until every condition holds, Step 7 item 3 remains **active**, not complete. Code HEAD
-`560f5bd` measured workspace gates; that is not a completion claim. Remaining blockers
-include `pkg_live_math` math origin ignoring product `GlyphRun` baselines.
+`560f5bd` measured workspace gates; that is not a completion claim.
 
 ## Non-goals for this milestone
 

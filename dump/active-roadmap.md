@@ -119,6 +119,6 @@
    - GUI preview は同じ digest の egui family で `GlyphRun` を layout advance 位置に置く
    - `RECIPLEXA_TYPESET_ENGINE=stub` で参照ヒューリスティックを強制
    - page 形 example は preview/export。`pkg_japanese_jlreq` / `pkg_math_spacing` は language-demo（eval + engine coverage）
-   - 残 OPEN: `OPEN-TEXT-LAYOUT-001`、ruby/`vert`、完全 MATH assembly、`pkg_live_math` の math origin が product `GlyphRun` を見ること
+   - 残 OPEN: `OPEN-TEXT-LAYOUT-001`、ruby/`vert`、完全 MATH assembly
 
 Step 7はSteps 1–6のgreen HEADを基準線として開始する。

@@ -110,10 +110,7 @@ fn math_origin_below_doc(doc: &Document) -> (f64, f64) {
     let min_y = page
         .shapes
         .iter()
-        .filter_map(|s| match s {
-            Shape::Text(t) => Some(t.y_mm),
-            _ => None,
-        })
+        .filter_map(Shape::text_y_mm)
         .fold(None, |acc: Option<f64>, y| {
             Some(acc.map_or(y, |a| a.min(y)))
         });
@@ -148,4 +145,61 @@ pub fn document_from_live_layout_source(
     let entry = dir.join(format!("{entry_stem}.rpx"));
     std::fs::write(&entry, source).map_err(|e| GraphicsBridgeError::Load(e.to_string()))?;
     document_from_live_layout_entry(&entry, index)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use reciplexa_scene::{Color, GlyphRunShape, Page, PaperSize, Text};
+
+    fn page_with(shapes: Vec<Shape>) -> Document {
+        Document::single_page(Page {
+            paper: PaperSize::a4(),
+            shapes,
+        })
+    }
+
+    #[test]
+    fn math_origin_uses_glyph_run_baselines() {
+        let doc = page_with(vec![Shape::GlyphRun(GlyphRunShape::one(
+            20.0,
+            80.0,
+            12.0,
+            "括",
+            Color::BLACK,
+            1,
+            "digest",
+            10.0,
+        ))]);
+        let (x, y) = math_origin_below_doc(&doc);
+        assert!((x - 20.0).abs() < 1e-9);
+        assert!(
+            (y - 68.0).abs() < 1e-9,
+            "GlyphRun y=80 must beat height-40 fallback, got {y}"
+        );
+        let fallback = PaperSize::a4().height_mm - 40.0;
+        assert!((y - fallback).abs() > 10.0);
+    }
+
+    #[test]
+    fn math_origin_still_sees_shape_text() {
+        let doc = page_with(vec![Shape::Text(Text {
+            x_mm: 20.0,
+            y_mm: 90.0,
+            size_mm: 12.0,
+            width_mm: None,
+            height_mm: None,
+            content: "括".into(),
+            fill: Color::BLACK,
+        })]);
+        let (_, y) = math_origin_below_doc(&doc);
+        assert!((y - 78.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn math_origin_falls_back_without_text_like_shapes() {
+        let doc = page_with(vec![]);
+        let (_, y) = math_origin_below_doc(&doc);
+        assert!((y - (PaperSize::a4().height_mm - 40.0)).abs() < 1e-9);
+    }
 }
