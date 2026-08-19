@@ -1,6 +1,6 @@
 # Product Typesetting (Step 7 item 3)
 
-**Status:** complete (PT-0〜PT-9 Profile v1 on HEAD `560f5bd` — remaining OPEN listed below)  
+**Status:** active (PT-0〜PT-9 engines + GlyphRun host/PDF/GUI cutover — remaining Complete-when and OPEN listed below)  
 **Current model:** font-backed JLReq Profile v1 + Math Profile v1 on a shared `ttf-parser` substrate; `reciplexa-std` heuristics remain the explicit stub/reference path  
 **Execution order:** [`active-roadmap.md`](active-roadmap.md) Step 7 item 3, after Direct Native v2 item 2/2b  
 **Normative anchors:** `specification.md` Part IV §16–18, `IR-001` GlyphRun, `OPEN-TEXT-LAYOUT-001`, `OPEN-TEXT-JA-001`, Font Policy §39  
@@ -208,14 +208,18 @@ Library APIs `layout_doc_page_to_scene` and `layout_math_to_shapes` stay stub so
 4. Unicode text and cluster mapping survive through shaped and positioned output.
 5. Metric-changing font substitution causes relayout rather than backend silent replacement.
 6. Existing author import APIs and DN2 typed callable contracts are unchanged.
-7. Declared examples use the product engines in preview and export, with backend font
-   embedding/resource tests.
+7. Page-shaped declared examples (`pkg_columns`, `pkg_document_indent`, `pkg_math`,
+   `pkg_live_math`) use the product engines in preview and export, with backend font
+   embedding/resource tests. Language-demo records (`pkg_japanese_jlreq`,
+   `pkg_math_spacing`) are eval + engine coverage, not `doc-page`.
 8. Remaining `OPEN-TEXT-LAYOUT-001`, `OPEN-TEXT-JA-001`, OpenType MATH, and first-class
    editable-page work are listed precisely in `implemented-features.md`.
 9. Workspace fmt, Clippy `-D warnings`, tests, all-target check, GUI check, and GUI/CLI
    host smoke are green on the same HEAD.
 
-Conditions 1–9 held on HEAD `560f5bd`. Step 7 item 3 is **complete**. Remaining OPEN (ruby / `vert` / full MATH assembly / first-class editable math) stay listed in `implemented-features.md`.
+Until every condition holds, Step 7 item 3 remains **active**, not complete. Code HEAD
+`560f5bd` measured workspace gates; that is not a completion claim. Remaining blockers
+include `pkg_live_math` math origin ignoring product `GlyphRun` baselines.
 
 ## Non-goals for this milestone
 
