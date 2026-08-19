@@ -8,6 +8,7 @@ use reciplexa_eval::{
 };
 use reciplexa_scene::{Color, Document, Page, PaperSize, Shape};
 use reciplexa_std::japanese::{Ruby, RubyKind, RUBY_ANNOTATION_SCALE};
+use reciplexa_text_layout::ruby::RUBY_PARENT_GAP_EM;
 use reciplexa_text_layout::{
     host_product_font, layout_simple_ruby, positioned_ruby_to_shapes, TypesetEngine,
 };
@@ -44,7 +45,8 @@ fn product_page_with_ruby(v: &RuntimeValue) -> Result<Document, GraphicsBridgeEr
         }),
     };
     let (mut x, mut y) = ruby_row_origin(&doc);
-    let row_step = RUBY_BASE_SIZE_MM * (1.0 + RUBY_ANNOTATION_SCALE) + RUBY_SAMPLE_GAP_MM;
+    let row_step =
+        RUBY_BASE_SIZE_MM * (1.0 + RUBY_ANNOTATION_SCALE + RUBY_PARENT_GAP_EM) + RUBY_SAMPLE_GAP_MM;
     let page_w = doc.pages.first().map(|p| p.paper.width_mm).unwrap_or(210.0);
     let mut shapes = Vec::new();
     for ruby in &rubies {
@@ -69,7 +71,7 @@ fn ruby_row_origin(doc: &Document) -> (f64, f64) {
     let Some(page) = doc.pages.first() else {
         return (RUBY_ORIGIN_X_MM, RUBY_ORIGIN_Y_MM);
     };
-    let band = RUBY_BASE_SIZE_MM * (1.0 + RUBY_ANNOTATION_SCALE);
+    let band = RUBY_BASE_SIZE_MM * (1.0 + RUBY_ANNOTATION_SCALE + RUBY_PARENT_GAP_EM);
     let min_y = page
         .shapes
         .iter()

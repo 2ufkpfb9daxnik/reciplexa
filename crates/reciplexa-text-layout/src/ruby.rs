@@ -4,12 +4,16 @@
 //! Stub [`reciplexa_std::japanese::Ruby::estimate_box`] stays the reference.
 
 use reciplexa_scene::{Color, Shape};
-use reciplexa_std::japanese::{Ruby, RubyKind, RUBY_ANNOTATION_SCALE, RUBY_HEIGHT_BUMP_EM};
+use reciplexa_std::japanese::{Ruby, RubyKind, RUBY_ANNOTATION_SCALE};
 
 use crate::error::LayoutError;
 use crate::font::LoadedFont;
 use crate::position::{positioned_line_to_glyph_shapes, PositionedLine};
 use crate::shape::shape_run;
+
+/// Extra em between the parent em-square top and the annotation baseline.
+/// Stub `RUBY_HEIGHT_BUMP_EM` stays the fontless box; this is product spacing.
+pub const RUBY_PARENT_GAP_EM: f64 = 0.25;
 
 /// Positioned simple ruby: base line plus annotation line above it (page Y-up).
 #[derive(Debug, Clone, PartialEq)]
@@ -23,9 +27,8 @@ pub struct PositionedRuby {
 /// Layout [`RubyKind::Simple`] with font advances.
 ///
 /// Annotation is drawn at [`RUBY_ANNOTATION_SCALE`] of `base_size_mm`, centered
-/// on the combined advance. Its baseline sits one parent em above the parent
-/// baseline so the half-size ruby band occupies [`RUBY_HEIGHT_BUMP_EM`] *above*
-/// the parent em-square instead of overlapping it.
+/// on the combined advance. Its baseline sits one parent em plus
+/// [`RUBY_PARENT_GAP_EM`] above the parent baseline.
 pub fn layout_simple_ruby(
     font: &LoadedFont,
     ruby: &Ruby,
@@ -54,8 +57,7 @@ pub fn layout_simple_ruby(
     let advance_mm = base_w.max(ann_w);
     let base_x = origin_x_mm + (advance_mm - base_w) / 2.0;
     let ann_x = origin_x_mm + (advance_mm - ann_w) / 2.0;
-    // Parent em-square is 1 em; the bump band is the annotation itself.
-    let ann_y = origin_y_mm + base_size_mm * (1.0 + RUBY_HEIGHT_BUMP_EM - RUBY_ANNOTATION_SCALE);
+    let ann_y = origin_y_mm + base_size_mm * (1.0 + RUBY_PARENT_GAP_EM);
     Ok(PositionedRuby {
         base: PositionedLine::from_shaped_run(
             font.id.clone(),

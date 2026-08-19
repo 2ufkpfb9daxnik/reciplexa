@@ -1,6 +1,7 @@
 //! Step 8 item 1: font-backed simple ruby vs stub estimates.
 
-use reciplexa_std::japanese::{char_em_width, Ruby, RUBY_ANNOTATION_SCALE, RUBY_HEIGHT_BUMP_EM};
+use reciplexa_std::japanese::{char_em_width, Ruby, RUBY_ANNOTATION_SCALE};
+use reciplexa_text_layout::ruby::RUBY_PARENT_GAP_EM;
 use reciplexa_text_layout::{
     layout_simple_ruby, positioned_ruby_to_shapes, LayoutError, LoadedFont,
 };
@@ -43,9 +44,10 @@ fn simple_ruby_annotation_sits_above_base() {
     let size = 12.0;
     let laid = layout_simple_ruby(&f, &ruby, 10.0, origin_y, size).expect("layout");
     assert!((laid.base.y_mm - origin_y).abs() < 1e-9);
+    let expected_ann = origin_y + size * (1.0 + RUBY_PARENT_GAP_EM);
     assert!(
-        (laid.annotation.y_mm - (origin_y + size)).abs() < 1e-9,
-        "annotation baseline must sit on top of the parent em-square, got {}",
+        (laid.annotation.y_mm - expected_ann).abs() < 1e-9,
+        "annotation baseline must sit above the parent em-square with a gap, got {}",
         laid.annotation.y_mm
     );
     assert_eq!(laid.annotation.run.size_mm, size * RUBY_ANNOTATION_SCALE);
@@ -54,8 +56,7 @@ fn simple_ruby_annotation_sits_above_base() {
         laid.annotation.y_mm + 1e-9 >= parent_top,
         "ruby must not overlap the parent body"
     );
-    let box_top = laid.annotation.y_mm + size * RUBY_ANNOTATION_SCALE;
-    assert!((box_top - (origin_y + size * (1.0 + RUBY_HEIGHT_BUMP_EM))).abs() < 1e-9);
+    assert!(laid.annotation.y_mm - parent_top >= size * 0.2);
 }
 
 #[test]
