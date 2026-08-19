@@ -189,14 +189,14 @@ PT-0〜PT-9 landed in `crates/reciplexa-text-layout` plus host adapters:
 - PT-0: pinned generated fixture TTF, `LoadedFont` (TTC face index), shaped clusters, structured missing font/glyph.
 - PT-1/2/3: font advances, versioned class-matrix (`jlreq-profile-v1.0`), hang/trim/justify applied onto `PositionedLine` glyph x.
 - PT-4/5: MATH constants drive script/fraction/radical/bigop placement; stretchy delimiters select prepared MATH variant GIDs from the fixture construction (cmap `(` is not the painted GID). Accents: hat/tilde/dot/vec marks and bar/underline rules; check/breve/acute/grave/ring refuse ASCII substitution. Full assembly / MATH kern remain OPEN.
-- PT-6: `GlyphRun` / `PositionedLine`; product JA/MATH scene adapters emit one `Shape::GlyphRun` per glyph so trim/justify, intra-row x, and layout GIDs survive.
-- PT-7: `layout_doc_page_to_scene_with_engine` / `layout_math_to_shapes_product` / `document_from_math_demo_value`; host pipeline uses product for `doc-page`, `live-layout-demo`, and `math-demo`.
+- PT-6: `GlyphRun` / `PositionedLine`; product JA/MATH scene adapters emit one `Shape::GlyphRun` per glyph so trim/justify, intra-row x, and layout GIDs survive. Graphics `text` keeps one cluster `GlyphRun` per authoring node.
+- PT-7: `layout_doc_page_to_scene_with_engine` / `layout_math_to_shapes_product` / `document_from_math_demo_value`; host pipeline uses product for `doc-page`, `live-layout-demo`, `math-demo`, and graphics `text`.
 - PT-8: production Visual IR lower emits `RenderNode::GlyphRun`; host PDF paints layout GIDs (`encode_gid_hex`) and embeds one CID face per layout digest (`host_product_font` + `host_math_font`). Digest mismatch is relayout. Latin-only `Text` is Helvetica. SVG/PPTX keep Unicode clusters at the same positions.
 - PT-9: stub remains `document_from_package_entry` (tests/reference); `RECIPLEXA_TYPESET_ENGINE=stub` forces heuristics; cutover tests cover the declared examples.
 
 Library APIs `layout_doc_page_to_scene` and `layout_math_to_shapes` stay stub so existing differential tests remain the reference baseline.
 
-Graphics `text` pages (`text_line.rpx`) still lower through `document_from_graphics_value` (scene `Text`). `pkg_japanese_jlreq` / `pkg_math_spacing` remain language-demo records (eval + engine coverage, not `doc-page`).
+`document_from_graphics_value` stays stub (`Shape::Text`). Host product rewrites those leaves to cluster `GlyphRun` via `productize_document_text`. `pkg_japanese_jlreq` / `pkg_math_spacing` remain language-demo records (eval + engine coverage, not `doc-page`).
 
 ## Complete only when all of the following hold
 

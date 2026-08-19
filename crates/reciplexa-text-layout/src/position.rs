@@ -1,12 +1,12 @@
-//! Positioned text IR and scene adapter (one GlyphRun per glyph so GID survives).
+//! Positioned text IR and scene adapter (GlyphRun so layout GIDs survive).
 
-use reciplexa_scene::{Color, GlyphRunShape, Shape, Text};
+use reciplexa_scene::{Color, Document, GlyphRunShape, Shape, Text};
 
 use crate::error::LayoutError;
-use crate::font::FontId;
+use crate::font::{FontId, LoadedFont};
 use crate::ja::LineSegment;
 use crate::math_layout::PositionedMath;
-use crate::shape::ShapedGlyph;
+use crate::shape::{shape_run, ShapedGlyph};
 
 /// Writing mode for positioned output.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -131,16 +131,16 @@ fn positioned_glyph_to_shape(
     font_digest: &str,
     fill: Color,
 ) -> Shape {
-    Shape::GlyphRun(GlyphRunShape {
-        x_mm: g.x_mm,
-        y_mm: g.y_mm,
+    Shape::GlyphRun(GlyphRunShape::one(
+        g.x_mm,
+        g.y_mm,
         size_mm,
-        content: g.ch.to_string(),
+        g.ch.to_string(),
         fill,
-        gid: g.gid,
-        font_digest: font_digest.to_string(),
-        advance_mm: g.advance_mm,
-    })
+        g.gid,
+        font_digest,
+        g.advance_mm,
+    ))
 }
 
 pub fn positioned_line_to_glyph_shapes(line: &PositionedLine, fill: Color) -> Vec<Shape> {
@@ -177,16 +177,16 @@ pub fn positioned_math_to_shapes(
     let mut shapes = Vec::new();
     for g in &math.glyphs {
         let size_mm = g.scale * em_to_mm;
-        shapes.push(Shape::GlyphRun(GlyphRunShape {
-            x_mm: origin.0 + g.x_em * em_to_mm,
-            y_mm: origin.1 + g.y_em * em_to_mm,
+        shapes.push(Shape::GlyphRun(GlyphRunShape::one(
+            origin.0 + g.x_em * em_to_mm,
+            origin.1 + g.y_em * em_to_mm,
             size_mm,
-            content: g.glyph.ch.to_string(),
+            g.glyph.ch.to_string(),
             fill,
-            gid: g.glyph.gid,
-            font_digest: font.digest.clone(),
-            advance_mm: g.glyph.advance_em * size_mm,
-        }));
+            g.glyph.gid,
+            font.digest.clone(),
+            g.glyph.advance_em * size_mm,
+        )));
     }
     for r in &math.rules {
         shapes.push(Shape::Line(Line {
@@ -241,4 +241,74 @@ pub fn glyph_run_from_shaped(
         content,
         glyphs: out,
     })
+}
+
+/// Rewrite [`Shape::Text`] leaves to cluster [`Shape::GlyphRun`] using `font`.
+///
+/// One authoring text node stays one scene node so GUI package layers still
+/// align. Groups/opacity are walked. Missing glyphs fail.
+pub fn productize_shape_text(shape: Shape, font: &LoadedFont) -> Result<Shape, LayoutError> {
+    match shape {
+        Shape::Text(t) => scene_text_to_glyph_run(font, &t),
+        Shape::Group {
+            transform,
+            children,
+        } => Ok(Shape::Group {
+            transform,
+            children: children
+                .into_iter()
+                .map(|c| productize_shape_text(c, font))
+                .collect::<Result<Vec<_>, _>>()?,
+        }),
+        Shape::Opacity { alpha, children } => Ok(Shape::Opacity {
+            alpha,
+            children: children
+                .into_iter()
+                .map(|c| productize_shape_text(c, font))
+                .collect::<Result<Vec<_>, _>>()?,
+        }),
+        other => Ok(other),
+    }
+}
+
+/// Rewrite every page's text leaves (see [`productize_shape_text`]).
+pub fn productize_document_text(
+    mut doc: Document,
+    font: &LoadedFont,
+) -> Result<Document, LayoutError> {
+    for page in &mut doc.pages {
+        let shapes = std::mem::take(&mut page.shapes);
+        page.shapes = shapes
+            .into_iter()
+            .map(|s| productize_shape_text(s, font))
+            .collect::<Result<Vec<_>, _>>()?;
+    }
+    Ok(doc)
+}
+
+fn scene_text_to_glyph_run(font: &LoadedFont, t: &Text) -> Result<Shape, LayoutError> {
+    if !t.is_drawable() {
+        return Ok(Shape::Text(t.clone()));
+    }
+    if t.content.chars().all(|c| c == '\n' || c == '\r') {
+        return Ok(Shape::Text(t.clone()));
+    }
+    let run = shape_run(font, &t.content)?;
+    if run.glyphs.is_empty() {
+        return Ok(Shape::Text(t.clone()));
+    }
+    Ok(Shape::GlyphRun(GlyphRunShape {
+        x_mm: t.x_mm,
+        y_mm: t.y_mm,
+        size_mm: t.size_mm,
+        content: t.content.clone(),
+        fill: t.fill,
+        gids: run.glyphs.iter().map(|g| g.gid).collect(),
+        font_digest: font.id.digest.clone(),
+        advances_mm: run
+            .glyphs
+            .iter()
+            .map(|g| g.advance_em * t.size_mm)
+            .collect(),
+    }))
 }

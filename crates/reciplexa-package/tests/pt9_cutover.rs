@@ -192,6 +192,7 @@ fn pt9_declared_page_examples_export_pdf_svg() {
             "pkg_document_indent.rpx",
             "pkg_live_math.rpx",
             "pkg_math.rpx",
+            "text_line.rpx",
         ] {
             let doc = document_from_package_entry_host(example(name), &idx)
                 .unwrap_or_else(|e| panic!("{name} host: {e}"));
@@ -204,4 +205,62 @@ fn pt9_declared_page_examples_export_pdf_svg() {
             assert!(svg.contains("<text"), "{name} svg text");
         }
     });
+}
+
+#[test]
+fn pt9_text_line_host_is_one_cluster_glyph_run() {
+    on_host_stack("pt9-text-line", || {
+        let idx = index();
+        let entry = example("text_line.rpx");
+        let stub = document_from_package_entry(&entry, &idx).expect("stub");
+        let product = document_from_package_entry_with_engine(&entry, &idx, TypesetEngine::Product)
+            .expect("product");
+        let stub_text = stub.pages[0]
+            .shapes
+            .iter()
+            .flat_map(walk_text)
+            .find(|(_, c)| *c == "Reciplexa");
+        assert!(
+            matches!(stub_text, Some((false, _))),
+            "stub stays Shape::Text"
+        );
+        let runs: Vec<_> = product.pages[0]
+            .shapes
+            .iter()
+            .flat_map(walk_glyph_runs)
+            .collect();
+        assert_eq!(runs.len(), 1, "one authoring text → one GlyphRun");
+        assert_eq!(runs[0].0, "Reciplexa");
+        assert_eq!(runs[0].1, "Reciplexa".chars().count());
+        let host = document_from_package_entry_host(&entry, &idx).expect("host");
+        let host_runs: Vec<_> = host.pages[0]
+            .shapes
+            .iter()
+            .flat_map(walk_glyph_runs)
+            .collect();
+        assert_eq!(host_runs.len(), runs.len());
+    });
+}
+
+fn walk_text(shape: &reciplexa_scene::Shape) -> Vec<(bool, &str)> {
+    match shape {
+        reciplexa_scene::Shape::Text(t) => vec![(false, t.content.as_str())],
+        reciplexa_scene::Shape::GlyphRun(g) => vec![(true, g.content.as_str())],
+        reciplexa_scene::Shape::Group { children, .. }
+        | reciplexa_scene::Shape::Opacity { children, .. } => {
+            children.iter().flat_map(walk_text).collect()
+        }
+        _ => Vec::new(),
+    }
+}
+
+fn walk_glyph_runs(shape: &reciplexa_scene::Shape) -> Vec<(&str, usize)> {
+    match shape {
+        reciplexa_scene::Shape::GlyphRun(g) => vec![(g.content.as_str(), g.gids.len())],
+        reciplexa_scene::Shape::Group { children, .. }
+        | reciplexa_scene::Shape::Opacity { children, .. } => {
+            children.iter().flat_map(walk_glyph_runs).collect()
+        }
+        _ => Vec::new(),
+    }
 }

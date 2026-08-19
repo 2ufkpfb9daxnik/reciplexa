@@ -8,8 +8,8 @@ use reciplexa_text_layout::{
     break_line_font, clusters_cover_input, fixture_font_bytes, glyph_advance_em,
     host_typeset_engine, justify_line_font, layout_math_atom,
     layout_wrapped_paragraph_product_lines, pair_matrix_fingerprint, positioned_lines_to_shapes,
-    positioned_math_to_shapes, select_font, shape_run, FontRegistry, LayoutError, LoadedFont,
-    MathConstantsEm, PositionedLine, TypesetEngine, FIXTURE_AXIS_HEIGHT,
+    positioned_math_to_shapes, productize_shape_text, select_font, shape_run, FontRegistry,
+    LayoutError, LoadedFont, MathConstantsEm, PositionedLine, TypesetEngine, FIXTURE_AXIS_HEIGHT,
     FIXTURE_FRACTION_RULE_THICKNESS, FIXTURE_SCRIPT_PERCENT_SCALE_DOWN, JLREQ_PROFILE_V1,
     JLREQ_PROFILE_V1_TABLES, MATH_PROFILE_V1,
 };
@@ -190,7 +190,7 @@ fn pt6_positioned_output_one_text_per_glyph() {
         other => panic!("expected GlyphRun, got {other:?}"),
     };
     assert_eq!(first.content.chars().count(), 1);
-    assert!(first.gid > 0);
+    assert!(first.gids[0] > 0);
 }
 
 #[test]
@@ -368,10 +368,37 @@ fn pt5_stretchy_delim_gid_reaches_scene_glyph_run() {
             _ => None,
         })
         .expect("scene glyph");
-    assert_eq!(painted.gid, left.glyph.gid);
+    assert_eq!(painted.gids, vec![left.glyph.gid]);
     let cmap = f.glyph_id('(').unwrap();
     assert_ne!(
         left.glyph.gid, cmap,
         "stretchy '(' must paint a MATH variant GID, not cmap {cmap}"
     );
+}
+
+#[test]
+fn graphics_text_productize_keeps_one_cluster_run() {
+    let f = font();
+    let shaped = productize_shape_text(
+        reciplexa_scene::Shape::Text(reciplexa_scene::Text {
+            x_mm: 30.0,
+            y_mm: 260.0,
+            size_mm: 8.0,
+            width_mm: None,
+            height_mm: None,
+            content: "Reciplexa".into(),
+            fill: reciplexa_scene::Color::BLACK,
+        }),
+        &f,
+    )
+    .expect("productize");
+    let g = match shaped {
+        reciplexa_scene::Shape::GlyphRun(g) => g,
+        other => panic!("expected GlyphRun, got {other:?}"),
+    };
+    assert_eq!(g.content, "Reciplexa");
+    assert_eq!(g.gids.len(), "Reciplexa".chars().count());
+    assert_eq!(g.gids.len(), g.advances_mm.len());
+    assert_eq!(g.font_digest, f.id.digest);
+    assert_eq!(g.gids[0], f.glyph_id('R').unwrap());
 }

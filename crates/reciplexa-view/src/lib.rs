@@ -44,10 +44,10 @@ pub struct WorldText {
     pub content: String,
     pub fill: Color,
     pub alpha: f64,
-    /// Layout GID when this world text came from [`reciplexa_scene::Shape::GlyphRun`].
-    pub glyph_id: Option<u16>,
+    /// Layout GIDs when this world text came from [`reciplexa_scene::Shape::GlyphRun`].
+    pub glyph_ids: Option<Vec<u16>>,
     pub font_digest: Option<String>,
-    pub glyph_advance_mm: Option<f64>,
+    pub glyph_advances_mm: Option<Vec<f64>>,
 }
 
 /// Open or closed stroked path in page millimeters.
@@ -235,16 +235,21 @@ fn flatten_shape(
                 content: t.content.clone(),
                 fill: t.fill,
                 alpha,
-                glyph_id: None,
+                glyph_ids: None,
                 font_digest: None,
-                glyph_advance_mm: None,
+                glyph_advances_mm: None,
             }));
         }
         Shape::GlyphRun(g) => {
             let (x, y) = parent.transform_point(g.x_mm, g.y_mm);
             let scale = linear_scale(parent);
             let size = g.size_mm * scale;
-            let (ew, eh) = text_extent_mm(&g.content, size);
+            let width: f64 = g.advances_mm.iter().map(|a| a * scale).sum();
+            let (ew, eh) = if width > 0.0 {
+                (width, size)
+            } else {
+                text_extent_mm(&g.content, size)
+            };
             out.push(WorldShape::Text(WorldText {
                 x_mm: x,
                 y_mm: y,
@@ -255,9 +260,9 @@ fn flatten_shape(
                 content: g.content.clone(),
                 fill: g.fill,
                 alpha,
-                glyph_id: Some(g.gid),
+                glyph_ids: Some(g.gids.clone()),
                 font_digest: Some(g.font_digest.clone()),
-                glyph_advance_mm: Some(g.advance_mm * scale),
+                glyph_advances_mm: Some(g.advances_mm.iter().map(|a| a * scale).collect()),
             }));
         }
         Shape::Line(l) => {
@@ -746,8 +751,8 @@ fn point_in_polygon(x: f64, y: f64, pts: &[(f64, f64)]) -> bool {
 mod tests {
     use super::*;
     use reciplexa_scene::{
-        Circle, Color, Document, Ellipse, Frame, Image, Line, Page, PaperSize, Polygon, Polyline,
-        Rect, Ring, Shape, Text,
+        Circle, Color, Document, Ellipse, Frame, GlyphRunShape, Image, Line, Page, PaperSize,
+        Polygon, Polyline, Rect, Ring, Shape, Text,
     };
 
     fn expect_circle(s: &WorldShape) -> &WorldCircle {
@@ -836,6 +841,28 @@ mod tests {
         assert_eq!(t.content, "Hi");
         assert_eq!(t.rotation_deg, 0.0);
         assert_eq!(hit_test_shapes(&shapes, 11.0, 22.0), Some(0));
+    }
+
+    #[test]
+    fn cluster_glyph_run_flattens_to_one_world_text() {
+        let shapes = flatten_shapes(
+            &[Shape::GlyphRun(GlyphRunShape {
+                x_mm: 10.0,
+                y_mm: 20.0,
+                size_mm: 8.0,
+                content: "Re".into(),
+                fill: Color::BLACK,
+                gids: vec![1, 2],
+                font_digest: "abc".into(),
+                advances_mm: vec![4.0, 3.0],
+            })],
+            Affine::identity(),
+        );
+        assert_eq!(shapes.len(), 1);
+        let t = expect_text(&shapes[0]);
+        assert_eq!(t.content, "Re");
+        assert_eq!(t.glyph_ids.as_deref(), Some(&[1, 2][..]));
+        assert!((t.width_mm - 7.0).abs() < 1e-9);
     }
 
     #[test]
@@ -1081,9 +1108,9 @@ mod tests {
             content: "A\nBC".into(),
             fill: Color::BLACK,
             alpha: 1.0,
-            glyph_id: None,
+            glyph_ids: None,
             font_digest: None,
-            glyph_advance_mm: None,
+            glyph_advances_mm: None,
         };
         let corners = text_corners_mm(&t);
         let (x0, y0, x1, y1) = bounds_of_points(&corners).unwrap();
@@ -1484,9 +1511,9 @@ mod tests {
             content: "x".into(),
             fill: Color::BLACK,
             alpha: 1.0,
-            glyph_id: None,
+            glyph_ids: None,
             font_digest: None,
-            glyph_advance_mm: None,
+            glyph_advances_mm: None,
         });
         let img = WorldShape::Image(WorldImage {
             path: "a.png".into(),

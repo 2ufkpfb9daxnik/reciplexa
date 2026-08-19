@@ -1390,9 +1390,9 @@ fn glyph_run_pdf_paints_layout_gid_not_cmap() {
             size_mm: 8.0,
             content: "(".into(),
             fill: Color::BLACK,
-            gid: a_gid,
+            gids: vec![a_gid],
             font_digest: font.id.digest.clone(),
-            advance_mm: 4.0,
+            advances_mm: vec![4.0],
         })],
     });
     let bytes = document_to_pdf_with_loaded_font(&doc, None, &font).expect("pdf");
@@ -1414,5 +1414,47 @@ fn glyph_run_pdf_paints_layout_gid_not_cmap() {
     assert!(
         !text.contains(&format!("<{cmap}> Tj")),
         "PDF must not cmap-remap content to the default GID"
+    );
+}
+
+#[test]
+fn glyph_run_pdf_paints_cluster_gids() {
+    use reciplexa_pdf::{document_to_pdf_with_loaded_font, CjkFontEmbed};
+    use reciplexa_scene::GlyphRunShape;
+    let font = reciplexa_text_layout::LoadedFont::fixture();
+    let r_gid = font.glyph_id('R').expect("R");
+    let e_gid = font.glyph_id('e').expect("e");
+    assert_ne!(r_gid, e_gid);
+    let doc = Document::single_page(Page {
+        paper: PaperSize::a4(),
+        shapes: vec![Shape::GlyphRun(GlyphRunShape {
+            x_mm: 20.0,
+            y_mm: 200.0,
+            size_mm: 8.0,
+            content: "Re".into(),
+            fill: Color::BLACK,
+            gids: vec![r_gid, e_gid],
+            font_digest: font.id.digest.clone(),
+            advances_mm: vec![4.0, 3.5],
+        })],
+    });
+    let bytes = document_to_pdf_with_loaded_font(&doc, None, &font).expect("pdf");
+    let text = String::from_utf8_lossy(&bytes);
+    let embed = CjkFontEmbed::build_from_glyphs(
+        font.bytes(),
+        &font.id.as_key(),
+        &[(r_gid, 'R'), (e_gid, 'e')],
+        font.face_index(),
+    )
+    .expect("embed");
+    let r_hex = embed.encode_gid_hex(r_gid).expect("R cid");
+    let e_hex = embed.encode_gid_hex(e_gid).expect("e cid");
+    assert!(
+        text.contains(&format!("<{r_hex}> Tj")),
+        "missing R gid paint"
+    );
+    assert!(
+        text.contains(&format!("<{e_hex}> Tj")),
+        "missing e gid paint"
     );
 }

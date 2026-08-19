@@ -371,11 +371,11 @@ mod tests {
             let texts = doc.pages[0]
                 .shapes
                 .iter()
-                .filter(|s| matches!(s, Shape::Text(_)))
+                .filter(|s| s.is_text_like())
                 .count();
             assert!(
                 texts >= 2,
-                "{name}: expected Text shapes via package path, got {texts}"
+                "{name}: expected text-like shapes via package path, got {texts}"
             );
         }
     }
@@ -475,11 +475,15 @@ mod tests {
     fn document_from_source_expands_doc_title() {
         let doc = document_from_source("(markup @title{Hi})").unwrap();
         assert_eq!(doc.pages.len(), 1);
-        let Shape::Text(t) = &doc.pages[0].shapes[0] else {
-            panic!("expected text");
-        };
-        assert_eq!(t.content, "Hi");
-        assert_eq!(t.size_mm, 14.0);
+        let t = doc.pages[0].shapes[0]
+            .text_content()
+            .expect("expected text-like title");
+        assert_eq!(t, "Hi");
+        match &doc.pages[0].shapes[0] {
+            Shape::Text(tx) => assert_eq!(tx.size_mm, 14.0),
+            Shape::GlyphRun(g) => assert_eq!(g.size_mm, 14.0),
+            other => panic!("expected text-like, got {other:?}"),
+        }
     }
 
     #[test]

@@ -90,9 +90,9 @@ pub enum DomainNode {
         stable_node_id: Option<StableNodeId>,
         source_byte_start: Option<u32>,
         source_byte_end: Option<u32>,
-        glyph_id: Option<u16>,
+        glyph_ids: Option<Vec<u16>>,
         font_digest: Option<String>,
-        glyph_advance_mm: Option<f64>,
+        glyph_advances_mm: Option<Vec<f64>>,
     },
     Path {
         id: DomainNodeId,

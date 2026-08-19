@@ -10,7 +10,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use reciplexa_eval::{document_from_graphics_value, GraphicsValueError, RuntimeValue};
 use reciplexa_scene::Document;
-use reciplexa_text_layout::{host_typeset_engine, TypesetEngine};
+use reciplexa_text_layout::{
+    host_product_font, host_typeset_engine, productize_document_text, TypesetEngine,
+};
 
 use crate::load::{eval_package_entry_main, LocalPackageIndex, PackageLoadError};
 
@@ -137,7 +139,13 @@ pub fn document_from_package_entry_with_engine(
             }
         }
     }
-    document_from_graphics_value(&v).map_err(Into::into)
+    let doc = document_from_graphics_value(&v).map_err(GraphicsBridgeError::from)?;
+    if engine == TypesetEngine::Product {
+        let font = host_product_font().map_err(|e| GraphicsBridgeError::Bridge(e.to_string()))?;
+        return productize_document_text(doc, &font)
+            .map_err(|e| GraphicsBridgeError::Bridge(e.to_string()));
+    }
+    Ok(doc)
 }
 
 fn is_live_layout_demo_tag(v: &RuntimeValue) -> bool {

@@ -217,10 +217,11 @@ impl Text {
     }
 }
 
-/// One positioned glyph from product layout (IR-001).
+/// Positioned glyph run from product layout (IR-001).
 ///
-/// PDF/Visual IR paint `gid` from the face identified by `font_digest`.
-/// `content` is the source cluster (ToUnicode, GUI, SVG).
+/// PDF/Visual IR paint `gids` from the face identified by `font_digest`.
+/// `content` is the source cluster (ToUnicode, GUI, SVG). Math/JA may emit
+/// one glyph per shape; graphics `text` keeps one shape per authoring node.
 #[derive(Debug, Clone, PartialEq)]
 pub struct GlyphRunShape {
     pub x_mm: f64,
@@ -228,14 +229,42 @@ pub struct GlyphRunShape {
     pub size_mm: f64,
     pub content: String,
     pub fill: Color,
-    pub gid: u16,
+    pub gids: Vec<u16>,
     pub font_digest: String,
-    pub advance_mm: f64,
+    pub advances_mm: Vec<f64>,
 }
 
 impl GlyphRunShape {
+    /// One-glyph run (math/JA adapters that position each glyph).
+    #[allow(clippy::too_many_arguments)]
+    pub fn one(
+        x_mm: f64,
+        y_mm: f64,
+        size_mm: f64,
+        content: impl Into<String>,
+        fill: Color,
+        gid: u16,
+        font_digest: impl Into<String>,
+        advance_mm: f64,
+    ) -> Self {
+        Self {
+            x_mm,
+            y_mm,
+            size_mm,
+            content: content.into(),
+            fill,
+            gids: vec![gid],
+            font_digest: font_digest.into(),
+            advances_mm: vec![advance_mm],
+        }
+    }
+
     pub fn is_drawable(&self) -> bool {
-        self.size_mm > 0.0 && !self.content.is_empty() && self.fill.is_channel_valid()
+        self.size_mm > 0.0
+            && !self.content.is_empty()
+            && self.fill.is_channel_valid()
+            && !self.gids.is_empty()
+            && self.gids.len() == self.advances_mm.len()
     }
 }
 
@@ -316,7 +345,7 @@ pub enum Shape {
     Ring(Ring),
     Frame(Frame),
     Text(Text),
-    /// Product layout glyph (GID + font digest). Graphics `text` stays [`Shape::Text`].
+    /// Product layout glyph run (GIDs + font digest). One shape may hold a cluster.
     GlyphRun(GlyphRunShape),
     Line(Line),
     Polyline(Polyline),

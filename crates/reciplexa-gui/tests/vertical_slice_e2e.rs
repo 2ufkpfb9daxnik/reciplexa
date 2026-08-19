@@ -15,7 +15,7 @@ const TEXT_LINE: &str = include_str!("../../../examples/text_line.rpx");
 
 fn shape_kind(s: &Shape) -> Vec<&'static str> {
     match s {
-        Shape::Text(_) => vec!["text"],
+        Shape::Text(_) | Shape::GlyphRun(_) => vec!["text"],
         Shape::Line(_) => vec!["line"],
         Shape::Circle(_) => vec!["circle"],
         Shape::Group { children, .. } | Shape::Opacity { children, .. } => {
@@ -30,6 +30,7 @@ fn text_contents(shapes: &[Shape]) -> Vec<&str> {
     for s in shapes {
         match s {
             Shape::Text(t) => out.push(t.content.as_str()),
+            Shape::GlyphRun(g) => out.push(g.content.as_str()),
             Shape::Group { children, .. } | Shape::Opacity { children, .. } => {
                 out.extend(text_contents(children));
             }

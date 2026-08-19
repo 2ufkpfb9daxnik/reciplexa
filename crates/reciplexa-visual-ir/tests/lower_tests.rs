@@ -78,9 +78,9 @@ fn lowers_glyph_run_to_render_ir() {
             size_mm: 12.0,
             content: "A".into(),
             fill: Color::BLACK,
-            gid,
+            gids: vec![gid],
             font_digest: font.id.digest.clone(),
-            advance_mm: 4.0,
+            advances_mm: vec![4.0],
         })],
     });
     let (render, _) = lower_scene_document(&doc);
@@ -88,6 +88,35 @@ fn lowers_glyph_run_to_render_ir() {
         RenderNode::GlyphRun { gids, content, .. } => {
             assert_eq!(*gids, vec![gid]);
             assert_eq!(content, "A");
+        }
+        other => panic!("expected GlyphRun, got {other:?}"),
+    }
+}
+
+#[test]
+fn lowers_cluster_glyph_run_to_render_ir() {
+    use reciplexa_scene::GlyphRunShape;
+    let font = reciplexa_text_layout::LoadedFont::fixture();
+    let r = font.glyph_id('R').expect("R");
+    let e = font.glyph_id('e').expect("e");
+    let doc = Document::single_page(Page {
+        paper: PaperSize::a4(),
+        shapes: vec![Shape::GlyphRun(GlyphRunShape {
+            x_mm: 1.0,
+            y_mm: 2.0,
+            size_mm: 12.0,
+            content: "Re".into(),
+            fill: Color::BLACK,
+            gids: vec![r, e],
+            font_digest: font.id.digest.clone(),
+            advances_mm: vec![5.0, 4.0],
+        })],
+    });
+    let (render, _) = lower_scene_document(&doc);
+    match &render.pages[0].nodes[0] {
+        RenderNode::GlyphRun { gids, content, .. } => {
+            assert_eq!(*gids, vec![r, e]);
+            assert_eq!(content, "Re");
         }
         other => panic!("expected GlyphRun, got {other:?}"),
     }

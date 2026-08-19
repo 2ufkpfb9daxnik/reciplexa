@@ -139,11 +139,8 @@ fn ingest_shape(
                 .nodes
                 .insert_child(parent, DocumentNodeKind::Text)
                 .unwrap();
-            let w = if g.advance_mm > 0.0 {
-                g.advance_mm
-            } else {
-                g.size_mm
-            };
+            let w: f64 = g.advances_mm.iter().copied().sum();
+            let w = if w > 0.0 { w } else { g.size_mm };
             snap.nodes.get_mut(id).expect("just inserted").properties = vec![
                 NodeProperty::Layout(LayoutBox::new(g.x_mm, g.y_mm, w, g.size_mm)),
                 NodeProperty::Fill(FillColor(g.fill)),

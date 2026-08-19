@@ -494,11 +494,12 @@ fn collect_glyph_paints(doc: &Document) -> BTreeMap<String, BTreeMap<u16, char>>
 fn collect_shape_glyph_paints(shape: &Shape, out: &mut BTreeMap<String, BTreeMap<u16, char>>) {
     match shape {
         Shape::GlyphRun(g) => {
-            let ch = g.content.chars().next().unwrap_or('\u{FFFD}');
-            out.entry(g.font_digest.clone())
-                .or_default()
-                .entry(g.gid)
-                .or_insert(ch);
+            let mut chars = g.content.chars();
+            let map = out.entry(g.font_digest.clone()).or_default();
+            for &gid in &g.gids {
+                let ch = chars.next().unwrap_or('\u{FFFD}');
+                map.entry(gid).or_insert(ch);
+            }
         }
         Shape::Opacity { children, .. } | Shape::Group { children, .. } => {
             for child in children {
@@ -1002,16 +1003,22 @@ fn glyph_run_ops(
     res: &str,
 ) -> Result<String, PdfError> {
     let size_pt = mm_to_pt(g.size_mm);
-    let hex = embed.encode_gid_hex(g.gid)?;
-    Ok(format!(
-        "BT\n/{res} {size:.4} Tf\n{r:.4} {gch:.4} {b:.4} rg\n{x:.4} {y:.4} Td\n<{hex}> Tj\nET\n",
-        size = size_pt,
-        r = g.fill.r,
-        gch = g.fill.g,
-        b = g.fill.b,
-        x = mm_to_pt(g.x_mm),
-        y = mm_to_pt(g.y_mm),
-    ))
+    let mut x = g.x_mm;
+    let mut ops = String::new();
+    for (&gid, &adv) in g.gids.iter().zip(&g.advances_mm) {
+        let hex = embed.encode_gid_hex(gid)?;
+        ops.push_str(&format!(
+            "BT\n/{res} {size:.4} Tf\n{r:.4} {gch:.4} {b:.4} rg\n{x:.4} {y:.4} Td\n<{hex}> Tj\nET\n",
+            size = size_pt,
+            r = g.fill.r,
+            gch = g.fill.g,
+            b = g.fill.b,
+            x = mm_to_pt(x),
+            y = mm_to_pt(g.y_mm),
+        ));
+        x += adv;
+    }
+    Ok(ops)
 }
 
 fn pdf_escape_ascii(s: &str) -> Result<String, PdfError> {

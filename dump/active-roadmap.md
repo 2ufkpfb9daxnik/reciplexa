@@ -114,9 +114,9 @@
    - native stub の body elaboration 省略（typed export から BindingId スロット Core を合成。alias / bare import を含む。Hybrid override は従来の RPX elaborate）
 3. 製品級組版: **active** — JLReq / MATH Profile v1 エンジンは `reciplexa-text-layout` に実装。ホスト `doc-page` / `live-layout-demo` / `math-demo` は product `GlyphRun`
    - ライブラリ `document_from_package_entry` / `layout_doc_page_to_scene` / `layout_math_to_shapes` は stub 参照
-   - ホスト `document_from_package_source_host` は `doc-page` / `live-layout-demo` / `math-demo` が product。graphics `text` は従来の scene `Text`
+   - ホスト `document_from_package_source_host` は `doc-page` / `live-layout-demo` / `math-demo` / graphics `text` が product `GlyphRun`（graphics は authoring 1 ノード = 1 cluster run）
    - ホスト PDF は layout GID を Identity-H で塗り、digest ごとに CID face を subset（JA `host_product_font` + MATH `host_math_font`）。digest 不一致は relayout。Latin-only `Text` は Helvetica
    - `RECIPLEXA_TYPESET_ENGINE=stub` で参照ヒューリスティックを強制
-   - 残 OPEN: ruby/`vert`、完全 MATH assembly、egui ≠ layout、graphics `text` stub
+   - 残 OPEN: ruby/`vert`、完全 MATH assembly、egui ≠ layout
 
 Step 7はSteps 1–6のgreen HEADを基準線として開始する。

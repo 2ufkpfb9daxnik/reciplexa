@@ -103,9 +103,9 @@ fn text_id_stable_and_source_bytes() {
         stable_node_id: sid,
         source_byte_start: start,
         source_byte_end: end,
-        glyph_id: None,
+        glyph_ids: None,
         font_digest: None,
-        glyph_advance_mm: None,
+        glyph_advances_mm: None,
     };
     assert_eq!(node.id(), DomainNodeId::new(5));
     assert_eq!(node.stable_node_id(), sid);

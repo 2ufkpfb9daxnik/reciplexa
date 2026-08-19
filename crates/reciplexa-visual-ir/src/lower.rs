@@ -182,9 +182,9 @@ fn world_shape_to_domain(
             stable_node_id,
             source_byte_start,
             source_byte_end,
-            glyph_id: t.glyph_id,
+            glyph_ids: t.glyph_ids.clone(),
             font_digest: t.font_digest.clone(),
-            glyph_advance_mm: t.glyph_advance_mm,
+            glyph_advances_mm: t.glyph_advances_mm.clone(),
         },
         WorldShape::Path(p) => DomainNode::Path {
             id,
@@ -299,27 +299,62 @@ fn domain_to_render(node: &DomainNode) -> RenderNode {
             content,
             fill,
             alpha,
-            glyph_id,
+            glyph_ids,
             font_digest,
-            glyph_advance_mm,
+            glyph_advances_mm,
             ..
         } => {
-            if let (Some(gid), Some(digest)) = (*glyph_id, font_digest.as_ref()) {
-                let cluster_end = content.len() as u32;
-                RenderNode::GlyphRun {
-                    id: RenderNodeId::new(id.0),
-                    font_digest: digest.clone(),
-                    font_label: String::new(),
-                    x_mm: *x_mm,
-                    y_mm: *y_mm,
-                    size_mm: *size_mm,
-                    content: content.clone(),
-                    fill: *fill,
-                    alpha: *alpha,
-                    gids: vec![gid],
-                    advances_mm: vec![glyph_advance_mm.unwrap_or(*width_mm)],
-                    cluster_starts: vec![0],
-                    cluster_ends: vec![cluster_end],
+            if let (Some(gids), Some(digest)) = (glyph_ids.as_ref(), font_digest.as_ref()) {
+                if !gids.is_empty() {
+                    let n = gids.len();
+                    let advances = glyph_advances_mm
+                        .clone()
+                        .filter(|a| a.len() == n)
+                        .unwrap_or_else(|| vec![*width_mm / n as f64; n]);
+                    let mut cluster_starts = Vec::with_capacity(n);
+                    let mut cluster_ends = Vec::with_capacity(n);
+                    let mut byte = 0u32;
+                    for (i, ch) in content.chars().enumerate() {
+                        if i >= n {
+                            break;
+                        }
+                        let end = byte + ch.len_utf8() as u32;
+                        cluster_starts.push(byte);
+                        cluster_ends.push(end);
+                        byte = end;
+                    }
+                    while cluster_starts.len() < n {
+                        cluster_starts.push(byte);
+                        cluster_ends.push(content.len() as u32);
+                    }
+                    RenderNode::GlyphRun {
+                        id: RenderNodeId::new(id.0),
+                        font_digest: digest.clone(),
+                        font_label: String::new(),
+                        x_mm: *x_mm,
+                        y_mm: *y_mm,
+                        size_mm: *size_mm,
+                        content: content.clone(),
+                        fill: *fill,
+                        alpha: *alpha,
+                        gids: gids.clone(),
+                        advances_mm: advances,
+                        cluster_starts,
+                        cluster_ends,
+                    }
+                } else {
+                    RenderNode::Text {
+                        id: RenderNodeId::new(id.0),
+                        x_mm: *x_mm,
+                        y_mm: *y_mm,
+                        size_mm: *size_mm,
+                        width_mm: *width_mm,
+                        height_mm: *height_mm,
+                        rotation_deg: *rotation_deg,
+                        content: content.clone(),
+                        fill: *fill,
+                        alpha: *alpha,
+                    }
                 }
             } else {
                 RenderNode::Text {
