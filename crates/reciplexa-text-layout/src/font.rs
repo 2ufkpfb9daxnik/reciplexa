@@ -134,9 +134,23 @@ impl LoadedFont {
     /// Horizontal advance in em (design units / units-per-em).
     pub fn hor_advance_em(&self, c: char) -> Result<f64, LayoutError> {
         let gid = self.glyph_id(c)?;
+        self.hor_advance_em_gid(gid)
+    }
+
+    pub fn hor_advance_em_gid(&self, gid: u16) -> Result<f64, LayoutError> {
         let adv = self.hor_advance_units(gid)?;
         let upem = f64::from(self.units_per_em().max(1));
         Ok(f64::from(adv) / upem)
+    }
+
+    /// Vertical advance in em (`vmtx`), else `1` em for stacked CJK cells.
+    pub fn ver_advance_em_gid(&self, gid: u16) -> f64 {
+        let upem = f64::from(self.units_per_em().max(1));
+        self.face()
+            .glyph_ver_advance(GlyphId(gid))
+            .map(|v| f64::from(v) / upem)
+            .filter(|v| *v > 0.0)
+            .unwrap_or(1.0)
     }
 
     pub fn italic_correction_em(&self, c: char) -> Result<f64, LayoutError> {

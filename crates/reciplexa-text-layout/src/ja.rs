@@ -17,8 +17,8 @@ pub use crate::ja_tables::JLREQ_PROFILE_V1_TABLES;
 /// Declared JLReq Profile v1 repertoire and §C subset.
 ///
 /// Repertoire: ASCII printable, hiragana, katakana, listed CJK punctuation,
-/// and the fixture ideograph set. Vertical writing, ruby, `vert`, tate-chu-yoko,
-/// and bou are follow-ups — not in v1.
+/// and the fixture ideograph set. Vertical writing / `vert` is Step 8 item 2
+/// (`layout_vertical_run`). Tate-chu-yoko and bou remain later follow-ups.
 ///
 /// §C subset: versioned class-level pair matrix [`JLREQ_PROFILE_V1_TABLES`]
 /// (cl-01..cl-30 buckets), cl-08 inseparable glue, hangable cl-06/07 with

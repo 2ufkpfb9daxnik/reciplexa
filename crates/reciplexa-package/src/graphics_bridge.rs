@@ -124,6 +124,9 @@ pub fn document_from_package_entry_with_engine(
     if is_ruby_demo_tag(&v) {
         return crate::ruby_bridge::document_from_ruby_demo_value(&v, engine);
     }
+    if crate::vert_bridge::is_vert_product_demo(&v) {
+        return crate::vert_bridge::document_from_vertical_demo_value(&v, engine);
+    }
     if engine == TypesetEngine::Product {
         if let Ok(fields) = match &v {
             RuntimeValue::Record(f) => Ok(f.as_slice()),

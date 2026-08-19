@@ -16,6 +16,7 @@ pub mod policy;
 pub mod position;
 pub mod ruby;
 pub mod shape;
+pub mod vert;
 
 pub use engine::{host_typeset_engine, TypesetEngine};
 pub use error::LayoutError;
@@ -42,5 +43,8 @@ pub use position::{
     productize_document_text, productize_shape_text, Direction, GlyphRun, PositionedGlyph,
     PositionedLine, WritingMode,
 };
-pub use ruby::{layout_simple_ruby, positioned_ruby_to_shapes, PositionedRuby};
+pub use ruby::{layout_simple_ruby, positioned_ruby_to_shapes, PositionedRuby, RUBY_PARENT_GAP_EM};
 pub use shape::{clusters_cover_input, shape_run, ShapedGlyph, ShapedRun};
+pub use vert::{
+    layout_vertical_run, positioned_vertical_to_shapes, vert_substitute_gid, PositionedVertical,
+};

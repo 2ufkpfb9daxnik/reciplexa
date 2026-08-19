@@ -45,6 +45,7 @@ pub mod rpxm;
 pub mod ruby_bridge;
 pub mod target;
 pub mod typecheck;
+pub mod vert_bridge;
 pub mod workspace;
 
 pub use build::{

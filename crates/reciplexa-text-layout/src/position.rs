@@ -12,6 +12,7 @@ use crate::shape::{shape_run, ShapedGlyph};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum WritingMode {
     HorizontalTb,
+    VerticalRl,
 }
 
 /// Direction of the run.
@@ -147,7 +148,7 @@ pub fn positioned_line_to_glyph_texts(line: &PositionedLine, fill: Color) -> Vec
         .collect()
 }
 
-fn positioned_glyph_to_shape(
+pub(crate) fn positioned_glyph_to_shape(
     g: &PositionedGlyph,
     size_mm: f64,
     font_digest: &str,
