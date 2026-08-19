@@ -1,6 +1,6 @@
 # Product Typesetting (Step 7 item 3)
 
-**Status:** active (PT-0〜PT-9 engines + GlyphRun host/PDF cutover — remaining OPEN listed below)  
+**Status:** complete (PT-0〜PT-9 Profile v1 on HEAD `560f5bd` — remaining OPEN listed below)  
 **Current model:** font-backed JLReq Profile v1 + Math Profile v1 on a shared `ttf-parser` substrate; `reciplexa-std` heuristics remain the explicit stub/reference path  
 **Execution order:** [`active-roadmap.md`](active-roadmap.md) Step 7 item 3, after Direct Native v2 item 2/2b  
 **Normative anchors:** `specification.md` Part IV §16–18, `IR-001` GlyphRun, `OPEN-TEXT-LAYOUT-001`, `OPEN-TEXT-JA-001`, Font Policy §39  
@@ -8,8 +8,9 @@
 
 ## Baseline: stub complete, not a product engine
 
-The current Japanese and math paths are suitable as behavioral references and host-layout
-experiments, but they are not font-backed product typesetting.
+The following described the host **before** PT-0. It remains the stub/reference path
+(`document_from_package_entry`, `RECIPLEXA_TYPESET_ENGINE=stub`). Production preview/export
+uses the engines in the Implementation record.
 
 - Japanese layout uses `reciplexa_std::japanese::char_em_width`, `break_line`, and
   `layout_wrapped_paragraph_shapes`, then lowers strings directly to `reciplexa_scene::Text`.
@@ -214,7 +215,7 @@ Library APIs `layout_doc_page_to_scene` and `layout_math_to_shapes` stay stub so
 9. Workspace fmt, Clippy `-D warnings`, tests, all-target check, GUI check, and GUI/CLI
    host smoke are green on the same HEAD.
 
-Until every condition holds, Step 7 item 3 remains **active**, not complete.
+Conditions 1–9 held on HEAD `560f5bd`. Step 7 item 3 is **complete**. Remaining OPEN (ruby / `vert` / full MATH assembly / first-class editable math) stay listed in `implemented-features.md`.
 
 ## Non-goals for this milestone
 

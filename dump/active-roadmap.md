@@ -92,7 +92,7 @@
 
 ## Step 7 — 次工程
 
-**Status:** active — item 1 local/offline slice complete; item 2 Direct Native v2 shipping complete; item 2b hardening complete; item 3 engines + GlyphRun host/PDF cutover, not product-complete until remaining OPEN and gates on one HEAD
+**Status:** complete (`560f5bd` item 3 workspace gates; item 1–2b earlier)
 
 順序:
 
@@ -112,11 +112,16 @@
    - `japanese/linebreak` の動的 export（kind 一致。note / 全matrix は std 正本）
    - 構造化 Failure: DN2 arity を `package/arity` へ。type は `length/units` に加え `color/srgb`・`japanese/*` の契約違反も `package/type`。effect row はまだ pure
    - native stub の body elaboration 省略（typed export から BindingId スロット Core を合成。alias / bare import を含む。Hybrid override は従来の RPX elaborate）
-3. 製品級組版: **active** — JLReq / MATH Profile v1 エンジンは `reciplexa-text-layout` に実装。ホスト `doc-page` / `live-layout-demo` / `math-demo` は product `GlyphRun`
-   - ライブラリ `document_from_package_entry` / `layout_doc_page_to_scene` / `layout_math_to_shapes` は stub 参照
+3. 製品級組版: **complete** ([`product-typesetting-plan.md`](product-typesetting-plan.md) Profile v1; gates on `560f5bd`)
+   - JLReq / MATH Profile v1 エンジンは `reciplexa-text-layout`。ライブラリ `document_from_package_entry` / `layout_doc_page_to_scene` / `layout_math_to_shapes` は stub 参照
    - ホスト `document_from_package_source_host` は `doc-page` / `live-layout-demo` / `math-demo` / graphics `text` が product `GlyphRun`（graphics は authoring 1 ノード = 1 cluster run）
    - ホスト PDF は layout GID を Identity-H で塗り、digest ごとに CID face を subset（JA `host_product_font` + MATH `host_math_font`）。digest 不一致は relayout。Latin-only `Text` は Helvetica
+   - GUI preview は同じ digest の egui family で `GlyphRun` を layout advance 位置に置く
    - `RECIPLEXA_TYPESET_ENGINE=stub` で参照ヒューリスティックを強制
-   - 残 OPEN: ruby/`vert`、完全 MATH assembly
+   - Profile v1 完了後も OPEN: ruby/`vert` / 完全 MATH assembly / first-class editable math / `OPEN-NATIVE-PKG-001`（[`implemented-features.md`](implemented-features.md)）
 
-Step 7はSteps 1–6のgreen HEADを基準線として開始する。
+**Complete when:** items 1–3 の受入と、item 3 の workspace gate が同じ HEAD で記録される。 → HEAD `560f5bd`
+
+新しい Step は本文書へ人間が追加するまで着手しない。
+
+Step 7はSteps 1–6のgreen HEADを基準線として開始した。
