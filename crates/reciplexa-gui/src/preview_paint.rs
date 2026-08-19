@@ -593,7 +593,9 @@ fn text_clip_rect(
             egui::vec2(1.0, 1.0),
         ));
     }
-    clip.expand(2.0).intersect(painter.clip_rect())
+    // egui galleys are taller than the em-box; a 2px pad clips large CJK.
+    let pad = layout.radius_mm_to_px(t.size_mm).max(2.0);
+    clip.expand(pad).intersect(painter.clip_rect())
 }
 
 fn paint_baseline_galley(
@@ -684,6 +686,34 @@ mod tests {
         let mut stub = t;
         stub.glyph_advances_mm = None;
         assert!(glyph_run_baselines_mm(&stub).is_none());
+    }
+
+    #[test]
+    fn text_clip_rect_pads_by_em_not_two_pixels() {
+        with_painter(|_ctx, rect, painter| {
+            let layout = layout();
+            let t = WorldText {
+                x_mm: 20.0,
+                y_mm: 40.0,
+                size_mm: 40.0,
+                width_mm: 40.0,
+                height_mm: 40.0,
+                rotation_deg: 0.0,
+                content: "東".into(),
+                fill: Color::BLACK,
+                alpha: 1.0,
+                glyph_ids: Some(vec![1]),
+                font_digest: Some("d".into()),
+                glyph_advances_mm: Some(vec![40.0]),
+            };
+            let clip = text_clip_rect(painter, rect, &layout, &t);
+            let em_px = layout.radius_mm_to_px(40.0);
+            assert!(
+                clip.height() > em_px + 20.0,
+                "large glyphs need em-sized clip pad, got height {} em_px {em_px}",
+                clip.height()
+            );
+        });
     }
 
     #[test]
