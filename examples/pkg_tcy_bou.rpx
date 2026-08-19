@@ -1,0 +1,33 @@
+(// Tate-chu-yoko + bou demo (Step 8 item 3).
+ // Vertical column: 令和 / 12 (horizontal in the cell) / 年.
+ // 重要 has sesame-style dots above (horizontal) and to the side (vertical).)
+
+(import japanese/markup only tate-chu-yoko emphasis)
+
+(import document/page only
+  a4 page flow section heading paragraph
+  block-heading block-paragraph)
+
+(val tcy (tate-chu-yoko "12"))
+(val emp (emphasis "重要"))
+
+(val title (heading 1 "Tate-chu-yoko and bou"))
+(val body (paragraph "縦中横は一字分の高さに横並び。傍点は文字の上（横組）と横（縦組）。"))
+
+(val main
+  (record
+    (tag "ja-tcy-bou-demo")
+    (tcy "12")
+    (before "令和")
+    (after "年")
+    (bou "重要")
+    (placed tcy)
+    (emphasis emp)
+    (page
+      (page a4
+        (flow
+          (list
+            (section title
+              (list
+                (block-heading title)
+                (block-paragraph body)))))))))

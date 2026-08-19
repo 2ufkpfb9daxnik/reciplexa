@@ -1,6 +1,6 @@
 //! Font-backed vertical-rl (Step 8 item 2): OpenType `vert` + stacked cells.
 //!
-//! Tate-chu-yoko, bou, and full CSS `text-orientation` remain OPEN.
+//! Tate-chu-yoko / bou are Step 8 item 3 (`layout_tate_chu_yoko`, bou marks).
 //! Stub [`reciplexa_std::japanese::lines_to_vertical_text_shapes`] stays the reference.
 
 use reciplexa_scene::{Affine, Color, Shape};

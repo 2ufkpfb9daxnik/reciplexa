@@ -1,17 +1,17 @@
 # JLReq follow-ups (Step 8)
 
-**Status:** active (item 1 simple ruby complete; item 2 `vert` in progress; tate-chu-yoko / bou remain)  
+**Status:** active (items 1–2 complete; item 3 tate-chu-yoko / bou in progress)  
 **Execution order:** [`active-roadmap.md`](active-roadmap.md) Step 8, after Step 7 item 3 Profile v1  
 **Normative anchors:** `OPEN-TEXT-JA-001`, JLReq ruby / vertical writing, Font Policy  
-**Does not close:** full appendix C, full `vrt2`/script-lang GSUB, CSS `text-orientation`, tate-chu-yoko, bou, jukugo distribution
+**Does not close:** full appendix C, full `vrt2`/script-lang GSUB, CSS `text-orientation` / `text-emphasis`, jukugo distribution, vertical ruby
 
 ## Ordered slices
 
 1. **Simple horizontal ruby** — font advances, half-size annotation centered above the base with a `RUBY_PARENT_GAP_EM` gap, combined advance `max(base, annotation)`. Stub `Ruby::estimate_box` stays the reference. Author `japanese/markup ruby` is unchanged.
-2. **OpenType `vert` / vertical-rl** — stack CJK upright (GSUB `vert` GID when present), rotate ASCII −90°, columns progress right-to-left. Stub `lines_to_vertical_text_shapes` stays the reference. Tate-chu-yoko / bou / vertical ruby stay out.
-3. Tate-chu-yoko / bou (later).
+2. **OpenType `vert` / vertical-rl** — stack CJK upright (GSUB `vert` GID when present), rotate ASCII −90°, columns progress right-to-left. Stub `lines_to_vertical_text_shapes` stays the reference.
+3. **Tate-chu-yoko / bou** — ASCII 1–4 alnum upright in a 1 em vertical cell; bou marks as circles above (horizontal) or beside (vertical). Stub `tate-chu-yoko-width` / `bou-box` stay the reference.
 
-Jukugo per-character distribution, ruby overhang / 親文字送り, and vertical-ruby are out of slice 1.
+Jukugo per-character distribution, ruby overhang / 親文字送り, and vertical-ruby stay out.
 
 ## Complete slice 1 only when
 
@@ -29,3 +29,10 @@ Jukugo per-character distribution, ruby overhang / 親文字送り, and vertical
 4. `RECIPLEXA_TYPESET_ENGINE=stub` keeps `lines_to_vertical_text_shapes` / language-only `pkg_japanese_vertical`.
 5. Host preview/export of `examples/pkg_vert.rpx` (`ja-vertical-demo` + `samples`) uses the product engine unless stub is forced.
 
+## Complete slice 3 only when
+
+1. Tate-chu-yoko `"12"` shares one baseline (side-by-side) and occupies one surrounding em of vertical measure, less than stacked rotated digits.
+2. Fixture-font tate-chu-yoko widths differ from stub `char_em_width` for latin.
+3. Horizontal bou marks sit above the parent em-square; vertical bou marks sit beside the column.
+4. `RECIPLEXA_TYPESET_ENGINE=stub` does not switch `tate-chu-yoko-width` / `bou-box` to product metrics.
+5. Host preview/export of `examples/pkg_tcy_bou.rpx` uses the product engine unless stub is forced.

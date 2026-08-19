@@ -18,7 +18,7 @@ pub const FIXTURE_TALL_PAREN_VARIANT_ADVANCE: u16 = 1800;
 
 /// Extra CJK ideographs used by Step 7 examples (hiragana/katakana are full ranges).
 const EXTRA_IDEOGRAPHS: &str =
-    "一三上下二京今仕付以件作保先冬処分列初則印厚参句可右告四型報夏天字実小少展左式弧強折括捗描数文方日春書期本条来東格概様段気混添漢点照版現理目禁秋稿第箇細組続縦置草落行装補要視試詰詳語調足返進配閉開項頭題";
+    "一三上下二京今仕付以件作保先冬処分列初則印厚参句可右告四型報夏天字実小少展左式弧強折括捗描数文方日春書期本条来東格概様段気混添漢点照版現理目禁秋稿第箇細組続縦置草落行装補要視試詰詳語調足返進配閉開項頭題令和年重";
 
 pub fn fixture_font_bytes() -> &'static [u8] {
     static BYTES: OnceLock<Vec<u8>> = OnceLock::new();

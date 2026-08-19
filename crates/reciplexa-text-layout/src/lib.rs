@@ -5,6 +5,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod bou;
 pub mod engine;
 pub mod error;
 pub mod fixture;
@@ -16,8 +17,13 @@ pub mod policy;
 pub mod position;
 pub mod ruby;
 pub mod shape;
+pub mod tcy;
 pub mod vert;
 
+pub use bou::{
+    layout_bou_horizontal, layout_bou_vertical, positioned_bou_horizontal_to_shapes,
+    positioned_bou_vertical_to_shapes, PositionedBouHorizontal, PositionedBouVertical,
+};
 pub use engine::{host_typeset_engine, TypesetEngine};
 pub use error::LayoutError;
 pub use fixture::{
@@ -45,6 +51,9 @@ pub use position::{
 };
 pub use ruby::{layout_simple_ruby, positioned_ruby_to_shapes, PositionedRuby, RUBY_PARENT_GAP_EM};
 pub use shape::{clusters_cover_input, shape_run, ShapedGlyph, ShapedRun};
+pub use tcy::{
+    layout_tate_chu_yoko, positioned_tcy_to_shapes, PositionedTateChuYoko, TCY_MAX_CHARS,
+};
 pub use vert::{
     layout_vertical_run, positioned_vertical_to_shapes, vert_substitute_gid, PositionedVertical,
 };
