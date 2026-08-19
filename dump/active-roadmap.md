@@ -117,6 +117,6 @@
    - ホスト `document_from_package_source_host` は `doc-page` / `live-layout-demo` / `math-demo` / graphics `text` が product `GlyphRun`（graphics は authoring 1 ノード = 1 cluster run）
    - ホスト PDF は layout GID を Identity-H で塗り、digest ごとに CID face を subset（JA `host_product_font` + MATH `host_math_font`）。digest 不一致は relayout。Latin-only `Text` は Helvetica
    - `RECIPLEXA_TYPESET_ENGINE=stub` で参照ヒューリスティックを強制
-   - 残 OPEN: ruby/`vert`、完全 MATH assembly、egui ≠ layout
+   - 残 OPEN: ruby/`vert`、完全 MATH assembly
 
 Step 7はSteps 1–6のgreen HEADを基準線として開始する。

@@ -32,6 +32,7 @@ reciplexa-view = { workspace = true }
 reciplexa-effect = { workspace = true }
 reciplexa-gui-runtime = { workspace = true }
 reciplexa-codec = { workspace = true }
+reciplexa-text-layout = { workspace = true }
 
 [dev-dependencies]
 reciplexa-package = { path = "../reciplexa-package" }

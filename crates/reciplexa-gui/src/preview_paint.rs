@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use eframe::egui;
-use reciplexa_view::{text_corners_mm, PaperLayout, WorldShape};
+use reciplexa_view::{text_corners_mm, PaperLayout, WorldShape, WorldText};
 
 #[derive(Debug, Clone, Copy)]
 pub enum ScaleCorner {
@@ -412,42 +412,7 @@ pub fn paint_shape(
                 }
             }
         }
-        WorldShape::Text(t) => {
-            let font_px = layout.radius_mm_to_px(t.size_mm).max(0.5);
-            let color = color32(t.fill, t.alpha);
-            let wrap_px = layout.radius_mm_to_px(t.width_mm).max(1.0);
-            // Soft-wrap to the layout box width; hard newlines still break.
-            let galley = painter.layout(
-                t.content.clone(),
-                egui::FontId::proportional(font_px),
-                color,
-                wrap_px,
-            );
-            // Baseline in screen pixels (page Y-up → screen Y-down).
-            let (bx, by) = layout.mm_to_px(t.x_mm, t.y_mm);
-            let baseline = rect.min + egui::vec2(bx, by);
-            // Page CCW angle appears as clockwise in Y-down screen space.
-            let angle = t.rotation_deg.to_radians() as f32;
-            let h = galley.size().y;
-            // Unrotated top-left is above the baseline; rotate that offset around baseline.
-            let tl_rel = egui::vec2(0.0, -h);
-            let (s, c) = (angle.sin(), angle.cos());
-            let top_left =
-                baseline + egui::vec2(tl_rel.x * c + tl_rel.y * s, -tl_rel.x * s + tl_rel.y * c);
-            // Clip to the layout box AABB so height shrinks hide overflow.
-            let box_corners = text_corners_mm(t);
-            let mut clip = egui::Rect::NOTHING;
-            for &(xmm, ymm) in &box_corners {
-                let (px, py) = layout.mm_to_px(xmm, ymm);
-                clip = clip.union(egui::Rect::from_center_size(
-                    rect.min + egui::vec2(px, py),
-                    egui::vec2(1.0, 1.0),
-                ));
-            }
-            clip = clip.expand(2.0).intersect(painter.clip_rect());
-            let clipped = painter.with_clip_rect(clip);
-            clipped.add(egui::epaint::TextShape::new(top_left, galley, color).with_angle(angle));
-        }
+        WorldShape::Text(t) => paint_world_text(painter, rect, layout, t),
         WorldShape::Path(p) => {
             if p.points_mm.len() < 2 {
                 return;
@@ -543,6 +508,113 @@ fn ensure_texture(
     Some(tex)
 }
 
+/// Page-space baselines for a layout `GlyphRun` flattened to [`WorldText`].
+///
+/// `None` when advances are missing or do not match the Unicode scalar count
+/// (stub `Text` still uses egui wrap).
+pub fn glyph_run_baselines_mm(t: &WorldText) -> Option<Vec<(f64, f64)>> {
+    let advances = t.glyph_advances_mm.as_ref()?;
+    if advances.is_empty() || advances.len() != t.content.chars().count() {
+        return None;
+    }
+    let theta = t.rotation_deg.to_radians();
+    let (sin, cos) = (theta.sin(), theta.cos());
+    let mut x = t.x_mm;
+    let mut y = t.y_mm;
+    let mut out = Vec::with_capacity(advances.len());
+    for adv in advances {
+        out.push((x, y));
+        x += adv * cos;
+        y += adv * sin;
+    }
+    Some(out)
+}
+
+fn paint_world_text(
+    painter: &egui::Painter,
+    rect: egui::Rect,
+    layout: &PaperLayout,
+    t: &WorldText,
+) {
+    let font_px = layout.radius_mm_to_px(t.size_mm).max(0.5);
+    let color = color32(t.fill, t.alpha);
+    let clip = text_clip_rect(painter, rect, layout, t);
+    let clipped = painter.with_clip_rect(clip);
+    if let Some(origins) = glyph_run_baselines_mm(t) {
+        let font_id = layout_preview_font_id(t.font_digest.as_deref(), font_px);
+        for (ch, (x_mm, y_mm)) in t.content.chars().zip(origins) {
+            paint_baseline_galley(
+                &clipped,
+                rect,
+                layout,
+                (x_mm, y_mm, t.rotation_deg),
+                clipped.layout_no_wrap(ch.to_string(), font_id.clone(), color),
+                color,
+            );
+        }
+        return;
+    }
+    let wrap_px = layout.radius_mm_to_px(t.width_mm).max(1.0);
+    let galley = clipped.layout(
+        t.content.clone(),
+        egui::FontId::proportional(font_px),
+        color,
+        wrap_px,
+    );
+    paint_baseline_galley(
+        &clipped,
+        rect,
+        layout,
+        (t.x_mm, t.y_mm, t.rotation_deg),
+        galley,
+        color,
+    );
+}
+
+fn layout_preview_font_id(digest: Option<&str>, size_px: f32) -> egui::FontId {
+    match digest {
+        Some(d) if !d.is_empty() => egui::FontId::new(size_px, crate::fonts::layout_font_family(d)),
+        _ => egui::FontId::proportional(size_px),
+    }
+}
+
+fn text_clip_rect(
+    painter: &egui::Painter,
+    rect: egui::Rect,
+    layout: &PaperLayout,
+    t: &WorldText,
+) -> egui::Rect {
+    let box_corners = text_corners_mm(t);
+    let mut clip = egui::Rect::NOTHING;
+    for &(xmm, ymm) in &box_corners {
+        let (px, py) = layout.mm_to_px(xmm, ymm);
+        clip = clip.union(egui::Rect::from_center_size(
+            rect.min + egui::vec2(px, py),
+            egui::vec2(1.0, 1.0),
+        ));
+    }
+    clip.expand(2.0).intersect(painter.clip_rect())
+}
+
+fn paint_baseline_galley(
+    painter: &egui::Painter,
+    rect: egui::Rect,
+    layout: &PaperLayout,
+    origin_mm: (f64, f64, f64),
+    galley: std::sync::Arc<egui::Galley>,
+    color: egui::Color32,
+) {
+    let (x_mm, y_mm, rotation_deg) = origin_mm;
+    let (bx, by) = layout.mm_to_px(x_mm, y_mm);
+    let baseline = rect.min + egui::vec2(bx, by);
+    let angle = rotation_deg.to_radians() as f32;
+    let h = galley.size().y;
+    let tl_rel = egui::vec2(0.0, -h);
+    let (s, c) = (angle.sin(), angle.cos());
+    let top_left = baseline + egui::vec2(tl_rel.x * c + tl_rel.y * s, -tl_rel.x * s + tl_rel.y * c);
+    painter.add(egui::epaint::TextShape::new(top_left, galley, color).with_angle(angle));
+}
+
 fn color32(c: reciplexa_scene::Color, alpha: f64) -> egui::Color32 {
     egui::Color32::from_rgba_unmultiplied(
         (c.r * 255.0).round().clamp(0.0, 255.0) as u8,
@@ -564,6 +636,7 @@ mod tests {
 
     fn with_painter(f: impl FnOnce(&egui::Context, egui::Rect, &egui::Painter)) {
         let ctx = egui::Context::default();
+        crate::fonts::install_cjk_fonts(&ctx);
         let mut f = Some(f);
         let _ = ctx.run(Default::default(), |ctx| {
             egui::CentralPanel::default().show(ctx, |ui| {
@@ -579,6 +652,38 @@ mod tests {
     fn snap_mm_rounds_to_grid() {
         assert!((snap_mm(12.0, 5.0) - 10.0).abs() < 1e-9);
         assert!((snap_mm(13.0, 5.0) - 15.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn glyph_run_baselines_follow_layout_advances() {
+        let t = WorldText {
+            x_mm: 10.0,
+            y_mm: 20.0,
+            size_mm: 8.0,
+            width_mm: 7.0,
+            height_mm: 8.0,
+            rotation_deg: 0.0,
+            content: "Re".into(),
+            fill: Color::BLACK,
+            alpha: 1.0,
+            glyph_ids: Some(vec![1, 2]),
+            font_digest: Some("d".into()),
+            glyph_advances_mm: Some(vec![4.0, 3.0]),
+        };
+        assert_eq!(
+            glyph_run_baselines_mm(&t).as_deref(),
+            Some(&[(10.0, 20.0), (14.0, 20.0)][..])
+        );
+        let mut rotated = t.clone();
+        rotated.rotation_deg = 90.0;
+        let pts = glyph_run_baselines_mm(&rotated).expect("rotated");
+        assert!((pts[0].0 - 10.0).abs() < 1e-9);
+        assert!((pts[0].1 - 20.0).abs() < 1e-9);
+        assert!((pts[1].0 - 10.0).abs() < 1e-9);
+        assert!((pts[1].1 - 24.0).abs() < 1e-9);
+        let mut stub = t;
+        stub.glyph_advances_mm = None;
+        assert!(glyph_run_baselines_mm(&stub).is_none());
     }
 
     #[test]
@@ -778,6 +883,33 @@ mod tests {
                     glyph_ids: None,
                     font_digest: None,
                     glyph_advances_mm: None,
+                }),
+                &mut textures,
+                ctx,
+                None,
+            );
+            paint_shape(
+                painter,
+                rect,
+                &layout,
+                &WorldShape::Text(WorldText {
+                    x_mm: 30.0,
+                    y_mm: 260.0,
+                    size_mm: 8.0,
+                    width_mm: 40.0,
+                    height_mm: 8.0,
+                    rotation_deg: 0.0,
+                    content: "Re".into(),
+                    fill: Color::BLACK,
+                    alpha: 1.0,
+                    glyph_ids: Some(vec![1, 2]),
+                    font_digest: Some(
+                        reciplexa_text_layout::host_product_font()
+                            .expect("product")
+                            .id
+                            .digest,
+                    ),
+                    glyph_advances_mm: Some(vec![4.0, 3.5]),
                 }),
                 &mut textures,
                 ctx,

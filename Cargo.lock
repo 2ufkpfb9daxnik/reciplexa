@@ -2962,6 +2962,7 @@ dependencies = [
  "reciplexa-pptx",
  "reciplexa-scene",
  "reciplexa-svg",
+ "reciplexa-text-layout",
  "reciplexa-types",
  "reciplexa-view",
  "rfd",
