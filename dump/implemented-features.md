@@ -110,9 +110,9 @@ Env D / offline。DN2 本番 stub bind・Hybrid 参照分離・型/Failure 差�
 | `cargo run --offline -p reciplexa-gui -- --smoke examples/text_line.rpx` | green (`smoke: ok`) |
 | `cargo run --offline -p reciplexa -- examples/text_line.rpx .tmp/dn2-complete-smoke.pdf` | green |
 
-### 2.4.2 製品級組版 実測gate（code HEAD `560f5bd`）
+### 2.4.2 製品級組版 Profile v1 完了gate（code HEAD `3087565`）
 
-Env D / offline。JLReq / MATH Profile v1、ホスト GlyphRun / PDF GID、GUI digest face + layout advances。`vertical_slice_e2e` は `cargo test --workspace` 内で green。ウィンドウ経路は GUI font slice 直前に `cargo run --offline -p reciplexa-gui -- examples/text_line.rpx` で起動確認。この表は実測であり、Step 7 item 3 の完了主張ではない（完了ラベルは撤回）。
+Env D / offline。JLReq / MATH Profile v1、ホスト GlyphRun / PDF GID、GUI digest face + layout advances、`pkg_live_math` origin は `text_y_mm`（GlyphRun 含む）。`vertical_slice_e2e` は `cargo test --workspace` 内で green。この HEAD のあと docs だけが完了を記録する（DN2 と同じ）。ruby/`vert` / 完全 assembly は閉じない。
 
 | Command | 結果 |
 |---------|------|
@@ -122,7 +122,7 @@ Env D / offline。JLReq / MATH Profile v1、ホスト GlyphRun / PDF GID、GUI d
 | `cargo check --workspace --all-targets --offline` | green |
 | `cargo check --offline -p reciplexa-gui` | green |
 | `cargo run --offline -p reciplexa-gui -- --smoke examples/text_line.rpx` | green (`smoke: ok`) |
-| `cargo run --offline -p reciplexa -- examples/text_line.rpx .tmp/pt-complete-smoke.pdf` | green |
+| `cargo run --offline -p reciplexa -- examples/text_line.rpx .tmp/pt-item3-gates.pdf` | green |
 
 ### 2.5 製品Vertical Slice（**product slice complete**）
 
@@ -226,12 +226,12 @@ pre-PKG カーネルは計画上 **COMPLETE（意図的 defer 付き）**。各�
 
 ## 6. 次工程
 
-実行順の正本は [`active-roadmap.md`](active-roadmap.md)。完了済みの native-domain / GUI CST sync / host-layout / live-layout 深化は Git 履歴を参照する。
+実行順の正本は [`active-roadmap.md`](active-roadmap.md)。Step 7 items 1–3 は完了（item 3 は Profile v1。残 OPEN は下記）。新しい実行 Step は roadmap へ人間が追加するまでない。完了済みの native-domain / GUI CST sync / host-layout / live-layout 深化は Git 履歴を参照する。
 
 1. **package 実運用化 local/offline slice** — [`package-plan.md`](package-plan.md): lock再現性、typed resource light、自動materialize、offline registry mirrorまで完了。network registry、full-tree hash、Core resource effectは別OPEN。
 2. **Direct Native v2** — [`direct-native-v2-plan.md`](direct-native-v2-plan.md) **shipping complete**（DN2-0〜DN2-7 + 本番 BindingId dispatch via `op_for`）。標準packageは DN2 stub + compilation BindingId（`dn2bid-*`）+ typed Rust callable。author import 綴り（修飾 / alias / bare）は canonical `package/module` へ対応。Hybrid 参照本文は `LocalPackageIndex` override のみ。portable fallback は `OPEN-NATIVE-PKG-001` で明示追跡（未実装）。
 2b. **DN2 観測同値の硬化** — 製品級組版の前。深い example 差分、`japanese/linebreak` 動的 export、構造化 Failure（`package/arity` / `package/type`）、native stub の body elaboration 省略（BindingId スロット、alias / bare を含む）。詳細は plan DN2-8。
-3. **製品級組版** — [`product-typesetting-plan.md`](product-typesetting-plan.md) **active（エンジン landed / ホスト GlyphRun cutover。完了ラベル撤回）**。`reciplexa-text-layout` が共有 font/shaping 基盤。JLReq Profile v1 と Math Profile v1 は別エンジン。`doc-page` / `live-layout-demo` / `math-demo` / graphics `text` のホスト経路は product `Shape::GlyphRun`（Visual IR / PDF は layout GID。graphics は authoring 1 ノード = 1 cluster run）。GUI preview は digest family + layout advances。ライブラリ stub API は従来。author `import japanese/*` / `import math/*` は未変更。
+3. **製品級組版** — [`product-typesetting-plan.md`](product-typesetting-plan.md) **complete（Profile v1; gates `3087565`）**。`reciplexa-text-layout` が共有 font/shaping 基盤。JLReq Profile v1 と Math Profile v1 は別エンジン。`doc-page` / `live-layout-demo` / `math-demo` / graphics `text` のホスト経路は product `Shape::GlyphRun`（Visual IR / PDF は layout GID。graphics は authoring 1 ノード = 1 cluster run）。GUI preview は digest family + layout advances。`pkg_live_math` の math origin は `text_y_mm`。ライブラリ stub API は従来。author `import japanese/*` / `import math/*` は未変更。
 
 ### いま OPEN（次に追うもの）
 

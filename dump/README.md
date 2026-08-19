@@ -31,7 +31,7 @@ coverage、deferred、meta、gap/partialの各ファイルは測定・監査用�
 - portable fallback / ABI negotiation は `OPEN-NATIVE-PKG-001` として OPEN のまま追跡する。
 - 最初に閉じる製品体験は、package形式の図形と文字の1ページをGUIで編集し、保存、再読込、PDF/SVG出力まで往復できるVertical Sliceである。
 - markup、`document/page`のdoc-*作者編集はこのSliceの対象外とし、read-onlyまたは明示的soft-refuseにする。
-- Step 7 item 3 の JLReq / MATH Profile v1 エンジンは landed（stub 参照経路は残す）が、マイルストーンは **active**。`OPEN-TEXT-LAYOUT-001`、ruby/`vert`、完全 MATH assembly、first-class editable math は OPEN。
+- Step 7 item 3 の JLReq / MATH Profile v1 は landed（stub 参照経路は残す）。ruby/`vert`、完全 MATH assembly、`OPEN-TEXT-LAYOUT-001` 残 bullets、first-class editable math は OPEN。
 
 ## 人間が確認すること
 
