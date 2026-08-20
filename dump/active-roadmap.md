@@ -9,9 +9,27 @@
 - `planned`: 未着手
 - `active`: 作業中
 - `blocked`: 外部判断または先行Step待ち
-- `complete`: 受入条件とgateを満たした
+- `complete`: 受入条件、実測gate、独立監査を同一HEADで満たした
 
 `unit complete`、`stub complete`、`spec conformant`、`product slice complete` は別の状態である。単に `done` と書かない。
+
+## Step完了の判定
+
+Stepを`complete`とするには、次を**同一code HEAD**で揃える。
+
+1. **実装と直接test** — 受入条件を満たす変更と回帰testが入っている。
+2. **実測gate** — 対象crate test、fmt/clippy、必要なhost `cargo run`、Stepで定めたworkspace gateがgreen。
+3. **現状正本** — [`implemented-features.md`](implemented-features.md) に実測gate表（HEAD、コマンド、結果）を記録する。
+4. **独立監査（subagent）** — 実装担当と**別セッション**のsubagent（**fastモードではない通常モード**）が、
+   文書・受入条件・test・gate・OPEN/non-goals・doc/code不一致を捜査し、
+   `complete` / `partially complete` / `not complete` を報告する。
+5. **人間確認** — Stepまたはsliceで要求されているGUI/目視確認を実施し、結果を1行でもよいので記録する。
+
+独立監査が `partially complete` または `not complete` のときは `complete` にしない。
+実装は着地していても、workspace gate 未達、gate未記録、人間確認未記録、doc/code不一致が残る場合は
+`landed` または `active` のままとする。
+
+監査subagentは実装変更を行わない。修正は実装担当が別commitで行い、監査を再実行する。
 
 ## Step 0 — 引き継ぎ基盤
 
@@ -127,7 +145,7 @@ Step 7はSteps 1–6のgreen HEADを基準線として開始した。
 
 ## Step 8 — JLReq follow-ups
 
-**Status:** complete (items 1–3 on code HEAD `caa2afd`; item 1–2 earlier)
+**Status:** landed — 実装 `caa2afd`、workspace gate green、gate 記録済み。**人間 GUI 確認待ち**（下記）。確認記録後に `complete` とする。
 
 人間が Vertical Slice の GUI 確認を済ませたあとの次工程。[`jlreq-followup-plan.md`](jlreq-followup-plan.md)
 
@@ -148,7 +166,20 @@ Step 7はSteps 1–6のgreen HEADを基準線として開始した。
    - CSS `text-emphasis` / sesame GID / 4字超の圧縮は非ゴール
    - 人間 GUI 確認: `令和12年` と傍点が紙面内に見え、点が親 em の外に付く
 
-**Complete when:** items 1–3 の受入を満たし、残 follow-up が OPEN のまま列挙される。 → `caa2afd`
+**Complete when:** items 1–3 の受入を満たし、残 follow-up が OPEN のまま列挙され、§2.4.3 gate が green、
+人間 GUI 確認が記録される。 → 実装 `caa2afd`、gate repair 後 workspace green、GUI 確認待ち
+
+**人間 GUI 確認手順（item 3 必須; items 1–2 も推奨）:**
+
+```powershell
+cargo run -p reciplexa-gui -- examples/pkg_tcy_bou.rpx
+cargo run -p reciplexa-gui -- examples/pkg_ruby.rpx
+cargo run -p reciplexa-gui -- examples/pkg_vert.rpx
+```
+
+- `pkg_tcy_bou.rpx`: 縦組で `令和12年`（`12` は1emセル内で正立横並び）、`重要` の傍点が親 em の外
+- `pkg_ruby.rpx`: simple ruby が親の真上
+- `pkg_vert.rpx`: 縦組 CJK 直立、列は右から左
 
 残 OPEN（この Step では実装しない）: jukugo 配分、縦ルビ、ruby overhang、完全 `vrt2` / `text-orientation` / CSS `text-emphasis`。これらはStep 11–12へ依存順に登録したため、Step 8の暗黙の続きとして着手しない。
 
@@ -162,7 +193,8 @@ Step番号の過剰増殖を防ぐため、以下を固定する。
 - OPEN IDは自動的に実行項目にしない。該当macro-Stepのscopeへ明示的に取り込む。
 - macro-Stepを`active`にする前に、詳細planでslice順、受入条件、non-goals、gateを固定する。
 - 同時に`active`とするmacro-Stepは一つだけとする。
-- 各Stepの完了時に、本書、`implemented-features.md`、詳細plan、実測gateを同じHEADへ同期する。
+- 各Stepの完了時に、本書、`implemented-features.md`、詳細plan、実測gate、独立監査結果を同じHEADへ同期する。
+- `complete`判定は上記「Step完了の判定」を満たすまで行わない。限定testだけ、または実装担当の自己申告だけでは足りない。
 
 完成は二段階で判定する。
 

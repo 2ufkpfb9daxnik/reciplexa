@@ -141,6 +141,23 @@ cargo run --offline -p reciplexa -- examples/text_line.rpx .tmp/smoke.pdf
 
 高コストな全gateの前に対象crateのtest / Clippyを実行する。全gateの実測結果は `dump/implemented-features.md` に同じHEADの結果として記録する。
 
+## Step完了の独立監査
+
+macro-Stepまたはsliceを`complete`とする前に、実装担当と**別セッション**の独立subagent
+（**fastモードではない通常モード**）に捜査させる。監査担当は実装変更を行わない。
+
+監査対象:
+
+- `dump/active-roadmap.md` の受入条件とnon-goals
+- 対象Stepの詳細plan（あれば）
+- 実装、直接test、実測gateの結果
+- `dump/implemented-features.md` のgate記録の有無とHEAD一致
+- OPEN項目の誤った完了扱い、doc/code不一致
+- Stepで要求される人間GUI/目視確認の記録
+
+監査結果が `partially complete` または `not complete` のときは `complete` にしない。
+修正後はgateを再実行し、監査をやり直す。
+
 ## 停止条件
 
 次の場合のみ停止して報告する。
@@ -159,7 +176,9 @@ cargo run --offline -p reciplexa -- examples/text_line.rpx .tmp/smoke.pdf
 
 - 完了した受入条件
 - commit hashと目的
-- 実行したvalidation
+- 実行したvalidation（fmt/clippy/test/check、host `cargo run`、workspace gate）
+- 独立監査subagentの判定（`complete` / `partially complete` / `not complete`）と主要所見
+- 人間確認の実施記録（要求があるStepのみ）
 - 保証する範囲とnon-goals
 - 残るOPENと次のStep
 

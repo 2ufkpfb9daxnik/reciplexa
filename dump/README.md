@@ -42,6 +42,10 @@ coverage、deferred、meta、gap/partialの各ファイルは測定・監査用�
 
 通常は専門AIに自律実行させて構いません。人間の判断が必要なのは、仕様・製品挙動・データ互換性・破壊的変更が変わる場合です。
 
+各Stepを`complete`とする前には、実測gate（test/build/host `cargo run`）に加え、実装担当と別セッションの
+独立subagent（fastモードではない通常モード）による捜査が必要です。詳細は[`active-roadmap.md`](active-roadmap.md)
+「Step完了の判定」を正とする。
+
 Vertical Slice完了時には、GUIで基本図形と文字を編集し、保存後に同じ表示へ戻ることを一度確認してください。
 
 コミット前には unit test だけでなく、変更したホストを `cargo run` で起動すること。`--smoke examples/text_line.rpx` は ingest のみで、winit の event loop は起動しない。ウィンドウ経路を触ったら `cargo run -p reciplexa-gui -- examples/text_line.rpx` も確認する。GUI の event loop はプロセスの main thread に置く。Windows の 8MiB スタックは PE `/STACK`（各ホストの `build.rs`）で上げる。

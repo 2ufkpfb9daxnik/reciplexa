@@ -124,6 +124,35 @@ Env D / offline。JLReq / MATH Profile v1、ホスト GlyphRun / PDF GID、GUI d
 | `cargo run --offline -p reciplexa-gui -- --smoke examples/text_line.rpx` | green (`smoke: ok`) |
 | `cargo run --offline -p reciplexa -- examples/text_line.rpx .tmp/pt-item3-gates.pdf` | green |
 
+### 2.4.3 Step 8 JLReq follow-up 完了gate（code HEAD 実装 `caa2afd` + gate repair 後の workspace HEAD）
+
+Env D / offline。Step 8 items 1–3（simple ruby、`vert` 縦組、縦中横 / 傍点）。jukugo / 縦ルビ / overhang / 完全 appendix C は閉じない。
+`pt9_pkg_live_math_product_keeps_delimiter_and_fraction` は JA `GlyphRun` baseline からの math origin（`ja_min - 12mm`）を検証する。
+
+| Command | 結果 |
+|---------|------|
+| `cargo fmt --all --check` | green |
+| `cargo clippy --workspace --all-targets --offline -- -D warnings` | green |
+| `cargo test --workspace --offline` | green |
+| `cargo check --workspace --all-targets --offline` | green |
+| `cargo check --offline -p reciplexa-gui` | green |
+| `cargo run --offline -p reciplexa-gui -- --smoke examples/text_line.rpx` | green (`smoke: ok`) |
+| `cargo run --offline -p reciplexa -- examples/text_line.rpx .tmp/step8-gate-smoke.pdf` | green |
+| `cargo test -p reciplexa-text-layout --test ruby_gates --test vert_gates --test tcy_bou_gates --offline` | 18 passed |
+| `cargo test -p reciplexa-package --test pkg_ruby_tests --test pkg_vert_tests --test pkg_tcy_bou_tests --offline` | 6 passed |
+
+**人間 GUI 確認（Step 8 item 3 必須）:** 実施待ち。手順は [`active-roadmap.md`](active-roadmap.md) Step 8 および下記。確認後、ここに日付と結果を1行追記する。
+
+```powershell
+cargo run -p reciplexa-gui -- examples/pkg_tcy_bou.rpx
+cargo run -p reciplexa-gui -- examples/pkg_ruby.rpx
+cargo run -p reciplexa-gui -- examples/pkg_vert.rpx
+```
+
+- `pkg_tcy_bou.rpx`: 縦組で `令和` / `12`（正立横並び）/ `年` が紙面内。`重要` の傍点が親 em の外（横組は上、縦組は右）。
+- `pkg_ruby.rpx`: 横組 simple ruby が親文字の真上。
+- `pkg_vert.rpx`: CJK が上→下、列が右→左、ASCII は回転。
+
 ### 2.5 製品Vertical Slice（**product slice complete**）
 
 保証する範囲（package形式1ページ、`examples/text_line.rpx` 相当）:
@@ -232,7 +261,7 @@ pre-PKG カーネルは計画上 **COMPLETE（意図的 defer 付き）**。各�
 2. **Direct Native v2** — [`direct-native-v2-plan.md`](direct-native-v2-plan.md) **shipping complete**（DN2-0〜DN2-7 + 本番 BindingId dispatch via `op_for`）。標準packageは DN2 stub + compilation BindingId（`dn2bid-*`）+ typed Rust callable。author import 綴り（修飾 / alias / bare）は canonical `package/module` へ対応。Hybrid 参照本文は `LocalPackageIndex` override のみ。portable fallback は `OPEN-NATIVE-PKG-001` で明示追跡（未実装）。
 2b. **DN2 観測同値の硬化** — 製品級組版の前。深い example 差分、`japanese/linebreak` 動的 export、構造化 Failure（`package/arity` / `package/type`）、native stub の body elaboration 省略（BindingId スロット、alias / bare を含む）。詳細は plan DN2-8。
 3. **製品級組版** — [`product-typesetting-plan.md`](product-typesetting-plan.md) **complete（Profile v1; gates `3087565`）**。`reciplexa-text-layout` が共有 font/shaping 基盤。JLReq Profile v1 と Math Profile v1 は別エンジン。`doc-page` / `live-layout-demo` / `math-demo` / graphics `text` のホスト経路は product `Shape::GlyphRun`（Visual IR / PDF は layout GID。graphics は authoring 1 ノード = 1 cluster run）。GUI preview は digest family + layout advances。`pkg_live_math` の math origin は `text_y_mm`。ライブラリ stub API は従来。author `import japanese/*` / `import math/*` は未変更。
-4. **JLReq follow-up** — [`jlreq-followup-plan.md`](jlreq-followup-plan.md) **complete（simple ruby + `vert` + 縦中横 / 傍点; code HEAD `caa2afd`）**。jukugo / 縦ルビ / overhang は `OPEN-TEXT-JA-001` のままStep 12へ割り当てた。
+4. **JLReq follow-up** — [`jlreq-followup-plan.md`](jlreq-followup-plan.md) **landed（simple ruby + `vert` + 縦中横 / 傍点; code HEAD `caa2afd`）**。workspace gate と §2.4.3 記録済み。人間 GUI 確認待ち。jukugo / 縦ルビ / overhang は `OPEN-TEXT-JA-001` のままStep 12へ割り当てた。
 
 ### いま OPEN（次に追うもの）
 
