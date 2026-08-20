@@ -243,8 +243,7 @@ fn gui_main() -> ExitCode {
                 pending_source_select: None,
                 textures: std::collections::HashMap::new(),
                 ime_enter_hold: 0,
-                undo_stack: Vec::new(),
-                redo_stack: Vec::new(),
+                authoring_undo: reciplexa_gui::persistence::AuthoringUndo::new(100),
                 typing_undo_open: false,
                 props_open: prefs.show_props,
                 props_undo_open: false,
@@ -303,8 +302,7 @@ struct PreviewApp {
     textures: std::collections::HashMap<String, egui::TextureHandle>,
     /// Frames to keep suppressing Enter after IME Commit.
     ime_enter_hold: u8,
-    undo_stack: Vec<String>,
-    redo_stack: Vec<String>,
+    authoring_undo: reciplexa_gui::persistence::AuthoringUndo,
     /// Coalesce TextEdit keystrokes into one undo step while focused.
     typing_undo_open: bool,
     /// Properties panel (named args for the selection). Not the attribute-button suite.
@@ -464,30 +462,26 @@ impl PreviewApp {
     }
 
     fn push_undo(&mut self) {
-        self.undo_stack.push(self.source.clone());
-        if self.undo_stack.len() > 100 {
-            self.undo_stack.remove(0);
-        }
-        self.redo_stack.clear();
+        self.authoring_undo.push(&self.source);
+    }
+
+    fn apply_source_revision(&mut self, new_src: String) {
+        self.source = new_src;
+        self.drag = None;
+        self.error = self.compiled().err();
+        self.rebuild_document_path();
+        self.last_journaled_source = None;
     }
 
     fn undo(&mut self) {
-        if let Some(prev) = self.undo_stack.pop() {
-            self.redo_stack.push(self.source.clone());
-            self.source = prev;
-            self.drag = None;
-            self.error = self.compiled().err();
-            self.rebuild_document_path();
+        if let Some(prev) = self.authoring_undo.undo(&self.source) {
+            self.apply_source_revision(prev);
         }
     }
 
     fn redo(&mut self) {
-        if let Some(next) = self.redo_stack.pop() {
-            self.undo_stack.push(self.source.clone());
-            self.source = next;
-            self.drag = None;
-            self.error = self.compiled().err();
-            self.rebuild_document_path();
+        if let Some(next) = self.authoring_undo.redo(&self.source) {
+            self.apply_source_revision(next);
         }
     }
 
@@ -755,11 +749,7 @@ impl PreviewApp {
         );
         if response.changed() {
             if !self.typing_undo_open {
-                self.undo_stack.push(pre_edit);
-                if self.undo_stack.len() > 100 {
-                    self.undo_stack.remove(0);
-                }
-                self.redo_stack.clear();
+                self.authoring_undo.push(&pre_edit);
                 self.typing_undo_open = true;
             }
             self.drag = None;
@@ -2447,8 +2437,7 @@ impl PreviewApp {
                 self.page_index = 0;
                 self.reset_viewport();
                 self.textures.clear();
-                self.undo_stack.clear();
-                self.redo_stack.clear();
+                self.authoring_undo.clear();
                 self.typing_undo_open = false;
                 self.props_undo_open = false;
                 self.last_journaled_source = None;
@@ -2572,8 +2561,7 @@ impl PreviewApp {
         self.page_index = 0;
         self.reset_viewport();
         self.textures.clear();
-        self.undo_stack.clear();
-        self.redo_stack.clear();
+        self.authoring_undo.clear();
         self.typing_undo_open = false;
         self.props_undo_open = false;
         self.error = None;
@@ -2915,7 +2903,7 @@ impl PreviewApp {
                 self.rebuild_document_path();
             }
             Err(e) => {
-                let _ = self.undo_stack.pop();
+                self.authoring_undo.cancel_last();
                 self.error = Some(e.message);
             }
         }
@@ -2934,7 +2922,7 @@ impl PreviewApp {
                 self.rebuild_document_path();
             }
             Err(e) => {
-                let _ = self.undo_stack.pop();
+                self.authoring_undo.cancel_last();
                 self.error = Some(e.message);
             }
         }
@@ -2952,7 +2940,7 @@ impl PreviewApp {
                 self.rebuild_document_path();
             }
             Err(e) => {
-                let _ = self.undo_stack.pop();
+                self.authoring_undo.cancel_last();
                 self.error = Some(e.message);
             }
         }
@@ -2972,7 +2960,7 @@ impl PreviewApp {
                 self.rebuild_document_path();
             }
             Err(e) => {
-                let _ = self.undo_stack.pop();
+                self.authoring_undo.cancel_last();
                 self.error = Some(e.message);
             }
         }

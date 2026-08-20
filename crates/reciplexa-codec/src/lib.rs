@@ -28,4 +28,6 @@ pub use recovery::{
 pub use txnlog::{
     decode_segment, encode_segment, LogError, LogRecord, SegmentStatus, TransactionLogSegment,
 };
-pub use undo::{RevisionUndoLog, UndoAction};
+pub use undo::{
+    decode_authoring_frame, encode_authoring_frame, AuthoringUndoFrame, RevisionUndoLog, UndoAction,
+};

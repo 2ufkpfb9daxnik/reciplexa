@@ -49,6 +49,14 @@ fn redo_empty_returns_none() {
 }
 
 #[test]
+fn authoring_frame_roundtrip_without_snapshot() {
+    let frame = AuthoringUndoFrame::new("(page a4)", None);
+    let bytes = encode_authoring_frame(&frame);
+    let decoded = decode_authoring_frame(&bytes).unwrap();
+    assert_eq!(decoded, frame);
+}
+
+#[test]
 fn push_clears_redo_stack() {
     let mut log = RevisionUndoLog::new(10);
     log.push_undo(b"v1".to_vec());

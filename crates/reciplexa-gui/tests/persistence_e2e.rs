@@ -61,3 +61,15 @@ fn snapshot_sidecar_recovery_writes_recovered_without_touching_rpx() {
     assert_eq!(std::fs::read_to_string(&rpx).expect("rpx unchanged"), TEXT_LINE);
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn authoring_undo_roundtrip_via_revision_log() {
+    use reciplexa_gui::persistence::AuthoringUndo;
+
+    let mut undo = AuthoringUndo::new(10);
+    let v1 = TEXT_LINE;
+    let v2 = TEXT_LINE.replace("circle", "ellipse");
+    undo.push(v1);
+    assert_eq!(undo.undo(&v2).as_deref(), Some(v1));
+    assert_eq!(undo.redo(v1).as_deref(), Some(v2.as_str()));
+}

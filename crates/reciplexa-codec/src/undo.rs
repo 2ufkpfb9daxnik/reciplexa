@@ -1,5 +1,8 @@
 //! Revision-based undo/redo log.
 
+use serde::{Deserialize, Serialize};
+
+use crate::codec::{CodecError, PortableSnapshot, SCHEMA_VERSION};
 use reciplexa_identity::document::DocumentRevision;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -8,6 +11,38 @@ pub enum UndoAction {
         before_revision: DocumentRevision,
         after_revision: DocumentRevision,
     },
+}
+
+/// One GUI authoring undo step: source text plus an optional document snapshot.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AuthoringUndoFrame {
+    pub source: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub snapshot: Option<PortableSnapshot>,
+}
+
+impl AuthoringUndoFrame {
+    pub fn new(source: impl Into<String>, snapshot: Option<PortableSnapshot>) -> Self {
+        Self {
+            source: source.into(),
+            snapshot,
+        }
+    }
+}
+
+pub fn encode_authoring_frame(frame: &AuthoringUndoFrame) -> Vec<u8> {
+    serde_json::to_vec(frame).expect("AuthoringUndoFrame is always JSON-serializable")
+}
+
+pub fn decode_authoring_frame(bytes: &[u8]) -> Result<AuthoringUndoFrame, CodecError> {
+    let frame: AuthoringUndoFrame =
+        serde_json::from_slice(bytes).map_err(|e| CodecError::Decode(e.to_string()))?;
+    if let Some(ref snap) = frame.snapshot {
+        if snap.schema_version > SCHEMA_VERSION {
+            return Err(CodecError::UnsupportedSchema(snap.schema_version));
+        }
+    }
+    Ok(frame)
 }
 
 #[derive(Debug, Clone, Default)]
@@ -52,5 +87,15 @@ impl RevisionUndoLog {
 
     pub fn can_redo(&self) -> bool {
         !self.redo.is_empty()
+    }
+
+    pub fn clear(&mut self) {
+        self.undo.clear();
+        self.redo.clear();
+    }
+
+    /// Drop the most recent undo entry without moving current state to redo.
+    pub fn cancel_last_undo(&mut self) -> Option<Vec<u8>> {
+        self.undo.pop()
     }
 }

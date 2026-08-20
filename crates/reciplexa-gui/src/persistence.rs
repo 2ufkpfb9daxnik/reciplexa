@@ -1,11 +1,70 @@
-//! Crash recovery helpers for the GUI host.
+//! Crash recovery and revision undo helpers for the GUI host.
 
 use std::path::Path;
 
+use reciplexa::document_pipeline::document_snapshot_from_source;
 use reciplexa_codec::{
-    clear_source_journal, compact_after_save, decode_snapshot, read_source_journal,
-    recover_from_journal, write_source_journal, RecoveryError, RecoveryPaths,
+    clear_source_journal, compact_after_save, decode_authoring_frame, decode_snapshot,
+    encode_authoring_frame, read_source_journal, recover_from_journal, snapshot_to_portable_public,
+    write_source_journal, AuthoringUndoFrame, RecoveryError, RecoveryPaths, RevisionUndoLog,
 };
+use reciplexa_identity::document::DocumentIdentity;
+
+const AUTHORING_DOC_ID: DocumentIdentity = DocumentIdentity::new(1);
+
+/// Revision undo/redo wired to source plus `document_snapshot_from_source`.
+#[derive(Debug, Clone)]
+pub struct AuthoringUndo {
+    log: RevisionUndoLog,
+}
+
+impl AuthoringUndo {
+    pub fn new(max_depth: usize) -> Self {
+        Self {
+            log: RevisionUndoLog::new(max_depth),
+        }
+    }
+
+    pub fn capture_frame(source: &str) -> AuthoringUndoFrame {
+        let snapshot = document_snapshot_from_source(source, AUTHORING_DOC_ID)
+            .ok()
+            .map(|snap| snapshot_to_portable_public(&snap));
+        AuthoringUndoFrame::new(source, snapshot)
+    }
+
+    pub fn push(&mut self, source_before: &str) {
+        let frame = Self::capture_frame(source_before);
+        self.log.push_undo(encode_authoring_frame(&frame));
+    }
+
+    pub fn undo(&mut self, current_source: &str) -> Option<String> {
+        let current = encode_authoring_frame(&Self::capture_frame(current_source));
+        let prev = self.log.undo(current)?;
+        decode_authoring_frame(&prev).ok().map(|frame| frame.source)
+    }
+
+    pub fn redo(&mut self, current_source: &str) -> Option<String> {
+        let current = encode_authoring_frame(&Self::capture_frame(current_source));
+        let next = self.log.redo(current)?;
+        decode_authoring_frame(&next).ok().map(|frame| frame.source)
+    }
+
+    pub fn cancel_last(&mut self) {
+        let _ = self.log.cancel_last_undo();
+    }
+
+    pub fn clear(&mut self) {
+        self.log.clear();
+    }
+
+    pub fn can_undo(&self) -> bool {
+        self.log.can_undo()
+    }
+
+    pub fn can_redo(&self) -> bool {
+        self.log.can_redo()
+    }
+}
 
 /// Result of applying open-time recovery (never overwrites the primary `.rpx` on disk).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -127,5 +186,25 @@ mod tests {
             Some("edited")
         );
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn authoring_undo_redo_roundtrip_preserves_source() {
+        let mut undo = AuthoringUndo::new(10);
+        let v1 = "(import graphics/page only a4 page)\n(val main (page a4 (list)))\n";
+        let v2 = "(import graphics/page only a4 page)\n(val main (page a4 (circle 1 2 3)))\n";
+        undo.push(v1);
+        assert_eq!(undo.undo(v2).as_deref(), Some(v1));
+        assert_eq!(undo.redo(v1).as_deref(), Some(v2));
+    }
+
+    #[test]
+    fn authoring_undo_frame_carries_snapshot_when_valid() {
+        let src = include_str!("../../../examples/text_line.rpx");
+        let frame = AuthoringUndo::capture_frame(src);
+        assert!(frame.snapshot.is_some());
+        let round = decode_authoring_frame(&encode_authoring_frame(&frame)).expect("roundtrip");
+        assert_eq!(round.source, src);
+        assert!(round.snapshot.is_some());
     }
 }
