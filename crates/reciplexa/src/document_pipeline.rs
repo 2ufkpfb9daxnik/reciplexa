@@ -6,7 +6,9 @@ use reciplexa_document::{
     DocumentSnapshot, LayerSpan, TransactionBuilder,
 };
 use reciplexa_identity::document::DocumentIdentity;
-use reciplexa_lower::{collect_layers_page, lower_source};
+use reciplexa_lower::{
+    collect_layers_document, collect_layers_page, is_document_page_authoring, lower_source,
+};
 use reciplexa_source::resource::SourceResourceId;
 use reciplexa_syntax::{build_identity_map, parse_source};
 
@@ -38,6 +40,35 @@ pub fn document_snapshot_from_source(
     // Expand-first: markup / macros must become page forms before bind/lower.
     let expanded = reciplexa_macro::expand_source(source).map_err(|e| e.message)?;
     if crate::pipeline::wants_package_graphics_path(&expanded) {
+        if is_document_page_authoring(source) {
+            let scene = crate::pipeline::document_from_source(source).map_err(|e| e.display())?;
+            let page = scene
+                .pages
+                .first()
+                .ok_or_else(|| "document has no pages".to_string())?;
+            let layers = collect_layers_document(source, 0).map_err(|e| e.message)?;
+            let layer_spans: Vec<LayerSpan> = layers
+                .iter()
+                .map(|l| LayerSpan {
+                    byte_start: l.byte_start,
+                    byte_end: l.byte_end,
+                    label: l.label.clone(),
+                })
+                .collect();
+            let parse = parse_source(source);
+            let id_map = build_identity_map(&parse.root);
+            let syntax_ids: Vec<_> = layer_spans
+                .iter()
+                .map(|l| id_map.get_byte_offsets(l.byte_start as u32, l.byte_end as u32))
+                .collect();
+            return Ok(document_from_scene_page_with_layers(
+                identity,
+                page,
+                &layer_spans,
+                SourceResourceId::new(1),
+                &syntax_ids,
+            ));
+        }
         let scene = crate::pipeline::document_from_source(source).map_err(|e| e.display())?;
         let page = scene
             .pages
@@ -192,6 +223,17 @@ mod tests {
 (import graphics/color only black)
 (val main (page a4 (fill (rect 10 20 30 40) black)))
 "#;
+
+    #[test]
+    fn document_page_snapshot_carries_cst_layer_spans() {
+        let src = include_str!("../../../examples/pkg_document_indent.rpx");
+        let snap = document_snapshot_from_source(src, DocumentIdentity::new(30)).unwrap();
+        let with_prov = snap.provenance.by_node.len();
+        assert!(
+            with_prov >= 2,
+            "expected heading+paragraph provenance, got {with_prov}"
+        );
+    }
 
     #[test]
     fn builds_snapshot_from_black_circle() {

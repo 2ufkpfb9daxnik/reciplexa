@@ -9,9 +9,12 @@ use reciplexa_syntax::{
 
 use crate::cst_walk::{find_list_covering, list_atoms, Child};
 use crate::sync::{
-    collect_layers_from_root, collect_layers_package, collect_size_targets_from_root,
-    is_package_shaped_authoring, layer_opacity, layer_rotation_deg, nudge_layer_authoring,
-    parse_root, scale_size_target_axes, set_layer_opacity, set_layer_rotation_deg, SyncError,
+    collect_layers_document, collect_layers_from_root, collect_layers_package,
+    collect_size_targets_from_root, document_columns_params, document_layer_indent_em,
+    document_layer_text, is_document_page_authoring, is_package_shaped_authoring, layer_opacity,
+    layer_rotation_deg, nudge_layer_authoring, parse_root, scale_size_target_axes,
+    set_document_columns_count, set_document_columns_gutter, set_document_layer_indent_em,
+    set_document_layer_text, set_layer_opacity, set_layer_rotation_deg, SyncError,
 };
 
 /// UI grouping for the properties panel.
@@ -71,7 +74,9 @@ fn layer_paint(
     flat_index: usize,
 ) -> Result<(SyntaxNode, SyntaxNode, String), SyncError> {
     let root = parse_root(src)?;
-    let layers = if is_package_shaped_authoring(src) {
+    let layers = if is_document_page_authoring(src) {
+        collect_layers_document(src, page_index)?
+    } else if is_package_shaped_authoring(src) {
         collect_layers_package(src, page_index)?
     } else {
         collect_layers_from_root(&root, page_index)?
@@ -79,10 +84,109 @@ fn layer_paint(
     let layer = layers
         .get(flat_index)
         .ok_or_else(|| SyncError::new("layer index out of range"))?;
-    // LayerInfo spans always come from list nodes in collect_layers_from_shape.
+    if is_document_page_authoring(src) {
+        return Ok((root.clone(), root, layer.kind.clone()));
+    }
     let paint = find_list_covering(&root, layer.byte_start, layer.byte_end)
         .expect("paint span from collect_layers");
     Ok((root, paint, layer.kind.clone()))
+}
+
+fn collect_document_layer_props(
+    src: &str,
+    page_index: usize,
+    flat_index: usize,
+) -> Result<Vec<PropField>, SyncError> {
+    let layers = collect_layers_document(src, page_index)?;
+    let layer = layers
+        .get(flat_index)
+        .ok_or_else(|| SyncError::new("layer index out of range"))?;
+    let mut out = Vec::new();
+    match layer.kind.as_str() {
+        "doc-heading" | "doc-paragraph" => {
+            let text = document_layer_text(src, page_index, flat_index)?;
+            out.push(PropField {
+                id: "content.text".into(),
+                label: "text".into(),
+                group: PropGroup::Content,
+                value: PropValue::Text(text),
+                slider: None,
+            });
+            if let Some(indent) = document_layer_indent_em(src, page_index, flat_index)? {
+                out.push(num(
+                    "layout.indent-em",
+                    "indent-em",
+                    PropGroup::Layout,
+                    indent,
+                    Some((0.0, 8.0)),
+                ));
+            }
+        }
+        "doc-columns" => {
+            let (count, gutter) = document_columns_params(src, page_index, flat_index)?;
+            out.push(num(
+                "columns.count",
+                "columns",
+                PropGroup::Layout,
+                f64::from(count),
+                Some((1.0, 6.0)),
+            ));
+            out.push(num(
+                "columns.gutter",
+                "gutter",
+                PropGroup::Layout,
+                gutter,
+                Some((0.0, 12.0)),
+            ));
+        }
+        other => {
+            return Err(SyncError::new(format!(
+                "unsupported document layer `{other}`"
+            )));
+        }
+    }
+    Ok(out)
+}
+
+fn set_document_layer_prop(
+    src: &str,
+    page_index: usize,
+    flat_index: usize,
+    id: &str,
+    value: &PropValue,
+) -> Result<String, SyncError> {
+    match id {
+        "content.text" => {
+            let PropValue::Text(t) = value else {
+                return Err(SyncError::new("content.text expects text"));
+            };
+            set_document_layer_text(src, page_index, flat_index, t)
+        }
+        "layout.indent-em" => {
+            let PropValue::Number(n) = value else {
+                return Err(SyncError::new("layout.indent-em expects a number"));
+            };
+            set_document_layer_indent_em(src, page_index, flat_index, *n)
+        }
+        "columns.count" => {
+            let PropValue::Number(n) = value else {
+                return Err(SyncError::new("columns.count expects a number"));
+            };
+            if *n < 1.0 || *n > 12.0 || n.fract() != 0.0 {
+                return Err(SyncError::new("columns.count must be a positive integer"));
+            }
+            set_document_columns_count(src, page_index, flat_index, *n as u32)
+        }
+        "columns.gutter" => {
+            let PropValue::Number(n) = value else {
+                return Err(SyncError::new("columns.gutter expects a number"));
+            };
+            set_document_columns_gutter(src, page_index, flat_index, *n)
+        }
+        other => Err(SyncError::new(format!(
+            "document/page layer property `{other}` is not editable"
+        ))),
+    }
 }
 
 /// Collect editable named fields for one flattened layer.
@@ -92,6 +196,9 @@ pub fn collect_layer_props(
     flat_index: usize,
     ctx: &PropEditContext,
 ) -> Result<Vec<PropField>, SyncError> {
+    if is_document_page_authoring(src) {
+        return collect_document_layer_props(src, page_index, flat_index);
+    }
     let (_root, paint, kind) = layer_paint(src, page_index, flat_index)?;
 
     let (x0, y0, x1, y1) = ctx.aabb_mm;
@@ -161,6 +268,9 @@ pub fn set_layer_prop(
     value: &PropValue,
     ctx: &PropEditContext,
 ) -> Result<String, SyncError> {
+    if is_document_page_authoring(src) {
+        return set_document_layer_prop(src, page_index, flat_index, id, value);
+    }
     let (x0, y0, x1, y1) = ctx.aabb_mm;
     let w = (x1 - x0).max(1e-9);
     let h = (y1 - y0).max(1e-9);

@@ -3,9 +3,10 @@
 use reciplexa::pipeline::{document_for_export, document_from_source};
 use reciplexa_effect::TestHandler;
 use reciplexa_lower::{
-    collect_layers_package, collect_size_targets_package, delete_layer_package,
-    insert_layer_package, insert_layer_page, nudge_layer_package, reorder_layer_package,
-    set_text_content_package,
+    collect_layers_authoring, collect_layers_package, collect_size_targets_package,
+    delete_layer_package, insert_layer_package, insert_layer_page, nudge_layer_package,
+    reorder_layer_package, set_layer_prop, set_text_content_authoring, set_text_content_package,
+    PropEditContext, PropValue,
 };
 use reciplexa_pdf::document_to_pdf;
 use reciplexa_scene::Shape;
@@ -25,12 +26,15 @@ fn shape_kind(s: &Shape) -> Vec<&'static str> {
     }
 }
 
-fn text_contents(shapes: &[Shape]) -> Vec<&str> {
+const PKG_DOCUMENT_INDENT: &str = include_str!("../../../examples/pkg_document_indent.rpx");
+const PKG_COLUMNS: &str = include_str!("../../../examples/pkg_columns.rpx");
+
+fn text_contents(shapes: &[Shape]) -> Vec<String> {
     let mut out = Vec::new();
     for s in shapes {
         match s {
-            Shape::Text(t) => out.push(t.content.as_str()),
-            Shape::GlyphRun(g) => out.push(g.content.as_str()),
+            Shape::Text(t) => out.push(t.content.clone()),
+            Shape::GlyphRun(g) => out.push(g.content.clone()),
             Shape::Group { children, .. } | Shape::Opacity { children, .. } => {
                 out.extend(text_contents(children));
             }
@@ -82,7 +86,10 @@ fn vertical_slice_package_shapes_text_roundtrip() {
 
     let doc_reload = document_from_source(&reloaded).expect("reload ingest");
     let texts = text_contents(&doc_reload.pages[0].shapes);
-    assert!(texts.contains(&"Edited"), "texts={texts:?}");
+    assert!(
+        texts.iter().any(|t| t.contains("Edited")),
+        "texts={texts:?}"
+    );
 
     let (doc_export, _) =
         document_for_export(&mut TestHandler::default(), &reloaded).expect("export");
@@ -93,6 +100,76 @@ fn vertical_slice_package_shapes_text_roundtrip() {
     assert!(svg.contains("<circle") || svg.contains("ellipse") || svg.contains("cx="));
 
     assert!(insert_layer_page(&src6, 0, "(circle 1 2 3)").is_err());
+}
+
+#[test]
+fn document_page_paragraph_roundtrip_export() {
+    let src0 = PKG_DOCUMENT_INDENT;
+    let layers = collect_layers_authoring(src0, 0).expect("document layers");
+    let body_idx = layers
+        .iter()
+        .position(|l| l.kind == "doc-paragraph")
+        .expect("paragraph layer");
+    let src1 = set_text_content_authoring(src0, 0, body_idx, "編集後の段落。").expect("edit body");
+    assert!(src1.contains("編集後の段落。"));
+
+    let prop_ctx = PropEditContext {
+        aabb_mm: (0.0, 0.0, 100.0, 20.0),
+        paper_w_mm: 210.0,
+        paper_h_mm: 297.0,
+    };
+    let src2 = set_layer_prop(
+        &src1,
+        0,
+        body_idx,
+        "layout.indent-em",
+        &PropValue::Number(2.0),
+        &prop_ctx,
+    )
+    .expect("indent edit");
+    assert!(src2.contains("(paragraph-indented \"編集後の段落。\" 2)"));
+
+    let doc = document_from_source(&src2).expect("ingest");
+    let texts = text_contents(&doc.pages[0].shapes);
+    let joined: String = texts.concat();
+    assert!(joined.contains("編集後の段落"), "joined={joined:?}");
+
+    let (doc_export, _) = document_for_export(&mut TestHandler::default(), &src2).expect("export");
+    let export_joined = text_contents(&doc_export.pages[0].shapes).concat();
+    assert!(
+        export_joined.contains("編集後の段落"),
+        "export_joined={export_joined:?}"
+    );
+    let pdf = document_to_pdf(&doc_export).expect("pdf");
+    assert!(pdf.starts_with(b"%PDF-"));
+    let svg = document_to_svg(&doc_export).expect("svg");
+    assert!(svg.contains("<svg"));
+}
+
+#[test]
+fn document_page_columns_text_roundtrip() {
+    let layers = collect_layers_authoring(PKG_COLUMNS, 0).expect("layers");
+    let left_idx = layers
+        .iter()
+        .position(|l| l.label.contains("左カラム"))
+        .expect("left column");
+    let src1 = set_text_content_authoring(PKG_COLUMNS, 0, left_idx, "左を更新").expect("edit left");
+    let doc = document_from_source(&src1).expect("ingest");
+    let joined: String = text_contents(&doc.pages[0].shapes).concat();
+    assert!(joined.contains("左を更新"), "joined={joined:?}");
+}
+
+#[test]
+fn document_page_canvas_nudge_soft_refuses() {
+    assert!(reciplexa_gui::canvas_sync::nudge_authoring_layers(
+        PKG_DOCUMENT_INDENT,
+        PKG_DOCUMENT_INDENT,
+        0,
+        &[0],
+        1.0,
+        0.0
+    )
+    .is_err());
 }
 
 #[test]

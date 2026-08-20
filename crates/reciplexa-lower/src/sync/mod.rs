@@ -7,11 +7,17 @@ use reciplexa_syntax::{parse_source, SyntaxKind, SyntaxNode};
 
 use crate::cst_walk::{list_atoms, Child};
 
+mod document;
 mod geometry;
 mod layers;
 mod package;
 mod pages;
 
+pub use document::{
+    collect_layers_document, document_columns_params, document_layer_indent_em,
+    document_layer_text, is_document_page_authoring, set_document_columns_count,
+    set_document_columns_gutter, set_document_layer_indent_em, set_document_layer_text,
+};
 pub use geometry::{
     collect_drag_targets, collect_drag_targets_page, collect_size_targets_from_root,
     collect_size_targets_page, layer_opacity, layer_rotation_deg, nudge_drag_target,
@@ -145,9 +151,11 @@ pub fn parse_root(src: &str) -> Result<SyntaxNode, SyncError> {
         .map_err(|e| SyncError::new(format!("parse error: {}", e[0].message)))
 }
 
-/// Collect layers for package-shaped authoring, else interim `(page …)`.
+/// Collect layers for document-page authoring, package graphics, else interim `(page …)`.
 pub fn collect_layers_authoring(src: &str, page_index: usize) -> Result<Vec<LayerInfo>, SyncError> {
-    if is_package_shaped_authoring(src) {
+    if is_document_page_authoring(src) {
+        collect_layers_document(src, page_index)
+    } else if is_package_shaped_authoring(src) {
         collect_layers_package(src, page_index)
     } else {
         collect_layers_page(src, page_index)
@@ -217,11 +225,33 @@ pub fn nudge_layer_authoring(
     }
 }
 
+pub fn set_text_content_authoring(
+    src: &str,
+    page_index: usize,
+    flat_index: usize,
+    text: &str,
+) -> Result<String, SyncError> {
+    if is_document_page_authoring(src) {
+        set_document_layer_text(src, page_index, flat_index, text)
+    } else if is_package_shaped_authoring(src) {
+        set_text_content_package(src, page_index, flat_index, text)
+    } else {
+        Err(SyncError::new(
+            "text content sync only on package or document pages",
+        ))
+    }
+}
+
 pub fn duplicate_layer_authoring(
     src: &str,
     page_index: usize,
     flat_index: usize,
 ) -> Result<String, SyncError> {
+    if is_document_page_authoring(src) {
+        return Err(SyncError::new(
+            "duplicate is not supported on document/page structure layers",
+        ));
+    }
     if is_package_shaped_authoring(src) {
         duplicate_layer_package(src, page_index, flat_index)
     } else {

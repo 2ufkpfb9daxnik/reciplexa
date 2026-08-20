@@ -10,9 +10,10 @@
 
 use reciplexa::wants_package_graphics_path;
 use reciplexa_lower::{
-    collect_layers_package, collect_layers_page, collect_size_targets_package,
-    collect_size_targets_page, is_package_shaped_authoring, nudge_layer_package, nudge_layer_page,
-    LayerInfo, SizeTarget, SyncError,
+    collect_layers_document, collect_layers_package, collect_layers_page,
+    collect_size_targets_package, collect_size_targets_page, is_document_page_authoring,
+    is_package_shaped_authoring, nudge_layer_package, nudge_layer_page, LayerInfo, SizeTarget,
+    SyncError,
 };
 use reciplexa_view::WorldShape;
 
@@ -80,6 +81,10 @@ pub fn resolve_preview_layers(
     page_index: usize,
     shapes: &[WorldShape],
 ) -> Vec<LayerInfo> {
+    if is_document_page_authoring(expanded) {
+        return collect_layers_document(expanded, page_index)
+            .unwrap_or_else(|_| layers_from_world_shapes(shapes));
+    }
     if is_package_shaped_authoring(expanded) {
         match collect_layers_package(expanded, page_index) {
             Ok(layers) if layers.len() == shapes.len() => return layers,
@@ -122,6 +127,15 @@ pub fn authoring_layers_align(
     expanded: &str,
     page_index: usize,
 ) -> Result<bool, SyncError> {
+    if is_document_page_authoring(authoring) {
+        let auth = collect_layers_document(authoring, page_index)?;
+        let exp = if is_document_page_authoring(expanded) {
+            collect_layers_document(expanded, page_index)?
+        } else {
+            return Ok(false);
+        };
+        return Ok(layer_kinds_match(&auth, &exp));
+    }
     if is_package_shaped_authoring(authoring) {
         let auth = collect_layers_package(authoring, page_index)?;
         let exp = if is_package_shaped_authoring(expanded) {
@@ -162,6 +176,11 @@ pub fn nudge_authoring_layers(
 ) -> Result<String, SyncRefuse> {
     if dx == 0.0 && dy == 0.0 {
         return Ok(authoring.to_string());
+    }
+    if is_document_page_authoring(authoring) {
+        return Err(SyncRefuse::new(
+            "canvas move skipped: document/page structure is edited via the layer properties panel, not glyph positions",
+        ));
     }
     if is_package_shaped_authoring(authoring) {
         match authoring_layers_align(authoring, expanded, page_index) {
