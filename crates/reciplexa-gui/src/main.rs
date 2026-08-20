@@ -22,7 +22,7 @@ use eframe::egui;
 use eframe::egui::text::{CCursor, CCursorRange};
 use reciplexa::document_pipeline::document_snapshot_from_source;
 use reciplexa::pipeline::{document_for_export, document_from_source};
-use reciplexa_codec::{compact_after_save, write_journal, RecoveryPaths};
+use reciplexa_codec::{atomic_write, compact_after_save, write_journal, RecoveryPaths};
 use reciplexa_effect::{seed_from_env, EffectError, EffectHandler, LcgRng, Value};
 use reciplexa_gui_runtime::GuiRuntimeHost;
 use reciplexa_identity::document::{DocumentIdentity, StableNodeId};
@@ -2477,7 +2477,7 @@ impl PreviewApp {
     }
 
     fn save_rpx(&mut self) {
-        if let Err(e) = fs::write(&self.path, &self.source) {
+        if let Err(e) = atomic_write(&self.path, self.source.as_bytes()) {
             self.error = Some(format!("save: {e}"));
         } else {
             self.error = None;
