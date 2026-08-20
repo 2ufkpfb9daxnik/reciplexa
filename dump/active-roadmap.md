@@ -127,7 +127,7 @@ Step 7はSteps 1–6のgreen HEADを基準線として開始した。
 
 ## Step 8 — JLReq follow-ups
 
-**Status:** active — item 1–2 complete; item 3 tate-chu-yoko / bou active
+**Status:** complete (items 1–3 on code HEAD `caa2afd`; item 1–2 earlier)
 
 人間が Vertical Slice の GUI 確認を済ませたあとの次工程。[`jlreq-followup-plan.md`](jlreq-followup-plan.md)
 
@@ -136,15 +136,18 @@ Step 7はSteps 1–6のgreen HEADを基準線として開始した。
 1. Font-backed simple ruby: **complete** (`layout_simple_ruby`; host `ja-ruby-demo` / `placed` / `samples`)
    - 横組の simple ruby を font advance で測り、annotation を親 em の真上に置く
    - `examples/pkg_ruby.rpx` は見出し＋3見本。`japanese/markup ruby` と `Ruby::estimate_box` stub は変えない
-   - jukugo 配分、縦ルビ、overhang、`vert`、縦中横、傍点は非ゴール
+   - jukugo 配分、縦ルビ、overhang、`vert`、縦中横、傍点は当時の非ゴール
 2. OpenType `vert` / 縦組: **complete** (`layout_vertical_run`; host `pkg_vert.rpx` on `9768c0d`)
    - 縦組みは上から下、次の列は左（vertical-rl）
    - CJK は upright（GSUB `vert` GID）。ASCII は −90°
    - `lines_to_vertical_text_shapes` stub と `pkg_japanese_vertical` 言語デモは変えない
    - 縦中横、傍点、縦ルビは当時の非ゴール
-3. Tate-chu-yoko / bou: **active** (`layout_tate_chu_yoko`; bou circles; host `ja-tcy-bou-demo`)
+3. Tate-chu-yoko / bou: **complete** (`layout_tate_chu_yoko`; bou circles; host `ja-tcy-bou-demo` / `examples/pkg_tcy_bou.rpx` on `caa2afd`)
    - 縦組の1emセルに ASCII 1–4 字を正立で横並び（幅が1em超なら縮小）
    - 傍点は横組では文字の上、縦組では横に円を置く。stub `bou-box` / `tate-chu-yoko-width` は変えない
    - CSS `text-emphasis` / sesame GID / 4字超の圧縮は非ゴール
+   - 人間 GUI 確認: `令和12年` と傍点が紙面内に見え、点が親 em の外に付く
 
-**Complete when:** slice 1 の受入（font vs stub 差、GlyphRun、host consume）を満たし、残 follow-up が OPEN のまま列挙される。
+**Complete when:** items 1–3 の受入を満たし、残 follow-up が OPEN のまま列挙される。 → `caa2afd`
+
+残 OPEN（この Step では実装しない）: jukugo 配分、縦ルビ、ruby overhang、完全 `vrt2` / `text-orientation` / CSS `text-emphasis`。次の Step はまだ roadmap に無い。OPEN を暗黙の続きとして着手しない。

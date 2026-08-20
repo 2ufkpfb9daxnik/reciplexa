@@ -18,7 +18,7 @@
 ## 実行指示
 
 - `dump/active-roadmap.md` の最初の未完了Stepから開始し、受入条件が満たされるまで継続する。
-- Step 1〜7は完了済み。いまは Step 8（[`jlreq-followup-plan.md`](jlreq-followup-plan.md)）。item 1–2 landed。いまは item 3 縦中横 / 傍点。jukugo / 完全 MATH assembly / `OPEN-NATIVE-PKG-001` は勝手に閉じない。
+- Step 1〜8は完了済み。[`jlreq-followup-plan.md`](jlreq-followup-plan.md) の ordered slices（simple ruby / `vert` / 縦中横・傍点）は landed。`dump/active-roadmap.md` に未完了Stepが無い。jukugo / 縦ルビ / 完全 MATH assembly / `OPEN-NATIVE-PKG-001` を勝手に実装せず、新しいStepの登録を待つ。
 - 安全な実装判断、crate責任分割、テスト構成は自律的に決める。確認待ちだけを理由に止まらない。
 - 仕様・製品挙動・データ互換性・破壊的操作を変える必要がある場合だけ、人間へ具体的な選択肢を示す。
 - ユーザーの既存変更を上書き、破棄、巻き戻ししない。

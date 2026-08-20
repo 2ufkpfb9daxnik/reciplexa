@@ -1,6 +1,6 @@
 # JLReq follow-ups (Step 8)
 
-**Status:** active (items 1–2 complete; item 3 tate-chu-yoko / bou in progress)  
+**Status:** complete (items 1–3 on code HEAD `caa2afd`)  
 **Execution order:** [`active-roadmap.md`](active-roadmap.md) Step 8, after Step 7 item 3 Profile v1  
 **Normative anchors:** `OPEN-TEXT-JA-001`, JLReq ruby / vertical writing, Font Policy  
 **Does not close:** full appendix C, full `vrt2`/script-lang GSUB, CSS `text-orientation` / `text-emphasis`, jukugo distribution, vertical ruby
@@ -36,3 +36,5 @@ Jukugo per-character distribution, ruby overhang / 親文字送り, and vertical
 3. Horizontal bou marks sit above the parent em-square; vertical bou marks sit beside the column.
 4. `RECIPLEXA_TYPESET_ENGINE=stub` does not switch `tate-chu-yoko-width` / `bou-box` to product metrics.
 5. Host preview/export of `examples/pkg_tcy_bou.rpx` uses the product engine unless stub is forced.
+
+Slice 3 conditions 1–5 hold on code HEAD `caa2afd` (human GUI check of `examples/pkg_tcy_bou.rpx`). Step 8 is **complete**. Remaining `OPEN-TEXT-JA-001` bullets (jukugo, vertical ruby, overhang, full `vrt2` / `text-orientation` / CSS `text-emphasis`) stay listed OPEN. There is no Step 9 on the active roadmap.

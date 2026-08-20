@@ -217,7 +217,7 @@ Library APIs `layout_doc_page_to_scene` and `layout_math_to_shapes` stay stub so
 9. Workspace fmt, Clippy `-D warnings`, tests, all-target check, GUI check, and GUI/CLI
    host smoke are green on the same HEAD.
 
-Conditions 1–9 hold for Profile v1 on code HEAD `3087565` (workspace gates this HEAD; a later docs commit only records the label). Step 7 item 3 is **complete**. Remaining `OPEN-TEXT-LAYOUT-001` bullets, ruby/`vert`, full MATH assembly, and first-class editable math stay listed OPEN.
+Conditions 1–9 hold for Profile v1 on code HEAD `3087565` (workspace gates this HEAD; a later docs commit only records the label). Step 7 item 3 is **complete**. Remaining `OPEN-TEXT-LAYOUT-001` bullets, full MATH assembly, and first-class editable math stay listed OPEN. Step 8 landed ruby / `vert` / tate-chu-yoko / bou; leftover JA is `OPEN-TEXT-JA-001`.
 
 ## Non-goals for this milestone
 
