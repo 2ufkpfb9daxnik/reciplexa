@@ -36,3 +36,4 @@ reciplexa-text-layout = { workspace = true }
 
 [dev-dependencies]
 reciplexa-package = { path = "../reciplexa-package" }
+serde_json = { workspace = true }

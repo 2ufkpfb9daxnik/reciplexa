@@ -78,7 +78,10 @@ fn recover_corrupt_journal_returns_codec_error() {
     let paths = RecoveryPaths::for_primary(dir.join("doc.rpxsnap"));
     std::fs::write(&paths.journal, b"not a snapshot").unwrap();
     let err = recover_from_journal(&paths).unwrap_err();
-    assert!(matches!(err, RecoveryError::Codec(_)));
+    assert!(matches!(
+        err,
+        RecoveryError::Sidecar(_) | RecoveryError::Codec(_)
+    ));
     let _ = std::fs::remove_dir_all(&dir);
 }
 

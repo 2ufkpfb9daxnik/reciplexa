@@ -47,6 +47,11 @@ pub fn decode_snapshot(bytes: &[u8]) -> Result<DocumentSnapshot, CodecError> {
     Ok(portable_to_snapshot(&portable))
 }
 
+/// Build a document snapshot from a portable view (envelope / migration path).
+pub fn snapshot_from_portable(portable: &PortableSnapshot) -> DocumentSnapshot {
+    portable_to_snapshot(portable)
+}
+
 /// Public helper for envelope encoding.
 pub fn snapshot_to_portable_public(snap: &DocumentSnapshot) -> PortableSnapshot {
     let nodes = snap

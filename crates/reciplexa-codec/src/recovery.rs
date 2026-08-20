@@ -3,7 +3,8 @@
 use std::path::{Path, PathBuf};
 
 use crate::atomic::atomic_write;
-use crate::codec::{decode_snapshot, encode_snapshot, CodecError};
+use crate::codec::{encode_snapshot, CodecError};
+use crate::sidecar::load_sidecar_bytes;
 use reciplexa_document::snapshot::DocumentSnapshot;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -11,6 +12,7 @@ pub enum RecoveryError {
     Codec(CodecError),
     Io(String),
     NoRecoveryCandidate,
+    Sidecar(crate::sidecar::SidecarLoadError),
 }
 
 impl From<std::io::Error> for RecoveryError {
@@ -55,10 +57,10 @@ pub fn write_journal(paths: &RecoveryPaths, snap: &DocumentSnapshot) -> Result<(
 /// Recover from journal into a **new** recovered path — never overwrites primary (§11.2).
 pub fn recover_from_journal(paths: &RecoveryPaths) -> Result<DocumentSnapshot, RecoveryError> {
     let bytes = std::fs::read(&paths.journal).map_err(|_| RecoveryError::NoRecoveryCandidate)?;
-    let snap = decode_snapshot(&bytes).map_err(RecoveryError::Codec)?;
-    let out = encode_snapshot(&snap);
+    let report = load_sidecar_bytes(&bytes).map_err(RecoveryError::Sidecar)?;
+    let out = encode_snapshot(&report.snapshot);
     atomic_write(&paths.recovered, &out)?;
-    Ok(snap)
+    Ok(report.snapshot)
 }
 
 /// Compact: keep only the latest committed snapshot bytes (drops journal after success).

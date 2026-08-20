@@ -85,3 +85,41 @@ fn layer_selection_rebase_survives_undo_source_swap() {
     assert_eq!(resolve_layer_indices(&v2, 0, &anchors), vec![0]);
     assert_eq!(resolve_layer_indices(v1, 0, &anchors), vec![0]);
 }
+
+#[test]
+fn migrate_existing_sidecar_drops_unknown_extensions() {
+    use reciplexa_codec::{
+        load_sidecar_bytes, snapshot_to_portable_public, ExtensionBlock, ExtensibleEnvelope,
+        RecoveryPaths,
+    };
+    use reciplexa_document::snapshot::DocumentSnapshot;
+    use reciplexa_gui::persistence::migrate_existing_sidecar;
+    use reciplexa_identity::document::DocumentIdentity;
+    use serde_json::json;
+
+    let dir = std::env::temp_dir().join(format!(
+        "reciplexa-migrate-sidecar-{}",
+        std::process::id()
+    ));
+    std::fs::create_dir_all(&dir).expect("temp dir");
+    let rpx = dir.join("doc.rpx");
+    let paths = RecoveryPaths::for_rpx_source(&rpx);
+    let snap = DocumentSnapshot::new(DocumentIdentity::new(1));
+    let env = ExtensibleEnvelope {
+        snapshot: snapshot_to_portable_public(&snap),
+        extensions: vec![ExtensionBlock {
+            name: "vendor.unknown".into(),
+            version: 99,
+            payload: json!(null),
+        }],
+    };
+    let bytes = serde_json::to_vec(&env).expect("encode envelope");
+    std::fs::write(&paths.primary, bytes).expect("write sidecar");
+    let notice = migrate_existing_sidecar(&rpx)
+        .expect("migrate")
+        .expect("notice");
+    assert!(notice.contains("vendor.unknown@v99"));
+    let reloaded = load_sidecar_bytes(&std::fs::read(&paths.primary).expect("read")).expect("load");
+    assert!(reloaded.dropped_extensions.is_empty());
+    let _ = std::fs::remove_dir_all(&dir);
+}

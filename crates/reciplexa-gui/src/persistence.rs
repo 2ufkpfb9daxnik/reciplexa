@@ -4,9 +4,10 @@ use std::path::Path;
 
 use reciplexa::document_pipeline::document_snapshot_from_source;
 use reciplexa_codec::{
-    clear_source_journal, compact_after_save, decode_authoring_frame, decode_snapshot,
-    encode_authoring_frame, read_source_journal, recover_from_journal, snapshot_to_portable_public,
-    write_source_journal, AuthoringUndoFrame, RecoveryError, RecoveryPaths, RevisionUndoLog,
+    clear_source_journal, compact_after_save, decode_authoring_frame, encode_authoring_frame,
+    format_sidecar_notice, load_sidecar_bytes, read_source_journal, recover_from_journal,
+    snapshot_to_portable_public, write_source_journal, AuthoringUndoFrame, RecoveryError,
+    RecoveryPaths, RevisionUndoLog,
 };
 use reciplexa_identity::document::DocumentIdentity;
 
@@ -91,16 +92,42 @@ pub fn recover_snapshot_sidecar(rpx: &Path) -> Result<Option<String>, RecoveryEr
         return Ok(None);
     }
     recover_from_journal(&paths)?;
-    let note = format!(
+    let mut note = format!(
         "Interrupted snapshot save recovered to {}. Your .rpx file was not modified.",
         paths.recovered.display()
     );
     if let Ok(bytes) = std::fs::read(&paths.recovered) {
-        if let Ok(snap) = decode_snapshot(&bytes) {
-            let _ = compact_after_save(&paths, &snap);
+        if let Ok(report) = load_sidecar_bytes(&bytes) {
+            if let Some(extra) = format_sidecar_notice(&report) {
+                note = format!("{note} {extra}");
+            }
+            let _ = compact_after_save(&paths, &report.snapshot);
         }
     }
     Ok(Some(note))
+}
+
+/// Migrate an on-disk `.rpxsnap` through the migration graph and partial extension recovery.
+pub fn migrate_existing_sidecar(rpx: &Path) -> Result<Option<String>, RecoveryError> {
+    let paths = RecoveryPaths::for_rpx_source(rpx);
+    if !paths.primary.exists() {
+        return Ok(None);
+    }
+    let bytes = std::fs::read(&paths.primary).map_err(|e| RecoveryError::Io(e.to_string()))?;
+    let report = load_sidecar_bytes(&bytes).map_err(RecoveryError::Sidecar)?;
+    let notice = format_sidecar_notice(&report);
+    if notice.is_none() {
+        return Ok(None);
+    }
+    compact_after_save(&paths, &report.snapshot)?;
+    Ok(notice)
+}
+
+fn append_status(existing: Option<String>, note: String) -> String {
+    match existing {
+        Some(s) => format!("{s} {note}"),
+        None => note,
+    }
 }
 
 /// Apply open-time recovery with an interactive prompt for unsaved source journals.
@@ -128,17 +155,22 @@ pub fn resolve_open_recovery(rpx: &Path, primary: String) -> OpenRecovery {
 
     match recover_snapshot_sidecar(rpx) {
         Ok(Some(note)) => {
-            status = Some(match status {
-                Some(s) => format!("{s} {note}"),
-                None => note,
-            });
+            status = Some(append_status(status, note));
         }
         Err(e) => {
             let err = format!("Snapshot recovery failed: {e:?}");
-            status = Some(match status {
-                Some(s) => format!("{s} {err}"),
-                None => err,
-            });
+            status = Some(append_status(status, err));
+        }
+        Ok(None) => {}
+    }
+
+    match migrate_existing_sidecar(rpx) {
+        Ok(Some(note)) => {
+            status = Some(append_status(status, note));
+        }
+        Err(e) => {
+            let err = format!("Sidecar migration failed: {e:?}");
+            status = Some(append_status(status, err));
         }
         Ok(None) => {}
     }
