@@ -111,14 +111,14 @@ fn pt9_pkg_live_math_product_keeps_delimiter_and_fraction() {
             .find(|s| s.text_content() == Some("("))
             .and_then(|s| s.text_y_mm())
             .expect("math left delimiter");
-        let fallback = product.pages[0].paper.height_mm - 40.0;
+        const MATH_BELOW_DOC_GAP_MM: f64 = 12.0;
         assert!(
             ja_min.is_finite(),
             "product JA GlyphRun baseline missing: {texts:?}"
         );
         assert!(
-            (math_left - fallback).abs() > 10.0,
-            "math origin must follow JA GlyphRun, not Text-only fallback; math_left={math_left} ja_min={ja_min} fallback={fallback}"
+            (math_left - (ja_min - MATH_BELOW_DOC_GAP_MM)).abs() < 1.0,
+            "math origin must follow JA GlyphRun baseline, not Text-only fallback; math_left={math_left} ja_min={ja_min}"
         );
         assert!(
             math_left < ja_min,
