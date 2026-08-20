@@ -38,6 +38,11 @@ impl RecoveryPaths {
             recovered,
         }
     }
+
+    /// Sidecar paths for a `.rpx` source file (`doc.rpx` → `doc.rpxsnap` primary).
+    pub fn for_rpx_source(rpx: impl AsRef<Path>) -> Self {
+        Self::for_primary(rpx.as_ref().with_extension("rpxsnap"))
+    }
 }
 
 /// Write a journal snapshot during editing (sidecar — not the primary file).
@@ -66,4 +71,29 @@ pub fn compact_after_save(
     let _ = std::fs::remove_file(&paths.journal);
     let _ = std::fs::remove_file(&paths.recovered);
     Ok(())
+}
+
+/// Path for unsaved `.rpx` source journal (`doc.rpx` → `doc.rpjsrc`).
+pub fn source_journal_path(rpx: impl AsRef<Path>) -> PathBuf {
+    rpx.as_ref().with_extension("rpjsrc")
+}
+
+/// Autosave dirty source during editing; never overwrites the primary `.rpx`.
+pub fn write_source_journal(rpx: impl AsRef<Path>, source: &[u8]) -> Result<(), RecoveryError> {
+    atomic_write(&source_journal_path(rpx), source)?;
+    Ok(())
+}
+
+/// Read a source journal when present.
+pub fn read_source_journal(rpx: impl AsRef<Path>) -> Result<Option<String>, RecoveryError> {
+    match std::fs::read_to_string(source_journal_path(rpx)) {
+        Ok(s) => Ok(Some(s)),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(e.into()),
+    }
+}
+
+/// Drop source journal after a successful primary save or explicit discard.
+pub fn clear_source_journal(rpx: impl AsRef<Path>) {
+    let _ = std::fs::remove_file(source_journal_path(rpx));
 }

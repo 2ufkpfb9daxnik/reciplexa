@@ -17,8 +17,8 @@
 
 ## Ordered slices
 
-1. **Atomic `.rpx` save** — `atomic_write` で primary 保存；torn write 回帰テスト；既存 journal sidecar 維持
-2. **Crash recovery UX** — 起動/オープン時に journal 候補を検出し、primary を上書きせず recovered 提示；`recover_from_journal` 配線
+1. **Atomic `.rpx` save** — `atomic_write` で primary 保存；torn write 回帰テスト；既存 journal sidecar 維持 ✓
+2. **Crash recovery UX** — 起動/オープン時に journal 候補を検出し、primary を上書きせず recovered 提示；`recover_from_journal` 配線（active）
 3. **Revision undo log** — GUI undo/redo を `RevisionUndoLog` + `document_snapshot_from_source` に接続；transaction 単位の coalesce（typing / props）維持
 4. **IME / caret / selection rebase** — source revision 変更後に byte span と `StableNodeId` selection を再投影
 5. **Schema migration + partial recovery** — 未知 extension の GUI 表示；古い `.rpxsnap` の migrate 経路

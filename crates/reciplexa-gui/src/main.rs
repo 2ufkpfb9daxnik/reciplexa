@@ -189,6 +189,10 @@ fn gui_main() -> ExitCode {
             "(import graphics/page only a4 page)\n(val main (page a4 (list)))\n".to_string(),
         ),
     };
+    let saved_on_disk = src.clone();
+    let recovery = reciplexa_gui::persistence::resolve_open_recovery(&path, src);
+    let src = recovery.source;
+    let initial_sync_warning = recovery.status;
     // Keep the author's `.rpx` text. Expansion happens inside `pipeline_doc` /
     // export so Scribble `(markup …)` macros (`@title`, …) stay editable.
     let compiled = pipeline_doc(&src);
@@ -227,10 +231,10 @@ fn gui_main() -> ExitCode {
             Ok(Box::new(PreviewApp {
                 path,
                 source: src.clone(),
-                saved_source: src.clone(),
+                saved_source: saved_on_disk,
                 pipeline: SourceCache::with_value(src, compiled.map(Arc::new)),
                 error: initial_error,
-                sync_warning: None,
+                sync_warning: initial_sync_warning,
                 drag: None,
                 page_index: 0,
                 zoom: prefs.zoom,
@@ -267,6 +271,7 @@ fn gui_main() -> ExitCode {
                 collapse_props: false,
                 document_path: DocumentPathState::from_env(),
                 gui_runtime: GuiRuntimeHost::new(),
+                last_journaled_source: None,
             }))
         }),
     ) {
@@ -342,6 +347,8 @@ struct PreviewApp {
     document_path: DocumentPathState,
     /// Phase 8 GUI runtime host (ephemeral widget state — not document truth).
     gui_runtime: GuiRuntimeHost,
+    /// Last source buffer written to the crash-recovery journal.
+    last_journaled_source: Option<String>,
 }
 
 #[derive(Clone, Copy)]
@@ -2427,8 +2434,14 @@ impl PreviewApp {
     fn open_rpx_path(&mut self, ctx: &egui::Context, path: PathBuf) {
         match fs::read_to_string(&path) {
             Ok(raw) => {
+                let saved_on_disk = raw.clone();
+                let recovery = reciplexa_gui::persistence::resolve_open_recovery(&path, raw);
                 self.path = path;
-                self.source = raw;
+                self.source = recovery.source;
+                self.saved_source = saved_on_disk;
+                if let Some(msg) = recovery.status {
+                    self.sync_warning = Some(msg);
+                }
                 self.drag = None;
                 self.clear_selection();
                 self.page_index = 0;
@@ -2438,12 +2451,13 @@ impl PreviewApp {
                 self.redo_stack.clear();
                 self.typing_undo_open = false;
                 self.props_undo_open = false;
+                self.last_journaled_source = None;
                 self.error = self.compiled().err();
                 self.rebuild_document_path();
-                self.mark_saved();
-                self.title_dirty = true; // force title refresh
-                set_window_title(ctx, &self.path, false);
-                self.title_dirty = false;
+                let dirty = self.is_dirty();
+                self.title_dirty = true;
+                set_window_title(ctx, &self.path, dirty);
+                self.title_dirty = dirty;
             }
             Err(e) => self.error = Some(format!("open: {e}")),
         }
@@ -2490,7 +2504,7 @@ impl PreviewApp {
     fn persist_codec_snapshot(&mut self) {
         match document_snapshot_from_source(&self.source, DocumentIdentity::new(1)) {
             Ok(snap) => {
-                let paths = RecoveryPaths::for_primary(self.path.with_extension("rpxsnap"));
+                let paths = RecoveryPaths::for_rpx_source(&self.path);
                 if let Err(e) = write_journal(&paths, &snap) {
                     self.error = Some(format!("journal: {e:?}"));
                     return;
@@ -2978,6 +2992,22 @@ impl PreviewApp {
 
     fn mark_saved(&mut self) {
         self.saved_source = self.source.clone();
+        reciplexa_codec::clear_source_journal(&self.path);
+        self.last_journaled_source = None;
+    }
+
+    fn persist_source_journal_if_dirty(&mut self) {
+        if !self.is_dirty() {
+            self.last_journaled_source = None;
+            return;
+        }
+        if self.last_journaled_source.as_deref() == Some(self.source.as_str()) {
+            return;
+        }
+        if reciplexa_gui::persistence::persist_dirty_source_journal(&self.path, &self.source).is_ok()
+        {
+            self.last_journaled_source = Some(self.source.clone());
+        }
     }
 
     fn export_pdf(&mut self) {
@@ -3078,6 +3108,7 @@ impl eframe::App for PreviewApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         suppress_ime_confirm_newline(ctx, &mut self.ime_enter_hold);
         self.refresh_window_title(ctx);
+        self.persist_source_journal_if_dirty();
         self.sync_gui_runtime();
 
         // Ctrl+Z / Ctrl+Y for source undo/redo (IME mistakes, layer moves, etc.).

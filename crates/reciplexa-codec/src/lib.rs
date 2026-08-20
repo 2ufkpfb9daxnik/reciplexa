@@ -22,7 +22,8 @@ pub use extension::{
 pub use manifest::{ResourceEntry, ResourceManifest};
 pub use migration::{migrate_snapshot, MigrationError, MigrationGraph};
 pub use recovery::{
-    compact_after_save, recover_from_journal, write_journal, RecoveryError, RecoveryPaths,
+    clear_source_journal, compact_after_save, read_source_journal, recover_from_journal,
+    source_journal_path, write_journal, write_source_journal, RecoveryError, RecoveryPaths,
 };
 pub use txnlog::{
     decode_segment, encode_segment, LogError, LogRecord, SegmentStatus, TransactionLogSegment,

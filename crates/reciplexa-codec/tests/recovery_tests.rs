@@ -96,3 +96,35 @@ fn recovery_paths_for_primary_sets_sidecars() {
         std::path::PathBuf::from("docs/snap.rpxrecovered")
     );
 }
+
+#[test]
+fn source_journal_path_for_rpx() {
+    let rpx = std::path::PathBuf::from("docs/article.rpx");
+    assert_eq!(
+        source_journal_path(&rpx),
+        std::path::PathBuf::from("docs/article.rpjsrc")
+    );
+    let snap = RecoveryPaths::for_rpx_source(&rpx);
+    assert_eq!(snap.primary, std::path::PathBuf::from("docs/article.rpxsnap"));
+}
+
+#[test]
+fn source_journal_roundtrip_and_clear() {
+    let dir = std::env::temp_dir().join(format!(
+        "rpx-src-journal-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    std::fs::create_dir_all(&dir).unwrap();
+    let rpx = dir.join("doc.rpx");
+    write_source_journal(&rpx, b"edited source").unwrap();
+    assert_eq!(
+        read_source_journal(&rpx).unwrap().as_deref(),
+        Some("edited source")
+    );
+    clear_source_journal(&rpx);
+    assert!(read_source_journal(&rpx).unwrap().is_none());
+    let _ = std::fs::remove_dir_all(&dir);
+}
