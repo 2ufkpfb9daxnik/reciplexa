@@ -11,14 +11,17 @@
 1. `dump/README.md`
 2. `dump/active-roadmap.md`
 3. `dump/implemented-features.md`
-4. 対象Stepが変更する契約だけ `dump/specification.md`
+4. `dump/roadmap.md` §0.1–0.5（Step 9–24の依存、二段階完成Horizon、OPEN対応）
+5. 対象Stepが変更する契約だけ `dump/specification.md`
 
 第II部見出し単位の確認が必要なときだけ `dump/part2-conformance.md` を読む。coverage/deferred/metaの派生文書を最初から全読しない。
 
 ## 実行指示
 
 - `dump/active-roadmap.md` の最初の未完了Stepから開始し、受入条件が満たされるまで継続する。
-- Step 1〜8は完了済み。[`jlreq-followup-plan.md`](jlreq-followup-plan.md) の ordered slices（simple ruby / `vert` / 縦中横・傍点）は landed。`dump/active-roadmap.md` に未完了Stepが無い。jukugo / 縦ルビ / 完全 MATH assembly / `OPEN-NATIVE-PKG-001` を勝手に実装せず、新しいStepの登録を待つ。
+- Step 1〜8は完了済み。次はStep 9「構造化ページ作者編集とProvenance」。Step 17が実用製品完成、Step 24が仕様完全実装である。
+- top-level Stepを勝手に追加しない。bugfix、個別follow-up、fixture、並行作業は現在のmacro-Step内sliceとする。OPEN IDは`active-roadmap.md`へ割り当てられたStepでのみ着手する。
+- 各macro-Stepを`active`へ移す前に、slice順、受入条件、non-goals、gateを詳細planへ固定する。同時にactiveとするmacro-Stepは一つだけ。
 - 安全な実装判断、crate責任分割、テスト構成は自律的に決める。確認待ちだけを理由に止まらない。
 - 仕様・製品挙動・データ互換性・破壊的操作を変える必要がある場合だけ、人間へ具体的な選択肢を示す。
 - ユーザーの既存変更を上書き、破棄、巻き戻ししない。
@@ -64,6 +67,7 @@ package形式の図形と文字の1ページを、GUI編集、source保存、再
 
 - 規範は `dump/specification.md`
 - 実行順は `dump/active-roadmap.md`
+- 完成Horizon、macro-Step依存、OPEN対応は `dump/roadmap.md` §0.1–0.5
 - 現状は `dump/implemented-features.md`
 - 第II部適合は `dump/part2-conformance.md`
 
@@ -159,4 +163,5 @@ cargo run --offline -p reciplexa -- examples/text_line.rpx .tmp/smoke.pdf
 - 保証する範囲とnon-goals
 - 残るOPENと次のStep
 
-今すぐrepositoryを確認し、`dump/active-roadmap.md` の最初の未完了StepからAtomic Commitを積み重ねて実行してください。
+今すぐrepositoryを確認し、`dump/active-roadmap.md` の最初の未完了Step（現在はStep 9）を
+詳細sliceへ分解してから、Atomic Commitを積み重ねて実行してください。

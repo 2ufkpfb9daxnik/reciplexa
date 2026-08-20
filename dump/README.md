@@ -7,8 +7,9 @@
 
 1. 現在の作業順と完了条件: [`active-roadmap.md`](active-roadmap.md)
 2. 現在動く機能と未完事項: [`implemented-features.md`](implemented-features.md)
-3. 規範契約を確認するときだけ: [`specification.md`](specification.md)
-4. 第II部の見出し単位適合を確認するときだけ: [`part2-conformance.md`](part2-conformance.md)
+3. 完成までのmacro-Stepと依存関係: [`roadmap.md`](roadmap.md) §0.1–0.5
+4. 規範契約を確認するときだけ: [`specification.md`](specification.md)
+5. 第II部の見出し単位適合を確認するときだけ: [`part2-conformance.md`](part2-conformance.md)
 
 実装AIには [`implementation-agent-prompt.md`](implementation-agent-prompt.md) をそのまま渡してください。
 
@@ -16,6 +17,7 @@
 
 - `specification.md`: 何を満たすべきかを定める規範
 - `active-roadmap.md`: いま何を、どの順で実装するかを定める唯一の実行計画
+- `roadmap.md`: Step 9–24の二段階完成Horizon、依存関係、旧Phase / Milestoneとの対応
 - `implemented-features.md`: 現在動くもの、実測gate、OPEN事項の唯一の現状正本
 - `part2-conformance.md`: 第II部見出し単位の適合台帳。製品完成率ではない
 - `package-plan.md`: Step 7 package実運用化（local/offline slice完了、残存OPEN）の詳細
@@ -32,7 +34,9 @@ coverage、deferred、meta、gap/partialの各ファイルは測定・監査用�
 - portable fallback / ABI negotiation は `OPEN-NATIVE-PKG-001` として OPEN のまま追跡する。
 - 最初に閉じる製品体験は、package形式の図形と文字の1ページをGUIで編集し、保存、再読込、PDF/SVG出力まで往復できるVertical Sliceである。
 - markup、`document/page`のdoc-*作者編集はこのSliceの対象外とし、read-onlyまたは明示的soft-refuseにする。
-- Step 7 item 3 の JLReq / MATH Profile v1 は landed（stub 参照経路は残す）。Step 8 の JLReq follow-up（simple ruby、`vert` 縦組、縦中横 / 傍点）は landed。完全 appendix C、jukugo、完全 MATH assembly、first-class editable math は OPEN。次の Step はまだ roadmap に無い。
+- Step 7 item 3 の JLReq / MATH Profile v1 は landed（stub 参照経路は残す）。Step 8 の JLReq follow-up（simple ruby、`vert` 縦組、縦中横 / 傍点）は landed。
+- 次は Step 9「構造化ページ作者編集とProvenance」。Step 17を実用製品完成、Step 24を仕様完全実装とする。詳細は[`roadmap.md`](roadmap.md) §0.1–0.5。
+- 完全 appendix C、jukugo、完全 MATH assembly、first-class editable math等は、OPEN一覧からStep 11–13へ依存順に割り当てた。前倒しで暗黙実装しない。
 
 ## 人間が確認すること
 

@@ -37,4 +37,4 @@ Jukugo per-character distribution, ruby overhang / 親文字送り, and vertical
 4. `RECIPLEXA_TYPESET_ENGINE=stub` does not switch `tate-chu-yoko-width` / `bou-box` to product metrics.
 5. Host preview/export of `examples/pkg_tcy_bou.rpx` uses the product engine unless stub is forced.
 
-Slice 3 conditions 1–5 hold on code HEAD `caa2afd` (human GUI check of `examples/pkg_tcy_bou.rpx`). Step 8 is **complete**. Remaining `OPEN-TEXT-JA-001` bullets (jukugo, vertical ruby, overhang, full `vrt2` / `text-orientation` / CSS `text-emphasis`) stay listed OPEN. There is no Step 9 on the active roadmap.
+Slice 3 conditions 1–5 hold on code HEAD `caa2afd` (human GUI check of `examples/pkg_tcy_bou.rpx`). Step 8 is **complete**. Remaining `OPEN-TEXT-JA-001` bullets (jukugo, vertical ruby, overhang, full `vrt2` / `text-orientation` / CSS `text-emphasis`) stay listed OPEN and are assigned to Step 12 / Step 24. Step 9 is structured page authoring; these bullets are not its implicit scope.

@@ -150,4 +150,195 @@ Step 7はSteps 1–6のgreen HEADを基準線として開始した。
 
 **Complete when:** items 1–3 の受入を満たし、残 follow-up が OPEN のまま列挙される。 → `caa2afd`
 
-残 OPEN（この Step では実装しない）: jukugo 配分、縦ルビ、ruby overhang、完全 `vrt2` / `text-orientation` / CSS `text-emphasis`。次の Step はまだ roadmap に無い。OPEN を暗黙の続きとして着手しない。
+残 OPEN（この Step では実装しない）: jukugo 配分、縦ルビ、ruby overhang、完全 `vrt2` / `text-orientation` / CSS `text-emphasis`。これらはStep 11–12へ依存順に登録したため、Step 8の暗黙の続きとして着手しない。
+
+## Step 9以降のmacro-Step運用
+
+長期の目的、依存、旧Phase / Milestone、OPEN対応は[`roadmap.md`](roadmap.md) §0.1–0.5を正とする。
+Step番号の過剰増殖を防ぐため、以下を固定する。
+
+- top-level Stepは利用者能力または基盤不変条件で区切る。
+- bugfix、個別follow-up、fixture、並行作業はStep内sliceとし、新しいStep番号を付けない。
+- OPEN IDは自動的に実行項目にしない。該当macro-Stepのscopeへ明示的に取り込む。
+- macro-Stepを`active`にする前に、詳細planでslice順、受入条件、non-goals、gateを固定する。
+- 同時に`active`とするmacro-Stepは一つだけとする。
+- 各Stepの完了時に、本書、`implemented-features.md`、詳細plan、実測gateを同じHEADへ同期する。
+
+完成は二段階で判定する。
+
+- **Horizon A:** Step 17 — 実用的な日本語組版・数式編集・配布製品
+- **Horizon B:** Step 24 — 仕様第II–VI部を含む完全実装
+
+Horizon AをPart II deferredゼロや形式的証明完了と混同しない。
+
+## Step 9 — 構造化ページ作者編集とProvenance
+
+**Status:** planned — 次にactiveへ昇格するStep
+
+- `document/page`のheading / paragraph / indent / columnsを作者sourceの構造を保ってGUI編集する
+- literal / shared binding / GUI override / 逆変換不能を区別する
+- scene nodeからSource span / authoring nodeへのProvenanceを固定する
+- markup作者同期は理由付きsoft-refuseのまま維持する
+
+**Complete when:** 構造化ページをGUI編集し、Source保存・再読込・PDF/SVGへ意味を保って往復でき、
+transaction failureが部分変更を残さず、逆変換不能を黙って低水準化しない。
+
+## Step 10 — Editor persistence v1
+
+**Status:** blocked — Step 9待ち
+
+- Undo/Redo、atomic save、crash recovery、snapshot compaction
+- schema version、migration graph、unknown extension、partial recovery
+- Stable IDを保つsave/loadと、IME / caret / selection rebase
+
+**Complete when:** transaction履歴と復旧が文書正本を壊さず、GUI state、Capability、Secret、
+Task、native pointerをsnapshotへ混入させない。
+
+## Step 11 — Text shaping / font resource v2
+
+**Status:** blocked — Step 10待ち
+
+- typed layout protocol、決定的font fallback、cluster保持
+- metric-changing substitution時のrelayout
+- complex shaping、bidi、mixed direction
+
+**Complete when:** fallback / bidi fixtureでUnicodeとcluster対応を失わず、previewとexportが同じ
+glyph位置を消費し、`OPEN-TEXT-LAYOUT-001`の製品必須範囲が閉じる。
+
+## Step 12 — Japanese Document Profile v2
+
+**Status:** blocked — Step 11待ち
+
+- jukugo配分、縦ルビ、ruby overhang
+- より完全な`vrt2` / 文字方向処理とJLReq rule vector
+- stub differentialと残存appendix C / CSS範囲の明示
+
+**Complete when:** 横組・縦組・ruby・縦中横・傍点を組み合わせた文書がfont-backedで
+preview/exportされ、実装規則と適合fixtureが対応する。
+
+## Step 13 — Math Profile v2とGUI編集
+
+**Status:** blocked — Step 11待ち（Step 12とslice並行可）
+
+- full glyph assembly、MATH kern、font metrics
+- alignment / equation numberの実用subset
+- first-class math tree GUI編集
+
+**Complete when:** 数式構造をGUIで変更しSourceへ戻せ、unsupported assemblyやASCII代用を
+silent fallbackせず、文書内inline/display mathを安定して出力できる。
+
+## Step 14 — 複数ページ出版レイアウト
+
+**Status:** blocked — Steps 12–13待ち
+
+- page break、版面、heading / list / note、figure / table
+- footnote / reference / indexの最小一貫経路
+- 複数ページのidentity、参照、部分relayout
+
+**Complete when:** 日本語・数式・図表を含む記事 / 小冊子をGUI編集、save/load、
+preview/exportでき、部分relayoutがfull rebuildと一致する。
+
+## Step 15 — Export / print / accessibility parity
+
+**Status:** blocked — Step 14待ち
+
+- PDF / SVG / PPTXのfont / `GlyphRun`位置とresource policy統一
+- Output Profile、LossReport、Artifact Verification
+- reading order、heading、math accessibilityとprint宣言
+
+**Complete when:** profile不一致をplanning時に拒否し、全backendがplan外fallbackを行わず、
+宣言したaccessibility / print条件を検証できる。
+
+## Step 16 — Package配布とNative portability
+
+**Status:** blocked — Step 15待ち
+
+- network registry、full-tree artifact hash、cache / lock再現性
+- Core resource effectとbracket cleanup
+- ABI/version negotiation、native-unavailable routing、portable fallback
+
+**Complete when:** package取得とnative fallbackをartifact identityに基づき再現でき、
+network機能追加後もoffline build/testが常にgreenである。
+
+## Step 17 — Product beta / release gate
+
+**Status:** blocked — Step 16待ち
+
+- 日本語記事とmath showcaseの統合E2E
+- product diagnostic、Loss approval、resource/package UX
+- reproducible release、fuzz/decode budget、human GUI check
+
+**Complete when:** GUI編集、save/load、package取得、PDF/SVG/PPTX出力を通常の製品経路で完走し、
+full gateと人間確認が同一HEADでgreen。ここを**Horizon A complete**とする。
+
+## Step 18 — Structured runtime / failure boundary
+
+**Status:** blocked — Horizon A待ち
+
+- Effect Lowering、Task scope、Cancellation、bracket cleanup
+- deterministic scheduler、Failure / Defect / Diagnostic lifecycle
+
+**Complete when:** 子Taskを残さず、全終了pathでcleanupし、Failure / Cancellation / Defectを
+混同せず、test scheduleを再現できる。
+
+## Step 19 — Perceus / ownership / resource safety
+
+**Status:** blocked — Step 18待ち
+
+- RC挿入、reuse analysis、borrow / liveness
+- Ownership / Reuse Verifierと参照Evaluator差分
+
+**Complete when:** leak、double release、use-after-move、continuation / cancellation境界の
+所有権違反を拒否し、最適化前後が観測同値である。
+
+## Step 20 — Layered IR / incremental pipeline
+
+**Status:** blocked — Step 19待ち
+
+- Domain / Layout / Visual / Compositing / Render / Backend Planning IR
+- incremental compile / eval / render、cache invalidation、Provenance Map
+
+**Complete when:** incremental resultがfull rebuildと同値で、stale commitを拒否し、
+page / frame / tile単位のbudgeted cacheを検証できる。
+
+## Step 21 — Full GUI runtime / collaboration
+
+**Status:** blocked — Step 20待ち
+
+- Stable Key reconciliation、lifecycle、focus / gesture / accessibility
+- codec、collaboration、override policy
+
+**Complete when:** reorder / replaceでstate ownerを誤らず、複数viewと共同transactionを安全に統合し、
+Part V / EDTの対応OPENを適合試験で閉じる。
+
+## Step 22 — Language / module / package depth
+
+**Status:** blocked — Step 21待ち
+
+- MOD signature / functor、TYP / ROW、advanced EFF
+- typed / package macro、DAT graph、PKG feature / entry
+
+**Complete when:** 各trancheが構文、型、Failure、identity、適合testを揃え、該当`deferred`を
+`ok`または承認済み仕様改訂へ移せる。
+
+## Step 23 — Domain expansion
+
+**Status:** blocked — Step 22待ち
+
+- slide / theme / master
+- vector / path / gradient / constraint
+- motion / timeline / video
+
+**Complete when:** slide deck、vector artwork、motion titleが同じDocument identity / transaction /
+Output Profile上でsource・GUI往復、save/load、backend出力を通る。
+
+## Step 24 — Conformance / hardening / proof closure
+
+**Status:** blocked — Step 23待ち
+
+- Part II残存`deferred` / `partial` / OPENの実装または仕様改訂
+- Part III–VI conformance、property test、fuzz、security / privacy / capability audit
+- 型安全性、Effect、主要lowering、transaction、incremental同値の必要な証明
+
+**Complete when:** 仕様の背景、目的、外部契約、Failure、Lifetime、Diagnostic、testが実装と一致し、
+残存項目が暗黙の未実装でなく明示的に閉じられる。ここを**Horizon B complete**とする。

@@ -19,6 +19,293 @@
 - 既知の制約
 ```
 
+## 0.1 現行の完成ロードマップ（Step 9–24）
+
+この節は、[`active-roadmap.md`](active-roadmap.md) Step 0–8完了後の長期実装順を定める。
+以下のStep 9–24が現行のmacro-Stepであり、後続の旧Phase記述は要件・設計根拠を参照するための
+詳細索引である。旧Phase番号やM1–M15を、現行Stepより優先して実行順に使ってはならない。
+
+完成は二段階で判定する。
+
+- **Horizon A — 実用製品完成（Step 17）:** 日本語文書と数式をGUIで編集し、保存、再読込、
+  package配布、PDF/SVG/PPTX出力まで信頼できる製品。
+- **Horizon B — 仕様完全実装（Step 24）:** 仕様第II–VI部の実装待ち領域、適合試験、
+  hardening、必要な証明が実装と一致した状態。
+
+Horizon AはHorizon Bの代用ではない。Horizon A後も、Part IIの`deferred`、Part III以降、
+完全なcollaboration、runtime、proof等はOPENであり得る。
+
+### 0.1.1 Macro-Step運用規則
+
+top-level Stepは、利用者に見える能力または後続全体を支える不変条件だけに割り当てる。
+
+- bugfix、追加fixture、個別follow-up、並行作業はStep内のsliceとする。
+- OPEN ID一つごとにStepを増やさない。複数OPENを製品能力または依存境界で束ねる。
+- 各Stepを`active`へ移す前に、slice順、受入条件、non-goals、gateを詳細planへ固定する。
+- 同時に`active`とするmacro-Stepは一つだけとする。独立作業は同Step内の並行sliceとして扱う。
+- 完了には実装、直接test、host実行、文書同期を含む。限定testだけをmacro-Step完了としない。
+- 未決定OPENを暗黙の既定値で閉じない。公開契約へ影響する場合は仕様変更として扱う。
+
+### 0.1.2 依存関係
+
+```text
+Steps 0–8 complete
+  ↓
+9 Structured authoring + Provenance
+  ↓
+10 Editor persistence v1
+  ↓
+11 Shaping / font resource v2
+  ├─→ 12 Japanese Document Profile v2
+  └─→ 13 Math Profile v2 + GUI editing
+          ↓
+14 Multi-page publication layout
+  ↓
+15 Export / print / accessibility parity
+  ↓
+16 Package distribution + Native portability
+  ↓
+17 Product beta / release gate  ← Horizon A
+  ↓
+18 Structured runtime / failure boundary
+  ↓
+19 Perceus / ownership / resource safety
+  ↓
+20 Layered IR / incremental pipeline
+  ↓
+21 Full GUI runtime / collaboration
+  ↓
+22 Language / module / package depth
+  ↓
+23 Domain expansion
+  ↓
+24 Conformance / hardening / proof closure ← Horizon B
+```
+
+Step 11のfont/shaping基盤上でStep 12と13のengine作業はslice単位で並行化できる。
+Step 16のnetworkを伴わないartifact identity / portable fallback設計も、offline gateを維持する
+範囲で先行検証できる。ただしmacro-Stepの完了順は上記を正とする。
+
+## 0.2 Horizon A — 実用製品完成
+
+### Step 9 — 構造化ページ作者編集とProvenance
+
+`document/page`の`doc-page` / flow / section / heading / paragraph / columnsを、flatten済みsceneではなく
+作者sourceの構造を保ってGUI編集できるようにする。literal、shared binding、GUI override、
+逆変換不能を区別し、黙って低水準graphicsへ変換しない。
+
+**Complete when:**
+
+- heading、paragraph、indent、columnsの変更がSourceへ戻り、保存・再読込後も維持される。
+- GUI編集後のPDF/SVGが同じ意味を持ち、transaction failureは部分変更を残さない。
+- scene nodeからSource span / authoring nodeへProvenanceを辿れる。
+- markup作者同期は理由付きsoft-refuseのままであり、暗黙にscopeへ入らない。
+
+### Step 10 — Editor persistence v1
+
+日常的な編集に必要な履歴と永続化を、Document stateとGUI stateを混ぜずに実装する。
+
+**Complete when:**
+
+- Undo/Redo、atomic save、crash recovery、snapshot compactionがtransaction単位で動く。
+- schema versionとmigration graphがあり、未知extensionとpartial recoveryを安全に扱う。
+- Stable Node IDがsave/loadで維持され、Capability、Secret、Task、native pointerを保存しない。
+- IME composition、caret、selectionがsource/document revision変更後にrebaseされる。
+
+### Step 11 — Text shaping / font resource v2
+
+`OPEN-TEXT-LAYOUT-001`のうち製品に必要なtyped layout protocol、font fallback、complex shaping、
+bidiを共有font/shaping基盤へ実装する。
+
+**Complete when:**
+
+- fallback chainが決定的で、missing glyphはfallbackまたは構造化Failureとなる。
+- Unicode rangeとcluster mapを保持し、ligatureや複雑scriptでもsource対応を失わない。
+- metric-changing substitutionは必ずrelayoutし、backendが古い座標を再利用しない。
+- mixed LTR/RTLと日本語混在のfixtureでpreview/exportのglyph位置が一致する。
+
+### Step 12 — Japanese Document Profile v2
+
+Profile v1とStep 8の上に、jukugo、縦ルビ、ruby overhang、より完全な`vrt2` / 文字方向処理、
+JLReq rule vectorを追加する。
+
+**Complete when:**
+
+- jukugo配分、縦ルビ、overhangがfont-backed `GlyphRun`としてpreview/exportされる。
+- 横組・縦組・ruby・tate-chu-yoko・傍点を同一文書で組み合わせた適合exampleが通る。
+- 実装したJLReq規則とfixtureが対応付けられ、未実装のappendix C / CSS互換範囲が明記される。
+- stub heuristicは差分参照として残り、製品pathへsilent fallbackしない。
+
+### Step 13 — Math Profile v2とGUI編集
+
+OpenType MATHのfull glyph assembly、MATH kern、font metrics、alignment / equation numberの基礎を
+実装し、math treeをfirst-class GUI編集対象にする。
+
+**Complete when:**
+
+- delimiter assembly、script/limit kern、fraction/radical/accentがfont tableで配置される。
+- numerator、denominator、script、matrix cell等をGUI編集し、Sourceへ構造を保って戻せる。
+- inline/display math、alignment、equation numberの実用subsetを文書内で使用できる。
+- ASCII代用やunsupported assemblyを黙って出力せず、明示的FailureまたはLossとする。
+
+### Step 14 — 複数ページ出版レイアウト
+
+日本語記事・小冊子を作るため、Page / Flow / Sectionを複数ページへ拡張する。
+
+**Complete when:**
+
+- page break、版面、heading、list、note、figure、tableの実用subsetが動く。
+- footnote、reference、indexの最小一貫経路があり、再flow後もidentityと参照が安定する。
+- 数式・縦組・図表を含む複数ページ文書を部分relayoutしてもfull rebuildと同じ結果になる。
+- `japanese-article.rpx`相当をGUI編集、save/load、preview/exportできる。
+
+### Step 15 — Export / print / accessibility parity
+
+PDF、SVG、PPTXで同じlayout結果を消費し、Output Profile、Loss、Artifact Verificationを製品契約にする。
+
+**Complete when:**
+
+- `GlyphRun`のfont identityと位置が各backendで保持され、font substitution policyが明示される。
+- profile不一致はplanning時に拒否され、emitterがplan外fallbackを行わない。
+- heading、reading order、math等のaccessibility情報を対応profileで保持する。
+- print向けのpage size、bleed / crop、color policyの宣言範囲を検証できる。
+
+### Step 16 — Package配布とNative portability
+
+local/offline package sliceとDirect Native v2を、再現可能な配布境界へ拡張する。
+
+**Complete when:**
+
+- network registry、full-tree artifact hash、lock再現性、cache policyが実装される。
+- Core resource effectとbracket cleanupが型・runtime境界で分離される。
+- ABI/version negotiationとnative-unavailable routingがあり、portable fallbackを差分試験できる。
+- offline build/testはnetwork機能追加後も常にgreenで、network testは明示的に隔離される。
+
+### Step 17 — Product beta / release gate
+
+Horizon Aの統合受入。個別engineのunit completeではなく、利用者の制作経路を閉じる。
+
+**Complete when:**
+
+- 日本語記事とmath showcaseをGUIで編集し、save/load、PDF/SVG/PPTX出力できる。
+- package取得、font/resource解決、diagnostic、Loss approvalを通常UI/CLIから扱える。
+- reproducible release artifact、version/migration policy、known limitationsを公開できる。
+- full offline gates、fuzz/decode budget、changed-host smoke、人間GUI確認が同一HEADで通る。
+
+この時点を**実用製品完成**と呼ぶ。Part II deferredゼロや形式的証明完了は意味しない。
+
+## 0.3 Horizon B — 仕様完全実装
+
+### Step 18 — Structured runtime / failure boundary
+
+Effect Lowering、Task scope、Cancellation、bracket cleanup、deterministic scheduler、
+Failure / Defect / Diagnostic lifecycleを仕様第III部どおり実装する。
+
+**Complete when:** 子Taskを残さず、Failure/Cancellation/Defectを混同せず、全終了pathでcleanupし、
+同じscheduler seedで実行を再現できる。
+
+### Step 19 — Perceus / ownership / resource safety
+
+RC挿入、reuse analysis、borrow/liveness、Ownership / Reuse Verifierを規範pathへ導入する。
+
+**Complete when:** 参照Evaluatorと最適化Evaluatorが観測同値で、leak、double release、use-after-move、
+continuation / cancellation境界の所有権違反をVerifierが拒否する。
+
+### Step 20 — Layered IR / incremental pipeline
+
+Domain / Layout / Visual / Compositing / Render / Backend Planning IRとProvenance Mapを完成させ、
+incremental compile/eval/renderを同じdependency modelで動かす。
+
+**Complete when:** incremental resultがfull rebuildと同値で、stale resultをcommitせず、
+page/frame/tile単位のcache invalidationとbudget evictionを検証できる。
+
+### Step 21 — Full GUI runtime / collaboration
+
+Stable Key reconciliation、component lifecycle、focus/gesture/accessibility、codec、
+collaboration、override policyを完成させる。
+
+**Complete when:** reorder/replaceでstate ownerを誤らず、複数viewと共同transactionを安全に統合し、
+Part VおよびEDTの対応するOPENを適合試験で閉じる。
+
+### Step 22 — Language / module / package depth
+
+MOD signature / functor、TYP / ROW、advanced EFF、typed/package macro、DAT graph、
+PKG feature / entry等を依存順のtrancheで実装する。
+
+**Complete when:** 各trancheが公開構文・型・Failure・identity・適合testを揃え、
+Part IIの該当`deferred`を`ok`または仕様改訂へ移せる。
+
+### Step 23 — Domain expansion
+
+slide/theme/master、vector/path/gradient/constraint、motion/timeline/videoを、
+同じDocument identity、transaction、Output Profile上へ追加する。
+
+**Complete when:** slide deck、vector artwork、motion titleのshowcaseがsource/GUI往復、
+save/load、適切なbackend出力を通り、domainごとのsilent lossがない。
+
+### Step 24 — Conformance / hardening / proof closure
+
+仕様全体の最終受入。件数を機械的に消すのではなく、実装または明示的仕様改訂で閉じる。
+
+**Complete when:**
+
+- Part IIの`deferred` / `partial` / 未決定OPENが実装または承認済み仕様変更へ収束する。
+- Part III–VIのconformance suite、property test、fuzz、security/privacy/capability auditが通る。
+- Core型安全性、Effect音全性、主要lowering、transaction atomicity、incremental同値の必要な証明がある。
+- 仕様の背景、目的、外部契約、Failure、Lifetime、Diagnostic、testが実装と一致する。
+
+この時点を**仕様完全実装**と呼ぶ。
+
+## 0.4 旧Phase / Milestoneとの対応
+
+- 旧Phase 3–4 / M2–M3 → Step 9（製品sliceで未完だったProvenance / Overrideを含む）
+- 旧Phase 8–9 / M7 → Step 10およびStep 21
+- 旧Phase 14 / M12 → Steps 11–12、14
+- 旧Phase 14 / M13 → Step 13
+- 旧Phase 7・12 / M6・M9 → Step 15およびStep 20
+- 旧Phase 10–11 / M8 → Step 16
+- 旧Phase 5 / M4 → Step 18
+- 旧Phase 6 / M5 → Step 19
+- 旧Phase 14 / M14–M15、およびM10 → Step 23
+- 旧Phase 13のoptimization / hardening / proof → Steps 20、24
+
+旧Milestoneは成果物分類として参照できるが、完了状態と実行順は
+[`active-roadmap.md`](active-roadmap.md) と本節のmacro-Stepを正とする。
+
+## 0.5 OPEN / 仕様Part対応
+
+主要なOPENと仕様Partを次のmacro-Stepへ割り当てる。ここでの割当は実装済みを意味しない。
+各OPENの現在状態は[`implemented-features.md`](implemented-features.md)を正とする。
+
+- **Step 9–10:** `OPEN-EDT-001`、`OPEN-EDT-OVERRIDE-001`、
+  `OPEN-EDT-CODEC-001`の製品必須subset。Part Vのfull reconciliation / collaborationはStep 21。
+- **Step 11:** `OPEN-TEXT-LAYOUT-001`、font fallback、complex shaping、bidi、
+  metric-changing relayout。
+- **Step 12:** `OPEN-TEXT-JA-001`のjukugo、縦ルビ、overhang、方向処理。
+  full appendix C / CSS完全閉包はStep 24。
+- **Step 13:** OpenType MATH残差、first-class editable math。
+- **Step 14–15:** Part IVの出版Layout、Backend Capability、Output Profile、
+  `OPEN-BACKEND-PROFILE-001`、Artifact Verification。
+- **Step 16:** `OPEN-PKG-001`、`OPEN-REG-001`、`OPEN-NATIVE-PKG-001`、
+  `OPEN-KER-001`のABI subset、RSC-001 resource effect。
+- **Step 18:** `OPEN-CON-001`、ASY-001、`OPEN-ERR-001`、
+  `OPEN-ERR-DIAG-001`、Part IIIのTask / Cancellation / Failure境界。
+- **Step 19:** `OPEN-MEM-001`、`OPEN-MEM-CONT`、`OPEN-MEM-BORROW-001`、
+  Part IIIのresource / ownership safety。
+- **Step 20:** `OPEN-IR-001`、Part IVのincremental pipeline / layered IR。
+- **Step 21:** `OPEN-EDT-COLLAB-001`、`OPEN-GUI-STATE-001`、
+  Part VのGUI runtime契約。
+- **Step 22:** `OPEN-MOD-REC-001`、`OPEN-MOD-FC-001`、`OPEN-MOD-GEN-001`、
+  `OPEN-MAC-TYPED-001`、`OPEN-MAC-PKG-001`、`OPEN-GRAPH`、
+  TYP / ROW / EFF / PKGの残tranche。
+- **Step 23:** Part IV–Vのslide / vector / motionとdynamic backend。
+- **Step 24:** `OPEN-TST-001`、Part VI Test / Native適合、残るPart II `deferred`、
+  hardening、audit、proof。
+
+仕様Part III–VIの実装待ち領域を「製品で今使っていない」ことだけで削除しない。
+一方、Step 24で機械的に件数を減らすためだけの実装も行わず、不要になった契約は
+第VIII部の手順で仕様改訂する。
+
 ## 1. 全体戦略
 
 reciplexaの本質は、文字によるRPX SourceとWYSIWYG GUIの双方向編集である。したがって、次の二つの極端な進め方は採用しない。
@@ -738,7 +1025,7 @@ Motion IR、Timeline、Preview、Video出力が動く。
 
 この12項目で最初のVertical Sliceを完成させる。以後のSubsystemは、この経路を壊さない形で拡張する。
 
-## 20. Phase 14: 標準Package群による実用化
+## 20. 旧Phase 14: 標準Package群による実用化（要件索引）
 
 ### 20.1 目的
 
@@ -937,7 +1224,11 @@ M15: Vector Design
 Path、Gradient、Constraintを使うVector artworkを制作できる。これは、glispでできることを参考にする
 ```
 
-## 21. 最終的な実装順序
+## 21. 旧Phaseによる実装順序（現行順ではない）
+
+以下は初期設計時の依存関係を保存した参考図である。日本語・Math product engine、
+Direct Native v2、複数backendが先行してlandedしたため、現在の実行順には使わない。
+現行順は本書§0.1および[`active-roadmap.md`](active-roadmap.md) Step 9–24を正とする。
 
 ```text
 Core Infrastructure
