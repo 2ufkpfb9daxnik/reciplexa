@@ -7,3 +7,4 @@ pub mod persistence;
 pub mod pipeline_cache;
 pub mod prefs;
 pub mod preview_paint;
+pub mod rebase;

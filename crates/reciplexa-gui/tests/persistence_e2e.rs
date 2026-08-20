@@ -73,3 +73,15 @@ fn authoring_undo_roundtrip_via_revision_log() {
     assert_eq!(undo.undo(&v2).as_deref(), Some(v1));
     assert_eq!(undo.redo(v1).as_deref(), Some(v2.as_str()));
 }
+
+#[test]
+fn layer_selection_rebase_survives_undo_source_swap() {
+    use reciplexa_gui::rebase::{capture_layer_anchors, resolve_layer_indices};
+
+    let v1 = TEXT_LINE;
+    let v2 = TEXT_LINE.replace("circle", "ellipse");
+    let anchors = capture_layer_anchors(v1, 0, &[0]);
+    assert!(!anchors.is_empty());
+    assert_eq!(resolve_layer_indices(&v2, 0, &anchors), vec![0]);
+    assert_eq!(resolve_layer_indices(v1, 0, &anchors), vec![0]);
+}

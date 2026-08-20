@@ -112,24 +112,42 @@ fn suppress_ime_confirm_newline(ctx: &egui::Context, hold_frames: &mut u8) {
     }
 }
 
-fn byte_to_char_index(s: &str, byte: usize) -> usize {
-    let mut b = byte.min(s.len());
-    while b > 0 && !s.is_char_boundary(b) {
-        b -= 1;
-    }
-    s[..b].chars().count()
-}
-
 fn highlight_source_range(ctx: &egui::Context, source: &str, start: usize, end: usize) {
     let id = egui::Id::new("rpx_source_editor");
-    let c0 = byte_to_char_index(source, start);
-    let c1 = byte_to_char_index(source, end);
+    let c0 = reciplexa_gui::rebase::byte_to_char_index(source, start);
+    let c1 = reciplexa_gui::rebase::byte_to_char_index(source, end);
     if let Some(mut state) = egui::text_edit::TextEditState::load(ctx, id) {
         state
             .cursor
             .set_char_range(Some(CCursorRange::two(CCursor::new(c0), CCursor::new(c1))));
         state.store(ctx, id);
     }
+}
+
+fn rebase_source_editor(ctx: &egui::Context, old_source: &str, new_source: &str) {
+    let id = egui::Id::new("rpx_source_editor");
+    let Some(mut state) = egui::text_edit::TextEditState::load(ctx, id) else {
+        return;
+    };
+    let Some(range) = state.cursor.char_range() else {
+        return;
+    };
+    let b0 = reciplexa_gui::rebase::char_to_byte_index(old_source, range.primary.index);
+    let b1 = reciplexa_gui::rebase::char_to_byte_index(old_source, range.secondary.index);
+    let (start, end) = if b0 <= b1 { (b0, b1) } else { (b1, b0) };
+    let (r0, r1) = reciplexa_gui::rebase::rebase_byte_range(old_source, new_source, start, end);
+    let c0 = reciplexa_gui::rebase::byte_to_char_index(new_source, r0);
+    let c1 = reciplexa_gui::rebase::byte_to_char_index(new_source, r1);
+    state
+        .cursor
+        .set_char_range(Some(CCursorRange::two(CCursor::new(c0), CCursor::new(c1))));
+    state.store(ctx, id);
+}
+
+fn clear_ime_composition(ctx: &egui::Context) {
+    ctx.input_mut(|input| {
+        input.events.retain(|e| !matches!(e, egui::Event::Ime(_)));
+    });
 }
 
 fn escape_lisp_string(s: &str) -> String {
@@ -241,6 +259,7 @@ fn gui_main() -> ExitCode {
                 pan: egui::vec2(prefs.pan_x, prefs.pan_y),
                 selected: Vec::new(),
                 pending_source_select: None,
+                pending_editor_rebase: None,
                 textures: std::collections::HashMap::new(),
                 ime_enter_hold: 0,
                 authoring_undo: reciplexa_gui::persistence::AuthoringUndo::new(100),
@@ -298,6 +317,8 @@ struct PreviewApp {
     pan: egui::Vec2,
     selected: Vec<usize>,
     pending_source_select: Option<(usize, usize)>,
+    /// Rebase the source editor caret after a wholesale revision (undo/redo/open).
+    pending_editor_rebase: Option<(String, String)>,
     /// Texture cache keyed by image path string from the `.rpx`.
     textures: std::collections::HashMap<String, egui::TextureHandle>,
     /// Frames to keep suppressing Enter after IME Commit.
@@ -466,8 +487,29 @@ impl PreviewApp {
     }
 
     fn apply_source_revision(&mut self, new_src: String) {
+        let old_src = self.source.clone();
+        let layer_anchors = reciplexa_gui::rebase::capture_layer_anchors(
+            &old_src,
+            self.page_index,
+            &self.selected,
+        );
         self.source = new_src;
         self.drag = None;
+        self.pending_editor_rebase = Some((old_src, self.source.clone()));
+        self.selected = reciplexa_gui::rebase::resolve_layer_indices(
+            &self.source,
+            self.page_index,
+            &layer_anchors,
+        );
+        if let Some(&idx) = self.selected.last() {
+            if let Ok(layers) = collect_layers_authoring(&self.source, self.page_index) {
+                if let Some(layer) = layers.get(idx) {
+                    self.pending_source_select = Some((layer.byte_start, layer.byte_end));
+                }
+            }
+        }
+        self.typing_undo_open = false;
+        self.props_undo_open = false;
         self.error = self.compiled().err();
         self.rebuild_document_path();
         self.last_journaled_source = None;
@@ -3095,6 +3137,11 @@ fn pane_chrome(
 impl eframe::App for PreviewApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         suppress_ime_confirm_newline(ctx, &mut self.ime_enter_hold);
+        if let Some((old, new)) = self.pending_editor_rebase.take() {
+            rebase_source_editor(ctx, &old, &new);
+            clear_ime_composition(ctx);
+            self.ime_enter_hold = 0;
+        }
         self.refresh_window_title(ctx);
         self.persist_source_journal_if_dirty();
         self.sync_gui_runtime();
@@ -3752,7 +3799,7 @@ fn to_package_insert_form(form: &str) -> String {
 
 #[cfg(test)]
 mod byte_index_tests {
-    use super::byte_to_char_index;
+    use reciplexa_gui::rebase::byte_to_char_index;
 
     #[test]
     fn mid_multibyte_does_not_panic() {
