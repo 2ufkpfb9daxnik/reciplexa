@@ -195,23 +195,21 @@ Horizon AをPart II deferredゼロや形式的証明完了と混同しない。
 
 ## Step 9 — 構造化ページ作者編集とProvenance
 
-**Status:** active — slices 1–3 landed（[`step9-document-authoring-plan.md`](step9-document-authoring-plan.md)）
+**Status:** complete（gate §2.4.4; [`step9-document-authoring-plan.md`](step9-document-authoring-plan.md)）
 
 - `document/page`のheading / paragraph / indent / columnsを作者sourceの構造を保ってGUI編集する
 - literal / shared binding / GUI override / 逆変換不能を区別する
 - scene nodeからSource span / authoring nodeへのProvenanceを固定する
 - markup作者同期は理由付きsoft-refuseのまま維持する
 
-**Landed (slices 1–3):** `sync/document.rs`（layer 収集 + text / indent-em / columns 編集）、GUI layer pane + props、doc-page canvas nudge soft-refuse、`document_snapshot_from_source` provenance、E2E（`pkg_document_indent.rpx` / `pkg_columns.rpx`）。
-
-**Remaining (slice 4):** workspace gate 記録、独立監査、人間 GUI 確認。
+**Landed:** `sync/document.rs`（layer 収集 + text / indent-em / columns 編集）、GUI layer pane + props、doc-page canvas nudge soft-refuse、`document_snapshot_from_source` provenance、E2E（`pkg_document_indent.rpx` / `pkg_columns.rpx` save/reload/PDF/SVG）。
 
 **Complete when:** 構造化ページをGUI編集し、Source保存・再読込・PDF/SVGへ意味を保って往復でき、
-transaction failureが部分変更を残さず、逆変換不能を黙って低水準化しない。
+transaction failureが部分変更を残さず、逆変換不能を黙って低水準化しない。✓
 
 ## Step 10 — Editor persistence v1
 
-**Status:** blocked — Step 9待ち
+**Status:** active（[`step10-editor-persistence-plan.md`](step10-editor-persistence-plan.md)）
 
 - Undo/Redo、atomic save、crash recovery、snapshot compaction
 - schema version、migration graph、unknown extension、partial recovery

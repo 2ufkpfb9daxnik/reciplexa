@@ -577,6 +577,19 @@ mod tests {
     }
 
     #[test]
+    fn edits_column_params() {
+        let layers = collect_layers_document(PKG_COLUMNS, 0).unwrap();
+        let cols_idx = layers
+            .iter()
+            .position(|l| l.kind == "doc-columns")
+            .unwrap();
+        let out = set_document_columns_gutter(PKG_COLUMNS, 0, cols_idx, 2.0).unwrap();
+        assert!(out.contains("(columns 2 2 21"));
+        let out2 = set_document_columns_count(&out, 0, cols_idx, 3).unwrap();
+        assert!(out2.contains("(columns 3 2 21"));
+    }
+
+    #[test]
     fn edits_paragraph_and_indent_text() {
         let layers = collect_layers_document(PKG_INDENT, 0).unwrap();
         let body_idx = layers

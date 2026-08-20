@@ -143,6 +143,23 @@ Env D / offline。Step 8 items 1–3（simple ruby、`vert` 縦組、縦中横 /
 
 **人間 GUI 確認（2026-08-20）:** OK（`pkg_ruby.rpx` simple ruby、`pkg_tcy_bou.rpx` 縦中横・傍点）。`pkg_vert.rpx`: CJK 縦積み・ABC −90° 回転で上→下は **Step 8 想定どおり**。`。` `、` `ー` は GSUB `vert` 字形差替のみで **JLReq の縦組位置（打込み/突き出し等）は未実装** — Step 12 / `OPEN-TEXT-JA-001` へ残す。
 
+### 2.4.4 Step 9 構造化ページ作者編集 完了gate（code HEAD `7ed3389` + slice 4）
+
+Env D / offline。`document/page` の heading / paragraph / indent-em / columns を layer pane + props から Source へ往復。doc-page canvas nudge は soft-refuse。markup は soft-refuse 維持。
+
+| Command | 結果 |
+|---------|------|
+| `cargo fmt --all --check` | green |
+| `cargo clippy --workspace --all-targets --offline -- -D warnings` | green |
+| `cargo test --workspace --offline` | green |
+| `cargo check --workspace --all-targets --offline` | green |
+| `cargo run --offline -p reciplexa-gui -- --smoke examples/text_line.rpx` | green (`smoke: ok`) |
+| `cargo run --offline -p reciplexa -- examples/text_line.rpx .tmp/step9-gate-smoke.pdf` | green |
+| `cargo test -p reciplexa-lower sync::document::tests --offline` | 6 passed |
+| `cargo test -p reciplexa-gui --test vertical_slice_e2e --offline` | 7 passed |
+
+**人間 GUI 確認（2026-08-20）:** OK（`pkg_document_indent.rpx` / `pkg_columns.rpx` — layer + props 編集）。
+
 ### 2.5 製品Vertical Slice（**product slice complete**）
 
 保証する範囲（package形式1ページ、`examples/text_line.rpx` 相当）:
@@ -156,7 +173,9 @@ Env D / offline。Step 8 items 1–3（simple ruby、`vert` 縦組、縦中横 /
 
 - markup 作者同期
 - 製品級 JLReq / OpenType MATH
-- `document/page` の `doc-*` 作者編集
+- `document/page` の canvas 位置 nudge（構造編集と矛盾するため soft-refuse）
+
+`document/page` の heading / paragraph / indent-em / columns は **Step 9 で layer + props から Source 往復**（[`step9-document-authoring-plan.md`](step9-document-authoring-plan.md)）。
 
 これは長期 `roadmap.md` Phase 4 の Provenance / Shared Style / GUI Override 全体の完了ではない。
 
@@ -245,7 +264,7 @@ pre-PKG カーネルは計画上 **COMPLETE（意図的 defer 付き）**。各�
 
 ## 6. 次工程
 
-実行順の正本は [`active-roadmap.md`](active-roadmap.md)。Step 8 は完了（[`jlreq-followup-plan.md`](jlreq-followup-plan.md); gate HEAD `f9151cd`）。**Step 9 active**（[`step9-document-authoring-plan.md`](step9-document-authoring-plan.md); slices 1–3 landed）— `document/page` の heading / paragraph / indent-em / columns を layer pane + props から Source へ往復。doc-page の canvas nudge は soft-refuse。markup は soft-refuse のまま。
+実行順の正本は [`active-roadmap.md`](active-roadmap.md)。Step 8 は完了（[`jlreq-followup-plan.md`](jlreq-followup-plan.md); gate HEAD `f9151cd`）。**Step 9 complete**（[`step9-document-authoring-plan.md`](step9-document-authoring-plan.md); gate §2.4.4）— `document/page` の heading / paragraph / indent-em / columns を layer pane + props から Source へ往復。doc-page の canvas nudge は soft-refuse。**Step 10 active**（[`step10-editor-persistence-plan.md`](step10-editor-persistence-plan.md)）— Editor persistence v1。
 
 1. **package 実運用化 local/offline slice** — [`package-plan.md`](package-plan.md): lock再現性、typed resource light、自動materialize、offline registry mirrorまで完了。network registry、full-tree hash、Core resource effectは別OPEN。
 2. **Direct Native v2** — [`direct-native-v2-plan.md`](direct-native-v2-plan.md) **shipping complete**（DN2-0〜DN2-7 + 本番 BindingId dispatch via `op_for`）。標準packageは DN2 stub + compilation BindingId（`dn2bid-*`）+ typed Rust callable。author import 綴り（修飾 / alias / bare）は canonical `package/module` へ対応。Hybrid 参照本文は `LocalPackageIndex` override のみ。portable fallback は `OPEN-NATIVE-PKG-001` で明示追跡（未実装）。
@@ -263,7 +282,7 @@ pre-PKG カーネルは計画上 **COMPLETE（意図的 defer 付き）**。各�
 4. **OPEN-TEXT-LAYOUT-001**（Step 11）— 共通 Text Layout protocol の正確な型、font fallback、HarfBuzz 級 shaping、bidi。Profile v1 の行分割・行調整は font-backed。残りの bullets は閉じない。
 5. **OPEN-TEXT-JA-001**（Step 12、完全閉包はStep 24）— 完全 UCS / 規範的 appendix C 全体 / CSS `text-orientation` / `text-emphasis` / jukugo 配分・縦ルビ・overhang / **縦組句読点・長音（`。` `、` `ー` 等）の JLReq 位置調整**（Step 8 は GSUB `vert` 字形差替と vmtx 積みのみ）。Profile v1 はクラス行列・cl-08 glue・hang/trim/justify。Step 8 item 1 は横組 simple ruby。item 2 は vertical-rl + GSUB `vert`。item 3 は tate-chu-yoko（ASCII 1–4）と bou 円（親 em の外、`BOU_PARENT_GAP_EM`）。stub 層（Waves 4–29）は参照のまま閉じない。
 6. **OpenType MATH（Profile v1 以降）**（Step 13）— 完全 glyph assembly、MATH kern、`\fontdimen`、GUI 上の first-class editable math。Profile v1 は fixture MATH constants、font advance、scripts/fraction/radical（rule thickness）、stretchy は MATH Variants construction の prepared GID（cmap `(` ではない。scene `GlyphRun` / PDF Identity-H）、hat/tilde/dot/vec / bar-underline rules、display bigop variants、matrix/stack。check/breve 等の ASCII 代用はしない。`reciplexa-std::math` ヒューリスティックは参照。
-7. **本番ページ消費（editable）**（Step 9 **active**、Step 13–14）— `document/page` の heading / paragraph / indent-em / columns は layer + props から Source 往復（`sync/document.rs`）。math / JA markup tree の first-class GUI 編集は Step 13 以降。`live-layout-demo` 等のホスト preview は product engine。graphics `text` は cluster `GlyphRun`（authoring 1 ノード = 1 cluster run）。
+7. **本番ページ消費（editable）**（Step 9 **complete**、Step 13–14）— `document/page` の heading / paragraph / indent-em / columns は layer + props から Source 往復（`sync/document.rs`）。math / JA markup tree の first-class GUI 編集は Step 13 以降。`live-layout-demo` 等のホスト preview は product engine。graphics `text` は cluster `GlyphRun`（authoring 1 ノード = 1 cluster run）。
 8. **Font emission 残差**（Steps 11、15）— ホスト PDF は layout digest ごとに CID face を subset（`host_product_font` と `host_math_font`。同一 digest なら一面）。`Shape::GlyphRun` は layout GID を塗る。cmap 経路の非 ASCII `Text` は product face。digest 不一致は relayout エラー。Latin-only `Text` は Helvetica。GUI preview は同じ digest の egui familyで`GlyphRun`をlayout advance位置に置く（cmapグリフ。construction-only GIDのアウトラインはeguiではUnicode代用）。SVG/PPTXはUnicodeクラスタを同じ座標で出す。
 9. **markup 作者同期**（Step 21または22で仕様依存を再評価）— GUI CST sync v2 は package AST のみ。`(markup …)` 展開ページは soft-refuse（意図的）。Step 9のscopeには含めない。
 10. **その他意図的 skip** — 分数ルール色付け（既に黒）；`pkg_checksum_demo` 例（crate README で足りる）。

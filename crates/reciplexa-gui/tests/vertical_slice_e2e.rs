@@ -102,6 +102,20 @@ fn vertical_slice_package_shapes_text_roundtrip() {
     assert!(insert_layer_page(&src6, 0, "(circle 1 2 3)").is_err());
 }
 
+fn save_reload_roundtrip(src: &str, stem: &str) -> String {
+    let dir = std::env::temp_dir().join(format!(
+        "reciplexa-doc-page-{}-{}",
+        std::process::id(),
+        stem
+    ));
+    std::fs::create_dir_all(&dir).expect("temp dir");
+    let path = dir.join(format!("{stem}.rpx"));
+    std::fs::write(&path, src).expect("save");
+    let reloaded = std::fs::read_to_string(&path).expect("reload");
+    assert_eq!(reloaded, src);
+    reloaded
+}
+
 #[test]
 fn document_page_paragraph_roundtrip_export() {
     let src0 = PKG_DOCUMENT_INDENT;
@@ -129,17 +143,63 @@ fn document_page_paragraph_roundtrip_export() {
     .expect("indent edit");
     assert!(src2.contains("(paragraph-indented \"編集後の段落。\" 2)"));
 
-    let doc = document_from_source(&src2).expect("ingest");
+    let reloaded = save_reload_roundtrip(&src2, "indent");
+    let doc = document_from_source(&reloaded).expect("ingest");
     let texts = text_contents(&doc.pages[0].shapes);
     let joined: String = texts.concat();
     assert!(joined.contains("編集後の段落"), "joined={joined:?}");
 
-    let (doc_export, _) = document_for_export(&mut TestHandler::default(), &src2).expect("export");
+    let (doc_export, _) =
+        document_for_export(&mut TestHandler::default(), &reloaded).expect("export");
     let export_joined = text_contents(&doc_export.pages[0].shapes).concat();
     assert!(
         export_joined.contains("編集後の段落"),
         "export_joined={export_joined:?}"
     );
+    let pdf = document_to_pdf(&doc_export).expect("pdf");
+    assert!(pdf.starts_with(b"%PDF-"));
+    let svg = document_to_svg(&doc_export).expect("svg");
+    assert!(svg.contains("<svg"));
+}
+
+#[test]
+fn document_page_columns_roundtrip_export() {
+    let layers = collect_layers_authoring(PKG_COLUMNS, 0).expect("layers");
+    let cols_idx = layers
+        .iter()
+        .position(|l| l.kind == "doc-columns")
+        .expect("columns layer");
+    let left_idx = layers
+        .iter()
+        .position(|l| l.label.contains("左カラム"))
+        .expect("left column");
+
+    let prop_ctx = PropEditContext {
+        aabb_mm: (0.0, 0.0, 100.0, 20.0),
+        paper_w_mm: 210.0,
+        paper_h_mm: 297.0,
+    };
+    let src1 = set_layer_prop(
+        PKG_COLUMNS,
+        0,
+        cols_idx,
+        "columns.gutter",
+        &PropValue::Number(2.0),
+        &prop_ctx,
+    )
+    .expect("gutter edit");
+    assert!(src1.contains("(columns 2 2 21"));
+
+    let src2 = set_text_content_authoring(&src1, 0, left_idx, "左を更新").expect("edit left");
+    let reloaded = save_reload_roundtrip(&src2, "columns");
+    let doc = document_from_source(&reloaded).expect("ingest");
+    let joined: String = text_contents(&doc.pages[0].shapes).concat();
+    assert!(joined.contains("左を更新"), "joined={joined:?}");
+
+    let (doc_export, _) =
+        document_for_export(&mut TestHandler::default(), &reloaded).expect("export");
+    let export_joined = text_contents(&doc_export.pages[0].shapes).concat();
+    assert!(export_joined.contains("左を更新"));
     let pdf = document_to_pdf(&doc_export).expect("pdf");
     assert!(pdf.starts_with(b"%PDF-"));
     let svg = document_to_svg(&doc_export).expect("svg");
