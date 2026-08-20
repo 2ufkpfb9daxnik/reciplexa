@@ -1,6 +1,6 @@
 # JLReq follow-ups (Step 8)
 
-**Status:** complete (items 1–3 on code HEAD `caa2afd`)  
+**Status:** complete (items 1–3 on code HEAD `caa2afd`; gate / docs HEAD `52d088e`)  
 **Execution order:** [`active-roadmap.md`](active-roadmap.md) Step 8, after Step 7 item 3 Profile v1  
 **Normative anchors:** `OPEN-TEXT-JA-001`, JLReq ruby / vertical writing, Font Policy  
 **Does not close:** full appendix C, full `vrt2`/script-lang GSUB, CSS `text-orientation` / `text-emphasis`, jukugo distribution, vertical ruby
@@ -37,4 +37,4 @@ Jukugo per-character distribution, ruby overhang / 親文字送り, and vertical
 4. `RECIPLEXA_TYPESET_ENGINE=stub` does not switch `tate-chu-yoko-width` / `bou-box` to product metrics.
 5. Host preview/export of `examples/pkg_tcy_bou.rpx` uses the product engine unless stub is forced.
 
-Slice 3 conditions 1–5 hold on code HEAD `caa2afd` (host/package tests). Step 8 implementation is **landed**; workspace gate and §2.4.3 are recorded after the `pt9` origin assertion fix. **Human GUI check** (see `active-roadmap.md` Step 8) is required before marking `complete`. Remaining `OPEN-TEXT-JA-001` bullets (jukugo, vertical ruby, overhang, full `vrt2` / `text-orientation` / CSS `text-emphasis`) stay OPEN and are assigned to Step 12 / Step 24. Step 9 is structured page authoring; these bullets are not its implicit scope.
+Slice 3 conditions 1–5 hold on code HEAD `caa2afd`. Step 8 is **complete** (gate HEAD `52d088e`; human GUI 2026-08-20). Human note: vertical punctuation (`。` `、` `ー`) still uses cell-center stacking without JLReq hang/trim — Step 12. Remaining `OPEN-TEXT-JA-001` bullets (jukugo, vertical ruby, overhang, full `vrt2` / `text-orientation` / CSS `text-emphasis`) stay OPEN and are assigned to Step 12 / Step 24. Step 9 is structured page authoring.

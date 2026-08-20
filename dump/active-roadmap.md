@@ -145,7 +145,7 @@ Step 7はSteps 1–6のgreen HEADを基準線として開始した。
 
 ## Step 8 — JLReq follow-ups
 
-**Status:** landed — 実装 `caa2afd`、workspace gate green、gate 記録済み。**人間 GUI 確認待ち**（下記）。確認記録後に `complete` とする。
+**Status:** complete (items 1–3; 実装 `caa2afd`; gate / 文書 `52d088e`; 人間 GUI 2026-08-20)
 
 人間が Vertical Slice の GUI 確認を済ませたあとの次工程。[`jlreq-followup-plan.md`](jlreq-followup-plan.md)
 
@@ -167,21 +167,11 @@ Step 7はSteps 1–6のgreen HEADを基準線として開始した。
    - 人間 GUI 確認: `令和12年` と傍点が紙面内に見え、点が親 em の外に付く
 
 **Complete when:** items 1–3 の受入を満たし、残 follow-up が OPEN のまま列挙され、§2.4.3 gate が green、
-人間 GUI 確認が記録される。 → 実装 `caa2afd`、gate repair 後 workspace green、GUI 確認待ち
+人間 GUI 確認が記録される。 → `52d088e`（実装 `caa2afd` + gate repair + 人間 GUI 2026-08-20）
 
-**人間 GUI 確認手順（item 3 必須; items 1–2 も推奨）:**
+**人間 GUI 確認（2026-08-20）:** `pkg_ruby` / `pkg_tcy_bou` OK。`pkg_vert`: 縦積み・ABC 回転上→下 OK。`。` `、` `ー` の縦組位置は Step 12 へ（Step 8 非ゴール）。
 
-```powershell
-cargo run -p reciplexa-gui -- examples/pkg_tcy_bou.rpx
-cargo run -p reciplexa-gui -- examples/pkg_ruby.rpx
-cargo run -p reciplexa-gui -- examples/pkg_vert.rpx
-```
-
-- `pkg_tcy_bou.rpx`: 縦組で `令和12年`（`12` は1emセル内で正立横並び）、`重要` の傍点が親 em の外
-- `pkg_ruby.rpx`: simple ruby が親の真上
-- `pkg_vert.rpx`: 縦組 CJK 直立、列は右から左
-
-残 OPEN（この Step では実装しない）: jukugo 配分、縦ルビ、ruby overhang、完全 `vrt2` / `text-orientation` / CSS `text-emphasis`。これらはStep 11–12へ依存順に登録したため、Step 8の暗黙の続きとして着手しない。
+残 OPEN（この Step では実装しない）: jukugo 配分、縦ルビ、ruby overhang、完全 `vrt2` / `text-orientation` / CSS `text-emphasis`、**縦組句読点・長音の JLReq 位置調整**（`。` `、` `ー` 等。Step 8 item 2 は GSUB `vert` + vmtx 積みのみ）。これらはStep 11–12へ依存順に登録したため、Step 8の暗黙の続きとして着手しない。
 
 ## Step 9以降のmacro-Step運用
 
