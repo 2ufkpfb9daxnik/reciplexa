@@ -1,6 +1,6 @@
 # Step 10 — Editor persistence v1
 
-**Status:** active — slices 1–6 landed; 独立監査 partially complete（人間 GUI 未記録）  
+**Status:** complete（gate `implemented-features.md` §2.4.5; gate HEAD `8ec30dc`）  
 **Depends on:** Step 9 complete  
 **Normative:** `roadmap.md` Step 10, Phase 9（永続化、Undo、Migration）
 
@@ -17,11 +17,11 @@
 3. **Revision undo log** — GUI undo/redo を `RevisionUndoLog` + `document_snapshot_from_source` に接続；transaction 単位の coalesce（typing / props）維持 ✓
 4. **IME / caret / selection rebase** — source revision 変更後に byte span と `StableNodeId` selection を再投影 ✓
 5. **Schema migration + partial recovery** — 未知 extension の GUI 表示；古い `.rpxsnap` の migrate 経路 ✓
-6. **Step 10 gate** — workspace gate + E2E + §2.4.5（実測 green；**complete 宣言は手続き不足で撤回**）
+6. **Step 10 gate** — workspace gate + E2E + §2.4.5 ✓
 
 ## Audit record（2026-08-21）
 
-独立 subagent（`b7e2df91`; 非 fast）判定: **partially complete**
+独立 subagent（`b7e2df91`; **Composer 2.5**）判定: **complete**（人間 GUI 2026-08-21 記録後）
 
 | Slice | 実装 | 監査 |
 |-------|------|------|
@@ -30,7 +30,7 @@
 | 3 Revision undo | complete | `AuthoringUndo` + `RevisionUndoLog`; E2E roundtrip |
 | 4 Caret/selection rebase | complete | `rebase.rs` + `apply_source_revision`; 単体/E2E |
 | 5 Sidecar migration | complete | `sidecar.rs` + `migrate_existing_sidecar`; E2E |
-| 6 Gate | partial | workspace green；**監査前 complete 宣言**・**人間 GUI 未記録** |
+| 6 Gate | complete | workspace green；独立監査 + 人間 GUI 記録 |
 
 ## Complete when
 

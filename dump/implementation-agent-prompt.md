@@ -143,8 +143,8 @@ cargo run --offline -p reciplexa -- examples/text_line.rpx .tmp/smoke.pdf
 
 ## Step完了の独立監査
 
-macro-Stepまたはsliceを`complete`とする前に、実装担当と**別セッション**の独立subagent
-（**fastモードではない通常モード**）に捜査させる。監査担当は実装変更を行わない。
+macro-Stepまたはsliceを`complete`とする前に、実装担当と**別セッション**の独立 subagent
+（**Composer 2.5**；Cursor 内蔵 Task、`fast` モード不可、**外部 API 監査モデルは使わない**）に捜査させる。監査担当は実装変更を行わない。
 
 監査対象:
 
@@ -182,5 +182,5 @@ macro-Stepまたはsliceを`complete`とする前に、実装担当と**別セ�
 - 保証する範囲とnon-goals
 - 残るOPENと次のStep
 
-今すぐrepositoryを確認し、`dump/active-roadmap.md` の最初の未完了Step（現在はStep 9）を
+今すぐrepositoryを確認し、`dump/active-roadmap.md` の最初の未完了Stepから
 詳細sliceへ分解してから、Atomic Commitを積み重ねて実行してください。

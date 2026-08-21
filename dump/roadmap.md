@@ -44,7 +44,7 @@ top-level Stepは、利用者に見える能力または後続全体を支える
 - 各Stepを`active`へ移す前に、slice順、受入条件、non-goals、gateを詳細planへ固定する。
 - 同時に`active`とするmacro-Stepは一つだけとする。独立作業は同Step内の並行sliceとして扱う。
 - 完了には実装、直接test、host実行、文書同期を含む。限定testだけをmacro-Step完了としない。
-- macro-Stepを`complete`とする前に、実装担当と別セッションの独立subagent（**fastモードではない通常モード**）が
+- macro-Stepを`complete`とする前に、実装担当と別セッションの独立 subagent（**Composer 2.5**；Cursor 内蔵 Task、`fast` モード不可、**外部 API 監査モデルは使わない**）が
   受入条件・実測gate・OPEN/non-goals・doc/code不一致を捜査する。監査が`partially complete`または
   `not complete`なら`complete`にしない。
 - 実測gate（fmt/clippy/test/check、必要なhost `cargo run`、Stepで定めたworkspace gate）と

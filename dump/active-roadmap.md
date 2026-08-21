@@ -20,7 +20,7 @@ Stepを`complete`とするには、次を**同一code HEAD**で揃える。
 1. **実装と直接test** — 受入条件を満たす変更と回帰testが入っている。
 2. **実測gate** — 対象crate test、fmt/clippy、必要なhost `cargo run`、Stepで定めたworkspace gateがgreen。
 3. **現状正本** — [`implemented-features.md`](implemented-features.md) に実測gate表（HEAD、コマンド、結果）を記録する。
-4. **独立監査（subagent）** — 実装担当と**別セッション**のsubagent（**fastモードではない通常モード**）が、
+4. **独立監査（subagent）** — 実装担当と**別セッション**の独立 subagent（**Composer 2.5**；Cursor 内蔵 Task、`fast` モード不可、**外部 API 監査モデルは使わない**）が、
    文書・受入条件・test・gate・OPEN/non-goals・doc/code不一致を捜査し、
    `complete` / `partially complete` / `not complete` を報告する。
 5. **人間確認** — Stepまたはsliceで要求されているGUI/目視確認を実施し、結果を1行でもよいので記録する。
@@ -29,7 +29,7 @@ Stepを`complete`とするには、次を**同一code HEAD**で揃える。
 実装は着地していても、workspace gate 未達、gate未記録、人間確認未記録、doc/code不一致が残る場合は
 `landed` または `active` のままとする。
 
-監査subagentは実装変更を行わない。修正は実装担当が別commitで行い、監査を再実行する。
+監査subagentは実装変更を行わない。model は **Composer 2.5** に固定する（外部 API 監査モデルは使わない）。修正は実装担当が別commitで行い、監査を再実行する。
 
 ## Step 0 — 引き継ぎ基盤
 
@@ -209,7 +209,7 @@ transaction failureが部分変更を残さず、逆変換不能を黙って低�
 
 ## Step 10 — Editor persistence v1
 
-**Status:** active — slices 1–6 landed; gate §2.4.5; 独立監査 **partially complete**（2026-08-21）
+**Status:** complete（gate §2.4.5; [`step10-editor-persistence-plan.md`](step10-editor-persistence-plan.md)）
 
 - Undo/Redo、atomic save、crash recovery、snapshot compaction
 - schema version、migration graph、unknown extension、partial recovery
@@ -217,14 +217,12 @@ transaction failureが部分変更を残さず、逆変換不能を黙って低�
 
 **Landed:** `atomic_write` primary save、`.rpjsrc` edit journal + open recovery prompt、`.rpxsnap` journal/recovery、`AuthoringUndo` + `RevisionUndoLog`、`rebase.rs` caret/selection、`sidecar.rs` migration/partial recovery。
 
-**Remaining (手続き):** 人間 GUI 確認の記録；同一 HEAD で独立監査 `complete` 再判定。
-
 **Complete when:** transaction履歴と復旧が文書正本を壊さず、GUI state、Capability、Secret、
-Task、native pointerをsnapshotへ混入させない。
+Task、native pointerをsnapshotへ混入させない。✓
 
 ## Step 11 — Text shaping / font resource v2
 
-**Status:** blocked — Step 10 手続きクローズ待ち
+**Status:** active — Step 10 complete
 
 - typed layout protocol、決定的font fallback、cluster保持
 - metric-changing substitution時のrelayout
