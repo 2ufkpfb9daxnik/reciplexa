@@ -160,7 +160,7 @@ Env D / offline。`document/page` の heading / paragraph / indent-em / columns 
 
 **人間 GUI 確認（2026-08-20）:** OK（`pkg_document_indent.rpx` / `pkg_columns.rpx` — layer + props 編集）。
 
-### 2.4.5 Step 10 Editor persistence v1 完了gate（code HEAD `7aeea7d` + slice 6）
+### 2.4.5 Step 10 Editor persistence v1 完了gate（code HEAD `b74b2e6`）
 
 Env D / offline。atomic `.rpx` save、`.rpjsrc` crash journal、`.rpxsnap` journal/recovery、`RevisionUndoLog` undo/redo、caret/selection rebase、sidecar migration + partial extension recovery。
 
