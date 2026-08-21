@@ -10,7 +10,11 @@ pub struct LayerSelectionAnchor {
     pub root_snippet: String,
 }
 
-pub fn capture_layer_anchors(source: &str, page_index: usize, selected: &[usize]) -> Vec<LayerSelectionAnchor> {
+pub fn capture_layer_anchors(
+    source: &str,
+    page_index: usize,
+    selected: &[usize],
+) -> Vec<LayerSelectionAnchor> {
     let Ok(layers) = collect_layers_authoring(source, page_index) else {
         return Vec::new();
     };
@@ -74,7 +78,9 @@ fn best_layer_match(
 }
 
 fn snippet_score(source: &str, layer: &LayerInfo, snippet: &str) -> usize {
-    let end = layer.root_end.min(layer.root_start.saturating_add(snippet.len().max(96)));
+    let end = layer
+        .root_end
+        .min(layer.root_start.saturating_add(snippet.len().max(96)));
     let actual = source.get(layer.root_start..end).unwrap_or("");
     usize::MAX - common_prefix_len(actual.as_bytes(), snippet.as_bytes())
 }

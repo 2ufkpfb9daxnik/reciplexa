@@ -4,16 +4,12 @@ use reciplexa_codec::{atomic_write, write_journal, RecoveryPaths};
 use reciplexa_document::snapshot::DocumentSnapshot;
 use reciplexa_gui::persistence::recover_snapshot_sidecar;
 use reciplexa_identity::document::DocumentIdentity;
-use std::path::PathBuf;
 
 const TEXT_LINE: &str = include_str!("../../../examples/text_line.rpx");
 
 #[test]
 fn rpx_atomic_save_roundtrip_and_no_temp_sidecar() {
-    let dir = std::env::temp_dir().join(format!(
-        "reciplexa-atomic-save-{}",
-        std::process::id()
-    ));
+    let dir = std::env::temp_dir().join(format!("reciplexa-atomic-save-{}", std::process::id()));
     std::fs::create_dir_all(&dir).expect("temp dir");
     let path = dir.join("text_line.rpx");
     atomic_write(&path, TEXT_LINE.as_bytes()).expect("atomic save");
@@ -26,10 +22,8 @@ fn rpx_atomic_save_roundtrip_and_no_temp_sidecar() {
 
 #[test]
 fn rpx_atomic_save_overwrites_prior_content() {
-    let dir = PathBuf::from(std::env::temp_dir()).join(format!(
-        "reciplexa-atomic-overwrite-{}",
-        std::process::id()
-    ));
+    let dir =
+        std::env::temp_dir().join(format!("reciplexa-atomic-overwrite-{}", std::process::id()));
     std::fs::create_dir_all(&dir).expect("temp dir");
     let path = dir.join("doc.rpx");
     atomic_write(&path, b"v1").expect("first save");
@@ -41,10 +35,7 @@ fn rpx_atomic_save_overwrites_prior_content() {
 
 #[test]
 fn snapshot_sidecar_recovery_writes_recovered_without_touching_rpx() {
-    let dir = std::env::temp_dir().join(format!(
-        "reciplexa-snap-recovery-{}",
-        std::process::id()
-    ));
+    let dir = std::env::temp_dir().join(format!("reciplexa-snap-recovery-{}", std::process::id()));
     std::fs::create_dir_all(&dir).expect("temp dir");
     let rpx = dir.join("doc.rpx");
     atomic_write(&rpx, TEXT_LINE.as_bytes()).expect("write rpx");
@@ -58,7 +49,10 @@ fn snapshot_sidecar_recovery_writes_recovered_without_touching_rpx() {
     assert!(paths.primary.exists());
     assert!(!paths.journal.exists());
     assert!(!paths.recovered.exists());
-    assert_eq!(std::fs::read_to_string(&rpx).expect("rpx unchanged"), TEXT_LINE);
+    assert_eq!(
+        std::fs::read_to_string(&rpx).expect("rpx unchanged"),
+        TEXT_LINE
+    );
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -89,7 +83,7 @@ fn layer_selection_rebase_survives_undo_source_swap() {
 #[test]
 fn migrate_existing_sidecar_drops_unknown_extensions() {
     use reciplexa_codec::{
-        load_sidecar_bytes, snapshot_to_portable_public, ExtensionBlock, ExtensibleEnvelope,
+        load_sidecar_bytes, snapshot_to_portable_public, ExtensibleEnvelope, ExtensionBlock,
         RecoveryPaths,
     };
     use reciplexa_document::snapshot::DocumentSnapshot;
@@ -97,10 +91,8 @@ fn migrate_existing_sidecar_drops_unknown_extensions() {
     use reciplexa_identity::document::DocumentIdentity;
     use serde_json::json;
 
-    let dir = std::env::temp_dir().join(format!(
-        "reciplexa-migrate-sidecar-{}",
-        std::process::id()
-    ));
+    let dir =
+        std::env::temp_dir().join(format!("reciplexa-migrate-sidecar-{}", std::process::id()));
     std::fs::create_dir_all(&dir).expect("temp dir");
     let rpx = dir.join("doc.rpx");
     let paths = RecoveryPaths::for_rpx_source(&rpx);

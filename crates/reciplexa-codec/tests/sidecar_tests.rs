@@ -1,8 +1,8 @@
 use reciplexa_codec::sidecar::load_sidecar_bytes;
-use reciplexa_codec::{encode_snapshot, ExtensionBlock, ExtensibleEnvelope};
+use reciplexa_codec::snapshot_to_portable_public;
+use reciplexa_codec::{encode_snapshot, ExtensibleEnvelope, ExtensionBlock};
 use reciplexa_document::snapshot::DocumentSnapshot;
 use reciplexa_identity::document::DocumentIdentity;
-use reciplexa_codec::snapshot_to_portable_public;
 use serde_json::json;
 
 #[test]

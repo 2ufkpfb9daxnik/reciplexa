@@ -488,11 +488,8 @@ impl PreviewApp {
 
     fn apply_source_revision(&mut self, new_src: String) {
         let old_src = self.source.clone();
-        let layer_anchors = reciplexa_gui::rebase::capture_layer_anchors(
-            &old_src,
-            self.page_index,
-            &self.selected,
-        );
+        let layer_anchors =
+            reciplexa_gui::rebase::capture_layer_anchors(&old_src, self.page_index, &self.selected);
         self.source = new_src;
         self.drag = None;
         self.pending_editor_rebase = Some((old_src, self.source.clone()));
@@ -3034,7 +3031,8 @@ impl PreviewApp {
         if self.last_journaled_source.as_deref() == Some(self.source.as_str()) {
             return;
         }
-        if reciplexa_gui::persistence::persist_dirty_source_journal(&self.path, &self.source).is_ok()
+        if reciplexa_gui::persistence::persist_dirty_source_journal(&self.path, &self.source)
+            .is_ok()
         {
             self.last_journaled_source = Some(self.source.clone());
         }

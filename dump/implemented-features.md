@@ -160,6 +160,21 @@ Env D / offline。`document/page` の heading / paragraph / indent-em / columns 
 
 **人間 GUI 確認（2026-08-20）:** OK（`pkg_document_indent.rpx` / `pkg_columns.rpx` — layer + props 編集）。
 
+### 2.4.5 Step 10 Editor persistence v1 完了gate（code HEAD `7aeea7d` + slice 6）
+
+Env D / offline。atomic `.rpx` save、`.rpjsrc` crash journal、`.rpxsnap` journal/recovery、`RevisionUndoLog` undo/redo、caret/selection rebase、sidecar migration + partial extension recovery。
+
+| Command | 結果 |
+|---------|------|
+| `cargo fmt --all --check` | green |
+| `cargo clippy --workspace --all-targets --offline -- -D warnings` | green |
+| `cargo test --workspace --offline` | green |
+| `cargo check --workspace --all-targets --offline` | green |
+| `cargo run --offline -p reciplexa-gui -- --smoke examples/text_line.rpx` | green (`smoke: ok`) |
+| `cargo run --offline -p reciplexa -- examples/text_line.rpx .tmp/step10-gate-smoke.pdf` | green |
+| `cargo test -p reciplexa-gui --test persistence_e2e --offline` | 6 passed |
+| `cargo test -p reciplexa-codec --test sidecar_tests --test recovery_tests --test undo_tests --offline` | 16 passed |
+
 ### 2.5 製品Vertical Slice（**product slice complete**）
 
 保証する範囲（package形式1ページ、`examples/text_line.rpx` 相当）:
@@ -264,7 +279,7 @@ pre-PKG カーネルは計画上 **COMPLETE（意図的 defer 付き）**。各�
 
 ## 6. 次工程
 
-実行順の正本は [`active-roadmap.md`](active-roadmap.md)。Step 8 は完了（[`jlreq-followup-plan.md`](jlreq-followup-plan.md); gate HEAD `f9151cd`）。**Step 9 complete**（[`step9-document-authoring-plan.md`](step9-document-authoring-plan.md); gate §2.4.4）— `document/page` の heading / paragraph / indent-em / columns を layer pane + props から Source へ往復。doc-page の canvas nudge は soft-refuse。**Step 10 active**（[`step10-editor-persistence-plan.md`](step10-editor-persistence-plan.md)）— Editor persistence v1。
+実行順の正本は [`active-roadmap.md`](active-roadmap.md)。Step 8 は完了（[`jlreq-followup-plan.md`](jlreq-followup-plan.md); gate HEAD `f9151cd`）。Step 9 complete（[`step9-document-authoring-plan.md`](step9-document-authoring-plan.md); gate §2.4.4）。**Step 10 complete**（[`step10-editor-persistence-plan.md`](step10-editor-persistence-plan.md); gate §2.4.5）— atomic save、crash recovery journal、revision undo/redo、caret/selection rebase、sidecar migration。**Step 11 active** — Text shaping / font resource v2。
 
 1. **package 実運用化 local/offline slice** — [`package-plan.md`](package-plan.md): lock再現性、typed resource light、自動materialize、offline registry mirrorまで完了。network registry、full-tree hash、Core resource effectは別OPEN。
 2. **Direct Native v2** — [`direct-native-v2-plan.md`](direct-native-v2-plan.md) **shipping complete**（DN2-0〜DN2-7 + 本番 BindingId dispatch via `op_for`）。標準packageは DN2 stub + compilation BindingId（`dn2bid-*`）+ typed Rust callable。author import 綴り（修飾 / alias / bare）は canonical `package/module` へ対応。Hybrid 参照本文は `LocalPackageIndex` override のみ。portable fallback は `OPEN-NATIVE-PKG-001` で明示追跡（未実装）。

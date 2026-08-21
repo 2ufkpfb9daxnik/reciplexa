@@ -190,10 +190,7 @@ mod tests {
 
     #[test]
     fn pending_source_journal_ignores_matching_content() {
-        let dir = std::env::temp_dir().join(format!(
-            "reciplexa-pend-src-{}",
-            std::process::id()
-        ));
+        let dir = std::env::temp_dir().join(format!("reciplexa-pend-src-{}", std::process::id()));
         std::fs::create_dir_all(&dir).expect("temp dir");
         let path = dir.join("doc.rpx");
         atomic_write(&path, b"same").expect("write primary");
@@ -205,10 +202,7 @@ mod tests {
 
     #[test]
     fn pending_source_journal_returns_diff() {
-        let dir = std::env::temp_dir().join(format!(
-            "reciplexa-pend-diff-{}",
-            std::process::id()
-        ));
+        let dir = std::env::temp_dir().join(format!("reciplexa-pend-diff-{}", std::process::id()));
         std::fs::create_dir_all(&dir).expect("temp dir");
         let path = dir.join("doc.rpx");
         atomic_write(&path, b"disk").expect("write primary");

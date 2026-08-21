@@ -209,18 +209,20 @@ transaction failureが部分変更を残さず、逆変換不能を黙って低�
 
 ## Step 10 — Editor persistence v1
 
-**Status:** active（[`step10-editor-persistence-plan.md`](step10-editor-persistence-plan.md)）
+**Status:** complete（gate §2.4.5; [`step10-editor-persistence-plan.md`](step10-editor-persistence-plan.md)）
 
 - Undo/Redo、atomic save、crash recovery、snapshot compaction
 - schema version、migration graph、unknown extension、partial recovery
 - Stable IDを保つsave/loadと、IME / caret / selection rebase
 
+**Landed:** `atomic_write` primary save、`.rpjsrc` edit journal + open recovery prompt、`.rpxsnap` journal/recovery、`AuthoringUndo` + `RevisionUndoLog`、`rebase.rs` caret/selection、`sidecar.rs` migration/partial recovery。
+
 **Complete when:** transaction履歴と復旧が文書正本を壊さず、GUI state、Capability、Secret、
-Task、native pointerをsnapshotへ混入させない。
+Task、native pointerをsnapshotへ混入させない。✓
 
 ## Step 11 — Text shaping / font resource v2
 
-**Status:** blocked — Step 10待ち
+**Status:** active — Step 10 complete
 
 - typed layout protocol、決定的font fallback、cluster保持
 - metric-changing substitution時のrelayout

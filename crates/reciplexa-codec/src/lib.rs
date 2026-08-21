@@ -26,9 +26,7 @@ pub use recovery::{
     clear_source_journal, compact_after_save, read_source_journal, recover_from_journal,
     source_journal_path, write_journal, write_source_journal, RecoveryError, RecoveryPaths,
 };
-pub use sidecar::{
-    format_sidecar_notice, load_sidecar_bytes, SidecarLoadError, SidecarLoadReport,
-};
+pub use sidecar::{format_sidecar_notice, load_sidecar_bytes, SidecarLoadError, SidecarLoadReport};
 pub use txnlog::{
     decode_segment, encode_segment, LogError, LogRecord, SegmentStatus, TransactionLogSegment,
 };

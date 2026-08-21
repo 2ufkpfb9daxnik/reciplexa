@@ -2966,6 +2966,7 @@ dependencies = [
  "reciplexa-types",
  "reciplexa-view",
  "rfd",
+ "serde_json",
 ]
 
 [[package]]

@@ -108,7 +108,10 @@ fn source_journal_path_for_rpx() {
         std::path::PathBuf::from("docs/article.rpjsrc")
     );
     let snap = RecoveryPaths::for_rpx_source(&rpx);
-    assert_eq!(snap.primary, std::path::PathBuf::from("docs/article.rpxsnap"));
+    assert_eq!(
+        snap.primary,
+        std::path::PathBuf::from("docs/article.rpxsnap")
+    );
 }
 
 #[test]

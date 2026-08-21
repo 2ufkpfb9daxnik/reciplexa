@@ -1,7 +1,9 @@
 //! Sidecar snapshot load: migration graph + partial extension recovery.
 
-use crate::codec::{encode_snapshot, snapshot_from_portable, SCHEMA_VERSION};
-use crate::extension::{decode_envelope, partial_recover, ExtensibleEnvelope, PartialRecoveryError};
+use crate::codec::{encode_snapshot, snapshot_from_portable, CodecError, SCHEMA_VERSION};
+use crate::extension::{
+    decode_envelope, partial_recover, ExtensibleEnvelope, PartialRecoveryError,
+};
 use crate::migration::{migrate_snapshot, MigrationError};
 use reciplexa_document::snapshot::DocumentSnapshot;
 
@@ -34,6 +36,9 @@ pub struct SidecarLoadReport {
 
 /// Load sidecar bytes: partial-recover extensions, migrate schema to current, preserve nodes.
 pub fn load_sidecar_bytes(bytes: &[u8]) -> Result<SidecarLoadReport, SidecarLoadError> {
+    if let Err(CodecError::UnsupportedSchema(version)) = decode_envelope(bytes) {
+        return Err(SidecarLoadError::UnsupportedSchema(version));
+    }
     let before = decode_envelope(bytes).ok();
     let env = partial_recover(bytes)?;
     let dropped_extensions = dropped_extension_names(before.as_ref(), &env);
@@ -45,7 +50,9 @@ pub fn load_sidecar_bytes(bytes: &[u8]) -> Result<SidecarLoadReport, SidecarLoad
     })
 }
 
-fn load_snapshot_from_envelope(env: &ExtensibleEnvelope) -> Result<DocumentSnapshot, SidecarLoadError> {
+fn load_snapshot_from_envelope(
+    env: &ExtensibleEnvelope,
+) -> Result<DocumentSnapshot, SidecarLoadError> {
     if env.snapshot.schema_version > SCHEMA_VERSION {
         return Err(SidecarLoadError::UnsupportedSchema(
             env.snapshot.schema_version,
@@ -99,8 +106,8 @@ pub fn format_sidecar_notice(report: &SidecarLoadReport) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::codec::{encode_snapshot, snapshot_to_portable_public};
-    use crate::extension::{ExtensionBlock, ExtensibleEnvelope};
+    use crate::codec::{encode_snapshot, snapshot_to_portable_public, PortableSnapshot};
+    use crate::extension::{ExtensibleEnvelope, ExtensionBlock};
     use reciplexa_document::snapshot::DocumentSnapshot;
     use reciplexa_identity::document::DocumentIdentity;
     use serde_json::json;
