@@ -102,7 +102,7 @@ fn build_fixture_ttf() -> Vec<u8> {
         kind: GlyphKind::TallRect,
     });
 
-    build_sfnt(&glyphs, paren_gid as u16, tall_paren_gid)
+    build_sfnt(&glyphs, Some((paren_gid as u16, tall_paren_gid)), &[])
 }
 
 /// Minimal face for fallback tests: only U+263A WHITE SMILING FACE.
@@ -119,7 +119,104 @@ pub fn build_fallback_only_font_bytes() -> Vec<u8> {
             kind: GlyphKind::Rect,
         },
     ];
-    build_sfnt(&glyphs, 1, 1)
+    build_sfnt(&glyphs, None, &[])
+}
+
+/// Fixture with `liga` GSUB: `f` + `i` → single ligature glyph (gid 3).
+pub fn build_liga_fixture_font_bytes() -> Vec<u8> {
+    let glyphs = vec![
+        GlyphSpec {
+            ch: None,
+            advance: 500,
+            kind: GlyphKind::Notdef,
+        },
+        GlyphSpec {
+            ch: Some('f'),
+            advance: 400,
+            kind: GlyphKind::Rect,
+        },
+        GlyphSpec {
+            ch: Some('i'),
+            advance: 350,
+            kind: GlyphKind::Rect,
+        },
+        GlyphSpec {
+            ch: None,
+            advance: 700,
+            kind: GlyphKind::Rect,
+        },
+    ];
+    let gsub = build_gsub_liga(1, 2, 3);
+    build_sfnt(&glyphs, None, &[(b"GSUB", gsub)])
+}
+
+#[cfg(test)]
+mod liga_fixture_tests {
+    use super::*;
+
+    #[test]
+    fn liga_fixture_parses_gsub() {
+        let bytes = build_liga_fixture_font_bytes();
+        let face = ttf_parser::Face::parse(&bytes, 0).expect("parse liga fixture");
+        assert!(
+            face.tables().gsub.is_some(),
+            "liga fixture must include a GSUB table"
+        );
+    }
+}
+
+fn build_gsub_liga(f_gid: u16, i_gid: u16, lig_gid: u16) -> Vec<u8> {
+    let mut gsub = Vec::new();
+    put_u32(&mut gsub, 0x0001_0000);
+    put_u16(&mut gsub, 10);
+    put_u16(&mut gsub, 30);
+    put_u16(&mut gsub, 44);
+    // ScriptList @10
+    put_u16(&mut gsub, 1);
+    gsub.extend_from_slice(b"latn");
+    put_u16(&mut gsub, 8);
+    // Script @18
+    put_u16(&mut gsub, 4);
+    put_u16(&mut gsub, 0);
+    // LangSys @22
+    put_u16(&mut gsub, 0);
+    put_u16(&mut gsub, 0xFFFF);
+    put_u16(&mut gsub, 1);
+    put_u16(&mut gsub, 0);
+    // FeatureList @30
+    put_u16(&mut gsub, 1);
+    gsub.extend_from_slice(b"liga");
+    put_u16(&mut gsub, 8);
+    // Feature @38
+    put_u16(&mut gsub, 0);
+    put_u16(&mut gsub, 1);
+    put_u16(&mut gsub, 0);
+    // LookupList @44
+    put_u16(&mut gsub, 1);
+    put_u16(&mut gsub, 6);
+    // Lookup @50
+    put_u16(&mut gsub, 4);
+    put_u16(&mut gsub, 0);
+    put_u16(&mut gsub, 1);
+    put_u16(&mut gsub, 8);
+    // LigatureSubst @58
+    put_u16(&mut gsub, 1);
+    put_u16(&mut gsub, 8);
+    put_u16(&mut gsub, 1);
+    put_u16(&mut gsub, 14);
+    // Coverage @66
+    put_u16(&mut gsub, 1);
+    put_u16(&mut gsub, 1);
+    put_u16(&mut gsub, f_gid);
+    // LigatureSet @72
+    put_u16(&mut gsub, 1);
+    put_u16(&mut gsub, 4);
+    // Ligature @76
+    put_u16(&mut gsub, lig_gid);
+    put_u16(&mut gsub, 2);
+    put_u16(&mut gsub, f_gid);
+    put_u16(&mut gsub, i_gid);
+    gsub
 }
 
 fn ascii_advance(ch: char) -> u16 {
@@ -161,7 +258,11 @@ struct GlyphSpec {
     kind: GlyphKind,
 }
 
-fn build_sfnt(glyphs: &[GlyphSpec], paren_gid: u16, tall_paren_gid: u16) -> Vec<u8> {
+fn build_sfnt(
+    glyphs: &[GlyphSpec],
+    math_paren: Option<(u16, u16)>,
+    extra: &[(&[u8; 4], Vec<u8>)],
+) -> Vec<u8> {
     let num_glyphs = u16::try_from(glyphs.len()).expect("glyph count");
     let mut cmap_pairs: Vec<(u16, u16)> = Vec::new();
     for (i, g) in glyphs.iter().enumerate() {
@@ -183,10 +284,7 @@ fn build_sfnt(glyphs: &[GlyphSpec], paren_gid: u16, tall_paren_gid: u16) -> Vec<
     let head = build_head(x_min, y_min, x_max, y_max);
     let name = build_name();
     let post = build_post();
-    let math = build_math(paren_gid, tall_paren_gid);
-
     let mut tables: Vec<(&[u8; 4], Vec<u8>)> = vec![
-        (b"MATH", math),
         (b"cmap", cmap),
         (b"glyf", glyf),
         (b"head", head),
@@ -197,6 +295,12 @@ fn build_sfnt(glyphs: &[GlyphSpec], paren_gid: u16, tall_paren_gid: u16) -> Vec<
         (b"name", name),
         (b"post", post),
     ];
+    if let Some((paren_gid, tall_paren_gid)) = math_paren {
+        tables.push((b"MATH", build_math(paren_gid, tall_paren_gid)));
+    }
+    for (tag, data) in extra {
+        tables.push((tag, data.clone()));
+    }
     tables.sort_by(|a, b| a.0.cmp(b.0));
 
     let num_tables = u16::try_from(tables.len()).expect("tables");

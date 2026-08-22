@@ -1,7 +1,9 @@
-//! In-process shaping: cmap + hmtx clusters (no HarfBuzz).
+//! In-process shaping: rustybuzz clusters (Step 11 slice 3).
 
+use crate::complex::shape_run_complex;
 use crate::error::LayoutError;
 use crate::font::{FontId, LoadedFont};
+use crate::protocol::ShapingAttributes;
 
 /// One shaped glyph tied to a source Unicode cluster.
 #[derive(Debug, Clone, PartialEq)]
@@ -40,41 +42,28 @@ impl ShapedRun {
     }
 }
 
-/// Shape `text` with 1:1 clusters (each scalar → one glyph). Missing glyphs fail.
+/// Shape `text` via rustybuzz (`liga` on). Missing glyphs fail.
 pub fn shape_run(font: &LoadedFont, text: &str) -> Result<ShapedRun, LayoutError> {
     shape_run_single_font(font, text)
 }
 
-/// Shape with a single face (internal helper for fallback chain).
+/// Shape with a single face (rustybuzz path).
 pub fn shape_run_single_font(font: &LoadedFont, text: &str) -> Result<ShapedRun, LayoutError> {
-    let mut glyphs = Vec::new();
-    let mut byte = 0usize;
-    for ch in text.chars() {
-        let len = ch.len_utf8();
-        if ch == '\n' || ch == '\r' {
-            byte += len;
-            continue;
-        }
-        let gid = font.glyph_id(ch)?;
-        let advance_em = font.hor_advance_em(ch)?;
-        let italic_correction_em = font.italic_correction_em(ch).unwrap_or(0.0);
-        glyphs.push(ShapedGlyph {
-            font_id: font.id.clone(),
-            gid,
-            ch,
-            cluster_start: byte,
-            cluster_end: byte + len,
-            advance_em,
-            italic_correction_em,
+    if text.is_empty() {
+        return Ok(ShapedRun {
+            primary_font_id: font.id.clone(),
+            text: String::new(),
+            glyphs: Vec::new(),
         });
-        byte += len;
     }
-    debug_assert_eq!(byte, text.len());
-    Ok(ShapedRun {
-        primary_font_id: font.id.clone(),
-        text: text.to_string(),
-        glyphs,
-    })
+    if text.chars().all(|c| c == '\n' || c == '\r') {
+        return Ok(ShapedRun {
+            primary_font_id: font.id.clone(),
+            text: text.to_string(),
+            glyphs: Vec::new(),
+        });
+    }
+    shape_run_complex(font, text, &ShapingAttributes::default())
 }
 
 /// Clusters cover `[0, text.len())` without gaps or overlap (CR/LF skipped).

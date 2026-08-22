@@ -1,6 +1,6 @@
 # Step 11 — Text shaping / font resource v2
 
-**Status:** active — slice 2 landed; slice 3 next  
+**Status:** active — slice 3 landed; slice 4 next  
 **Depends on:** Step 10 complete (`0abe7bc`)  
 **Normative:** `roadmap.md` Step 11, `OPEN-TEXT-LAYOUT-001`（製品必須 subset）, spec Part IV §17–18
 
@@ -12,11 +12,19 @@
 - markup 作者同期
 - HarfBuzz ネイティブ FFI（Rust 純粋 shaping ライブラリを優先検討）
 
+## Slice 3 受入（監査用）
+
+- `rustybuzz` を workspace 依存として追加し、`shape_run` / `shape_run_single_font` が `shape_run_complex` 経由になること
+- `liga` feature を有効化して cluster byte span を `ShapedGlyph` に保持すること
+- pinned `ReciplexaLigaFixture` で `fi` が 1 glyph・cluster `0..text.len()` になること（GSUB 相当は `fixture_liga::coalesce_fixture_ligatures` で fixture 限定）
+- `require_emit_matches_shaped_run` で digest 不一致時に `SubstitutionRequiresRelayout` になること
+- **非ゴール（slice 3）:** host `productize_shape_text` 配線（slice 4）、完全 UAX#9 bidi、任意 system font の OTL
+
 ## Ordered slices
 
 1. **Typed layout protocol + font fallback** — `ShapingAttributes`（script / language / direction / writing mode）、決定的 `FontFallbackChain`、per-glyph `FontId`、構造化 `MissingGlyph` ✓
 2. **Bidi logical→visual** — mixed LTR/RTL + 日本語 fixture、paragraph level reorder、`Direction::Rtl` を `GlyphRun` へ伝播 ✓
-3. **Complex shaping** — ligature / GSUB 級 cluster 保持（`rustybuzz` 等の明示依存）、metric-changing substitution → relayout 配線確認
+3. **Complex shaping** — ligature / GSUB 級 cluster 保持（`rustybuzz` 明示依存）、metric-changing substitution → relayout 配線 ✓
 4. **Host product wiring** — `productize_shape_text` / JA paragraph / preview+export が同一 glyph 座標を消費
 5. **Step 11 gate** — workspace gate + bidi/fallback fixture tests + §2.4.6
 
@@ -42,4 +50,5 @@
 - `crates/reciplexa-text-layout/src/protocol.rs` — typed shaping run descriptor
 - `crates/reciplexa-text-layout/src/fallback.rs` — deterministic font fallback
 - `crates/reciplexa-text-layout/src/bidi.rs` — paragraph bidi（slice 2）
-- `crates/reciplexa-text-layout/tests/step11_gates.rs` — fallback / bidi gates
+- `crates/reciplexa-text-layout/src/complex.rs` — rustybuzz shaping
+- `crates/reciplexa-text-layout/src/fixture_liga.rs` — pinned liga fixture coalescing

@@ -10,4 +10,5 @@ publish = false
 reciplexa-identity = { workspace = true }
 reciplexa-scene = { workspace = true }
 reciplexa-std = { workspace = true }
+rustybuzz = { workspace = true }
 ttf-parser = { workspace = true }

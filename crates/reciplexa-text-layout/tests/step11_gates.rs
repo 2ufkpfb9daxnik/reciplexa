@@ -1,9 +1,10 @@
 //! Step 11 gates: typed protocol + font fallback + bidi.
 
 use reciplexa_text_layout::{
-    analyze_paragraph, build_fallback_only_font_bytes, clusters_cover_input, infer_script,
-    shape_run, visual_glyph_indices, Direction, FontFallbackChain, LoadedFont, PositionedLine,
-    Script, ShapedGlyph, ShapingAttributes,
+    analyze_paragraph, build_fallback_only_font_bytes, build_liga_fixture_font_bytes,
+    clusters_cover_input, infer_script, require_emit_matches_shaped_run, shape_run,
+    shape_run_complex, visual_glyph_indices, Direction, FontFallbackChain, LoadedFont,
+    PositionedLine, Script, ShapedGlyph, ShapingAttributes,
 };
 
 #[test]
@@ -74,4 +75,31 @@ fn step11_positioned_line_propagates_rtl_direction() {
         PositionedLine::from_shaped_run_with_attrs(font.id.clone(), &run, 0.0, 0.0, 10.0, &attrs);
     assert_eq!(line.run.direction, Direction::Rtl);
     assert_eq!(line.run.glyphs.first().map(|g| g.ch), Some('C'));
+}
+
+#[test]
+fn step11_complex_shape_fi_ligature_cluster() {
+    let font = LoadedFont::from_bytes(build_liga_fixture_font_bytes(), "ReciplexaLigaFixture")
+        .expect("liga");
+    let text = "fi";
+    let mut attrs = ShapingAttributes::horizontal_ltr("en");
+    attrs.script = Script::Latin;
+    let run = shape_run_complex(&font, text, &attrs).expect("liga shape");
+    assert_eq!(run.glyphs.len(), 1);
+    assert_eq!(run.glyphs[0].cluster_start, 0);
+    assert_eq!(run.glyphs[0].cluster_end, text.len());
+    assert!(clusters_cover_input(&run));
+}
+
+#[test]
+fn step11_emit_digest_mismatch_requires_relayout() {
+    let layout = LoadedFont::fixture();
+    let emit = LoadedFont::from_bytes(build_liga_fixture_font_bytes(), "ReciplexaLigaFixture")
+        .expect("liga");
+    let run = shape_run(&layout, "A").expect("shape");
+    let err = require_emit_matches_shaped_run(&run, &emit).expect_err("digest mismatch");
+    assert!(matches!(
+        err,
+        reciplexa_text_layout::LayoutError::SubstitutionRequiresRelayout { .. }
+    ));
 }

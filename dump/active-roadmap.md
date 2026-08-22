@@ -245,7 +245,9 @@ Task、native pointerをsnapshotへ混入させない。✓
 
 **Slice 2 landed:** `bidi.rs` + `from_shaped_run_with_attrs` + mixed JA/RTL gates（監査 `4defb956` / `7b922a0` **complete**；fmt 追従 commit 後）。
 
-**Slice 3 (next):** complex shaping（ligature / GSUB）。
+**Slice 3 landed:** `rustybuzz` + `complex.rs` + `require_emit_matches_shaped_run`（監査は slice 3 commit 後）。
+
+**Slice 4 (next):** host product wiring。
 
 **Complete when:** fallback / bidi fixtureでUnicodeとcluster対応を失わず、previewとexportが同じ
 glyph位置を消費し、`OPEN-TEXT-LAYOUT-001`の製品必須範囲が閉じる。

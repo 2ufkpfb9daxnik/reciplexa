@@ -56,6 +56,7 @@ eframe = "0.31"
 rfd = "0.15"
 subsetter = "0.2"
 ttf-parser = "0.25"
+rustybuzz = "0.20.1"
 reciplexa-source = { path = "crates/reciplexa-source" }
 reciplexa-identity = { path = "crates/reciplexa-identity" }
 reciplexa-outcome = { path = "crates/reciplexa-outcome" }

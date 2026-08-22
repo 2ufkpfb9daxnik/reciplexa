@@ -2,6 +2,7 @@
 
 use crate::error::LayoutError;
 use crate::font::{FontId, LoadedFont};
+use crate::shape::ShapedRun;
 
 /// Decide whether `available` may be used in place of `requested`.
 ///
@@ -47,7 +48,7 @@ impl FontRegistry {
             })
     }
 
-    /// Reject using `emit_font` to paint `layout_id` when digests differ.
+    /// Reject painting `emit_font` when its digest differs from the layout digest.
     pub fn require_same_as_layout(
         &self,
         layout_id: &FontId,
@@ -55,4 +56,21 @@ impl FontRegistry {
     ) -> Result<(), LayoutError> {
         select_font(layout_id, emit_font)
     }
+}
+
+/// Ensure `emit_font` matches every face referenced by `run` (metric-changing substitution).
+pub fn require_emit_matches_shaped_run(
+    run: &ShapedRun,
+    emit_font: &LoadedFont,
+) -> Result<(), LayoutError> {
+    for g in &run.glyphs {
+        if g.font_id.digest != emit_font.id.digest {
+            return Err(LayoutError::SubstitutionRequiresRelayout {
+                requested: g.font_id.as_key(),
+                substitute: emit_font.id.as_key(),
+                reason: "emit face digest differs from shaped glyph face; relayout required".into(),
+            });
+        }
+    }
+    Ok(())
 }
