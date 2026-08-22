@@ -1,9 +1,13 @@
-//! Step 11 gates: typed protocol + font fallback + bidi.
+//! Step 11 gates: typed protocol + font fallback + bidi + host product wiring.
 
+use reciplexa_scene::{Color, Shape, Text};
+use reciplexa_std::japanese::ParagraphSceneLayout;
 use reciplexa_text_layout::{
     analyze_paragraph, build_fallback_only_font_bytes, build_liga_fixture_font_bytes,
-    clusters_cover_input, infer_script, require_emit_matches_shaped_run, shape_run,
-    shape_run_complex, visual_glyph_indices, Direction, FontFallbackChain, LoadedFont,
+    clusters_cover_input, glyph_shapes_export_coords, infer_script,
+    layout_wrapped_paragraph_product, layout_wrapped_paragraph_product_lines,
+    positioned_line_glyph_coords, productize_shape_text_emit, require_emit_matches_shaped_run,
+    shape_run, shape_run_complex, visual_glyph_indices, Direction, FontFallbackChain, LoadedFont,
     PositionedLine, Script, ShapedGlyph, ShapingAttributes,
 };
 
@@ -102,4 +106,110 @@ fn step11_emit_digest_mismatch_requires_relayout() {
         err,
         reciplexa_text_layout::LayoutError::SubstitutionRequiresRelayout { .. }
     ));
+}
+
+#[test]
+fn step11_productize_visual_gid_order_uses_bidi_helper() {
+    let font = LoadedFont::fixture();
+    let text = "ABC";
+    let shaped = productize_shape_text_emit(
+        Shape::Text(Text {
+            x_mm: 0.0,
+            y_mm: 0.0,
+            size_mm: 10.0,
+            width_mm: None,
+            height_mm: None,
+            content: text.into(),
+            fill: Color::BLACK,
+        }),
+        &font,
+        &font,
+    )
+    .expect("productize");
+    let g = match shaped {
+        Shape::GlyphRun(g) => g,
+        other => panic!("expected GlyphRun, got {other:?}"),
+    };
+    let run =
+        shape_run_complex(&font, text, &ShapingAttributes::horizontal_ltr("en")).expect("shape");
+    let order = visual_glyph_indices(text, &run.glyphs, Direction::Ltr);
+    let expected_gids: Vec<u16> = order.iter().map(|&i| run.glyphs[i].gid).collect();
+    assert_eq!(g.gids, expected_gids);
+    assert_eq!(g.gids.len(), g.advances_mm.len());
+    assert_eq!(g.font_digest, font.id.digest);
+}
+
+#[test]
+fn step11_from_segment_bidi_visual_x_order() {
+    let text = "日اب本";
+    let font = LoadedFont::fixture();
+    let glyphs = glyphs_for_mixed_ja_rtl(text, font.id.clone());
+    let seg = reciplexa_text_layout::LineSegment {
+        text: text.into(),
+        start_byte: 0,
+        end_byte: text.len(),
+        natural_width_em: glyphs.len() as f64,
+        hang_em: 0.0,
+        trim_em: 0.0,
+        reason: reciplexa_text_layout::BreakReason::End,
+        glyphs,
+    };
+    let line = PositionedLine::from_segment(font.id.clone(), &seg, 0.0, 0.0, 10.0, "ja");
+    let visual_chars: String = line.run.glyphs.iter().map(|g| g.ch).collect();
+    assert_eq!(visual_chars, "日با本");
+}
+
+#[test]
+fn step11_productize_emit_digest_mismatch_fails() {
+    let layout = LoadedFont::fixture();
+    let emit = LoadedFont::from_bytes(build_liga_fixture_font_bytes(), "ReciplexaLigaFixture")
+        .expect("liga");
+    let err = productize_shape_text_emit(
+        Shape::Text(Text {
+            x_mm: 0.0,
+            y_mm: 0.0,
+            size_mm: 10.0,
+            width_mm: None,
+            height_mm: None,
+            content: "A".into(),
+            fill: Color::BLACK,
+        }),
+        &layout,
+        &emit,
+    )
+    .expect_err("digest mismatch");
+    assert!(matches!(
+        err,
+        reciplexa_text_layout::LayoutError::SubstitutionRequiresRelayout { .. }
+    ));
+}
+
+#[test]
+fn step11_ja_paragraph_preview_export_glyph_coords_match() {
+    let font = LoadedFont::fixture();
+    let layout = ParagraphSceneLayout {
+        base_x_mm: 12.0,
+        start_y_mm: 200.0,
+        pitch_mm: 6.0,
+        size_mm: 4.0,
+        fill: Color::BLACK,
+    };
+    let text = "あいうえおかきくけこ";
+    let lines =
+        layout_wrapped_paragraph_product_lines(&font, text, 8.0, 2.0, &layout).expect("lines");
+    assert!(lines.len() > 1);
+    let shapes = layout_wrapped_paragraph_product(&font, text, 8.0, 2.0, &layout).expect("shapes");
+    let from_lines: Vec<_> = lines
+        .iter()
+        .flat_map(positioned_line_glyph_coords)
+        .collect();
+    let from_shapes = glyph_shapes_export_coords(&shapes);
+    assert_eq!(from_lines.len(), from_shapes.len());
+    for (line, shape) in from_lines.iter().zip(from_shapes.iter()) {
+        assert_eq!(line.0, shape.0);
+        assert_eq!(line.1, shape.1);
+        assert_eq!(line.2, shape.2);
+        assert!((line.3 - shape.3).abs() < 1e-9);
+        assert_eq!(line.4, shape.4);
+    }
 }

@@ -2,12 +2,15 @@
 
 use reciplexa_scene::{Color, Document, GlyphRunShape, Shape, Text};
 
+use crate::bidi::visual_positions_em;
+use crate::complex::shape_run_complex;
 use crate::error::LayoutError;
 use crate::font::{FontId, LoadedFont};
 use crate::ja::LineSegment;
 use crate::math_layout::PositionedMath;
-use crate::protocol::ShapingAttributes;
-use crate::shape::{shape_run, ShapedGlyph};
+use crate::policy::require_emit_matches_shaped_run;
+use crate::protocol::{infer_script, ShapingAttributes};
+use crate::shape::ShapedGlyph;
 
 /// Writing mode for positioned output.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -44,6 +47,8 @@ pub struct PositionedGlyph {
     pub x_mm: f64,
     pub y_mm: f64,
     pub advance_mm: f64,
+    /// Face digest for export (per-glyph when fallback mixes faces).
+    pub font_digest: String,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -63,34 +68,39 @@ impl PositionedLine {
         size_mm: f64,
         language: &str,
     ) -> Self {
-        let mut glyphs = Vec::new();
-        let mut x = 0.0;
-        for g in &seg.glyphs {
+        let mut attrs = ShapingAttributes::horizontal_ltr(language);
+        attrs.script = infer_script(&seg.text);
+        let positions = visual_positions_em(&seg.text, &seg.glyphs, attrs.direction);
+        let mut glyphs = Vec::with_capacity(positions.len());
+        let mut width_em = 0.0f64;
+        for (i, x_em) in positions {
+            let g = &seg.glyphs[i];
             let adv = g.advance_em * size_mm;
             glyphs.push(PositionedGlyph {
                 gid: g.gid,
                 ch: g.ch,
                 cluster_start: g.cluster_start.saturating_sub(seg.start_byte),
                 cluster_end: g.cluster_end.saturating_sub(seg.start_byte),
-                x_mm: origin_x_mm + x,
+                x_mm: origin_x_mm + x_em * size_mm,
                 y_mm: origin_y_mm,
                 advance_mm: adv,
+                font_digest: g.font_id.digest.clone(),
             });
-            x += adv;
+            width_em = width_em.max(x_em + g.advance_em);
         }
         Self {
             run: GlyphRun {
                 font,
                 size_mm,
-                direction: Direction::Ltr,
-                writing_mode: WritingMode::HorizontalTb,
+                direction: attrs.direction,
+                writing_mode: attrs.writing_mode,
                 language: language.to_string(),
                 content: seg.text.clone(),
                 glyphs,
             },
             x_mm: origin_x_mm,
             y_mm: origin_y_mm,
-            width_mm: x,
+            width_mm: width_em * size_mm,
         }
     }
 
@@ -136,6 +146,7 @@ impl PositionedLine {
                 x_mm: origin_x_mm + x_em * size_mm,
                 y_mm: origin_y_mm,
                 advance_mm: adv,
+                font_digest: g.font_id.digest.clone(),
             });
             width_em = width_em.max(x_em + g.advance_em);
         }
@@ -189,12 +200,7 @@ pub fn positioned_line_to_glyph_texts(line: &PositionedLine, fill: Color) -> Vec
         .collect()
 }
 
-pub(crate) fn positioned_glyph_to_shape(
-    g: &PositionedGlyph,
-    size_mm: f64,
-    font_digest: &str,
-    fill: Color,
-) -> Shape {
+pub(crate) fn positioned_glyph_to_shape(g: &PositionedGlyph, size_mm: f64, fill: Color) -> Shape {
     Shape::GlyphRun(GlyphRunShape::one(
         g.x_mm,
         g.y_mm,
@@ -202,7 +208,7 @@ pub(crate) fn positioned_glyph_to_shape(
         g.ch.to_string(),
         fill,
         g.gid,
-        font_digest,
+        &g.font_digest,
         g.advance_mm,
     ))
 }
@@ -214,7 +220,33 @@ pub fn positioned_line_to_glyph_shapes(line: &PositionedLine, fill: Color) -> Ve
     line.run
         .glyphs
         .iter()
-        .map(|g| positioned_glyph_to_shape(g, line.run.size_mm, &line.run.font.digest, fill))
+        .map(|g| positioned_glyph_to_shape(g, line.run.size_mm, fill))
+        .collect()
+}
+
+/// Export coordinates from a positioned line (preview/export parity checks).
+pub fn positioned_line_glyph_coords(line: &PositionedLine) -> Vec<(f64, f64, u16, f64, String)> {
+    line.run
+        .glyphs
+        .iter()
+        .map(|g| (g.x_mm, g.y_mm, g.gid, g.advance_mm, g.font_digest.clone()))
+        .collect()
+}
+
+/// Export coordinates from product glyph shapes (one cluster per shape).
+pub fn glyph_shapes_export_coords(shapes: &[Shape]) -> Vec<(f64, f64, u16, f64, String)> {
+    shapes
+        .iter()
+        .filter_map(|s| match s {
+            Shape::GlyphRun(g) => Some((
+                g.x_mm,
+                g.y_mm,
+                g.gids.first().copied().unwrap_or(0),
+                g.advances_mm.first().copied().unwrap_or(0.0),
+                g.font_digest.clone(),
+            )),
+            _ => None,
+        })
         .collect()
 }
 
@@ -293,6 +325,7 @@ pub fn glyph_run_from_shaped(
             x_mm: origin_x_mm + x,
             y_mm: origin_y_mm,
             advance_mm: adv,
+            font_digest: g.font_id.digest.clone(),
         });
         x += adv;
     }
@@ -312,8 +345,17 @@ pub fn glyph_run_from_shaped(
 /// One authoring text node stays one scene node so GUI package layers still
 /// align. Groups/opacity are walked. Missing glyphs fail.
 pub fn productize_shape_text(shape: Shape, font: &LoadedFont) -> Result<Shape, LayoutError> {
+    productize_shape_text_emit(shape, font, font)
+}
+
+/// Rewrite text leaves using `layout_font` for shaping and `emit_font` for paint identity.
+pub fn productize_shape_text_emit(
+    shape: Shape,
+    layout_font: &LoadedFont,
+    emit_font: &LoadedFont,
+) -> Result<Shape, LayoutError> {
     match shape {
-        Shape::Text(t) => scene_text_to_glyph_run(font, &t),
+        Shape::Text(t) => scene_text_to_glyph_run(layout_font, emit_font, &t),
         Shape::Group {
             transform,
             children,
@@ -321,14 +363,14 @@ pub fn productize_shape_text(shape: Shape, font: &LoadedFont) -> Result<Shape, L
             transform,
             children: children
                 .into_iter()
-                .map(|c| productize_shape_text(c, font))
+                .map(|c| productize_shape_text_emit(c, layout_font, emit_font))
                 .collect::<Result<Vec<_>, _>>()?,
         }),
         Shape::Opacity { alpha, children } => Ok(Shape::Opacity {
             alpha,
             children: children
                 .into_iter()
-                .map(|c| productize_shape_text(c, font))
+                .map(|c| productize_shape_text_emit(c, layout_font, emit_font))
                 .collect::<Result<Vec<_>, _>>()?,
         }),
         other => Ok(other),
@@ -340,39 +382,61 @@ pub fn productize_document_text(
     mut doc: Document,
     font: &LoadedFont,
 ) -> Result<Document, LayoutError> {
+    productize_document_text_emit(&mut doc, font, font)?;
+    Ok(doc)
+}
+
+/// Document rewrite with distinct layout and emit faces (export registry parity).
+pub fn productize_document_text_emit(
+    doc: &mut Document,
+    layout_font: &LoadedFont,
+    emit_font: &LoadedFont,
+) -> Result<(), LayoutError> {
     for page in &mut doc.pages {
         let shapes = std::mem::take(&mut page.shapes);
         page.shapes = shapes
             .into_iter()
-            .map(|s| productize_shape_text(s, font))
+            .map(|s| productize_shape_text_emit(s, layout_font, emit_font))
             .collect::<Result<Vec<_>, _>>()?;
     }
-    Ok(doc)
+    Ok(())
 }
 
-fn scene_text_to_glyph_run(font: &LoadedFont, t: &Text) -> Result<Shape, LayoutError> {
+fn shaping_attrs_for_text(text: &str) -> ShapingAttributes {
+    let mut attrs = ShapingAttributes::horizontal_ltr("und");
+    attrs.script = infer_script(text);
+    attrs
+}
+
+fn scene_text_to_glyph_run(
+    layout_font: &LoadedFont,
+    emit_font: &LoadedFont,
+    t: &Text,
+) -> Result<Shape, LayoutError> {
     if !t.is_drawable() {
         return Ok(Shape::Text(t.clone()));
     }
     if t.content.chars().all(|c| c == '\n' || c == '\r') {
         return Ok(Shape::Text(t.clone()));
     }
-    let run = shape_run(font, &t.content)?;
+    let attrs = shaping_attrs_for_text(&t.content);
+    let run = shape_run_complex(layout_font, &t.content, &attrs)?;
     if run.glyphs.is_empty() {
         return Ok(Shape::Text(t.clone()));
     }
+    require_emit_matches_shaped_run(&run, emit_font)?;
+    let order = crate::bidi::visual_glyph_indices(&run.text, &run.glyphs, attrs.direction);
     Ok(Shape::GlyphRun(GlyphRunShape {
         x_mm: t.x_mm,
         y_mm: t.y_mm,
         size_mm: t.size_mm,
         content: t.content.clone(),
         fill: t.fill,
-        gids: run.glyphs.iter().map(|g| g.gid).collect(),
-        font_digest: font.id.digest.clone(),
-        advances_mm: run
-            .glyphs
+        gids: order.iter().map(|&i| run.glyphs[i].gid).collect(),
+        font_digest: emit_font.id.digest.clone(),
+        advances_mm: order
             .iter()
-            .map(|g| g.advance_em * t.size_mm)
+            .map(|&i| run.glyphs[i].advance_em * t.size_mm)
             .collect(),
     }))
 }

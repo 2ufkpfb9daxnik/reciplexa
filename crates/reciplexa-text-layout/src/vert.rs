@@ -125,6 +125,7 @@ pub fn layout_vertical_run(
             x_mm: origin_x_mm,
             y_mm: y,
             advance_mm,
+            font_digest: font.id.digest.clone(),
         });
         rotation_deg.push(if rotated { -90.0 } else { 0.0 });
         y -= advance_mm;
@@ -156,7 +157,7 @@ pub fn positioned_vertical_to_shapes(col: &PositionedVertical, fill: Color) -> V
         .iter()
         .zip(col.rotation_deg.iter())
         .map(|(g, rot)| {
-            let paint = positioned_glyph_to_shape(g, col.run.size_mm, &col.run.font.digest, fill);
+            let paint = positioned_glyph_to_shape(g, col.run.size_mm, fill);
             if rot.abs() < 1e-9 {
                 paint
             } else {

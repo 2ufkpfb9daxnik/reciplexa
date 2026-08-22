@@ -1,6 +1,6 @@
 # Step 11 — Text shaping / font resource v2
 
-**Status:** active — slice 3 landed; slice 4 next  
+**Status:** active — slice 4 landed; slice 5 next  
 **Depends on:** Step 10 complete (`0abe7bc`)  
 **Normative:** `roadmap.md` Step 11, `OPEN-TEXT-LAYOUT-001`（製品必須 subset）, spec Part IV §17–18
 
@@ -20,6 +20,14 @@
 - `require_emit_matches_shaped_run` で digest 不一致時に `SubstitutionRequiresRelayout` になること
 - **非ゴール（slice 3）:** host `productize_shape_text` 配線（slice 4）、完全 UAX#9 bidi、任意 system font の OTL
 
+## Slice 4 受入（監査用）
+
+- `productize_shape_text` / `scene_text_to_glyph_run` が `shape_run_complex` + `visual_glyph_indices` で visual-order の `gids` / `advances_mm` を emit すること
+- `require_emit_matches_shaped_run` が host productize 経路で digest 不一致時に `SubstitutionRequiresRelayout` になること（`productize_shape_text_emit`）
+- `PositionedLine::from_segment` が `visual_positions_em` を使い、JA paragraph の `layout_wrapped_paragraph_product` と `positioned_line_to_glyph_shapes` の glyph 座標が一致すること
+- per-glyph `font_digest` が `PositionedGlyph` から export へ伝播すること
+- **非ゴール（slice 4）:** 完全 UAX#9 bidi、任意 system font OTL、justify+bidi 混在の完全整合
+
 ## Ordered slices
 
 1. **Typed layout protocol + font fallback** — `ShapingAttributes`（script / language / direction / writing mode）、決定的 `FontFallbackChain`、per-glyph `FontId`、構造化 `MissingGlyph` ✓
@@ -37,6 +45,7 @@
 | 1 | `956d253` | `895bf444` | **complete** | protocol + fallback + step11_gates(2) |
 | 2 | `7b922a0` | `4defb956` | **complete** | bidi + `from_shaped_run_with_attrs`；fmt 修正後 scoped gate green |
 | 3 | `3850f59` | `5bfa267c` | **complete** | rustybuzz + `complex.rs` + fixture liga coalescing + `require_emit_matches_shaped_run` |
+| 4 | — | — | — | host product wiring（実装中） |
 
 ## Complete when
 
@@ -52,4 +61,4 @@
 - `crates/reciplexa-text-layout/src/fallback.rs` — deterministic font fallback
 - `crates/reciplexa-text-layout/src/bidi.rs` — paragraph bidi（slice 2）
 - `crates/reciplexa-text-layout/src/complex.rs` — rustybuzz shaping
-- `crates/reciplexa-text-layout/src/fixture_liga.rs` — pinned liga fixture coalescing
+- `crates/reciplexa-text-layout/src/position.rs` — productize + JA/export parity（slice 4）

@@ -54,10 +54,11 @@ pub use math_layout::{
 };
 pub use policy::{require_emit_matches_shaped_run, select_font, FontRegistry};
 pub use position::{
-    glyph_run_from_shaped, positioned_line_to_glyph_shapes, positioned_line_to_glyph_texts,
-    positioned_line_to_scene_text, positioned_lines_to_shapes, positioned_math_to_shapes,
-    productize_document_text, productize_shape_text, Direction, GlyphRun, PositionedGlyph,
-    PositionedLine, WritingMode,
+    glyph_run_from_shaped, glyph_shapes_export_coords, positioned_line_glyph_coords,
+    positioned_line_to_glyph_shapes, positioned_line_to_glyph_texts, positioned_line_to_scene_text,
+    positioned_lines_to_shapes, positioned_math_to_shapes, productize_document_text,
+    productize_document_text_emit, productize_shape_text, productize_shape_text_emit, Direction,
+    GlyphRun, PositionedGlyph, PositionedLine, WritingMode,
 };
 pub use protocol::{infer_script, Script, ShapingAttributes};
 pub use ruby::{layout_simple_ruby, positioned_ruby_to_shapes, PositionedRuby, RUBY_PARENT_GAP_EM};
