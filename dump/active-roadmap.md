@@ -243,7 +243,7 @@ Task、native pointerをsnapshotへ混入させない。✓
 
 **Slice 1 landed:** `protocol` + `FontFallbackChain` + per-glyph `FontId`（監査 `895bf444` / `956d253` **complete**）。
 
-**Slice 2 landed:** `bidi.rs` + `from_shaped_run_with_attrs` + mixed JA/RTL gates（監査は slice 2 commit 後）。
+**Slice 2 landed:** `bidi.rs` + `from_shaped_run_with_attrs` + mixed JA/RTL gates（監査 `4defb956` / `7b922a0` **complete**；fmt 追従 commit 後）。
 
 **Slice 3 (next):** complex shaping（ligature / GSUB）。
 

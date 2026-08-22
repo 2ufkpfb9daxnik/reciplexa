@@ -27,7 +27,7 @@
 | Slice | HEAD | subagent | 判定 | 備考 |
 |-------|------|----------|------|------|
 | 1 | `956d253` | `895bf444` | **complete** | protocol + fallback + step11_gates(2) |
-| 2 | （slice 2 commit 後に記録） | — | — | bidi + `from_shaped_run_with_attrs` |
+| 2 | `7b922a0` | `4defb956` | **complete** | bidi + `from_shaped_run_with_attrs`；fmt 修正後 scoped gate green |
 
 ## Complete when
 

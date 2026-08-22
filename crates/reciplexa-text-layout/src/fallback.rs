@@ -19,11 +19,7 @@ impl FontFallbackChain {
     }
 
     pub fn with_fallback(mut self, font: LoadedFont) -> Self {
-        if !self
-            .fonts
-            .iter()
-            .any(|f| f.id.digest == font.id.digest)
-        {
+        if !self.fonts.iter().any(|f| f.id.digest == font.id.digest) {
             self.fonts.push(font);
         }
         self
@@ -38,11 +34,7 @@ impl FontFallbackChain {
     }
 
     /// Shape `text`, resolving each scalar against the chain in order.
-    pub fn shape(
-        &self,
-        text: &str,
-        _attrs: &ShapingAttributes,
-    ) -> Result<ShapedRun, LayoutError> {
+    pub fn shape(&self, text: &str, _attrs: &ShapingAttributes) -> Result<ShapedRun, LayoutError> {
         if self.fonts.is_empty() {
             return Err(LayoutError::Engine {
                 detail: "empty font fallback chain".into(),
@@ -60,8 +52,7 @@ impl FontFallbackChain {
                 byte += len;
                 continue;
             }
-            let (font, gid, advance_em, italic_correction_em) =
-                resolve_glyph(self.fonts(), ch)?;
+            let (font, gid, advance_em, italic_correction_em) = resolve_glyph(self.fonts(), ch)?;
             glyphs.push(ShapedGlyph {
                 font_id: font.id.clone(),
                 gid,

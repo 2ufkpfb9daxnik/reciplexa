@@ -78,11 +78,7 @@ fn strong_direction(ch: char) -> Option<Direction> {
 }
 
 /// Glyph indices in left-to-right visual paint order (clusters preserved).
-pub fn visual_glyph_indices(
-    text: &str,
-    glyphs: &[ShapedGlyph],
-    base: Direction,
-) -> Vec<usize> {
+pub fn visual_glyph_indices(text: &str, glyphs: &[ShapedGlyph], base: Direction) -> Vec<usize> {
     let segments = analyze_paragraph(text, base);
     if segments.is_empty() {
         return (0..glyphs.len()).collect();

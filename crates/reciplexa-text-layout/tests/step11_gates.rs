@@ -17,11 +17,9 @@ fn step11_infer_script_covers_ja_and_latin() {
 #[test]
 fn step11_fallback_preserves_clusters_and_order() {
     let primary = LoadedFont::fixture();
-    let fallback = LoadedFont::from_bytes(
-        build_fallback_only_font_bytes(),
-        "ReciplexaFallbackOnly",
-    )
-    .expect("parse fallback font");
+    let fallback =
+        LoadedFont::from_bytes(build_fallback_only_font_bytes(), "ReciplexaFallbackOnly")
+            .expect("parse fallback font");
     let chain = FontFallbackChain::new(primary).with_fallback(fallback);
     let text = "日☺本";
     let run = chain
@@ -72,14 +70,8 @@ fn step11_positioned_line_propagates_rtl_direction() {
     let font = LoadedFont::fixture();
     let run = shape_run(&font, "ABC").expect("shape");
     let attrs = ShapingAttributes::horizontal_rtl("ar");
-    let line = PositionedLine::from_shaped_run_with_attrs(
-        font.id.clone(),
-        &run,
-        0.0,
-        0.0,
-        10.0,
-        &attrs,
-    );
+    let line =
+        PositionedLine::from_shaped_run_with_attrs(font.id.clone(), &run, 0.0, 0.0, 10.0, &attrs);
     assert_eq!(line.run.direction, Direction::Rtl);
     assert_eq!(line.run.glyphs.first().map(|g| g.ch), Some('C'));
 }
