@@ -38,7 +38,7 @@
 | 2 | `7b922a0` | `4defb956` | **complete** | bidi + `from_shaped_run_with_attrs`；fmt 修正後 scoped gate green |
 | 3 | `3850f59` | `5bfa267c` | **complete** | rustybuzz + `complex.rs` + fixture liga coalescing + `require_emit_matches_shaped_run` |
 
-## Landed modules
+## Complete when
 
 - fallback chain が決定的で、missing glyph は fallback または構造化 Failure
 - Unicode range と cluster map を保持（ligature / complex script を含む）
