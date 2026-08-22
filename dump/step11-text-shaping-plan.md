@@ -45,7 +45,7 @@
 | 1 | `956d253` | `895bf444` | **complete** | protocol + fallback + step11_gates(2) |
 | 2 | `7b922a0` | `4defb956` | **complete** | bidi + `from_shaped_run_with_attrs`；fmt 修正後 scoped gate green |
 | 3 | `3850f59` | `5bfa267c` | **complete** | rustybuzz + `complex.rs` + fixture liga coalescing + `require_emit_matches_shaped_run` |
-| 4 | — | — | — | host product wiring（実装中） |
+| 4 | `b29ad06` | `b7a50fbd` | **complete** | productize bidi+emit guard + JA preview/export parity + per-glyph font_digest |
 
 ## Complete when
 
