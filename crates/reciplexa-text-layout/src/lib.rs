@@ -6,6 +6,7 @@
 #![forbid(unsafe_code)]
 
 pub mod bou;
+pub mod bidi;
 pub mod engine;
 pub mod error;
 pub mod fallback;
@@ -27,6 +28,7 @@ pub use bou::{
     positioned_bou_vertical_to_shapes, PositionedBouHorizontal, PositionedBouVertical,
     BOU_PARENT_GAP_EM,
 };
+pub use bidi::{analyze_paragraph, visual_glyph_indices, visual_positions_em, BidiSegment};
 pub use engine::{host_typeset_engine, TypesetEngine};
 pub use error::LayoutError;
 pub use fallback::{register_run_fonts, FontFallbackChain};

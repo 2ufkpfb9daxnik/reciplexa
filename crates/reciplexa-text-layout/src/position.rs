@@ -6,6 +6,7 @@ use crate::error::LayoutError;
 use crate::font::{FontId, LoadedFont};
 use crate::ja::LineSegment;
 use crate::math_layout::PositionedMath;
+use crate::protocol::ShapingAttributes;
 use crate::shape::{shape_run, ShapedGlyph};
 
 /// Writing mode for positioned output.
@@ -102,17 +103,56 @@ impl PositionedLine {
         size_mm: f64,
         language: &str,
     ) -> Self {
-        let seg = LineSegment {
-            text: run.text.clone(),
-            start_byte: 0,
-            end_byte: run.text.len(),
-            natural_width_em: run.width_em(),
-            hang_em: 0.0,
-            trim_em: 0.0,
-            reason: crate::ja::BreakReason::End,
-            glyphs: run.glyphs.clone(),
-        };
-        Self::from_segment(font, &seg, origin_x_mm, origin_y_mm, size_mm, language)
+        Self::from_shaped_run_with_attrs(
+            font,
+            run,
+            origin_x_mm,
+            origin_y_mm,
+            size_mm,
+            &ShapingAttributes::horizontal_ltr(language),
+        )
+    }
+
+    /// Position a shaped run using paragraph direction for visual reorder.
+    pub fn from_shaped_run_with_attrs(
+        font: FontId,
+        run: &crate::shape::ShapedRun,
+        origin_x_mm: f64,
+        origin_y_mm: f64,
+        size_mm: f64,
+        attrs: &ShapingAttributes,
+    ) -> Self {
+        let positions = crate::bidi::visual_positions_em(&run.text, &run.glyphs, attrs.direction);
+        let mut out_glyphs = Vec::with_capacity(positions.len());
+        let mut width_em = 0.0f64;
+        for (i, x_em) in positions {
+            let g = &run.glyphs[i];
+            let adv = g.advance_em * size_mm;
+            out_glyphs.push(PositionedGlyph {
+                gid: g.gid,
+                ch: g.ch,
+                cluster_start: g.cluster_start,
+                cluster_end: g.cluster_end,
+                x_mm: origin_x_mm + x_em * size_mm,
+                y_mm: origin_y_mm,
+                advance_mm: adv,
+            });
+            width_em = width_em.max(x_em + g.advance_em);
+        }
+        Self {
+            run: GlyphRun {
+                font,
+                size_mm,
+                direction: attrs.direction,
+                writing_mode: attrs.writing_mode,
+                language: attrs.language.clone(),
+                content: run.text.clone(),
+                glyphs: out_glyphs,
+            },
+            x_mm: origin_x_mm,
+            y_mm: origin_y_mm,
+            width_mm: width_em * size_mm,
+        }
     }
 }
 

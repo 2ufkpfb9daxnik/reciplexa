@@ -31,4 +31,5 @@ alwaysApply: true
 - Before commit: review status/diff, run target tests, fmt check, scoped Clippy, **run the changed host binary** (`cargo run -p reciplexa-gui -- --smoke examples/text_line.rpx` and/or CLI export of the same file; if the GUI window/event loop changed, also `cargo run -p reciplexa-gui -- examples/text_line.rpx`), and check for secrets/generated files/unintended deletions. Do not move winit off the process main thread; Windows 8MiB stack is PE `/STACK` from host `build.rs`.
 - At milestones run workspace fmt, Clippy `-D warnings`, tests, all-target check, GUI check, and the GUI/CLI smoke `cargo run` commands offline.
 - Step `complete` requires independent subagent audit on **Composer 2.5** (Cursor Task, not `fast`, no external API audit models); see `dump/active-roadmap.md` 「Step完了の判定」.
+- Within a sliced Step, **each slice** needs its own independent subagent audit (`complete`) on the same HEAD before the next slice; see 「Slice完了の判定」.
 - Commits are authorized for the active plan. Do not amend, rebase, force, or push.

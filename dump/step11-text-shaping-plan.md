@@ -1,6 +1,6 @@
 # Step 11 — Text shaping / font resource v2
 
-**Status:** active — slice 1 landed; slice 2 next  
+**Status:** active — slice 2 landed; slice 3 next  
 **Depends on:** Step 10 complete (`0abe7bc`)  
 **Normative:** `roadmap.md` Step 11, `OPEN-TEXT-LAYOUT-001`（製品必須 subset）, spec Part IV §17–18
 
@@ -15,10 +15,19 @@
 ## Ordered slices
 
 1. **Typed layout protocol + font fallback** — `ShapingAttributes`（script / language / direction / writing mode）、決定的 `FontFallbackChain`、per-glyph `FontId`、構造化 `MissingGlyph` ✓
-2. **Bidi logical→visual** — mixed LTR/RTL + 日本語 fixture、paragraph level reorder、`Direction::Rtl` を `GlyphRun` へ伝播
+2. **Bidi logical→visual** — mixed LTR/RTL + 日本語 fixture、paragraph level reorder、`Direction::Rtl` を `GlyphRun` へ伝播 ✓
 3. **Complex shaping** — ligature / GSUB 級 cluster 保持（`rustybuzz` 等の明示依存）、metric-changing substitution → relayout 配線確認
 4. **Host product wiring** — `productize_shape_text` / JA paragraph / preview+export が同一 glyph 座標を消費
 5. **Step 11 gate** — workspace gate + bidi/fallback fixture tests + §2.4.6
+
+## Slice 監査（Composer 2.5；`fast` 不可）
+
+各 slice 完了後、実装担当と別セッションの独立 subagent 1体が当該 slice のみを捜査する。`complete` の HEAD だけ次 slice へ進む（[`active-roadmap.md`](active-roadmap.md)「Slice完了の判定」）。
+
+| Slice | HEAD | subagent | 判定 | 備考 |
+|-------|------|----------|------|------|
+| 1 | `956d253` | `895bf444` | **complete** | protocol + fallback + step11_gates(2) |
+| 2 | （slice 2 commit 後に記録） | — | — | bidi + `from_shaped_run_with_attrs` |
 
 ## Complete when
 
@@ -28,9 +37,9 @@
 - mixed LTR/RTL + 日本語 fixture で preview/export の glyph 位置が一致
 - `OPEN-TEXT-LAYOUT-001` の製品必須 bullets（型・fallback・shaping・bidi）が閉じ、line break / justification は Step 12 以降も OPEN 明示
 
-## Landed modules（予定）
+## Landed modules
 
 - `crates/reciplexa-text-layout/src/protocol.rs` — typed shaping run descriptor
 - `crates/reciplexa-text-layout/src/fallback.rs` — deterministic font fallback
 - `crates/reciplexa-text-layout/src/bidi.rs` — paragraph bidi（slice 2）
-- `crates/reciplexa-text-layout/tests/step11_gates.rs` — fallback / bidi / parity gates
+- `crates/reciplexa-text-layout/tests/step11_gates.rs` — fallback / bidi gates

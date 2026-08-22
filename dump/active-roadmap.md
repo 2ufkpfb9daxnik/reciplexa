@@ -31,6 +31,19 @@ Stepを`complete`とするには、次を**同一code HEAD**で揃える。
 
 監査subagentは実装変更を行わない。model は **Composer 2.5** に固定する（外部 API 監査モデルは使わない）。修正は実装担当が別commitで行い、監査を再実行する。
 
+## Slice完了の判定（macro-Step内）
+
+詳細planでsliceに分解している Step（例: Step 10、Step 11）では、**次のsliceへ進む前に**次を同一 code HEAD で揃える。
+
+1. **実装と直接test** — 当該sliceの受入条件とnon-goalsを満たす。
+2. **scoped gate** — 対象crateの test（＋変更があれば fmt/clippy）。
+3. **独立監査（subagent）** — 実装担当と**別セッション**の独立 subagent 1体（**Composer 2.5**；`fast` 不可、外部 API 監査モデル不可）が当該sliceのみを捜査し、`complete` / `partially complete` / `not complete` を報告する。
+4. **人間確認** — sliceまたはStepで要求されている場合のみ記録。
+
+監査が `complete` でないときは次sliceに進まない。詳細planの audit 表に HEAD・subagent ID・判定を追記する。
+
+macro-Step を `complete` とするには、上記を**全slice**で満たしたうえで、Step完了の判定 2–5（workspace gate、`implemented-features.md` gate 表、Step 全体の独立監査再確認、人間 GUI）を同一 HEAD で揃える。
+
 ## Step 0 — 引き継ぎ基盤
 
 **Status:** complete (`4859e4c`)
@@ -228,9 +241,11 @@ Task、native pointerをsnapshotへ混入させない。✓
 - metric-changing substitution時のrelayout
 - complex shaping、bidi、mixed direction
 
-**Slice 1 landed:** `protocol` + `FontFallbackChain` + per-glyph `FontId`（`step11_gates`）。
+**Slice 1 landed:** `protocol` + `FontFallbackChain` + per-glyph `FontId`（監査 `895bf444` / `956d253` **complete**）。
 
-**Slice 2 (next):** bidi logical→visual + `Direction::Rtl` 配線。
+**Slice 2 landed:** `bidi.rs` + `from_shaped_run_with_attrs` + mixed JA/RTL gates（監査は slice 2 commit 後）。
+
+**Slice 3 (next):** complex shaping（ligature / GSUB）。
 
 **Complete when:** fallback / bidi fixtureでUnicodeとcluster対応を失わず、previewとexportが同じ
 glyph位置を消費し、`OPEN-TEXT-LAYOUT-001`の製品必須範囲が閉じる。

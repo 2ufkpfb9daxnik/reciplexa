@@ -143,8 +143,10 @@ cargo run --offline -p reciplexa -- examples/text_line.rpx .tmp/smoke.pdf
 
 ## Step完了の独立監査
 
-macro-Stepまたはsliceを`complete`とする前に、実装担当と**別セッション**の独立 subagent
+macro-Stepまたはsliceを`complete`とする前に、実装担当と**別セッション**の独立 subagent 1体
 （**Composer 2.5**；Cursor 内蔵 Task、`fast` モード不可、**外部 API 監査モデルは使わない**）に捜査させる。監査担当は実装変更を行わない。
+
+**slice単位:** 詳細planで分解している Step は、**各slice完了ごと**に上記監査を1回行い、`complete` と判定された HEAD だけ次sliceへ進む（[`active-roadmap.md`](active-roadmap.md)「Slice完了の判定」）。
 
 監査対象:
 
