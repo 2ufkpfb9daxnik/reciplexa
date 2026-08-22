@@ -245,7 +245,7 @@ Task、native pointerをsnapshotへ混入させない。✓
 
 **Slice 2 landed:** `bidi.rs` + `from_shaped_run_with_attrs` + mixed JA/RTL gates（監査 `4defb956` / `7b922a0` **complete**；fmt 追従 commit 後）。
 
-**Slice 3 landed:** `rustybuzz` + `complex.rs` + `require_emit_matches_shaped_run`（監査は slice 3 commit 後）。
+**Slice 3 landed:** `rustybuzz` + `complex.rs` + `require_emit_matches_shaped_run`（監査 `5bfa267c` / `3850f59` **complete**）。
 
 **Slice 4 (next):** host product wiring。
 
