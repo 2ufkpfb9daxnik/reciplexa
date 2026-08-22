@@ -8,6 +8,7 @@
 pub mod bou;
 pub mod engine;
 pub mod error;
+pub mod fallback;
 pub mod fixture;
 pub mod font;
 pub mod ja;
@@ -15,6 +16,7 @@ pub mod ja_tables;
 pub mod math_layout;
 pub mod policy;
 pub mod position;
+pub mod protocol;
 pub mod ruby;
 pub mod shape;
 pub mod tcy;
@@ -27,8 +29,9 @@ pub use bou::{
 };
 pub use engine::{host_typeset_engine, TypesetEngine};
 pub use error::LayoutError;
+pub use fallback::{register_run_fonts, FontFallbackChain};
 pub use fixture::{
-    fixture_font_bytes, FIXTURE_AXIS_HEIGHT, FIXTURE_FRACTION_RULE_THICKNESS,
+    build_fallback_only_font_bytes, fixture_font_bytes, FIXTURE_AXIS_HEIGHT, FIXTURE_FRACTION_RULE_THICKNESS,
     FIXTURE_PAREN_VARIANT_ADVANCE, FIXTURE_SCRIPT_PERCENT_SCALE_DOWN,
     FIXTURE_SCRIPT_SCRIPT_PERCENT_SCALE_DOWN, FIXTURE_TALL_PAREN_VARIANT_ADVANCE,
 };
@@ -44,6 +47,7 @@ pub use math_layout::{
     MATH_PROFILE_V1,
 };
 pub use policy::{select_font, FontRegistry};
+pub use protocol::{infer_script, Script, ShapingAttributes};
 pub use position::{
     glyph_run_from_shaped, positioned_line_to_glyph_shapes, positioned_line_to_glyph_texts,
     positioned_line_to_scene_text, positioned_lines_to_shapes, positioned_math_to_shapes,

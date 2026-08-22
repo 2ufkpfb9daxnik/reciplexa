@@ -283,7 +283,7 @@ pre-PKG カーネルは計画上 **COMPLETE（意図的 defer 付き）**。各�
 
 ## 6. 次工程
 
-実行順の正本は [`active-roadmap.md`](active-roadmap.md)。Step 8 は完了（[`jlreq-followup-plan.md`](jlreq-followup-plan.md); gate HEAD `f9151cd`）。Step 9 complete（[`step9-document-authoring-plan.md`](step9-document-authoring-plan.md); gate §2.4.4）。**Step 10 complete**（[`step10-editor-persistence-plan.md`](step10-editor-persistence-plan.md); gate §2.4.5）— atomic save、crash recovery journal、revision undo/redo、caret/selection rebase、sidecar migration。**Step 11 active** — Text shaping / font resource v2。
+実行順の正本は [`active-roadmap.md`](active-roadmap.md)。Step 8 は完了（[`jlreq-followup-plan.md`](jlreq-followup-plan.md); gate HEAD `f9151cd`）。Step 9 complete（[`step9-document-authoring-plan.md`](step9-document-authoring-plan.md); gate §2.4.4）。**Step 10 complete**（[`step10-editor-persistence-plan.md`](step10-editor-persistence-plan.md); gate §2.4.5）。**Step 11 active** — [`step11-text-shaping-plan.md`](step11-text-shaping-plan.md) slice 1（typed protocol + font fallback）。
 
 1. **package 実運用化 local/offline slice** — [`package-plan.md`](package-plan.md): lock再現性、typed resource light、自動materialize、offline registry mirrorまで完了。network registry、full-tree hash、Core resource effectは別OPEN。
 2. **Direct Native v2** — [`direct-native-v2-plan.md`](direct-native-v2-plan.md) **shipping complete**（DN2-0〜DN2-7 + 本番 BindingId dispatch via `op_for`）。標準packageは DN2 stub + compilation BindingId（`dn2bid-*`）+ typed Rust callable。author import 綴り（修飾 / alias / bare）は canonical `package/module` へ対応。Hybrid 参照本文は `LocalPackageIndex` override のみ。portable fallback は `OPEN-NATIVE-PKG-001` で明示追跡（未実装）。

@@ -19,6 +19,7 @@ pub enum WritingMode {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Direction {
     Ltr,
+    Rtl,
 }
 
 /// Specification-shaped glyph run (IR-001 spirit): font identity, GIDs, clusters.

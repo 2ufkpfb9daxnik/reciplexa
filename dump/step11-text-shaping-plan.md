@@ -1,0 +1,36 @@
+# Step 11 — Text shaping / font resource v2
+
+**Status:** active — slice 1 landed; slice 2 next  
+**Depends on:** Step 10 complete (`0abe7bc`)  
+**Normative:** `roadmap.md` Step 11, `OPEN-TEXT-LAYOUT-001`（製品必須 subset）, spec Part IV §17–18
+
+## 非ゴール
+
+- JLReq appendix C 完全閉包（`OPEN-TEXT-JA-001` → Step 12）
+- 完全 OpenType MATH assembly（Step 13）
+- ネットワーク font registry / ダウンロード font
+- markup 作者同期
+- HarfBuzz ネイティブ FFI（Rust 純粋 shaping ライブラリを優先検討）
+
+## Ordered slices
+
+1. **Typed layout protocol + font fallback** — `ShapingAttributes`（script / language / direction / writing mode）、決定的 `FontFallbackChain`、per-glyph `FontId`、構造化 `MissingGlyph` ✓
+2. **Bidi logical→visual** — mixed LTR/RTL + 日本語 fixture、paragraph level reorder、`Direction::Rtl` を `GlyphRun` へ伝播
+3. **Complex shaping** — ligature / GSUB 級 cluster 保持（`rustybuzz` 等の明示依存）、metric-changing substitution → relayout 配線確認
+4. **Host product wiring** — `productize_shape_text` / JA paragraph / preview+export が同一 glyph 座標を消費
+5. **Step 11 gate** — workspace gate + bidi/fallback fixture tests + §2.4.6
+
+## Complete when
+
+- fallback chain が決定的で、missing glyph は fallback または構造化 Failure
+- Unicode range と cluster map を保持（ligature / complex script を含む）
+- metric-changing substitution は必ず relayout（[`policy::select_font`]）
+- mixed LTR/RTL + 日本語 fixture で preview/export の glyph 位置が一致
+- `OPEN-TEXT-LAYOUT-001` の製品必須 bullets（型・fallback・shaping・bidi）が閉じ、line break / justification は Step 12 以降も OPEN 明示
+
+## Landed modules（予定）
+
+- `crates/reciplexa-text-layout/src/protocol.rs` — typed shaping run descriptor
+- `crates/reciplexa-text-layout/src/fallback.rs` — deterministic font fallback
+- `crates/reciplexa-text-layout/src/bidi.rs` — paragraph bidi（slice 2）
+- `crates/reciplexa-text-layout/tests/step11_gates.rs` — fallback / bidi / parity gates

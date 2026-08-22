@@ -105,6 +105,23 @@ fn build_fixture_ttf() -> Vec<u8> {
     build_sfnt(&glyphs, paren_gid as u16, tall_paren_gid)
 }
 
+/// Minimal face for fallback tests: only U+263A WHITE SMILING FACE.
+pub fn build_fallback_only_font_bytes() -> Vec<u8> {
+    let glyphs = vec![
+        GlyphSpec {
+            ch: None,
+            advance: 500,
+            kind: GlyphKind::Notdef,
+        },
+        GlyphSpec {
+            ch: Some('☺'),
+            advance: 800,
+            kind: GlyphKind::Rect,
+        },
+    ];
+    build_sfnt(&glyphs, 1, 1)
+}
+
 fn ascii_advance(ch: char) -> u16 {
     match ch {
         ' ' => 300,

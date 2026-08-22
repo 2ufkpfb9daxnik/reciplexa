@@ -222,11 +222,15 @@ Task、native pointerをsnapshotへ混入させない。✓
 
 ## Step 11 — Text shaping / font resource v2
 
-**Status:** active — Step 10 complete
+**Status:** active — [`step11-text-shaping-plan.md`](step11-text-shaping-plan.md) slice 2
 
 - typed layout protocol、決定的font fallback、cluster保持
 - metric-changing substitution時のrelayout
 - complex shaping、bidi、mixed direction
+
+**Slice 1 landed:** `protocol` + `FontFallbackChain` + per-glyph `FontId`（`step11_gates`）。
+
+**Slice 2 (next):** bidi logical→visual + `Direction::Rtl` 配線。
 
 **Complete when:** fallback / bidi fixtureでUnicodeとcluster対応を失わず、previewとexportが同じ
 glyph位置を消費し、`OPEN-TEXT-LAYOUT-001`の製品必須範囲が閉じる。

@@ -461,6 +461,7 @@ fn stretchy_delim(
         }
     }
     let g = ShapedGlyph {
+        font_id: font.id.clone(),
         gid: chosen,
         ch,
         cluster_start: 0,
