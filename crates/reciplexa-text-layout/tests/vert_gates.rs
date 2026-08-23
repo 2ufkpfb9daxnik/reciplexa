@@ -2,8 +2,8 @@
 
 use reciplexa_std::japanese::needs_tate_rotation;
 use reciplexa_text_layout::{
-    host_product_font, layout_vertical_run, positioned_vertical_to_shapes, vert_substitute_gid,
-    LoadedFont, WritingMode,
+    host_product_font, layout_vertical_run, positioned_vertical_to_shapes,
+    vert_glyph_paint_offset_em, vert_substitute_gid, LoadedFont, WritingMode,
 };
 
 fn font() -> LoadedFont {
@@ -71,4 +71,37 @@ fn host_cjk_vert_may_rewrite_ideographic_stop() {
 fn empty_vertical_is_refused() {
     let f = font();
     assert!(layout_vertical_run(&f, "\n", 0.0, 0.0, 10.0).is_err());
+}
+
+#[test]
+fn vertical_punctuation_shifts_toward_preceding_glyph() {
+    let f = font();
+    let size = 10.0;
+    let origin_y = 100.0;
+    let with_stop = layout_vertical_run(&f, "字。", 0.0, origin_y, size).expect("layout");
+    let plain = layout_vertical_run(&f, "字字", 0.0, origin_y, size).expect("layout");
+    let stop = &with_stop.run.glyphs[1];
+    let second = &plain.run.glyphs[1];
+    let (_, dy_em) = vert_glyph_paint_offset_em('。');
+    assert!(
+        dy_em > 0.0,
+        "fullwidth stop should hang toward preceding glyph"
+    );
+    assert!(
+        (stop.y_mm - second.y_mm - dy_em * size).abs() < 1e-9,
+        "period y should include reciprocal offset"
+    );
+}
+
+#[test]
+fn vertical_prolonged_sound_is_centered_in_cell() {
+    let f = font();
+    let size = 8.0;
+    let with_mark = layout_vertical_run(&f, "字ー", 0.0, 90.0, size).expect("layout");
+    let plain = layout_vertical_run(&f, "字字", 0.0, 90.0, size).expect("layout");
+    let mark = &with_mark.run.glyphs[1];
+    let second = &plain.run.glyphs[1];
+    let (_, dy_em) = vert_glyph_paint_offset_em('ー');
+    assert!(dy_em < 0.0);
+    assert!((mark.y_mm - second.y_mm - dy_em * size).abs() < 1e-9);
 }

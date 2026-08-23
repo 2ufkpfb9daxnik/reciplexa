@@ -4,7 +4,9 @@
 //! Stub [`reciplexa_std::japanese::lines_to_vertical_text_shapes`] stays the reference.
 
 use reciplexa_scene::{Affine, Color, Shape};
-use reciplexa_std::japanese::needs_tate_rotation;
+use reciplexa_std::japanese::{
+    classify_char, needs_tate_rotation, reciprocal_punctuation_widths_em, CharClass,
+};
 use ttf_parser::gsub::{SingleSubstitution, SubstitutionSubtable};
 use ttf_parser::{GlyphId, Tag};
 
@@ -37,6 +39,25 @@ pub fn vert_substitute_gid(font: &LoadedFont, gid: u16) -> u16 {
         }
     }
     gid
+}
+
+/// Ink offset within a vertical cell (em). Positive `dy` shifts toward the preceding glyph (+Y).
+///
+/// Uses std reciprocal punctuation halves for hangable fullwidth stops/commas; centers
+/// prolonged sound marks in the cell. Not full JLReq line-head/end context rules.
+pub fn vert_glyph_paint_offset_em(ch: char) -> (f64, f64) {
+    if needs_tate_rotation(ch) {
+        return (0.0, 0.0);
+    }
+    if let Some((_solid, mirror)) = reciprocal_punctuation_widths_em(ch) {
+        // Solid body faces the preceding character above (+Y).
+        return (0.0, mirror * 0.5);
+    }
+    if classify_char(ch) == CharClass::ProlongedSoundMark {
+        // Horizontal bar centered in the 1 em vertical cell (top-anchored stack).
+        return (0.0, -0.25);
+    }
+    (0.0, 0.0)
 }
 
 fn apply_single_feature(
@@ -117,13 +138,14 @@ pub fn layout_vertical_run(
             font.ver_advance_em_gid(gid)
         };
         let advance_mm = advance_em * size_mm;
+        let (dx_em, dy_em) = vert_glyph_paint_offset_em(ch);
         glyphs.push(PositionedGlyph {
             gid,
             ch,
             cluster_start: byte,
             cluster_end: byte + len,
-            x_mm: origin_x_mm,
-            y_mm: y,
+            x_mm: origin_x_mm + dx_em * size_mm,
+            y_mm: y + dy_em * size_mm,
             advance_mm,
             font_digest: font.id.digest.clone(),
         });

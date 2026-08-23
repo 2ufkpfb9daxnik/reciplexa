@@ -67,5 +67,6 @@ pub use tcy::{
     layout_tate_chu_yoko, positioned_tcy_to_shapes, PositionedTateChuYoko, TCY_MAX_CHARS,
 };
 pub use vert::{
-    layout_vertical_run, positioned_vertical_to_shapes, vert_substitute_gid, PositionedVertical,
+    layout_vertical_run, positioned_vertical_to_shapes, vert_glyph_paint_offset_em,
+    vert_substitute_gid, PositionedVertical,
 };

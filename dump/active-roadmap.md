@@ -256,11 +256,13 @@ glyph位置を消費し、`OPEN-TEXT-LAYOUT-001`の製品必須範囲が閉じ�
 
 ## Step 12 — Japanese Document Profile v2
 
-**Status:** active
+**Status:** active — [`step12-ja-profile-plan.md`](step12-ja-profile-plan.md) slice 1
 
 - jukugo配分、縦ルビ、ruby overhang
 - より完全な`vrt2` / 文字方向処理とJLReq rule vector
 - stub differentialと残存appendix C / CSS範囲の明示
+
+**Slice 1 (next):** vertical punctuation JLReq position（`。` `、` `ー`）。
 
 **Complete when:** 横組・縦組・ruby・縦中横・傍点を組み合わせた文書がfont-backedで
 preview/exportされ、実装規則と適合fixtureが対応する。
