@@ -6,9 +6,9 @@ use reciplexa_text_layout::{
     analyze_paragraph, build_fallback_only_font_bytes, build_liga_fixture_font_bytes,
     clusters_cover_input, glyph_shapes_export_coords, infer_script,
     layout_wrapped_paragraph_product, layout_wrapped_paragraph_product_lines,
-    positioned_line_glyph_coords, productize_shape_text_emit, require_emit_matches_shaped_run,
-    shape_run, shape_run_complex, visual_glyph_indices, Direction, FontFallbackChain, LoadedFont,
-    PositionedLine, Script, ShapedGlyph, ShapingAttributes,
+    positioned_line_glyph_coords, positioned_line_to_glyph_shapes, productize_shape_text_emit,
+    require_emit_matches_shaped_run, shape_run, shape_run_complex, visual_glyph_indices, Direction,
+    FontFallbackChain, LoadedFont, PositionedLine, Script, ShapedGlyph, ShapingAttributes,
 };
 
 #[test]
@@ -212,4 +212,39 @@ fn step11_ja_paragraph_preview_export_glyph_coords_match() {
         assert!((line.3 - shape.3).abs() < 1e-9);
         assert_eq!(line.4, shape.4);
     }
+}
+
+#[test]
+fn step11_fallback_per_glyph_digest_reaches_export() {
+    let primary = LoadedFont::fixture();
+    let fallback =
+        LoadedFont::from_bytes(build_fallback_only_font_bytes(), "ReciplexaFallbackOnly")
+            .expect("parse fallback font");
+    let chain = FontFallbackChain::new(primary.clone()).with_fallback(fallback);
+    let text = "日☺本";
+    let run = chain
+        .shape(text, &ShapingAttributes::horizontal_ltr("ja"))
+        .expect("shape with fallback");
+    let line = PositionedLine::from_shaped_run(primary.id.clone(), &run, 5.0, 10.0, 8.0, "ja");
+    let ja = line
+        .run
+        .glyphs
+        .iter()
+        .find(|g| g.ch == '日')
+        .expect("ja glyph");
+    let smile = line
+        .run
+        .glyphs
+        .iter()
+        .find(|g| g.ch == '☺')
+        .expect("fallback glyph");
+    assert_ne!(ja.font_digest, smile.font_digest);
+    let shapes = positioned_line_to_glyph_shapes(&line, Color::BLACK);
+    let export = glyph_shapes_export_coords(&shapes);
+    assert_eq!(export.len(), line.run.glyphs.len());
+    let smile_export = export
+        .iter()
+        .find(|(_, _, _, _, d)| *d == smile.font_digest)
+        .expect("fallback digest in export");
+    assert_eq!(smile_export.2, smile.gid);
 }
