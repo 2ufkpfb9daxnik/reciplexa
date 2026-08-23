@@ -54,6 +54,7 @@
 | 2 | `7b922a0` | `4defb956` | **complete** | bidi + `from_shaped_run_with_attrs`；fmt 修正後 scoped gate green |
 | 3 | `3850f59` | `5bfa267c` | **complete** | rustybuzz + `complex.rs` + fixture liga coalescing + `require_emit_matches_shaped_run` |
 | 4 | `b29ad06` | `b7a50fbd` | **complete** | productize bidi+emit guard + JA preview/export parity + per-glyph font_digest |
+| 5 | `3b38c1e` | `fcd6b59b` | **complete** | fallback export capstone + §2.4.6 gate（docs `44658ec`） |
 
 ## Complete when
 
