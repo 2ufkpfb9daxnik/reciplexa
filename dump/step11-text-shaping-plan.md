@@ -1,6 +1,6 @@
 # Step 11 — Text shaping / font resource v2
 
-**Status:** active — slice 4 landed; slice 5 next  
+**Status:** complete — all slices landed; gate §2.4.6  
 **Depends on:** Step 10 complete (`0abe7bc`)  
 **Normative:** `roadmap.md` Step 11, `OPEN-TEXT-LAYOUT-001`（製品必須 subset）, spec Part IV §17–18
 
@@ -28,13 +28,21 @@
 - per-glyph `font_digest` が `PositionedGlyph` から export へ伝播すること
 - **非ゴール（slice 4）:** 完全 UAX#9 bidi、任意 system font OTL、justify+bidi 混在の完全整合
 
+## Slice 5 受入（監査用）
+
+- workspace gate（§2.4.6）が green：`step11_gates` + `pt_gates` + workspace fmt/clippy/test/smoke
+- fallback fixture で per-glyph `font_digest` が export まで伝播すること（`step11_fallback_per_glyph_digest_reaches_export`）
+- bidi / fallback / productize / JA parity の既存 `step11_gates` が一括で通ること
+- `OPEN-TEXT-LAYOUT-001` の製品必須 subset（型・fallback・shaping・bidi）を閉じ、line break / justification は Step 12 以降 OPEN と明記すること
+- **非ゴール（slice 5）:** 完全 UAX#9、任意 system OTL、Step 12 の JLReq 拡張
+
 ## Ordered slices
 
 1. **Typed layout protocol + font fallback** — `ShapingAttributes`（script / language / direction / writing mode）、決定的 `FontFallbackChain`、per-glyph `FontId`、構造化 `MissingGlyph` ✓
 2. **Bidi logical→visual** — mixed LTR/RTL + 日本語 fixture、paragraph level reorder、`Direction::Rtl` を `GlyphRun` へ伝播 ✓
 3. **Complex shaping** — ligature / GSUB 級 cluster 保持（`rustybuzz` 明示依存）、metric-changing substitution → relayout 配線 ✓
-4. **Host product wiring** — `productize_shape_text` / JA paragraph / preview+export が同一 glyph 座標を消費
-5. **Step 11 gate** — workspace gate + bidi/fallback fixture tests + §2.4.6
+4. **Host product wiring** — `productize_shape_text` / JA paragraph / preview+export が同一 glyph 座標を消費 ✓
+5. **Step 11 gate** — workspace gate + bidi/fallback fixture tests + §2.4.6 ✓
 
 ## Slice 監査（Composer 2.5；`fast` 不可）
 

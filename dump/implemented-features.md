@@ -179,6 +179,26 @@ Env D / offline。atomic `.rpx` save、`.rpjsrc` crash journal、`.rpxsnap` jour
 
 **人間 GUI 確認（2026-08-21）:** OK（`text_line.rpx` — undo/redo、Save 後 reload、`.rpjsrc` 復元ダイアログ）。undo 後の layer 選択は「最後にクリックしたオブジェクトが選択されたまま」でよい（undo で別オブジェクトの source が戻っても、直前クリック選択は維持）。
 
+### 2.4.6 Step 11 Text shaping / font resource v2 完了gate（code HEAD `3b38c1e`）
+
+Env D / offline。`ShapingAttributes` + 決定的 `FontFallbackChain` + rustybuzz complex shaping + paragraph bidi + host `productize_shape_text` / JA paragraph preview-export 座標一致 + `require_emit_matches_shaped_run`。完全 UAX#9 bidi、任意 system OTL、JLReq line break / justification 拡張は閉じない（Step 12 / `OPEN-TEXT-JA-001`）。
+
+| Command | 結果 |
+|---------|------|
+| `cargo fmt --all --check` | green |
+| `cargo clippy --workspace --all-targets --offline -- -D warnings` | green |
+| `cargo test --workspace --offline` | green |
+| `cargo check --workspace --all-targets --offline` | green |
+| `cargo check --offline -p reciplexa-gui` | green |
+| `cargo run --offline -p reciplexa-gui -- --smoke examples/text_line.rpx` | green (`smoke: ok`) |
+| `cargo run --offline -p reciplexa -- examples/text_line.rpx .tmp/step11-gate-smoke.pdf` | green |
+| `cargo test -p reciplexa-text-layout --test step11_gates --test pt_gates --offline` | 31 passed |
+| `cargo test -p reciplexa-package --test pt9_cutover --offline` | 7 passed |
+
+**独立監査（slice 1–5; Composer 2.5）:** slices 1–4 は各 slice 監査 **complete**（`895bf444` / `4defb956` / `5bfa267c` / `b7a50fbd`）。macro-Step 全体の再監査は docs 記録 HEAD で実施。
+
+**`OPEN-TEXT-LAYOUT-001`（製品必須 subset）:** 型付き shaping protocol、決定的 fallback、rustybuzz 級 complex shaping（cluster 保持）、paragraph bidi、metric-changing substitution → relayout、host preview/export 同一 glyph 座標 — **closed**。line break / justification の JLReq 拡張と完全 UAX#9 は **OPEN**（Step 12 以降）。
+
 ### 2.5 製品Vertical Slice（**product slice complete**）
 
 保証する範囲（package形式1ページ、`examples/text_line.rpx` 相当）:
@@ -283,7 +303,7 @@ pre-PKG カーネルは計画上 **COMPLETE（意図的 defer 付き）**。各�
 
 ## 6. 次工程
 
-実行順の正本は [`active-roadmap.md`](active-roadmap.md)。**Step 11 active** — [`step11-text-shaping-plan.md`](step11-text-shaping-plan.md) slice 3 landed（rustybuzz complex shaping）；slice 4（host wiring）next。
+実行順の正本は [`active-roadmap.md`](active-roadmap.md)。**Step 12 active** — [`step11-text-shaping-plan.md`](step11-text-shaping-plan.md) **complete**（gate §2.4.6）。次は Japanese Document Profile v2。
 
 1. **package 実運用化 local/offline slice** — [`package-plan.md`](package-plan.md): lock再現性、typed resource light、自動materialize、offline registry mirrorまで完了。network registry、full-tree hash、Core resource effectは別OPEN。
 2. **Direct Native v2** — [`direct-native-v2-plan.md`](direct-native-v2-plan.md) **shipping complete**（DN2-0〜DN2-7 + 本番 BindingId dispatch via `op_for`）。標準packageは DN2 stub + compilation BindingId（`dn2bid-*`）+ typed Rust callable。author import 綴り（修飾 / alias / bare）は canonical `package/module` へ対応。Hybrid 参照本文は `LocalPackageIndex` override のみ。portable fallback は `OPEN-NATIVE-PKG-001` で明示追跡（未実装）。
@@ -298,11 +318,11 @@ pre-PKG カーネルは計画上 **COMPLETE（意図的 defer 付き）**。各�
 1. **OPEN-PKG-001**（Step 16、残りはStep 22/24）— ネットワーク registry は未実装。ローカルミラー `registry/{name}/{version}/`（または `RPIX_REGISTRY_ROOT`）で `source registry` / `registry:` lock をオフライン解決。ミラーなしは PKG005 / OPEN-PKG-001 拒否。lock checksum は `package.rpxm` SHA-256。path 依存は PKG007 必須。full-tree / registry artifact hash は未着手。
 2. **OPEN-NATIVE-PKG-001**（Step 16）— 標準packageの portable `.rpx` fallback、ABI/version negotiation、native unavailable 時のルーティングは未実装。本番は Direct Native v2 のみ。非native package の disk `.rpx` load は維持。定数は `reciplexa_package::OPEN_NATIVE_PKG_001_*`。
 3. **package-resource**（Steps 16、18–19）— package load/eval は [`eval_package_entry_main`] で `(resource …)` を自動 materialize（`resource-id` / `content-hash` / `effect: Resource` / `resolved-path`）。replay 不一致は PKG008。Core 型の resource effect / bracket 分離は未着手（RSC-001）。
-4. **OPEN-TEXT-LAYOUT-001**（Step 11）— 共通 Text Layout protocol の正確な型、font fallback、HarfBuzz 級 shaping、bidi。Profile v1 の行分割・行調整は font-backed。残りの bullets は閉じない。
+4. **OPEN-TEXT-LAYOUT-001**（Step 11 **製品必須 subset closed**；gate §2.4.6）— 型付き protocol、決定的 fallback、rustybuzz 級 shaping、paragraph bidi、emit digest guard、preview/export 座標一致は landed。完全 UAX#9・任意 system OTL・JLReq line break/justification 拡張は Step 12 以降 OPEN。
 5. **OPEN-TEXT-JA-001**（Step 12、完全閉包はStep 24）— 完全 UCS / 規範的 appendix C 全体 / CSS `text-orientation` / `text-emphasis` / jukugo 配分・縦ルビ・overhang / **縦組句読点・長音（`。` `、` `ー` 等）の JLReq 位置調整**（Step 8 は GSUB `vert` 字形差替と vmtx 積みのみ）。Profile v1 はクラス行列・cl-08 glue・hang/trim/justify。Step 8 item 1 は横組 simple ruby。item 2 は vertical-rl + GSUB `vert`。item 3 は tate-chu-yoko（ASCII 1–4）と bou 円（親 em の外、`BOU_PARENT_GAP_EM`）。stub 層（Waves 4–29）は参照のまま閉じない。
 6. **OpenType MATH（Profile v1 以降）**（Step 13）— 完全 glyph assembly、MATH kern、`\fontdimen`、GUI 上の first-class editable math。Profile v1 は fixture MATH constants、font advance、scripts/fraction/radical（rule thickness）、stretchy は MATH Variants construction の prepared GID（cmap `(` ではない。scene `GlyphRun` / PDF Identity-H）、hat/tilde/dot/vec / bar-underline rules、display bigop variants、matrix/stack。check/breve 等の ASCII 代用はしない。`reciplexa-std::math` ヒューリスティックは参照。
 7. **本番ページ消費（editable）**（Step 9 **complete**、Step 13–14）— `document/page` の heading / paragraph / indent-em / columns は layer + props から Source 往復（`sync/document.rs`）。math / JA markup tree の first-class GUI 編集は Step 13 以降。`live-layout-demo` 等のホスト preview は product engine。graphics `text` は cluster `GlyphRun`（authoring 1 ノード = 1 cluster run）。
-8. **Font emission 残差**（Steps 11、15）— ホスト PDF は layout digest ごとに CID face を subset（`host_product_font` と `host_math_font`。同一 digest なら一面）。`Shape::GlyphRun` は layout GID を塗る。cmap 経路の非 ASCII `Text` は product face。digest 不一致は relayout エラー。Latin-only `Text` は Helvetica。GUI preview は同じ digest の egui familyで`GlyphRun`をlayout advance位置に置く（cmapグリフ。construction-only GIDのアウトラインはeguiではUnicode代用）。SVG/PPTXはUnicodeクラスタを同じ座標で出す。
+8. **Font emission 残差**（Steps 15）— ホスト PDF は layout digest ごとに CID face を subset（`host_product_font` と `host_math_font`。同一 digest なら一面）。`Shape::GlyphRun` は layout GID を塗る。cmap 経路の非 ASCII `Text` は product face。digest 不一致は relayout エラー（Step 11 landed）。Latin-only `Text` は Helvetica。GUI preview は同じ digest の egui familyで`GlyphRun`をlayout advance位置に置く（cmapグリフ。construction-only GIDのアウトラインはeguiではUnicode代用）。SVG/PPTXはUnicodeクラスタを同じ座標で出す。
 9. **markup 作者同期**（Step 21または22で仕様依存を再評価）— GUI CST sync v2 は package AST のみ。`(markup …)` 展開ページは soft-refuse（意図的）。Step 9のscopeには含めない。
 10. **その他意図的 skip** — 分数ルール色付け（既に黒）；`pkg_checksum_demo` 例（crate README で足りる）。
 

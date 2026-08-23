@@ -34,8 +34,8 @@ coverage、deferred、meta、gap/partialの各ファイルは測定・監査用�
 - portable fallback / ABI negotiation は `OPEN-NATIVE-PKG-001` として OPEN のまま追跡する。
 - 最初に閉じる製品体験は、package形式の図形と文字の1ページをGUIで編集し、保存、再読込、PDF/SVG出力まで往復できるVertical Sliceである。
 - markup、`document/page`のdoc-*作者編集はこのSliceの対象外とし、read-onlyまたは明示的soft-refuseにする。
-- Step 7 item 3 の JLReq / MATH Profile v1 は landed（stub 参照経路は残す）。Step 8 の JLReq follow-up（simple ruby、`vert` 縦組、縦中横 / 傍点）は landed。
-- 次は Step 9「構造化ページ作者編集とProvenance」。Step 17を実用製品完成、Step 24を仕様完全実装とする。詳細は[`roadmap.md`](roadmap.md) §0.1–0.5。
+- Step 7 item 3 の JLReq / MATH Profile v1 は landed（stub 参照経路は残す）。Step 8 の JLReq follow-up（simple ruby、`vert` 縦組、縦中横 / 傍点）は landed。Step 11 の text shaping / font resource v2 は landed（gate §2.4.6）。
+- 次は Step 12「Japanese Document Profile v2」。Step 17を実用製品完成、Step 24を仕様完全実装とする。詳細は[`roadmap.md`](roadmap.md) §0.1–0.5。
 - 完全 appendix C、jukugo、完全 MATH assembly、first-class editable math等は、OPEN一覧からStep 11–13へ依存順に割り当てた。前倒しで暗黙実装しない。
 
 ## 人間が確認すること

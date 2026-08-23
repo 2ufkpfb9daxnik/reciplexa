@@ -235,7 +235,7 @@ Task、native pointerをsnapshotへ混入させない。✓
 
 ## Step 11 — Text shaping / font resource v2
 
-**Status:** active — [`step11-text-shaping-plan.md`](step11-text-shaping-plan.md) slice 2
+**Status:** complete（gate §2.4.6; [`step11-text-shaping-plan.md`](step11-text-shaping-plan.md)）
 
 - typed layout protocol、決定的font fallback、cluster保持
 - metric-changing substitution時のrelayout
@@ -247,14 +247,16 @@ Task、native pointerをsnapshotへ混入させない。✓
 
 **Slice 3 landed:** `rustybuzz` + `complex.rs` + `require_emit_matches_shaped_run`（監査 `5bfa267c` / `3850f59` **complete**）。
 
-**Slice 4 (next):** host product wiring。
+**Slice 4 landed:** host product wiring（監査 `b7a50fbd` / `b29ad06` **complete**）。
+
+**Slice 5 landed:** workspace gate + fallback export fixture + §2.4.6。
 
 **Complete when:** fallback / bidi fixtureでUnicodeとcluster対応を失わず、previewとexportが同じ
-glyph位置を消費し、`OPEN-TEXT-LAYOUT-001`の製品必須範囲が閉じる。
+glyph位置を消費し、`OPEN-TEXT-LAYOUT-001`の製品必須範囲が閉じる。✓
 
 ## Step 12 — Japanese Document Profile v2
 
-**Status:** blocked — Step 11待ち
+**Status:** active
 
 - jukugo配分、縦ルビ、ruby overhang
 - より完全な`vrt2` / 文字方向処理とJLReq rule vector
@@ -265,7 +267,7 @@ preview/exportされ、実装規則と適合fixtureが対応する。
 
 ## Step 13 — Math Profile v2とGUI編集
 
-**Status:** blocked — Step 11待ち（Step 12とslice並行可）
+**Status:** blocked — Step 12待ち（slice並行可）
 
 - full glyph assembly、MATH kern、font metrics
 - alignment / equation numberの実用subset
