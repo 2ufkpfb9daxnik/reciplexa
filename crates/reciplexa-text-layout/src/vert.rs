@@ -41,23 +41,31 @@ pub fn vert_substitute_gid(font: &LoadedFont, gid: u16) -> u16 {
     gid
 }
 
-/// Ink offset within a vertical cell (em). Positive `dy` shifts toward the preceding glyph (+Y).
+/// Ink offset within a vertical cell (em). Stack anchor `y` is the cell top (+Y).
 ///
-/// Uses std reciprocal punctuation halves for hangable fullwidth stops/commas; centers
-/// prolonged sound marks in the cell. Not full JLReq line-head/end context rules.
+/// Reciprocal punctuation: solid half toward the preceding glyph (+Y), so paint
+/// moves down into the upper half (`dy` negative) and left (`dx` negative).
 pub fn vert_glyph_paint_offset_em(ch: char) -> (f64, f64) {
-    if needs_tate_rotation(ch) {
+    if needs_vert_cell_rotation(ch) {
         return (0.0, 0.0);
     }
-    if let Some((_solid, mirror)) = reciprocal_punctuation_widths_em(ch) {
-        // Solid body faces the preceding character above (+Y).
-        return (0.0, mirror * 0.5);
-    }
-    if classify_char(ch) == CharClass::ProlongedSoundMark {
-        // Horizontal bar centered in the 1 em vertical cell (top-anchored stack).
-        return (0.0, -0.25);
+    if let Some((solid, mirror)) = reciprocal_punctuation_widths_em(ch) {
+        return (-mirror * 0.5, -solid * 0.5);
     }
     (0.0, 0.0)
+}
+
+/// Rotation for vertical-rl: Latin and prolonged sound mark (−90°).
+pub fn vert_glyph_rotation_deg(ch: char) -> f64 {
+    if needs_vert_cell_rotation(ch) {
+        -90.0
+    } else {
+        0.0
+    }
+}
+
+fn needs_vert_cell_rotation(ch: char) -> bool {
+    needs_tate_rotation(ch) || classify_char(ch) == CharClass::ProlongedSoundMark
 }
 
 fn apply_single_feature(
@@ -131,7 +139,7 @@ pub fn layout_vertical_run(
         }
         let cmap = font.glyph_id(ch)?;
         let gid = vert_substitute_gid(font, cmap);
-        let rotated = needs_tate_rotation(ch);
+        let rotated = needs_vert_cell_rotation(ch);
         let advance_em = if rotated {
             font.hor_advance_em_gid(gid)?
         } else {
@@ -149,7 +157,7 @@ pub fn layout_vertical_run(
             advance_mm,
             font_digest: font.id.digest.clone(),
         });
-        rotation_deg.push(if rotated { -90.0 } else { 0.0 });
+        rotation_deg.push(vert_glyph_rotation_deg(ch));
         y -= advance_mm;
         byte += len;
     }

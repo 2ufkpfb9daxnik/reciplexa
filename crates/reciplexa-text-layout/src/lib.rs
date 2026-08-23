@@ -68,5 +68,5 @@ pub use tcy::{
 };
 pub use vert::{
     layout_vertical_run, positioned_vertical_to_shapes, vert_glyph_paint_offset_em,
-    vert_substitute_gid, PositionedVertical,
+    vert_glyph_rotation_deg, vert_substitute_gid, PositionedVertical,
 };

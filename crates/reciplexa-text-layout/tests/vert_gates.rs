@@ -82,26 +82,31 @@ fn vertical_punctuation_shifts_toward_preceding_glyph() {
     let plain = layout_vertical_run(&f, "字字", 0.0, origin_y, size).expect("layout");
     let stop = &with_stop.run.glyphs[1];
     let second = &plain.run.glyphs[1];
-    let (_, dy_em) = vert_glyph_paint_offset_em('。');
+    let (dx_em, dy_em) = vert_glyph_paint_offset_em('。');
     assert!(
-        dy_em > 0.0,
-        "fullwidth stop should hang toward preceding glyph"
+        dx_em < 0.0 && dy_em < 0.0,
+        "punctuation sits top-start in cell"
     );
-    assert!(
-        (stop.y_mm - second.y_mm - dy_em * size).abs() < 1e-9,
-        "period y should include reciprocal offset"
-    );
+    assert!((stop.x_mm - second.x_mm - dx_em * size).abs() < 1e-9);
+    assert!((stop.y_mm - second.y_mm - dy_em * size).abs() < 1e-9);
+    assert!(stop.x_mm < second.x_mm);
+    assert!(stop.y_mm < second.y_mm);
 }
 
 #[test]
-fn vertical_prolonged_sound_is_centered_in_cell() {
+fn vertical_prolonged_sound_is_rotated() {
     let f = font();
-    let size = 8.0;
-    let with_mark = layout_vertical_run(&f, "字ー", 0.0, 90.0, size).expect("layout");
-    let plain = layout_vertical_run(&f, "字字", 0.0, 90.0, size).expect("layout");
-    let mark = &with_mark.run.glyphs[1];
-    let second = &plain.run.glyphs[1];
-    let (_, dy_em) = vert_glyph_paint_offset_em('ー');
-    assert!(dy_em < 0.0);
-    assert!((mark.y_mm - second.y_mm - dy_em * size).abs() < 1e-9);
+    let laid = layout_vertical_run(&f, "天ー気", 10.0, 80.0, 8.0).expect("layout");
+    let mark_idx = laid
+        .run
+        .glyphs
+        .iter()
+        .position(|g| g.ch == 'ー')
+        .expect("ー");
+    assert_eq!(laid.rotation_deg[mark_idx], -90.0);
+    let shapes = positioned_vertical_to_shapes(&laid, reciplexa_scene::Color::BLACK);
+    assert!(matches!(
+        shapes[mark_idx],
+        reciplexa_scene::Shape::Group { .. }
+    ));
 }

@@ -4,11 +4,20 @@ use reciplexa_text_layout::{layout_vertical_run, vert_glyph_paint_offset_em, Loa
 
 #[test]
 fn step12_slice1_reciprocal_punctuation_offset_em() {
-    let (_, dy_stop) = vert_glyph_paint_offset_em('。');
-    let (_, dy_comma) = vert_glyph_paint_offset_em('、');
-    assert!((dy_stop - 0.25).abs() < 1e-9);
-    assert!((dy_comma - 0.25).abs() < 1e-9);
+    let (dx_stop, dy_stop) = vert_glyph_paint_offset_em('。');
+    let (dx_comma, dy_comma) = vert_glyph_paint_offset_em('、');
+    assert!((dx_stop + 0.25).abs() < 1e-9);
+    assert!((dy_stop + 0.25).abs() < 1e-9);
+    assert_eq!(dx_comma, dx_stop);
+    assert_eq!(dy_comma, dy_stop);
     assert_eq!(vert_glyph_paint_offset_em('A'), (0.0, 0.0));
+}
+
+#[test]
+fn step12_slice1_prolonged_sound_rotates() {
+    use reciplexa_text_layout::vert_glyph_rotation_deg;
+    assert_eq!(vert_glyph_rotation_deg('ー'), -90.0);
+    assert_eq!(vert_glyph_rotation_deg('漢'), 0.0);
 }
 
 #[test]

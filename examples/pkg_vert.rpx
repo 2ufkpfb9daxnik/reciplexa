@@ -5,7 +5,7 @@
   a4 page flow section heading paragraph
   block-heading block-paragraph)
 
-(val samples (list "縦書き" "東京。" "ABC"))
+(val samples (list "縦書き" "東京。" "天ー気" "ABC"))
 
 (val title (heading 1 "Vertical writing"))
 (val body (paragraph "上から下へ。右の列から左へ。句点は vert、ABC は回転。"))

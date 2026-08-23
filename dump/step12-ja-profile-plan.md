@@ -21,8 +21,8 @@
 
 ## Slice 1 受入（監査用）
 
-- `layout_vertical_run` が reciprocal punctuation（`reciprocal_punctuation_widths_em`）に基づき upright 約物の Y オフセットを適用すること
-- `ー`（`ProlongedSoundMark`）がセル中心寄せの Y オフセットを持つこと（cell-top アンカーからの補正）
+- `layout_vertical_run` が reciprocal punctuation に基づき upright 約物を**セル内左上**（top-start）へオフセットすること
+- `ー`（`ProlongedSoundMark`）が縦組向けに **−90°** 回転すること
 - advance 幅は変えず ink 位置のみずらすこと
 - `vert_gates` / `step12_gates` に fixture 回帰があること
 - **非ゴール（slice 1）:** 行頭/行末コンテキスト依存の完全 JLReq、縦ルビ、jukugo
