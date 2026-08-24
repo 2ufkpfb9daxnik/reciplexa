@@ -46,6 +46,15 @@
 - stub `Ruby::estimate_box` は変更しない
 - **非ゴール（slice 3）:** 縦ルビ、形態素解析、行頭/行末 overhang 衝突
 
+## Slice 4 受入（監査用）
+
+- `layout_vertical_ruby` が simple ruby の縦組列に font-backed 側注ルビを置くこと
+- 注釈は親列の右側（`VERTICAL_RUBY_SIDE_EM`）に縦積み、親列高さの中央に揃えること
+- 縦方向の行送り `advance_mm` は親 base 列の高さのみ
+- stub `vertical-ruby-box` / `estimate_vertical_box` は変更しない
+- `ruby_gates` / `step12_gates` / `pkg_vert` host 経路に回帰があること
+- **非ゴール（slice 4）:** 縦 jukugo 配分、行頭/行末 overhang 衝突
+
 ## Slice 監査（Composer 2.5；`fast` 不可）
 
 | Slice | HEAD | subagent | 判定 | 備考 |

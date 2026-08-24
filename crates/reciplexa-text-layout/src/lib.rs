@@ -62,8 +62,9 @@ pub use position::{
 };
 pub use protocol::{infer_script, Script, ShapingAttributes};
 pub use ruby::{
-    distribute_jukugo_annotation, layout_ruby, layout_simple_ruby, positioned_ruby_to_shapes,
-    PositionedRuby, RUBY_PARENT_GAP_EM,
+    distribute_jukugo_annotation, layout_ruby, layout_simple_ruby, layout_vertical_ruby,
+    positioned_ruby_to_shapes, positioned_vertical_ruby_to_shapes, PositionedRuby,
+    PositionedVerticalRuby, RUBY_PARENT_GAP_EM,
 };
 pub use shape::{clusters_cover_input, shape_run, ShapedGlyph, ShapedRun};
 pub use tcy::{

@@ -1,15 +1,15 @@
-//! Font-backed horizontal ruby (Step 8 item 1; Step 12 slices 2–3).
+//! Font-backed horizontal and vertical ruby (Step 8 item 1; Step 12 slices 2–4).
 //!
-//! Vertical ruby remains OPEN.
 //! Stub [`reciplexa_std::japanese::Ruby::estimate_box`] stays the fontless reference.
 
 use reciplexa_scene::{Color, Shape};
-use reciplexa_std::japanese::{Ruby, RubyKind, RUBY_ANNOTATION_SCALE};
+use reciplexa_std::japanese::{Ruby, RubyKind, RUBY_ANNOTATION_SCALE, VERTICAL_RUBY_SIDE_EM};
 
 use crate::error::LayoutError;
 use crate::font::LoadedFont;
 use crate::position::{positioned_line_to_glyph_shapes, GlyphRun, PositionedGlyph, PositionedLine};
 use crate::shape::shape_run;
+use crate::vert::{layout_vertical_run, positioned_vertical_to_shapes, PositionedVertical};
 
 /// Extra em between the parent em-square top and the annotation baseline.
 /// Stub `RUBY_HEIGHT_BUMP_EM` stays the fontless box; this is product spacing.
@@ -221,6 +221,68 @@ fn layout_jukugo_ruby_inner(
 pub fn positioned_ruby_to_shapes(ruby: &PositionedRuby, fill: Color) -> Vec<Shape> {
     let mut shapes = positioned_line_to_glyph_shapes(&ruby.annotation, fill);
     shapes.extend(positioned_line_to_glyph_shapes(&ruby.base, fill));
+    shapes
+}
+
+/// Vertical-rl ruby: base column plus side annotation (page Y-up, column stacks downward).
+#[derive(Debug, Clone, PartialEq)]
+pub struct PositionedVerticalRuby {
+    pub base: PositionedVertical,
+    pub annotation: PositionedVertical,
+    /// Vertical measure advance (mm): parent base column height (親文字送り).
+    pub advance_mm: f64,
+    /// Inline extent (mm) including the side ruby band.
+    pub inline_mm: f64,
+}
+
+/// Layout [`RubyKind::Simple`] in a vertical-rl column with font-backed side annotation.
+///
+/// Annotation is drawn at [`RUBY_ANNOTATION_SCALE`] beside the base column
+/// ([`VERTICAL_RUBY_SIDE_EM`] gap). Vertical measure uses the base height only;
+/// taller annotations overhang at the column ends.
+pub fn layout_vertical_ruby(
+    font: &LoadedFont,
+    ruby: &Ruby,
+    origin_x_mm: f64,
+    origin_y_mm: f64,
+    base_size_mm: f64,
+) -> Result<PositionedVerticalRuby, LayoutError> {
+    if ruby.kind != RubyKind::Simple {
+        return Err(LayoutError::Engine {
+            detail: format!(
+                "vertical-ruby slice does not layout kind `{}`",
+                ruby.kind.as_str()
+            ),
+        });
+    }
+    if ruby.base.is_empty() || ruby.annotation.is_empty() {
+        return Err(LayoutError::Engine {
+            detail: "ruby base and annotation must be non-empty".into(),
+        });
+    }
+    let base = layout_vertical_run(font, &ruby.base, origin_x_mm, origin_y_mm, base_size_mm)?;
+    let ann_size = base_size_mm * RUBY_ANNOTATION_SCALE;
+    let ann_x = origin_x_mm + base_size_mm + base_size_mm * VERTICAL_RUBY_SIDE_EM;
+    let probe = layout_vertical_run(font, &ruby.annotation, ann_x, origin_y_mm, ann_size)?;
+    let ann_origin_y = origin_y_mm + (base.height_mm - probe.height_mm) / 2.0;
+    let annotation = layout_vertical_run(font, &ruby.annotation, ann_x, ann_origin_y, ann_size)?;
+    let advance_mm = base.height_mm;
+    let inline_mm = (ann_x - origin_x_mm) + ann_size;
+    Ok(PositionedVerticalRuby {
+        base,
+        annotation,
+        advance_mm,
+        inline_mm,
+    })
+}
+
+/// Lower [`PositionedVerticalRuby`] to per-glyph [`Shape::GlyphRun`].
+pub fn positioned_vertical_ruby_to_shapes(
+    ruby: &PositionedVerticalRuby,
+    fill: Color,
+) -> Vec<Shape> {
+    let mut shapes = positioned_vertical_to_shapes(&ruby.annotation, fill);
+    shapes.extend(positioned_vertical_to_shapes(&ruby.base, fill));
     shapes
 }
 

@@ -111,3 +111,24 @@ fn step12_slice3_jukugo_per_base_centers() {
     let tou_c = (min_x + max_x) * 0.5;
     assert!((east_c - tou_c).abs() < 0.6);
 }
+
+#[test]
+fn step12_slice4_vertical_ruby_side_annotation() {
+    use reciplexa_std::japanese::Ruby;
+    use reciplexa_text_layout::layout_vertical_ruby;
+
+    let f = LoadedFont::fixture();
+    let ruby = Ruby::simple("京", "きょう");
+    let laid = layout_vertical_ruby(&f, &ruby, 20.0, 80.0, 12.0).expect("layout");
+    assert!((laid.advance_mm - laid.base.height_mm).abs() < 1e-9);
+    let base = laid.base.run.glyphs.first().expect("base glyph");
+    let ann = laid.annotation.run.glyphs.first().expect("ann glyph");
+    assert!(ann.x_mm > base.x_mm + 12.0);
+    let shapes = reciplexa_text_layout::positioned_vertical_ruby_to_shapes(
+        &laid,
+        reciplexa_scene::Color::BLACK,
+    );
+    assert!(shapes
+        .iter()
+        .any(|s| matches!(s, reciplexa_scene::Shape::GlyphRun(_))));
+}

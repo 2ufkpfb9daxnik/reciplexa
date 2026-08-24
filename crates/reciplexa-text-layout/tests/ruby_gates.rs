@@ -173,3 +173,53 @@ fn empty_ruby_is_refused() {
         Err(LayoutError::Engine { .. })
     ));
 }
+
+#[test]
+fn vertical_ruby_places_annotation_beside_base() {
+    use reciplexa_text_layout::layout_vertical_ruby;
+
+    let f = font();
+    let ruby = Ruby::simple("東", "とう");
+    let laid = layout_vertical_ruby(&f, &ruby, 40.0, 120.0, 10.0).expect("vertical ruby");
+    assert!((laid.advance_mm - laid.base.height_mm).abs() < 1e-9);
+    assert!(laid.inline_mm > 10.0);
+    let east = laid
+        .base
+        .run
+        .glyphs
+        .iter()
+        .find(|g| g.ch == '東')
+        .expect("base 東");
+    let to = laid
+        .annotation
+        .run
+        .glyphs
+        .iter()
+        .find(|g| g.ch == 'と')
+        .expect("ann と");
+    assert!(to.x_mm > east.x_mm + 10.0);
+    let east_mid = east.y_mm + east.advance_mm * 0.5;
+    let ann_center = laid.annotation.y_mm - laid.annotation.height_mm * 0.5;
+    assert!(
+        (to.y_mm - east_mid).abs() < 6.0,
+        "と should sit beside 東 vertically, to_y={} east_mid={east_mid}",
+        to.y_mm
+    );
+    assert!(
+        (ann_center - (laid.base.y_mm - laid.base.height_mm * 0.5)).abs() < 1.0,
+        "annotation column should center on base column"
+    );
+}
+
+#[test]
+fn vertical_jukugo_ruby_is_refused() {
+    use reciplexa_text_layout::layout_vertical_ruby;
+
+    let f = font();
+    let ruby = Ruby::jukugo("東京", "とうきょう");
+    let err = layout_vertical_ruby(&f, &ruby, 0.0, 0.0, 10.0).expect_err("jukugo");
+    match err {
+        LayoutError::Engine { detail } => assert!(detail.contains("vertical-ruby"), "{detail}"),
+        other => panic!("expected Engine, got {other:?}"),
+    }
+}

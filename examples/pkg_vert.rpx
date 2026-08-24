@@ -1,19 +1,23 @@
 (// Vertical-rl demo (Step 8 item 2). Columns go top-to-bottom, next column to the left.
  // CJK stays upright (`vert` GID when the face has GSUB). ASCII rotates −90°.)
 
+(import japanese/markup only ruby)
+
 (import document/page only
   a4 page flow section heading paragraph
   block-heading block-paragraph)
 
+(val vert-ruby (ruby "東" "とう"))
 (val samples (list "縦書き" "東京。あー、" "天ー気" "ABC"))
 
 (val title (heading 1 "Vertical writing"))
-(val body (paragraph "上から下へ。右の列から左へ。句点は vert、ABC は回転。"))
+(val body (paragraph "上から下へ。右の列から左へ。句点は vert、ABC は回転。先頭列は縦ルビ。"))
 
 (val main
   (record
     (tag "ja-vertical-demo")
     (placed "縦書き")
+    (vertical-ruby vert-ruby)
     (samples samples)
     (page
       (page a4

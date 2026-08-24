@@ -4,8 +4,10 @@ use reciplexa_eval::{
     document_from_graphics_value, layout_doc_page_to_scene_with_engine, RuntimeValue,
 };
 use reciplexa_scene::{Color, Document, Page, PaperSize, Shape};
+use reciplexa_std::japanese::{Ruby, RubyKind};
 use reciplexa_text_layout::{
-    host_product_font, layout_vertical_run, positioned_vertical_to_shapes, TypesetEngine,
+    host_product_font, layout_vertical_ruby, layout_vertical_run,
+    positioned_vertical_ruby_to_shapes, positioned_vertical_to_shapes, TypesetEngine,
 };
 
 use crate::graphics_bridge::GraphicsBridgeError;
@@ -65,6 +67,17 @@ fn product_page_with_columns(v: &RuntimeValue) -> Result<Document, GraphicsBridg
     };
     let (mut x, y) = column_origin(&doc);
     let mut shapes = Vec::new();
+    if let Some(ruby_val) = fields
+        .iter()
+        .find(|(k, _)| k == "vertical-ruby")
+        .map(|(_, v)| v)
+    {
+        let ruby = ruby_from_value(ruby_val)?;
+        let laid = layout_vertical_ruby(&font, &ruby, x, y, COL_SIZE_MM)
+            .map_err(|e| GraphicsBridgeError::Bridge(e.to_string()))?;
+        shapes.extend(positioned_vertical_ruby_to_shapes(&laid, Color::BLACK));
+        x -= laid.inline_mm + COL_BELOW_DOC_GAP_MM;
+    }
     for sample in &samples {
         let laid = layout_vertical_run(&font, sample, x, y, COL_SIZE_MM)
             .map_err(|e| GraphicsBridgeError::Bridge(e.to_string()))?;
@@ -182,4 +195,46 @@ fn cons_items(v: &RuntimeValue) -> Result<Vec<&RuntimeValue>, GraphicsBridgeErro
         }
     }
     Ok(out)
+}
+
+fn ruby_from_value(v: &RuntimeValue) -> Result<Ruby, GraphicsBridgeError> {
+    let fields = record_fields(v)?;
+    let tag = fields.iter().find_map(|(k, val)| {
+        if k != "tag" {
+            return None;
+        }
+        match val {
+            RuntimeValue::String(s) | RuntimeValue::ShapeTag(s) => Some(s.as_str()),
+            _ => None,
+        }
+    });
+    if tag != Some("ja-ruby") {
+        return Err(GraphicsBridgeError::Bridge(format!(
+            "vertical-ruby expects ja-ruby, got {:?}",
+            tag
+        )));
+    }
+    let base = string_field(fields, "base")?;
+    let annotation = string_field(fields, "annotation")?;
+    let kind = match string_field(fields, "kind") {
+        Ok(s) if s == "jukugo" => RubyKind::Jukugo,
+        _ => RubyKind::Simple,
+    };
+    Ok(Ruby {
+        base,
+        annotation,
+        kind,
+    })
+}
+
+fn string_field(
+    fields: &[(String, RuntimeValue)],
+    name: &str,
+) -> Result<String, GraphicsBridgeError> {
+    match fields.iter().find(|(k, _)| k == name).map(|(_, v)| v) {
+        Some(RuntimeValue::String(s)) => Ok(s.clone()),
+        _ => Err(GraphicsBridgeError::Bridge(format!(
+            "ruby missing string `{name}`"
+        ))),
+    }
 }
