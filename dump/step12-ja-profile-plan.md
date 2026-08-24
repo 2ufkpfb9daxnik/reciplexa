@@ -29,6 +29,14 @@
 - `vert_gates` / `step12_gates` に fixture 回帰があること
 - **非ゴール（slice 1）:** 行頭/行末コンテキスト依存の完全 JLReq、縦ルビ、jukugo
 
+## Slice 2 受入（監査用）
+
+- `layout_simple_ruby` の行送り `advance_mm` が親 base 幅のみであること（JLReq 親文字送り）
+- 注釈は親 base 幅の中央に配置し、幅が親より広いときは `ink_width_mm` で overhang を記録すること
+- stub `Ruby::estimate_box` は `max(base, annotation)` のまま（差分参照）
+- `ruby_gates` / `step12_gates` に fixture 回帰があること
+- **非ゴール（slice 2）:** jukugo 配分、縦ルビ、行頭/行末 overhang との衝突解決
+
 ## Slice 監査（Composer 2.5；`fast` 不可）
 
 | Slice | HEAD | subagent | 判定 | 備考 |

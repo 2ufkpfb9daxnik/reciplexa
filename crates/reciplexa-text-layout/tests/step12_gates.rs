@@ -43,3 +43,32 @@ fn step12_slice1_vertical_punctuation_rotates_and_offsets() {
     assert!((stop.x_mm - second.x_mm - dx * size).abs() < 1e-9);
     assert!((stop.y_mm - second.y_mm - dy * size).abs() < 1e-9);
 }
+
+#[test]
+fn step12_slice2_ruby_measure_is_base_width() {
+    use reciplexa_std::japanese::Ruby;
+    use reciplexa_text_layout::layout_simple_ruby;
+
+    let f = LoadedFont::fixture();
+    let ruby = Ruby::simple("京", "きょう");
+    let laid = layout_simple_ruby(&f, &ruby, 12.0, 40.0, 10.0).expect("layout");
+    assert!((laid.advance_mm - laid.base.width_mm).abs() < 1e-9);
+    assert!((laid.base.x_mm - 12.0).abs() < 1e-9);
+    if laid.annotation.width_mm > laid.base.width_mm {
+        assert!((laid.ink_width_mm - laid.annotation.width_mm).abs() < 1e-9);
+        assert!(laid.ink_width_mm > laid.advance_mm);
+    }
+}
+
+#[test]
+fn step12_slice2_ruby_annotation_centered_on_parent() {
+    use reciplexa_std::japanese::Ruby;
+    use reciplexa_text_layout::layout_simple_ruby;
+
+    let f = LoadedFont::fixture();
+    let ruby = Ruby::simple("東京", "とうきょう");
+    let laid = layout_simple_ruby(&f, &ruby, 0.0, 50.0, 10.0).expect("layout");
+    let base_center = laid.base.x_mm + laid.base.width_mm * 0.5;
+    let ann_center = laid.annotation.x_mm + laid.annotation.width_mm * 0.5;
+    assert!((base_center - ann_center).abs() < 1e-6);
+}

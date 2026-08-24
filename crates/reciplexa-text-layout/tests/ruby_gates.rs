@@ -60,16 +60,33 @@ fn simple_ruby_annotation_sits_above_base() {
 }
 
 #[test]
-fn simple_ruby_centers_when_annotation_is_wider() {
+fn simple_ruby_measure_uses_base_width_when_annotation_is_wider() {
     let f = font();
     let ruby = Ruby::simple("東京", "とうきょう");
     let laid = layout_simple_ruby(&f, &ruby, 0.0, 50.0, 10.0).expect("layout");
     assert!(laid.annotation.width_mm > laid.base.width_mm);
-    assert!((laid.advance_mm - laid.annotation.width_mm).abs() < 1e-9);
-    let base_inset = laid.base.x_mm;
-    let ann_inset = laid.annotation.x_mm;
-    assert!(base_inset > ann_inset);
-    assert!((base_inset * 2.0 + laid.base.width_mm - laid.advance_mm).abs() < 1e-6);
+    assert!((laid.advance_mm - laid.base.width_mm).abs() < 1e-9);
+    assert!((laid.ink_width_mm - laid.annotation.width_mm).abs() < 1e-9);
+    assert!((laid.base.x_mm - 0.0).abs() < 1e-9);
+    let base_center = laid.base.x_mm + laid.base.width_mm * 0.5;
+    let ann_center = laid.annotation.x_mm + laid.annotation.width_mm * 0.5;
+    assert!((base_center - ann_center).abs() < 1e-6);
+    assert!(
+        laid.advance_mm + 1e-9 < laid.ink_width_mm,
+        "measure must be narrower than ink when annotation overhangs"
+    );
+}
+
+#[test]
+fn simple_ruby_centers_annotation_on_base_when_narrower() {
+    let f = font();
+    let ruby = Ruby::simple("あ", "かん");
+    let laid = layout_simple_ruby(&f, &ruby, 5.0, 50.0, 10.0).expect("layout");
+    assert!((laid.advance_mm - laid.base.width_mm).abs() < 1e-9);
+    assert!((laid.base.x_mm - 5.0).abs() < 1e-9);
+    let base_center = laid.base.x_mm + laid.base.width_mm * 0.5;
+    let ann_center = laid.annotation.x_mm + laid.annotation.width_mm * 0.5;
+    assert!((base_center - ann_center).abs() < 1e-6);
 }
 
 #[test]

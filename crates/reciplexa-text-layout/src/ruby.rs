@@ -1,7 +1,7 @@
-//! Font-backed horizontal simple ruby (Step 8 item 1).
+//! Font-backed horizontal simple ruby (Step 8 item 1; Step 12 slice 2 measure overhang).
 //!
-//! Jukugo distribution, vertical ruby, and JLReq overhang remain OPEN.
-//! Stub [`reciplexa_std::japanese::Ruby::estimate_box`] stays the reference.
+//! Jukugo distribution and vertical ruby remain OPEN.
+//! Stub [`reciplexa_std::japanese::Ruby::estimate_box`] stays the fontless reference.
 
 use reciplexa_scene::{Color, Shape};
 use reciplexa_std::japanese::{Ruby, RubyKind, RUBY_ANNOTATION_SCALE};
@@ -20,15 +20,19 @@ pub const RUBY_PARENT_GAP_EM: f64 = 0.25;
 pub struct PositionedRuby {
     pub base: PositionedLine,
     pub annotation: PositionedLine,
-    /// Combined inline advance (mm): `max(base, annotation)`.
+    /// Inline measure advance (mm): parent base width (JLReq 親文字送り).
     pub advance_mm: f64,
+    /// Full ink width including annotation overhang: `max(base, annotation)`.
+    pub ink_width_mm: f64,
 }
 
 /// Layout [`RubyKind::Simple`] with font advances.
 ///
 /// Annotation is drawn at [`RUBY_ANNOTATION_SCALE`] of `base_size_mm`, centered
-/// on the combined advance. Its baseline sits one parent em plus
+/// on the parent base width. Its baseline sits one parent em plus
 /// [`RUBY_PARENT_GAP_EM`] above the parent baseline.
+///
+/// Line measure uses the base width only; wider annotations overhang (親文字送り).
 pub fn layout_simple_ruby(
     font: &LoadedFont,
     ruby: &Ruby,
@@ -54,9 +58,10 @@ pub fn layout_simple_ruby(
     let ann_size = base_size_mm * RUBY_ANNOTATION_SCALE;
     let base_w = base_run.width_em() * base_size_mm;
     let ann_w = ann_run.width_em() * ann_size;
-    let advance_mm = base_w.max(ann_w);
-    let base_x = origin_x_mm + (advance_mm - base_w) / 2.0;
-    let ann_x = origin_x_mm + (advance_mm - ann_w) / 2.0;
+    let advance_mm = base_w;
+    let ink_width_mm = base_w.max(ann_w);
+    let base_x = origin_x_mm;
+    let ann_x = origin_x_mm + (base_w - ann_w) / 2.0;
     let ann_y = origin_y_mm + base_size_mm * (1.0 + RUBY_PARENT_GAP_EM);
     Ok(PositionedRuby {
         base: PositionedLine::from_shaped_run(
@@ -76,6 +81,7 @@ pub fn layout_simple_ruby(
             "ja",
         ),
         advance_mm,
+        ink_width_mm,
     })
 }
 

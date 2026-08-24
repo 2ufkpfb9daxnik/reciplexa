@@ -15,7 +15,7 @@
 (val metrics (ruby-box "東京" "とうきょう"))
 
 (val title (heading 1 "Simple ruby"))
-(val body (paragraph "親文字の真上に半分サイズのルビ。ルビが長いときは全体幅の中央に置く。"))
+(val body (paragraph "親文字の真上に半分サイズのルビ。ルビが長いときは親文字幅の中央に置き、行送りは親文字幅のみ。"))
 
 (val main
   (record
