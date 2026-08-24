@@ -61,7 +61,10 @@ pub use position::{
     GlyphRun, PositionedGlyph, PositionedLine, WritingMode,
 };
 pub use protocol::{infer_script, Script, ShapingAttributes};
-pub use ruby::{layout_simple_ruby, positioned_ruby_to_shapes, PositionedRuby, RUBY_PARENT_GAP_EM};
+pub use ruby::{
+    distribute_jukugo_annotation, layout_ruby, layout_simple_ruby, positioned_ruby_to_shapes,
+    PositionedRuby, RUBY_PARENT_GAP_EM,
+};
 pub use shape::{clusters_cover_input, shape_run, ShapedGlyph, ShapedRun};
 pub use tcy::{
     layout_tate_chu_yoko, positioned_tcy_to_shapes, PositionedTateChuYoko, TCY_MAX_CHARS,

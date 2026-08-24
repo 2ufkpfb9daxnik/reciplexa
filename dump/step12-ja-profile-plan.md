@@ -37,6 +37,15 @@
 - `ruby_gates` / `step12_gates` に fixture 回帰があること
 - **非ゴール（slice 2）:** jukugo 配分、縦ルビ、行頭/行末 overhang との衝突解決
 
+## Slice 3 受入（監査用）
+
+- `RubyKind::Jukugo` が `layout_ruby` で refused されないこと
+- `distribute_jukugo_annotation` が親文字数に比例して注釈を分割すること（例: 東京/とうきょう → とう + きょう）
+- 各注釈セグメントが対応する親文字セルの中央上に配置されること
+- 行送り `advance_mm` は親 base 幅のみ（slice 2 と同じ）
+- stub `Ruby::estimate_box` は変更しない
+- **非ゴール（slice 3）:** 縦ルビ、形態素解析、行頭/行末 overhang 衝突
+
 ## Slice 監査（Composer 2.5；`fast` 不可）
 
 | Slice | HEAD | subagent | 判定 | 備考 |

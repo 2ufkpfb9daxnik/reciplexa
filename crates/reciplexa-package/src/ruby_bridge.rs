@@ -10,7 +10,7 @@ use reciplexa_scene::{Color, Document, Page, PaperSize, Shape};
 use reciplexa_std::japanese::{Ruby, RubyKind, RUBY_ANNOTATION_SCALE};
 use reciplexa_text_layout::ruby::RUBY_PARENT_GAP_EM;
 use reciplexa_text_layout::{
-    host_product_font, layout_simple_ruby, positioned_ruby_to_shapes, TypesetEngine,
+    host_product_font, layout_ruby, positioned_ruby_to_shapes, TypesetEngine,
 };
 
 use crate::graphics_bridge::GraphicsBridgeError;
@@ -50,13 +50,13 @@ fn product_page_with_ruby(v: &RuntimeValue) -> Result<Document, GraphicsBridgeEr
     let page_w = doc.pages.first().map(|p| p.paper.width_mm).unwrap_or(210.0);
     let mut shapes = Vec::new();
     for ruby in &rubies {
-        let measured = layout_simple_ruby(&font, ruby, 0.0, 0.0, RUBY_BASE_SIZE_MM)
+        let measured = layout_ruby(&font, ruby, 0.0, 0.0, RUBY_BASE_SIZE_MM)
             .map_err(|e| GraphicsBridgeError::Bridge(e.to_string()))?;
         if x > RUBY_ORIGIN_X_MM && x + measured.advance_mm > page_w - PAGE_RIGHT_MARGIN_MM {
             x = RUBY_ORIGIN_X_MM;
             y -= row_step;
         }
-        let laid = layout_simple_ruby(&font, ruby, x, y, RUBY_BASE_SIZE_MM)
+        let laid = layout_ruby(&font, ruby, x, y, RUBY_BASE_SIZE_MM)
             .map_err(|e| GraphicsBridgeError::Bridge(e.to_string()))?;
         x += laid.advance_mm + RUBY_SAMPLE_GAP_MM;
         shapes.extend(positioned_ruby_to_shapes(&laid, Color::BLACK));

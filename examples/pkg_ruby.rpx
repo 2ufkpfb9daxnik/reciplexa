@@ -1,21 +1,22 @@
-(// Simple horizontal ruby demo (Step 8 item 1).
- // Product preview: heading + three samples. Annotation is half-size, centered
- // above the parent em-square. jukugo / vert are not this file.)
+(// Simple horizontal ruby demo (Step 8 item 1; Step 12 slice 3 jukugo).
+ // Product preview: heading + samples. Simple ruby centers on parent width;
+ // jukugo-ruby splits annotation per base character.)
 
-(import japanese/markup only ruby)
+(import japanese/markup only ruby jukugo-ruby)
 
 (import document/page only
   a4 page flow section heading paragraph
   block-heading block-paragraph)
 
 (val placed (ruby "東京" "とうきょう"))
+(val jukugo-sample (jukugo-ruby "東京" "とうきょう"))
 (val kanji (ruby "漢字" "かんじ"))
 (val one (ruby "一" "いち"))
-(val samples (list placed kanji one))
+(val samples (list placed jukugo-sample kanji one))
 (val metrics (ruby-box "東京" "とうきょう"))
 
 (val title (heading 1 "Simple ruby"))
-(val body (paragraph "親文字の真上に半分サイズのルビ。ルビが長いときは親文字幅の中央に置き、行送りは親文字幅のみ。"))
+(val body (paragraph "親文字の真上に半分サイズのルビ。simple は親幅中央、jukugo-ruby は各親文字ごとに配分。"))
 
 (val main
   (record

@@ -72,3 +72,42 @@ fn step12_slice2_ruby_annotation_centered_on_parent() {
     let ann_center = laid.annotation.x_mm + laid.annotation.width_mm * 0.5;
     assert!((base_center - ann_center).abs() < 1e-6);
 }
+
+#[test]
+fn step12_slice3_jukugo_distribution_segments() {
+    use reciplexa_text_layout::distribute_jukugo_annotation;
+
+    assert_eq!(
+        distribute_jukugo_annotation("東京", "とうきょう"),
+        vec!["とう", "きょう"]
+    );
+    assert_eq!(
+        distribute_jukugo_annotation("日本語", "にほんご"),
+        vec!["に", "ほ", "んご"]
+    );
+}
+
+#[test]
+fn step12_slice3_jukugo_per_base_centers() {
+    use reciplexa_std::japanese::Ruby;
+    use reciplexa_text_layout::layout_ruby;
+
+    let f = LoadedFont::fixture();
+    let ruby = Ruby::jukugo("東京", "とうきょう");
+    let laid = layout_ruby(&f, &ruby, 10.0, 40.0, 10.0).expect("layout");
+    let east = laid.base.run.glyphs.iter().find(|g| g.ch == '東').unwrap();
+    let east_c = east.x_mm + east.advance_mm * 0.5;
+    let segs = reciplexa_text_layout::distribute_jukugo_annotation("東京", "とうきょう");
+    let end0 = segs[0].len();
+    let gs: Vec<_> = laid
+        .annotation
+        .run
+        .glyphs
+        .iter()
+        .filter(|g| g.cluster_start < end0)
+        .collect();
+    let min_x = gs.iter().map(|g| g.x_mm).fold(f64::INFINITY, f64::min);
+    let max_x = gs.iter().map(|g| g.x_mm + g.advance_mm).fold(0.0, f64::max);
+    let tou_c = (min_x + max_x) * 0.5;
+    assert!((east_c - tou_c).abs() < 0.6);
+}

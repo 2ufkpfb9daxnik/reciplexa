@@ -103,15 +103,65 @@ fn simple_ruby_emits_glyph_runs() {
         .all(|s| matches!(s, reciplexa_scene::Shape::GlyphRun(_))));
 }
 
+fn ann_segment_center_by_bytes(
+    glyphs: &[reciplexa_text_layout::PositionedGlyph],
+    start: usize,
+    end: usize,
+) -> f64 {
+    let mut min_x = f64::INFINITY;
+    let mut max_x = 0.0f64;
+    let mut found = false;
+    for g in glyphs {
+        if g.cluster_start >= start && g.cluster_start < end {
+            min_x = min_x.min(g.x_mm);
+            max_x = max_x.max(g.x_mm + g.advance_mm);
+            found = true;
+        }
+    }
+    assert!(found, "no glyphs in byte range [{start}, {end})");
+    (min_x + max_x) * 0.5
+}
+
 #[test]
-fn jukugo_ruby_is_refused() {
+fn jukugo_ruby_distributes_per_base() {
     let f = font();
     let ruby = Ruby::jukugo("東京", "とうきょう");
-    let err = layout_simple_ruby(&f, &ruby, 0.0, 0.0, 10.0).expect_err("jukugo");
-    match err {
-        LayoutError::Engine { detail } => assert!(detail.contains("jukugo"), "{detail}"),
-        other => panic!("expected Engine, got {other:?}"),
-    }
+    let laid = layout_simple_ruby(&f, &ruby, 0.0, 50.0, 10.0).expect("jukugo layout");
+    assert!((laid.advance_mm - laid.base.width_mm).abs() < 1e-9);
+    let east = laid
+        .base
+        .run
+        .glyphs
+        .iter()
+        .find(|g| g.ch == '東')
+        .expect("base 東");
+    let kyo = laid
+        .base
+        .run
+        .glyphs
+        .iter()
+        .find(|g| g.ch == '京')
+        .expect("base 京");
+    let east_center = east.x_mm + east.advance_mm * 0.5;
+    let kyo_center = kyo.x_mm + kyo.advance_mm * 0.5;
+    let segs = reciplexa_text_layout::distribute_jukugo_annotation("東京", "とうきょう");
+    let b0 = 0;
+    let b1 = segs[0].len();
+    let b2 = b1 + segs[1].len();
+    let tou_center = ann_segment_center_by_bytes(&laid.annotation.run.glyphs, b0, b1);
+    let kyou_center = ann_segment_center_by_bytes(&laid.annotation.run.glyphs, b1, b2);
+    assert!(
+        (tou_center - east_center).abs() < 0.5,
+        "とう should sit above 東: tou={tou_center} east={east_center}"
+    );
+    assert!(
+        (kyou_center - kyo_center).abs() < 0.5,
+        "きょう should center on 京: ann={kyou_center} base={kyo_center}"
+    );
+    assert!(
+        tou_center < kyou_center,
+        "とう segment should be left of きょう segment"
+    );
 }
 
 #[test]
