@@ -33,7 +33,7 @@
 
 | Slice | HEAD | subagent | 判定 | 備考 |
 |-------|------|----------|------|------|
-| 1 | — | — | — | vertical punctuation position |
+| 1 | `cd58f3c` | `215b5ce8` | complete | vertical punctuation position |
 
 ## Complete when
 

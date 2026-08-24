@@ -199,7 +199,7 @@ Env D / offline。`ShapingAttributes` + 決定的 `FontFallbackChain` + rustybuz
 
 **`OPEN-TEXT-LAYOUT-001`（製品必須 subset）:** 型付き shaping protocol、決定的 fallback、rustybuzz 級 complex shaping（cluster 保持）、paragraph bidi、metric-changing substitution → relayout、host preview/export 同一 glyph 座標 — **closed**。line break / justification の JLReq 拡張と完全 UAX#9 は **OPEN**（Step 12 以降）。
 
-### 2.4.7 Step 12 slice 1 完了gate（vertical punctuation JLReq position）
+### 2.4.7 Step 12 slice 1 完了gate（code HEAD `cd58f3c`）
 
 Env D / offline。縦組 reciprocal punctuation（`。` `、`）をセル内右上へオフセット（回転なし）。`ー` は OpenType `vert` 差し替え（無いとき −90° をオフセット後セル中心で回転、セルは左・下 1em）。縦組ラテン（`needs_tate_rotation`）も −90° ＋ 左・下 1em。advance は変えず ink 位置のみ。行頭/行末コンテキスト依存の完全 JLReq、縦ルビ、jukugo は閉じない。
 
@@ -213,7 +213,7 @@ Env D / offline。縦組 reciprocal punctuation（`。` `、`）をセル内右�
 
 **人間 GUI 確認（2026-08-24）:** OK（`pkg_vert.rpx` — 句読点右上、`ー` / `ABC` 位置）。
 
-**独立監査（slice 1; Composer 2.5）:** 初回 **partially complete**（docs 未同期・preview `ー` 強制回転）。同一 HEAD で docs 同期と preview 修正後に再監査予定。
+**独立監査（slice 1; Composer 2.5）:** **complete**（`cd58f3c` / subagent `215b5ce8`）。
 
 ### 2.5 製品Vertical Slice（**product slice complete**）
 
