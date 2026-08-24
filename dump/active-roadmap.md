@@ -256,9 +256,9 @@ glyph位置を消費し、`OPEN-TEXT-LAYOUT-001`の製品必須範囲が閉じ�
 
 ## Step 12 — Japanese Document Profile v2
 
-**Status:** active — [`step12-ja-profile-plan.md`](step12-ja-profile-plan.md) slice 3
+**Status:** active — [`step12-ja-profile-plan.md`](step12-ja-profile-plan.md) slice 4
 
-- jukugo配分、縦ルビ
+- 縦ルビ
 - より完全な`vrt2` / 文字方向処理とJLReq rule vector
 - stub differentialと残存appendix C / CSS範囲の明示
 
@@ -266,7 +266,9 @@ glyph位置を消費し、`OPEN-TEXT-LAYOUT-001`の製品必須範囲が閉じ�
 
 **Slice 2:** complete — ruby overhang（横組 simple ruby の親文字送り / measure overhang）。
 
-**Slice 3 (next):** jukugo ruby distribution（per-base annotation placement）。
+**Slice 3:** complete — jukugo ruby distribution（per-base annotation placement）。
+
+**Slice 4 (next):** vertical ruby（font-backed side annotation in vertical-rl columns）。
 
 **Complete when:** 横組・縦組・ruby・縦中横・傍点を組み合わせた文書がfont-backedで
 preview/exportされ、実装規則と適合fixtureが対応する。
