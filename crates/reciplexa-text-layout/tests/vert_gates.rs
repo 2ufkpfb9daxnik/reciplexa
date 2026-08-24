@@ -3,7 +3,7 @@
 use reciplexa_std::japanese::needs_tate_rotation;
 use reciplexa_text_layout::{
     host_product_font, layout_vertical_run, positioned_vertical_to_shapes,
-    vert_glyph_paint_offset_em, vert_substitute_gid, LoadedFont, WritingMode,
+    vert_glyph_paint_offset_em, vert_shape_gid, vert_substitute_gid, LoadedFont, WritingMode,
 };
 
 fn font() -> LoadedFont {
@@ -39,6 +39,14 @@ fn vertical_latin_is_rotated() {
     let shapes = positioned_vertical_to_shapes(&laid, reciplexa_scene::Color::BLACK);
     assert!(matches!(shapes[0], reciplexa_scene::Shape::Group { .. }));
     assert!(matches!(shapes[1], reciplexa_scene::Shape::GlyphRun(_)));
+    let (dx, dy) = vert_glyph_paint_offset_em('A');
+    assert!((dx + 1.0).abs() < 1e-9);
+    assert!((dy + 1.0).abs() < 1e-9);
+    let kanji = layout_vertical_run(&f, "漢漢", 10.0, 80.0, 8.0).expect("layout");
+    let latin = &laid.run.glyphs[0];
+    let slot = &kanji.run.glyphs[0];
+    assert!((latin.x_mm - slot.x_mm - dx * 8.0).abs() < 1e-9);
+    assert!((latin.y_mm - slot.y_mm - dy * 8.0).abs() < 1e-9);
 }
 
 #[test]
@@ -84,19 +92,42 @@ fn vertical_punctuation_shifts_toward_preceding_glyph() {
     let second = &plain.run.glyphs[1];
     let (dx_em, dy_em) = vert_glyph_paint_offset_em('。');
     assert!(
-        dx_em < 0.0 && dy_em < 0.0,
-        "punctuation sits top-start in cell"
+        dx_em > 0.0 && dy_em > 0.0,
+        "punctuation sits top-right in cell"
     );
     assert!((stop.x_mm - second.x_mm - dx_em * size).abs() < 1e-9);
     assert!((stop.y_mm - second.y_mm - dy_em * size).abs() < 1e-9);
-    assert!(stop.x_mm < second.x_mm);
-    assert!(stop.y_mm < second.y_mm);
+    assert!(stop.x_mm > second.x_mm);
+    assert!(stop.y_mm > second.y_mm);
+    assert_eq!(with_stop.rotation_deg[1], 0.0);
+    let shapes = positioned_vertical_to_shapes(&with_stop, reciplexa_scene::Color::BLACK);
+    assert!(matches!(shapes[1], reciplexa_scene::Shape::GlyphRun(_)));
 }
 
 #[test]
-fn vertical_prolonged_sound_is_rotated() {
+fn host_cjk_vert_may_substitute_prolonged_sound() {
+    let f = host_product_font().expect("host font");
+    let Ok(cmap) = f.glyph_id('ー') else {
+        return;
+    };
+    let vert = vert_shape_gid(&f, 'ー').expect("shape");
+    if f.is_fixture() {
+        assert_eq!(vert, cmap);
+        return;
+    }
+    if f.face().tables().gsub.is_some() {
+        assert_ne!(
+            vert, cmap,
+            "host CJK GSUB vert should rewrite prolonged sound mark"
+        );
+    }
+}
+
+#[test]
+fn vertical_prolonged_sound_is_rotated_and_centered() {
     let f = font();
-    let laid = layout_vertical_run(&f, "天ー気", 10.0, 80.0, 8.0).expect("layout");
+    let size = 8.0;
+    let laid = layout_vertical_run(&f, "天ー気", 10.0, 80.0, size).expect("layout");
     let mark_idx = laid
         .run
         .glyphs
@@ -104,6 +135,16 @@ fn vertical_prolonged_sound_is_rotated() {
         .position(|g| g.ch == 'ー')
         .expect("ー");
     assert_eq!(laid.rotation_deg[mark_idx], -90.0);
+    let mark = &laid.run.glyphs[mark_idx];
+    let plain = layout_vertical_run(&f, "天天気", 10.0, 80.0, size).expect("layout");
+    let anchor = &plain.run.glyphs[mark_idx];
+    let (dx, dy) = vert_glyph_paint_offset_em('ー');
+    assert!((mark.x_mm - anchor.x_mm - dx * size).abs() < 1e-9);
+    assert!((mark.y_mm - anchor.y_mm - dy * size).abs() < 1e-9);
+    let (cx, cy) =
+        reciplexa_text_layout::vert_glyph_cell_center_mm(mark.x_mm, mark.y_mm, 'ー', size);
+    assert!((cx - (anchor.x_mm - size + size * 0.5)).abs() < 1e-9);
+    assert!((cy - (anchor.y_mm - size + size * 0.5)).abs() < 1e-9);
     let shapes = positioned_vertical_to_shapes(&laid, reciplexa_scene::Color::BLACK);
     assert!(matches!(
         shapes[mark_idx],

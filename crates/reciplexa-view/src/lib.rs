@@ -241,7 +241,7 @@ fn flatten_shape(
             }));
         }
         Shape::GlyphRun(g) => {
-            let (x, y) = parent.transform_point(g.x_mm, g.y_mm);
+            let (x, y) = glyph_run_flatten_anchor(parent, g.x_mm, g.y_mm);
             let scale = linear_scale(parent);
             let size = g.size_mm * scale;
             let width: f64 = g.advances_mm.iter().map(|a| a * scale).sum();
@@ -348,6 +348,16 @@ fn flatten_shape(
 fn linear_scale(a: Affine) -> f64 {
     let det = a.a * a.d - a.b * a.c;
     det.abs().sqrt()
+}
+
+/// Pen position for preview paint: rotation is carried by [`WorldText::rotation_deg`],
+/// not baked into the anchor (unlike paths/images).
+fn glyph_run_flatten_anchor(parent: Affine, x_mm: f64, y_mm: f64) -> (f64, f64) {
+    if parent.rotation_deg().abs() <= 1e-9 {
+        parent.transform_point(x_mm, y_mm)
+    } else {
+        (x_mm, y_mm)
+    }
 }
 
 /// Map page mm (origin bottom-left) to top-left pixel space inside a paper rect.
@@ -863,6 +873,36 @@ mod tests {
         assert_eq!(t.content, "Re");
         assert_eq!(t.glyph_ids.as_deref(), Some(&[1, 2][..]));
         assert!((t.width_mm - 7.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn rotated_glyph_run_keeps_local_pen() {
+        let cx = 30.0;
+        let cy = 40.0;
+        let pen_x = 10.0;
+        let pen_y = 20.0;
+        let shapes = flatten_shapes(
+            &[Shape::Group {
+                transform: Affine::translate(-cx, -cy)
+                    .then(Affine::rotate_deg(-90.0))
+                    .then(Affine::translate(cx, cy)),
+                children: vec![Shape::GlyphRun(GlyphRunShape {
+                    x_mm: pen_x,
+                    y_mm: pen_y,
+                    size_mm: 8.0,
+                    content: "ー".into(),
+                    fill: Color::BLACK,
+                    gids: vec![1],
+                    font_digest: "abc".into(),
+                    advances_mm: vec![8.0],
+                })],
+            }],
+            Affine::identity(),
+        );
+        let t = expect_text(&shapes[0]);
+        assert!((t.x_mm - pen_x).abs() < 1e-9, "x {}", t.x_mm);
+        assert!((t.y_mm - pen_y).abs() < 1e-9, "y {}", t.y_mm);
+        assert!((t.rotation_deg + 90.0).abs() < 1e-9);
     }
 
     #[test]

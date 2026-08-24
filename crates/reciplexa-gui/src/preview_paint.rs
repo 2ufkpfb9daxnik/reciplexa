@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use eframe::egui;
+use reciplexa_text_layout::vert_glyph_cell_center_mm;
 use reciplexa_view::{text_corners_mm, PaperLayout, WorldShape, WorldText};
 
 #[derive(Debug, Clone, Copy)]
@@ -538,22 +539,29 @@ fn paint_world_text(
 ) {
     let font_px = layout.radius_mm_to_px(t.size_mm).max(0.5);
     let color = color32(t.fill, t.alpha);
-    let clip = text_clip_rect(painter, rect, layout, t);
-    let clipped = painter.with_clip_rect(clip);
     if let Some(origins) = glyph_run_baselines_mm(t) {
         let font_id = layout_preview_font_id(t.font_digest.as_deref(), font_px);
         for (ch, (x_mm, y_mm)) in t.content.chars().zip(origins) {
-            paint_baseline_galley(
-                &clipped,
+            let rot = t.rotation_deg;
+            let pivot = if rot.abs() > 1e-9 {
+                Some(vert_glyph_cell_center_mm(x_mm, y_mm, ch, t.size_mm))
+            } else {
+                None
+            };
+            paint_baseline_galley_with_pivot(
+                painter,
                 rect,
                 layout,
-                (x_mm, y_mm, t.rotation_deg),
-                clipped.layout_no_wrap(ch.to_string(), font_id.clone(), color),
+                (x_mm, y_mm, rot),
+                painter.layout_no_wrap(ch.to_string(), font_id.clone(), color),
                 color,
+                pivot,
             );
         }
         return;
     }
+    let clip = text_clip_rect(painter, rect, layout, t);
+    let clipped = painter.with_clip_rect(clip);
     let wrap_px = layout.radius_mm_to_px(t.width_mm).max(1.0);
     let galley = clipped.layout(
         t.content.clone(),
@@ -619,14 +627,37 @@ fn paint_baseline_galley(
     galley: std::sync::Arc<egui::Galley>,
     color: egui::Color32,
 ) {
+    paint_baseline_galley_with_pivot(painter, rect, layout, origin_mm, galley, color, None);
+}
+
+fn paint_baseline_galley_with_pivot(
+    painter: &egui::Painter,
+    rect: egui::Rect,
+    layout: &PaperLayout,
+    origin_mm: (f64, f64, f64),
+    galley: std::sync::Arc<egui::Galley>,
+    color: egui::Color32,
+    pivot_mm: Option<(f64, f64)>,
+) {
     let (x_mm, y_mm, rotation_deg) = origin_mm;
     let (bx, by) = layout.mm_to_px(x_mm, y_mm);
     let baseline = rect.min + egui::vec2(bx, by);
     let angle = rotation_deg.to_radians() as f32;
     let pen = galley_pen_offset(&galley);
-    let tl_rel = -pen;
-    let (s, c) = (angle.sin(), angle.cos());
-    let top_left = baseline + egui::vec2(tl_rel.x * c + tl_rel.y * s, -tl_rel.x * s + tl_rel.y * c);
+    let top_left = baseline - pen;
+    let top_left = if rotation_deg.abs() > 1e-9 {
+        let pivot = if let Some((px, py)) = pivot_mm {
+            let (pvx, pvy) = layout.mm_to_px(px, py);
+            rect.min + egui::vec2(pvx, pvy)
+        } else {
+            baseline
+        };
+        let rel = top_left - pivot;
+        let (s, c) = (angle.sin(), angle.cos());
+        pivot + egui::vec2(rel.x * c + rel.y * s, -rel.x * s + rel.y * c)
+    } else {
+        top_left
+    };
     painter.add(egui::epaint::TextShape::new(top_left, galley, color).with_angle(angle));
 }
 

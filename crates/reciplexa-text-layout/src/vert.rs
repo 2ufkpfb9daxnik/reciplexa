@@ -7,6 +7,7 @@ use reciplexa_scene::{Affine, Color, Shape};
 use reciplexa_std::japanese::{
     classify_char, needs_tate_rotation, reciprocal_punctuation_widths_em, CharClass,
 };
+use rustybuzz::{shape, BufferClusterLevel, Face, Feature, UnicodeBuffer};
 use ttf_parser::gsub::{SingleSubstitution, SubstitutionSubtable};
 use ttf_parser::{GlyphId, Tag};
 
@@ -27,8 +28,48 @@ pub struct PositionedVertical {
     pub rotation_deg: Vec<f64>,
 }
 
-/// Apply GSUB `vert` (then `vrt2`) single substitution. Missing table → `gid`.
+/// Apply GSUB `vert` / `vrt2` via rustybuzz, then fall back to single-subst scan.
 pub fn vert_substitute_gid(font: &LoadedFont, gid: u16) -> u16 {
+    vert_substitute_gid_for_char(font, '\0', gid)
+}
+
+/// Shape one scalar with the `vert` feature when the font provides a substitute.
+pub fn vert_shape_gid(font: &LoadedFont, ch: char) -> Result<u16, LayoutError> {
+    let cmap = font.glyph_id(ch)?;
+    Ok(vert_substitute_gid_for_char(font, ch, cmap))
+}
+
+fn vert_substitute_gid_for_char(font: &LoadedFont, ch: char, cmap: u16) -> u16 {
+    if ch != '\0' {
+        if let Some(gid) = rustybuzz_vert_gid(font, ch) {
+            return gid;
+        }
+    }
+    manual_vert_substitute_gid(font, cmap)
+}
+
+fn rustybuzz_vert_gid(font: &LoadedFont, ch: char) -> Option<u16> {
+    let face = Face::from_slice(font.bytes(), font.face_index())?;
+    let text = ch.to_string();
+    for tag in [b"vert", b"vrt2"] {
+        let mut buffer = UnicodeBuffer::new();
+        buffer.push_str(&text);
+        buffer.set_cluster_level(BufferClusterLevel::MonotoneCharacters);
+        buffer.reset_clusters();
+        buffer.guess_segment_properties();
+        let features = [Feature::new(Tag::from_bytes(tag), 1, 0..1)];
+        let output = shape(&face, &features, buffer);
+        let gid = output.glyph_infos().first()?.glyph_id;
+        let gid = u16::try_from(gid).ok()?;
+        let cmap = font.glyph_id(ch).ok()?;
+        if gid != cmap {
+            return Some(gid);
+        }
+    }
+    None
+}
+
+fn manual_vert_substitute_gid(font: &LoadedFont, gid: u16) -> u16 {
     let face = font.face();
     let Some(gsub) = face.tables().gsub else {
         return gid;
@@ -43,29 +84,45 @@ pub fn vert_substitute_gid(font: &LoadedFont, gid: u16) -> u16 {
 
 /// Ink offset within a vertical cell (em). Stack anchor `y` is the cell top (+Y).
 ///
-/// Reciprocal punctuation: solid half toward the preceding glyph (+Y), so paint
-/// moves down into the upper half (`dy` negative) and left (`dx` negative).
+/// Fullwidth reciprocal punctuation: JLReq vertical ink at body top-right; horizontal
+/// glyph metrics place ink at bottom-left, so shift by the full solid/mirror halves.
 pub fn vert_glyph_paint_offset_em(ch: char) -> (f64, f64) {
-    if needs_vert_cell_rotation(ch) {
-        return (0.0, 0.0);
+    if needs_tate_rotation(ch) || classify_char(ch) == CharClass::ProlongedSoundMark {
+        // Tate-rotated Latin and ー: the −90° cell sits one em left and down of
+        // the stack pen (Y-up: −X, −Y). Rotate about this cell's center.
+        return (-1.0, -1.0);
     }
     if let Some((solid, mirror)) = reciprocal_punctuation_widths_em(ch) {
-        return (-mirror * 0.5, -solid * 0.5);
+        return (mirror, solid);
     }
     (0.0, 0.0)
 }
 
-/// Rotation for vertical-rl: Latin and prolonged sound mark (−90°).
-pub fn vert_glyph_rotation_deg(ch: char) -> f64 {
-    if needs_vert_cell_rotation(ch) {
+/// Em-box center for a glyph whose paint pen is already at `(x_mm, y_mm)`.
+///
+/// Paint offset is included in the pen; this does not add it back.
+pub fn vert_glyph_cell_center_mm(x_mm: f64, y_mm: f64, _ch: char, size_mm: f64) -> (f64, f64) {
+    (x_mm + size_mm * 0.5, y_mm + size_mm * 0.5)
+}
+
+/// Rotation for vertical-rl (−90° clockwise per JLReq tate-mochi).
+///
+/// Reciprocal punctuation (`。` `、` …) stays upright: OpenType `vert` supplies the
+/// vertical glyph and [`vert_glyph_paint_offset_em`] shifts ink inside the cell.
+pub fn vert_glyph_rotation_deg(ch: char, vert_substituted: bool) -> f64 {
+    if needs_vert_cell_rotation(ch, vert_substituted) {
         -90.0
     } else {
         0.0
     }
 }
 
-fn needs_vert_cell_rotation(ch: char) -> bool {
-    needs_tate_rotation(ch) || classify_char(ch) == CharClass::ProlongedSoundMark
+fn needs_vert_cell_rotation(ch: char, vert_substituted: bool) -> bool {
+    if needs_tate_rotation(ch) {
+        return true;
+    }
+    // Prolonged sound: prefer `vert` glyph; rotate only when the font has no substitute.
+    classify_char(ch) == CharClass::ProlongedSoundMark && !vert_substituted
 }
 
 fn apply_single_feature(
@@ -138,8 +195,9 @@ pub fn layout_vertical_run(
             continue;
         }
         let cmap = font.glyph_id(ch)?;
-        let gid = vert_substitute_gid(font, cmap);
-        let rotated = needs_vert_cell_rotation(ch);
+        let gid = vert_shape_gid(font, ch)?;
+        let vert_substituted = gid != cmap;
+        let rotated = needs_vert_cell_rotation(ch, vert_substituted);
         let advance_em = if rotated {
             font.hor_advance_em_gid(gid)?
         } else {
@@ -157,7 +215,7 @@ pub fn layout_vertical_run(
             advance_mm,
             font_digest: font.id.digest.clone(),
         });
-        rotation_deg.push(vert_glyph_rotation_deg(ch));
+        rotation_deg.push(vert_glyph_rotation_deg(ch, vert_substituted));
         y -= advance_mm;
         byte += len;
     }
@@ -180,7 +238,7 @@ pub fn layout_vertical_run(
     })
 }
 
-/// Lower to [`Shape::GlyphRun`], wrapping tate-rotated Latin in a −90° group.
+/// Lower to [`Shape::GlyphRun`], wrapping tate-rotated glyphs in a −90° group.
 pub fn positioned_vertical_to_shapes(col: &PositionedVertical, fill: Color) -> Vec<Shape> {
     col.run
         .glyphs
@@ -192,8 +250,7 @@ pub fn positioned_vertical_to_shapes(col: &PositionedVertical, fill: Color) -> V
                 paint
             } else {
                 let size = col.run.size_mm;
-                let cx = g.x_mm + size * 0.5;
-                let cy = g.y_mm + size * 0.5;
+                let (cx, cy) = vert_glyph_cell_center_mm(g.x_mm, g.y_mm, g.ch, size);
                 Shape::Group {
                     transform: Affine::translate(-cx, -cy)
                         .then(Affine::rotate_deg(*rot))

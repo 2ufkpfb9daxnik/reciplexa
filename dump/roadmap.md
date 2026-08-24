@@ -160,6 +160,7 @@ OpenType MATHのfull glyph assembly、MATH kern、font metrics、alignment / equ
 **Complete when:**
 
 - page break、版面、heading、list、note、figure、tableの実用subsetが動く。
+- **階層レイヤー（authoring ノードが親、glyph が子）。テキストボックスを一塊として選択・移動できる。** 現行 GUI の layer pane は scene 葉の平坦リスト（縦組は文字ごと `GlyphRun`）。`(group …)` の source 操作はあるが、pane は階層表示しない。旧 Phase 8「Tree／Layer View」および Step 21 から **Horizon A 前へ前倒し**（Goal 1 / Step 5 は完了済みのため、その手前への挿入はしない）。
 - footnote、reference、indexの最小一貫経路があり、再flow後もidentityと参照が安定する。
 - 数式・縦組・図表を含む複数ページ文書を部分relayoutしてもfull rebuildと同じ結果になる。
 - `japanese-article.rpx`相当をGUI編集、save/load、preview/exportできる。

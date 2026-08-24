@@ -256,13 +256,15 @@ glyph位置を消費し、`OPEN-TEXT-LAYOUT-001`の製品必須範囲が閉じ�
 
 ## Step 12 — Japanese Document Profile v2
 
-**Status:** active — [`step12-ja-profile-plan.md`](step12-ja-profile-plan.md) slice 1
+**Status:** active — [`step12-ja-profile-plan.md`](step12-ja-profile-plan.md) slice 2
 
 - jukugo配分、縦ルビ、ruby overhang
 - より完全な`vrt2` / 文字方向処理とJLReq rule vector
 - stub differentialと残存appendix C / CSS範囲の明示
 
-**Slice 1 (next):** vertical punctuation JLReq position（`。` `、` `ー`）。
+**Slice 1:** complete — vertical punctuation JLReq position（`。` `、` `ー`、縦組ラテン）。
+
+**Slice 2 (next):** ruby overhang（横組 simple ruby の親文字送り / measure overhang）。
 
 **Complete when:** 横組・縦組・ruby・縦中横・傍点を組み合わせた文書がfont-backedで
 preview/exportされ、実装規則と適合fixtureが対応する。
@@ -283,6 +285,7 @@ silent fallbackせず、文書内inline/display mathを安定して出力でき�
 **Status:** blocked — Steps 12–13待ち
 
 - page break、版面、heading / list / note、figure / table
+- **階層レイヤー / テキストボックス一括移動**（authoring 1 ノードを親行にし、縦組の per-glyph `GlyphRun` を子にする。Step 21 から前倒し。Step 12 非ゴール）
 - footnote / reference / indexの最小一貫経路
 - 複数ページのidentity、参照、部分relayout
 
