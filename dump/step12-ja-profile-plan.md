@@ -1,6 +1,6 @@
 # Step 12 — Japanese Document Profile v2
 
-**Status:** active — slice 4 next  
+**Status:** active — slice 5 next  
 **Depends on:** Step 11 complete (`3b38c1e` gate; docs `f7be9f3`)  
 **Normative:** `roadmap.md` Step 12, `OPEN-TEXT-JA-001`（製品 subset）, JLReq Profile v1 上の拡張
 
@@ -62,6 +62,7 @@
 | 1 | `cd58f3c` | `215b5ce8` | complete | vertical punctuation position |
 | 2 | `d881edc` | `5f95206c` | complete | ruby measure overhang |
 | 3 | `dfa0262` | `8d621492` | complete | jukugo ruby distribution |
+| 4 | `26282a9` | `6bc64b05` | complete | vertical ruby side annotation |
 
 ## Complete when
 
