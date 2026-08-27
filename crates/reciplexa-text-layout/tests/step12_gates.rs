@@ -10,14 +10,14 @@ fn step12_slice1_reciprocal_punctuation_offset_em() {
     assert!((dy_stop - 0.5).abs() < 1e-9);
     assert_eq!(dx_comma, dx_stop);
     assert_eq!(dy_comma, dy_stop);
-    assert_eq!(vert_glyph_paint_offset_em('A'), (-1.0, -1.0));
+    assert_eq!(vert_glyph_paint_offset_em('A'), (0.0, 0.0));
 }
 
 #[test]
 fn step12_slice1_prolonged_sound_offset_em() {
     let (dx, dy) = vert_glyph_paint_offset_em('ー');
-    assert!((dx + 1.0).abs() < 1e-9);
-    assert!((dy + 1.0).abs() < 1e-9);
+    assert!((dx).abs() < 1e-9);
+    assert!((dy).abs() < 1e-9);
 }
 
 #[test]
@@ -123,7 +123,13 @@ fn step12_slice4_vertical_ruby_side_annotation() {
     assert!((laid.advance_mm - laid.base.height_mm).abs() < 1e-9);
     let base = laid.base.run.glyphs.first().expect("base glyph");
     let ann = laid.annotation.run.glyphs.first().expect("ann glyph");
-    assert!(ann.x_mm > base.x_mm + 12.0);
+    assert!(ann.x_mm > base.x_mm + 11.0);
+    assert!(ann.x_mm < base.x_mm + 13.0);
+    let base_ink = base.y_mm + 12.0 * 0.5;
+    let first_ann = laid.annotation.run.glyphs.first().expect("ann first");
+    let last_ann = laid.annotation.run.glyphs.last().expect("ann last");
+    let ann_ink = (first_ann.y_mm + laid.annotation.run.size_mm + last_ann.y_mm) * 0.5;
+    assert!((base_ink - ann_ink).abs() < 1.0);
     let shapes = reciplexa_text_layout::positioned_vertical_ruby_to_shapes(
         &laid,
         reciplexa_scene::Color::BLACK,

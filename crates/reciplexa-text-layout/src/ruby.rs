@@ -262,18 +262,33 @@ pub fn layout_vertical_ruby(
     }
     let base = layout_vertical_run(font, &ruby.base, origin_x_mm, origin_y_mm, base_size_mm)?;
     let ann_size = base_size_mm * RUBY_ANNOTATION_SCALE;
-    let ann_x = origin_x_mm + base_size_mm + base_size_mm * VERTICAL_RUBY_SIDE_EM;
+    // Side band starts immediately after the 1em base inline (stub `inline_em` = 1 + side).
+    let ann_x = origin_x_mm + base_size_mm;
     let probe = layout_vertical_run(font, &ruby.annotation, ann_x, origin_y_mm, ann_size)?;
-    let ann_origin_y = origin_y_mm + (base.height_mm - probe.height_mm) / 2.0;
+    // Ink sits in the em-square *above* the baseline (Y-up). Pen-stack midpoints
+    // (`origin - height/2`) are half an em too low relative to painted CJK.
+    let ann_origin_y =
+        vertical_column_ink_center_y(&base) - vertical_column_ink_center_y(&probe) + origin_y_mm;
     let annotation = layout_vertical_run(font, &ruby.annotation, ann_x, ann_origin_y, ann_size)?;
     let advance_mm = base.height_mm;
-    let inline_mm = (ann_x - origin_x_mm) + ann_size;
+    let inline_mm = base_size_mm * (1.0 + VERTICAL_RUBY_SIDE_EM);
     Ok(PositionedVerticalRuby {
         base,
         annotation,
         advance_mm,
         inline_mm,
     })
+}
+
+/// Painted CJK/kana occupy `[baseline, baseline + size]` in Y-up, so the visual
+/// column center is half an em above the pen-stack midpoint.
+fn vertical_column_ink_center_y(col: &PositionedVertical) -> f64 {
+    let size = col.run.size_mm;
+    let Some(first) = col.run.glyphs.first() else {
+        return col.y_mm + size * 0.5;
+    };
+    let last = col.run.glyphs.last().unwrap_or(first);
+    (first.y_mm + size + last.y_mm) * 0.5
 }
 
 /// Lower [`PositionedVerticalRuby`] to per-glyph [`Shape::GlyphRun`].

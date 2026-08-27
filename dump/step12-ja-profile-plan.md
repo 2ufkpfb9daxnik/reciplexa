@@ -23,9 +23,9 @@
 ## Slice 1 受入（監査用）
 
 - `layout_vertical_run` が reciprocal punctuation に基づき upright 約物を**セル内右上**へオフセットすること（回転はしない）
-- `ー`（`ProlongedSoundMark`）は OpenType `vert` で縦用字形に差し替えること（無いときのみ −90° を**オフセット後のセル中心**で回転。セルはスタック位置から左・下へ 1em）
-- 縦組ラテン（`ABC` 等、`needs_tate_rotation`）も同じ −90° ＋ **左・下 1em**（`ー` と同じセルずらし）
-- advance 幅は変えず ink 位置のみずらすこと
+- `ー`（`ProlongedSoundMark`）は OpenType `vert` で縦用字形に差し替えること（無いときのみ −90° を **CJK と同じ em セル中心**で回転。ペンの ±1em ずらしはしない）
+- 縦組ラテン（`ABC` 等、`needs_tate_rotation`）も同じ −90°、同一セル（GUI は egui 時計回り行列。逆行列でピボットを動かすと 1em 対角に飛ぶ）
+- advance 幅は変えず ink 位置のみずらすこと（約物）
 - `vert_gates` / `step12_gates` に fixture 回帰があること
 - **非ゴール（slice 1）:** 行頭/行末コンテキスト依存の完全 JLReq、縦ルビ、jukugo
 

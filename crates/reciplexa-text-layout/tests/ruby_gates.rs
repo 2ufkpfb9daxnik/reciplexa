@@ -197,17 +197,21 @@ fn vertical_ruby_places_annotation_beside_base() {
         .iter()
         .find(|g| g.ch == 'と')
         .expect("ann と");
-    assert!(to.x_mm > east.x_mm + 10.0);
-    let east_mid = east.y_mm + east.advance_mm * 0.5;
-    let ann_center = laid.annotation.y_mm - laid.annotation.height_mm * 0.5;
+    assert!(to.x_mm > east.x_mm + 9.0);
+    assert!(to.x_mm < east.x_mm + 12.0);
+    let east_ink = east.y_mm + 10.0 * 0.5;
+    let first_ann = laid.annotation.run.glyphs.first().expect("ann first");
+    let last_ann = laid.annotation.run.glyphs.last().expect("ann last");
+    let ann_ink = (first_ann.y_mm + laid.annotation.run.size_mm + last_ann.y_mm) * 0.5;
     assert!(
-        (to.y_mm - east_mid).abs() < 6.0,
-        "と should sit beside 東 vertically, to_y={} east_mid={east_mid}",
-        to.y_mm
+        (ann_ink - east_ink).abs() < 0.6,
+        "annotation ink should center on 東: ann={ann_ink} east={east_ink}"
     );
     assert!(
-        (ann_center - (laid.base.y_mm - laid.base.height_mm * 0.5)).abs() < 1.0,
-        "annotation column should center on base column"
+        to.y_mm > east.y_mm + 1.0,
+        "と should sit in the upper half of 東, to_y={} east_y={}",
+        to.y_mm,
+        east.y_mm
     );
 }
 

@@ -542,7 +542,18 @@ fn paint_world_text(
     if let Some(origins) = glyph_run_baselines_mm(t) {
         let font_id = layout_preview_font_id(t.font_digest.as_deref(), font_px);
         for (ch, (x_mm, y_mm)) in t.content.chars().zip(origins) {
-            let rot = t.rotation_deg;
+            // Horizontal Latin (headings, body) shares this GlyphRun path and must
+            // stay upright. Vertical Latin already carries −90° on `WorldText`.
+            // Host `vert` ー is a vertical GID in export but egui only has the cmap
+            // dash; rotate that isolated glyph. Do not infer tate from the char
+            // class — that was flipping “Vertical writing” and other 横組 Latin.
+            let rot = if t.rotation_deg.abs() > 1e-9 {
+                t.rotation_deg
+            } else if t.content == "ー" {
+                -90.0
+            } else {
+                0.0
+            };
             let pivot = if rot.abs() > 1e-9 {
                 Some(vert_glyph_cell_center_mm(x_mm, y_mm, ch, t.size_mm))
             } else {
@@ -653,12 +664,17 @@ fn paint_baseline_galley_with_pivot(
             baseline
         };
         let rel = top_left - pivot;
-        let (s, c) = (angle.sin(), angle.cos());
-        pivot + egui::vec2(rel.x * c + rel.y * s, -rel.x * s + rel.y * c)
+        pivot + rotate_egui(rel, angle)
     } else {
         top_left
     };
     painter.add(egui::epaint::TextShape::new(top_left, galley, color).with_angle(angle));
+}
+
+/// Rotate `rel` in egui screen space (clockwise, Y-down), matching [`egui::emath::Rot2`].
+fn rotate_egui(rel: egui::Vec2, angle: f32) -> egui::Vec2 {
+    let (s, c) = angle.sin_cos();
+    egui::vec2(rel.x * c - rel.y * s, rel.x * s + rel.y * c)
 }
 
 fn color32(c: reciplexa_scene::Color, alpha: f64) -> egui::Color32 {
@@ -698,6 +714,18 @@ mod tests {
     fn snap_mm_rounds_to_grid() {
         assert!((snap_mm(12.0, 5.0) - 10.0).abs() < 1e-9);
         assert!((snap_mm(13.0, 5.0) - 15.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn rotate_egui_matches_clockwise_y_down() {
+        let right = rotate_egui(egui::vec2(1.0, 0.0), std::f32::consts::FRAC_PI_2);
+        assert!((right.x).abs() < 1e-5);
+        assert!((right.y - 1.0).abs() < 1e-5);
+        // Inverse of this matrix translated a −90° glyph by +1em x / +1em y.
+        let rel = egui::vec2(-0.5, -0.5);
+        let moved = rotate_egui(rel, -std::f32::consts::FRAC_PI_2);
+        assert!((moved.x + 0.5).abs() < 1e-5);
+        assert!((moved.y - 0.5).abs() < 1e-5);
     }
 
     #[test]

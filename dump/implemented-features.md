@@ -201,7 +201,7 @@ Env D / offline。`ShapingAttributes` + 決定的 `FontFallbackChain` + rustybuz
 
 ### 2.4.7 Step 12 slice 1 完了gate（code HEAD `cd58f3c`）
 
-Env D / offline。縦組 reciprocal punctuation（`。` `、`）をセル内右上へオフセット（回転なし）。`ー` は OpenType `vert` 差し替え（無いとき −90° をオフセット後セル中心で回転、セルは左・下 1em）。縦組ラテン（`needs_tate_rotation`）も −90° ＋ 左・下 1em。advance は変えず ink 位置のみ。行頭/行末コンテキスト依存の完全 JLReq、縦ルビ、jukugo は閉じない。
+Env D / offline。縦組 reciprocal punctuation（`。` `、`）をセル内右上へオフセット（回転なし）。`ー` は OpenType `vert` 差し替え（無いとき −90° を CJK と同じ em セル中心で回転）。縦組ラテン（`needs_tate_rotation`）も −90°（同一セル。±1em ペンずらしはしない）。advance は変えず ink 位置のみ。行頭/行末コンテキスト依存の完全 JLReq、縦ルビ、jukugo は閉じない。
 
 | Command | 結果 |
 |---------|------|

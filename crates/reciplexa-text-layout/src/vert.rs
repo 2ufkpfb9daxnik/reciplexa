@@ -82,16 +82,16 @@ fn manual_vert_substitute_gid(font: &LoadedFont, gid: u16) -> u16 {
     gid
 }
 
-/// Ink offset within a vertical cell (em). Stack anchor `y` is the cell top (+Y).
+/// Ink offset within a vertical cell (em). Stack anchor `y` is the baseline (Y-up).
 ///
 /// Fullwidth reciprocal punctuation: JLReq vertical ink at body top-right; horizontal
 /// glyph metrics place ink at bottom-left, so shift by the full solid/mirror halves.
+///
+/// Tate-rotated Latin and `ー` stay in the same em-box as CJK: rotate about
+/// [`vert_glyph_cell_center_mm`]. A ±1em pen shift is not part of the cell;
+/// earlier GUI placement errors came from rotating around a pivot with the
+/// inverse of egui's clockwise matrix, which looks like a 1em diagonal hop.
 pub fn vert_glyph_paint_offset_em(ch: char) -> (f64, f64) {
-    if needs_tate_rotation(ch) || classify_char(ch) == CharClass::ProlongedSoundMark {
-        // Tate-rotated Latin and ー: the −90° cell sits one em left and down of
-        // the stack pen (Y-up: −X, −Y). Rotate about this cell's center.
-        return (-1.0, -1.0);
-    }
     if let Some((solid, mirror)) = reciprocal_punctuation_widths_em(ch) {
         return (mirror, solid);
     }

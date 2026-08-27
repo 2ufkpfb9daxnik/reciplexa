@@ -40,13 +40,13 @@ fn vertical_latin_is_rotated() {
     assert!(matches!(shapes[0], reciplexa_scene::Shape::Group { .. }));
     assert!(matches!(shapes[1], reciplexa_scene::Shape::GlyphRun(_)));
     let (dx, dy) = vert_glyph_paint_offset_em('A');
-    assert!((dx + 1.0).abs() < 1e-9);
-    assert!((dy + 1.0).abs() < 1e-9);
+    assert!((dx).abs() < 1e-9);
+    assert!((dy).abs() < 1e-9);
     let kanji = layout_vertical_run(&f, "漢漢", 10.0, 80.0, 8.0).expect("layout");
     let latin = &laid.run.glyphs[0];
     let slot = &kanji.run.glyphs[0];
-    assert!((latin.x_mm - slot.x_mm - dx * 8.0).abs() < 1e-9);
-    assert!((latin.y_mm - slot.y_mm - dy * 8.0).abs() < 1e-9);
+    assert!((latin.x_mm - slot.x_mm).abs() < 1e-9);
+    assert!((latin.y_mm - slot.y_mm).abs() < 1e-9);
 }
 
 #[test]
@@ -139,12 +139,14 @@ fn vertical_prolonged_sound_is_rotated_and_centered() {
     let plain = layout_vertical_run(&f, "天天気", 10.0, 80.0, size).expect("layout");
     let anchor = &plain.run.glyphs[mark_idx];
     let (dx, dy) = vert_glyph_paint_offset_em('ー');
-    assert!((mark.x_mm - anchor.x_mm - dx * size).abs() < 1e-9);
-    assert!((mark.y_mm - anchor.y_mm - dy * size).abs() < 1e-9);
+    assert!((dx).abs() < 1e-9);
+    assert!((dy).abs() < 1e-9);
+    assert!((mark.x_mm - anchor.x_mm).abs() < 1e-9);
+    assert!((mark.y_mm - anchor.y_mm).abs() < 1e-9);
     let (cx, cy) =
         reciplexa_text_layout::vert_glyph_cell_center_mm(mark.x_mm, mark.y_mm, 'ー', size);
-    assert!((cx - (anchor.x_mm - size + size * 0.5)).abs() < 1e-9);
-    assert!((cy - (anchor.y_mm - size + size * 0.5)).abs() < 1e-9);
+    assert!((cx - (anchor.x_mm + size * 0.5)).abs() < 1e-9);
+    assert!((cy - (anchor.y_mm + size * 0.5)).abs() < 1e-9);
     let shapes = positioned_vertical_to_shapes(&laid, reciplexa_scene::Color::BLACK);
     assert!(matches!(
         shapes[mark_idx],
