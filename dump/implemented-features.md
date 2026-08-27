@@ -195,7 +195,7 @@ Env D / offline。`ShapingAttributes` + 決定的 `FontFallbackChain` + rustybuz
 | `cargo test -p reciplexa-text-layout --test step11_gates --test pt_gates --offline` | 31 passed |
 | `cargo test -p reciplexa-package --test pt9_cutover --offline` | 7 passed |
 
-**独立監査（slice 1–5 + macro; Composer 2.5）:** slices 1–5 各 slice 監査 **complete**（`895bf444` / `4defb956` / `5bfa267c` / `b7a50fbd` / `fcd6b59b`）。macro-Step 再監査 **complete**（`2764abde` / docs `44658ec`）。
+**独立監査（slice 1–5 + macro; Composer 2.5）:** slices 1–5 各 slice 監査 **complete**（`895bf444` / `4defb956` / `5bfa267c` / `b7a50fbd` / `fcd6b59b`）。macro-Step 再監査 **complete**（`2764abde` / docs `44658ec`）。macro 再確認 **complete**（2026-08-28; HEAD `1c5c6f4` / subagent `39ea9d4b`）。
 
 **`OPEN-TEXT-LAYOUT-001`（製品必須 subset）:** 型付き shaping protocol、決定的 fallback、rustybuzz 級 complex shaping（cluster 保持）、paragraph bidi、metric-changing substitution → relayout、host preview/export 同一 glyph 座標 — **closed**。line break / justification の JLReq 拡張と完全 UAX#9 は **OPEN**（Step 12 以降）。
 

@@ -56,6 +56,8 @@
 | 4 | `b29ad06` | `b7a50fbd` | **complete** | productize bidi+emit guard + JA preview/export parity + per-glyph font_digest |
 | 5 | `3b38c1e` | `fcd6b59b` | **complete** | fallback export capstone + §2.4.6 gate（docs `44658ec`） |
 
+**Macro re-audit (2026-08-28):** **complete** at HEAD `1c5c6f4` / subagent `39ea9d4b`（Step 12 slices 1–4 on top of gate `3b38c1e`; core shaping modules unchanged; `step11_gates` + `pt_gates` green）。
+
 ## Complete when
 
 - fallback chain が決定的で、missing glyph は fallback または構造化 Failure
