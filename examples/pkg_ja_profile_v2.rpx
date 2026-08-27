@@ -1,0 +1,35 @@
+(// Step 12 slice 5: Japanese Document Profile v2 combined page.
+ // Horizontal simple/jukugo ruby, vertical-rl (punct / ー / Latin), vertical ruby,
+ // tate-chu-yoko, and bou on one A4. Stub estimate-box builtins stay unused here.)
+
+(import japanese/markup only ruby jukugo-ruby tate-chu-yoko emphasis)
+
+(import document/page only
+  a4 page flow section heading paragraph
+  block-heading block-paragraph)
+
+(val horiz (list (ruby "東京" "とうきょう") (jukugo-ruby "東京" "とうきょう")))
+(val vert-ruby (ruby "東" "とう"))
+(val vert-samples (list "縦書き" "東京。あー、" "天ー気" "ABC"))
+
+(val title (heading 1 "Japanese Profile v2"))
+(val body (paragraph "横組ルビ（simple / jukugo）・縦組・縦ルビ・縦中横・傍点を同じページに置く。"))
+
+(val main
+  (record
+    (tag "ja-profile-v2-demo")
+    (horiz-ruby horiz)
+    (vertical-ruby vert-ruby)
+    (vert-samples vert-samples)
+    (tcy "12")
+    (before "令和")
+    (after "年")
+    (bou "重要")
+    (page
+      (page a4
+        (flow
+          (list
+            (section title
+              (list
+                (block-heading title)
+                (block-paragraph body)))))))))

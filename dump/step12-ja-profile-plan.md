@@ -55,6 +55,14 @@
 - `ruby_gates` / `step12_gates` / `pkg_vert` host 経路に回帰があること
 - **非ゴール（slice 4）:** 縦 jukugo 配分、行頭/行末 overhang 衝突
 
+## Slice 5 受入（監査用）
+
+- `examples/pkg_ja_profile_v2.rpx` が横組 ruby（simple + jukugo / overhang）・縦組・縦ルビ・縦中横・傍点を**同一ページ**の font-backed `GlyphRun`（傍点は円）として preview/export すること
+- `step12_gates` に組み合わせ回帰があること
+- stub `ruby-box` / `vertical-ruby-box` / `bou-box` / `tate-chu-yoko-width` は変えない
+- 未実装 appendix C / CSS `text-orientation` / `text-emphasis` / 完全 `vrt2` を OPEN のまま明記すること
+- **非ゴール（slice 5）:** 縦 jukugo 配分、行頭/行末 overhang 衝突、完全 appendix C
+
 ## Slice 監査（Composer 2.5；`fast` 不可）
 
 | Slice | HEAD | subagent | 判定 | 備考 |

@@ -138,3 +138,72 @@ fn step12_slice4_vertical_ruby_side_annotation() {
         .iter()
         .any(|s| matches!(s, reciplexa_scene::Shape::GlyphRun(_))));
 }
+
+#[test]
+fn step12_slice5_combined_profile_emits_glyph_runs() {
+    use reciplexa_scene::Shape;
+    use reciplexa_std::japanese::{Ruby, TateChuYoko};
+    use reciplexa_text_layout::{
+        layout_bou_horizontal, layout_ruby, layout_tate_chu_yoko, layout_vertical_ruby,
+        layout_vertical_run, positioned_bou_horizontal_to_shapes, positioned_ruby_to_shapes,
+        positioned_tcy_to_shapes, positioned_vertical_ruby_to_shapes,
+        positioned_vertical_to_shapes,
+    };
+
+    let f = LoadedFont::fixture();
+    let mut shapes = Vec::new();
+    let simple =
+        layout_ruby(&f, &Ruby::simple("東京", "とうきょう"), 0.0, 80.0, 10.0).expect("simple");
+    assert!((simple.advance_mm - simple.base.width_mm).abs() < 1e-9);
+    shapes.extend(positioned_ruby_to_shapes(
+        &simple,
+        reciplexa_scene::Color::BLACK,
+    ));
+    let jukugo =
+        layout_ruby(&f, &Ruby::jukugo("東京", "とうきょう"), 40.0, 80.0, 10.0).expect("jukugo");
+    shapes.extend(positioned_ruby_to_shapes(
+        &jukugo,
+        reciplexa_scene::Color::BLACK,
+    ));
+    let vert = layout_vertical_run(&f, "東京。あー、ABC", 100.0, 120.0, 10.0).expect("vert");
+    shapes.extend(positioned_vertical_to_shapes(
+        &vert,
+        reciplexa_scene::Color::BLACK,
+    ));
+    let vruby =
+        layout_vertical_ruby(&f, &Ruby::simple("東", "とう"), 80.0, 120.0, 10.0).expect("vruby");
+    shapes.extend(positioned_vertical_ruby_to_shapes(
+        &vruby,
+        reciplexa_scene::Color::BLACK,
+    ));
+    let tcy = layout_tate_chu_yoko(&f, &TateChuYoko::new("12"), 60.0, 120.0, 10.0).expect("tcy");
+    shapes.extend(positioned_tcy_to_shapes(
+        &tcy,
+        reciplexa_scene::Color::BLACK,
+    ));
+    let bou = layout_bou_horizontal(&f, "重要", 0.0, 40.0, 10.0).expect("bou");
+    shapes.extend(positioned_bou_horizontal_to_shapes(
+        &bou,
+        reciplexa_scene::Color::BLACK,
+    ));
+    let runs: Vec<_> = shapes
+        .iter()
+        .filter_map(|s| match s {
+            Shape::GlyphRun(g) => Some(g.content.as_str()),
+            Shape::Group { children, .. } => children.iter().find_map(|c| match c {
+                Shape::GlyphRun(g) => Some(g.content.as_str()),
+                _ => None,
+            }),
+            _ => None,
+        })
+        .collect();
+    let joined: String = runs.concat();
+    assert!(joined.contains('東') && joined.contains('と') && joined.contains('。'));
+    assert!(joined.contains('1') && joined.contains('2'));
+    assert!(joined.contains('重'));
+    assert!(shapes.iter().any(|s| matches!(s, Shape::Circle(_))));
+    let stub_ruby = reciplexa_std::japanese::Ruby::simple("東京", "とうきょう").estimate_box();
+    assert!(stub_ruby.advance_width > 0.0);
+    let stub_vert = reciplexa_std::japanese::Ruby::simple("東", "とう").estimate_vertical_box();
+    assert!(stub_vert.inline_em > 1.0);
+}

@@ -30,6 +30,7 @@ pub mod domain_native;
 pub mod domain_native_env;
 pub mod domain_pure_constructors;
 pub mod graphics_bridge;
+pub mod ja_profile_bridge;
 pub mod japanese_bridge;
 pub mod live_layout_bridge;
 pub mod load;

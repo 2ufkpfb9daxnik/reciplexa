@@ -121,6 +121,9 @@ pub fn document_from_package_entry_with_engine(
         return reciplexa_eval::document_from_math_demo_value(&v, engine)
             .map_err(|e| GraphicsBridgeError::Bridge(e.message));
     }
+    if crate::ja_profile_bridge::is_ja_profile_v2_demo(&v) {
+        return crate::ja_profile_bridge::document_from_ja_profile_v2_value(&v, engine);
+    }
     if is_ruby_demo_tag(&v) {
         return crate::ruby_bridge::document_from_ruby_demo_value(&v, engine);
     }
