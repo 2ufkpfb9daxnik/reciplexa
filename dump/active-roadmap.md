@@ -257,7 +257,7 @@ glyph位置を消費し、`OPEN-TEXT-LAYOUT-001`の製品必須範囲が閉じ�
 
 ## Step 12 — Japanese Document Profile v2
 
-**Status:** active — [`step12-ja-profile-plan.md`](step12-ja-profile-plan.md) slice 5
+**Status:** active — [`step12-ja-profile-plan.md`](step12-ja-profile-plan.md) slice 5 landed；macro-Step 監査待ち
 
 - 縦ルビ
 - より完全な`vrt2` / 文字方向処理とJLReq rule vector
@@ -271,7 +271,7 @@ glyph位置を消費し、`OPEN-TEXT-LAYOUT-001`の製品必須範囲が閉じ�
 
 **Slice 4:** complete — vertical ruby（font-backed side annotation in vertical-rl columns）。
 
-**Slice 5 (next):** Step 12 gate（combined `pkg_ja_profile_v2.rpx` + `step12_gates.rs` + §2.4.7）。
+**Slice 5:** complete — combined Japanese Profile v2 page（`pkg_ja_profile_v2.rpx` + `step12_gates` + §2.4.11）。macro-Step 独立監査待ち。
 
 **Complete when:** 横組・縦組・ruby・縦中横・傍点を組み合わせた文書がfont-backedで
 preview/exportされ、実装規則と適合fixtureが対応する。

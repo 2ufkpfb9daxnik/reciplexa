@@ -1,6 +1,6 @@
 # Step 12 — Japanese Document Profile v2
 
-**Status:** active — slice 5 next  
+**Status:** active — slice 5 landed；macro-Step 監査待ち  
 **Depends on:** Step 11 complete (`3b38c1e` gate; docs `f7be9f3`)  
 **Normative:** `roadmap.md` Step 12, `OPEN-TEXT-JA-001`（製品 subset）, JLReq Profile v1 上の拡張
 
@@ -18,7 +18,7 @@
 2. **Ruby overhang (horizontal simple)** — 親文字送り / measure overhang on `layout_simple_ruby`
 3. **Jukugo ruby distribution** — per-base annotation placement（today refused）
 4. **Vertical ruby** — font-backed side annotation in vertical-rl columns
-5. **Step 12 gate** — combined `pkg_ja_profile_v2.rpx` + `step12_gates.rs` + §2.4.7
+5. **Step 12 gate** — combined `pkg_ja_profile_v2.rpx` + `step12_gates.rs` + §2.4.11
 
 ## Slice 1 受入（監査用）
 
@@ -71,6 +71,7 @@
 | 2 | `d881edc` | `5f95206c` | complete | ruby measure overhang |
 | 3 | `dfa0262` | `8d621492` | complete | jukugo ruby distribution |
 | 4 | `26282a9` | `6bc64b05` | complete | vertical ruby side annotation |
+| 5 | `7b7a45e` | `0e10d3a2` | complete | combined `pkg_ja_profile_v2.rpx`；workspace 再測 `b56aa6a` |
 
 ## Complete when
 

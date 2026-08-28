@@ -263,6 +263,26 @@ Env D / offline。縦組 simple ruby：`layout_vertical_ruby` が親列の右側
 
 **独立監査（slice 4; Composer 2.5）:** **complete**（`26282a9` / subagent `6bc64b05`）。
 
+### 2.4.11 Step 12 slice 5 完了gate（code HEAD `7b7a45e`；workspace 再測 `b56aa6a`）
+
+Env D / offline。`CARGO_HOME=D:\dev-cache\cargo`、`--target-dir D:\reciplexa\target`、`TEMP`/`TMP=D:\reciplexa\.tmp`（[`windows-disk-policy.md`](windows-disk-policy.md)）。組み合わせ example `examples/pkg_ja_profile_v2.rpx`（tag `ja-profile-v2-demo`）が横組 ruby（simple + jukugo / overhang）・縦組・縦ルビ・縦中横・傍点を同一ページの font-backed `GlyphRun`（傍点は円）として preview/export。stub `ruby-box` / `vertical-ruby-box` / `bou-box` / `tate-chu-yoko-width` は変更なし。縦 jukugo 配分、行頭/行末 overhang 衝突、完全 appendix C / CSS `text-orientation` / `text-emphasis` / 完全 `vrt2` は閉じない。
+
+| Command | 結果 |
+|---------|------|
+| `cargo fmt --all --check` | green |
+| `cargo clippy --workspace --all-targets --offline --target-dir D:\reciplexa\target -- -D warnings` | green |
+| `cargo test --workspace --offline --target-dir D:\reciplexa\target` | green |
+| `cargo check --workspace --all-targets --offline --target-dir D:\reciplexa\target` | green |
+| `cargo check --offline -p reciplexa-gui --target-dir D:\reciplexa\target` | green |
+| `cargo run --offline --target-dir D:\reciplexa\target -p reciplexa-gui -- --smoke examples/pkg_ja_profile_v2.rpx` | green (`smoke: ok`) |
+| `cargo run --offline --target-dir D:\reciplexa\target -p reciplexa -- examples/pkg_ja_profile_v2.rpx .tmp/step12-gate-smoke.pdf` | green |
+| `cargo test -p reciplexa-text-layout --test step12_gates --offline --target-dir D:\reciplexa\target` | 10 passed |
+| `cargo test -p reciplexa-package --test pkg_ja_profile_v2_tests --offline --target-dir D:\reciplexa\target` | 2 passed |
+
+**人間 GUI 確認（2026-08-28）:** OK（`pkg_ja_profile_v2.rpx` — heading「Japanese Profile v2」、横組 ruby 東京/とうきょう simple+jukugo、縦組、縦ルビ 東/とう、縦中横 令和12年、傍点）。
+
+**独立監査（slice 5; Composer 2.5）:** **complete**（`7b7a45e` / subagent `0e10d3a2`）。macro-Step 監査は未了（この表の workspace 再測 HEAD `b56aa6a`）。
+
 ### 2.5 製品Vertical Slice（**product slice complete**）
 
 保証する範囲（package形式1ページ、`examples/text_line.rpx` 相当）:
@@ -367,13 +387,13 @@ pre-PKG カーネルは計画上 **COMPLETE（意図的 defer 付き）**。各�
 
 ## 6. 次工程
 
-実行順の正本は [`active-roadmap.md`](active-roadmap.md)。**Step 12 active** — [`step12-ja-profile-plan.md`](step12-ja-profile-plan.md) slice 5（Step 12 gate）。
+実行順の正本は [`active-roadmap.md`](active-roadmap.md)。**Step 12 active** — [`step12-ja-profile-plan.md`](step12-ja-profile-plan.md) slice 5 landed（gate §2.4.11）。macro-Step 独立監査待ち。
 
 1. **package 実運用化 local/offline slice** — [`package-plan.md`](package-plan.md): lock再現性、typed resource light、自動materialize、offline registry mirrorまで完了。network registry、full-tree hash、Core resource effectは別OPEN。
 2. **Direct Native v2** — [`direct-native-v2-plan.md`](direct-native-v2-plan.md) **shipping complete**（DN2-0〜DN2-7 + 本番 BindingId dispatch via `op_for`）。標準packageは DN2 stub + compilation BindingId（`dn2bid-*`）+ typed Rust callable。author import 綴り（修飾 / alias / bare）は canonical `package/module` へ対応。Hybrid 参照本文は `LocalPackageIndex` override のみ。portable fallback は `OPEN-NATIVE-PKG-001` で明示追跡（未実装）。
 2b. **DN2 観測同値の硬化** — 製品級組版の前。深い example 差分、`japanese/linebreak` 動的 export、構造化 Failure（`package/arity` / `package/type`）、native stub の body elaboration 省略（BindingId スロット、alias / bare を含む）。詳細は plan DN2-8。
 3. **製品級組版** — [`product-typesetting-plan.md`](product-typesetting-plan.md) **complete（Profile v1; gates `3087565`）**。`reciplexa-text-layout` が共有 font/shaping 基盤。JLReq Profile v1 と Math Profile v1 は別エンジン。`doc-page` / `live-layout-demo` / `math-demo` / graphics `text` のホスト経路は product `Shape::GlyphRun`（Visual IR / PDF は layout GID。graphics は authoring 1 ノード = 1 cluster run）。GUI preview は digest family + layout advances。`pkg_live_math` の math origin は `text_y_mm`。ライブラリ stub API は従来。author `import japanese/*` / `import math/*` は未変更。
-4. **JLReq follow-up** — [`jlreq-followup-plan.md`](jlreq-followup-plan.md) **complete（simple ruby + `vert` + 縦中横 / 傍点; code HEAD `caa2afd`; gate HEAD `52d088e`）**。人間 GUI 確認 2026-08-20。縦組句読点 JLReq 位置・横組 ruby overhang・jukugo 配分・縦ルビは Step 12 slice 1–4 で landed（§2.4.7–10）。
+4. **JLReq follow-up** — [`jlreq-followup-plan.md`](jlreq-followup-plan.md) **complete（simple ruby + `vert` + 縦中横 / 傍点; code HEAD `caa2afd`; gate HEAD `52d088e`）**。人間 GUI 確認 2026-08-20。縦組句読点 JLReq 位置・横組 ruby overhang・jukugo 配分・縦ルビ・組み合わせ example は Step 12 slice 1–5 で landed（§2.4.7–11）。
 
 ### いま OPEN（次に追うもの）
 
@@ -383,7 +403,7 @@ pre-PKG カーネルは計画上 **COMPLETE（意図的 defer 付き）**。各�
 2. **OPEN-NATIVE-PKG-001**（Step 16）— 標準packageの portable `.rpx` fallback、ABI/version negotiation、native unavailable 時のルーティングは未実装。本番は Direct Native v2 のみ。非native package の disk `.rpx` load は維持。定数は `reciplexa_package::OPEN_NATIVE_PKG_001_*`。
 3. **package-resource**（Steps 16、18–19）— package load/eval は [`eval_package_entry_main`] で `(resource …)` を自動 materialize（`resource-id` / `content-hash` / `effect: Resource` / `resolved-path`）。replay 不一致は PKG008。Core 型の resource effect / bracket 分離は未着手（RSC-001）。
 4. **OPEN-TEXT-LAYOUT-001**（Step 11 **製品必須 subset closed**；gate §2.4.6）— 型付き protocol、決定的 fallback、rustybuzz 級 shaping、paragraph bidi、emit digest guard、preview/export 座標一致は landed。完全 UAX#9・任意 system OTL・JLReq line break/justification 拡張は Step 12 以降 OPEN。
-5. **OPEN-TEXT-JA-001**（Step 12、完全閉包はStep 24）— 完全 UCS / 規範的 appendix C 全体 / CSS `text-orientation` / `text-emphasis`（slice 1–4 で **縦組句読点・長音 JLReq 位置**・**横組 ruby overhang**・**jukugo 配分**・**縦ルビ** landed；gate §2.4.7–10。縦 jukugo 配分・行頭/行末 overhang 衝突は未着手）。Profile v1 はクラス行列・cl-08 glue・hang/trim/justify。Step 8 item 1 は横組 simple ruby。item 2 は vertical-rl + GSUB `vert`。item 3 は tate-chu-yoko（ASCII 1–4）と bou 円（親 em の外、`BOU_PARENT_GAP_EM`）。stub 層（Waves 4–29）は参照のまま閉じない。
+5. **OPEN-TEXT-JA-001**（Step 12、完全閉包はStep 24）— 完全 UCS / 規範的 appendix C 全体 / CSS `text-orientation` / `text-emphasis`（slice 1–5 で **縦組句読点・長音 JLReq 位置**・**横組 ruby overhang**・**jukugo 配分**・**縦ルビ**・**組み合わせ example** landed；gate §2.4.7–11。縦 jukugo 配分・行頭/行末 overhang 衝突・完全 `vrt2` は未着手）。Profile v1 はクラス行列・cl-08 glue・hang/trim/justify。Step 8 item 1 は横組 simple ruby。item 2 は vertical-rl + GSUB `vert`。item 3 は tate-chu-yoko（ASCII 1–4）と bou 円（親 em の外、`BOU_PARENT_GAP_EM`）。stub 層（Waves 4–29）は参照のまま閉じない。
 6. **OpenType MATH（Profile v1 以降）**（Step 13）— 完全 glyph assembly、MATH kern、`\fontdimen`、GUI 上の first-class editable math。Profile v1 は fixture MATH constants、font advance、scripts/fraction/radical（rule thickness）、stretchy は MATH Variants construction の prepared GID（cmap `(` ではない。scene `GlyphRun` / PDF Identity-H）、hat/tilde/dot/vec / bar-underline rules、display bigop variants、matrix/stack。check/breve 等の ASCII 代用はしない。`reciplexa-std::math` ヒューリスティックは参照。
 7. **本番ページ消費（editable）**（Step 9 **complete**、Step 13–14）— `document/page` の heading / paragraph / indent-em / columns は layer + props から Source 往復（`sync/document.rs`）。math / JA markup tree の first-class GUI 編集は Step 13 以降。`live-layout-demo` 等のホスト preview は product engine。graphics `text` は cluster `GlyphRun`（authoring 1 ノード = 1 cluster run）。**layer pane は flatten 葉の平坦リスト**（縦組は文字ごと）。階層表示とテキストボックス一括移動は Step 14（Step 21 から前倒し。Goal 1 完了後のため Step 5 手前には戻せない）。
 8. **Font emission 残差**（Steps 15）— ホスト PDF は layout digest ごとに CID face を subset（`host_product_font` と `host_math_font`。同一 digest なら一面）。`Shape::GlyphRun` は layout GID を塗る。cmap 経路の非 ASCII `Text` は product face。digest 不一致は relayout エラー（Step 11 landed）。Latin-only `Text` は Helvetica。GUI preview は同じ digest の egui familyで`GlyphRun`をlayout advance位置に置く（cmapグリフ。construction-only GIDのアウトラインはeguiではUnicode代用）。SVG/PPTXはUnicodeクラスタを同じ座標で出す。
