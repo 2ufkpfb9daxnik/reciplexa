@@ -1,6 +1,6 @@
 # Step 13 — Math Profile v2 と GUI 編集
 
-**Status:** active — slice 1 next  
+**Status:** active — slice 1 awaiting audit (`161b532` assembly; `e5f3357` GUI fixture preview)  
 **Depends on:** Step 12 complete (`7b7a45e` code; gate `b56aa6a`; docs `7c93262`; macro `3058e2a1`)  
 **Normative:** `roadmap.md` Step 13, `implemented-features.md` OpenType MATH 残差、Math Profile v1 上の拡張
 
@@ -66,7 +66,7 @@
 
 | Slice | HEAD | subagent | 判定 | 備考 |
 |-------|------|----------|------|------|
-| 1 | | | | glyph assembly |
+| 1 | `e5f3357` | | | glyph assembly + GUI fixture Unicode preview. Human GUI 2026-08-28 `pkg_live_math.rpx`: 見出し/段落と実フォントの a, b, i, 括弧。伸縮括弧は assembly 部品が Unicode `(`/`)` で重なって見える（egui は construction GID を塗れない）。分数は横ルール＋添字 `i` が分母 `b` 横に付き `a / bi` に読める。slice 1 非ゴール（kern / 式番号 / 木編集）。 |
 
 各 slice 完了後、実装担当と別セッションの独立 subagent 1体が当該 slice のみを捜査する。`complete` の HEAD だけ次 slice へ進む。
 
