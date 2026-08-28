@@ -1,6 +1,7 @@
 # Reciplexa Active Roadmap
 
 **Authority:** 現在の実行順と完了条件の正本。専門AIは最初の未完了Stepから着手する。  
+**Disk:** 成果物は D: のみ。C: に Cargo/temp を置かない。[`windows-disk-policy.md`](windows-disk-policy.md) / [`README.md`](README.md) 先頭。  
 **Status source:** 実装済み機能と実測gateは [`implemented-features.md`](implemented-features.md) を正とする。  
 **Normative source:** 契約を変更するときは [`specification.md`](specification.md) を同時に確認する。
 

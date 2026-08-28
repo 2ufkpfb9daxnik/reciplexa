@@ -5,6 +5,12 @@ alwaysApply: true
 
 # Reciplexa Project Rule
 
+## Disk: D: only (always)
+
+C: is full. Do **not** write Reciplexa build artifacts, Cargo `target`, rustc/linker scratch, or agent sandbox caches to C:. Repo is `D:\reciplexa`. Policy: `dump/windows-disk-policy.md` (also the first section of `dump/README.md`).
+
+Every `cargo` compile (`check` / `build` / `test` / `clippy` / `run`) **must** include `--target-dir D:\reciplexa\target`, `CARGO_HOME=D:\dev-cache\cargo`, PATH `D:\dev-cache\cargo\bin`, and `TEMP`/`TMP`=`D:\reciplexa\.tmp` (create those dirs). Cursor's sandbox otherwise dumps `cargo-target` under `%LOCALAPPDATA%\Temp\cursor-sandbox-cache` on **C:** and fills the drive. `cargo fmt` needs the TEMP redirect only. Do not add network dependencies to work around this.
+
 - Start at `dump/README.md`.
 - Execution order and acceptance criteria: `dump/active-roadmap.md`.
 - Current implementation truth: `dump/implemented-features.md`.
@@ -28,7 +34,7 @@ alwaysApply: true
 ## Validation and commits
 
 - One commit per independently testable purpose; include direct tests with implementation.
-- Before commit: review status/diff, run target tests, fmt check, scoped Clippy, **run the changed host binary** (`cargo run -p reciplexa-gui -- --smoke examples/text_line.rpx` and/or CLI export of the same file; if the GUI window/event loop changed, also `cargo run -p reciplexa-gui -- examples/text_line.rpx`), and check for secrets/generated files/unintended deletions. Do not move winit off the process main thread; Windows 8MiB stack is PE `/STACK` from host `build.rs`.
+- Before commit: review status/diff, run target tests, fmt check, scoped Clippy, **run the changed host binary** with `--target-dir D:\reciplexa\target` and `TEMP`/`TMP`=`D:\reciplexa\.tmp` (`cargo run --target-dir D:\reciplexa\target -p reciplexa-gui -- --smoke examples/text_line.rpx` and/or CLI export of the same file; if the GUI window/event loop changed, also `cargo run --target-dir D:\reciplexa\target -p reciplexa-gui -- examples/text_line.rpx`), and check for secrets/generated files/unintended deletions. Do not move winit off the process main thread; Windows 8MiB stack is PE `/STACK` from host `build.rs`. Never let Cargo write `target` under `%LOCALAPPDATA%\Temp` on C:.
 - At milestones run workspace fmt, Clippy `-D warnings`, tests, all-target check, GUI check, and the GUI/CLI smoke `cargo run` commands offline.
 - Step `complete` requires independent subagent audit on **Composer 2.5** (Cursor Task, not `fast`, no external API audit models); see `dump/active-roadmap.md` 「Step完了の判定」.
 - Within a sliced Step, **each slice** needs its own independent subagent audit (`complete`) on the same HEAD before the next slice; see 「Slice完了の判定」.

@@ -6,6 +6,24 @@
 
 あなたはReciplexa / RPXを継続実装する自律Agentです。作業ディレクトリはrepository rootです。
 
+## ディスク（最初に守る）
+
+作業木は **D:\reciplexa**。C: に Cargo `target`、rustc/linker 一時ファイル、Cursor `cursor-sandbox-cache` の成果物を書いてはならない。正本は [`windows-disk-policy.md`](windows-disk-policy.md)。
+
+compile 系 `cargo` は毎回:
+
+```powershell
+$env:CARGO_HOME = "D:\dev-cache\cargo"
+$env:PATH = "D:\dev-cache\cargo\bin;$env:PATH"
+$env:CARGO_TARGET_DIR = "D:\reciplexa\target"
+$env:TEMP = "D:\reciplexa\.tmp"
+$env:TMP = "D:\reciplexa\.tmp"
+New-Item -ItemType Directory -Force -Path $env:TEMP, $env:CARGO_TARGET_DIR | Out-Null
+cargo <subcommand> --target-dir D:\reciplexa\target ...
+```
+
+`--target-dir` を省略すると agent サンドボックスが C: の Temp に `cargo-target` を作り、ディスクフルになる。
+
 ## 最初に読むもの
 
 1. `dump/README.md`
@@ -110,9 +128,9 @@ commit前に必ず確認:
 2. staged / unstaged diffの自己review
 3. 対象unit / integration test
 4. 変更したホストを実際に起動する。`cargo check` や unit test が通っても、Windows 既定スタックでの `cargo run` が落ちることがある。`--smoke` は ingest のみで winit を起動しない。package 経路を触ったら少なくとも:
-   `cargo run --offline -p reciplexa-gui -- --smoke examples/text_line.rpx`
-   `cargo run --offline -p reciplexa -- examples/text_line.rpx .tmp/smoke.pdf`
-   GUI の event loop / ウィンドウ経路を触ったら、さらに `cargo run --offline -p reciplexa-gui -- examples/text_line.rpx` を起動し、winit が main thread 以外で panic しないことを確認する。event loop を worker に移さない。Windows の 8MiB スタックは PE `/STACK`（`build.rs`）で上げる。
+   `cargo run --offline --target-dir D:\reciplexa\target -p reciplexa-gui -- --smoke examples/text_line.rpx`
+   `cargo run --offline --target-dir D:\reciplexa\target -p reciplexa -- examples/text_line.rpx .tmp/smoke.pdf`
+   GUI の event loop / ウィンドウ経路を触ったら、さらに `cargo run --offline --target-dir D:\reciplexa\target -p reciplexa-gui -- examples/text_line.rpx` を起動し、winit が main thread 以外で panic しないことを確認する。event loop を worker に移さない。Windows の 8MiB スタックは PE `/STACK`（`build.rs`）で上げる。
 5. `cargo fmt --all --check`
 6. 変更範囲のClippy
 7. 公開契約を変えた場合のdocs / examples / conformance
@@ -129,14 +147,20 @@ commit messageはrepositoryの直近履歴に合わせ、目的と理由が分�
 Windows / offlineを前提に、repositoryの既存環境を使う。
 
 ```powershell
+$env:CARGO_HOME = "D:\dev-cache\cargo"
+$env:PATH = "D:\dev-cache\cargo\bin;$env:PATH"
+$env:CARGO_TARGET_DIR = "D:\reciplexa\target"
+$env:TEMP = "D:\reciplexa\.tmp"
+$env:TMP = "D:\reciplexa\.tmp"
+New-Item -ItemType Directory -Force -Path $env:TEMP, $env:CARGO_TARGET_DIR | Out-Null
 cargo fmt --all --check
-cargo clippy --workspace --all-targets --offline -- -D warnings
-cargo test --workspace --offline
-cargo check --workspace --all-targets --offline
-cargo check --offline -p reciplexa-gui
-cargo run --offline -p reciplexa-gui -- --smoke examples/text_line.rpx
-cargo run --offline -p reciplexa -- examples/text_line.rpx .tmp/smoke.pdf
-# window path: cargo run --offline -p reciplexa-gui -- examples/text_line.rpx
+cargo clippy --workspace --all-targets --offline --target-dir D:\reciplexa\target -- -D warnings
+cargo test --workspace --offline --target-dir D:\reciplexa\target
+cargo check --workspace --all-targets --offline --target-dir D:\reciplexa\target
+cargo check --offline -p reciplexa-gui --target-dir D:\reciplexa\target
+cargo run --offline --target-dir D:\reciplexa\target -p reciplexa-gui -- --smoke examples/text_line.rpx
+cargo run --offline --target-dir D:\reciplexa\target -p reciplexa -- examples/text_line.rpx .tmp/smoke.pdf
+# window path: cargo run --offline --target-dir D:\reciplexa\target -p reciplexa-gui -- examples/text_line.rpx
 ```
 
 高コストな全gateの前に対象crateのtest / Clippyを実行する。全gateの実測結果は `dump/implemented-features.md` に同じHEADの結果として記録する。

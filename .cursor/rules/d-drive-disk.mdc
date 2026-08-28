@@ -1,0 +1,26 @@
+---
+description: Reciplexa build artifacts stay on D:; never fill C: with Cargo/temp
+alwaysApply: true
+---
+
+# D: disk — never write Reciplexa build data to C:
+
+C: is capacity-constrained. The repo is `D:\reciplexa`. Full policy: `dump/windows-disk-policy.md`.
+
+**Forbidden:** Cargo `target`, rustc/`link.exe` scratch, Cursor `cursor-sandbox-cache\...\cargo-target` on C:.
+
+**Required on every compile cargo command** (`check`, `build`, `test`, `clippy`, `run`):
+
+```powershell
+$env:CARGO_HOME = "D:\dev-cache\cargo"
+$env:PATH = "D:\dev-cache\cargo\bin;$env:PATH"
+$env:CARGO_TARGET_DIR = "D:\reciplexa\target"
+$env:TEMP = "D:\reciplexa\.tmp"
+$env:TMP = "D:\reciplexa\.tmp"
+New-Item -ItemType Directory -Force -Path $env:TEMP, $env:CARGO_TARGET_DIR | Out-Null
+cargo <subcommand> --target-dir D:\reciplexa\target ...
+```
+
+`--target-dir D:\reciplexa\target` is mandatory. The agent sandbox overrides `CARGO_TARGET_DIR` to `%LOCALAPPDATA%\Temp\cursor-sandbox-cache` on **C:**; omitting `--target-dir` fills C: until the linker fails. `cargo fmt` does not take `--target-dir` but still needs `TEMP`/`TMP` on D:.
+
+Do not copy caches onto C:. Movable caches live under `D:\dev-cache\`.

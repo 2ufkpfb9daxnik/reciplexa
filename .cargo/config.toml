@@ -1,3 +1,13 @@
-# Keep Cargo artifacts on the repo drive (D:), not under %TEMP% on C:.
+# Reciplexa lives on D:. Never let Cargo/rustc fill C:.
+# Cursor's agent sandbox sets CARGO_TARGET_DIR to
+# %LOCALAPPDATA%\Temp\cursor-sandbox-cache\...\cargo-target (on C:).
+# Absolute target-dir plus CLI `--target-dir D:\reciplexa\target` override that.
+# [env] force sends rustc/link TEMP to D: even when the parent TEMP is C:.
 [build]
-target-dir = "target"
+target-dir = "D:\\reciplexa\\target"
+
+[env]
+CARGO_TARGET_DIR = { value = "D:\\reciplexa\\target", force = true }
+TEMP = { value = "D:\\reciplexa\\.tmp", force = true }
+TMP = { value = "D:\\reciplexa\\.tmp", force = true }
+TMPDIR = { value = "D:\\reciplexa\\.tmp", force = true }

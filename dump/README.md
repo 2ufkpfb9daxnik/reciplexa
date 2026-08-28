@@ -3,6 +3,15 @@
 このファイルが、人間と実装AIの共通の入口です。
 `dump/` が開発文書の正本ディレクトリです。存在しない `lang/` を参照しないでください。
 
+## ディスク（必ず守る）— 成果物は D: のみ
+
+C: は逼迫している。Reciplexa の作業木は **D:\reciplexa**。開発成果物・Cargo `target`・rustc / リンカの一時ファイル・agent サンドボックスの `cargo-target` を **C: に書いてはならない**。
+
+- 正本: [`windows-disk-policy.md`](windows-disk-policy.md)
+- `CARGO_HOME=D:\dev-cache\cargo`。compile 系 `cargo` は `--target-dir D:\reciplexa\target`（`cargo fmt` 以外）。
+- `TEMP` / `TMP` は `D:\reciplexa\.tmp`。Cursor サンドボックスは未指定だと `%LOCALAPPDATA%\Temp\cursor-sandbox-cache`（C:）へ `target` を逃がし、ディスクフルで link が落ちる。
+- OS と Cursor 本体は C: のままでよい。Rust 処理系（rustup）も C: 可。Cargo レジストリ等、移せるキャッシュは `D:\dev-cache\`。
+
 ## 最初に読むもの
 
 1. 現在の作業順と完了条件: [`active-roadmap.md`](active-roadmap.md)
