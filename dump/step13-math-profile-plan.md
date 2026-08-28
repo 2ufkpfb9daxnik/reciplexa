@@ -1,6 +1,6 @@
 # Step 13 — Math Profile v2 と GUI 編集
 
-**Status:** active — slice 4 next (`13f54c5` slice 3 audit complete)  
+**Status:** active — slice 4 landed pending audit  
 **Depends on:** Step 12 complete (`7b7a45e` code; gate `b56aa6a`; docs `7c93262`; macro `3058e2a1`)  
 **Normative:** `roadmap.md` Step 13, `implemented-features.md` OpenType MATH 残差、Math Profile v1 上の拡張
 
@@ -54,7 +54,8 @@
 ## Slice 4 受入（監査用）
 
 - inline / display の区別が文書内で安定して出力されること
-- alignment と equation number の実用 subset（plan 実装時に example を固定）
+- alignment と equation number の実用 subset。固定 example: `examples/pkg_live_align.rpx`
+  （display `math-aligned` 2 行、列揃えの `=`、行ごと `(1)` / `(2)`、同一ページ `inline-math` は Text style 分数）
 - **非ゴール（slice 4）:** 完全 amsmath、GUI 木の全ノード種
 
 ## Slice 5 受入（監査用）

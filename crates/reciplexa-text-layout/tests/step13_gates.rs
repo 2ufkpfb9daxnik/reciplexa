@@ -1,15 +1,16 @@
 //! Step 13 gates: MATH glyph assembly (slice 1), MATH kern (slice 2),
-//! remaining layout constants from the font (slice 3).
+//! remaining layout constants from the font (slice 3), alignment / eqno (slice 4).
 
 use reciplexa_identity::document::StableNodeId;
 use reciplexa_std::math::{EstimateStyle, MathAccentKind, MathAtom, MathClass};
 use reciplexa_text_layout::{
-    layout_math_atom, LoadedFont, FIXTURE_AXIS_HEIGHT, FIXTURE_DELIMITED_SUB_FORMULA_MIN_HEIGHT,
-    FIXTURE_FRACTION_NUMERATOR_DISPLAY_STYLE_SHIFT_UP, FIXTURE_FRACTION_NUMERATOR_SHIFT_UP,
-    FIXTURE_ITALIC_CORRECTION_F, FIXTURE_MATH_KERN_BOTTOM_RIGHT, FIXTURE_MATH_KERN_TOP_RIGHT,
-    FIXTURE_OVERBAR_RULE_THICKNESS, FIXTURE_RADICAL_DISPLAY_STYLE_VERTICAL_GAP,
-    FIXTURE_RADICAL_KERN_BEFORE_DEGREE, FIXTURE_SPACE_AFTER_SCRIPT,
-    FIXTURE_STACK_DISPLAY_STYLE_GAP_MIN, FIXTURE_TALL_PAREN_VARIANT_ADVANCE,
+    layout_math_atom, LoadedFont, EQUATION_NUMBER_MARGIN_EM, FIXTURE_AXIS_HEIGHT,
+    FIXTURE_DELIMITED_SUB_FORMULA_MIN_HEIGHT, FIXTURE_FRACTION_NUMERATOR_DISPLAY_STYLE_SHIFT_UP,
+    FIXTURE_FRACTION_NUMERATOR_SHIFT_UP, FIXTURE_ITALIC_CORRECTION_F,
+    FIXTURE_MATH_KERN_BOTTOM_RIGHT, FIXTURE_MATH_KERN_TOP_RIGHT, FIXTURE_OVERBAR_RULE_THICKNESS,
+    FIXTURE_RADICAL_DISPLAY_STYLE_VERTICAL_GAP, FIXTURE_RADICAL_KERN_BEFORE_DEGREE,
+    FIXTURE_SPACE_AFTER_SCRIPT, FIXTURE_STACK_DISPLAY_STYLE_GAP_MIN,
+    FIXTURE_TALL_PAREN_VARIANT_ADVANCE,
 };
 
 fn font() -> LoadedFont {
@@ -402,5 +403,68 @@ fn step13_slice3_radical_degree_kern_before_from_font() {
         n.x_em,
         f64::from(FIXTURE_RADICAL_KERN_BEFORE_DEGREE) / upem,
         "radicalKernBeforeDegree",
+    );
+}
+
+fn ord(id: u64, glyph: &str) -> MathAtom {
+    MathAtom::symbol(StableNodeId::new(id), glyph, MathClass::Ordinary)
+}
+
+fn rel(id: u64, glyph: &str) -> MathAtom {
+    MathAtom::symbol(StableNodeId::new(id), glyph, MathClass::Relation)
+}
+
+#[test]
+fn step13_slice4_aligned_columns_share_relation_x() {
+    let f = font();
+    let laid = layout_math_atom(
+        &f,
+        &MathAtom::aligned(
+            StableNodeId::new(1),
+            vec![
+                vec![ord(2, "a"), rel(3, "="), ord(4, "b")],
+                vec![ord(5, "ccc"), rel(6, "="), ord(7, "d")],
+            ],
+        ),
+        EstimateStyle::Display,
+    )
+    .unwrap();
+    let eqs: Vec<_> = laid.glyphs.iter().filter(|g| g.glyph.ch == '=').collect();
+    assert_eq!(eqs.len(), 2, "two relation cells");
+    almost_eq(eqs[0].x_em, eqs[1].x_em, "aligned = column");
+    let a = laid.glyphs.iter().find(|g| g.glyph.ch == 'a').expect("a");
+    assert!(
+        eqs[0].x_em > a.x_em + a.glyph.advance_em * a.scale + 1e-9,
+        "relation sits in column 1, not flush to a"
+    );
+}
+
+#[test]
+fn step13_slice4_equation_numbers_right_align() {
+    let f = font();
+    let laid = layout_math_atom(
+        &f,
+        &MathAtom::aligned_numbered(
+            StableNodeId::new(1),
+            vec![
+                vec![ord(2, "a"), rel(3, "="), ord(4, "b")],
+                vec![ord(5, "ccc"), rel(6, "="), ord(7, "d")],
+            ],
+            vec![Some("(1)".into()), Some("(2)".into())],
+        ),
+        EstimateStyle::Display,
+    )
+    .unwrap();
+    let one = laid.glyphs.iter().find(|g| g.glyph.ch == '1').expect("1");
+    let two = laid.glyphs.iter().find(|g| g.glyph.ch == '2').expect("2");
+    let close: Vec<_> = laid.glyphs.iter().filter(|g| g.glyph.ch == ')').collect();
+    assert_eq!(close.len(), 2, "two closing parens on equation numbers");
+    let r1 = close[0].x_em + close[0].glyph.advance_em * close[0].scale;
+    let r2 = close[1].x_em + close[1].glyph.advance_em * close[1].scale;
+    almost_eq(r1, r2, "eqno right edges");
+    almost_eq(r1, EQUATION_NUMBER_MARGIN_EM, "eqno at margin");
+    assert!(
+        (one.y_em - two.y_em).abs() > 1e-6,
+        "numbers on different rows"
     );
 }

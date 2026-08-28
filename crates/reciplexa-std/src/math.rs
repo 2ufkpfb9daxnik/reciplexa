@@ -230,6 +230,8 @@ pub enum MathAtom {
     Aligned {
         id: StableNodeId,
         rows: Vec<Vec<MathAtom>>,
+        /// Per-row equation numbers (empty = none). Shorter than `rows` is fine.
+        numbers: Vec<Option<String>>,
     },
     /// Vertical stack / atop / substack (`math/stack`).
     Stack {
@@ -473,7 +475,15 @@ impl MathAtom {
     }
 
     pub fn aligned(id: StableNodeId, rows: Vec<Vec<MathAtom>>) -> Self {
-        Self::Aligned { id, rows }
+        Self::aligned_numbered(id, rows, Vec::new())
+    }
+
+    pub fn aligned_numbered(
+        id: StableNodeId,
+        rows: Vec<Vec<MathAtom>>,
+        numbers: Vec<Option<String>>,
+    ) -> Self {
+        Self::Aligned { id, rows, numbers }
     }
 
     pub fn stack(id: StableNodeId, kind: MathStackKind, children: Vec<MathAtom>) -> Self {

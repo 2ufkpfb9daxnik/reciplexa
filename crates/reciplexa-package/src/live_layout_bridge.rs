@@ -25,6 +25,8 @@ static TEMP_SEQ: AtomicU64 = AtomicU64::new(0);
 ///
 /// Optional record field `style` (`"text"` / `"display"`) selects
 /// [`EstimateStyle`] for the math sibling; missing / unknown → Display.
+/// Optional `inline-math` is always laid out as [`EstimateStyle::Text`] below
+/// the display `math` sibling.
 pub fn document_from_live_layout_value(v: &RuntimeValue) -> Result<Document, GraphicsBridgeError> {
     document_from_live_layout_value_with_style(v, estimate_style_from_value(v))
 }
@@ -91,11 +93,32 @@ pub fn document_from_live_layout_value_with_engine_and_style(
     }
     .map_err(GraphicsBridgeError::from)?;
     let origin = math_origin_below_doc(&doc);
-    let math_shapes = match engine {
+    let mut math_shapes = match engine {
         TypesetEngine::Stub => layout_math_to_shapes(math_v, origin, layout_style),
         TypesetEngine::Product => layout_math_to_shapes_product(math_v, origin, layout_style),
     }
     .map_err(|e| GraphicsBridgeError::Bridge(e.message))?;
+    if let Some(inline_v) = fields
+        .iter()
+        .find(|(k, _)| k == "inline-math")
+        .map(|(_, v)| v)
+    {
+        let below = math_shapes
+            .iter()
+            .filter_map(Shape::text_y_mm)
+            .fold(origin.1, f64::max)
+            + 10.0;
+        let inline_shapes = match engine {
+            TypesetEngine::Stub => {
+                layout_math_to_shapes(inline_v, (origin.0, below), EstimateStyle::Text)
+            }
+            TypesetEngine::Product => {
+                layout_math_to_shapes_product(inline_v, (origin.0, below), EstimateStyle::Text)
+            }
+        }
+        .map_err(|e| GraphicsBridgeError::Bridge(e.message))?;
+        math_shapes.extend(inline_shapes);
+    }
     if let Some(page) = doc.pages.first_mut() {
         page.shapes.extend(math_shapes);
     }

@@ -1,0 +1,51 @@
+(// language-only: Step 13 slice 4 — display aligned + eqno, inline fraction.
+ // Display `math-aligned` two rows with `(1)` / `(2)`; `inline-math` is Text style.)
+
+(import document/page only
+  a4 page flow section heading paragraph
+  block-paragraph)
+
+(val title (heading 1 "Live align layout"))
+(val body (paragraph "Display aligned equations with numbers; inline fraction below."))
+
+(val math
+  (record
+    (tag "math-aligned")
+    (rows
+      (list
+        (record
+          (tag "math-align-row")
+          (cells
+            (list
+              (record (tag "math-symbol") (glyph "a") (class "ord"))
+              (record (tag "math-symbol") (glyph "=") (class "rel"))
+              (record (tag "math-symbol") (glyph "b") (class "ord"))))
+          (number "(1)"))
+        (record
+          (tag "math-align-row")
+          (cells
+            (list
+              (record (tag "math-symbol") (glyph "ccc") (class "ord"))
+              (record (tag "math-symbol") (glyph "=") (class "rel"))
+              (record (tag "math-symbol") (glyph "d") (class "ord"))))
+          (number "(2)"))))))
+
+(val inline-math
+  (record
+    (tag "math-fraction")
+    (numerator (record (tag "math-symbol") (glyph "p") (class "ord")))
+    (denominator (record (tag "math-symbol") (glyph "q") (class "ord")))))
+
+(val main
+  (record
+    (tag "live-layout-demo")
+    (style "display")
+    (page
+      (page a4
+        (flow
+          (list
+            (section title
+              (list
+                (block-paragraph body)))))))
+    (math math)
+    (inline-math inline-math)))

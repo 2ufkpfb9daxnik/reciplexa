@@ -224,6 +224,7 @@ fn pt9_declared_page_examples_export_pdf_svg() {
         for name in [
             "pkg_columns.rpx",
             "pkg_document_indent.rpx",
+            "pkg_live_align.rpx",
             "pkg_live_math.rpx",
             "pkg_math.rpx",
             "text_line.rpx",
@@ -238,6 +239,30 @@ fn pt9_declared_page_examples_export_pdf_svg() {
             assert!(svg.contains("<svg"), "{name} svg");
             assert!(svg.contains("<text"), "{name} svg text");
         }
+    });
+}
+
+#[test]
+fn pt9_pkg_live_align_has_display_eqno_and_inline_fraction() {
+    on_host_stack("pt9-live-align", || {
+        let idx = index();
+        let doc = document_from_package_entry_host(example("pkg_live_align.rpx"), &idx)
+            .expect("pkg_live_align host");
+        let runs: Vec<_> = doc.pages[0]
+            .shapes
+            .iter()
+            .flat_map(walk_glyph_runs)
+            .collect();
+        let joined: String = runs.iter().map(|(s, _)| *s).collect();
+        assert!(joined.contains('='), "aligned relations: {joined}");
+        assert!(
+            joined.contains('1') && joined.contains('2'),
+            "eqno: {joined}"
+        );
+        assert!(
+            joined.contains('p') && joined.contains('q'),
+            "inline fraction: {joined}"
+        );
     });
 }
 

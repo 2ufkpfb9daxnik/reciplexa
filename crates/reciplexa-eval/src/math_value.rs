@@ -295,8 +295,8 @@ fn math_atom_from_value_with_ids(
             }
         }
         "math-aligned" => {
-            let rows = matrix_rows_field(fields, ids)?;
-            Ok(MathAtom::aligned(ids.mint(), rows))
+            let (rows, numbers) = aligned_rows_field(fields, ids)?;
+            Ok(MathAtom::aligned_numbered(ids.mint(), rows, numbers))
         }
         "math-stack" => {
             let children_v = field(fields, "children")
@@ -347,8 +347,8 @@ fn math_atom_from_value_with_ids(
             Ok(MathAtom::matrix(ids.mint(), kind, rows))
         }
         "math-align-eq" => {
-            let rows = matrix_rows_field(fields, ids)?;
-            Ok(MathAtom::aligned(ids.mint(), rows))
+            let (rows, numbers) = aligned_rows_field(fields, ids)?;
+            Ok(MathAtom::aligned_numbered(ids.mint(), rows, numbers))
         }
         "math-substack" => {
             let rows = matrix_rows_field(fields, ids)?;
@@ -489,6 +489,52 @@ fn stack_kind_field(fields: &[(String, RuntimeValue)]) -> MathStackKind {
             _ => MathStackKind::Stack,
         },
         _ => MathStackKind::Stack,
+    }
+}
+
+type AlignedRows = (Vec<Vec<MathAtom>>, Vec<Option<String>>);
+
+fn aligned_rows_field(
+    fields: &[(String, RuntimeValue)],
+    ids: &mut IdGen,
+) -> Result<AlignedRows, MathValueError> {
+    let rows_v = field(fields, "rows")
+        .ok_or_else(|| MathValueError::new("math matrix/aligned missing rows"))?;
+    let mut rows = Vec::new();
+    let mut numbers = Vec::new();
+    for row_v in cons_items(rows_v)? {
+        let (cells, number) = aligned_row_atoms(row_v, ids)?;
+        rows.push(cells);
+        numbers.push(number);
+    }
+    Ok((rows, numbers))
+}
+
+fn aligned_row_atoms(
+    v: &RuntimeValue,
+    ids: &mut IdGen,
+) -> Result<(Vec<MathAtom>, Option<String>), MathValueError> {
+    let fields = match record_fields(v) {
+        Ok(f) => f,
+        Err(_) => return Ok((atom_list(v, ids)?, None)),
+    };
+    match tag_of(fields) {
+        Some("math-matrix-row") | Some("math-align-row") => {
+            let cells_v = field(fields, "cells")
+                .ok_or_else(|| MathValueError::new("matrix/align row missing cells"))?;
+            let cells = atom_list(cells_v, ids)?;
+            let number = optional_string_field(fields, "number");
+            Ok((cells, number))
+        }
+        _ => Ok((atom_list(v, ids)?, None)),
+    }
+}
+
+fn optional_string_field(fields: &[(String, RuntimeValue)], name: &str) -> Option<String> {
+    match field(fields, name) {
+        Some(RuntimeValue::String(s)) if !s.is_empty() => Some(s.clone()),
+        Some(RuntimeValue::ShapeTag(s)) if !s.is_empty() => Some(s.clone()),
+        _ => None,
     }
 }
 

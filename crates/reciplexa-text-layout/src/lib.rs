@@ -57,7 +57,7 @@ pub use ja::{
 pub use ja_tables::pair_matrix_fingerprint;
 pub use math_layout::{
     layout_math_atom, MathConstantsEm, MathRule, PositionedMath, PositionedMathGlyph,
-    MATH_PROFILE_V1,
+    EQUATION_NUMBER_MARGIN_EM, MATH_PROFILE_V1,
 };
 pub use policy::{require_emit_matches_shaped_run, select_font, FontRegistry};
 pub use position::{

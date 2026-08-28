@@ -20,7 +20,12 @@ use crate::shape::{shape_run, ShapedGlyph};
 /// Slice 3 reads remaining layout MATH constants from the font (gaps, bars,
 /// radical degree, stack, limits, delimited min height, space after script,
 /// display-style fraction shifts); glyph ink uses glyf bbox.
+/// Slice 4 aligns columns and places optional equation numbers at
+/// [`EQUATION_NUMBER_MARGIN_EM`].
 pub const MATH_PROFILE_V1: &str = "math-profile-v1";
+
+/// Right edge (em from the aligned block origin) for optional equation numbers.
+pub const EQUATION_NUMBER_MARGIN_EM: f64 = 12.0;
 
 fn math_em(v: ttf_parser::math::MathValue<'_>, upem: f64) -> f64 {
     f64::from(v.value) / upem
@@ -244,7 +249,9 @@ fn layout_atom(
             style,
             scale,
         ),
-        MathAtom::Aligned { rows, .. } => layout_stack_rows(font, c, rows, style, scale, false),
+        MathAtom::Aligned { rows, numbers, .. } => {
+            layout_aligned(font, c, rows, numbers, style, scale)
+        }
         MathAtom::Stack { kind, children, .. } => {
             layout_stack(font, c, *kind, children, style, scale)
         }
@@ -934,6 +941,29 @@ fn layout_stack(
     layout_stack_rows(font, c, &rows, style, scale, false)
 }
 
+fn layout_aligned(
+    font: &LoadedFont,
+    c: &MathConstantsEm,
+    rows: &[Vec<MathAtom>],
+    numbers: &[Option<String>],
+    style: EstimateStyle,
+    scale: f64,
+) -> Result<PositionedMath, LayoutError> {
+    let (mut out, row_y) = layout_stack_rows_with_baselines(font, c, rows, style, scale, false)?;
+    let right = out.metrics.width.max(EQUATION_NUMBER_MARGIN_EM * scale);
+    for (i, num) in numbers.iter().enumerate() {
+        let Some(label) = num.as_ref().filter(|s| !s.is_empty()) else {
+            continue;
+        };
+        let n = layout_symbol(font, label, scale)?;
+        let y = row_y.get(i).copied().unwrap_or(0.0);
+        let x = (right - n.metrics.width).max(0.0);
+        append_shifted(&mut out, n, x, y);
+    }
+    out.metrics.width = extent_width(&out);
+    Ok(out)
+}
+
 fn layout_stack_rows(
     font: &LoadedFont,
     c: &MathConstantsEm,
@@ -942,6 +972,18 @@ fn layout_stack_rows(
     scale: f64,
     as_matrix: bool,
 ) -> Result<PositionedMath, LayoutError> {
+    let (out, _) = layout_stack_rows_with_baselines(font, c, rows, style, scale, as_matrix)?;
+    Ok(out)
+}
+
+fn layout_stack_rows_with_baselines(
+    font: &LoadedFont,
+    c: &MathConstantsEm,
+    rows: &[Vec<MathAtom>],
+    style: EstimateStyle,
+    scale: f64,
+    as_matrix: bool,
+) -> Result<(PositionedMath, Vec<f64>), LayoutError> {
     let mut laid_rows: Vec<Vec<PositionedMath>> = Vec::new();
     let mut col_w: Vec<f64> = Vec::new();
     for row in rows {
@@ -971,6 +1013,7 @@ fn layout_stack_rows(
         rules: Vec::new(),
     };
     let mut y = 0.0;
+    let mut row_y = Vec::with_capacity(laid_rows.len());
     for (ri, row) in laid_rows.into_iter().enumerate() {
         let row_h = row
             .iter()
@@ -986,6 +1029,7 @@ fn layout_stack_rows(
         } else {
             y -= row_h + row_d + gap;
         }
+        row_y.push(y);
         let mut x = 0.0;
         for (i, cell) in row.into_iter().enumerate() {
             append_shifted(&mut out, cell, x, y);
@@ -994,7 +1038,7 @@ fn layout_stack_rows(
         out.metrics.depth = (-y) + row_d;
     }
     out.metrics.width = extent_width(&out);
-    Ok(out)
+    Ok((out, row_y))
 }
 
 fn trailing_italic_em(m: &PositionedMath) -> f64 {
