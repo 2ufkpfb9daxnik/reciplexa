@@ -17,19 +17,49 @@ use crate::shape::{shape_run, ShapedGlyph};
 /// than ASCII substitution. Stretchy delimiters use MATH variants, then
 /// `GlyphAssembly` (no visual scale). Scripts, limits, and adjacent nuclei
 /// apply MATH italic correction and corner kern from the font table.
+/// Slice 3 reads remaining layout MATH constants from the font (gaps, bars,
+/// radical degree, stack, limits, delimited min height, space after script,
+/// display-style fraction shifts); glyph ink uses glyf bbox.
 pub const MATH_PROFILE_V1: &str = "math-profile-v1";
+
+fn math_em(v: ttf_parser::math::MathValue<'_>, upem: f64) -> f64 {
+    f64::from(v.value) / upem
+}
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct MathConstantsEm {
     pub script_percent_scale_down: f64,
     pub script_script_percent_scale_down: f64,
+    pub delimited_sub_formula_min_height_em: f64,
     pub axis_height_em: f64,
+    pub accent_base_height_em: f64,
     pub superscript_shift_up_em: f64,
     pub subscript_shift_down_em: f64,
+    pub space_after_script_em: f64,
+    pub upper_limit_gap_min_em: f64,
+    pub upper_limit_baseline_rise_min_em: f64,
+    pub lower_limit_gap_min_em: f64,
+    pub lower_limit_baseline_drop_min_em: f64,
+    pub stack_gap_min_em: f64,
+    pub stack_display_style_gap_min_em: f64,
     pub fraction_rule_thickness_em: f64,
     pub fraction_num_shift_up_em: f64,
+    pub fraction_num_display_style_shift_up_em: f64,
     pub fraction_den_shift_down_em: f64,
+    pub fraction_den_display_style_shift_down_em: f64,
+    pub overbar_vertical_gap_em: f64,
+    pub overbar_rule_thickness_em: f64,
+    pub overbar_extra_ascender_em: f64,
+    pub underbar_vertical_gap_em: f64,
+    pub underbar_rule_thickness_em: f64,
+    pub underbar_extra_descender_em: f64,
     pub radical_rule_thickness_em: f64,
+    pub radical_vertical_gap_em: f64,
+    pub radical_display_style_vertical_gap_em: f64,
+    pub radical_extra_ascender_em: f64,
+    pub radical_kern_before_degree_em: f64,
+    pub radical_kern_after_degree_em: f64,
+    pub radical_degree_bottom_raise_percent: f64,
     pub display_operator_min_height_em: f64,
 }
 
@@ -54,13 +84,47 @@ impl MathConstantsEm {
             script_percent_scale_down: f64::from(c.script_percent_scale_down()) / 100.0,
             script_script_percent_scale_down: f64::from(c.script_script_percent_scale_down())
                 / 100.0,
-            axis_height_em: f64::from(c.axis_height().value) / upem,
-            superscript_shift_up_em: f64::from(c.superscript_shift_up().value) / upem,
-            subscript_shift_down_em: f64::from(c.subscript_shift_down().value) / upem,
-            fraction_rule_thickness_em: f64::from(c.fraction_rule_thickness().value) / upem,
-            fraction_num_shift_up_em: f64::from(c.fraction_numerator_shift_up().value) / upem,
-            fraction_den_shift_down_em: f64::from(c.fraction_denominator_shift_down().value) / upem,
-            radical_rule_thickness_em: f64::from(c.radical_rule_thickness().value) / upem,
+            delimited_sub_formula_min_height_em: f64::from(c.delimited_sub_formula_min_height())
+                / upem,
+            axis_height_em: math_em(c.axis_height(), upem),
+            accent_base_height_em: math_em(c.accent_base_height(), upem),
+            superscript_shift_up_em: math_em(c.superscript_shift_up(), upem),
+            subscript_shift_down_em: math_em(c.subscript_shift_down(), upem),
+            space_after_script_em: math_em(c.space_after_script(), upem),
+            upper_limit_gap_min_em: math_em(c.upper_limit_gap_min(), upem),
+            upper_limit_baseline_rise_min_em: math_em(c.upper_limit_baseline_rise_min(), upem),
+            lower_limit_gap_min_em: math_em(c.lower_limit_gap_min(), upem),
+            lower_limit_baseline_drop_min_em: math_em(c.lower_limit_baseline_drop_min(), upem),
+            stack_gap_min_em: math_em(c.stack_gap_min(), upem),
+            stack_display_style_gap_min_em: math_em(c.stack_display_style_gap_min(), upem),
+            fraction_rule_thickness_em: math_em(c.fraction_rule_thickness(), upem),
+            fraction_num_shift_up_em: math_em(c.fraction_numerator_shift_up(), upem),
+            fraction_num_display_style_shift_up_em: math_em(
+                c.fraction_numerator_display_style_shift_up(),
+                upem,
+            ),
+            fraction_den_shift_down_em: math_em(c.fraction_denominator_shift_down(), upem),
+            fraction_den_display_style_shift_down_em: math_em(
+                c.fraction_denominator_display_style_shift_down(),
+                upem,
+            ),
+            overbar_vertical_gap_em: math_em(c.overbar_vertical_gap(), upem),
+            overbar_rule_thickness_em: math_em(c.overbar_rule_thickness(), upem),
+            overbar_extra_ascender_em: math_em(c.overbar_extra_ascender(), upem),
+            underbar_vertical_gap_em: math_em(c.underbar_vertical_gap(), upem),
+            underbar_rule_thickness_em: math_em(c.underbar_rule_thickness(), upem),
+            underbar_extra_descender_em: math_em(c.underbar_extra_descender(), upem),
+            radical_rule_thickness_em: math_em(c.radical_rule_thickness(), upem),
+            radical_vertical_gap_em: math_em(c.radical_vertical_gap(), upem),
+            radical_display_style_vertical_gap_em: math_em(
+                c.radical_display_style_vertical_gap(),
+                upem,
+            ),
+            radical_extra_ascender_em: math_em(c.radical_extra_ascender(), upem),
+            radical_kern_before_degree_em: math_em(c.radical_kern_before_degree(), upem),
+            radical_kern_after_degree_em: math_em(c.radical_kern_after_degree(), upem),
+            radical_degree_bottom_raise_percent: f64::from(c.radical_degree_bottom_raise_percent())
+                / 100.0,
             display_operator_min_height_em: f64::from(c.display_operator_min_height()) / upem,
         })
     }
@@ -195,7 +259,12 @@ fn layout_symbol(
     let run = shape_run(font, glyph)?;
     let mut x = 0.0;
     let mut glyphs = Vec::new();
+    let mut height: f64 = 0.0;
+    let mut depth: f64 = 0.0;
     for g in run.glyphs {
+        let (h, d) = font.glyph_ink_em(g.gid)?;
+        height = height.max(h * scale);
+        depth = depth.max(d * scale);
         let w = g.advance_em * scale;
         glyphs.push(PositionedMathGlyph {
             glyph: g,
@@ -208,8 +277,8 @@ fn layout_symbol(
     Ok(PositionedMath {
         metrics: MathBox {
             width: x,
-            height: 0.7 * scale,
-            depth: 0.2 * scale,
+            height,
+            depth,
         },
         glyphs,
         rules: Vec::new(),
@@ -290,19 +359,7 @@ fn layout_scripts(
         append_shifted(&mut out, s, base_w + kern, dy);
     }
     if sup.is_some() || sub.is_some() {
-        // Width: base + max(script widths) after the last append already shifted.
-        // Recompute width from glyph extents.
-        out.metrics.width = extent_width(&out);
-        out.metrics.height = out
-            .metrics
-            .height
-            .max(c.superscript_shift_up_em * scale + 0.4 * ss);
-        if sub.is_some() {
-            out.metrics.depth = out
-                .metrics
-                .depth
-                .max(c.subscript_shift_down_em * scale + 0.3 * ss);
-        }
+        out.metrics.width = extent_width(&out) + c.space_after_script_em * scale;
     }
     Ok(out)
 }
@@ -324,8 +381,16 @@ fn layout_fraction(
     let width = n_w.max(d_w);
     let axis = c.axis_height_em * scale;
     let rule = c.fraction_rule_thickness_em * scale;
-    let num_y = axis + c.fraction_num_shift_up_em * scale;
-    let den_y = axis - c.fraction_den_shift_down_em * scale;
+    let (num_shift, den_shift) = if style == EstimateStyle::Display {
+        (
+            c.fraction_num_display_style_shift_up_em,
+            c.fraction_den_display_style_shift_down_em,
+        )
+    } else {
+        (c.fraction_num_shift_up_em, c.fraction_den_shift_down_em)
+    };
+    let num_y = axis + num_shift * scale;
+    let den_y = axis - den_shift * scale;
     let mut out = PositionedMath {
         metrics: MathBox {
             width,
@@ -360,11 +425,17 @@ fn layout_radical(
     let body_w = body.metrics.width;
     let mut width = surd_w + body_w;
     let rule_th = c.radical_rule_thickness_em * scale;
-    let rule_y = body.metrics.height + rule_th + 0.05 * scale;
+    let gap = if style == EstimateStyle::Display {
+        c.radical_display_style_vertical_gap_em
+    } else {
+        c.radical_vertical_gap_em
+    } * scale;
+    let extra = c.radical_extra_ascender_em * scale;
+    let rule_y = body.metrics.height + gap;
     let mut out = PositionedMath {
         metrics: MathBox {
             width,
-            height: rule_y + rule_th,
+            height: rule_y + rule_th + extra,
             depth: body.metrics.depth,
         },
         glyphs: Vec::new(),
@@ -386,8 +457,12 @@ fn layout_radical(
             EstimateStyle::Text,
             script_scale(c, style) * scale,
         )?;
-        width = width.max(idx.metrics.width + 0.1);
-        append_shifted(&mut out, idx, 0.0, rule_y * 0.5);
+        let before = c.radical_kern_before_degree_em * scale;
+        let after = c.radical_kern_after_degree_em * scale;
+        let raise = (rule_y + extra) * c.radical_degree_bottom_raise_percent;
+        let idx_w = idx.metrics.width;
+        append_shifted(&mut out, idx, before, raise);
+        width = width.max(before + idx_w + after + surd_w + body_w);
         out.metrics.width = width;
     }
     out.metrics.width = extent_width(&out);
@@ -406,7 +481,8 @@ fn layout_delimiter(
     scale: f64,
 ) -> Result<PositionedMath, LayoutError> {
     let body_l = layout_atom(font, c, body, style, scale)?;
-    let target = (body_l.metrics.total_height() * stretch).max(0.5);
+    let min_h = c.delimited_sub_formula_min_height_em * scale;
+    let target = (body_l.metrics.total_height() * stretch).max(min_h);
     let mut out = PositionedMath {
         metrics: MathBox {
             width: 0.0,
@@ -416,7 +492,6 @@ fn layout_delimiter(
         glyphs: Vec::new(),
         rules: Vec::new(),
     };
-    let _ = c;
     if !left.is_empty() {
         append_shifted(
             &mut out,
@@ -485,7 +560,8 @@ fn stretchy_delim(
         }
     }
     let adv = font.hor_advance_units(gid)?;
-    let h = 1.0 * scale;
+    let (ink_h, ink_d) = font.glyph_ink_em(gid)?;
+    let h = (ink_h + ink_d) * scale;
     let g = ShapedGlyph {
         font_id: font.id.clone(),
         gid,
@@ -502,7 +578,7 @@ fn stretchy_delim(
             y_em: 0.0,
             scale,
         }],
-        h.max(0.5),
+        h,
     ))
 }
 
@@ -532,7 +608,7 @@ fn single_stretchy_part(
             y_em: 0.0,
             scale,
         }],
-        height_em.max(0.5),
+        height_em,
     ))
 }
 
@@ -632,7 +708,7 @@ fn assemble_vertical_delim(
             last.glyph.italic_correction_em = asm_ic;
         }
     }
-    Ok(positioned_delim_box(glyphs, (height * scale).max(0.5)))
+    Ok(positioned_delim_box(glyphs, height * scale))
 }
 
 fn assembly_stack_height(
@@ -673,27 +749,33 @@ fn layout_accent(
     let mut out = b;
     match kind {
         MathAccentKind::Underline | MathAccentKind::Underbar => {
-            let y = -out.metrics.depth - 0.08 * scale;
+            let gap = c.underbar_vertical_gap_em * scale;
+            let th = c.underbar_rule_thickness_em * scale;
+            let extra = c.underbar_extra_descender_em * scale;
+            let y = -out.metrics.depth - gap;
             out.rules.push(MathRule {
                 x0_em: 0.0,
                 y0_em: y,
-                x1_em: out.metrics.width.max(0.3 * scale),
+                x1_em: out.metrics.width.max(th),
                 y1_em: y,
-                thickness_em: 0.06 * scale,
+                thickness_em: th,
             });
-            out.metrics.depth += 0.15 * scale;
+            out.metrics.depth += gap + th + extra;
             return Ok(out);
         }
         MathAccentKind::Overline | MathAccentKind::Bar => {
-            let y = out.metrics.height + 0.08 * scale;
+            let gap = c.overbar_vertical_gap_em * scale;
+            let th = c.overbar_rule_thickness_em * scale;
+            let extra = c.overbar_extra_ascender_em * scale;
+            let y = out.metrics.height + gap;
             out.rules.push(MathRule {
                 x0_em: 0.0,
                 y0_em: y,
-                x1_em: out.metrics.width.max(0.3 * scale),
+                x1_em: out.metrics.width.max(th),
                 y1_em: y,
-                thickness_em: 0.06 * scale,
+                thickness_em: th,
             });
-            out.metrics.height += 0.15 * scale;
+            out.metrics.height += gap + th + extra;
             return Ok(out);
         }
         _ => {}
@@ -721,11 +803,10 @@ fn layout_accent(
         | MathAccentKind::Overline
         | MathAccentKind::Bar => unreachable!("handled as rules"),
     };
-    let acc = layout_symbol(font, mark, scale * 0.7)?;
-    let dy = out.metrics.height + 0.1 * scale;
+    let acc = layout_symbol(font, mark, scale * c.script_percent_scale_down)?;
+    let dy = out.metrics.height.max(c.accent_base_height_em * scale);
     let acc_x = (out.metrics.width - acc.metrics.width).max(0.0) * 0.5;
     append_shifted(&mut out, acc, acc_x, dy);
-    out.metrics.height += 0.35 * scale;
     Ok(out)
 }
 
@@ -744,7 +825,7 @@ fn layout_bigop(
         stretchy_delim(
             font,
             operator,
-            (c.display_operator_min_height_em * scale).max(scale),
+            c.display_operator_min_height_em * scale,
             scale,
         )?
     } else {
@@ -758,23 +839,25 @@ fn layout_bigop(
     let op_w = out.metrics.width;
     if let Some(u) = upper {
         let u = layout_atom(font, c, u, st, ss)?;
-        let dy = c.display_operator_min_height_em * 0.35 * scale;
-        let kern = corner_kern(font, op_gid, MathKernCorner::TopRight, dy)
-            + corner_kern(font, leading_gid(&u), MathKernCorner::TopLeft, dy);
+        let rise = (out.metrics.height + u.metrics.depth + c.upper_limit_gap_min_em * scale)
+            .max(c.upper_limit_baseline_rise_min_em * scale);
+        let kern = corner_kern(font, op_gid, MathKernCorner::TopRight, rise)
+            + corner_kern(font, leading_gid(&u), MathKernCorner::TopLeft, rise);
         let dx = (op_w - u.metrics.width).max(0.0) * 0.5 + italic * 0.5 + kern;
-        append_shifted(&mut out, u, dx, dy);
+        append_shifted(&mut out, u, dx, rise);
     }
     if let Some(l) = lower {
         let l = layout_atom(font, c, l, st, ss)?;
-        let dy = -c.subscript_shift_down_em * scale;
-        let kern = corner_kern(font, op_gid, MathKernCorner::BottomRight, -dy)
-            + corner_kern(font, leading_gid(&l), MathKernCorner::BottomLeft, -dy);
+        let drop = (out.metrics.depth + l.metrics.height + c.lower_limit_gap_min_em * scale)
+            .max(c.lower_limit_baseline_drop_min_em * scale);
+        let kern = corner_kern(font, op_gid, MathKernCorner::BottomRight, drop)
+            + corner_kern(font, leading_gid(&l), MathKernCorner::BottomLeft, drop);
         let dx = (op_w - l.metrics.width).max(0.0) * 0.5 - italic * 0.5 + kern;
-        append_shifted(&mut out, l, dx, dy);
+        append_shifted(&mut out, l, dx, -drop);
     }
     if let Some(b) = body {
         let b = layout_atom(font, c, b, style, scale)?;
-        let bx = out.metrics.width + 0.15 * scale;
+        let bx = out.metrics.width + c.space_after_script_em * scale;
         append_shifted(&mut out, b, bx, 0.0);
     }
     out.metrics.width = extent_width(&out);
@@ -873,11 +956,11 @@ fn layout_stack_rows(
         }
         laid_rows.push(cells);
     }
-    let gap = if as_matrix {
-        0.35 * scale
+    let gap = if as_matrix || style == EstimateStyle::Display {
+        c.stack_display_style_gap_min_em
     } else {
-        0.25 * scale
-    };
+        c.stack_gap_min_em
+    } * scale;
     let mut out = PositionedMath {
         metrics: MathBox {
             width: col_w.iter().sum::<f64>() + gap * col_w.len().saturating_sub(1) as f64,
@@ -891,12 +974,12 @@ fn layout_stack_rows(
     for (ri, row) in laid_rows.into_iter().enumerate() {
         let row_h = row
             .iter()
-            .map(|c| c.metrics.height)
-            .fold(0.4 * scale, f64::max);
+            .map(|cell| cell.metrics.height)
+            .fold(0.0, f64::max);
         let row_d = row
             .iter()
-            .map(|c| c.metrics.depth)
-            .fold(0.1 * scale, f64::max);
+            .map(|cell| cell.metrics.depth)
+            .fold(0.0, f64::max);
         if ri == 0 {
             out.metrics.height = row_h;
             y = 0.0;

@@ -11,6 +11,31 @@ pub const FIXTURE_SUPERSCRIPT_SHIFT_UP: i16 = 420;
 pub const FIXTURE_SUBSCRIPT_SHIFT_DOWN: i16 = 210;
 pub const FIXTURE_RADICAL_RULE_THICKNESS: i16 = 70;
 pub const FIXTURE_DISPLAY_OPERATOR_MIN_HEIGHT: u16 = 1400;
+pub const FIXTURE_DELIMITED_SUB_FORMULA_MIN_HEIGHT: u16 = 1200;
+pub const FIXTURE_ACCENT_BASE_HEIGHT: i16 = 480;
+pub const FIXTURE_SPACE_AFTER_SCRIPT: i16 = 40;
+pub const FIXTURE_UPPER_LIMIT_GAP_MIN: i16 = 50;
+pub const FIXTURE_UPPER_LIMIT_BASELINE_RISE_MIN: i16 = 200;
+pub const FIXTURE_LOWER_LIMIT_GAP_MIN: i16 = 50;
+pub const FIXTURE_LOWER_LIMIT_BASELINE_DROP_MIN: i16 = 200;
+pub const FIXTURE_STACK_GAP_MIN: i16 = 120;
+pub const FIXTURE_STACK_DISPLAY_STYLE_GAP_MIN: i16 = 200;
+pub const FIXTURE_OVERBAR_VERTICAL_GAP: i16 = 60;
+pub const FIXTURE_OVERBAR_RULE_THICKNESS: i16 = 50;
+pub const FIXTURE_OVERBAR_EXTRA_ASCENDER: i16 = 40;
+pub const FIXTURE_UNDERBAR_VERTICAL_GAP: i16 = 60;
+pub const FIXTURE_UNDERBAR_RULE_THICKNESS: i16 = 50;
+pub const FIXTURE_UNDERBAR_EXTRA_DESCENDER: i16 = 40;
+pub const FIXTURE_RADICAL_VERTICAL_GAP: i16 = 60;
+pub const FIXTURE_RADICAL_DISPLAY_STYLE_VERTICAL_GAP: i16 = 100;
+pub const FIXTURE_RADICAL_EXTRA_ASCENDER: i16 = 40;
+pub const FIXTURE_RADICAL_KERN_BEFORE_DEGREE: i16 = 80;
+pub const FIXTURE_RADICAL_KERN_AFTER_DEGREE: i16 = -80;
+pub const FIXTURE_RADICAL_DEGREE_BOTTOM_RAISE_PERCENT: i16 = 60;
+pub const FIXTURE_FRACTION_NUMERATOR_SHIFT_UP: i16 = 400;
+pub const FIXTURE_FRACTION_NUMERATOR_DISPLAY_STYLE_SHIFT_UP: i16 = 500;
+pub const FIXTURE_FRACTION_DENOMINATOR_SHIFT_DOWN: i16 = 400;
+pub const FIXTURE_FRACTION_DENOMINATOR_DISPLAY_STYLE_SHIFT_DOWN: i16 = 500;
 /// MATH Variants `advanceMeasurement` for the cmap `(` glyph (design units).
 pub const FIXTURE_PAREN_VARIANT_ADVANCE: u16 = 1000;
 /// MATH Variants `advanceMeasurement` for the construction-only tall paren.
@@ -718,12 +743,12 @@ fn build_math_constants() -> Vec<u8> {
     let mut c = vec![0u8; 214];
     c[0..2].copy_from_slice(&FIXTURE_SCRIPT_PERCENT_SCALE_DOWN.to_be_bytes());
     c[2..4].copy_from_slice(&FIXTURE_SCRIPT_SCRIPT_PERCENT_SCALE_DOWN.to_be_bytes());
-    c[4..6].copy_from_slice(&1200u16.to_be_bytes());
+    c[4..6].copy_from_slice(&FIXTURE_DELIMITED_SUB_FORMULA_MIN_HEIGHT.to_be_bytes());
     c[6..8].copy_from_slice(&FIXTURE_DISPLAY_OPERATOR_MIN_HEIGHT.to_be_bytes());
     let records: [(usize, i16); 50] = [
         (8, 100),
         (12, FIXTURE_AXIS_HEIGHT),
-        (16, 480),
+        (16, FIXTURE_ACCENT_BASE_HEIGHT),
         (20, 680),
         (24, FIXTURE_SUBSCRIPT_SHIFT_DOWN),
         (28, 380),
@@ -734,25 +759,25 @@ fn build_math_constants() -> Vec<u8> {
         (48, 250),
         (52, 150),
         (56, 240),
-        (60, 40),
-        (64, 50),
-        (68, 200),
-        (72, 50),
-        (76, 200),
+        (60, FIXTURE_SPACE_AFTER_SCRIPT),
+        (64, FIXTURE_UPPER_LIMIT_GAP_MIN),
+        (68, FIXTURE_UPPER_LIMIT_BASELINE_RISE_MIN),
+        (72, FIXTURE_LOWER_LIMIT_GAP_MIN),
+        (76, FIXTURE_LOWER_LIMIT_BASELINE_DROP_MIN),
         (80, 300),
         (84, 400),
         (88, 200),
         (92, 300),
-        (96, 120),
-        (100, 200),
+        (96, FIXTURE_STACK_GAP_MIN),
+        (100, FIXTURE_STACK_DISPLAY_STYLE_GAP_MIN),
         (104, 300),
         (108, 200),
         (112, 80),
         (116, 80),
-        (120, 400),
-        (124, 500),
-        (128, 400),
-        (132, 500),
+        (120, FIXTURE_FRACTION_NUMERATOR_SHIFT_UP),
+        (124, FIXTURE_FRACTION_NUMERATOR_DISPLAY_STYLE_SHIFT_UP),
+        (128, FIXTURE_FRACTION_DENOMINATOR_SHIFT_DOWN),
+        (132, FIXTURE_FRACTION_DENOMINATOR_DISPLAY_STYLE_SHIFT_DOWN),
         (136, 40),
         (140, 80),
         (144, FIXTURE_FRACTION_RULE_THICKNESS),
@@ -760,23 +785,23 @@ fn build_math_constants() -> Vec<u8> {
         (152, 80),
         (156, 80),
         (160, 80),
-        (164, 60),
-        (168, 50),
-        (172, 40),
-        (176, 60),
-        (180, 50),
-        (184, 40),
-        (188, 60),
-        (192, 100),
+        (164, FIXTURE_OVERBAR_VERTICAL_GAP),
+        (168, FIXTURE_OVERBAR_RULE_THICKNESS),
+        (172, FIXTURE_OVERBAR_EXTRA_ASCENDER),
+        (176, FIXTURE_UNDERBAR_VERTICAL_GAP),
+        (180, FIXTURE_UNDERBAR_RULE_THICKNESS),
+        (184, FIXTURE_UNDERBAR_EXTRA_DESCENDER),
+        (188, FIXTURE_RADICAL_VERTICAL_GAP),
+        (192, FIXTURE_RADICAL_DISPLAY_STYLE_VERTICAL_GAP),
         (196, FIXTURE_RADICAL_RULE_THICKNESS),
-        (200, 40),
-        (204, 80),
+        (200, FIXTURE_RADICAL_EXTRA_ASCENDER),
+        (204, FIXTURE_RADICAL_KERN_BEFORE_DEGREE),
     ];
     for (off, v) in records {
         c[off..off + 4].copy_from_slice(&math_value(v));
     }
-    c[208..212].copy_from_slice(&math_value(-80));
-    c[212..214].copy_from_slice(&60i16.to_be_bytes());
+    c[208..212].copy_from_slice(&math_value(FIXTURE_RADICAL_KERN_AFTER_DEGREE));
+    c[212..214].copy_from_slice(&FIXTURE_RADICAL_DEGREE_BOTTOM_RAISE_PERCENT.to_be_bytes());
     c
 }
 

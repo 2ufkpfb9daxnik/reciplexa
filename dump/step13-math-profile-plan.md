@@ -1,6 +1,6 @@
 # Step 13 — Math Profile v2 と GUI 編集
 
-**Status:** active — slice 3 next (`95de694` slice 2 audit complete)  
+**Status:** active — slice 3 landed pending audit  
 **Depends on:** Step 12 complete (`7b7a45e` code; gate `b56aa6a`; docs `7c93262`; macro `3058e2a1`)  
 **Normative:** `roadmap.md` Step 13, `implemented-features.md` OpenType MATH 残差、Math Profile v1 上の拡張
 
@@ -38,7 +38,16 @@
 
 ## Slice 3 受入（監査用）
 
-- 組版が参照する残り MATH constants（axis、shift、rule thickness 以外で slice が列挙するもの）を font から読むこと
+- 組版が参照する残り MATH constants を font から読むこと。slice 3 の対象:
+  `delimitedSubFormulaMinHeight`、`spaceAfterScript`、`accentBaseHeight`、
+  `upperLimitGapMin` / `upperLimitBaselineRiseMin`、
+  `lowerLimitGapMin` / `lowerLimitBaselineDropMin`、
+  `stackGapMin` / `stackDisplayStyleGapMin`、
+  `overbar*` / `underbar*`、
+  `radicalVerticalGap` / `radicalDisplayStyleVerticalGap` / `radicalExtraAscender` /
+  `radicalKernBeforeDegree` / `radicalKernAfterDegree` / `radicalDegreeBottomRaisePercent`、
+  display-style fraction numerator/denominator shifts。
+  グリフ ink は glyf bbox（`0.7`/`0.2` em の heuristic を使わない）。
 - heuristic em 定数へ silent fallback しないこと
 - **非ゴール（slice 3）:** GUI 木編集、alignment 環境
 

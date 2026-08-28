@@ -143,7 +143,20 @@ impl LoadedFont {
         Ok(f64::from(adv) / upem)
     }
 
-    /// Vertical advance in em (`vmtx`), else `1` em for stacked CJK cells.
+    /// Ink height (above baseline) and depth (below) in em from glyf bbox.
+    pub fn glyph_ink_em(&self, gid: u16) -> Result<(f64, f64), LayoutError> {
+        let bbox = self
+            .face()
+            .glyph_bounding_box(GlyphId(gid))
+            .ok_or_else(|| LayoutError::Engine {
+                detail: format!("missing glyf bbox for gid {gid}"),
+            })?;
+        let upem = f64::from(self.units_per_em().max(1));
+        let height = f64::from(bbox.y_max.max(0)) / upem;
+        let depth = f64::from((-bbox.y_min).max(0)) / upem;
+        Ok((height, depth))
+    }
+
     pub fn ver_advance_em_gid(&self, gid: u16) -> f64 {
         let upem = f64::from(self.units_per_em().max(1));
         self.face()
