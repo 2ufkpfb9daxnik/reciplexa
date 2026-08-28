@@ -278,7 +278,7 @@ preview/exportされ、実装規則と適合fixtureが対応する。✓
 
 ## Step 13 — Math Profile v2とGUI編集
 
-**Status:** active — [`step13-math-profile-plan.md`](step13-math-profile-plan.md) slice 3 landed pending audit
+**Status:** active — [`step13-math-profile-plan.md`](step13-math-profile-plan.md) slice 4
 
 - full glyph assembly、MATH kern、font metrics
 - alignment / equation numberの実用subset
@@ -288,7 +288,9 @@ preview/exportされ、実装規則と適合fixtureが対応する。✓
 
 **Slice 2:** complete — MATH italic correction と script/limit/隣接核 kern（`95de694`）。監査 `f1dfc7a7`。
 
-**Slice 3:** landed pending audit — remaining MATH layout constants / glyf ink from the font (no silent heuristic em).
+**Slice 3:** complete — remaining MATH layout constants / glyf ink from the font（`13f54c5`）。監査 `c55ae04d`。
+
+**Slice 4 (next):** Alignment / equation numbers（inline/display、alignment、式番号の実用 subset）。
 
 **Complete when:** 数式構造をGUIで変更しSourceへ戻せ、unsupported assemblyやASCII代用を
 silent fallbackせず、文書内inline/display mathを安定して出力できる。
