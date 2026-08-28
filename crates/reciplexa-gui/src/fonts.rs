@@ -22,6 +22,12 @@ pub fn host_layout_font_definitions() -> egui::FontDefinitions {
         Err(e) => eprintln!("warn: host product font: {e}"),
     }
     match host_math_font() {
+        Ok(font) if digest_is_fixture_outlines(&font.id.digest) => {
+            // Fixture glyf is filled rectangles. Preview paints Unicode through
+            // Proportional at layout positions (construction-only GIDs have no
+            // cmap in egui). Do not register those outlines as a named family
+            // or Proportional fallback — that was a solid black column.
+        }
         Ok(font) => insert_layout_face(&mut fonts, &font),
         Err(e) => eprintln!("warn: host math font: {e}"),
     }
@@ -31,6 +37,12 @@ pub fn host_layout_font_definitions() -> egui::FontDefinitions {
 /// Named family whose only face is the layout font with this digest.
 pub fn layout_font_family(digest: &str) -> egui::FontFamily {
     egui::FontFamily::Name(digest.into())
+}
+
+/// The pinned fixture TTF uses filled rectangles as glyf. Painting `GlyphRun`
+/// through that family shows black squares instead of letters or math.
+pub fn digest_is_fixture_outlines(digest: &str) -> bool {
+    digest == LoadedFont::fixture().id.digest
 }
 
 fn insert_layout_face(fonts: &mut egui::FontDefinitions, font: &LoadedFont) {
@@ -89,5 +101,22 @@ mod tests {
     fn install_cjk_fonts_runs_on_default_context() {
         let ctx = egui::Context::default();
         install_cjk_fonts(&ctx);
+    }
+
+    #[test]
+    fn fixture_digest_is_detected_for_preview_skip() {
+        let digest = reciplexa_text_layout::LoadedFont::fixture().id.digest;
+        assert!(digest_is_fixture_outlines(&digest));
+        assert!(!digest_is_fixture_outlines("not-a-fixture-digest"));
+    }
+
+    #[test]
+    fn fixture_math_outlines_are_not_installed_in_egui() {
+        let digest = reciplexa_text_layout::LoadedFont::fixture().id.digest;
+        let defs = host_layout_font_definitions();
+        assert!(
+            !defs.font_data.contains_key(&digest),
+            "fixture rectangles must not be an egui face"
+        );
     }
 }

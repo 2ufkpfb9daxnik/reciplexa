@@ -592,7 +592,9 @@ fn paint_world_text(
 
 fn layout_preview_font_id(digest: Option<&str>, size_px: f32) -> egui::FontId {
     match digest {
-        Some(d) if !d.is_empty() => egui::FontId::new(size_px, crate::fonts::layout_font_family(d)),
+        Some(d) if !d.is_empty() && !crate::fonts::digest_is_fixture_outlines(d) => {
+            egui::FontId::new(size_px, crate::fonts::layout_font_family(d))
+        }
         _ => egui::FontId::proportional(size_px),
     }
 }
@@ -745,6 +747,18 @@ mod tests {
                 galley.size().y
             );
         });
+    }
+
+    #[test]
+    fn fixture_math_digest_uses_proportional_preview() {
+        let digest = reciplexa_text_layout::LoadedFont::fixture().id.digest;
+        let id = layout_preview_font_id(Some(&digest), 12.0);
+        assert_eq!(id.family, egui::FontFamily::Proportional);
+        let named = layout_preview_font_id(Some("other-digest"), 12.0);
+        assert_eq!(
+            named.family,
+            crate::fonts::layout_font_family("other-digest")
+        );
     }
 
     #[test]
