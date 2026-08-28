@@ -14,7 +14,8 @@ use crate::shape::{shape_run, ShapedGlyph};
 /// stretchy delimiter variants (GID recorded and painted via scene GlyphRun),
 /// hat/tilde/dot/vec marks, bar/underline rules, display big operators,
 /// matrices, aligned/stack. Check/breve/acute/grave/ring marks error rather
-/// than ASCII substitution. Full glyph assembly recipes remain OPEN.
+/// than ASCII substitution. Stretchy delimiters use MATH variants, then
+/// `GlyphAssembly` (no visual scale). Remaining MATH kern is Step 13 slice 2.
 pub const MATH_PROFILE_V1: &str = "math-profile-v1";
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -440,54 +441,210 @@ fn stretchy_delim(
     let gid = font.glyph_id(ch)?;
     let face = font.face();
     let upem = f64::from(font.units_per_em().max(1));
-    let mut chosen = gid;
-    let mut chosen_adv = font.hor_advance_units(gid)?;
-    let mut chosen_h = 1.0;
     if let Some(math) = face.tables().math {
         if let Some(var) = math.variants {
             if let Some(cons) = var.vertical_constructions.get(GlyphId(gid)) {
                 for i in 0..cons.variants.len() {
                     if let Some(v) = cons.variants.get(i) {
                         let h = f64::from(v.advance_measurement) / upem;
-                        chosen = v.variant_glyph.0;
-                        chosen_adv = font.hor_advance_units(chosen).unwrap_or(chosen_adv);
-                        chosen_h = h.max(0.25);
-                        if h * scale >= target_em {
-                            break;
+                        if h * scale + 1e-12 >= target_em {
+                            return single_stretchy_part(
+                                font,
+                                ch,
+                                delim,
+                                v.variant_glyph.0,
+                                h * scale,
+                                scale,
+                            );
                         }
                     }
                 }
+                if let Some(assembly) = cons.assembly {
+                    return assemble_vertical_delim(
+                        font,
+                        ch,
+                        delim,
+                        &assembly,
+                        var.min_connector_overlap,
+                        target_em,
+                        scale,
+                    );
+                }
+                return Err(LayoutError::Engine {
+                    detail: format!("MATH glyph assembly missing for stretchy `{delim}`"),
+                });
             }
         }
     }
+    let adv = font.hor_advance_units(gid)?;
+    let h = 1.0 * scale;
     let g = ShapedGlyph {
         font_id: font.id.clone(),
-        gid: chosen,
+        gid,
         ch,
         cluster_start: 0,
         cluster_end: delim.len(),
-        advance_em: f64::from(chosen_adv) / upem,
+        advance_em: f64::from(adv) / upem,
         italic_correction_em: 0.0,
     };
-    // Prepared variants carry height via MATH advanceMeasurement. Remaining
-    // stretch beyond the largest variant is still visual scale; full glyph
-    // assembly remains OPEN.
-    let visual_scale = scale * (target_em / chosen_h).max(1.0);
-    let w = g.advance_em * visual_scale;
-    Ok(PositionedMath {
-        metrics: MathBox {
-            width: w,
-            height: target_em * 0.5,
-            depth: target_em * 0.5,
-        },
-        glyphs: vec![PositionedMathGlyph {
+    Ok(positioned_delim_box(
+        vec![PositionedMathGlyph {
             glyph: g,
             x_em: 0.0,
             y_em: 0.0,
-            scale: visual_scale,
+            scale,
         }],
+        h.max(0.5),
+    ))
+}
+
+fn single_stretchy_part(
+    font: &LoadedFont,
+    ch: char,
+    delim: &str,
+    gid: u16,
+    height_em: f64,
+    scale: f64,
+) -> Result<PositionedMath, LayoutError> {
+    let upem = f64::from(font.units_per_em().max(1));
+    let adv = font.hor_advance_units(gid)?;
+    let g = ShapedGlyph {
+        font_id: font.id.clone(),
+        gid,
+        ch,
+        cluster_start: 0,
+        cluster_end: delim.len(),
+        advance_em: f64::from(adv) / upem,
+        italic_correction_em: 0.0,
+    };
+    Ok(positioned_delim_box(
+        vec![PositionedMathGlyph {
+            glyph: g,
+            x_em: 0.0,
+            y_em: 0.0,
+            scale,
+        }],
+        height_em.max(0.5),
+    ))
+}
+
+fn positioned_delim_box(glyphs: Vec<PositionedMathGlyph>, height_em: f64) -> PositionedMath {
+    let width = glyphs
+        .iter()
+        .map(|g| g.glyph.advance_em * g.scale)
+        .fold(0.0_f64, f64::max);
+    PositionedMath {
+        metrics: MathBox {
+            width,
+            height: height_em * 0.5,
+            depth: height_em * 0.5,
+        },
+        glyphs,
         rules: Vec::new(),
-    })
+    }
+}
+
+fn assemble_vertical_delim(
+    font: &LoadedFont,
+    ch: char,
+    delim: &str,
+    assembly: &ttf_parser::math::GlyphAssembly<'_>,
+    min_overlap: u16,
+    target_em: f64,
+    scale: f64,
+) -> Result<PositionedMath, LayoutError> {
+    let upem = f64::from(font.units_per_em().max(1));
+    let overlap_em = f64::from(min_overlap) / upem;
+    let n = assembly.parts.len();
+    if n == 0 {
+        return Err(LayoutError::Engine {
+            detail: format!("MATH glyph assembly empty for stretchy `{delim}`"),
+        });
+    }
+    let mut parts = Vec::with_capacity(n as usize);
+    for i in 0..n {
+        let p = assembly.parts.get(i).ok_or_else(|| LayoutError::Engine {
+            detail: format!("MATH glyph assembly part {i} missing for `{delim}`"),
+        })?;
+        parts.push(p);
+    }
+    let has_extender = parts.iter().any(|p| p.part_flags.extender());
+    let mut ext_repeats: u32 = 1;
+    let height = loop {
+        let h = assembly_stack_height(&parts, ext_repeats, overlap_em, upem);
+        if h + 1e-9 >= target_em {
+            break h;
+        }
+        if !has_extender || ext_repeats >= 64 {
+            return Err(LayoutError::Engine {
+                detail: format!(
+                    "MATH glyph assembly cannot reach {target_em} em for stretchy `{delim}`"
+                ),
+            });
+        }
+        ext_repeats += 1;
+    };
+    let mut glyphs = Vec::new();
+    let mut y = -height * 0.5 * scale;
+    let mut first = true;
+    for p in &parts {
+        let copies = if p.part_flags.extender() {
+            ext_repeats
+        } else {
+            1
+        };
+        let adv_em = f64::from(p.full_advance) / upem;
+        for _ in 0..copies {
+            if !first {
+                y -= overlap_em * scale;
+            }
+            first = false;
+            let gid = p.glyph_id.0;
+            let hor = font.hor_advance_units(gid)?;
+            glyphs.push(PositionedMathGlyph {
+                glyph: ShapedGlyph {
+                    font_id: font.id.clone(),
+                    gid,
+                    ch,
+                    cluster_start: 0,
+                    cluster_end: delim.len(),
+                    advance_em: f64::from(hor) / upem,
+                    italic_correction_em: 0.0,
+                },
+                x_em: 0.0,
+                y_em: y + adv_em * 0.5 * scale,
+                scale,
+            });
+            y += adv_em * scale;
+        }
+    }
+    Ok(positioned_delim_box(glyphs, (height * scale).max(0.5)))
+}
+
+fn assembly_stack_height(
+    parts: &[ttf_parser::math::GlyphPart],
+    ext_repeats: u32,
+    overlap_em: f64,
+    upem: f64,
+) -> f64 {
+    let mut count = 0u32;
+    let mut sum_em = 0.0;
+    for p in parts {
+        let copies = if p.part_flags.extender() {
+            ext_repeats
+        } else {
+            1
+        };
+        let adv_em = f64::from(p.full_advance) / upem;
+        for _ in 0..copies {
+            if count > 0 {
+                sum_em -= overlap_em;
+            }
+            sum_em += adv_em;
+            count += 1;
+        }
+    }
+    sum_em
 }
 
 fn layout_accent(

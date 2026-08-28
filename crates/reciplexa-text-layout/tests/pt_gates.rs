@@ -156,12 +156,11 @@ fn pt5_math_profile_scripts_fraction_stretchy() {
     assert!(laid.metrics.width > 0.0);
     assert!(!laid.glyphs.is_empty());
     assert!(!laid.rules.is_empty(), "fraction rule");
-    let left = &laid.glyphs[0];
-    assert_eq!(left.glyph.ch, '(');
     let cmap = f.glyph_id('(').unwrap();
-    assert_ne!(
-        left.glyph.gid, cmap,
-        "stretchy '(' must select the construction-only tall variant, not cmap GID {cmap}"
+    let left: Vec<_> = laid.glyphs.iter().filter(|g| g.glyph.ch == '(').collect();
+    assert!(
+        left.iter().any(|g| g.glyph.gid != cmap),
+        "stretchy '(' must use a MATH variant or assembly GID, not only cmap {cmap}"
     );
 }
 

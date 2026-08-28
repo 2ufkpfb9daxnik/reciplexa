@@ -105,24 +105,33 @@ fn pt9_pkg_live_math_product_keeps_delimiter_and_fraction() {
             .filter(|s| s.text_content().is_some_and(|c| c.contains('括')))
             .filter_map(|s| s.text_y_mm())
             .fold(f64::INFINITY, f64::min);
-        let math_left = product.pages[0]
+        // Stretchy assembly paints several '(' GIDs around the math axis; the
+        // axis (not the lowest extender) is the origin compared to JA baseline.
+        let paren_ys: Vec<f64> = product.pages[0]
             .shapes
             .iter()
-            .find(|s| s.text_content() == Some("("))
-            .and_then(|s| s.text_y_mm())
-            .expect("math left delimiter");
+            .filter(|s| s.text_content() == Some("("))
+            .filter_map(|s| s.text_y_mm())
+            .collect();
+        assert!(
+            !paren_ys.is_empty(),
+            "math left delimiter missing: {texts:?}"
+        );
+        let math_axis = (paren_ys.iter().copied().fold(f64::INFINITY, f64::min)
+            + paren_ys.iter().copied().fold(f64::NEG_INFINITY, f64::max))
+            * 0.5;
         const MATH_BELOW_DOC_GAP_MM: f64 = 12.0;
         assert!(
             ja_min.is_finite(),
             "product JA GlyphRun baseline missing: {texts:?}"
         );
         assert!(
-            (math_left - (ja_min - MATH_BELOW_DOC_GAP_MM)).abs() < 1.0,
-            "math origin must follow JA GlyphRun baseline, not Text-only fallback; math_left={math_left} ja_min={ja_min}"
+            (math_axis - (ja_min - MATH_BELOW_DOC_GAP_MM)).abs() < 1.0,
+            "math origin must follow JA GlyphRun baseline, not Text-only fallback; math_axis={math_axis} ja_min={ja_min} paren_ys={paren_ys:?}"
         );
         assert!(
-            math_left < ja_min,
-            "math sits below JA in page Y-up; math_left={math_left} ja_min={ja_min}"
+            math_axis < ja_min,
+            "math sits below JA in page Y-up; math_axis={math_axis} ja_min={ja_min}"
         );
         let _ = stub;
     });

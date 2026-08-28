@@ -15,6 +15,10 @@ pub const FIXTURE_DISPLAY_OPERATOR_MIN_HEIGHT: u16 = 1400;
 pub const FIXTURE_PAREN_VARIANT_ADVANCE: u16 = 1000;
 /// MATH Variants `advanceMeasurement` for the construction-only tall paren.
 pub const FIXTURE_TALL_PAREN_VARIANT_ADVANCE: u16 = 1800;
+/// MATH assembly extender `fullAdvance` (design units).
+pub const FIXTURE_EXTENDER_ADVANCE: u16 = 400;
+/// MATH assembly top/bottom piece `fullAdvance` (design units).
+pub const FIXTURE_ASSEMBLY_END_ADVANCE: u16 = 600;
 
 /// Extra CJK ideographs used by Step 7 examples (hiragana/katakana are full ranges).
 const EXTRA_IDEOGRAPHS: &str =
@@ -90,19 +94,38 @@ fn build_fixture_ttf() -> Vec<u8> {
             kind: GlyphKind::Rect,
         });
     }
-    // Taller paren variant for MATH stretchy (no cmap; construction-only).
+    // Taller paren variant + extender for MATH stretchy (no cmap; construction-only).
     let paren_gid = glyphs
         .iter()
         .position(|g| g.ch == Some('('))
         .expect("ascii paren");
+    let close_gid = glyphs
+        .iter()
+        .position(|g| g.ch == Some(')'))
+        .expect("ascii close paren");
     let tall_paren_gid = glyphs.len() as u16;
     glyphs.push(GlyphSpec {
         ch: None,
         advance: 400,
         kind: GlyphKind::TallRect,
     });
+    let extender_gid = glyphs.len() as u16;
+    glyphs.push(GlyphSpec {
+        ch: None,
+        advance: 400,
+        kind: GlyphKind::Rect,
+    });
 
-    build_sfnt(&glyphs, Some((paren_gid as u16, tall_paren_gid)), &[])
+    build_sfnt(
+        &glyphs,
+        Some((
+            paren_gid as u16,
+            close_gid as u16,
+            tall_paren_gid,
+            extender_gid,
+        )),
+        &[],
+    )
 }
 
 /// Minimal face for fallback tests: only U+263A WHITE SMILING FACE.
@@ -260,7 +283,7 @@ struct GlyphSpec {
 
 fn build_sfnt(
     glyphs: &[GlyphSpec],
-    math_paren: Option<(u16, u16)>,
+    math_paren: Option<(u16, u16, u16, u16)>,
     extra: &[(&[u8; 4], Vec<u8>)],
 ) -> Vec<u8> {
     let num_glyphs = u16::try_from(glyphs.len()).expect("glyph count");
@@ -295,8 +318,11 @@ fn build_sfnt(
         (b"name", name),
         (b"post", post),
     ];
-    if let Some((paren_gid, tall_paren_gid)) = math_paren {
-        tables.push((b"MATH", build_math(paren_gid, tall_paren_gid)));
+    if let Some((paren_gid, close_gid, tall_paren_gid, extender_gid)) = math_paren {
+        tables.push((
+            b"MATH",
+            build_math(paren_gid, close_gid, tall_paren_gid, extender_gid),
+        ));
     }
     for (tag, data) in extra {
         tables.push((tag, data.clone()));
@@ -606,11 +632,11 @@ fn build_post() -> Vec<u8> {
     b
 }
 
-fn build_math(paren_gid: u16, tall_paren_gid: u16) -> Vec<u8> {
+fn build_math(paren_gid: u16, close_gid: u16, tall_paren_gid: u16, extender_gid: u16) -> Vec<u8> {
     // Header 10 bytes; constants at 10 (214 bytes); variants at 224.
     let constants = build_math_constants();
     assert_eq!(constants.len(), 214);
-    let variants = build_math_variants(paren_gid, tall_paren_gid);
+    let variants = build_math_variants(paren_gid, close_gid, tall_paren_gid, extender_gid);
     let mut b = Vec::new();
     put_u16(&mut b, 1);
     put_u16(&mut b, 0);
@@ -694,41 +720,83 @@ fn build_math_constants() -> Vec<u8> {
     c
 }
 
-/// MATH Variants Coverage Format 1 for one glyph: format + count + glyphId.
-const MATH_VARIANTS_COVERAGE_LEN: u16 = 6;
-/// After minConnectorOverlap, two coverage offsets, two counts, one vert offset.
-const MATH_VARIANTS_COVERAGE_OFFSET: u16 = 12;
+/// MATH Variants Coverage Format 1 for two glyphs: format + count + glyphIds.
+const MATH_VARIANTS_COVERAGE_LEN: u16 = 8;
+/// After minConnectorOverlap, two coverage offsets, two counts, two vert offsets.
+const MATH_VARIANTS_COVERAGE_OFFSET: u16 = 14;
 const MATH_VARIANTS_CONSTRUCTION_OFFSET: u16 =
     MATH_VARIANTS_COVERAGE_OFFSET + MATH_VARIANTS_COVERAGE_LEN;
+const MATH_GLYPH_CONSTRUCTION_LEN: u16 = 48;
 
-fn build_math_variants(paren_gid: u16, tall_paren_gid: u16) -> Vec<u8> {
+fn build_math_variants(
+    paren_gid: u16,
+    close_gid: u16,
+    tall_paren_gid: u16,
+    extender_gid: u16,
+) -> Vec<u8> {
     // Offsets are relative to the start of the MATH Variants table.
-    //  0 minConnectorOverlap
-    //  2 VertGlyphCoverageOffset → 12
-    //  4 HorizGlyphCoverageOffset = 0
-    //  6 VertGlyphCount = 1
-    //  8 HorizGlyphCount = 0
-    // 10 VertGlyphConstructionOffsets[0] → 18
-    // 12 Coverage Format 1 (6 bytes)
-    // 18 MathGlyphConstruction (no assembly, two prepared variants)
+    let mut gids = [paren_gid, close_gid];
+    gids.sort_unstable();
     let mut v = Vec::new();
     put_u16(&mut v, 50);
     put_u16(&mut v, MATH_VARIANTS_COVERAGE_OFFSET);
     put_u16(&mut v, 0);
-    put_u16(&mut v, 1);
+    put_u16(&mut v, 2);
     put_u16(&mut v, 0);
     put_u16(&mut v, MATH_VARIANTS_CONSTRUCTION_OFFSET);
+    put_u16(
+        &mut v,
+        MATH_VARIANTS_CONSTRUCTION_OFFSET + MATH_GLYPH_CONSTRUCTION_LEN,
+    );
     put_u16(&mut v, 1);
-    put_u16(&mut v, 1);
-    put_u16(&mut v, paren_gid);
-    debug_assert_eq!(v.len(), MATH_VARIANTS_CONSTRUCTION_OFFSET as usize);
-    put_u16(&mut v, 0);
     put_u16(&mut v, 2);
-    put_u16(&mut v, paren_gid);
-    put_u16(&mut v, FIXTURE_PAREN_VARIANT_ADVANCE);
-    put_u16(&mut v, tall_paren_gid);
-    put_u16(&mut v, FIXTURE_TALL_PAREN_VARIANT_ADVANCE);
+    put_u16(&mut v, gids[0]);
+    put_u16(&mut v, gids[1]);
+    debug_assert_eq!(v.len(), MATH_VARIANTS_CONSTRUCTION_OFFSET as usize);
+    push_paren_construction(&mut v, gids[0], tall_paren_gid, extender_gid);
+    push_paren_construction(&mut v, gids[1], tall_paren_gid, extender_gid);
+    debug_assert_eq!(
+        v.len(),
+        (MATH_VARIANTS_CONSTRUCTION_OFFSET + 2 * MATH_GLYPH_CONSTRUCTION_LEN) as usize
+    );
     v
+}
+
+fn push_paren_construction(v: &mut Vec<u8>, base_gid: u16, tall_gid: u16, extender_gid: u16) {
+    // GlyphAssemblyOffset is relative to this construction table.
+    put_u16(v, 12);
+    put_u16(v, 2);
+    put_u16(v, base_gid);
+    put_u16(v, FIXTURE_PAREN_VARIANT_ADVANCE);
+    put_u16(v, tall_gid);
+    put_u16(v, FIXTURE_TALL_PAREN_VARIANT_ADVANCE);
+    v.extend_from_slice(&math_value(0));
+    put_u16(v, 3);
+    push_glyph_part(v, base_gid, 0, 80, FIXTURE_ASSEMBLY_END_ADVANCE, 0);
+    push_glyph_part(
+        v,
+        extender_gid,
+        80,
+        80,
+        FIXTURE_EXTENDER_ADVANCE,
+        1, // extender
+    );
+    push_glyph_part(v, tall_gid, 80, 0, FIXTURE_ASSEMBLY_END_ADVANCE, 0);
+}
+
+fn push_glyph_part(
+    v: &mut Vec<u8>,
+    glyph_id: u16,
+    start_conn: u16,
+    end_conn: u16,
+    full_advance: u16,
+    flags: u16,
+) {
+    put_u16(v, glyph_id);
+    put_u16(v, start_conn);
+    put_u16(v, end_conn);
+    put_u16(v, full_advance);
+    put_u16(v, flags);
 }
 
 fn put_u16(b: &mut Vec<u8>, v: u16) {
@@ -770,5 +838,13 @@ mod tests {
         assert_ne!(tall.variant_glyph, paren);
         assert_eq!(tall.advance_measurement, FIXTURE_TALL_PAREN_VARIANT_ADVANCE);
         assert!(face.glyph_hor_advance(tall.variant_glyph).is_some());
+        let assembly = cons.assembly.expect("glyph assembly");
+        assert_eq!(assembly.parts.len(), 3);
+        assert!(assembly
+            .parts
+            .get(1)
+            .expect("extender")
+            .part_flags
+            .extender());
     }
 }

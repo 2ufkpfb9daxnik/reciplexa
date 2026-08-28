@@ -286,6 +286,9 @@ preview/exportされ、実装規則と適合fixtureが対応する。✓
 
 **Slice 1 (next):** glyph assembly（stretchy delimiter の MATH `GlyphAssembly`。visual scale を製品 path から外す）。
 
+**Complete when:** 数式構造をGUIで変更しSourceへ戻せ、unsupported assemblyやASCII代用を
+silent fallbackせず、文書内inline/display mathを安定して出力できる。
+
 ## Step 14 — 複数ページ出版レイアウト
 
 **Status:** blocked — Steps 12–13待ち
