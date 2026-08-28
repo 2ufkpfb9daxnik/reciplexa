@@ -387,7 +387,7 @@ pre-PKG カーネルは計画上 **COMPLETE（意図的 defer 付き）**。各�
 
 ## 6. 次工程
 
-実行順の正本は [`active-roadmap.md`](active-roadmap.md)。**Step 13 active** — [`step13-math-profile-plan.md`](step13-math-profile-plan.md) slice 1 landed（assembly `161b532`、GUI fixture Unicode `e5f3357`；人間 GUI 2026-08-28 `pkg_live_math.rpx`）。独立監査待ち。
+実行順の正本は [`active-roadmap.md`](active-roadmap.md)。**Step 13 active** — [`step13-math-profile-plan.md`](step13-math-profile-plan.md) slice 2。slice 1 complete（`79964b9` / `046e3938`）。
 
 1. **package 実運用化 local/offline slice** — [`package-plan.md`](package-plan.md): lock再現性、typed resource light、自動materialize、offline registry mirrorまで完了。network registry、full-tree hash、Core resource effectは別OPEN。
 2. **Direct Native v2** — [`direct-native-v2-plan.md`](direct-native-v2-plan.md) **shipping complete**（DN2-0〜DN2-7 + 本番 BindingId dispatch via `op_for`）。標準packageは DN2 stub + compilation BindingId（`dn2bid-*`）+ typed Rust callable。author import 綴り（修飾 / alias / bare）は canonical `package/module` へ対応。Hybrid 参照本文は `LocalPackageIndex` override のみ。portable fallback は `OPEN-NATIVE-PKG-001` で明示追跡（未実装）。
