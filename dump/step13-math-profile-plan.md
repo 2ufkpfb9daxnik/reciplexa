@@ -1,6 +1,6 @@
 # Step 13 — Math Profile v2 と GUI 編集
 
-**Status:** active — slice 2 next (`79964b9` slice 1 audit complete)  
+**Status:** active — slice 3 next (`95de694` slice 2 audit complete)  
 **Depends on:** Step 12 complete (`7b7a45e` code; gate `b56aa6a`; docs `7c93262`; macro `3058e2a1`)  
 **Normative:** `roadmap.md` Step 13, `implemented-features.md` OpenType MATH 残差、Math Profile v1 上の拡張
 
@@ -67,6 +67,7 @@
 | Slice | HEAD | subagent | 判定 | 備考 |
 |-------|------|----------|------|------|
 | 1 | `79964b9` | `046e3938` | complete | glyph assembly + GUI fixture Unicode preview. Human GUI 2026-08-28 `pkg_live_math.rpx`。 |
+| 2 | `95de694` | `f1dfc7a7` | complete | MATH italic correction + corner kern (scripts / limits / adjacent nuclei)。 |
 
 各 slice 完了後、実装担当と別セッションの独立 subagent 1体が当該 slice のみを捜査する。`complete` の HEAD だけ次 slice へ進む。
 
