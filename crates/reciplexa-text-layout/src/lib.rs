@@ -37,11 +37,14 @@ pub use error::LayoutError;
 pub use fallback::{register_run_fonts, FontFallbackChain};
 pub use fixture::{
     build_fallback_only_font_bytes, build_liga_fixture_font_bytes, fixture_font_bytes,
-    FIXTURE_AXIS_HEIGHT, FIXTURE_FRACTION_RULE_THICKNESS, FIXTURE_PAREN_VARIANT_ADVANCE,
+    FIXTURE_AXIS_HEIGHT, FIXTURE_FRACTION_RULE_THICKNESS, FIXTURE_ITALIC_CORRECTION_F,
+    FIXTURE_MATH_KERN_BOTTOM_RIGHT, FIXTURE_MATH_KERN_TOP_RIGHT, FIXTURE_PAREN_VARIANT_ADVANCE,
     FIXTURE_SCRIPT_PERCENT_SCALE_DOWN, FIXTURE_SCRIPT_SCRIPT_PERCENT_SCALE_DOWN,
     FIXTURE_TALL_PAREN_VARIANT_ADVANCE,
 };
-pub use font::{content_digest, host_math_font, host_product_font, FontId, LoadedFont};
+pub use font::{
+    content_digest, host_math_font, host_product_font, FontId, LoadedFont, MathKernCorner,
+};
 pub use ja::{
     break_line_font, glyph_advance_em, justify_line_font, layout_column_paragraph_product,
     layout_wrapped_paragraph_product, layout_wrapped_paragraph_product_lines, measure_run_em,

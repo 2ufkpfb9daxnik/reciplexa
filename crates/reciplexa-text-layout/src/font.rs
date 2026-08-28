@@ -155,22 +155,79 @@ impl LoadedFont {
 
     pub fn italic_correction_em(&self, c: char) -> Result<f64, LayoutError> {
         let gid = self.glyph_id(c)?;
+        Ok(self.italic_correction_gid_em(gid))
+    }
+
+    /// MATH italic correction for a GID, or 0 when the table/glyph is absent.
+    pub fn italic_correction_gid_em(&self, gid: u16) -> f64 {
         let face = self.face();
         let Some(math) = face.tables().math else {
-            return Ok(0.0);
+            return 0.0;
         };
         let Some(info) = math.glyph_info else {
-            return Ok(0.0);
+            return 0.0;
         };
         let Some(table) = info.italic_corrections else {
-            return Ok(0.0);
+            return 0.0;
         };
         let Some(v) = table.get(GlyphId(gid)) else {
-            return Ok(0.0);
+            return 0.0;
         };
         let upem = f64::from(self.units_per_em().max(1));
-        Ok(f64::from(v.value) / upem)
+        f64::from(v.value) / upem
     }
+
+    /// Height-dependent MATH corner kern in em, or 0 when absent.
+    pub fn math_kern_em(&self, gid: u16, corner: MathKernCorner, height_em: f64) -> f64 {
+        let face = self.face();
+        let Some(math) = face.tables().math else {
+            return 0.0;
+        };
+        let Some(info) = math.glyph_info else {
+            return 0.0;
+        };
+        let Some(kerns) = info.kern_infos else {
+            return 0.0;
+        };
+        let Some(ki) = kerns.get(GlyphId(gid)) else {
+            return 0.0;
+        };
+        let table = match corner {
+            MathKernCorner::TopRight => ki.top_right,
+            MathKernCorner::TopLeft => ki.top_left,
+            MathKernCorner::BottomRight => ki.bottom_right,
+            MathKernCorner::BottomLeft => ki.bottom_left,
+        };
+        let Some(kern) = table else {
+            return 0.0;
+        };
+        let upem = f64::from(self.units_per_em().max(1));
+        let height_du = (height_em * upem).round() as i16;
+        let n = kern.count();
+        let mut idx = n;
+        for i in 0..n {
+            let Some(h) = kern.height(i) else {
+                break;
+            };
+            if height_du < h.value {
+                idx = i;
+                break;
+            }
+        }
+        let Some(v) = kern.kern(idx) else {
+            return 0.0;
+        };
+        f64::from(v.value) / upem
+    }
+}
+
+/// MATH `MathKernInfo` corner used for script / limit attachment.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MathKernCorner {
+    TopRight,
+    TopLeft,
+    BottomRight,
+    BottomLeft,
 }
 
 /// Runtime Japanese face: `RECIPLEXA_CJK_FONT`, else a local system CJK file,

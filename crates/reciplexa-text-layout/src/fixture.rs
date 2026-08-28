@@ -19,6 +19,12 @@ pub const FIXTURE_TALL_PAREN_VARIANT_ADVANCE: u16 = 1800;
 pub const FIXTURE_EXTENDER_ADVANCE: u16 = 400;
 /// MATH assembly top/bottom piece `fullAdvance` (design units).
 pub const FIXTURE_ASSEMBLY_END_ADVANCE: u16 = 600;
+/// MATH italic correction for cmap `f` (design units).
+pub const FIXTURE_ITALIC_CORRECTION_F: i16 = 180;
+/// MATH top-right kern for cmap `f` (design units; height-independent).
+pub const FIXTURE_MATH_KERN_TOP_RIGHT: i16 = 120;
+/// MATH bottom-right kern for cmap `f` (design units; height-independent).
+pub const FIXTURE_MATH_KERN_BOTTOM_RIGHT: i16 = -40;
 
 /// Extra CJK ideographs used by Step 7 examples (hiragana/katakana are full ranges).
 const EXTRA_IDEOGRAPHS: &str =
@@ -319,9 +325,13 @@ fn build_sfnt(
         (b"post", post),
     ];
     if let Some((paren_gid, close_gid, tall_paren_gid, extender_gid)) = math_paren {
+        let f_gid = glyphs
+            .iter()
+            .position(|g| g.ch == Some('f'))
+            .expect("ascii f") as u16;
         tables.push((
             b"MATH",
-            build_math(paren_gid, close_gid, tall_paren_gid, extender_gid),
+            build_math(paren_gid, close_gid, tall_paren_gid, extender_gid, f_gid),
         ));
     }
     for (tag, data) in extra {
@@ -632,19 +642,69 @@ fn build_post() -> Vec<u8> {
     b
 }
 
-fn build_math(paren_gid: u16, close_gid: u16, tall_paren_gid: u16, extender_gid: u16) -> Vec<u8> {
-    // Header 10 bytes; constants at 10 (214 bytes); variants at 224.
+fn build_math(
+    paren_gid: u16,
+    close_gid: u16,
+    tall_paren_gid: u16,
+    extender_gid: u16,
+    f_gid: u16,
+) -> Vec<u8> {
+    // Header 10 bytes; constants at 10 (214 bytes); glyph info; then variants.
     let constants = build_math_constants();
     assert_eq!(constants.len(), 214);
+    let glyph_info = build_math_glyph_info(f_gid);
     let variants = build_math_variants(paren_gid, close_gid, tall_paren_gid, extender_gid);
+    let constants_off = 10u16;
+    let glyph_info_off = constants_off + constants.len() as u16;
+    let variants_off = glyph_info_off + glyph_info.len() as u16;
     let mut b = Vec::new();
     put_u16(&mut b, 1);
     put_u16(&mut b, 0);
-    put_u16(&mut b, 10); // constants
-    put_u16(&mut b, 0); // glyph info none
-    put_u16(&mut b, 224); // variants
+    put_u16(&mut b, constants_off);
+    put_u16(&mut b, glyph_info_off);
+    put_u16(&mut b, variants_off);
     b.extend_from_slice(&constants);
+    b.extend_from_slice(&glyph_info);
     b.extend_from_slice(&variants);
+    b
+}
+
+fn build_math_glyph_info(f_gid: u16) -> Vec<u8> {
+    // ItalicsCorrectionInfo (MathValues): 14 bytes. KernInfo: 30 bytes.
+    // GlyphInfo header: 8 bytes. Total 52.
+    let mut italics = Vec::new();
+    put_u16(&mut italics, 8);
+    put_u16(&mut italics, 1);
+    italics.extend_from_slice(&math_value(FIXTURE_ITALIC_CORRECTION_F));
+    put_u16(&mut italics, 1);
+    put_u16(&mut italics, 1);
+    put_u16(&mut italics, f_gid);
+    debug_assert_eq!(italics.len(), 14);
+
+    let mut kern = Vec::new();
+    put_u16(&mut kern, 24);
+    put_u16(&mut kern, 1);
+    put_u16(&mut kern, 12);
+    put_u16(&mut kern, 0);
+    put_u16(&mut kern, 18);
+    put_u16(&mut kern, 0);
+    put_u16(&mut kern, 0);
+    kern.extend_from_slice(&math_value(FIXTURE_MATH_KERN_TOP_RIGHT));
+    put_u16(&mut kern, 0);
+    kern.extend_from_slice(&math_value(FIXTURE_MATH_KERN_BOTTOM_RIGHT));
+    put_u16(&mut kern, 1);
+    put_u16(&mut kern, 1);
+    put_u16(&mut kern, f_gid);
+    debug_assert_eq!(kern.len(), 30);
+
+    let mut b = Vec::new();
+    put_u16(&mut b, 8);
+    put_u16(&mut b, 0);
+    put_u16(&mut b, 0);
+    put_u16(&mut b, 8 + italics.len() as u16);
+    b.extend_from_slice(&italics);
+    b.extend_from_slice(&kern);
+    debug_assert_eq!(b.len(), 52);
     b
 }
 
@@ -846,5 +906,39 @@ mod tests {
             .expect("extender")
             .part_flags
             .extender());
+    }
+
+    #[test]
+    fn math_glyph_info_exposes_f_italic_and_kern() {
+        let face = Face::parse(fixture_font_bytes(), 0).expect("fixture face");
+        let f = face.glyph_index('f').expect("f cmap");
+        let info = face
+            .tables()
+            .math
+            .expect("MATH")
+            .glyph_info
+            .expect("glyph info");
+        let ic = info
+            .italic_corrections
+            .expect("italic")
+            .get(f)
+            .expect("f italic")
+            .value;
+        assert_eq!(ic, FIXTURE_ITALIC_CORRECTION_F);
+        let ki = info.kern_infos.expect("kern infos").get(f).expect("f kern");
+        assert_eq!(
+            ki.top_right.expect("top right").kern(0).expect("tr").value,
+            FIXTURE_MATH_KERN_TOP_RIGHT
+        );
+        assert_eq!(
+            ki.bottom_right
+                .expect("bottom right")
+                .kern(0)
+                .expect("br")
+                .value,
+            FIXTURE_MATH_KERN_BOTTOM_RIGHT
+        );
+        assert!(ki.top_left.is_none());
+        assert!(ki.bottom_left.is_none());
     }
 }

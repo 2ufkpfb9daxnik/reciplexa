@@ -7,7 +7,7 @@ use reciplexa_std::math::{
 use ttf_parser::GlyphId;
 
 use crate::error::LayoutError;
-use crate::font::LoadedFont;
+use crate::font::{LoadedFont, MathKernCorner};
 use crate::shape::{shape_run, ShapedGlyph};
 
 /// Declared Math Profile v1: symbols, rows, scripts, fractions, radicals,
@@ -15,7 +15,8 @@ use crate::shape::{shape_run, ShapedGlyph};
 /// hat/tilde/dot/vec marks, bar/underline rules, display big operators,
 /// matrices, aligned/stack. Check/breve/acute/grave/ring marks error rather
 /// than ASCII substitution. Stretchy delimiters use MATH variants, then
-/// `GlyphAssembly` (no visual scale). Remaining MATH kern is Step 13 slice 2.
+/// `GlyphAssembly` (no visual scale). Scripts, limits, and adjacent nuclei
+/// apply MATH italic correction and corner kern from the font table.
 pub const MATH_PROFILE_V1: &str = "math-profile-v1";
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -232,15 +233,21 @@ fn layout_row(
         rules: Vec::new(),
     };
     let mut prev_class: Option<MathClass> = None;
+    let mut carry_italic = 0.0;
     for child in children {
         let laid = layout_atom(font, c, child, style, scale)?;
         let space = match (prev_class, atom_class(child)) {
             (Some(l), Some(r)) => class_spacing_em(l, r) * scale,
             _ => 0.0,
         };
-        let dx = out.metrics.width + space;
+        let next_carry = match child {
+            MathAtom::Symbol { .. } => trailing_italic_em(&laid),
+            _ => 0.0,
+        };
+        let dx = out.metrics.width + space + carry_italic;
         append_shifted(&mut out, laid, dx, 0.0);
         prev_class = atom_class(child).or(prev_class);
+        carry_italic = next_carry;
     }
     Ok(out)
 }
@@ -266,20 +273,21 @@ fn layout_scripts(
     let script_style = EstimateStyle::Text;
     let mut out = base_l;
     let base_w = out.metrics.width;
+    let italic = trailing_italic_em(&out);
+    let base_gid = trailing_gid(&out);
     if let Some(sup) = sup {
         let s = layout_atom(font, c, sup, script_style, ss)?;
         let dy = c.superscript_shift_up_em * scale;
-        let italic = out
-            .glyphs
-            .last()
-            .map(|g| g.glyph.italic_correction_em * g.scale)
-            .unwrap_or(0.0);
-        append_shifted(&mut out, s, base_w + italic, dy);
+        let kern = corner_kern(font, base_gid, MathKernCorner::TopRight, dy)
+            + corner_kern(font, leading_gid(&s), MathKernCorner::TopLeft, dy);
+        append_shifted(&mut out, s, base_w + italic + kern, dy);
     }
     if let Some(sub) = sub {
         let s = layout_atom(font, c, sub, script_style, ss)?;
         let dy = -c.subscript_shift_down_em * scale;
-        append_shifted(&mut out, s, base_w, dy);
+        let kern = corner_kern(font, base_gid, MathKernCorner::BottomRight, -dy)
+            + corner_kern(font, leading_gid(&s), MathKernCorner::BottomLeft, -dy);
+        append_shifted(&mut out, s, base_w + kern, dy);
     }
     if sup.is_some() || sub.is_some() {
         // Width: base + max(script widths) after the last append already shifted.
@@ -485,7 +493,7 @@ fn stretchy_delim(
         cluster_start: 0,
         cluster_end: delim.len(),
         advance_em: f64::from(adv) / upem,
-        italic_correction_em: 0.0,
+        italic_correction_em: font.italic_correction_gid_em(gid),
     };
     Ok(positioned_delim_box(
         vec![PositionedMathGlyph {
@@ -515,7 +523,7 @@ fn single_stretchy_part(
         cluster_start: 0,
         cluster_end: delim.len(),
         advance_em: f64::from(adv) / upem,
-        italic_correction_em: 0.0,
+        italic_correction_em: font.italic_correction_gid_em(gid),
     };
     Ok(positioned_delim_box(
         vec![PositionedMathGlyph {
@@ -609,13 +617,19 @@ fn assemble_vertical_delim(
                     cluster_start: 0,
                     cluster_end: delim.len(),
                     advance_em: f64::from(hor) / upem,
-                    italic_correction_em: 0.0,
+                    italic_correction_em: font.italic_correction_gid_em(gid),
                 },
                 x_em: 0.0,
                 y_em: y + adv_em * 0.5 * scale,
                 scale,
             });
             y += adv_em * scale;
+        }
+    }
+    if let Some(last) = glyphs.last_mut() {
+        let asm_ic = f64::from(assembly.italics_correction.value) / upem;
+        if asm_ic.abs() > 1e-12 {
+            last.glyph.italic_correction_em = asm_ic;
         }
     }
     Ok(positioned_delim_box(glyphs, (height * scale).max(0.5)))
@@ -739,20 +753,24 @@ fn layout_bigop(
     let mut out = op;
     let ss = script_scale(c, style) * scale;
     let st = EstimateStyle::Text;
+    let italic = trailing_italic_em(&out);
+    let op_gid = trailing_gid(&out);
+    let op_w = out.metrics.width;
     if let Some(u) = upper {
         let u = layout_atom(font, c, u, st, ss)?;
-        let dx = (out.metrics.width - u.metrics.width).max(0.0) * 0.5;
-        append_shifted(
-            &mut out,
-            u,
-            dx,
-            c.display_operator_min_height_em * 0.35 * scale,
-        );
+        let dy = c.display_operator_min_height_em * 0.35 * scale;
+        let kern = corner_kern(font, op_gid, MathKernCorner::TopRight, dy)
+            + corner_kern(font, leading_gid(&u), MathKernCorner::TopLeft, dy);
+        let dx = (op_w - u.metrics.width).max(0.0) * 0.5 + italic * 0.5 + kern;
+        append_shifted(&mut out, u, dx, dy);
     }
     if let Some(l) = lower {
         let l = layout_atom(font, c, l, st, ss)?;
-        let dx = (out.metrics.width - l.metrics.width).max(0.0) * 0.5;
-        append_shifted(&mut out, l, dx, -c.subscript_shift_down_em * scale);
+        let dy = -c.subscript_shift_down_em * scale;
+        let kern = corner_kern(font, op_gid, MathKernCorner::BottomRight, -dy)
+            + corner_kern(font, leading_gid(&l), MathKernCorner::BottomLeft, -dy);
+        let dx = (op_w - l.metrics.width).max(0.0) * 0.5 - italic * 0.5 + kern;
+        append_shifted(&mut out, l, dx, dy);
     }
     if let Some(b) = body {
         let b = layout_atom(font, c, b, style, scale)?;
@@ -894,6 +912,26 @@ fn layout_stack_rows(
     }
     out.metrics.width = extent_width(&out);
     Ok(out)
+}
+
+fn trailing_italic_em(m: &PositionedMath) -> f64 {
+    m.glyphs
+        .last()
+        .map(|g| g.glyph.italic_correction_em * g.scale)
+        .unwrap_or(0.0)
+}
+
+fn trailing_gid(m: &PositionedMath) -> Option<u16> {
+    m.glyphs.last().map(|g| g.glyph.gid)
+}
+
+fn leading_gid(m: &PositionedMath) -> Option<u16> {
+    m.glyphs.first().map(|g| g.glyph.gid)
+}
+
+fn corner_kern(font: &LoadedFont, gid: Option<u16>, corner: MathKernCorner, height_em: f64) -> f64 {
+    gid.map(|id| font.math_kern_em(id, corner, height_em))
+        .unwrap_or(0.0)
 }
 
 fn append_shifted(out: &mut PositionedMath, src: PositionedMath, dx: f64, dy: f64) {
