@@ -281,7 +281,7 @@ Env D / offline。`CARGO_HOME=D:\dev-cache\cargo`、`--target-dir D:\reciplexa\t
 
 **人間 GUI 確認（2026-08-28）:** OK（`pkg_ja_profile_v2.rpx` — heading「Japanese Profile v2」、横組 ruby 東京/とうきょう simple+jukugo、縦組、縦ルビ 東/とう、縦中横 令和12年、傍点）。
 
-**独立監査（slice 5; Composer 2.5）:** **complete**（`7b7a45e` / subagent `0e10d3a2`）。macro-Step 監査は未了（この表の workspace 再測 HEAD `b56aa6a`）。
+**独立監査（slice 5; Composer 2.5）:** **complete**（`7b7a45e` / subagent `0e10d3a2`）。**macro-Step 監査 complete**（`7c93262` / subagent `3058e2a1`）。
 
 ### 2.5 製品Vertical Slice（**product slice complete**）
 
@@ -387,7 +387,7 @@ pre-PKG カーネルは計画上 **COMPLETE（意図的 defer 付き）**。各�
 
 ## 6. 次工程
 
-実行順の正本は [`active-roadmap.md`](active-roadmap.md)。**Step 12 active** — [`step12-ja-profile-plan.md`](step12-ja-profile-plan.md) slice 5 landed（gate §2.4.11）。macro-Step 独立監査待ち。
+実行順の正本は [`active-roadmap.md`](active-roadmap.md)。**Step 13 active** — [`step13-math-profile-plan.md`](step13-math-profile-plan.md) slice 1（glyph assembly）。
 
 1. **package 実運用化 local/offline slice** — [`package-plan.md`](package-plan.md): lock再現性、typed resource light、自動materialize、offline registry mirrorまで完了。network registry、full-tree hash、Core resource effectは別OPEN。
 2. **Direct Native v2** — [`direct-native-v2-plan.md`](direct-native-v2-plan.md) **shipping complete**（DN2-0〜DN2-7 + 本番 BindingId dispatch via `op_for`）。標準packageは DN2 stub + compilation BindingId（`dn2bid-*`）+ typed Rust callable。author import 綴り（修飾 / alias / bare）は canonical `package/module` へ対応。Hybrid 参照本文は `LocalPackageIndex` override のみ。portable fallback は `OPEN-NATIVE-PKG-001` で明示追跡（未実装）。

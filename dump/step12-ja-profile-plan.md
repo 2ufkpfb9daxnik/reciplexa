@@ -1,6 +1,6 @@
 # Step 12 — Japanese Document Profile v2
 
-**Status:** active — slice 5 landed；macro-Step 監査待ち  
+**Status:** complete — all slices landed; gate §2.4.11; macro audit `3058e2a1` at `7c93262`  
 **Depends on:** Step 11 complete (`3b38c1e` gate; docs `f7be9f3`)  
 **Normative:** `roadmap.md` Step 12, `OPEN-TEXT-JA-001`（製品 subset）, JLReq Profile v1 上の拡張
 
