@@ -2,6 +2,7 @@
 
 use reciplexa_syntax::{SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken};
 
+#[derive(Clone)]
 pub enum Child {
     Token(SyntaxToken),
     Node(SyntaxNode),

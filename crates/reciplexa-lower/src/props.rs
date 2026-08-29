@@ -8,13 +8,20 @@ use reciplexa_syntax::{
 };
 
 use crate::cst_walk::{find_list_covering, list_atoms, Child};
+use crate::sync::document::{
+    document_columns_params_for, document_layer_indent_em_for, document_layer_text_for,
+    set_document_columns_count_for, set_document_columns_gutter_for,
+    set_document_layer_indent_em_for, set_document_layer_text_for,
+};
 use crate::sync::{
-    collect_layers_document, collect_layers_from_root, collect_layers_package,
-    collect_size_targets_from_root, document_columns_params, document_layer_indent_em,
-    document_layer_text, is_document_page_authoring, is_package_shaped_authoring, layer_opacity,
-    layer_rotation_deg, nudge_layer_authoring, parse_root, scale_size_target_axes,
+    collect_layers_document, collect_layers_from_root, collect_layers_live_layout,
+    collect_layers_package, collect_size_targets_from_root, document_columns_params,
+    document_layer_indent_em, document_layer_text, is_document_page_authoring,
+    is_live_layout_authoring, is_package_shaped_authoring, layer_opacity, layer_rotation_deg,
+    math_layer_glyph, nudge_layer_authoring, parse_root, scale_size_target_axes,
     set_document_columns_count, set_document_columns_gutter, set_document_layer_indent_em,
-    set_document_layer_text, set_layer_opacity, set_layer_rotation_deg, SyncError,
+    set_document_layer_text, set_layer_opacity, set_layer_rotation_deg, set_math_layer_glyph,
+    SyncError,
 };
 
 /// UI grouping for the properties panel.
@@ -90,6 +97,126 @@ fn layer_paint(
     let paint = find_list_covering(&root, layer.byte_start, layer.byte_end)
         .expect("paint span from collect_layers");
     Ok((root, paint, layer.kind.clone()))
+}
+
+fn collect_live_layout_layer_props(
+    src: &str,
+    page_index: usize,
+    flat_index: usize,
+) -> Result<Vec<PropField>, SyncError> {
+    let layers = collect_layers_live_layout(src, page_index)?;
+    let layer = layers
+        .get(flat_index)
+        .ok_or_else(|| SyncError::new("layer index out of range"))?;
+    let mut out = Vec::new();
+    match layer.kind.as_str() {
+        "doc-heading" | "doc-paragraph" => {
+            let text = document_layer_text_for(src, layer)?;
+            out.push(PropField {
+                id: "content.text".into(),
+                label: "text".into(),
+                group: PropGroup::Content,
+                value: PropValue::Text(text),
+                slider: None,
+            });
+            if let Some(indent) = document_layer_indent_em_for(src, layer)? {
+                out.push(num(
+                    "layout.indent-em",
+                    "indent-em",
+                    PropGroup::Layout,
+                    indent,
+                    Some((0.0, 8.0)),
+                ));
+            }
+        }
+        "doc-columns" => {
+            let (count, gutter) = document_columns_params_for(src, layer)?;
+            out.push(num(
+                "columns.count",
+                "columns",
+                PropGroup::Layout,
+                f64::from(count),
+                Some((1.0, 6.0)),
+            ));
+            out.push(num(
+                "columns.gutter",
+                "gutter",
+                PropGroup::Layout,
+                gutter,
+                Some((0.0, 12.0)),
+            ));
+        }
+        "math-symbol" => {
+            let glyph = math_layer_glyph(src, page_index, flat_index)?;
+            out.push(PropField {
+                id: "content.glyph".into(),
+                label: "glyph".into(),
+                group: PropGroup::Content,
+                value: PropValue::Text(glyph),
+                slider: None,
+            });
+        }
+        other if other.starts_with("math-") => {
+            // Selectable tree node; glyph lives on math-symbol children.
+        }
+        other => {
+            return Err(SyncError::new(format!(
+                "unsupported live-layout layer `{other}`"
+            )));
+        }
+    }
+    Ok(out)
+}
+
+fn set_live_layout_layer_prop(
+    src: &str,
+    page_index: usize,
+    flat_index: usize,
+    id: &str,
+    value: &PropValue,
+) -> Result<String, SyncError> {
+    let layers = collect_layers_live_layout(src, page_index)?;
+    let layer = layers
+        .get(flat_index)
+        .ok_or_else(|| SyncError::new("layer index out of range"))?;
+    match id {
+        "content.text" => {
+            let PropValue::Text(t) = value else {
+                return Err(SyncError::new("content.text expects text"));
+            };
+            set_document_layer_text_for(src, layer, t)
+        }
+        "content.glyph" => {
+            let PropValue::Text(t) = value else {
+                return Err(SyncError::new("content.glyph expects text"));
+            };
+            set_math_layer_glyph(src, page_index, flat_index, t)
+        }
+        "layout.indent-em" => {
+            let PropValue::Number(n) = value else {
+                return Err(SyncError::new("layout.indent-em expects a number"));
+            };
+            set_document_layer_indent_em_for(src, layer, *n)
+        }
+        "columns.count" => {
+            let PropValue::Number(n) = value else {
+                return Err(SyncError::new("columns.count expects a number"));
+            };
+            if *n < 1.0 || *n > 12.0 || n.fract() != 0.0 {
+                return Err(SyncError::new("columns.count must be a positive integer"));
+            }
+            set_document_columns_count_for(src, layer, *n as u32)
+        }
+        "columns.gutter" => {
+            let PropValue::Number(n) = value else {
+                return Err(SyncError::new("columns.gutter expects a number"));
+            };
+            set_document_columns_gutter_for(src, layer, *n)
+        }
+        other => Err(SyncError::new(format!(
+            "live-layout layer property `{other}` is not editable"
+        ))),
+    }
 }
 
 fn collect_document_layer_props(
@@ -196,6 +323,9 @@ pub fn collect_layer_props(
     flat_index: usize,
     ctx: &PropEditContext,
 ) -> Result<Vec<PropField>, SyncError> {
+    if is_live_layout_authoring(src) {
+        return collect_live_layout_layer_props(src, page_index, flat_index);
+    }
     if is_document_page_authoring(src) {
         return collect_document_layer_props(src, page_index, flat_index);
     }
@@ -268,6 +398,9 @@ pub fn set_layer_prop(
     value: &PropValue,
     ctx: &PropEditContext,
 ) -> Result<String, SyncError> {
+    if is_live_layout_authoring(src) {
+        return set_live_layout_layer_prop(src, page_index, flat_index, id, value);
+    }
     if is_document_page_authoring(src) {
         return set_document_layer_prop(src, page_index, flat_index, id, value);
     }

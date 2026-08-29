@@ -10,10 +10,10 @@
 
 use reciplexa::wants_package_graphics_path;
 use reciplexa_lower::{
-    collect_layers_document, collect_layers_package, collect_layers_page,
-    collect_size_targets_package, collect_size_targets_page, is_document_page_authoring,
-    is_package_shaped_authoring, nudge_layer_package, nudge_layer_page, LayerInfo, SizeTarget,
-    SyncError,
+    collect_layers_document, collect_layers_live_layout, collect_layers_package,
+    collect_layers_page, collect_size_targets_package, collect_size_targets_page,
+    is_document_page_authoring, is_live_layout_authoring, is_package_shaped_authoring,
+    nudge_layer_package, nudge_layer_page, LayerInfo, SizeTarget, SyncError,
 };
 use reciplexa_view::WorldShape;
 
@@ -81,6 +81,10 @@ pub fn resolve_preview_layers(
     page_index: usize,
     shapes: &[WorldShape],
 ) -> Vec<LayerInfo> {
+    if is_live_layout_authoring(expanded) {
+        return collect_layers_live_layout(expanded, page_index)
+            .unwrap_or_else(|_| layers_from_world_shapes(shapes));
+    }
     if is_document_page_authoring(expanded) {
         return collect_layers_document(expanded, page_index)
             .unwrap_or_else(|_| layers_from_world_shapes(shapes));
@@ -127,6 +131,15 @@ pub fn authoring_layers_align(
     expanded: &str,
     page_index: usize,
 ) -> Result<bool, SyncError> {
+    if is_live_layout_authoring(authoring) {
+        let auth = collect_layers_live_layout(authoring, page_index)?;
+        let exp = if is_live_layout_authoring(expanded) {
+            collect_layers_live_layout(expanded, page_index)?
+        } else {
+            return Ok(false);
+        };
+        return Ok(layer_kinds_match(&auth, &exp));
+    }
     if is_document_page_authoring(authoring) {
         let auth = collect_layers_document(authoring, page_index)?;
         let exp = if is_document_page_authoring(expanded) {
@@ -176,6 +189,11 @@ pub fn nudge_authoring_layers(
 ) -> Result<String, SyncRefuse> {
     if dx == 0.0 && dy == 0.0 {
         return Ok(authoring.to_string());
+    }
+    if is_live_layout_authoring(authoring) {
+        return Err(SyncRefuse::new(
+            "canvas move skipped: math tree structure is edited via the layer properties panel, not glyph positions",
+        ));
     }
     if is_document_page_authoring(authoring) {
         return Err(SyncRefuse::new(
@@ -447,5 +465,23 @@ mod tests {
         assert_eq!(readonly_size_targets(3).len(), 3);
         let sizes = resolve_preview_size_targets(interim, 0, shapes.len());
         assert_eq!(sizes.len(), shapes.len());
+    }
+
+    #[test]
+    fn live_math_preview_layers_are_math_tree() {
+        let src = include_str!("../../../examples/pkg_live_math.rpx");
+        assert!(is_live_layout_authoring(src));
+        let layers = resolve_preview_layers(src, 0, &[]);
+        assert!(layers.iter().any(|l| l.kind == "math-delimiter"));
+        assert!(layers.iter().any(|l| l.kind == "math-fraction"));
+        assert!(layers.iter().any(|l| l.kind == "math-scripts"));
+        assert!(layers.iter().filter(|l| l.kind == "math-symbol").count() >= 3);
+        assert!(layers.iter().all(|l| !l.label.contains("read-only")));
+        let err = nudge_authoring_layers(src, src, 0, &[0], 1.0, 0.0).unwrap_err();
+        assert!(
+            err.message.contains("math tree") || err.message.contains("properties"),
+            "{}",
+            err.message
+        );
     }
 }

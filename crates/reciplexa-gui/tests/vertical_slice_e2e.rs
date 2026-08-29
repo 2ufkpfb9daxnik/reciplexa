@@ -257,3 +257,46 @@ fn markup_authoring_still_soft_refuses_nudge() {
     let (doc, _) = document_for_export(&mut TestHandler::default(), authoring).expect("export ok");
     assert!(!doc.pages.is_empty());
 }
+
+#[test]
+fn live_math_tree_glyph_roundtrip() {
+    let src0 = include_str!("../../../examples/pkg_live_math.rpx");
+    let layers = collect_layers_authoring(src0, 0).expect("math tree layers");
+    assert!(layers.iter().any(|l| l.kind == "math-fraction"));
+    let num = layers
+        .iter()
+        .position(|l| l.kind == "math-symbol" && l.label.contains("numerator"))
+        .expect("numerator symbol");
+    let prop_ctx = PropEditContext {
+        aabb_mm: (0.0, 0.0, 10.0, 10.0),
+        paper_w_mm: 210.0,
+        paper_h_mm: 297.0,
+    };
+    let src1 = set_layer_prop(
+        src0,
+        0,
+        num,
+        "content.glyph",
+        &PropValue::Text("z".into()),
+        &prop_ctx,
+    )
+    .expect("numerator glyph");
+    assert!(src1.contains(r#"(tag "math-fraction")"#));
+    assert!(src1.contains(r#"(glyph "z")"#));
+    let reloaded = save_reload_roundtrip(&src1, "live-math-tree");
+    let frac = layers
+        .iter()
+        .position(|l| l.kind == "math-fraction")
+        .expect("fraction");
+    assert!(set_layer_prop(
+        &reloaded,
+        0,
+        frac,
+        "content.glyph",
+        &PropValue::Text("a/b".into()),
+        &prop_ctx,
+    )
+    .unwrap_err()
+    .message
+    .contains("ASCII"));
+}

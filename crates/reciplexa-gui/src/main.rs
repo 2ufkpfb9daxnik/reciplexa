@@ -29,7 +29,8 @@ use reciplexa_identity::document::{DocumentIdentity, StableNodeId};
 use reciplexa_lower::{
     collect_layer_props, collect_layers_authoring, collect_size_targets_authoring,
     delete_layer_authoring, delete_page, duplicate_layer_authoring, group_layers_page,
-    insert_layer_authoring, insert_page_after, is_package_shaped_authoring, layer_rotation_deg,
+    insert_layer_authoring, insert_page_after, is_document_page_authoring,
+    is_live_layout_authoring, is_package_shaped_authoring, layer_rotation_deg,
     nudge_layer_authoring, reorder_layer_authoring, scale_layer_uniform, scale_size_target,
     set_box_xywh, set_layer_prop, set_layer_rotation_deg, set_layers_fill_rgb, set_layers_opacity,
     set_layers_stroke_rgb, set_layers_stroke_width, set_line_endpoint, set_poly_vertex,
@@ -1060,7 +1061,12 @@ impl PreviewApp {
         };
         let size_bindings = resolve_preview_size_targets(&expanded, self.page_index, shapes.len());
         let layers = resolve_preview_layers(&expanded, self.page_index, &shapes);
-        if layers.len() != shapes.len() || size_bindings.len() != shapes.len() {
+        let shape_layer_aligned =
+            layers.len() == shapes.len() && size_bindings.len() == shapes.len();
+        if !shape_layer_aligned
+            && !is_live_layout_authoring(&self.source)
+            && !is_document_page_authoring(&self.source)
+        {
             ui.colored_label(
                 egui::Color32::YELLOW,
                 format!(
@@ -1164,7 +1170,7 @@ impl PreviewApp {
         }
 
         for (i, shape) in shapes.iter().enumerate() {
-            if self.selected.contains(&i) {
+            if shape_layer_aligned && self.selected.contains(&i) {
                 if let Some(bounds) = PaperLayout::shape_bounds_mm(shape) {
                     paint_selection_frame(&painter, rect, &layout, bounds);
                 }
@@ -1214,7 +1220,7 @@ impl PreviewApp {
             let local_pos = egui::pos2(local.x, local.y);
             let (mx, my) = layout.px_to_mm(local.x, local.y);
 
-            if !skip_shape_drag && response.drag_started() {
+            if !skip_shape_drag && response.drag_started() && shape_layer_aligned {
                 let mut started = false;
                 let hit_body = hit_test_shapes(&shapes, mx, my);
                 let shift = ui.input(|i| i.modifiers.shift);
@@ -1737,7 +1743,7 @@ impl PreviewApp {
                     );
                     let w = aabb.2 - aabb.0;
                     let h = aabb.3 - aabb.1;
-                    if w > 0.5 || h > 0.5 {
+                    if (w > 0.5 || h > 0.5) && shape_layer_aligned {
                         let hits = shapes_intersecting_aabb(&shapes, aabb);
                         if self.document_path.enabled {
                             self.document_path.select_layers(&hits);
@@ -1755,11 +1761,15 @@ impl PreviewApp {
 
             if !skip_shape_drag && !suppress_click && response.clicked() {
                 let shift = ui.input(|i| i.modifiers.shift);
-                match hit_test_shapes(&shapes, mx, my) {
-                    Some(i) if shift => self.toggle_layer_in_selection(i, &layers),
-                    Some(i) => self.select_layer(i, &layers),
-                    None if !shift => self.clear_selection(),
-                    None => {}
+                if shape_layer_aligned {
+                    match hit_test_shapes(&shapes, mx, my) {
+                        Some(i) if shift => self.toggle_layer_in_selection(i, &layers),
+                        Some(i) => self.select_layer(i, &layers),
+                        None if !shift => self.clear_selection(),
+                        None => {}
+                    }
+                } else if !shift && hit_test_shapes(&shapes, mx, my).is_none() {
+                    self.clear_selection();
                 }
             }
         } else if response.drag_stopped() {
@@ -2018,9 +2028,10 @@ impl PreviewApp {
         let Some((_, shapes)) = flatten_page(&doc, self.page_index) else {
             return;
         };
-        let Some(aabb) = shapes.get(sel).and_then(PaperLayout::shape_bounds_mm) else {
-            return;
-        };
+        let aabb = shapes
+            .get(sel)
+            .and_then(PaperLayout::shape_bounds_mm)
+            .unwrap_or((0.0, 0.0, 1.0, 1.0));
         let prop_ctx = PropEditContext {
             aabb_mm: aabb,
             paper_w_mm: page.paper.width_mm,

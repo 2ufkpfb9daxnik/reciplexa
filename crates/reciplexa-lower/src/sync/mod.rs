@@ -7,9 +7,10 @@ use reciplexa_syntax::{parse_source, SyntaxKind, SyntaxNode};
 
 use crate::cst_walk::{list_atoms, Child};
 
-mod document;
+pub(crate) mod document;
 mod geometry;
 mod layers;
+pub(crate) mod math;
 mod package;
 mod pages;
 
@@ -28,6 +29,10 @@ pub use geometry::{
 pub use layers::{
     collect_layers_from_root, collect_layers_page, delete_layer_page, duplicate_layer_page,
     group_layers_page, insert_layer_page, reorder_layer_page, ungroup_layer_page,
+};
+pub use math::{
+    collect_layers_live_layout, is_live_layout_authoring, math_layer_glyph,
+    set_live_layout_document_text, set_math_layer_glyph,
 };
 pub use package::{
     collect_layers_package, collect_package_pages, collect_size_targets_package,
@@ -151,9 +156,11 @@ pub fn parse_root(src: &str) -> Result<SyntaxNode, SyncError> {
         .map_err(|e| SyncError::new(format!("parse error: {}", e[0].message)))
 }
 
-/// Collect layers for document-page authoring, package graphics, else interim `(page …)`.
+/// Collect layers for live-layout math trees, document-page authoring, package graphics, else interim `(page …)`.
 pub fn collect_layers_authoring(src: &str, page_index: usize) -> Result<Vec<LayerInfo>, SyncError> {
-    if is_document_page_authoring(src) {
+    if is_live_layout_authoring(src) {
+        collect_layers_live_layout(src, page_index)
+    } else if is_document_page_authoring(src) {
         collect_layers_document(src, page_index)
     } else if is_package_shaped_authoring(src) {
         collect_layers_package(src, page_index)
@@ -179,6 +186,9 @@ pub fn insert_layer_authoring(
     page_index: usize,
     form: &str,
 ) -> Result<(String, usize), SyncError> {
+    if is_live_layout_authoring(src) {
+        return Err(math::live_layout_stack_refuse());
+    }
     if is_package_shaped_authoring(src) {
         insert_layer_package(src, page_index, form)
     } else {
@@ -191,6 +201,9 @@ pub fn delete_layer_authoring(
     page_index: usize,
     flat_index: usize,
 ) -> Result<String, SyncError> {
+    if is_live_layout_authoring(src) {
+        return Err(math::live_layout_stack_refuse());
+    }
     if is_package_shaped_authoring(src) {
         delete_layer_package(src, page_index, flat_index)
     } else {
@@ -204,6 +217,9 @@ pub fn reorder_layer_authoring(
     from: usize,
     to: usize,
 ) -> Result<String, SyncError> {
+    if is_live_layout_authoring(src) {
+        return Err(math::live_layout_stack_refuse());
+    }
     if is_package_shaped_authoring(src) {
         reorder_layer_package(src, page_index, from, to)
     } else {
@@ -218,6 +234,11 @@ pub fn nudge_layer_authoring(
     dx: f64,
     dy: f64,
 ) -> Result<String, SyncError> {
+    if is_live_layout_authoring(src) {
+        return Err(SyncError::new(
+            "live-layout math tree is edited via the layer properties panel, not glyph positions",
+        ));
+    }
     if is_package_shaped_authoring(src) {
         nudge_layer_package(src, page_index, flat_index, dx, dy)
     } else {
@@ -231,6 +252,22 @@ pub fn set_text_content_authoring(
     flat_index: usize,
     text: &str,
 ) -> Result<String, SyncError> {
+    if is_live_layout_authoring(src) {
+        let layers = collect_layers_live_layout(src, page_index)?;
+        let layer = layers
+            .get(flat_index)
+            .ok_or_else(|| SyncError::new("layer index out of range"))?;
+        if layer.kind.starts_with("doc-") {
+            return set_live_layout_document_text(src, page_index, flat_index, text);
+        }
+        if layer.kind == "math-symbol" {
+            return set_math_layer_glyph(src, page_index, flat_index, text);
+        }
+        return Err(SyncError::new(format!(
+            "`{}` is not a text/glyph layer; no ASCII substitution",
+            layer.kind
+        )));
+    }
     if is_document_page_authoring(src) {
         set_document_layer_text(src, page_index, flat_index, text)
     } else if is_package_shaped_authoring(src) {
@@ -251,6 +288,9 @@ pub fn duplicate_layer_authoring(
         return Err(SyncError::new(
             "duplicate is not supported on document/page structure layers",
         ));
+    }
+    if is_live_layout_authoring(src) {
+        return Err(math::live_layout_stack_refuse());
     }
     if is_package_shaped_authoring(src) {
         duplicate_layer_package(src, page_index, flat_index)

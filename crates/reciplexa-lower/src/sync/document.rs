@@ -15,7 +15,7 @@ use super::{is_headed, list_atoms, parse_root, LayerInfo, SyncError};
 use crate::cst_walk::Child;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum ValKind {
+pub(crate) enum ValKind {
     Heading,
     Paragraph,
     ParagraphIndented,
@@ -342,39 +342,43 @@ fn flow_sections(page: &SyntaxNode) -> Result<Vec<SyntaxNode>, SyncError> {
     Ok(sections)
 }
 
+/// Collect heading / paragraph / columns layers from an explicit `(page … (flow …))`.
+pub(crate) fn collect_layers_from_flow_page(
+    root: &SyntaxNode,
+    page: &SyntaxNode,
+) -> Result<Vec<LayerInfo>, SyncError> {
+    if !page_has_flow(page) {
+        return Err(SyncError::new("page is not a document flow page"));
+    }
+    let vals = collect_val_bindings(root);
+    let mut layers = Vec::new();
+    for section in flow_sections(page)? {
+        walk_section_blocks(&section, &vals, root, &mut layers)?;
+    }
+    Ok(layers)
+}
+
 /// Editable document structure layers in reading order (heading / paragraph / columns).
 pub fn collect_layers_document(src: &str, page_index: usize) -> Result<Vec<LayerInfo>, SyncError> {
     let root = parse_root(src)?;
     let page = find_package_page(&root, page_index)?;
-    if !page_has_flow(&page) {
-        return Err(SyncError::new("page is not a document flow page"));
-    }
-    let vals = collect_val_bindings(&root);
-    let mut layers = Vec::new();
-    for section in flow_sections(&page)? {
-        walk_section_blocks(&section, &vals, &root, &mut layers)?;
-    }
+    let layers = collect_layers_from_flow_page(&root, &page)?;
     if layers.is_empty() {
         return Err(SyncError::new("no editable document layers"));
     }
     Ok(layers)
 }
 
-fn layer_val_expr(
+pub(crate) fn document_layer_binding(
     src: &str,
-    page_index: usize,
-    flat_index: usize,
+    layer: &LayerInfo,
 ) -> Result<(SyntaxNode, ValKind, LayerInfo), SyncError> {
     let root = parse_root(src)?;
-    let layer = collect_layers_document(src, page_index)?
-        .into_iter()
-        .nth(flat_index)
-        .ok_or_else(|| SyncError::new("layer index out of range"))?;
     let vals = collect_val_bindings(&root);
     for (name, (expr, kind)) in &vals {
         if let Ok(l) = layer_from_val(name, expr, *kind, &root) {
             if l.byte_start == layer.byte_start && l.byte_end == layer.byte_end {
-                return Ok((expr.clone(), *kind, layer));
+                return Ok((expr.clone(), *kind, layer.clone()));
             }
         }
     }
@@ -394,14 +398,12 @@ fn replace_string_in_expr(
     Ok(out)
 }
 
-/// Replace heading or paragraph string literal for a document layer.
-pub fn set_document_layer_text(
+pub(crate) fn set_document_layer_text_for(
     src: &str,
-    page_index: usize,
-    flat_index: usize,
+    layer: &LayerInfo,
     text: &str,
 ) -> Result<String, SyncError> {
-    let (expr, kind, layer) = layer_val_expr(src, page_index, flat_index)?;
+    let (expr, kind, layer) = document_layer_binding(src, layer)?;
     if layer.kind == "doc-columns" {
         return Err(SyncError::new("columns layer has no paragraph text"));
     }
@@ -415,14 +417,26 @@ pub fn set_document_layer_text(
     replace_string_in_expr(src, &expr, slot, text)
 }
 
-/// Set `indent-em` on a `paragraph-indented` layer.
-pub fn set_document_layer_indent_em(
+/// Replace heading or paragraph string literal for a document layer.
+pub fn set_document_layer_text(
     src: &str,
     page_index: usize,
     flat_index: usize,
+    text: &str,
+) -> Result<String, SyncError> {
+    let layer = collect_layers_document(src, page_index)?
+        .into_iter()
+        .nth(flat_index)
+        .ok_or_else(|| SyncError::new("layer index out of range"))?;
+    set_document_layer_text_for(src, &layer, text)
+}
+
+pub(crate) fn set_document_layer_indent_em_for(
+    src: &str,
+    layer: &LayerInfo,
     indent_em: f64,
 ) -> Result<String, SyncError> {
-    let (expr, kind, _) = layer_val_expr(src, page_index, flat_index)?;
+    let (expr, kind, _) = document_layer_binding(src, layer)?;
     if kind != ValKind::ParagraphIndented {
         return Err(SyncError::new("indent-em only on paragraph-indented"));
     }
@@ -433,14 +447,26 @@ pub fn set_document_layer_indent_em(
     Ok(out)
 }
 
-/// Set column count on a `columns` val layer.
-pub fn set_document_columns_count(
+/// Set `indent-em` on a `paragraph-indented` layer.
+pub fn set_document_layer_indent_em(
     src: &str,
     page_index: usize,
     flat_index: usize,
+    indent_em: f64,
+) -> Result<String, SyncError> {
+    let layer = collect_layers_document(src, page_index)?
+        .into_iter()
+        .nth(flat_index)
+        .ok_or_else(|| SyncError::new("layer index out of range"))?;
+    set_document_layer_indent_em_for(src, &layer, indent_em)
+}
+
+pub(crate) fn set_document_columns_count_for(
+    src: &str,
+    layer: &LayerInfo,
     count: u32,
 ) -> Result<String, SyncError> {
-    let (expr, kind, layer) = layer_val_expr(src, page_index, flat_index)?;
+    let (expr, kind, layer) = document_layer_binding(src, layer)?;
     if kind != ValKind::Columns || layer.kind != "doc-columns" {
         return Err(SyncError::new("column count only on doc-columns layer"));
     }
@@ -450,14 +476,26 @@ pub fn set_document_columns_count(
     Ok(out)
 }
 
-/// Set column gutter on a `columns` val layer.
-pub fn set_document_columns_gutter(
+/// Set column count on a `columns` val layer.
+pub fn set_document_columns_count(
     src: &str,
     page_index: usize,
     flat_index: usize,
+    count: u32,
+) -> Result<String, SyncError> {
+    let layer = collect_layers_document(src, page_index)?
+        .into_iter()
+        .nth(flat_index)
+        .ok_or_else(|| SyncError::new("layer index out of range"))?;
+    set_document_columns_count_for(src, &layer, count)
+}
+
+pub(crate) fn set_document_columns_gutter_for(
+    src: &str,
+    layer: &LayerInfo,
     gutter: f64,
 ) -> Result<String, SyncError> {
-    let (expr, kind, layer) = layer_val_expr(src, page_index, flat_index)?;
+    let (expr, kind, layer) = document_layer_binding(src, layer)?;
     if kind != ValKind::Columns || layer.kind != "doc-columns" {
         return Err(SyncError::new("column gutter only on doc-columns layer"));
     }
@@ -468,13 +506,22 @@ pub fn set_document_columns_gutter(
     Ok(out)
 }
 
-/// Read paragraph / heading text for the properties panel.
-pub fn document_layer_text(
+/// Set column gutter on a `columns` val layer.
+pub fn set_document_columns_gutter(
     src: &str,
     page_index: usize,
     flat_index: usize,
+    gutter: f64,
 ) -> Result<String, SyncError> {
-    let (expr, kind, layer) = layer_val_expr(src, page_index, flat_index)?;
+    let layer = collect_layers_document(src, page_index)?
+        .into_iter()
+        .nth(flat_index)
+        .ok_or_else(|| SyncError::new("layer index out of range"))?;
+    set_document_columns_gutter_for(src, &layer, gutter)
+}
+
+pub(crate) fn document_layer_text_for(src: &str, layer: &LayerInfo) -> Result<String, SyncError> {
+    let (expr, kind, layer) = document_layer_binding(src, layer)?;
     if layer.kind == "doc-columns" {
         return Err(SyncError::new("columns layer has no text"));
     }
@@ -488,12 +535,24 @@ pub fn document_layer_text(
     decode_string_literal(tok.text()).map_err(SyncError::new)
 }
 
-pub fn document_layer_indent_em(
+/// Read paragraph / heading text for the properties panel.
+pub fn document_layer_text(
     src: &str,
     page_index: usize,
     flat_index: usize,
+) -> Result<String, SyncError> {
+    let layer = collect_layers_document(src, page_index)?
+        .into_iter()
+        .nth(flat_index)
+        .ok_or_else(|| SyncError::new("layer index out of range"))?;
+    document_layer_text_for(src, &layer)
+}
+
+pub(crate) fn document_layer_indent_em_for(
+    src: &str,
+    layer: &LayerInfo,
 ) -> Result<Option<f64>, SyncError> {
-    let (expr, kind, _) = layer_val_expr(src, page_index, flat_index)?;
+    let (expr, kind, _) = document_layer_binding(src, layer)?;
     if kind != ValKind::ParagraphIndented {
         return Ok(None);
     }
@@ -505,12 +564,23 @@ pub fn document_layer_indent_em(
         .map_err(|_| SyncError::new("indent-em parse"))
 }
 
-pub fn document_columns_params(
+pub fn document_layer_indent_em(
     src: &str,
     page_index: usize,
     flat_index: usize,
+) -> Result<Option<f64>, SyncError> {
+    let layer = collect_layers_document(src, page_index)?
+        .into_iter()
+        .nth(flat_index)
+        .ok_or_else(|| SyncError::new("layer index out of range"))?;
+    document_layer_indent_em_for(src, &layer)
+}
+
+pub(crate) fn document_columns_params_for(
+    src: &str,
+    layer: &LayerInfo,
 ) -> Result<(u32, f64), SyncError> {
-    let (expr, kind, layer) = layer_val_expr(src, page_index, flat_index)?;
+    let (expr, kind, layer) = document_layer_binding(src, layer)?;
     if kind != ValKind::Columns || layer.kind != "doc-columns" {
         return Err(SyncError::new("columns params only on doc-columns layer"));
     }
@@ -524,6 +594,18 @@ pub fn document_columns_params(
         .parse()
         .map_err(|_| SyncError::new("columns gutter parse"))?;
     Ok((count, gutter))
+}
+
+pub fn document_columns_params(
+    src: &str,
+    page_index: usize,
+    flat_index: usize,
+) -> Result<(u32, f64), SyncError> {
+    let layer = collect_layers_document(src, page_index)?
+        .into_iter()
+        .nth(flat_index)
+        .ok_or_else(|| SyncError::new("layer index out of range"))?;
+    document_columns_params_for(src, &layer)
 }
 
 #[cfg(test)]
