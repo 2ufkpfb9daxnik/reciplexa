@@ -278,7 +278,7 @@ preview/exportされ、実装規則と適合fixtureが対応する。✓
 
 ## Step 13 — Math Profile v2とGUI編集
 
-**Status:** active — [`step13-math-profile-plan.md`](step13-math-profile-plan.md) slice 5
+**Status:** active — [`step13-math-profile-plan.md`](step13-math-profile-plan.md) slice 5 pending audit
 
 - full glyph assembly、MATH kern、font metrics
 - alignment / equation numberの実用subset
@@ -292,7 +292,7 @@ preview/exportされ、実装規則と適合fixtureが対応する。✓
 
 **Slice 4:** complete — alignment / equation numbers（`468ffce`、`examples/pkg_live_align.rpx`）。監査 `a5d11a6a`。
 
-**Slice 5 (next):** First-class math tree GUI（分子・分母・script・matrix cell を木として編集し Source へ戻す）。
+**Slice 5:** landed pending audit — first-class math tree GUI（`f9302ee` + `147e62c`）。**人間 GUI 確認（2026-08-29）:** OK（`pkg_live_math.rpx` — Layers で fraction / scripts / delimiter / math-symbol を選択、glyph 編集が record 構造を保つ、親ノードに glyph 欄なし、Source 範囲ハイライト）。紙面クリックでの数式操作は非対象。
 
 **Complete when:** 数式構造をGUIで変更しSourceへ戻せ、unsupported assemblyやASCII代用を
 silent fallbackせず、文書内inline/display mathを安定して出力できる。
