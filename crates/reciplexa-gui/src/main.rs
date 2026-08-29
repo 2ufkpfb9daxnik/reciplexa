@@ -117,12 +117,66 @@ fn highlight_source_range(ctx: &egui::Context, source: &str, start: usize, end: 
     let id = egui::Id::new("rpx_source_editor");
     let c0 = reciplexa_gui::rebase::byte_to_char_index(source, start);
     let c1 = reciplexa_gui::rebase::byte_to_char_index(source, end);
-    if let Some(mut state) = egui::text_edit::TextEditState::load(ctx, id) {
-        state
-            .cursor
-            .set_char_range(Some(CCursorRange::two(CCursor::new(c0), CCursor::new(c1))));
-        state.store(ctx, id);
+    // Create state if the editor has not been shown yet this session.
+    let mut state = egui::text_edit::TextEditState::load(ctx, id).unwrap_or_default();
+    state
+        .cursor
+        .set_char_range(Some(CCursorRange::two(CCursor::new(c0), CCursor::new(c1))));
+    state.store(ctx, id);
+    // Layers keep focus after a row click; TextEdit only paints its own
+    // selection while focused. The source pane overlays the span instead.
+    ctx.data_mut(|d| d.insert_temp(egui::Id::new("rpx_source_scroll_to_sel"), true));
+}
+
+/// Paint a source span while the editor is unfocused (layer/props have focus).
+fn paint_unfocused_source_span(
+    ui: &egui::Ui,
+    galley: &egui::Galley,
+    galley_pos: egui::Pos2,
+    clip: egui::Rect,
+    source: &str,
+    byte_start: usize,
+    byte_end: usize,
+) -> Option<egui::Rect> {
+    if byte_end <= byte_start {
+        return None;
     }
+    let c0 = reciplexa_gui::rebase::byte_to_char_index(source, byte_start);
+    let c1 = reciplexa_gui::rebase::byte_to_char_index(source, byte_end);
+    if c0 == c1 {
+        return None;
+    }
+    let cur0 = galley.from_ccursor(egui::text::CCursor::new(c0));
+    let cur1 = galley.from_ccursor(egui::text::CCursor::new(c1));
+    let range = egui::text_selection::CursorRange::two(cur0, cur1);
+    let [min, max] = range.sorted_cursors();
+    let color = ui.visuals().selection.bg_fill.gamma_multiply(0.55);
+    let painter = ui.painter().with_clip_rect(clip);
+    let mut first: Option<egui::Rect> = None;
+    for ri in min.rcursor.row..=max.rcursor.row {
+        let Some(row) = galley.rows.get(ri) else {
+            continue;
+        };
+        let left = if ri == min.rcursor.row {
+            row.x_offset(min.rcursor.column)
+        } else {
+            row.rect.left()
+        };
+        let right = if ri == max.rcursor.row {
+            row.x_offset(max.rcursor.column)
+        } else {
+            row.rect.right()
+        };
+        let rect = egui::Rect::from_min_max(
+            galley_pos + egui::vec2(left, row.min_y()),
+            galley_pos + egui::vec2(right.max(left + 2.0), row.max_y()),
+        );
+        painter.rect_filled(rect, 0.0, color);
+        if first.is_none() {
+            first = Some(rect);
+        }
+    }
+    first
 }
 
 fn rebase_source_editor(ctx: &egui::Context, old_source: &str, new_source: &str) {
@@ -532,6 +586,17 @@ impl PreviewApp {
         }
     }
 
+    fn selected_source_byte_span(&self) -> Option<(usize, usize)> {
+        let &idx = self.selected.last()?;
+        let layers = collect_layers_authoring(&self.source, self.page_index).ok()?;
+        let layer = layers.get(idx)?;
+        if layer.byte_end > layer.byte_start {
+            Some((layer.byte_start, layer.byte_end))
+        } else {
+            None
+        }
+    }
+
     fn select_layer(&mut self, index: usize, layers: &[LayerInfo]) {
         self.selected = vec![index];
         if self.document_path.enabled {
@@ -774,19 +839,49 @@ impl PreviewApp {
             }
         });
         ui.add_space(4.0);
+        let span = self.selected_source_byte_span();
         let pre_edit = self.source.clone();
-        let editor = egui::TextEdit::multiline(&mut self.source)
-            .id(egui::Id::new("rpx_source_editor"))
-            .code_editor()
-            .desired_width(f32::INFINITY)
-            .desired_rows(36);
-        let response = ui.add_sized(
-            egui::vec2(
-                ui.available_width(),
-                (ui.available_height() - 48.0).max(120.0),
-            ),
-            editor,
+        let desired = egui::vec2(
+            ui.available_width(),
+            (ui.available_height() - 48.0).max(120.0),
         );
+        let output = ui
+            .allocate_ui(desired, |ui| {
+                egui::TextEdit::multiline(&mut self.source)
+                    .id(egui::Id::new("rpx_source_editor"))
+                    .code_editor()
+                    .desired_width(ui.available_width())
+                    .desired_rows(36)
+                    .show(ui)
+            })
+            .inner;
+        if !output.response.has_focus() {
+            if let Some((start, end)) = span {
+                let first = paint_unfocused_source_span(
+                    ui,
+                    &output.galley,
+                    output.galley_pos,
+                    output.text_clip_rect,
+                    &self.source,
+                    start,
+                    end,
+                );
+                let scroll = ui.ctx().data_mut(|d| {
+                    d.remove_temp::<bool>(egui::Id::new("rpx_source_scroll_to_sel"))
+                        .unwrap_or(false)
+                });
+                if scroll {
+                    if let Some(rect) = first {
+                        ui.scroll_to_rect(rect, Some(egui::Align::Center));
+                    }
+                }
+            }
+        } else {
+            ui.ctx().data_mut(|d| {
+                d.remove_temp::<bool>(egui::Id::new("rpx_source_scroll_to_sel"));
+            });
+        }
+        let response = output.response;
         if response.changed() {
             if !self.typing_undo_open {
                 self.authoring_undo.push(&pre_edit);
