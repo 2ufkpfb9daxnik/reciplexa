@@ -368,7 +368,12 @@ mod tests {
     fn live_layout_demos_want_package_graphics_path() {
         let layout = include_str!("../../../examples/pkg_live_layout.rpx");
         let math = include_str!("../../../examples/pkg_live_math.rpx");
-        for (name, src) in [("pkg_live_layout", layout), ("pkg_live_math", math)] {
+        let profile = include_str!("../../../examples/pkg_math_profile_v2.rpx");
+        for (name, src) in [
+            ("pkg_live_layout", layout),
+            ("pkg_live_math", math),
+            ("pkg_math_profile_v2", profile),
+        ] {
             assert!(
                 wants_package_graphics_path(src),
                 "{name}: authoring should match package import heuristics"

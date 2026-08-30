@@ -851,7 +851,11 @@ fn live_math_pptx_smoke_multi_text() {
 /// LL24: pkg_live_layout / pkg_live_math open via package-entry bridge (not only live_* helpers).
 #[test]
 fn live_layout_demos_open_via_package_entry_bridge() {
-    for name in ["pkg_live_layout.rpx", "pkg_live_math.rpx"] {
+    for name in [
+        "pkg_live_layout.rpx",
+        "pkg_live_math.rpx",
+        "pkg_math_profile_v2.rpx",
+    ] {
         let entry = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("../../examples")
             .join(name);

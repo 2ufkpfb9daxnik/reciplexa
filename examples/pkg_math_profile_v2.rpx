@@ -1,0 +1,59 @@
+(// Step 13 slice 6: Math Profile v2 combined page.
+ // Display aligned: stretchy assembly (1), italic/kern scripts (2); inline Text fraction.)
+
+(import document/page only
+  a4 page flow section heading paragraph
+  block-paragraph)
+
+(val title (heading 1 "Math Profile v2"))
+(val body (paragraph "伸縮括弧の assembly、添字 kern、display 揃えを同じページに置く。"))
+
+(val math
+  (record
+    (tag "math-aligned")
+    (rows
+      (list
+        (record
+          (tag "math-align-row")
+          (cells
+            (list
+              (record
+                (tag "math-delimiter")
+                (left "(")
+                (right ")")
+                (stretch-factor 5.0)
+                (body (record (tag "math-symbol") (glyph "x") (class "ord"))))
+              (record (tag "math-symbol") (glyph "=") (class "rel"))
+              (record (tag "math-symbol") (glyph "a") (class "ord"))))
+          (number "(1)"))
+        (record
+          (tag "math-align-row")
+          (cells
+            (list
+              (record
+                (tag "math-scripts")
+                (base (record (tag "math-symbol") (glyph "f") (class "ord")))
+                (superscript (record (tag "math-symbol") (glyph "2") (class "ord"))))
+              (record (tag "math-symbol") (glyph "=") (class "rel"))
+              (record (tag "math-symbol") (glyph "y") (class "ord"))))
+          (number "(2)"))))))
+
+(val inline-math
+  (record
+    (tag "math-fraction")
+    (numerator (record (tag "math-symbol") (glyph "p") (class "ord")))
+    (denominator (record (tag "math-symbol") (glyph "q") (class "ord")))))
+
+(val main
+  (record
+    (tag "live-layout-demo")
+    (style "display")
+    (page
+      (page a4
+        (flow
+          (list
+            (section title
+              (list
+                (block-paragraph body)))))))
+    (math math)
+    (inline-math inline-math)))

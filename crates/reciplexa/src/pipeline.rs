@@ -348,17 +348,21 @@ mod tests {
         assert!(doc.pages[0].paper.is_positive());
     }
 
-    /// LL24: pkg_live_layout / pkg_live_math / phantom open via wants_package → package bridge.
+    /// LL24: pkg_live_layout / pkg_live_math / phantom / profile v2 open via wants_package.
     #[test]
     fn document_from_source_live_layout_demos_use_package_path() {
         for name in [
             "pkg_live_layout.rpx",
             "pkg_live_math.rpx",
             "pkg_live_math_phantom.rpx",
+            "pkg_math_profile_v2.rpx",
         ] {
             let src = match name {
                 "pkg_live_layout.rpx" => include_str!("../../../examples/pkg_live_layout.rpx"),
                 "pkg_live_math.rpx" => include_str!("../../../examples/pkg_live_math.rpx"),
+                "pkg_math_profile_v2.rpx" => {
+                    include_str!("../../../examples/pkg_math_profile_v2.rpx")
+                }
                 _ => include_str!("../../../examples/pkg_live_math_phantom.rpx"),
             };
             let expanded = expand(src).unwrap();

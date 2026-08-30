@@ -1,5 +1,6 @@
 //! Step 13 gates: MATH glyph assembly (slice 1), MATH kern (slice 2),
-//! remaining layout constants from the font (slice 3), alignment / eqno (slice 4).
+//! remaining layout constants from the font (slice 3), alignment / eqno (slice 4),
+//! combined assembly + kern + display math (slice 6).
 
 use reciplexa_identity::document::StableNodeId;
 use reciplexa_std::math::{EstimateStyle, MathAccentKind, MathAtom, MathClass};
@@ -466,5 +467,82 @@ fn step13_slice4_equation_numbers_right_align() {
     assert!(
         (one.y_em - two.y_em).abs() > 1e-6,
         "numbers on different rows"
+    );
+}
+
+#[test]
+fn step13_slice6_combined_assembly_kern_and_display() {
+    let f = font();
+    let upem = f64::from(f.units_per_em());
+    let italic = f64::from(FIXTURE_ITALIC_CORRECTION_F) / upem;
+    let kern = f64::from(FIXTURE_MATH_KERN_TOP_RIGHT) / upem;
+    let cmap = f.glyph_id('(').unwrap();
+    let laid = layout_math_atom(
+        &f,
+        &MathAtom::aligned_numbered(
+            StableNodeId::new(1),
+            vec![
+                vec![
+                    MathAtom::delimiter_with_stretch(
+                        StableNodeId::new(2),
+                        "(",
+                        ")",
+                        ord(3, "x"),
+                        5.0,
+                    ),
+                    rel(4, "="),
+                    ord(5, "a"),
+                ],
+                vec![
+                    MathAtom::superscript(StableNodeId::new(6), ord(7, "f"), ord(8, "2")),
+                    rel(9, "="),
+                    ord(10, "y"),
+                ],
+            ],
+            vec![Some("(1)".into()), Some("(2)".into())],
+        ),
+        EstimateStyle::Display,
+    )
+    .unwrap();
+
+    let assembled: Vec<_> = laid
+        .glyphs
+        .iter()
+        .filter(|g| g.glyph.ch == '(' && g.glyph.gid != cmap)
+        .collect();
+    assert!(
+        assembled.len() > 1,
+        "assembly must emit multiple left parts, got {}",
+        assembled.len()
+    );
+    assert!(
+        assembled.iter().all(|g| (g.scale - 1.0).abs() < 1e-9),
+        "assembly parts must not visual-scale"
+    );
+    let gids: Vec<u16> = assembled.iter().map(|g| g.glyph.gid).collect();
+    assert!(
+        gids.windows(2).any(|w| w[0] != w[1]),
+        "assembly should mix end and extender GIDs, got {gids:?}"
+    );
+
+    let base = laid.glyphs.iter().find(|g| g.glyph.ch == 'f').expect("f");
+    let sup = laid.glyphs.iter().find(|g| g.glyph.ch == '2').expect("2");
+    let expected = base.x_em + base.glyph.advance_em * base.scale + italic + kern;
+    almost_eq(sup.x_em, expected, "combined f^2 kern");
+
+    let eqs: Vec<_> = laid.glyphs.iter().filter(|g| g.glyph.ch == '=').collect();
+    assert_eq!(eqs.len(), 2, "two aligned relations");
+    almost_eq(eqs[0].x_em, eqs[1].x_em, "aligned = column");
+    let close: Vec<_> = laid.glyphs.iter().filter(|g| g.glyph.ch == ')').collect();
+    assert!(
+        close.len() >= 4,
+        "assembly rights plus two eqno closes, got {}",
+        close.len()
+    );
+    let one = laid.glyphs.iter().find(|g| g.glyph.ch == '1').expect("1");
+    let two = laid.glyphs.iter().find(|g| g.glyph.ch == '2').expect("2");
+    assert!(
+        (one.y_em - two.y_em).abs() > 1e-6,
+        "equation numbers on different rows"
     );
 }

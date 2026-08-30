@@ -336,6 +336,7 @@ mod tests {
     };
 
     const PKG_LIVE_MATH: &str = include_str!("../../../../examples/pkg_live_math.rpx");
+    const PKG_MATH_PROFILE_V2: &str = include_str!("../../../../examples/pkg_math_profile_v2.rpx");
     const PKG_LIVE_ALIGN: &str = include_str!("../../../../examples/pkg_live_align.rpx");
 
     fn ctx() -> PropEditContext {
@@ -497,6 +498,32 @@ mod tests {
         .unwrap();
         assert!(out.contains(r#"(tag "math-fraction")"#));
         assert!(out.contains(r#"(glyph "r")"#));
+    }
+
+    #[test]
+    fn math_profile_v2_layers_combine_assembly_kern_display() {
+        assert!(is_live_layout_authoring(PKG_MATH_PROFILE_V2));
+        let layers = collect_layers_live_layout(PKG_MATH_PROFILE_V2, 0).unwrap();
+        let kinds: Vec<&str> = layers.iter().map(|l| l.kind.as_str()).collect();
+        assert!(kinds.contains(&"math-aligned"));
+        assert!(kinds.contains(&"math-delimiter"));
+        assert!(kinds.contains(&"math-scripts"));
+        assert!(kinds.contains(&"math-fraction"));
+        assert!(layers
+            .iter()
+            .any(|l| l.kind == "math-symbol" && l.label.contains('f')));
+        assert!(layers
+            .iter()
+            .any(|l| l.kind == "math-symbol" && l.label.contains('p')));
+        let x = layers
+            .iter()
+            .position(|l| l.kind == "math-symbol" && l.label.contains("\"x\""))
+            .unwrap();
+        let out = set_math_layer_glyph(PKG_MATH_PROFILE_V2, 0, x, "z").unwrap();
+        assert!(out.contains(r#"(tag "math-delimiter")"#));
+        assert!(out.contains(r#"(stretch-factor 5.0)"#));
+        assert!(out.contains(r#"(glyph "z")"#));
+        assert!(out.contains(r#"(glyph "f")"#));
     }
 
     #[test]

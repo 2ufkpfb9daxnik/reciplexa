@@ -226,6 +226,7 @@ fn pt9_declared_page_examples_export_pdf_svg() {
             "pkg_document_indent.rpx",
             "pkg_live_align.rpx",
             "pkg_live_math.rpx",
+            "pkg_math_profile_v2.rpx",
             "pkg_math.rpx",
             "text_line.rpx",
         ] {
