@@ -1,6 +1,6 @@
 # Step 13 — Math Profile v2 と GUI 編集
 
-**Status:** active — slice 6 pending human GUI (`f3c324f` code)  
+**Status:** active — slice 6 pending audit (`f615af5` code; human GUI 2026-08-31)  
 **Depends on:** Step 12 complete (`7b7a45e` code; gate `b56aa6a`; docs `7c93262`; macro `3058e2a1`)  
 **Normative:** `roadmap.md` Step 13, `implemented-features.md` OpenType MATH 残差、Math Profile v1 上の拡張
 
@@ -81,7 +81,7 @@
 | 3 | `13f54c5` | `c55ae04d` | complete | remaining MATH layout constants + glyf ink (no silent heuristic em)。 |
 | 4 | `468ffce` | `a5d11a6a` | complete | alignment / equation numbers + document inline-math（`pkg_live_align.rpx`）。 |
 | 5 | `db043e7` | `c39c0685` | complete | first-class math tree GUI（`f9302ee` + source span overlay `147e62c`）。Human GUI 2026-08-29 `pkg_live_math.rpx`。 |
-| 6 | — | — | pending | combined `pkg_math_profile_v2.rpx`（code `f3c324f`）。Human GUI pending. |
+| 6 | — | — | pending | combined `pkg_math_profile_v2.rpx`（code `f3c324f` + GUI `af61b44` / `f615af5`）。Human GUI 2026-08-31。 |
 
 各 slice 完了後、実装担当と別セッションの独立 subagent 1体が当該 slice のみを捜査する。`complete` の HEAD だけ次 slice へ進む。
 
