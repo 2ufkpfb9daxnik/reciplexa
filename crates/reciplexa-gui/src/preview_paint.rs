@@ -558,6 +558,33 @@ fn choon_gid_is_vert_substitute(t: &WorldText) -> bool {
     choon_cmap_gid(digest).is_some_and(|cmap| gid != cmap)
 }
 
+/// Shift a fixture MATH letter that carries italic correction so its ink sits
+/// at the right of the layout advance (the italic tail). Unicode `f` is much
+/// narrower than the fixture rectangle, which otherwise leaves a hole before
+/// `f^2`.
+pub fn fixture_italic_optical_shift_mm(t: &WorldText, ch: char, galley_w_mm: f64) -> f64 {
+    let Some(digest) = t.font_digest.as_deref() else {
+        return 0.0;
+    };
+    if !crate::fonts::digest_is_fixture_outlines(digest) {
+        return 0.0;
+    }
+    if t.content.chars().count() != 1 {
+        return 0.0;
+    }
+    let font = reciplexa_text_layout::LoadedFont::fixture();
+    if font.italic_correction_em(ch).unwrap_or(0.0) <= 1e-9 {
+        return 0.0;
+    }
+    let adv = t
+        .glyph_advances_mm
+        .as_ref()
+        .and_then(|a| a.first())
+        .copied()
+        .unwrap_or(0.0);
+    (adv - galley_w_mm).max(0.0)
+}
+
 fn choon_cmap_gid(digest: &str) -> Option<u16> {
     if crate::fonts::digest_is_fixture_outlines(digest) {
         return reciplexa_text_layout::LoadedFont::fixture()
@@ -582,6 +609,10 @@ fn paint_world_text(
         let font_id = layout_preview_font_id(t.font_digest.as_deref(), font_px);
         for (ch, (x_mm, y_mm)) in t.content.chars().zip(origins) {
             let rot = preview_run_glyph_rotation_deg(t, ch);
+            let galley = painter.layout_no_wrap(ch.to_string(), font_id.clone(), color);
+            let px_per_mm = f64::from(layout.radius_mm_to_px(1.0)).max(1e-9);
+            let galley_w_mm = f64::from(galley.size().x) / px_per_mm;
+            let x_mm = x_mm + fixture_italic_optical_shift_mm(t, ch, galley_w_mm);
             let pivot = if rot.abs() > 1e-9 {
                 Some(vert_glyph_cell_center_mm(x_mm, y_mm, ch, t.size_mm))
             } else {
@@ -592,7 +623,7 @@ fn paint_world_text(
                 rect,
                 layout,
                 (x_mm, y_mm, rot),
-                painter.layout_no_wrap(ch.to_string(), font_id.clone(), color),
+                galley,
                 color,
                 pivot,
             );
@@ -861,6 +892,50 @@ mod tests {
         let gid = font.glyph_id('ー').expect("ー cmap");
         let t = choon_world(gid, font.id.digest.clone(), -90.0);
         assert_eq!(preview_run_glyph_rotation_deg(&t, 'ー'), -90.0);
+    }
+
+    #[test]
+    fn fixture_italic_f_shifts_toward_superscript() {
+        let font = reciplexa_text_layout::LoadedFont::fixture();
+        let t = WorldText {
+            x_mm: 0.0,
+            y_mm: 0.0,
+            size_mm: 4.0,
+            width_mm: 2.16,
+            height_mm: 4.0,
+            rotation_deg: 0.0,
+            content: "f".into(),
+            fill: Color::BLACK,
+            alpha: 1.0,
+            glyph_ids: Some(vec![font.glyph_id('f').expect("f")]),
+            font_digest: Some(font.id.digest.clone()),
+            glyph_advances_mm: Some(vec![2.16]),
+        };
+        let shift = fixture_italic_optical_shift_mm(&t, 'f', 1.0);
+        assert!(
+            (shift - 1.16).abs() < 1e-9,
+            "italic f should sit at the right of its advance, got {shift}"
+        );
+        assert_eq!(fixture_italic_optical_shift_mm(&t, '2', 1.0), 0.0);
+    }
+
+    #[test]
+    fn fixture_italic_shift_skips_non_fixture_digest() {
+        let t = WorldText {
+            x_mm: 0.0,
+            y_mm: 0.0,
+            size_mm: 4.0,
+            width_mm: 2.0,
+            height_mm: 4.0,
+            rotation_deg: 0.0,
+            content: "f".into(),
+            fill: Color::BLACK,
+            alpha: 1.0,
+            glyph_ids: Some(vec![1]),
+            font_digest: Some("not-fixture".into()),
+            glyph_advances_mm: Some(vec![2.16]),
+        };
+        assert_eq!(fixture_italic_optical_shift_mm(&t, 'f', 1.0), 0.0);
     }
 
     #[test]
