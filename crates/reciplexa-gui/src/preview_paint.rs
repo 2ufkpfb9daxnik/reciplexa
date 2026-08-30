@@ -531,6 +531,45 @@ pub fn glyph_run_baselines_mm(t: &WorldText) -> Option<Vec<(f64, f64)>> {
     Some(out)
 }
 
+/// Preview rotation for one glyph of a layout run.
+///
+/// Horizontal Latin/CJK (including ページ's `ー`) stay upright. Vertical `ー`
+/// already carries −90° on the parent group when the font has no `vert`
+/// substitute. When `vert` *did* substitute, export paints that GID but egui
+/// only has the cmap dash — rotate that isolated glyph iff the layout GID is
+/// not the cmap `ー`.
+pub fn preview_run_glyph_rotation_deg(t: &WorldText, ch: char) -> f64 {
+    if t.rotation_deg.abs() > 1e-9 {
+        return t.rotation_deg;
+    }
+    if ch == 'ー' && t.content == "ー" && choon_gid_is_vert_substitute(t) {
+        return -90.0;
+    }
+    0.0
+}
+
+fn choon_gid_is_vert_substitute(t: &WorldText) -> bool {
+    let Some(&gid) = t.glyph_ids.as_ref().and_then(|g| g.first()) else {
+        return false;
+    };
+    let Some(digest) = t.font_digest.as_deref() else {
+        return false;
+    };
+    choon_cmap_gid(digest).is_some_and(|cmap| gid != cmap)
+}
+
+fn choon_cmap_gid(digest: &str) -> Option<u16> {
+    if crate::fonts::digest_is_fixture_outlines(digest) {
+        return reciplexa_text_layout::LoadedFont::fixture()
+            .glyph_id('ー')
+            .ok();
+    }
+    let host = reciplexa_text_layout::host_product_font().ok()?;
+    (host.id.digest == digest)
+        .then(|| host.glyph_id('ー').ok())
+        .flatten()
+}
+
 fn paint_world_text(
     painter: &egui::Painter,
     rect: egui::Rect,
@@ -542,18 +581,7 @@ fn paint_world_text(
     if let Some(origins) = glyph_run_baselines_mm(t) {
         let font_id = layout_preview_font_id(t.font_digest.as_deref(), font_px);
         for (ch, (x_mm, y_mm)) in t.content.chars().zip(origins) {
-            // Horizontal Latin (headings, body) shares this GlyphRun path and must
-            // stay upright. Vertical Latin already carries −90° on `WorldText`.
-            // Host `vert` ー is a vertical GID in export but egui only has the cmap
-            // dash; rotate that isolated glyph. Do not infer tate from the char
-            // class — that was flipping “Vertical writing” and other 横組 Latin.
-            let rot = if t.rotation_deg.abs() > 1e-9 {
-                t.rotation_deg
-            } else if t.content == "ー" {
-                -90.0
-            } else {
-                0.0
-            };
+            let rot = preview_run_glyph_rotation_deg(t, ch);
             let pivot = if rot.abs() > 1e-9 {
                 Some(vert_glyph_cell_center_mm(x_mm, y_mm, ch, t.size_mm))
             } else {
@@ -791,6 +819,48 @@ mod tests {
         let mut stub = t;
         stub.glyph_advances_mm = None;
         assert!(glyph_run_baselines_mm(&stub).is_none());
+    }
+
+    fn choon_world(gid: u16, digest: String, rotation_deg: f64) -> WorldText {
+        WorldText {
+            x_mm: 10.0,
+            y_mm: 20.0,
+            size_mm: 8.0,
+            width_mm: 8.0,
+            height_mm: 8.0,
+            rotation_deg,
+            content: "ー".into(),
+            fill: Color::BLACK,
+            alpha: 1.0,
+            glyph_ids: Some(vec![gid]),
+            font_digest: Some(digest),
+            glyph_advances_mm: Some(vec![8.0]),
+        }
+    }
+
+    #[test]
+    fn horizontal_choon_preview_stays_upright() {
+        let font = reciplexa_text_layout::host_product_font().expect("product");
+        let gid = font.glyph_id('ー').expect("ー cmap");
+        let t = choon_world(gid, font.id.digest.clone(), 0.0);
+        assert_eq!(preview_run_glyph_rotation_deg(&t, 'ー'), 0.0);
+    }
+
+    #[test]
+    fn vert_substituted_choon_preview_rotates_for_egui() {
+        let font = reciplexa_text_layout::host_product_font().expect("product");
+        let cmap = font.glyph_id('ー').expect("ー cmap");
+        let other = if cmap == 0 { 1 } else { 0 };
+        let t = choon_world(other, font.id.digest.clone(), 0.0);
+        assert_eq!(preview_run_glyph_rotation_deg(&t, 'ー'), -90.0);
+    }
+
+    #[test]
+    fn parent_rotation_wins_over_choon_heuristic() {
+        let font = reciplexa_text_layout::host_product_font().expect("product");
+        let gid = font.glyph_id('ー').expect("ー cmap");
+        let t = choon_world(gid, font.id.digest.clone(), -90.0);
+        assert_eq!(preview_run_glyph_rotation_deg(&t, 'ー'), -90.0);
     }
 
     #[test]

@@ -119,15 +119,17 @@ fn short_label(text: &str) -> String {
     text.chars().take(20).collect()
 }
 
-fn math_layer_label(tag: &str, role: &str, glyph: Option<&str>) -> String {
-    match (tag, glyph, role.is_empty()) {
+fn math_layer_label(tag: &str, role: &str, glyph: Option<&str>, depth: usize) -> String {
+    let pad = "  ".repeat(depth);
+    let body = match (tag, glyph, role.is_empty()) {
         ("math-symbol", Some(g), false) => {
             format!("math-symbol \"{}\" ({role})", short_label(g))
         }
         ("math-symbol", Some(g), true) => format!("math-symbol \"{}\"", short_label(g)),
         (_, _, false) => format!("{tag} ({role})"),
         _ => tag.to_string(),
-    }
+    };
+    format!("{pad}{body}")
 }
 
 fn push_math_record(
@@ -136,6 +138,7 @@ fn push_math_record(
     vals: &HashMap<String, SyntaxNode>,
     layers: &mut Vec<LayerInfo>,
     visiting: &mut HashSet<(usize, usize)>,
+    depth: usize,
 ) {
     let range = node.text_range();
     let key = (usize::from(range.start()), usize::from(range.end()));
@@ -149,13 +152,14 @@ fn push_math_record(
             } else {
                 format!("{role}[{i}]")
             };
-            walk_math_child(item, &nested_role, vals, layers, visiting);
+            walk_math_child(item, &nested_role, vals, layers, visiting, depth);
         }
         return;
     }
     if !is_headed(node, "record") {
         return;
     }
+    let mut child_depth = depth;
     if let Some(tag) = record_tag(node) {
         if tag.starts_with("math-") {
             let glyph = record_string_field(node, "glyph");
@@ -171,12 +175,13 @@ fn push_math_record(
             };
             layers.push(LayerInfo {
                 kind: tag.clone(),
-                label: math_layer_label(&tag, role, glyph.as_deref()),
+                label: math_layer_label(&tag, role, glyph.as_deref(), depth),
                 byte_start,
                 byte_end,
                 root_start: key.0,
                 root_end: key.1,
             });
+            child_depth = depth + 1;
         }
     }
     for item in list_atoms(node).into_iter().skip(1) {
@@ -193,7 +198,7 @@ fn push_math_record(
             continue;
         }
         if let Some(val) = atoms.get(1) {
-            walk_math_child(val, fname, vals, layers, visiting);
+            walk_math_child(val, fname, vals, layers, visiting, child_depth);
         }
     }
 }
@@ -204,12 +209,13 @@ fn walk_math_child(
     vals: &HashMap<String, SyntaxNode>,
     layers: &mut Vec<LayerInfo>,
     visiting: &mut HashSet<(usize, usize)>,
+    depth: usize,
 ) {
     match child {
-        Child::Node(n) => push_math_record(n, role, vals, layers, visiting),
+        Child::Node(n) => push_math_record(n, role, vals, layers, visiting, depth),
         Child::Token(t) if t.kind() == SyntaxKind::Ident => {
             if let Some(expr) = vals.get(t.text()) {
-                push_math_record(expr, role, vals, layers, visiting);
+                push_math_record(expr, role, vals, layers, visiting, depth);
             }
         }
         _ => {}
@@ -240,10 +246,10 @@ pub fn collect_layers_live_layout(
     }
     let mut visiting = HashSet::new();
     if let Some(math) = record_field_child(&main, "math") {
-        walk_math_child(&math, "math", &vals, &mut layers, &mut visiting);
+        walk_math_child(&math, "math", &vals, &mut layers, &mut visiting, 0);
     }
     if let Some(inline) = record_field_child(&main, "inline-math") {
-        walk_math_child(&inline, "inline-math", &vals, &mut layers, &mut visiting);
+        walk_math_child(&inline, "inline-math", &vals, &mut layers, &mut visiting, 0);
     }
     if layers.is_empty() {
         return Err(SyncError::new("live-layout-demo has no editable layers"));
@@ -422,6 +428,13 @@ mod tests {
             ]
         );
         assert!(layers[2].label.contains("math-delimiter"));
+        assert!(layers[2].label.starts_with("math-delimiter"));
+        assert!(layers[5].label.contains("numerator"));
+        assert!(
+            layers[5].label.starts_with("      "),
+            "nested math-symbol should indent under fraction: {}",
+            layers[5].label
+        );
         assert!(layers[5].label.contains("numerator"));
         assert!(layers[6].label.contains("denominator"));
         assert!(layers[7].label.contains("subscript"));
@@ -509,6 +522,7 @@ mod tests {
         assert!(kinds.contains(&"math-delimiter"));
         assert!(kinds.contains(&"math-scripts"));
         assert!(kinds.contains(&"math-fraction"));
+        assert!(kinds.contains(&"math-stack"));
         assert!(layers
             .iter()
             .any(|l| l.kind == "math-symbol" && l.label.contains('f')));

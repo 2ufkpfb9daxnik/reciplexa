@@ -1,5 +1,5 @@
 (// Step 13 slice 6: Math Profile v2 combined page.
- // Display aligned: stretchy assembly (1), italic/kern scripts (2); inline Text fraction.)
+ // Stack: stretchy assembly, then display aligned f^2 / eqno; inline Text fraction.)
 
 (import document/page only
   a4 page flow section heading paragraph
@@ -8,35 +8,43 @@
 (val title (heading 1 "Math Profile v2"))
 (val body (paragraph "伸縮括弧の assembly、添字 kern、display 揃えを同じページに置く。"))
 
+(val assembly
+  (record
+    (tag "math-delimiter")
+    (left "(")
+    (right ")")
+    (stretch-factor 5.0)
+    (body (record (tag "math-symbol") (glyph "x") (class "ord")))))
+
 (val math
   (record
-    (tag "math-aligned")
-    (rows
+    (tag "math-stack")
+    (children
       (list
+        assembly
         (record
-          (tag "math-align-row")
-          (cells
+          (tag "math-aligned")
+          (rows
             (list
               (record
-                (tag "math-delimiter")
-                (left "(")
-                (right ")")
-                (stretch-factor 5.0)
-                (body (record (tag "math-symbol") (glyph "x") (class "ord"))))
-              (record (tag "math-symbol") (glyph "=") (class "rel"))
-              (record (tag "math-symbol") (glyph "a") (class "ord"))))
-          (number "(1)"))
-        (record
-          (tag "math-align-row")
-          (cells
-            (list
+                (tag "math-align-row")
+                (cells
+                  (list
+                    (record
+                      (tag "math-scripts")
+                      (base (record (tag "math-symbol") (glyph "f") (class "ord")))
+                      (superscript (record (tag "math-symbol") (glyph "2") (class "ord"))))
+                    (record (tag "math-symbol") (glyph "=") (class "rel"))
+                    (record (tag "math-symbol") (glyph "y") (class "ord"))))
+                (number "(1)"))
               (record
-                (tag "math-scripts")
-                (base (record (tag "math-symbol") (glyph "f") (class "ord")))
-                (superscript (record (tag "math-symbol") (glyph "2") (class "ord"))))
-              (record (tag "math-symbol") (glyph "=") (class "rel"))
-              (record (tag "math-symbol") (glyph "y") (class "ord"))))
-          (number "(2)"))))))
+                (tag "math-align-row")
+                (cells
+                  (list
+                    (record (tag "math-symbol") (glyph "a") (class "ord"))
+                    (record (tag "math-symbol") (glyph "=") (class "rel"))
+                    (record (tag "math-symbol") (glyph "b") (class "ord"))))
+                (number "(2)")))))))))
 
 (val inline-math
   (record
