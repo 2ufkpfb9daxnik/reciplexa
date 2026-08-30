@@ -1,6 +1,6 @@
 # Step 14 — 複数ページ出版レイアウト
 
-**Status:** active — slice 1 next  
+**Status:** active — slice 1 pending human GUI (`f158476` code)  
 **Depends on:** Step 13 complete (`f615af5` code; gate §2.4.12; docs `6fa6f9f`; macro `8a1b1ce0`)  
 **Normative:** `roadmap.md` Step 14, `implemented-features.md` 本番ページ消費 / 階層レイヤー
 
@@ -66,7 +66,7 @@
 
 | Slice | HEAD | subagent | 判定 | 備考 |
 |-------|------|----------|------|------|
-| 1 | | | | hierarchical layers / text-box move |
+| 1 | — | — | pending | hierarchical layers / text-box move（code `f158476`）。Human GUI pending. |
 
 各 slice 完了後、実装担当と別セッションの独立 subagent 1体が当該 slice のみを捜査する。`complete` の HEAD だけ次 slice へ進む。
 
