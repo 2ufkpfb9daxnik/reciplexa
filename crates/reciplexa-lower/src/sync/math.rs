@@ -119,17 +119,15 @@ fn short_label(text: &str) -> String {
     text.chars().take(20).collect()
 }
 
-fn math_layer_label(tag: &str, role: &str, glyph: Option<&str>, depth: usize) -> String {
-    let pad = "  ".repeat(depth);
-    let body = match (tag, glyph, role.is_empty()) {
+fn math_layer_label(tag: &str, role: &str, glyph: Option<&str>) -> String {
+    match (tag, glyph, role.is_empty()) {
         ("math-symbol", Some(g), false) => {
             format!("math-symbol \"{}\" ({role})", short_label(g))
         }
         ("math-symbol", Some(g), true) => format!("math-symbol \"{}\"", short_label(g)),
         (_, _, false) => format!("{tag} ({role})"),
         _ => tag.to_string(),
-    };
-    format!("{pad}{body}")
+    }
 }
 
 fn push_math_record(
@@ -173,14 +171,17 @@ fn push_math_record(
             } else {
                 key
             };
-            layers.push(LayerInfo {
-                kind: tag.clone(),
-                label: math_layer_label(&tag, role, glyph.as_deref(), depth),
-                byte_start,
-                byte_end,
-                root_start: key.0,
-                root_end: key.1,
-            });
+            layers.push(
+                LayerInfo::new(
+                    tag.clone(),
+                    math_layer_label(&tag, role, glyph.as_deref()),
+                    byte_start,
+                    byte_end,
+                    key.0,
+                    key.1,
+                )
+                .with_depth(depth),
+            );
             child_depth = depth + 1;
         }
     }
@@ -431,11 +432,10 @@ mod tests {
         assert!(layers[2].label.starts_with("math-delimiter"));
         assert!(layers[5].label.contains("numerator"));
         assert!(
-            layers[5].label.starts_with("      "),
-            "nested math-symbol should indent under fraction: {}",
-            layers[5].label
+            layers[5].depth >= 2,
+            "nested math-symbol should nest under fraction: depth={}",
+            layers[5].depth
         );
-        assert!(layers[5].label.contains("numerator"));
         assert!(layers[6].label.contains("denominator"));
         assert!(layers[7].label.contains("subscript"));
         assert!(layers[5].byte_end > layers[5].byte_start);

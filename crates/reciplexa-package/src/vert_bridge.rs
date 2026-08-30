@@ -66,6 +66,8 @@ fn product_page_with_columns(v: &RuntimeValue) -> Result<Document, GraphicsBridg
         }),
     };
     let (mut x, y) = column_origin(&doc);
+    let nudges = nudges_from_demo(fields);
+    let mut col_i = 0usize;
     let mut shapes = Vec::new();
     if let Some(ruby_val) = fields
         .iter()
@@ -73,13 +75,17 @@ fn product_page_with_columns(v: &RuntimeValue) -> Result<Document, GraphicsBridg
         .map(|(_, v)| v)
     {
         let ruby = ruby_from_value(ruby_val)?;
-        let laid = layout_vertical_ruby(&font, &ruby, x, y, COL_SIZE_MM)
+        let (dx, dy) = nudges.get(col_i).copied().unwrap_or((0.0, 0.0));
+        col_i += 1;
+        let laid = layout_vertical_ruby(&font, &ruby, x + dx, y + dy, COL_SIZE_MM)
             .map_err(|e| GraphicsBridgeError::Bridge(e.to_string()))?;
         shapes.extend(positioned_vertical_ruby_to_shapes(&laid, Color::BLACK));
         x -= laid.inline_mm + COL_BELOW_DOC_GAP_MM;
     }
     for sample in &samples {
-        let laid = layout_vertical_run(&font, sample, x, y, COL_SIZE_MM)
+        let (dx, dy) = nudges.get(col_i).copied().unwrap_or((0.0, 0.0));
+        col_i += 1;
+        let laid = layout_vertical_run(&font, sample, x + dx, y + dy, COL_SIZE_MM)
             .map_err(|e| GraphicsBridgeError::Bridge(e.to_string()))?;
         shapes.extend(positioned_vertical_to_shapes(&laid, Color::BLACK));
         x -= COL_PITCH_MM;
@@ -148,6 +154,37 @@ fn samples_from_demo(
     Err(GraphicsBridgeError::Bridge(
         "ja-vertical-demo missing samples".into(),
     ))
+}
+
+fn as_f64(v: &RuntimeValue) -> Option<f64> {
+    match v {
+        RuntimeValue::Number(n) | RuntimeValue::F64(n) => Some(*n),
+        RuntimeValue::Int(n) => Some(*n as f64),
+        _ => None,
+    }
+}
+
+fn nudges_from_demo(fields: &[(String, RuntimeValue)]) -> Vec<(f64, f64)> {
+    let Some(v) = fields
+        .iter()
+        .find(|(k, _)| k == "nudge")
+        .map(|(_, val)| val)
+    else {
+        return Vec::new();
+    };
+    let Ok(items) = cons_items(v) else {
+        return Vec::new();
+    };
+    items
+        .iter()
+        .filter_map(|item| {
+            let pair = cons_items(item).ok()?;
+            if pair.len() < 2 {
+                return None;
+            }
+            Some((as_f64(pair[0])?, as_f64(pair[1])?))
+        })
+        .collect()
 }
 
 fn record_fields(v: &RuntimeValue) -> Result<&[(String, RuntimeValue)], GraphicsBridgeError> {

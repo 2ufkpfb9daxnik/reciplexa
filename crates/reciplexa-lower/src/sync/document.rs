@@ -147,18 +147,28 @@ fn layer_from_val(
     root: &SyntaxNode,
 ) -> Result<LayerInfo, SyncError> {
     let items = list_atoms(expr);
-    let (kind_label, string_idx, label) = match kind {
+    let (kind_label, string_idx, label, text_content) = match kind {
         ValKind::Heading => {
             let tok = string_token_at(&items, 2)?;
             let text = decode_string_literal(tok.text()).unwrap_or_default();
             let short: String = text.chars().take(20).collect();
-            ("doc-heading", tok, format!("heading \"{short}\""))
+            (
+                "doc-heading",
+                tok,
+                format!("heading \"{short}\""),
+                Some(text),
+            )
         }
         ValKind::Paragraph => {
             let tok = string_token_at(&items, 1)?;
             let text = decode_string_literal(tok.text()).unwrap_or_default();
             let short: String = text.chars().take(20).collect();
-            ("doc-paragraph", tok, format!("paragraph \"{short}\""))
+            (
+                "doc-paragraph",
+                tok,
+                format!("paragraph \"{short}\""),
+                Some(text),
+            )
         }
         ValKind::ParagraphIndented => {
             let tok = string_token_at(&items, 1)?;
@@ -168,6 +178,7 @@ fn layer_from_val(
                 "doc-paragraph",
                 tok,
                 format!("paragraph-indented \"{short}\""),
+                Some(text),
             )
         }
         ValKind::Columns => {
@@ -180,20 +191,25 @@ fn layer_from_val(
                 "doc-columns",
                 count_tok,
                 format!("columns {count_text} gutter {gutter}"),
+                None,
             )
         }
     };
     let s_range = string_idx.text_range();
     let (root_start, root_end) = val_expr_range(root, name)
         .ok_or_else(|| SyncError::new(format!("val `{name}` span missing")))?;
-    Ok(LayerInfo {
-        kind: kind_label.to_string(),
+    let mut layer = LayerInfo::new(
+        kind_label,
         label,
-        byte_start: usize::from(s_range.start()),
-        byte_end: usize::from(s_range.end()),
+        usize::from(s_range.start()),
+        usize::from(s_range.end()),
         root_start,
         root_end,
-    })
+    );
+    if let Some(text) = text_content {
+        layer = layer.with_text_content(text);
+    }
+    Ok(layer)
 }
 
 fn push_val_layer(

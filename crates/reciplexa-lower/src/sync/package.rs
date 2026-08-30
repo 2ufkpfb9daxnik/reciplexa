@@ -5,7 +5,8 @@
 //! Locate via CST spans; mutate authoring strings (hybrid, same as interim sync).
 
 use reciplexa_syntax::{
-    format_drag_number, replace_token_text, SyntaxKind, SyntaxNode, SyntaxToken,
+    decode_string_literal, format_drag_number, replace_token_text, SyntaxKind, SyntaxNode,
+    SyntaxToken,
 };
 
 use super::layers::{reorder_among_shared_root, rewrite_form_order};
@@ -516,17 +517,30 @@ fn collect_layers_from_package_shape(
         "circle" | "rect" | "ellipse" | "ring" | "frame" | "text" | "line" | "polyline"
         | "polygon" | "image" | "path" => {
             let range = node.text_range();
-            out.push(LayerInfo {
-                kind: kind.to_string(),
-                label: package_layer_label(kind, &items),
-                byte_start: range.start().into(),
-                byte_end: range.end().into(),
-                root_start: root_span.0,
-                root_end: root_span.1,
-            });
+            let mut layer = LayerInfo::new(
+                kind,
+                package_layer_label(kind, &items),
+                range.start().into(),
+                range.end().into(),
+                root_span.0,
+                root_span.1,
+            );
+            if kind == "text" {
+                if let Some(text) = package_first_decoded_string(&items) {
+                    layer = layer.with_text_content(text);
+                }
+            }
+            out.push(layer);
         }
         _ => {}
     }
+}
+
+fn package_first_decoded_string(items: &[Child]) -> Option<String> {
+    items.iter().find_map(|c| match c {
+        Child::Token(t) if t.kind() == SyntaxKind::String => decode_string_literal(t.text()).ok(),
+        _ => None,
+    })
 }
 
 fn package_layer_label(kind: &str, items: &[Child]) -> String {

@@ -28,13 +28,14 @@ use reciplexa_gui_runtime::GuiRuntimeHost;
 use reciplexa_identity::document::{DocumentIdentity, StableNodeId};
 use reciplexa_lower::{
     collect_layer_props, collect_layers_authoring, collect_size_targets_authoring,
-    delete_layer_authoring, delete_page, duplicate_layer_authoring, group_layers_page,
-    insert_layer_authoring, insert_page_after, is_document_page_authoring,
-    is_live_layout_authoring, is_package_shaped_authoring, layer_rotation_deg,
-    nudge_layer_authoring, reorder_layer_authoring, scale_layer_uniform, scale_size_target,
-    set_box_xywh, set_layer_prop, set_layer_rotation_deg, set_layers_fill_rgb, set_layers_opacity,
-    set_layers_stroke_rgb, set_layers_stroke_width, set_line_endpoint, set_poly_vertex,
-    set_text_box, ungroup_layer_page, LayerInfo, PropEditContext, PropGroup, PropValue, SizeTarget,
+    delete_layer_authoring, delete_page, duplicate_layer_authoring, first_shape_for_authoring,
+    group_layers_page, insert_layer_authoring, insert_page_after, is_document_page_authoring,
+    is_live_layout_authoring, is_package_shaped_authoring, is_vertical_demo_authoring,
+    layer_rotation_deg, nudge_layer_authoring, parent_layer_index, reorder_layer_authoring,
+    scale_layer_uniform, scale_size_target, set_box_xywh, set_layer_prop, set_layer_rotation_deg,
+    set_layers_fill_rgb, set_layers_opacity, set_layers_stroke_rgb, set_layers_stroke_width,
+    set_line_endpoint, set_poly_vertex, set_text_box, shape_indices_for_authoring,
+    ungroup_layer_page, LayerInfo, PropEditContext, PropGroup, PropValue, SizeTarget,
 };
 use reciplexa_macro::expand_source;
 use reciplexa_pdf::write_document_with_host_fonts;
@@ -598,9 +599,13 @@ impl PreviewApp {
     }
 
     fn select_layer(&mut self, index: usize, layers: &[LayerInfo]) {
-        self.selected = vec![index];
+        let ai = layers
+            .get(index)
+            .map(|l| l.authoring_index)
+            .unwrap_or(index);
+        self.selected = vec![ai];
         if self.document_path.enabled {
-            self.document_path.select_layer(index);
+            self.document_path.select_layer(ai);
         }
         if let Some(layer) = layers.get(index) {
             self.pending_source_select = Some((layer.byte_start, layer.byte_end));
@@ -608,16 +613,23 @@ impl PreviewApp {
     }
 
     fn toggle_layer_in_selection(&mut self, index: usize, layers: &[LayerInfo]) {
-        if let Some(pos) = self.selected.iter().position(|&i| i == index) {
+        let ai = layers
+            .get(index)
+            .map(|l| l.authoring_index)
+            .unwrap_or(index);
+        if let Some(pos) = self.selected.iter().position(|&i| i == ai) {
             self.selected.remove(pos);
         } else {
-            self.selected.push(index);
+            self.selected.push(ai);
         }
         if self.document_path.enabled {
-            self.document_path.toggle_layer(index);
+            self.document_path.toggle_layer(ai);
         }
         if let Some(&last) = self.selected.last() {
-            if let Some(layer) = layers.get(last) {
+            if let Some(layer) = layers
+                .iter()
+                .find(|l| !l.glyph_child && l.authoring_index == last)
+            {
                 self.pending_source_select = Some((layer.byte_start, layer.byte_end));
             }
         }
@@ -685,8 +697,11 @@ impl PreviewApp {
         }
         let doc = self.compiled().ok()?;
         let (_, shapes) = flatten_page(&doc, self.page_index)?;
+        let expanded = self.expanded_for_sync();
+        let layers = resolve_preview_layers(&expanded, self.page_index, &shapes);
+        let framed = shape_indices_for_authoring(&layers, &self.selected);
         let mut acc: Option<(f64, f64, f64, f64)> = None;
-        for &i in &self.selected {
+        for i in framed {
             let b = shapes.get(i).and_then(PaperLayout::shape_bounds_mm)?;
             acc = Some(match acc {
                 None => b,
@@ -916,9 +931,10 @@ impl PreviewApp {
                 let Some(layer) = layers.get(flat) else {
                     continue;
                 };
-                let selected = self.selected.contains(&flat);
+                let selected = self.selected.contains(&layer.authoring_index);
                 let id = egui::Id::new(("layer_dnd", self.page_index, flat));
-                let text = format!("{}. {}", flat + 1, layer.label);
+                let indent = "  ".repeat(layer.depth);
+                let text = format!("{}. {indent}{}", flat + 1, layer.label);
                 let being_dragged = ui.ctx().is_being_dragged(id);
 
                 let row_resp = ui
@@ -975,6 +991,9 @@ impl PreviewApp {
                 if response.clicked() && !response.dragged() {
                     self.select_layer(flat, layers);
                 }
+                if layer.glyph_child {
+                    continue;
+                }
                 // Drop onto a row → take that stacking slot (rewrites .rpx).
                 if let Some(pointer) = ui.ctx().pointer_interact_pos() {
                     if response.rect.contains(pointer)
@@ -998,7 +1017,14 @@ impl PreviewApp {
                                 flat
                             };
                             if *from != to {
-                                reorder = Some((*from, to));
+                                let from_ai = layers
+                                    .get(*from)
+                                    .map(|l| l.authoring_index)
+                                    .unwrap_or(*from);
+                                let to_ai = layers.get(to).map(|l| l.authoring_index).unwrap_or(to);
+                                if from_ai != to_ai {
+                                    reorder = Some((from_ai, to_ai));
+                                }
                             }
                         }
                     }
@@ -1156,11 +1182,16 @@ impl PreviewApp {
         };
         let size_bindings = resolve_preview_size_targets(&expanded, self.page_index, shapes.len());
         let layers = resolve_preview_layers(&expanded, self.page_index, &shapes);
+        // Mapped GlyphRuns are enough for unit-move. Layout may emit leftover
+        // runs (e.g. pkg_vert section title + block-heading) that do not cover
+        // every flatten index; hit-test still uses parent_layer_index.
         let shape_layer_aligned =
-            layers.len() == shapes.len() && size_bindings.len() == shapes.len();
+            size_bindings.len() == shapes.len() && layers.iter().any(|l| l.shape_index.is_some());
+        let framed = shape_indices_for_authoring(&layers, &self.selected);
         if !shape_layer_aligned
             && !is_live_layout_authoring(&self.source)
             && !is_document_page_authoring(&self.source)
+            && !is_vertical_demo_authoring(&self.source)
         {
             ui.colored_label(
                 egui::Color32::YELLOW,
@@ -1254,7 +1285,7 @@ impl PreviewApp {
             let local = pos - rect.min;
             let (hx, hy) = layout.px_to_mm(local.x, local.y);
             if let Some(hi) = hit_test_shapes(&shapes, hx, hy) {
-                if !self.selected.contains(&hi) {
+                if !framed.contains(&hi) {
                     if let Some(shape) = shapes.get(hi) {
                         if let Some(bounds) = PaperLayout::shape_bounds_mm(shape) {
                             paint_hover_frame(&painter, rect, &layout, bounds);
@@ -1265,7 +1296,7 @@ impl PreviewApp {
         }
 
         for (i, shape) in shapes.iter().enumerate() {
-            if shape_layer_aligned && self.selected.contains(&i) {
+            if shape_layer_aligned && framed.contains(&i) {
                 if let Some(bounds) = PaperLayout::shape_bounds_mm(shape) {
                     paint_selection_frame(&painter, rect, &layout, bounds);
                 }
@@ -1320,118 +1351,125 @@ impl PreviewApp {
                 let hit_body = hit_test_shapes(&shapes, mx, my);
                 let shift = ui.input(|i| i.modifiers.shift);
                 // Handles for primary selection (endpoints / scale / rotate).
-                if let Some(sel) = self.primary_selected() {
-                    if let Some(shape) = shapes.get(sel) {
-                        // Path vertices work even when the stroke itself is hit.
-                        if let WorldShape::Path(p) = shape {
-                            if let Some(vertex) =
-                                hit_line_endpoint(&layout, &p.points_mm, local_pos)
-                            {
-                                match size_bindings.get(sel).copied() {
-                                    Some(SizeTarget::LineSeg(idx)) if p.points_mm.len() == 2 => {
-                                        self.drag = Some(DragState {
-                                            kind: DragKind::LineEndpoint {
-                                                index: idx,
-                                                endpoint: vertex,
-                                                base_src: self.source.clone(),
-                                            },
-                                            undo_pushed: false,
-                                        });
-                                        started = true;
-                                    }
-                                    Some(SizeTarget::PolylinePoints(idx)) => {
-                                        self.drag = Some(DragState {
-                                            kind: DragKind::PolyVertex {
-                                                head: "polyline",
-                                                index: idx,
-                                                vertex,
-                                                base_src: self.source.clone(),
-                                            },
-                                            undo_pushed: false,
-                                        });
-                                        started = true;
-                                    }
-                                    Some(SizeTarget::PolygonPoints(idx)) => {
-                                        self.drag = Some(DragState {
-                                            kind: DragKind::PolyVertex {
-                                                head: "polygon",
-                                                index: idx,
-                                                vertex,
-                                                base_src: self.source.clone(),
-                                            },
-                                            undo_pushed: false,
-                                        });
-                                        started = true;
-                                    }
-                                    _ => {}
-                                }
-                            }
-                        }
-                        if !started && hit_body != Some(sel) {
-                            if let Some(bounds) = PaperLayout::shape_bounds_mm(shape) {
-                                let (x0, y0, x1, y1) = bounds;
-                                let cx = (x0 + x1) * 0.5;
-                                let cy = (y0 + y1) * 0.5;
-                                if hit_rotate_handle(&layout, bounds, local_pos) {
-                                    let start_angle_rad = (my - cy).atan2(mx - cx);
-                                    let base_deg =
-                                        layer_rotation_deg(&self.source, self.page_index, sel)
-                                            .unwrap_or(0.0);
-                                    self.drag = Some(DragState {
-                                        kind: DragKind::Rotate {
-                                            flat_index: sel,
-                                            base_src: self.source.clone(),
-                                            center_mm: (cx, cy),
-                                            start_angle_rad,
-                                            base_deg,
-                                        },
-                                        undo_pushed: false,
-                                    });
-                                    started = true;
-                                } else if let Some(grab) =
-                                    hit_scale_grab(&layout, bounds, local_pos)
+                if let Some(sel_ai) = self.primary_selected() {
+                    if let Some(sel) = first_shape_for_authoring(&layers, sel_ai) {
+                        if let Some(shape) = shapes.get(sel) {
+                            // Path vertices work even when the stroke itself is hit.
+                            if let WorldShape::Path(p) = shape {
+                                if let Some(vertex) =
+                                    hit_line_endpoint(&layout, &p.points_mm, local_pos)
                                 {
-                                    let allow = match grab {
-                                        ScaleGrab::Corner(_) => true,
-                                        ScaleGrab::Edge(_) => {
-                                            size_bindings.get(sel).is_some_and(|t| {
-                                                matches!(
-                                                    t,
-                                                    SizeTarget::TextSize(_)
-                                                        | SizeTarget::RectWh(_)
-                                                        | SizeTarget::FrameWh(_)
-                                                        | SizeTarget::ImageWh(_)
-                                                        | SizeTarget::EllipseRxRy(_)
-                                                )
-                                            })
-                                        }
-                                    };
-                                    if allow {
-                                        let start_dist = ((mx - cx).hypot(my - cy)).max(1e-6);
-                                        if let Some(size) = size_bindings.get(sel).copied() {
-                                            let box_drag = match size {
-                                                SizeTarget::TextSize(_)
-                                                | SizeTarget::RectWh(_)
-                                                | SizeTarget::FrameWh(_)
-                                                | SizeTarget::ImageWh(_)
-                                                | SizeTarget::EllipseRxRy(_) => Some(BoxDrag {
-                                                    grab,
-                                                    start_bounds: bounds,
-                                                }),
-                                                _ => None,
-                                            };
+                                    match size_bindings.get(sel).copied() {
+                                        Some(SizeTarget::LineSeg(idx))
+                                            if p.points_mm.len() == 2 =>
+                                        {
                                             self.drag = Some(DragState {
-                                                kind: DragKind::Scale {
-                                                    size,
-                                                    flat_index: sel,
+                                                kind: DragKind::LineEndpoint {
+                                                    index: idx,
+                                                    endpoint: vertex,
                                                     base_src: self.source.clone(),
-                                                    center_mm: (cx, cy),
-                                                    start_dist,
-                                                    text_box: box_drag,
                                                 },
                                                 undo_pushed: false,
                                             });
                                             started = true;
+                                        }
+                                        Some(SizeTarget::PolylinePoints(idx)) => {
+                                            self.drag = Some(DragState {
+                                                kind: DragKind::PolyVertex {
+                                                    head: "polyline",
+                                                    index: idx,
+                                                    vertex,
+                                                    base_src: self.source.clone(),
+                                                },
+                                                undo_pushed: false,
+                                            });
+                                            started = true;
+                                        }
+                                        Some(SizeTarget::PolygonPoints(idx)) => {
+                                            self.drag = Some(DragState {
+                                                kind: DragKind::PolyVertex {
+                                                    head: "polygon",
+                                                    index: idx,
+                                                    vertex,
+                                                    base_src: self.source.clone(),
+                                                },
+                                                undo_pushed: false,
+                                            });
+                                            started = true;
+                                        }
+                                        _ => {}
+                                    }
+                                }
+                            }
+                            if !started && hit_body != Some(sel) {
+                                if let Some(bounds) = PaperLayout::shape_bounds_mm(shape) {
+                                    let (x0, y0, x1, y1) = bounds;
+                                    let cx = (x0 + x1) * 0.5;
+                                    let cy = (y0 + y1) * 0.5;
+                                    if hit_rotate_handle(&layout, bounds, local_pos) {
+                                        let start_angle_rad = (my - cy).atan2(mx - cx);
+                                        let base_deg = layer_rotation_deg(
+                                            &self.source,
+                                            self.page_index,
+                                            sel_ai,
+                                        )
+                                        .unwrap_or(0.0);
+                                        self.drag = Some(DragState {
+                                            kind: DragKind::Rotate {
+                                                flat_index: sel_ai,
+                                                base_src: self.source.clone(),
+                                                center_mm: (cx, cy),
+                                                start_angle_rad,
+                                                base_deg,
+                                            },
+                                            undo_pushed: false,
+                                        });
+                                        started = true;
+                                    } else if let Some(grab) =
+                                        hit_scale_grab(&layout, bounds, local_pos)
+                                    {
+                                        let allow = match grab {
+                                            ScaleGrab::Corner(_) => true,
+                                            ScaleGrab::Edge(_) => {
+                                                size_bindings.get(sel).is_some_and(|t| {
+                                                    matches!(
+                                                        t,
+                                                        SizeTarget::TextSize(_)
+                                                            | SizeTarget::RectWh(_)
+                                                            | SizeTarget::FrameWh(_)
+                                                            | SizeTarget::ImageWh(_)
+                                                            | SizeTarget::EllipseRxRy(_)
+                                                    )
+                                                })
+                                            }
+                                        };
+                                        if allow {
+                                            let start_dist = ((mx - cx).hypot(my - cy)).max(1e-6);
+                                            if let Some(size) = size_bindings.get(sel).copied() {
+                                                let box_drag = match size {
+                                                    SizeTarget::TextSize(_)
+                                                    | SizeTarget::RectWh(_)
+                                                    | SizeTarget::FrameWh(_)
+                                                    | SizeTarget::ImageWh(_)
+                                                    | SizeTarget::EllipseRxRy(_) => Some(BoxDrag {
+                                                        grab,
+                                                        start_bounds: bounds,
+                                                    }),
+                                                    _ => None,
+                                                };
+                                                self.drag = Some(DragState {
+                                                    kind: DragKind::Scale {
+                                                        size,
+                                                        flat_index: sel_ai,
+                                                        base_src: self.source.clone(),
+                                                        center_mm: (cx, cy),
+                                                        start_dist,
+                                                        text_box: box_drag,
+                                                    },
+                                                    undo_pushed: false,
+                                                });
+                                                started = true;
+                                            }
                                         }
                                     }
                                 }
@@ -1441,23 +1479,22 @@ impl PreviewApp {
                 }
                 if !started {
                     if let Some(i) = hit_body {
-                        if shift {
-                            self.toggle_layer_in_selection(i, &layers);
-                        } else if !self.selected.contains(&i) {
-                            self.select_layer(i, &layers);
+                        if let Some(p) = parent_layer_index(&layers, i) {
+                            let ai = layers[p].authoring_index;
+                            if shift {
+                                self.toggle_layer_in_selection(p, &layers);
+                            } else if !self.selected.contains(&ai) {
+                                self.select_layer(p, &layers);
+                            }
+                            let flat_indices = self.selected.clone();
+                            self.drag = Some(DragState {
+                                kind: DragKind::Move {
+                                    last_mm: (mx, my),
+                                    flat_indices,
+                                },
+                                undo_pushed: false,
+                            });
                         }
-                        let flat_indices = if self.selected.contains(&i) {
-                            self.selected.clone()
-                        } else {
-                            vec![i]
-                        };
-                        self.drag = Some(DragState {
-                            kind: DragKind::Move {
-                                last_mm: (mx, my),
-                                flat_indices,
-                            },
-                            undo_pushed: false,
-                        });
                     } else if !shift {
                         // Empty drag → marquee range select.
                         self.clear_selection();
@@ -1840,12 +1877,24 @@ impl PreviewApp {
                     let h = aabb.3 - aabb.1;
                     if (w > 0.5 || h > 0.5) && shape_layer_aligned {
                         let hits = shapes_intersecting_aabb(&shapes, aabb);
-                        if self.document_path.enabled {
-                            self.document_path.select_layers(&hits);
+                        let mut sel = Vec::new();
+                        for hi in hits {
+                            if let Some(p) = parent_layer_index(&layers, hi) {
+                                let ai = layers[p].authoring_index;
+                                if !sel.contains(&ai) {
+                                    sel.push(ai);
+                                }
+                            }
                         }
-                        self.selected = hits;
+                        if self.document_path.enabled {
+                            self.document_path.select_layers(&sel);
+                        }
+                        self.selected = sel;
                         if let Some(&last) = self.selected.last() {
-                            if let Some(layer) = layers.get(last) {
+                            if let Some(layer) = layers
+                                .iter()
+                                .find(|l| !l.glyph_child && l.authoring_index == last)
+                            {
                                 self.pending_source_select =
                                     Some((layer.byte_start, layer.byte_end));
                             }
@@ -1858,8 +1907,16 @@ impl PreviewApp {
                 let shift = ui.input(|i| i.modifiers.shift);
                 if shape_layer_aligned {
                     match hit_test_shapes(&shapes, mx, my) {
-                        Some(i) if shift => self.toggle_layer_in_selection(i, &layers),
-                        Some(i) => self.select_layer(i, &layers),
+                        Some(i) if shift => {
+                            if let Some(p) = parent_layer_index(&layers, i) {
+                                self.toggle_layer_in_selection(p, &layers);
+                            }
+                        }
+                        Some(i) => {
+                            if let Some(p) = parent_layer_index(&layers, i) {
+                                self.select_layer(p, &layers);
+                            }
+                        }
                         None if !shift => self.clear_selection(),
                         None => {}
                     }
@@ -3349,7 +3406,14 @@ impl eframe::App for PreviewApp {
             if let Ok(doc) = self.compiled() {
                 if let Some((_, shapes)) = flatten_page(&doc, self.page_index) {
                     let layers = resolve_preview_layers(&expanded, self.page_index, &shapes);
-                    self.selected = (0..layers.len()).collect();
+                    let mut sel: Vec<usize> = layers
+                        .iter()
+                        .filter(|l| !l.glyph_child)
+                        .map(|l| l.authoring_index)
+                        .collect();
+                    sel.sort_unstable();
+                    sel.dedup();
+                    self.selected = sel;
                 }
             }
         }

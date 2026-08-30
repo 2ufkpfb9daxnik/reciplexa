@@ -10,10 +10,12 @@
 
 use reciplexa::wants_package_graphics_path;
 use reciplexa_lower::{
-    collect_layers_document, collect_layers_live_layout, collect_layers_package,
-    collect_layers_page, collect_size_targets_package, collect_size_targets_page,
-    is_document_page_authoring, is_live_layout_authoring, is_package_shaped_authoring,
-    nudge_layer_package, nudge_layer_page, LayerInfo, SizeTarget, SyncError,
+    attach_glyph_children, collect_layers_document, collect_layers_live_layout,
+    collect_layers_package, collect_layers_page, collect_layers_vertical_demo,
+    collect_size_targets_package, collect_size_targets_page, is_document_page_authoring,
+    is_live_layout_authoring, is_package_shaped_authoring, is_vertical_demo_authoring,
+    layers_cover_shapes, nudge_layer_package, nudge_layer_page, nudge_vertical_demo_layer,
+    LayerInfo, SizeTarget, SyncError,
 };
 use reciplexa_view::WorldShape;
 
@@ -48,14 +50,10 @@ pub fn layers_from_world_shapes(shapes: &[WorldShape]) -> Vec<LayerInfo> {
                 }
                 _ => format!("{kind} (read-only #{})", i + 1),
             };
-            LayerInfo {
-                kind,
-                label,
-                byte_start: 0,
-                byte_end: 0,
-                root_start: 0,
-                root_end: 0,
-            }
+            let mut layer = LayerInfo::new(kind, label, 0, 0, 0, 0);
+            layer.authoring_index = i;
+            layer.shape_index = Some(i);
+            layer
         })
         .collect()
 }
@@ -75,6 +73,19 @@ pub fn readonly_size_targets(n: usize) -> Vec<SizeTarget> {
     vec![SizeTarget::Unsupported; n]
 }
 
+fn attach_or_world(
+    layers: Vec<LayerInfo>,
+    shapes: &[WorldShape],
+    keep_uncovered: bool,
+) -> Vec<LayerInfo> {
+    let tree = attach_glyph_children(layers, shapes);
+    if keep_uncovered || layers_cover_shapes(&tree, shapes.len()) {
+        tree
+    } else {
+        layers_from_world_shapes(shapes)
+    }
+}
+
 /// Prefer CST layers; package authoring uses package collectors; else scene rows.
 pub fn resolve_preview_layers(
     expanded: &str,
@@ -82,22 +93,29 @@ pub fn resolve_preview_layers(
     shapes: &[WorldShape],
 ) -> Vec<LayerInfo> {
     if is_live_layout_authoring(expanded) {
-        return collect_layers_live_layout(expanded, page_index)
+        let layers = collect_layers_live_layout(expanded, page_index)
             .unwrap_or_else(|_| layers_from_world_shapes(shapes));
+        return attach_or_world(layers, shapes, true);
+    }
+    if is_vertical_demo_authoring(expanded) {
+        let layers = collect_layers_vertical_demo(expanded, page_index)
+            .unwrap_or_else(|_| layers_from_world_shapes(shapes));
+        return attach_or_world(layers, shapes, true);
     }
     if is_document_page_authoring(expanded) {
-        return collect_layers_document(expanded, page_index)
+        let layers = collect_layers_document(expanded, page_index)
             .unwrap_or_else(|_| layers_from_world_shapes(shapes));
+        return attach_or_world(layers, shapes, true);
     }
     if is_package_shaped_authoring(expanded) {
-        match collect_layers_package(expanded, page_index) {
-            Ok(layers) if layers.len() == shapes.len() => return layers,
-            Ok(_) | Err(_) => return layers_from_world_shapes(shapes),
-        }
+        return match collect_layers_package(expanded, page_index) {
+            Ok(layers) => attach_or_world(layers, shapes, false),
+            Err(_) => layers_from_world_shapes(shapes),
+        };
     }
     match collect_layers_page(expanded, page_index) {
-        Ok(layers) if layers.len() == shapes.len() => layers,
-        Ok(_) | Err(_) => layers_from_world_shapes(shapes),
+        Ok(layers) => attach_or_world(layers, shapes, false),
+        Err(_) => layers_from_world_shapes(shapes),
     }
 }
 
@@ -135,6 +153,15 @@ pub fn authoring_layers_align(
         let auth = collect_layers_live_layout(authoring, page_index)?;
         let exp = if is_live_layout_authoring(expanded) {
             collect_layers_live_layout(expanded, page_index)?
+        } else {
+            return Ok(false);
+        };
+        return Ok(layer_kinds_match(&auth, &exp));
+    }
+    if is_vertical_demo_authoring(authoring) {
+        let auth = collect_layers_vertical_demo(authoring, page_index)?;
+        let exp = if is_vertical_demo_authoring(expanded) {
+            collect_layers_vertical_demo(expanded, page_index)?
         } else {
             return Ok(false);
         };
@@ -194,6 +221,33 @@ pub fn nudge_authoring_layers(
         return Err(SyncRefuse::new(
             "canvas move skipped: math tree structure is edited via the layer properties panel, not glyph positions",
         ));
+    }
+    if is_vertical_demo_authoring(authoring) {
+        match authoring_layers_align(authoring, expanded, page_index) {
+            Ok(true) => {}
+            Ok(false) => {
+                return Err(SyncRefuse::new(
+                    "canvas move skipped: vertical-demo authoring layers do not align with expanded",
+                ));
+            }
+            Err(e) => return Err(SyncRefuse::new(e.message)),
+        }
+        let mut src = authoring.to_string();
+        let mut indices = flat_indices.to_vec();
+        indices.sort_unstable();
+        indices.dedup();
+        for &idx in &indices {
+            match nudge_vertical_demo_layer(&src, page_index, idx, dx, dy) {
+                Ok(next) => src = next,
+                Err(e) => {
+                    return Err(SyncRefuse::new(format!(
+                        "canvas move skipped: {} (authoring source unchanged)",
+                        e.message
+                    )));
+                }
+            }
+        }
+        return Ok(src);
     }
     if is_document_page_authoring(authoring) {
         return Err(SyncRefuse::new(
@@ -488,5 +542,91 @@ mod tests {
             "{}",
             err.message
         );
+        assert!(layers
+            .iter()
+            .any(|l| l.kind.starts_with("math-") && l.depth > 0));
+    }
+
+    #[test]
+    fn text_line_preview_nests_glyph_under_text_parent() {
+        use reciplexa::pipeline::document_from_source;
+        use reciplexa_view::flatten_page;
+
+        let src = include_str!("../../../examples/text_line.rpx");
+        let doc = document_from_source(src).expect("text_line ingest");
+        let (_, shapes) = flatten_page(&doc, 0).expect("page");
+        let layers = resolve_preview_layers(src, 0, &shapes);
+        let text = layers
+            .iter()
+            .find(|l| l.kind == "text" && !l.glyph_child)
+            .expect("text parent");
+        assert!(layers
+            .iter()
+            .any(|l| l.glyph_child && l.authoring_index == text.authoring_index));
+        assert!(
+            reciplexa_lower::layers_cover_shapes(&layers, shapes.len()),
+            "text_line preview must map every scene shape"
+        );
+        let out = nudge_authoring_layers(src, src, 0, &[text.authoring_index], 5.0, -3.0).unwrap();
+        assert!(
+            out.contains("(text 35 257 8") || out.contains("(text 35 257.0 8"),
+            "{out}"
+        );
+        assert!(out.contains("\"Reciplexa\""));
+        assert!(layers.iter().any(|l| l.kind == "circle" && !l.glyph_child));
+    }
+
+    #[test]
+    fn vertical_demo_preview_groups_per_glyph_under_samples() {
+        use reciplexa::pipeline::document_from_source;
+        use reciplexa_lower::parent_layer_index;
+        use reciplexa_view::flatten_page;
+
+        let src = include_str!("../../../examples/pkg_vert.rpx");
+        let doc = document_from_source(src).expect("pkg_vert ingest");
+        let (_, shapes) = flatten_page(&doc, 0).expect("page");
+        let layers = resolve_preview_layers(src, 0, &shapes);
+        assert!(layers.iter().any(|l| l.kind == "vert-sample"));
+        let sample = layers
+            .iter()
+            .find(|l| l.kind == "vert-sample" && l.text_content.as_deref() == Some("縦書き"))
+            .expect("縦書き parent");
+        let kids: Vec<_> = layers
+            .iter()
+            .filter(|l| l.glyph_child && l.authoring_index == sample.authoring_index)
+            .collect();
+        assert_eq!(kids.len(), 3, "縦書き should have 3 glyph children");
+        let heading = layers
+            .iter()
+            .find(|l| l.kind == "doc-heading")
+            .expect("heading parent");
+        assert!(
+            layers
+                .iter()
+                .any(|l| l.glyph_child && l.authoring_index == heading.authoring_index),
+            "heading should nest per-letter GlyphRuns"
+        );
+        let ruby = layers
+            .iter()
+            .find(|l| l.kind == "vert-ruby")
+            .expect("ruby parent");
+        assert!(
+            layers
+                .iter()
+                .filter(|l| l.glyph_child && l.authoring_index == ruby.authoring_index)
+                .count()
+                >= 2,
+            "ruby annotation+base should be children"
+        );
+        assert!(layers.iter().any(|l| l.shape_index.is_some()));
+        if let Some(si) = kids[0].shape_index {
+            assert_eq!(
+                parent_layer_index(&layers, si)
+                    .and_then(|p| layers.get(p).map(|l| l.kind.as_str())),
+                Some("vert-sample")
+            );
+        }
+        let out = nudge_authoring_layers(src, src, 0, &[sample.authoring_index], 2.0, 0.0).unwrap();
+        assert!(out.contains("(nudge (list"), "{out}");
     }
 }

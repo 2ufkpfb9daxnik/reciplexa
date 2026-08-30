@@ -13,6 +13,8 @@ mod layers;
 pub(crate) mod math;
 mod package;
 mod pages;
+pub(crate) mod tree;
+mod vertical;
 
 pub use document::{
     collect_layers_document, document_columns_params, document_layer_indent_em,
@@ -43,6 +45,14 @@ pub use package::{
     set_text_content_package,
 };
 pub use pages::{count_pages, delete_page, find_page, insert_page_after, page_body_start};
+pub use tree::{
+    attach_glyph_children, authoring_indices_for_selection, first_shape_for_authoring,
+    layers_cover_shapes, parent_layer_index, preview_index_for_authoring,
+    shape_indices_for_authoring, shape_indices_for_selection,
+};
+pub use vertical::{
+    collect_layers_vertical_demo, is_vertical_demo_authoring, nudge_vertical_demo_layer,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SyncError {
@@ -125,6 +135,51 @@ pub struct LayerInfo {
     /// Direct child of `(page …)` that owns this leaf (equals byte_* if top-level).
     pub root_start: usize,
     pub root_end: usize,
+    /// Nesting depth (0 = top-level authoring node).
+    pub depth: usize,
+    /// Index into the authoring-only (non-glyph-child) list for CST edits.
+    pub authoring_index: usize,
+    /// GlyphRun child of an authoring text node (not independently stacked).
+    pub glyph_child: bool,
+    /// Flattened scene shape this row frames; parents of many glyphs are `None`.
+    pub shape_index: Option<usize>,
+    /// Full authoring string used to group consecutive GlyphRuns.
+    pub text_content: Option<String>,
+}
+
+impl LayerInfo {
+    pub fn new(
+        kind: impl Into<String>,
+        label: impl Into<String>,
+        byte_start: usize,
+        byte_end: usize,
+        root_start: usize,
+        root_end: usize,
+    ) -> Self {
+        Self {
+            kind: kind.into(),
+            label: label.into(),
+            byte_start,
+            byte_end,
+            root_start,
+            root_end,
+            depth: 0,
+            authoring_index: 0,
+            glyph_child: false,
+            shape_index: None,
+            text_content: None,
+        }
+    }
+
+    pub fn with_text_content(mut self, text: impl Into<String>) -> Self {
+        self.text_content = Some(text.into());
+        self
+    }
+
+    pub fn with_depth(mut self, depth: usize) -> Self {
+        self.depth = depth;
+        self
+    }
 }
 
 pub fn is_headed(node: &SyntaxNode, name: &str) -> bool {
@@ -160,6 +215,8 @@ pub fn parse_root(src: &str) -> Result<SyntaxNode, SyncError> {
 pub fn collect_layers_authoring(src: &str, page_index: usize) -> Result<Vec<LayerInfo>, SyncError> {
     if is_live_layout_authoring(src) {
         collect_layers_live_layout(src, page_index)
+    } else if is_vertical_demo_authoring(src) {
+        collect_layers_vertical_demo(src, page_index)
     } else if is_document_page_authoring(src) {
         collect_layers_document(src, page_index)
     } else if is_package_shaped_authoring(src) {
@@ -189,6 +246,9 @@ pub fn insert_layer_authoring(
     if is_live_layout_authoring(src) {
         return Err(math::live_layout_stack_refuse());
     }
+    if is_vertical_demo_authoring(src) {
+        return Err(vertical::vertical_demo_stack_refuse());
+    }
     if is_package_shaped_authoring(src) {
         insert_layer_package(src, page_index, form)
     } else {
@@ -203,6 +263,9 @@ pub fn delete_layer_authoring(
 ) -> Result<String, SyncError> {
     if is_live_layout_authoring(src) {
         return Err(math::live_layout_stack_refuse());
+    }
+    if is_vertical_demo_authoring(src) {
+        return Err(vertical::vertical_demo_stack_refuse());
     }
     if is_package_shaped_authoring(src) {
         delete_layer_package(src, page_index, flat_index)
@@ -219,6 +282,9 @@ pub fn reorder_layer_authoring(
 ) -> Result<String, SyncError> {
     if is_live_layout_authoring(src) {
         return Err(math::live_layout_stack_refuse());
+    }
+    if is_vertical_demo_authoring(src) {
+        return Err(vertical::vertical_demo_stack_refuse());
     }
     if is_package_shaped_authoring(src) {
         reorder_layer_package(src, page_index, from, to)
@@ -238,6 +304,9 @@ pub fn nudge_layer_authoring(
         return Err(SyncError::new(
             "live-layout math tree is edited via the layer properties panel, not glyph positions",
         ));
+    }
+    if is_vertical_demo_authoring(src) {
+        return nudge_vertical_demo_layer(src, page_index, flat_index, dx, dy);
     }
     if is_package_shaped_authoring(src) {
         nudge_layer_package(src, page_index, flat_index, dx, dy)
@@ -291,6 +360,9 @@ pub fn duplicate_layer_authoring(
     }
     if is_live_layout_authoring(src) {
         return Err(math::live_layout_stack_refuse());
+    }
+    if is_vertical_demo_authoring(src) {
+        return Err(vertical::vertical_demo_stack_refuse());
     }
     if is_package_shaped_authoring(src) {
         duplicate_layer_package(src, page_index, flat_index)
