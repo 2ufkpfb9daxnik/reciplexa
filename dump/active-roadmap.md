@@ -278,7 +278,7 @@ preview/exportされ、実装規則と適合fixtureが対応する。✓
 
 ## Step 13 — Math Profile v2とGUI編集
 
-**Status:** active — [`step13-math-profile-plan.md`](step13-math-profile-plan.md) pending macro-Step audit
+**Status:** complete（gate §2.4.12; [`step13-math-profile-plan.md`](step13-math-profile-plan.md)；macro `8a1b1ce0` / `6fa6f9f`）
 
 - full glyph assembly、MATH kern、font metrics
 - alignment / equation numberの実用subset
@@ -297,11 +297,11 @@ preview/exportされ、実装規則と適合fixtureが対応する。✓
 **Slice 6:** complete — 組み合わせ `examples/pkg_math_profile_v2.rpx` + `step13_gates` + §2.4.12（code `f615af5`）。人間 GUI 2026-08-31。監査 `5b12dfc` / `d59435cf`。
 
 **Complete when:** 数式構造をGUIで変更しSourceへ戻せ、unsupported assemblyやASCII代用を
-silent fallbackせず、文書内inline/display mathを安定して出力できる。
+silent fallbackせず、文書内inline/display mathを安定して出力できる。✓
 
 ## Step 14 — 複数ページ出版レイアウト
 
-**Status:** blocked — Steps 12–13待ち
+**Status:** active — [`step14-multipage-plan.md`](step14-multipage-plan.md) slice 1
 
 - page break、版面、heading / list / note、figure / table
 - **階層レイヤー / テキストボックス一括移動**（authoring 1 ノードを親行にし、縦組の per-glyph `GlyphRun` を子にする。Step 21 から前倒し。Step 12 非ゴール）
@@ -310,6 +310,8 @@ silent fallbackせず、文書内inline/display mathを安定して出力でき�
 
 **Complete when:** 日本語・数式・図表を含む記事 / 小冊子をGUI編集、save/load、
 preview/exportでき、部分relayoutがfull rebuildと一致する。
+
+**Slice 1 (next):** 階層レイヤー / テキストボックス一括移動（authoring ノードが親、`GlyphRun` が子。縦組の per-glyph 葉を平坦リストにしない）。
 
 ## Step 15 — Export / print / accessibility parity
 

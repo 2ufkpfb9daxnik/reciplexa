@@ -34,6 +34,7 @@ C: は逼迫している。Reciplexa の作業木は **D:\reciplexa**。開発�
 - `product-typesetting-plan.md`: Step 7 item 3（font-backed JLReq / OpenType MATH）の実装順と完了条件
 - `jlreq-followup-plan.md`: Step 8（font-backed simple ruby ほか JLReq follow-up）
 - `step13-math-profile-plan.md`: Step 13（Math Profile v2 / glyph assembly / GUI 木編集）
+- `step14-multipage-plan.md`: Step 14（複数ページ出版レイアウト / 階層レイヤー）
 
 coverage、deferred、meta、gap/partialの各ファイルは測定・監査用です。通常の実装判断では先に読む必要はありません。
 
@@ -44,9 +45,9 @@ coverage、deferred、meta、gap/partialの各ファイルは測定・監査用�
 - portable fallback / ABI negotiation は `OPEN-NATIVE-PKG-001` として OPEN のまま追跡する。
 - 最初に閉じる製品体験は、package形式の図形と文字の1ページをGUIで編集し、保存、再読込、PDF/SVG出力まで往復できるVertical Sliceである。
 - markup、`document/page`のdoc-*作者編集はこのSliceの対象外とし、read-onlyまたは明示的soft-refuseにする。
-- Step 7 item 3 の JLReq / MATH Profile v1 は landed（stub 参照経路は残す）。Step 8 の JLReq follow-up（simple ruby、`vert` 縦組、縦中横 / 傍点）は landed。Step 11 の text shaping / font resource v2 は landed（gate §2.4.6）。
-- 次は Step 13「Math Profile v2とGUI編集」。Step 17を実用製品完成、Step 24を仕様完全実装とする。詳細は[`roadmap.md`](roadmap.md) §0.1–0.5。
-- 完全 appendix C、jukugo、完全 MATH assembly、first-class editable math等は、OPEN一覧からStep 11–13へ依存順に割り当てた。前倒しで暗黙実装しない。
+- Step 7 item 3 の JLReq / MATH Profile v1 は landed（stub 参照経路は残す）。Step 8 の JLReq follow-up（simple ruby、`vert` 縦組、縦中横 / 傍点）は landed。Step 11 の text shaping / font resource v2 は landed（gate §2.4.6）。Step 12 Japanese Profile v2 と Step 13 Math Profile v2 は landed（gate §2.4.11 / §2.4.12）。
+- 次は Step 14「複数ページ出版レイアウト」。Step 17を実用製品完成、Step 24を仕様完全実装とする。詳細は[`roadmap.md`](roadmap.md) §0.1–0.5。
+- 完全 appendix C、任意 MATH assembly レシピ、階層レイヤー等の残り OPEN は Step 14–24 へ依存順に割り当てた。前倒しで暗黙実装しない。
 
 ## 人間が確認すること
 

@@ -1,6 +1,6 @@
 # Step 13 — Math Profile v2 と GUI 編集
 
-**Status:** active — slice 6 complete (`5b12dfc` / `d59435cf`); pending macro-Step audit  
+**Status:** complete — all slices landed; gate §2.4.12; macro audit `8a1b1ce0` at `6fa6f9f`  
 **Depends on:** Step 12 complete (`7b7a45e` code; gate `b56aa6a`; docs `7c93262`; macro `3058e2a1`)  
 **Normative:** `roadmap.md` Step 13, `implemented-features.md` OpenType MATH 残差、Math Profile v1 上の拡張
 
@@ -84,6 +84,8 @@
 | 6 | `5b12dfc` | `d59435cf` | complete | combined `pkg_math_profile_v2.rpx`（code `f3c324f` + GUI `af61b44` / `f615af5`）。Human GUI 2026-08-31。 |
 
 各 slice 完了後、実装担当と別セッションの独立 subagent 1体が当該 slice のみを捜査する。`complete` の HEAD だけ次 slice へ進む。
+
+Macro-Step 監査: **complete**（`6fa6f9f` / `8a1b1ce0`）。
 
 ## Complete when
 
