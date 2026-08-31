@@ -355,6 +355,19 @@ pub fn nudge_vertical_demo_layer(
         out.push_str(&src[e..]);
         return Ok(out);
     }
+    // Sit next to `samples` so Source highlight is near the column the author moved.
+    let insert_at = record_field_node(&main, "samples")
+        .or_else(|| record_field_node(&main, "vertical-ruby"))
+        .or_else(|| record_field_node(&main, "placed"))
+        .map(|f| usize::from(f.text_range().end()));
+    if let Some(at) = insert_at {
+        let mut out = String::with_capacity(src.len() + form.len() + 8);
+        out.push_str(&src[..at]);
+        out.push_str("\n    ");
+        out.push_str(&form);
+        out.push_str(&src[at..]);
+        return Ok(out);
+    }
     let end = usize::from(main.text_range().end());
     if end == 0 || !src[..end].ends_with(')') {
         return Err(SyncError::new("vertical-demo record missing closer"));
@@ -366,6 +379,15 @@ pub fn nudge_vertical_demo_layer(
     out.push(')');
     out.push_str(&src[end..]);
     Ok(out)
+}
+
+/// Byte range of the `(nudge …)` record field, if present.
+pub fn vertical_demo_nudge_span(src: &str) -> Option<(usize, usize)> {
+    let root = parse_root(src).ok()?;
+    let main = find_main_expr(&root).ok()?;
+    let field = record_field_node(&main, "nudge")?;
+    let r = field.text_range();
+    Some((usize::from(r.start()), usize::from(r.end())))
 }
 
 #[cfg(test)]
@@ -400,6 +422,13 @@ mod tests {
             .unwrap();
         let out = nudge_vertical_demo_layer(PKG_VERT, 0, idx, 2.0, -1.0).unwrap();
         assert!(out.contains("(nudge (list"), "{out}");
+        let samples_at = out.find("(samples samples)").expect("samples field");
+        let nudge_at = out.find("(nudge (list").expect("nudge field");
+        assert!(
+            nudge_at > samples_at && nudge_at < out.find("(page").unwrap_or(out.len()),
+            "nudge should sit next to samples, got {out}"
+        );
+        assert!(vertical_demo_nudge_span(&out).is_some());
         assert!(out.contains("縦書き"));
         let out2 = nudge_vertical_demo_layer(&out, 0, idx, 1.0, 0.0).unwrap();
         assert_eq!(out2.matches("(nudge ").count(), 1);

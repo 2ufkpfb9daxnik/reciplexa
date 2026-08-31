@@ -15,13 +15,13 @@ use crate::sync::document::{
 };
 use crate::sync::{
     collect_layers_document, collect_layers_from_root, collect_layers_live_layout,
-    collect_layers_package, collect_size_targets_from_root, document_columns_params,
-    document_layer_indent_em, document_layer_text, is_document_page_authoring,
-    is_live_layout_authoring, is_package_shaped_authoring, layer_opacity, layer_rotation_deg,
-    math_layer_glyph, nudge_layer_authoring, parse_root, scale_size_target_axes,
-    set_document_columns_count, set_document_columns_gutter, set_document_layer_indent_em,
-    set_document_layer_text, set_layer_opacity, set_layer_rotation_deg, set_math_layer_glyph,
-    SyncError,
+    collect_layers_package, collect_layers_vertical_demo, collect_size_targets_from_root,
+    document_columns_params, document_layer_indent_em, document_layer_text,
+    is_document_page_authoring, is_live_layout_authoring, is_package_shaped_authoring,
+    is_vertical_demo_authoring, layer_opacity, layer_rotation_deg, math_layer_glyph,
+    nudge_layer_authoring, parse_root, scale_size_target_axes, set_document_columns_count,
+    set_document_columns_gutter, set_document_layer_indent_em, set_document_layer_text,
+    set_layer_opacity, set_layer_rotation_deg, set_math_layer_glyph, SyncError,
 };
 
 /// UI grouping for the properties panel.
@@ -219,6 +219,107 @@ fn set_live_layout_layer_prop(
     }
 }
 
+fn collect_vertical_demo_layer_props(
+    src: &str,
+    page_index: usize,
+    flat_index: usize,
+    ctx: &PropEditContext,
+) -> Result<Vec<PropField>, SyncError> {
+    let layers = collect_layers_vertical_demo(src, page_index)?;
+    let layer = layers
+        .get(flat_index)
+        .ok_or_else(|| SyncError::new("layer index out of range"))?;
+    match layer.kind.as_str() {
+        "vert-sample" | "vert-ruby" => {
+            let (x0, y0, _, _) = ctx.aabb_mm;
+            let pw = ctx.paper_w_mm.max(1.0);
+            let ph = ctx.paper_h_mm.max(1.0);
+            Ok(vec![
+                num(
+                    "layout.x",
+                    "x",
+                    PropGroup::Layout,
+                    x0,
+                    Some((-pw, pw * 2.0)),
+                ),
+                num(
+                    "layout.y",
+                    "y",
+                    PropGroup::Layout,
+                    y0,
+                    Some((-ph, ph * 2.0)),
+                ),
+            ])
+        }
+        "doc-heading" | "doc-paragraph" => {
+            let text = document_layer_text_for(src, layer)?;
+            let mut out = vec![PropField {
+                id: "content.text".into(),
+                label: "text".into(),
+                group: PropGroup::Content,
+                value: PropValue::Text(text),
+                slider: None,
+            }];
+            if let Some(indent) = document_layer_indent_em_for(src, layer)? {
+                out.push(num(
+                    "layout.indent-em",
+                    "indent-em",
+                    PropGroup::Layout,
+                    indent,
+                    Some((0.0, 8.0)),
+                ));
+            }
+            Ok(out)
+        }
+        other => Err(SyncError::new(format!(
+            "unsupported vertical-demo layer `{other}`"
+        ))),
+    }
+}
+
+fn set_vertical_demo_layer_prop(
+    src: &str,
+    page_index: usize,
+    flat_index: usize,
+    id: &str,
+    value: &PropValue,
+    ctx: &PropEditContext,
+) -> Result<String, SyncError> {
+    let layers = collect_layers_vertical_demo(src, page_index)?;
+    let layer = layers
+        .get(flat_index)
+        .ok_or_else(|| SyncError::new("layer index out of range"))?;
+    match (layer.kind.as_str(), id) {
+        ("vert-sample" | "vert-ruby", "layout.x") => {
+            let PropValue::Number(nx) = value else {
+                return Err(SyncError::new("layout.x expects a number"));
+            };
+            nudge_layer_authoring(src, page_index, flat_index, nx - ctx.aabb_mm.0, 0.0)
+        }
+        ("vert-sample" | "vert-ruby", "layout.y") => {
+            let PropValue::Number(ny) = value else {
+                return Err(SyncError::new("layout.y expects a number"));
+            };
+            nudge_layer_authoring(src, page_index, flat_index, 0.0, ny - ctx.aabb_mm.1)
+        }
+        ("doc-heading" | "doc-paragraph", "content.text") => {
+            let PropValue::Text(t) = value else {
+                return Err(SyncError::new("content.text expects text"));
+            };
+            set_document_layer_text_for(src, layer, t)
+        }
+        ("doc-heading" | "doc-paragraph", "layout.indent-em") => {
+            let PropValue::Number(n) = value else {
+                return Err(SyncError::new("layout.indent-em expects a number"));
+            };
+            set_document_layer_indent_em_for(src, layer, *n)
+        }
+        (kind, other) => Err(SyncError::new(format!(
+            "vertical-demo layer `{kind}` property `{other}` is not editable"
+        ))),
+    }
+}
+
 fn collect_document_layer_props(
     src: &str,
     page_index: usize,
@@ -326,6 +427,9 @@ pub fn collect_layer_props(
     if is_live_layout_authoring(src) {
         return collect_live_layout_layer_props(src, page_index, flat_index);
     }
+    if is_vertical_demo_authoring(src) {
+        return collect_vertical_demo_layer_props(src, page_index, flat_index, ctx);
+    }
     if is_document_page_authoring(src) {
         return collect_document_layer_props(src, page_index, flat_index);
     }
@@ -400,6 +504,9 @@ pub fn set_layer_prop(
 ) -> Result<String, SyncError> {
     if is_live_layout_authoring(src) {
         return set_live_layout_layer_prop(src, page_index, flat_index, id, value);
+    }
+    if is_vertical_demo_authoring(src) {
+        return set_vertical_demo_layer_prop(src, page_index, flat_index, id, value, ctx);
     }
     if is_document_page_authoring(src) {
         return set_document_layer_prop(src, page_index, flat_index, id, value);

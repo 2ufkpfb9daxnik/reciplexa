@@ -236,18 +236,29 @@ pub fn nudge_authoring_layers(
         let mut indices = flat_indices.to_vec();
         indices.sort_unstable();
         indices.dedup();
+        let mut last_err = None;
+        let mut any = false;
         for &idx in &indices {
             match nudge_vertical_demo_layer(&src, page_index, idx, dx, dy) {
-                Ok(next) => src = next,
-                Err(e) => {
-                    return Err(SyncRefuse::new(format!(
-                        "canvas move skipped: {} (authoring source unchanged)",
-                        e.message
-                    )));
+                Ok(next) => {
+                    src = next;
+                    any = true;
                 }
+                Err(e) => last_err = Some(e),
             }
         }
-        return Ok(src);
+        if any {
+            return Ok(src);
+        }
+        let message = last_err
+            .map(|e| {
+                format!(
+                    "canvas move skipped: {} (authoring source unchanged)",
+                    e.message
+                )
+            })
+            .unwrap_or_else(|| "canvas move skipped: no movable vertical column".into());
+        return Err(SyncRefuse::new(message));
     }
     if is_document_page_authoring(authoring) {
         return Err(SyncRefuse::new(

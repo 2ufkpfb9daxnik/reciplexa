@@ -35,7 +35,8 @@ use reciplexa_lower::{
     scale_layer_uniform, scale_size_target, set_box_xywh, set_layer_prop, set_layer_rotation_deg,
     set_layers_fill_rgb, set_layers_opacity, set_layers_stroke_rgb, set_layers_stroke_width,
     set_line_endpoint, set_poly_vertex, set_text_box, shape_indices_for_authoring,
-    ungroup_layer_page, LayerInfo, PropEditContext, PropGroup, PropValue, SizeTarget,
+    ungroup_layer_page, vertical_demo_nudge_span, LayerInfo, PropEditContext, PropGroup, PropValue,
+    SizeTarget,
 };
 use reciplexa_macro::expand_source;
 use reciplexa_pdf::write_document_with_host_fonts;
@@ -526,6 +527,7 @@ impl PreviewApp {
                         Some("edit produced invalid program".into())
                     };
                     self.rebuild_document_path();
+                    self.reveal_vertical_nudge();
                     true
                 } else {
                     false
@@ -534,6 +536,14 @@ impl PreviewApp {
             Err(refuse) => {
                 self.soft_sync_refuse(refuse);
                 false
+            }
+        }
+    }
+
+    fn reveal_vertical_nudge(&mut self) {
+        if is_vertical_demo_authoring(&self.source) {
+            if let Some(span) = vertical_demo_nudge_span(&self.source) {
+                self.pending_source_select = Some(span);
             }
         }
     }
@@ -802,6 +812,7 @@ impl PreviewApp {
                 self.source = new_src;
                 self.error = self.compiled().err();
                 self.rebuild_document_path();
+                self.reveal_vertical_nudge();
             }
             Err(e) => self.error = Some(e.message),
         }
@@ -1402,73 +1413,82 @@ impl PreviewApp {
                                 }
                             }
                             if !started && hit_body != Some(sel) {
-                                if let Some(bounds) = PaperLayout::shape_bounds_mm(shape) {
-                                    let (x0, y0, x1, y1) = bounds;
-                                    let cx = (x0 + x1) * 0.5;
-                                    let cy = (y0 + y1) * 0.5;
-                                    if hit_rotate_handle(&layout, bounds, local_pos) {
-                                        let start_angle_rad = (my - cy).atan2(mx - cx);
-                                        let base_deg = layer_rotation_deg(
-                                            &self.source,
-                                            self.page_index,
-                                            sel_ai,
-                                        )
-                                        .unwrap_or(0.0);
-                                        self.drag = Some(DragState {
-                                            kind: DragKind::Rotate {
-                                                flat_index: sel_ai,
-                                                base_src: self.source.clone(),
-                                                center_mm: (cx, cy),
-                                                start_angle_rad,
-                                                base_deg,
-                                            },
-                                            undo_pushed: false,
-                                        });
-                                        started = true;
-                                    } else if let Some(grab) =
-                                        hit_scale_grab(&layout, bounds, local_pos)
-                                    {
-                                        let allow = match grab {
-                                            ScaleGrab::Corner(_) => true,
-                                            ScaleGrab::Edge(_) => {
-                                                size_bindings.get(sel).is_some_and(|t| {
-                                                    matches!(
-                                                        t,
+                                let can_transform = size_bindings
+                                    .get(sel)
+                                    .is_some_and(|t| !matches!(t, SizeTarget::Unsupported));
+                                if can_transform {
+                                    if let Some(bounds) = PaperLayout::shape_bounds_mm(shape) {
+                                        let (x0, y0, x1, y1) = bounds;
+                                        let cx = (x0 + x1) * 0.5;
+                                        let cy = (y0 + y1) * 0.5;
+                                        if hit_rotate_handle(&layout, bounds, local_pos) {
+                                            let start_angle_rad = (my - cy).atan2(mx - cx);
+                                            let base_deg = layer_rotation_deg(
+                                                &self.source,
+                                                self.page_index,
+                                                sel_ai,
+                                            )
+                                            .unwrap_or(0.0);
+                                            self.drag = Some(DragState {
+                                                kind: DragKind::Rotate {
+                                                    flat_index: sel_ai,
+                                                    base_src: self.source.clone(),
+                                                    center_mm: (cx, cy),
+                                                    start_angle_rad,
+                                                    base_deg,
+                                                },
+                                                undo_pushed: false,
+                                            });
+                                            started = true;
+                                        } else if let Some(grab) =
+                                            hit_scale_grab(&layout, bounds, local_pos)
+                                        {
+                                            let allow = match grab {
+                                                ScaleGrab::Corner(_) => true,
+                                                ScaleGrab::Edge(_) => {
+                                                    size_bindings.get(sel).is_some_and(|t| {
+                                                        matches!(
+                                                            t,
+                                                            SizeTarget::TextSize(_)
+                                                                | SizeTarget::RectWh(_)
+                                                                | SizeTarget::FrameWh(_)
+                                                                | SizeTarget::ImageWh(_)
+                                                                | SizeTarget::EllipseRxRy(_)
+                                                        )
+                                                    })
+                                                }
+                                            };
+                                            if allow {
+                                                let start_dist =
+                                                    ((mx - cx).hypot(my - cy)).max(1e-6);
+                                                if let Some(size) = size_bindings.get(sel).copied()
+                                                {
+                                                    let box_drag = match size {
                                                         SizeTarget::TextSize(_)
-                                                            | SizeTarget::RectWh(_)
-                                                            | SizeTarget::FrameWh(_)
-                                                            | SizeTarget::ImageWh(_)
-                                                            | SizeTarget::EllipseRxRy(_)
-                                                    )
-                                                })
-                                            }
-                                        };
-                                        if allow {
-                                            let start_dist = ((mx - cx).hypot(my - cy)).max(1e-6);
-                                            if let Some(size) = size_bindings.get(sel).copied() {
-                                                let box_drag = match size {
-                                                    SizeTarget::TextSize(_)
-                                                    | SizeTarget::RectWh(_)
-                                                    | SizeTarget::FrameWh(_)
-                                                    | SizeTarget::ImageWh(_)
-                                                    | SizeTarget::EllipseRxRy(_) => Some(BoxDrag {
-                                                        grab,
-                                                        start_bounds: bounds,
-                                                    }),
-                                                    _ => None,
-                                                };
-                                                self.drag = Some(DragState {
-                                                    kind: DragKind::Scale {
-                                                        size,
-                                                        flat_index: sel_ai,
-                                                        base_src: self.source.clone(),
-                                                        center_mm: (cx, cy),
-                                                        start_dist,
-                                                        text_box: box_drag,
-                                                    },
-                                                    undo_pushed: false,
-                                                });
-                                                started = true;
+                                                        | SizeTarget::RectWh(_)
+                                                        | SizeTarget::FrameWh(_)
+                                                        | SizeTarget::ImageWh(_)
+                                                        | SizeTarget::EllipseRxRy(_) => {
+                                                            Some(BoxDrag {
+                                                                grab,
+                                                                start_bounds: bounds,
+                                                            })
+                                                        }
+                                                        _ => None,
+                                                    };
+                                                    self.drag = Some(DragState {
+                                                        kind: DragKind::Scale {
+                                                            size,
+                                                            flat_index: sel_ai,
+                                                            base_src: self.source.clone(),
+                                                            center_mm: (cx, cy),
+                                                            start_dist,
+                                                            text_box: box_drag,
+                                                        },
+                                                        undo_pushed: false,
+                                                    });
+                                                    started = true;
+                                                }
                                             }
                                         }
                                     }
@@ -1567,6 +1587,7 @@ impl PreviewApp {
                                                 Some("edit produced invalid program".into())
                                             };
                                             self.rebuild_document_path();
+                                            self.reveal_vertical_nudge();
                                         }
                                         self.drag = Some(DragState {
                                             kind: DragKind::Move {

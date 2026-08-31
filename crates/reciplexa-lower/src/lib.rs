@@ -60,7 +60,7 @@ pub use sync::{
     set_document_layer_text, set_layer_opacity, set_layer_rotation_deg, set_line_endpoint,
     set_live_layout_document_text, set_math_layer_glyph, set_poly_vertex, set_text_box,
     set_text_content_authoring, set_text_content_package, shape_indices_for_authoring,
-    shape_indices_for_selection, ungroup_layer_page, DragTarget, LayerInfo, SizeTarget, SyncError,
+    ungroup_layer_page, vertical_demo_nudge_span, DragTarget, LayerInfo, SizeTarget, SyncError,
 };
 
 use reciplexa_scene::{

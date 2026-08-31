@@ -48,10 +48,11 @@ pub use pages::{count_pages, delete_page, find_page, insert_page_after, page_bod
 pub use tree::{
     attach_glyph_children, authoring_indices_for_selection, first_shape_for_authoring,
     layers_cover_shapes, parent_layer_index, preview_index_for_authoring,
-    shape_indices_for_authoring, shape_indices_for_selection,
+    shape_indices_for_authoring,
 };
 pub use vertical::{
     collect_layers_vertical_demo, is_vertical_demo_authoring, nudge_vertical_demo_layer,
+    vertical_demo_nudge_span,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]

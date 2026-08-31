@@ -74,3 +74,40 @@ fn step14_slice1_math_tree_stays_parents() {
     assert!(layers.iter().any(|l| l.depth > 0));
     assert!(layers.iter().all(|l| l.kind != "glyph"));
 }
+
+#[test]
+fn step14_slice1_vertical_nudge_is_visible_and_ingestible() {
+    use reciplexa::pipeline::expand;
+    use reciplexa_gui::canvas_sync::authoring_layers_align;
+    use reciplexa_lower::{
+        collect_layer_props, set_layer_prop, vertical_demo_nudge_span, PropEditContext, PropValue,
+    };
+
+    let src = include_str!("../../../examples/pkg_vert.rpx");
+    let expanded = expand(src).expect("expand");
+    assert!(authoring_layers_align(src, &expanded, 0).unwrap());
+    let layers = collect_layers_vertical_demo(src, 0).unwrap();
+    let heading = layers.iter().position(|l| l.kind == "doc-heading").unwrap();
+    let sample = layers
+        .iter()
+        .position(|l| l.kind == "vert-sample" && l.text_content.as_deref() == Some("縦書き"))
+        .unwrap();
+    let out = nudge_authoring_layers(src, &expanded, 0, &[heading, sample], 3.0, -1.0).unwrap();
+    assert!(out.contains("(nudge (list"), "{out}");
+    let samples_at = out.find("(samples samples)").unwrap();
+    let nudge_at = out.find("(nudge (list").unwrap();
+    assert!(nudge_at > samples_at);
+    assert!(vertical_demo_nudge_span(&out).is_some());
+    document_from_source(&out).expect("ingest after nudge");
+
+    let ctx = PropEditContext {
+        aabb_mm: (10.0, 20.0, 18.0, 80.0),
+        paper_w_mm: 210.0,
+        paper_h_mm: 297.0,
+    };
+    let props = collect_layer_props(src, 0, sample, &ctx).unwrap();
+    assert!(props.iter().any(|p| p.id == "layout.x"));
+    let via_props =
+        set_layer_prop(src, 0, sample, "layout.x", &PropValue::Number(15.0), &ctx).unwrap();
+    assert!(via_props.contains("(nudge (list"), "{via_props}");
+}
