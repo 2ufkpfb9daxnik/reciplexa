@@ -301,7 +301,7 @@ silent fallbackせず、文書内inline/display mathを安定して出力でき�
 
 ## Step 14 — 複数ページ出版レイアウト
 
-**Status:** active — [`step14-multipage-plan.md`](step14-multipage-plan.md) slice 2 pending audit
+**Status:** active — [`step14-multipage-plan.md`](step14-multipage-plan.md) slice 2 complete; slice 3 next
 
 - page break、版面、heading / list / note、figure / table
 - **階層レイヤー / テキストボックス一括移動**（authoring 1 ノードを親行にし、縦組の per-glyph `GlyphRun` を子にする。Step 21 から前倒し。Step 12 非ゴール）
@@ -312,7 +312,8 @@ silent fallbackせず、文書内inline/display mathを安定して出力でき�
 preview/exportでき、部分relayoutがfull rebuildと一致する。
 
 **Slice 1:** complete — 階層レイヤー / テキストボックス一括移動（tree `f158476`、紙面 grab `2e3953a`）。人間 GUI 2026-09-11。監査 `6f4f02a` / `74995f96`。
-**Slice 2:** landed pending audit — 明示 page break / 版面（`a47f376`）。人間 GUI 2026-09-11（`examples/pkg_pagebreak.rpx`）。
+**Slice 2:** complete — 明示 page break / 版面（`a47f376`）。人間 GUI 2026-09-11。監査 `a618e33` / `4c273a87`。
+**Slice 3:** next — heading / list / note / figure / table の実用 subset。
 
 ## Step 15 — Export / print / accessibility parity
 
