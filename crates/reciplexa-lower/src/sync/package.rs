@@ -69,16 +69,16 @@ pub fn find_package_page(root: &SyntaxNode, page_index: usize) -> Result<SyntaxN
         .ok_or_else(|| SyncError::new(format!("no package page #{page_index}")))
 }
 
-/// All `(page …)` nodes under a main expression, in document order.
+/// All `(page …)` / `(page-framed …)` nodes under a main expression, in document order.
 pub fn collect_package_pages(main_expr: &SyntaxNode) -> Result<Vec<SyntaxNode>, SyncError> {
-    if is_headed(main_expr, "page") {
+    if is_package_page_form(main_expr) {
         return Ok(vec![main_expr.clone()]);
     }
     if is_headed(main_expr, "list") {
         let mut pages = Vec::new();
         for item in list_atoms(main_expr).into_iter().skip(1) {
             if let Child::Node(n) = item {
-                if is_headed(&n, "page") {
+                if is_package_page_form(&n) {
                     pages.push(n);
                 }
             }
@@ -97,8 +97,12 @@ pub fn collect_package_pages(main_expr: &SyntaxNode) -> Result<Vec<SyntaxNode>, 
         return collect_package_pages(items_node);
     }
     Err(SyncError::new(
-        "val main must be (page …), (list (page …) …), or (pages …)",
+        "val main must be (page …), (page-framed …), (list (page …) …), or (pages …)",
     ))
+}
+
+fn is_package_page_form(n: &SyntaxNode) -> bool {
+    is_headed(n, "page") || is_headed(n, "page-framed")
 }
 
 /// Shape / content children of a package `(page SIZE CONTENT)`.

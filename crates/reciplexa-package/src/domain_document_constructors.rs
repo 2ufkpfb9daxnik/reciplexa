@@ -71,6 +71,30 @@ pub fn populate_document_page_typed_exports(module: &mut DomainNativeModule) {
         op(DocumentPageOp::Legal),
     );
     insert(&mut exports, "page", fun_n(2), op(DocumentPageOp::Page));
+    insert(
+        &mut exports,
+        "page-framed",
+        fun_n(3),
+        op(DocumentPageOp::PageFramed),
+    );
+    insert(
+        &mut exports,
+        "margins",
+        fun_n(4),
+        op(DocumentPageOp::Margins),
+    );
+    insert(
+        &mut exports,
+        "pagebreak",
+        nullary_dynamic(),
+        op(DocumentPageOp::PageBreak),
+    );
+    insert(
+        &mut exports,
+        "block-pagebreak",
+        nullary_dynamic(),
+        op(DocumentPageOp::BlockPageBreak),
+    );
     insert(&mut exports, "flow", fun_n(1), op(DocumentPageOp::Flow));
     insert(
         &mut exports,

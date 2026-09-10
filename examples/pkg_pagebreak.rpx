@@ -1,0 +1,16 @@
+(// Step 14 slice 2: explicit pagebreak + 版面 margins on document/page.)
+(import document/page only
+  a4 page-framed margins flow section heading paragraph
+  block-heading block-paragraph block-pagebreak)
+(val title (heading 1 "First page"))
+(val more (paragraph "Second page sits in the hanmen."))
+(val main
+  (page-framed a4
+    (margins 36 20 28 48)
+    (flow
+      (list
+        (section title
+          (list
+            (block-heading title)
+            block-pagebreak
+            (block-paragraph more)))))))

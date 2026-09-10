@@ -1,7 +1,7 @@
 //! Direct Native v2 runtime for `document/page` record constructors (DN2-5).
 
 use crate::domain_native::{DocumentPageOp, DomainNativeOp};
-use crate::domain_native_failure::{take1, take2, take4};
+use crate::domain_native_failure::{take1, take2, take3, take4};
 use crate::value::RuntimeValue;
 use crate::EvalError;
 
@@ -34,6 +34,34 @@ fn call_document_page(
                 vec![("paper", paper.clone()), ("flow", flow.clone())],
             ))
         }
+        DocumentPageOp::PageFramed => {
+            let [paper, margins, flow] = take3(args, "`document/page page-framed`")?;
+            Ok(tagged(
+                "doc-page",
+                vec![
+                    ("paper", paper.clone()),
+                    ("margins", margins.clone()),
+                    ("flow", flow.clone()),
+                ],
+            ))
+        }
+        DocumentPageOp::Margins => {
+            let [top, right, bottom, left] = take4(args, "`document/page margins`")?;
+            Ok(tagged(
+                "doc-margins",
+                vec![
+                    ("top", top.clone()),
+                    ("right", right.clone()),
+                    ("bottom", bottom.clone()),
+                    ("left", left.clone()),
+                ],
+            ))
+        }
+        DocumentPageOp::PageBreak => Ok(tagged("doc-pagebreak", vec![])),
+        DocumentPageOp::BlockPageBreak => Ok(record(vec![
+            ("tag".into(), str_val("doc-block")),
+            ("kind".into(), str_val("pagebreak")),
+        ])),
         DocumentPageOp::Flow => {
             let [sections] = take1(args, "`document/page flow`")?;
             Ok(tagged("doc-flow", vec![("sections", sections.clone())]))

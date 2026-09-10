@@ -36,9 +36,17 @@ pub fn is_document_page_authoring(src: &str) -> bool {
     page_has_flow(&page)
 }
 
+fn page_content_slot(page: &SyntaxNode) -> usize {
+    if is_headed(page, "page-framed") {
+        3
+    } else {
+        2
+    }
+}
+
 fn page_has_flow(page: &SyntaxNode) -> bool {
     let items = list_atoms(page);
-    let Some(Child::Node(content)) = items.get(2) else {
+    let Some(Child::Node(content)) = items.get(page_content_slot(page)) else {
         return false;
     };
     if is_headed(content, "flow") {
@@ -318,7 +326,7 @@ fn walk_section_blocks(
 fn flow_sections(page: &SyntaxNode) -> Result<Vec<SyntaxNode>, SyncError> {
     let items = list_atoms(page);
     let Child::Node(content) = items
-        .get(2)
+        .get(page_content_slot(page))
         .ok_or_else(|| SyncError::new("page missing content"))?
     else {
         return Err(SyncError::new("page content must be node"));
@@ -377,7 +385,16 @@ pub(crate) fn collect_layers_from_flow_page(
 /// Editable document structure layers in reading order (heading / paragraph / columns).
 pub fn collect_layers_document(src: &str, page_index: usize) -> Result<Vec<LayerInfo>, SyncError> {
     let root = parse_root(src)?;
-    let page = find_package_page(&root, page_index)?;
+    let pages = super::package::collect_package_pages(&super::package::find_main_expr(&root)?)?;
+    let cst_index = if page_index < pages.len() {
+        page_index
+    } else {
+        0
+    };
+    let page = pages
+        .into_iter()
+        .nth(cst_index)
+        .ok_or_else(|| SyncError::new(format!("no package page #{page_index}")))?;
     let layers = collect_layers_from_flow_page(&root, &page)?;
     if layers.is_empty() {
         return Err(SyncError::new("no editable document layers"));

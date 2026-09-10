@@ -383,6 +383,13 @@ pub enum DocumentPageOp {
     BlockTable,
     BlockFigure,
     BlockSpacer,
+    /// Explicit page break: next flow block starts a new scene page.
+    PageBreak,
+    BlockPageBreak,
+    /// 版面 margins in mm `(top right bottom left)`.
+    Margins,
+    /// `(page-framed paper margins flow)` — same `doc-page` tag plus margins.
+    PageFramed,
 }
 
 /// DN2-2 — `graphics/shapes` pure constructors.

@@ -1547,6 +1547,10 @@ pub fn document_page_module() -> DomainNativeModule {
             "a3".into(),
             "legal".into(),
             "page".into(),
+            "page-framed".into(),
+            "margins".into(),
+            "pagebreak".into(),
+            "block-pagebreak".into(),
             "flow".into(),
             "section".into(),
             "heading".into(),
@@ -1581,6 +1585,14 @@ pub fn document_page_source() -> &'static str {
 (val legal (record (width 215.9) (height 355.6)))
 (val page (fn (paper flow)
   (record (tag "doc-page") (paper paper) (flow flow))))
+(val page-framed (fn (paper margins flow)
+  (record (tag "doc-page") (paper paper) (margins margins) (flow flow))))
+(val margins (fn (top right bottom left)
+  (record (tag "doc-margins")
+    (top top) (right right) (bottom bottom) (left left))))
+(val pagebreak (record (tag "doc-pagebreak")))
+(val block-pagebreak
+  (record (tag "doc-block") (kind "pagebreak")))
 (val flow (fn (sections)
   (record (tag "doc-flow") (sections sections))))
 (val section (fn (title blocks)

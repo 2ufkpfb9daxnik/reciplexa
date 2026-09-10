@@ -1,10 +1,11 @@
-//! Step 14 slice 1: hierarchical layers (authoring parent + GlyphRun children).
+//! Step 14 gates: slice 1 hierarchical layers; slice 2 pagebreak / 版面.
 
 use reciplexa::pipeline::document_from_source;
 use reciplexa_gui::canvas_sync::{nudge_authoring_layers, resolve_preview_layers};
 use reciplexa_lower::{
-    attach_glyph_children, collect_layers_authoring, collect_layers_vertical_demo,
-    is_vertical_demo_authoring, parent_layer_index, shape_indices_for_authoring,
+    attach_glyph_children, collect_layers_authoring, collect_layers_document,
+    collect_layers_vertical_demo, is_document_page_authoring, is_vertical_demo_authoring,
+    parent_layer_index, shape_indices_for_authoring,
 };
 use reciplexa_view::flatten_page;
 
@@ -144,5 +145,65 @@ fn step14_slice1_canvas_union_grabs_text_box() {
     assert_eq!(
         hit_test_authoring_parent(&layers, &shapes, at.0, at.1),
         Some(parent_row)
+    );
+}
+
+#[test]
+fn step14_slice2_pagebreak_starts_second_package_page() {
+    let src = include_str!("../../../examples/pkg_pagebreak.rpx");
+    let doc = document_from_source(src).expect("ingest");
+    assert_eq!(
+        doc.pages.len(),
+        2,
+        "explicit pagebreak must emit two scene pages"
+    );
+    let page_text = |i: usize| {
+        doc.pages[i]
+            .shapes
+            .iter()
+            .filter_map(reciplexa_scene::Shape::text_content)
+            .collect::<String>()
+    };
+    let t0 = page_text(0);
+    let t1 = page_text(1);
+    assert!(t0.contains("First") || t0.contains("page"), "page0={t0}");
+    assert!(t1.contains("Second") || t1.contains("hanmen"), "page1={t1}");
+    assert!(flatten_page(&doc, 0).is_some());
+    assert!(flatten_page(&doc, 1).is_some());
+    assert!(is_document_page_authoring(src));
+    let layers = collect_layers_document(src, 1).expect("scene page 1 uses CST page 0");
+    assert!(layers.iter().any(|l| l.kind == "doc-heading"));
+    assert!(layers.iter().any(|l| l.kind == "doc-paragraph"));
+}
+
+#[test]
+fn step14_slice2_hanmen_shared_by_preview_and_export() {
+    let src = include_str!("../../../examples/pkg_pagebreak.rpx");
+    let doc = document_from_source(src).expect("ingest");
+    let left = 48.0;
+    let top = 36.0;
+    for page in &doc.pages {
+        for shape in &page.shapes {
+            let x = shape.text_x_mm().expect("x");
+            let y = shape.text_y_mm().expect("y");
+            assert!(
+                x + 1e-6 >= left,
+                "shape x={x} must sit in hanmen left={left}"
+            );
+            assert!(
+                y <= page.paper.height_mm - top + 1e-6,
+                "shape y={y} must sit on/below top margin"
+            );
+        }
+    }
+    let export_x = doc.pages[0].shapes[0].text_x_mm().expect("export x");
+    let (_, shapes) = flatten_page(&doc, 0).expect("flatten");
+    let preview_x = match &shapes[0] {
+        reciplexa_view::WorldShape::Text(t) => t.x_mm,
+        other => panic!("expected text, got {other:?}"),
+    };
+    assert!(
+        (export_x - preview_x).abs() < 1e-9,
+        "preview x={preview_x} export x={export_x}"
     );
 }

@@ -284,6 +284,10 @@ fn n5_1_document_page_is_native() {
     let exports = page.interface_exports.unwrap();
     for name in [
         "page",
+        "page-framed",
+        "margins",
+        "pagebreak",
+        "block-pagebreak",
         "flow",
         "section",
         "heading",
