@@ -295,6 +295,8 @@ fn n5_1_document_page_is_native() {
         "paragraph-indented",
         "columns",
         "block-columns",
+        "note",
+        "block-note",
     ] {
         assert!(exports.iter().any(|e| e == name), "missing export {name}");
     }

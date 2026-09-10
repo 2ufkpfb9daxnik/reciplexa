@@ -530,6 +530,11 @@ fn dn2_document_page_hybrid_and_direct_native_agree_on_pkg_columns() {
 }
 
 #[test]
+fn dn2_document_page_hybrid_and_direct_native_agree_on_pkg_flow_blocks() {
+    assert_example_differential("pkg_flow_blocks.rpx", &["document/page"]);
+}
+
+#[test]
 fn dn2_math_modules_hybrid_and_direct_native_agree_on_pkg_math() {
     assert_example_differential(
         "pkg_math.rpx",

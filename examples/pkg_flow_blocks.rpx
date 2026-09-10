@@ -1,0 +1,26 @@
+(// Step 14 slice 3: heading / list / note / figure / table in one package page.)
+(import document/page only
+  a4 page-framed margins flow section heading paragraph
+  unordered-list ordered-list table figure note
+  block-heading block-paragraph block-list block-table block-figure block-note)
+(val title (heading 1 "Flow blocks"))
+(val intro (paragraph "Heading, list, note, figure, and table share one hanmen."))
+(val bullets (unordered-list (list "First item" "Second item")))
+(val steps (ordered-list (list "Step one" "Step two")))
+(val callout (note "This callout sits in the hanmen."))
+(val pic (figure "Diagram" "A framed figure with caption."))
+(val grid (table (list "Name" "Qty") (list (list "A" "1") (list "B" "2"))))
+(val main
+  (page-framed a4
+    (margins 28 20 28 24)
+    (flow
+      (list
+        (section title
+          (list
+            (block-heading title)
+            (block-paragraph intro)
+            (block-list bullets)
+            (block-list steps)
+            (block-note callout)
+            (block-figure pic)
+            (block-table grid)))))))

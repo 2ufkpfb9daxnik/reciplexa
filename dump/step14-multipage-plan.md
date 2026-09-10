@@ -41,8 +41,8 @@
 ## Slice 3 受入（監査用）
 
 - heading / list / note / figure / table の実用 subset が文書内で安定して preview / export されること
-- 固定 example を実装時に置く（plan 実装時にパスを固定）
-- **非ゴール（slice 3）:** 完全 CSS リスト / キャプション体系、浮動体の全配置規則
+- 固定 example: `examples/pkg_flow_blocks.rpx`
+- **非ゴール（slice 3）:** 完全 CSS リスト / キャプション体系、浮動体の全配置規則；list/note/figure/table の first-class GUI 構造編集
 
 ## Slice 4 受入（監査用）
 

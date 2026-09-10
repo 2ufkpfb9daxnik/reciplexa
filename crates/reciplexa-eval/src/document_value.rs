@@ -4,7 +4,7 @@
 //! paper via shared std live-layout helpers (`break_line` / `place_lines` / indent /
 //! columns). Interim CST `(page)/(circle)` keyword tables stay untouched.
 
-use reciplexa_scene::{Color, Document, Page, PaperSize, Shape, Text};
+use reciplexa_scene::{Color, Document, Frame, Page, PaperSize, Rect, Shape, Text};
 use reciplexa_std::japanese::{
     layout_column_paragraph_shapes, layout_wrapped_paragraph_shapes, ParagraphSceneLayout,
     DOC_TEXT_MAX_EM,
@@ -20,6 +20,13 @@ use crate::value::RuntimeValue;
 /// Soft-wrap + place pitch (mm): negative so baselines step down the page.
 const DOC_LINE_PITCH_EXTRA_MM: f64 = 3.0;
 const DOC_BASE_X_MM: f64 = 20.0;
+const FLOW_BODY_SIZE_MM: f64 = 4.0;
+const LIST_INDENT_MM: f64 = 8.0;
+const NOTE_INDENT_MM: f64 = 8.0;
+const NOTE_SIZE_MM: f64 = 3.5;
+const CAPTION_SIZE_MM: f64 = 3.5;
+const TABLE_CELL_SIZE_MM: f64 = 3.5;
+const FIGURE_HEIGHT_MM: f64 = 22.0;
 
 /// Lower a `tag: "doc-page"` package value to a scene [`Document`] (live layout).
 ///
@@ -104,11 +111,25 @@ impl DocLayout {
     }
 
     fn wrap_em(&self, size_mm: f64) -> f64 {
+        self.wrap_em_at(size_mm, 0.0)
+    }
+
+    fn wrap_em_at(&self, size_mm: f64, extra_left_mm: f64) -> f64 {
         if self.hanmen.explicit {
-            let w = self.paper.width_mm - self.hanmen.left_mm - self.hanmen.right_mm;
+            let w =
+                self.paper.width_mm - self.hanmen.left_mm - extra_left_mm - self.hanmen.right_mm;
             (w / size_mm.max(0.01)).max(1.0)
         } else {
-            DOC_TEXT_MAX_EM
+            let w = DOC_TEXT_MAX_EM * size_mm - extra_left_mm;
+            (w / size_mm.max(0.01)).max(1.0)
+        }
+    }
+
+    fn content_width_mm(&self) -> f64 {
+        if self.hanmen.explicit {
+            (self.paper.width_mm - self.hanmen.left_mm - self.hanmen.right_mm).max(1.0)
+        } else {
+            (DOC_TEXT_MAX_EM * FLOW_BODY_SIZE_MM).max(1.0)
         }
     }
 
@@ -252,9 +273,25 @@ fn collect_block_shapes(
             layout.cursor_y -= len;
             Ok(())
         }
-        "list" | "table" | "figure" => {
-            // Stub: skip visual for now; keep structure walkable without failing.
-            Ok(())
+        "list" => {
+            let list = field(fields, "list")
+                .ok_or_else(|| GraphicsValueError::new("doc-block list missing list"))?;
+            push_list(list, layout)
+        }
+        "table" => {
+            let table = field(fields, "table")
+                .ok_or_else(|| GraphicsValueError::new("doc-block table missing table"))?;
+            push_table(table, layout)
+        }
+        "figure" => {
+            let figure = field(fields, "figure")
+                .ok_or_else(|| GraphicsValueError::new("doc-block figure missing figure"))?;
+            push_figure(figure, layout)
+        }
+        "note" => {
+            let note = field(fields, "note")
+                .ok_or_else(|| GraphicsValueError::new("doc-block note missing note"))?;
+            push_note(note, layout)
         }
         other => Err(GraphicsValueError::new(format!(
             "unsupported doc-block kind `{other}`"
@@ -370,28 +407,50 @@ fn push_soft_wrapped_text(
     indent_em: f64,
     layout: &mut DocLayout,
 ) -> Result<(), GraphicsValueError> {
+    push_flow_text(text, size_mm, indent_em, 0.0, layout)
+}
+
+fn push_flow_text(
+    text: &str,
+    size_mm: f64,
+    indent_em: f64,
+    extra_left_mm: f64,
+    layout: &mut DocLayout,
+) -> Result<(), GraphicsValueError> {
     let pitch = -(size_mm + DOC_LINE_PITCH_EXTRA_MM);
-    let wrap_em = layout.wrap_em(size_mm);
+    let wrap_em = layout.wrap_em_at(size_mm, extra_left_mm);
     let scene = ParagraphSceneLayout {
-        base_x_mm: layout.hanmen.left_mm,
+        base_x_mm: layout.hanmen.left_mm + extra_left_mm,
         start_y_mm: layout.cursor_y,
         size_mm,
         pitch_mm: pitch,
         fill: Color::BLACK,
     };
+    let n_lines = emit_flow_text(text, indent_em, wrap_em, &scene, layout)?;
+    layout.cursor_y += pitch * n_lines as f64;
+    Ok(())
+}
+
+fn emit_flow_text(
+    text: &str,
+    indent_em: f64,
+    wrap_em: f64,
+    scene: &ParagraphSceneLayout,
+    layout: &mut DocLayout,
+) -> Result<usize, GraphicsValueError> {
     // Product emits one GlyphRun per cluster; pitch must step by wrapped
     // lines, not glyph count, or the next block falls off the page.
-    let n_lines = match layout.engine {
+    match layout.engine {
         TypesetEngine::Stub => {
-            let t = layout_wrapped_paragraph_shapes(text, wrap_em, indent_em, &scene);
+            let t = layout_wrapped_paragraph_shapes(text, wrap_em, indent_em, scene);
             let n = t.len().max(1);
             layout.shapes.extend(t.into_iter().map(Shape::Text));
-            n
+            Ok(n)
         }
         TypesetEngine::Product => {
             let font = host_product_font().map_err(|e| GraphicsValueError::new(e.to_string()))?;
             let lines =
-                layout_wrapped_paragraph_product_lines(&font, text, wrap_em, indent_em, &scene)
+                layout_wrapped_paragraph_product_lines(&font, text, wrap_em, indent_em, scene)
                     .map_err(|e| GraphicsValueError::new(e.to_string()))?;
             if lines.is_empty() {
                 layout.shapes.push(Shape::Text(Text {
@@ -403,17 +462,201 @@ fn push_soft_wrapped_text(
                     content: String::new(),
                     fill: scene.fill,
                 }));
-                1
+                Ok(1)
             } else {
                 layout
                     .shapes
                     .extend(positioned_lines_to_shapes(&lines, scene.fill));
-                lines.len()
+                Ok(lines.len())
             }
         }
+    }
+}
+
+fn push_note(note: &RuntimeValue, layout: &mut DocLayout) -> Result<(), GraphicsValueError> {
+    let text = match note {
+        RuntimeValue::Record(fields) => {
+            expect_tag(fields, "doc-note")?;
+            string_field(fields, "text")?
+        }
+        _ => atom_text(note)?,
     };
-    layout.cursor_y += pitch * n_lines as f64;
+    let line = format!("Note: {text}");
+    push_flow_text(&line, NOTE_SIZE_MM, 0.0, NOTE_INDENT_MM, layout)
+}
+
+fn push_list(list: &RuntimeValue, layout: &mut DocLayout) -> Result<(), GraphicsValueError> {
+    let fields = record_fields(list, "doc-list")?;
+    expect_tag(fields, "doc-list")?;
+    let ordered = matches!(field(fields, "ordered"), Some(RuntimeValue::Bool(true)));
+    let items =
+        field(fields, "items").ok_or_else(|| GraphicsValueError::new("doc-list missing items"))?;
+    for (i, item) in cons_items(items)?.into_iter().enumerate() {
+        let marker = if ordered {
+            format!("{}.", i + 1)
+        } else {
+            "-".to_string()
+        };
+        let texts = list_item_texts(item)?;
+        let marker_y = layout.cursor_y;
+        push_flow_text(&marker, FLOW_BODY_SIZE_MM, 0.0, 0.0, layout)?;
+        let after_marker = layout.cursor_y;
+        layout.cursor_y = marker_y;
+        if texts.is_empty() {
+            layout.cursor_y = after_marker;
+            continue;
+        }
+        for t in texts {
+            push_flow_text(&t, FLOW_BODY_SIZE_MM, 0.0, LIST_INDENT_MM, layout)?;
+        }
+        layout.cursor_y = layout.cursor_y.min(after_marker);
+    }
     Ok(())
+}
+
+fn list_item_texts(item: &RuntimeValue) -> Result<Vec<String>, GraphicsValueError> {
+    match item {
+        RuntimeValue::String(s) => Ok(vec![s.clone()]),
+        RuntimeValue::Record(fields) => match tag_of(fields).unwrap_or("") {
+            "doc-list-item" => {
+                let paragraphs = field(fields, "paragraphs")
+                    .ok_or_else(|| GraphicsValueError::new("doc-list-item missing paragraphs"))?;
+                texts_from_flow_value(paragraphs)
+            }
+            "doc-paragraph" => Ok(vec![string_field(fields, "text")?]),
+            _ => Ok(vec![atom_text(item)?]),
+        },
+        _ => texts_from_flow_value(item),
+    }
+}
+
+fn texts_from_flow_value(v: &RuntimeValue) -> Result<Vec<String>, GraphicsValueError> {
+    match cons_items(v) {
+        Ok(items) => items.into_iter().map(atom_text).collect(),
+        Err(_) => Ok(vec![atom_text(v)?]),
+    }
+}
+
+fn push_table(table: &RuntimeValue, layout: &mut DocLayout) -> Result<(), GraphicsValueError> {
+    let fields = record_fields(table, "doc-table")?;
+    expect_tag(fields, "doc-table")?;
+    let columns_v = field(fields, "columns")
+        .ok_or_else(|| GraphicsValueError::new("doc-table missing columns"))?;
+    let rows_v =
+        field(fields, "rows").ok_or_else(|| GraphicsValueError::new("doc-table missing rows"))?;
+    let mut rows: Vec<Vec<String>> = Vec::new();
+    let ncols = if let Some(n) = as_f64(columns_v) {
+        (n.max(1.0) as usize).max(1)
+    } else {
+        let header = cons_items(columns_v)?
+            .into_iter()
+            .map(atom_text)
+            .collect::<Result<Vec<_>, _>>()?;
+        let n = header.len().max(1);
+        if !header.is_empty() {
+            rows.push(header);
+        }
+        n
+    };
+    for row in cons_items(rows_v)? {
+        let cells = match cons_items(row) {
+            Ok(items) => items
+                .into_iter()
+                .map(atom_text)
+                .collect::<Result<Vec<_>, _>>()?,
+            Err(_) => vec![atom_text(row)?],
+        };
+        rows.push(cells);
+    }
+    if rows.is_empty() {
+        return Ok(());
+    }
+    let size_mm = TABLE_CELL_SIZE_MM;
+    let pitch = -(size_mm + DOC_LINE_PITCH_EXTRA_MM);
+    let col_w = layout.content_width_mm() / ncols as f64;
+    let wrap_em = (col_w / size_mm.max(0.01)).max(1.0);
+    for row in rows {
+        let row_y = layout.cursor_y;
+        let mut max_lines = 1usize;
+        for (ci, cell) in row.iter().take(ncols).enumerate() {
+            let scene = ParagraphSceneLayout {
+                base_x_mm: layout.hanmen.left_mm + col_w * ci as f64,
+                start_y_mm: row_y,
+                size_mm,
+                pitch_mm: pitch,
+                fill: Color::BLACK,
+            };
+            let n = emit_flow_text(cell, 0.0, wrap_em, &scene, layout)?;
+            max_lines = max_lines.max(n);
+        }
+        layout.cursor_y = row_y + pitch * max_lines as f64;
+    }
+    Ok(())
+}
+
+fn push_figure(figure: &RuntimeValue, layout: &mut DocLayout) -> Result<(), GraphicsValueError> {
+    let fields = record_fields(figure, "doc-figure")?;
+    expect_tag(fields, "doc-figure")?;
+    let visual = field(fields, "visual");
+    let caption = field(fields, "caption");
+    let width = layout.content_width_mm();
+    let mut height = FIGURE_HEIGHT_MM;
+    let mut label = String::new();
+    if let Some(v) = visual {
+        if let Some(n) = as_f64(v) {
+            height = n.max(8.0);
+        } else if let Ok(s) = atom_text(v) {
+            label = s;
+        }
+    }
+    let x = layout.hanmen.left_mm;
+    let top = layout.cursor_y;
+    let y = top - height;
+    layout.shapes.push(Shape::Rect(Rect {
+        x_mm: x,
+        y_mm: y,
+        width_mm: width,
+        height_mm: height,
+        fill: Color::new(0.88, 0.88, 0.88),
+    }));
+    layout.shapes.push(Shape::Frame(Frame {
+        x_mm: x,
+        y_mm: y,
+        width_mm: width,
+        height_mm: height,
+        stroke_width_mm: 0.4,
+        stroke: Color::BLACK,
+    }));
+    if !label.is_empty() {
+        let scene = ParagraphSceneLayout {
+            base_x_mm: x + 3.0,
+            start_y_mm: y + height * 0.5,
+            size_mm: FLOW_BODY_SIZE_MM,
+            pitch_mm: -(FLOW_BODY_SIZE_MM + DOC_LINE_PITCH_EXTRA_MM),
+            fill: Color::BLACK,
+        };
+        let wrap_em = layout.wrap_em_at(FLOW_BODY_SIZE_MM, 3.0);
+        emit_flow_text(&label, 0.0, wrap_em, &scene, layout)?;
+    }
+    layout.cursor_y = y - 2.0;
+    if let Some(c) = caption {
+        let s = atom_text(c)?;
+        if !s.is_empty() {
+            let line = format!("Caption: {s}");
+            push_flow_text(&line, CAPTION_SIZE_MM, 0.0, 0.0, layout)?;
+        }
+    }
+    Ok(())
+}
+
+fn atom_text(v: &RuntimeValue) -> Result<String, GraphicsValueError> {
+    match v {
+        RuntimeValue::String(s) => Ok(s.clone()),
+        RuntimeValue::Int(n) => Ok(n.to_string()),
+        RuntimeValue::Number(n) | RuntimeValue::F64(n) => Ok(n.to_string()),
+        RuntimeValue::Record(fields) => string_field(fields, "text"),
+        _ => Err(GraphicsValueError::new("expected string or text record")),
+    }
 }
 
 fn paper_from_size_value(v: &RuntimeValue) -> Result<PaperSize, GraphicsValueError> {
@@ -778,35 +1021,6 @@ mod tests {
 
     #[test]
     fn n5_3_tips_block_stubs_levels_and_error_arms() {
-        // list/table/figure stubs (no visual)
-        for kind in ["list", "table", "figure"] {
-            let block = rec(vec![
-                ("tag", RuntimeValue::String("doc-block".into())),
-                ("kind", RuntimeValue::String(kind.into())),
-            ]);
-            let section = rec(vec![
-                ("tag", RuntimeValue::String("doc-section".into())),
-                ("blocks", cons(vec![block])),
-            ]);
-            let flow = rec(vec![
-                ("tag", RuntimeValue::String("doc-flow".into())),
-                ("sections", cons(vec![section])),
-            ]);
-            let page = rec(vec![
-                ("tag", RuntimeValue::String("doc-page".into())),
-                (
-                    "paper",
-                    rec(vec![
-                        ("width", RuntimeValue::Int(210)),
-                        ("height", RuntimeValue::Int(297)),
-                    ]),
-                ),
-                ("flow", flow),
-            ]);
-            let doc = document_from_doc_value(&page).expect(kind);
-            assert!(doc.pages[0].shapes.is_empty(), "{kind} stub draws nothing");
-        }
-
         // heading levels 2 / default + missing kind / unknown kind / bad text node
         let h2 = rec(vec![
             ("tag", RuntimeValue::String("doc-heading".into())),
@@ -1207,10 +1421,10 @@ mod tests {
             .iter()
             .filter_map(Shape::text_content)
             .collect();
-        assert!(p0.iter().any(|t| *t == "One"));
-        assert!(p0.iter().any(|t| *t == "keep"));
-        assert!(!p0.iter().any(|t| *t == "after"));
-        assert!(p1.iter().any(|t| *t == "after"));
+        assert!(p0.contains(&"One"));
+        assert!(p0.contains(&"keep"));
+        assert!(!p0.contains(&"after"));
+        assert!(p1.contains(&"after"));
         assert_eq!(doc.pages[1].paper.width_mm, 210.0);
     }
 
@@ -1241,5 +1455,150 @@ mod tests {
             "first baseline must sit at height-top, y={stub_y}"
         );
         assert!((stub_y - prod_y).abs() < 1e-6);
+    }
+
+    fn page_text(doc: &Document) -> String {
+        doc.pages
+            .iter()
+            .flat_map(|p| p.shapes.iter().filter_map(Shape::text_content))
+            .collect()
+    }
+
+    fn list_block(ordered: bool, items: Vec<&str>) -> RuntimeValue {
+        rec(vec![
+            ("tag", RuntimeValue::String("doc-block".into())),
+            ("kind", RuntimeValue::String("list".into())),
+            (
+                "list",
+                rec(vec![
+                    ("tag", RuntimeValue::String("doc-list".into())),
+                    ("ordered", RuntimeValue::Bool(ordered)),
+                    (
+                        "items",
+                        cons(
+                            items
+                                .into_iter()
+                                .map(|s| RuntimeValue::String(s.into()))
+                                .collect(),
+                        ),
+                    ),
+                ]),
+            ),
+        ])
+    }
+
+    #[test]
+    fn flow_list_note_figure_table_emit_on_page() {
+        let note = rec(vec![
+            ("tag", RuntimeValue::String("doc-block".into())),
+            ("kind", RuntimeValue::String("note".into())),
+            (
+                "note",
+                rec(vec![
+                    ("tag", RuntimeValue::String("doc-note".into())),
+                    ("text", RuntimeValue::String("Keep the hanmen".into())),
+                ]),
+            ),
+        ]);
+        let figure = rec(vec![
+            ("tag", RuntimeValue::String("doc-block".into())),
+            ("kind", RuntimeValue::String("figure".into())),
+            (
+                "figure",
+                rec(vec![
+                    ("tag", RuntimeValue::String("doc-figure".into())),
+                    ("visual", RuntimeValue::String("Diagram".into())),
+                    ("caption", RuntimeValue::String("A box".into())),
+                ]),
+            ),
+        ]);
+        let table = rec(vec![
+            ("tag", RuntimeValue::String("doc-block".into())),
+            ("kind", RuntimeValue::String("table".into())),
+            (
+                "table",
+                rec(vec![
+                    ("tag", RuntimeValue::String("doc-table".into())),
+                    (
+                        "columns",
+                        cons(vec![
+                            RuntimeValue::String("Name".into()),
+                            RuntimeValue::String("Qty".into()),
+                        ]),
+                    ),
+                    (
+                        "rows",
+                        cons(vec![cons(vec![
+                            RuntimeValue::String("A".into()),
+                            RuntimeValue::String("1".into()),
+                        ])]),
+                    ),
+                ]),
+            ),
+        ]);
+        let margins = rec(vec![
+            ("tag", RuntimeValue::String("doc-margins".into())),
+            ("top", RuntimeValue::Number(28.0)),
+            ("right", RuntimeValue::Number(20.0)),
+            ("bottom", RuntimeValue::Number(28.0)),
+            ("left", RuntimeValue::Number(24.0)),
+        ]);
+        let page = flow_page(
+            vec![
+                list_block(false, vec!["First item", "Second item"]),
+                list_block(true, vec!["Step one"]),
+                note,
+                figure,
+                table,
+            ],
+            Some(margins),
+        );
+        let stub = layout_doc_page_to_scene(&page).expect("stub");
+        let product =
+            layout_doc_page_to_scene_with_engine(&page, TypesetEngine::Product).expect("product");
+        for doc in [&stub, &product] {
+            let t = page_text(doc);
+            assert!(t.contains("First item"), "{t}");
+            assert!(t.contains("Second item"), "{t}");
+            assert!(t.contains("Step one"), "{t}");
+            assert!(t.contains("Note:"), "{t}");
+            assert!(t.contains("Keep the hanmen"), "{t}");
+            assert!(t.contains("Diagram"), "{t}");
+            assert!(t.contains("Caption:"), "{t}");
+            assert!(t.contains("Name"), "{t}");
+            assert!(t.contains("Qty"), "{t}");
+            assert!(t.contains('A'), "{t}");
+            assert!(t.contains('1'), "{t}");
+            assert!(
+                doc.pages[0]
+                    .shapes
+                    .iter()
+                    .any(|s| matches!(s, Shape::Frame(_) | Shape::Rect(_))),
+                "figure must emit a box"
+            );
+            let left = 24.0;
+            for shape in &doc.pages[0].shapes {
+                if let Some(x) = shape.text_x_mm() {
+                    assert!(x + 1e-6 >= left, "x={x}");
+                }
+                if let Shape::Rect(r) = shape {
+                    assert!(r.x_mm + 1e-6 >= left, "rect x={}", r.x_mm);
+                }
+                if let Shape::Frame(f) = shape {
+                    assert!(f.x_mm + 1e-6 >= left, "frame x={}", f.x_mm);
+                }
+            }
+        }
+        let stub_x = stub.pages[0]
+            .shapes
+            .iter()
+            .find_map(Shape::text_x_mm)
+            .expect("stub x");
+        let prod_x = product.pages[0]
+            .shapes
+            .iter()
+            .find_map(Shape::text_x_mm)
+            .expect("prod x");
+        assert!((stub_x - prod_x).abs() < 1e-9);
     }
 }

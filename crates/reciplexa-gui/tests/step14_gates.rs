@@ -1,4 +1,4 @@
-//! Step 14 gates: slice 1 hierarchical layers; slice 2 pagebreak / 版面.
+//! Step 14 gates: slice 1 hierarchical layers; slice 2 pagebreak / 版面; slice 3 flow blocks.
 
 use reciplexa::pipeline::document_from_source;
 use reciplexa_gui::canvas_sync::{nudge_authoring_layers, resolve_preview_layers};
@@ -206,4 +206,77 @@ fn step14_slice2_hanmen_shared_by_preview_and_export() {
         (export_x - preview_x).abs() < 1e-9,
         "preview x={preview_x} export x={export_x}"
     );
+}
+
+#[test]
+fn step14_slice3_flow_blocks_preview_and_export() {
+    reciplexa::run_on_host_stack("step14-slice3", || {
+        let src = include_str!("../../../examples/pkg_flow_blocks.rpx");
+        let doc = document_from_source(src).expect("ingest");
+        assert_eq!(doc.pages.len(), 1);
+        let joined = doc.pages[0]
+            .shapes
+            .iter()
+            .filter_map(reciplexa_scene::Shape::text_content)
+            .collect::<String>();
+        assert!(
+            joined.contains("Flow") || joined.contains("blocks"),
+            "{joined}"
+        );
+        assert!(
+            joined.contains("First") && joined.contains("Second"),
+            "{joined}"
+        );
+        assert!(
+            joined.contains("Step") && joined.contains("one"),
+            "{joined}"
+        );
+        assert!(joined.contains("Note:"), "{joined}");
+        assert!(joined.contains("Diagram"), "{joined}");
+        assert!(joined.contains("Caption:"), "{joined}");
+        assert!(
+            joined.contains("Name") && joined.contains("Qty"),
+            "{joined}"
+        );
+        assert!(joined.contains('A') && joined.contains('B'), "{joined}");
+        assert!(
+            doc.pages[0].shapes.iter().any(|s| matches!(
+                s,
+                reciplexa_scene::Shape::Frame(_) | reciplexa_scene::Shape::Rect(_)
+            )),
+            "figure placeholder box"
+        );
+        let left = 24.0;
+        let top = 28.0;
+        for shape in &doc.pages[0].shapes {
+            if let Some(x) = shape.text_x_mm() {
+                assert!(x + 1e-6 >= left, "x={x}");
+            }
+            if let Some(y) = shape.text_y_mm() {
+                assert!(
+                    y <= doc.pages[0].paper.height_mm - top + 1e-6,
+                    "y={y} must sit on/below top margin"
+                );
+            }
+        }
+        let export_x = doc.pages[0]
+            .shapes
+            .iter()
+            .find_map(reciplexa_scene::Shape::text_x_mm)
+            .expect("export x");
+        let (_, shapes) = flatten_page(&doc, 0).expect("flatten");
+        let preview_x = shapes
+            .iter()
+            .find_map(|s| match s {
+                reciplexa_view::WorldShape::Text(t) => Some(t.x_mm),
+                _ => None,
+            })
+            .expect("preview text");
+        assert!(
+            (export_x - preview_x).abs() < 1e-9,
+            "preview x={preview_x} export x={export_x}"
+        );
+        assert!(is_document_page_authoring(src));
+    })
+    .expect("join");
 }

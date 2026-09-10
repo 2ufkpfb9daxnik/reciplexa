@@ -146,6 +146,7 @@ pub fn populate_document_page_typed_exports(module: &mut DomainNativeModule) {
     );
     insert(&mut exports, "table", fun_n(2), op(DocumentPageOp::Table));
     insert(&mut exports, "figure", fun_n(2), op(DocumentPageOp::Figure));
+    insert(&mut exports, "note", fun_n(1), op(DocumentPageOp::Note));
     insert(&mut exports, "spacer", fun_n(1), op(DocumentPageOp::Spacer));
     insert(
         &mut exports,
@@ -182,6 +183,12 @@ pub fn populate_document_page_typed_exports(module: &mut DomainNativeModule) {
         "block-figure",
         fun_n(1),
         op(DocumentPageOp::BlockFigure),
+    );
+    insert(
+        &mut exports,
+        "block-note",
+        fun_n(1),
+        op(DocumentPageOp::BlockNote),
     );
     insert(
         &mut exports,

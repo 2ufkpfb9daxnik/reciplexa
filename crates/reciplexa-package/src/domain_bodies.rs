@@ -1562,6 +1562,7 @@ pub fn document_page_module() -> DomainNativeModule {
             "list-item".into(),
             "table".into(),
             "figure".into(),
+            "note".into(),
             "spacer".into(),
             "block-heading".into(),
             "block-paragraph".into(),
@@ -1569,6 +1570,7 @@ pub fn document_page_module() -> DomainNativeModule {
             "block-list".into(),
             "block-table".into(),
             "block-figure".into(),
+            "block-note".into(),
             "block-spacer".into(),
         ],
     );
@@ -1616,6 +1618,8 @@ pub fn document_page_source() -> &'static str {
   (record (tag "doc-table") (columns columns) (rows rows))))
 (val figure (fn (visual caption)
   (record (tag "doc-figure") (visual visual) (caption caption))))
+(val note (fn (text)
+  (record (tag "doc-note") (text text))))
 (val spacer (fn (length)
   (record (tag "doc-spacer") (length length))))
 (val block-heading (fn (heading)
@@ -1630,6 +1634,8 @@ pub fn document_page_source() -> &'static str {
   (record (tag "doc-block") (kind "table") (table table))))
 (val block-figure (fn (figure)
   (record (tag "doc-block") (kind "figure") (figure figure))))
+(val block-note (fn (note)
+  (record (tag "doc-block") (kind "note") (note note))))
 (val block-spacer (fn (spacer)
   (record (tag "doc-block") (kind "spacer") (spacer spacer))))
 "#

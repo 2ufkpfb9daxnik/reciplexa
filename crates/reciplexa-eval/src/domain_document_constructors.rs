@@ -139,6 +139,10 @@ fn call_document_page(
                 vec![("visual", visual.clone()), ("caption", caption.clone())],
             ))
         }
+        DocumentPageOp::Note => {
+            let [text] = take1(args, "`document/page note`")?;
+            Ok(tagged("doc-note", vec![("text", text.clone())]))
+        }
         DocumentPageOp::Spacer => {
             let [length] = take1(args, "`document/page spacer`")?;
             Ok(tagged("doc-spacer", vec![("length", length.clone())]))
@@ -149,6 +153,7 @@ fn call_document_page(
         DocumentPageOp::BlockList => block("list", "list", args),
         DocumentPageOp::BlockTable => block("table", "table", args),
         DocumentPageOp::BlockFigure => block("figure", "figure", args),
+        DocumentPageOp::BlockNote => block("note", "note", args),
         DocumentPageOp::BlockSpacer => block("spacer", "spacer", args),
     }
 }

@@ -375,6 +375,7 @@ pub enum DocumentPageOp {
     ListItem,
     Table,
     Figure,
+    Note,
     Spacer,
     BlockHeading,
     BlockParagraph,
@@ -382,6 +383,7 @@ pub enum DocumentPageOp {
     BlockList,
     BlockTable,
     BlockFigure,
+    BlockNote,
     BlockSpacer,
     /// Explicit page break: next flow block starts a new scene page.
     PageBreak,
