@@ -111,3 +111,38 @@ fn step14_slice1_vertical_nudge_is_visible_and_ingestible() {
         set_layer_prop(src, 0, sample, "layout.x", &PropValue::Number(15.0), &ctx).unwrap();
     assert!(via_props.contains("(nudge (list"), "{via_props}");
 }
+
+#[test]
+fn step14_slice1_canvas_union_grabs_text_box() {
+    use reciplexa_gui::canvas_sync::{hit_test_authoring_parent, point_in_aabb, union_bounds_mm};
+    use reciplexa_view::hit_test_shapes;
+
+    let src = include_str!("../../../examples/pkg_vert.rpx");
+    let doc = document_from_source(src).expect("ingest");
+    let (_, shapes) = flatten_page(&doc, 0).expect("page");
+    let layers = resolve_preview_layers(src, 0, &shapes);
+    let abc = layers
+        .iter()
+        .find(|l| l.kind == "vert-sample" && l.text_content.as_deref() == Some("ABC"))
+        .expect("ABC");
+    let idxs = shape_indices_for_authoring(&layers, &[abc.authoring_index]);
+    let b = union_bounds_mm(&shapes, &idxs).expect("union");
+    let parent_row = layers
+        .iter()
+        .position(|l| !l.glyph_child && l.authoring_index == abc.authoring_index)
+        .unwrap();
+    let mut at = ((b.0 + b.2) * 0.5, (b.1 + b.3) * 0.5);
+    for i in 0..=8 {
+        let t = f64::from(i) / 8.0;
+        let x = (b.0 + b.2) * 0.5;
+        let y = b.1 + (b.3 - b.1) * t;
+        if point_in_aabb(x, y, b) && hit_test_shapes(&shapes, x, y).is_none() {
+            at = (x, y);
+            break;
+        }
+    }
+    assert_eq!(
+        hit_test_authoring_parent(&layers, &shapes, at.0, at.1),
+        Some(parent_row)
+    );
+}

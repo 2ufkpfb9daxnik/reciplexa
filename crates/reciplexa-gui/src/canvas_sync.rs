@@ -15,9 +15,9 @@ use reciplexa_lower::{
     collect_size_targets_package, collect_size_targets_page, is_document_page_authoring,
     is_live_layout_authoring, is_package_shaped_authoring, is_vertical_demo_authoring,
     layers_cover_shapes, nudge_layer_package, nudge_layer_page, nudge_vertical_demo_layer,
-    LayerInfo, SizeTarget, SyncError,
+    parent_layer_index, shape_indices_for_authoring, LayerInfo, SizeTarget, SyncError,
 };
-use reciplexa_view::WorldShape;
+use reciplexa_view::{hit_test_shapes, PaperLayout, WorldShape};
 
 /// Why a canvas edit cannot be written back to authoring source.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -84,6 +84,65 @@ fn attach_or_world(
     } else {
         layers_from_world_shapes(shapes)
     }
+}
+
+/// Union AABB of flattened shapes in page mm.
+pub fn union_bounds_mm(shapes: &[WorldShape], indices: &[usize]) -> Option<(f64, f64, f64, f64)> {
+    let mut acc: Option<(f64, f64, f64, f64)> = None;
+    for &i in indices {
+        let b = shapes.get(i).and_then(PaperLayout::shape_bounds_mm)?;
+        acc = Some(match acc {
+            None => b,
+            Some((x0, y0, x1, y1)) => (x0.min(b.0), y0.min(b.1), x1.max(b.2), y1.max(b.3)),
+        });
+    }
+    acc
+}
+
+fn pad_aabb(b: (f64, f64, f64, f64), pad: f64) -> (f64, f64, f64, f64) {
+    (b.0 - pad, b.1 - pad, b.2 + pad, b.3 + pad)
+}
+
+pub fn point_in_aabb(x: f64, y: f64, b: (f64, f64, f64, f64)) -> bool {
+    let x0 = b.0.min(b.2);
+    let x1 = b.0.max(b.2);
+    let y0 = b.1.min(b.3);
+    let y1 = b.1.max(b.3);
+    x >= x0 && x <= x1 && y >= y0 && y <= y1
+}
+
+/// Authoring parent under a paper point: glyph ink first, then the text-box union.
+pub fn hit_test_authoring_parent(
+    layers: &[LayerInfo],
+    shapes: &[WorldShape],
+    x_mm: f64,
+    y_mm: f64,
+) -> Option<usize> {
+    if let Some(i) = hit_test_shapes(shapes, x_mm, y_mm) {
+        if let Some(p) = parent_layer_index(layers, i) {
+            return Some(p);
+        }
+    }
+    let mut best: Option<(usize, f64)> = None;
+    for (pi, layer) in layers.iter().enumerate() {
+        if layer.glyph_child {
+            continue;
+        }
+        let idxs = shape_indices_for_authoring(layers, &[layer.authoring_index]);
+        if idxs.is_empty() {
+            continue;
+        }
+        if let Some(b) = union_bounds_mm(shapes, &idxs) {
+            let padded = pad_aabb(b, 1.5);
+            if point_in_aabb(x_mm, y_mm, padded) {
+                let area = (padded.2 - padded.0).abs() * (padded.3 - padded.1).abs();
+                if best.is_none_or(|(_, a)| area <= a) {
+                    best = Some((pi, area));
+                }
+            }
+        }
+    }
+    best.map(|(pi, _)| pi)
 }
 
 /// Prefer CST layers; package authoring uses package collectors; else scene rows.
@@ -639,5 +698,64 @@ mod tests {
         }
         let out = nudge_authoring_layers(src, src, 0, &[sample.authoring_index], 2.0, 0.0).unwrap();
         assert!(out.contains("(nudge (list"), "{out}");
+    }
+
+    #[test]
+    fn preview_union_hit_selects_authoring_parent_between_glyphs() {
+        use reciplexa::pipeline::document_from_source;
+        use reciplexa_view::{flatten_page, hit_test_shapes};
+
+        let src = include_str!("../../../examples/pkg_vert.rpx");
+        let doc = document_from_source(src).expect("pkg_vert ingest");
+        let (_, shapes) = flatten_page(&doc, 0).expect("page");
+        let layers = resolve_preview_layers(src, 0, &shapes);
+        let sample = layers
+            .iter()
+            .find(|l| l.kind == "vert-sample" && l.text_content.as_deref() == Some("ABC"))
+            .expect("ABC parent");
+        let idxs = shape_indices_for_authoring(&layers, &[sample.authoring_index]);
+        let bounds = union_bounds_mm(&shapes, &idxs).expect("ABC union");
+        let parent_row = layers
+            .iter()
+            .position(|l| !l.glyph_child && l.authoring_index == sample.authoring_index)
+            .expect("ABC row");
+        let (x0, y0, x1, y1) = bounds;
+        let mut gap: Option<(f64, f64)> = None;
+        let mut i = 0i32;
+        while i <= 8 && gap.is_none() {
+            let t = f64::from(i) / 8.0;
+            let x = x0 + (x1 - x0) * 0.5;
+            let y = y0 + (y1 - y0) * t;
+            if point_in_aabb(x, y, bounds) && hit_test_shapes(&shapes, x, y).is_none() {
+                gap = Some((x, y));
+            }
+            i += 1;
+        }
+        let (hx, hy) = gap.unwrap_or(((x0 + x1) * 0.5, (y0 + y1) * 0.5));
+        assert_eq!(
+            hit_test_authoring_parent(&layers, &shapes, hx, hy),
+            Some(parent_row),
+            "column union must be grabbable even when the pointer misses glyph ink"
+        );
+
+        let text_src = include_str!("../../../examples/text_line.rpx");
+        let text_doc = document_from_source(text_src).expect("text_line ingest");
+        let (_, text_shapes) = flatten_page(&text_doc, 0).expect("page");
+        let text_layers = resolve_preview_layers(text_src, 0, &text_shapes);
+        let text = text_layers
+            .iter()
+            .find(|l| l.kind == "text" && !l.glyph_child)
+            .expect("text parent");
+        let text_idxs = shape_indices_for_authoring(&text_layers, &[text.authoring_index]);
+        let tb = union_bounds_mm(&text_shapes, &text_idxs).expect("text union");
+        let text_row = text_layers
+            .iter()
+            .position(|l| !l.glyph_child && l.authoring_index == text.authoring_index)
+            .expect("text row");
+        let (tx, ty) = ((tb.0 + tb.2) * 0.5, (tb.1 + tb.3) * 0.5);
+        assert_eq!(
+            hit_test_authoring_parent(&text_layers, &text_shapes, tx, ty),
+            Some(text_row)
+        );
     }
 }

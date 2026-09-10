@@ -1,7 +1,8 @@
 //! Paper preview with drag → CST sync, plus a live `.rpx` source pane.
 
 use reciplexa_gui::canvas_sync::{
-    nudge_authoring_layers, resolve_preview_layers, resolve_preview_size_targets, SyncRefuse,
+    hit_test_authoring_parent, nudge_authoring_layers, point_in_aabb, resolve_preview_layers,
+    resolve_preview_size_targets, union_bounds_mm, SyncRefuse,
 };
 use reciplexa_gui::document_state::DocumentPathState;
 use reciplexa_gui::fonts::install_cjk_fonts;
@@ -1195,9 +1196,11 @@ impl PreviewApp {
         let layers = resolve_preview_layers(&expanded, self.page_index, &shapes);
         // Mapped GlyphRuns are enough for unit-move. Layout may emit leftover
         // runs (e.g. pkg_vert section title + block-heading) that do not cover
-        // every flatten index; hit-test still uses parent_layer_index.
+        // every flatten index; grab uses the authoring-parent union, not 1:1.
         let shape_layer_aligned =
             size_bindings.len() == shapes.len() && layers.iter().any(|l| l.shape_index.is_some());
+        let canvas_move_ok = layers.iter().any(|l| l.shape_index.is_some())
+            && (size_bindings.len() == shapes.len() || is_vertical_demo_authoring(&self.source));
         let framed = shape_indices_for_authoring(&layers, &self.selected);
         if !shape_layer_aligned
             && !is_live_layout_authoring(&self.source)
@@ -1295,35 +1298,48 @@ impl PreviewApp {
         if let Some(pos) = response.hover_pos() {
             let local = pos - rect.min;
             let (hx, hy) = layout.px_to_mm(local.x, local.y);
-            if let Some(hi) = hit_test_shapes(&shapes, hx, hy) {
-                if !framed.contains(&hi) {
-                    if let Some(shape) = shapes.get(hi) {
-                        if let Some(bounds) = PaperLayout::shape_bounds_mm(shape) {
-                            paint_hover_frame(&painter, rect, &layout, bounds);
-                        }
+            if let Some(p) = hit_test_authoring_parent(&layers, &shapes, hx, hy) {
+                let ai = layers[p].authoring_index;
+                if !self.selected.contains(&ai) {
+                    let idxs = shape_indices_for_authoring(&layers, &[ai]);
+                    if let Some(bounds) = union_bounds_mm(&shapes, &idxs) {
+                        paint_hover_frame(&painter, rect, &layout, bounds);
                     }
+                }
+                if !space_held {
+                    ui.ctx().set_cursor_icon(egui::CursorIcon::Grab);
                 }
             }
         }
 
-        for (i, shape) in shapes.iter().enumerate() {
-            if shape_layer_aligned && framed.contains(&i) {
-                if let Some(bounds) = PaperLayout::shape_bounds_mm(shape) {
+        if canvas_move_ok {
+            let mut seen_ai = Vec::new();
+            for &ai in &self.selected {
+                if seen_ai.contains(&ai) {
+                    continue;
+                }
+                seen_ai.push(ai);
+                let idxs = shape_indices_for_authoring(&layers, &[ai]);
+                if let Some(bounds) = union_bounds_mm(&shapes, &idxs) {
                     paint_selection_frame(&painter, rect, &layout, bounds);
                 }
-                if let WorldShape::Path(p) = shape {
-                    let is_line = p.points_mm.len() == 2
-                        && size_bindings
-                            .get(i)
-                            .is_some_and(|t| matches!(t, SizeTarget::LineSeg(_)));
-                    let is_poly = size_bindings.get(i).is_some_and(|t| {
-                        matches!(
-                            t,
-                            SizeTarget::PolylinePoints(_) | SizeTarget::PolygonPoints(_)
-                        )
-                    });
-                    if is_line || is_poly {
-                        paint_line_endpoints(&painter, rect, &layout, &p.points_mm);
+                if idxs.len() == 1 {
+                    if let Some(&i) = idxs.first() {
+                        if let Some(WorldShape::Path(p)) = shapes.get(i) {
+                            let is_line = p.points_mm.len() == 2
+                                && size_bindings
+                                    .get(i)
+                                    .is_some_and(|t| matches!(t, SizeTarget::LineSeg(_)));
+                            let is_poly = size_bindings.get(i).is_some_and(|t| {
+                                matches!(
+                                    t,
+                                    SizeTarget::PolylinePoints(_) | SizeTarget::PolygonPoints(_)
+                                )
+                            });
+                            if is_line || is_poly {
+                                paint_line_endpoints(&painter, rect, &layout, &p.points_mm);
+                            }
+                        }
                     }
                 }
             }
@@ -1357,7 +1373,7 @@ impl PreviewApp {
             let local_pos = egui::pos2(local.x, local.y);
             let (mx, my) = layout.px_to_mm(local.x, local.y);
 
-            if !skip_shape_drag && response.drag_started() && shape_layer_aligned {
+            if !skip_shape_drag && response.drag_started() && canvas_move_ok {
                 let mut started = false;
                 let hit_body = hit_test_shapes(&shapes, mx, my);
                 let shift = ui.input(|i| i.modifiers.shift);
@@ -1498,23 +1514,33 @@ impl PreviewApp {
                     }
                 }
                 if !started {
-                    if let Some(i) = hit_body {
-                        if let Some(p) = parent_layer_index(&layers, i) {
-                            let ai = layers[p].authoring_index;
-                            if shift {
-                                self.toggle_layer_in_selection(p, &layers);
-                            } else if !self.selected.contains(&ai) {
-                                self.select_layer(p, &layers);
-                            }
-                            let flat_indices = self.selected.clone();
-                            self.drag = Some(DragState {
-                                kind: DragKind::Move {
-                                    last_mm: (mx, my),
-                                    flat_indices,
-                                },
-                                undo_pushed: false,
-                            });
+                    if let Some(p) = hit_test_authoring_parent(&layers, &shapes, mx, my) {
+                        let ai = layers[p].authoring_index;
+                        if shift {
+                            self.toggle_layer_in_selection(p, &layers);
+                        } else if !self.selected.contains(&ai) {
+                            self.select_layer(p, &layers);
                         }
+                        let flat_indices = self.selected.clone();
+                        self.drag = Some(DragState {
+                            kind: DragKind::Move {
+                                last_mm: (mx, my),
+                                flat_indices,
+                            },
+                            undo_pushed: false,
+                        });
+                    } else if !self.selected.is_empty()
+                        && union_bounds_mm(&shapes, &framed).is_some_and(|b| {
+                            point_in_aabb(mx, my, (b.0 - 1.5, b.1 - 1.5, b.2 + 1.5, b.3 + 1.5))
+                        })
+                    {
+                        self.drag = Some(DragState {
+                            kind: DragKind::Move {
+                                last_mm: (mx, my),
+                                flat_indices: self.selected.clone(),
+                            },
+                            undo_pushed: false,
+                        });
                     } else if !shift {
                         // Empty drag → marquee range select.
                         self.clear_selection();
@@ -1896,7 +1922,7 @@ impl PreviewApp {
                     );
                     let w = aabb.2 - aabb.0;
                     let h = aabb.3 - aabb.1;
-                    if (w > 0.5 || h > 0.5) && shape_layer_aligned {
+                    if (w > 0.5 || h > 0.5) && canvas_move_ok {
                         let hits = shapes_intersecting_aabb(&shapes, aabb);
                         let mut sel = Vec::new();
                         for hi in hits {
@@ -1926,22 +1952,14 @@ impl PreviewApp {
 
             if !skip_shape_drag && !suppress_click && response.clicked() {
                 let shift = ui.input(|i| i.modifiers.shift);
-                if shape_layer_aligned {
-                    match hit_test_shapes(&shapes, mx, my) {
-                        Some(i) if shift => {
-                            if let Some(p) = parent_layer_index(&layers, i) {
-                                self.toggle_layer_in_selection(p, &layers);
-                            }
-                        }
-                        Some(i) => {
-                            if let Some(p) = parent_layer_index(&layers, i) {
-                                self.select_layer(p, &layers);
-                            }
-                        }
+                if canvas_move_ok {
+                    match hit_test_authoring_parent(&layers, &shapes, mx, my) {
+                        Some(p) if shift => self.toggle_layer_in_selection(p, &layers),
+                        Some(p) => self.select_layer(p, &layers),
                         None if !shift => self.clear_selection(),
                         None => {}
                     }
-                } else if !shift && hit_test_shapes(&shapes, mx, my).is_none() {
+                } else if !shift && hit_test_authoring_parent(&layers, &shapes, mx, my).is_none() {
                     self.clear_selection();
                 }
             }
