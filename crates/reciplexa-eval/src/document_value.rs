@@ -4,7 +4,7 @@
 //! paper via shared std live-layout helpers (`break_line` / `place_lines` / indent /
 //! columns). Interim CST `(page)/(circle)` keyword tables stay untouched.
 
-use reciplexa_scene::{Color, Document, Frame, Page, PaperSize, Rect, Shape, Text};
+use reciplexa_scene::{Color, Document, Frame, Line, Page, PaperSize, Rect, Shape, Text};
 use reciplexa_std::japanese::{
     layout_column_paragraph_shapes, layout_wrapped_paragraph_shapes, ParagraphSceneLayout,
     DOC_TEXT_MAX_EM,
@@ -26,7 +26,11 @@ const NOTE_INDENT_MM: f64 = 8.0;
 const NOTE_SIZE_MM: f64 = 3.5;
 const CAPTION_SIZE_MM: f64 = 3.5;
 const TABLE_CELL_SIZE_MM: f64 = 3.5;
+const TABLE_PAD_X_MM: f64 = 2.0;
+const TABLE_PAD_Y_MM: f64 = 2.0;
+const TABLE_STROKE_MM: f64 = 0.35;
 const FIGURE_HEIGHT_MM: f64 = 22.0;
+const FIGURE_CAPTION_GAP_MM: f64 = 3.0;
 
 /// Lower a `tag: "doc-page"` package value to a scene [`Document`] (live layout).
 ///
@@ -572,16 +576,22 @@ fn push_table(table: &RuntimeValue, layout: &mut DocLayout) -> Result<(), Graphi
         return Ok(());
     }
     let size_mm = TABLE_CELL_SIZE_MM;
-    let pitch = -(size_mm + DOC_LINE_PITCH_EXTRA_MM);
-    let col_w = layout.content_width_mm() / ncols as f64;
-    let wrap_em = (col_w / size_mm.max(0.01)).max(1.0);
+    let line_advance = size_mm + DOC_LINE_PITCH_EXTRA_MM;
+    let pitch = -line_advance;
+    let width = layout.content_width_mm();
+    let col_w = width / ncols as f64;
+    let wrap_em = ((col_w - 2.0 * TABLE_PAD_X_MM) / size_mm.max(0.01)).max(1.0);
+    let x0 = layout.hanmen.left_mm;
+    let table_top = layout.cursor_y;
+    let mut row_y_top = table_top;
+    let mut row_bottoms = Vec::new();
     for row in rows {
-        let row_y = layout.cursor_y;
+        let first_baseline = row_y_top - TABLE_PAD_Y_MM - size_mm;
         let mut max_lines = 1usize;
         for (ci, cell) in row.iter().take(ncols).enumerate() {
             let scene = ParagraphSceneLayout {
-                base_x_mm: layout.hanmen.left_mm + col_w * ci as f64,
-                start_y_mm: row_y,
+                base_x_mm: x0 + col_w * ci as f64 + TABLE_PAD_X_MM,
+                start_y_mm: first_baseline,
                 size_mm,
                 pitch_mm: pitch,
                 fill: Color::BLACK,
@@ -589,9 +599,40 @@ fn push_table(table: &RuntimeValue, layout: &mut DocLayout) -> Result<(), Graphi
             let n = emit_flow_text(cell, 0.0, wrap_em, &scene, layout)?;
             max_lines = max_lines.max(n);
         }
-        layout.cursor_y = row_y + pitch * max_lines as f64;
+        let row_h = TABLE_PAD_Y_MM * 2.0 + line_advance * max_lines as f64;
+        let bottom = row_y_top - row_h;
+        row_bottoms.push(bottom);
+        row_y_top = bottom;
     }
+    let table_bottom = *row_bottoms.last().expect("non-empty rows");
+    layout.shapes.push(Shape::Frame(Frame {
+        x_mm: x0,
+        y_mm: table_bottom,
+        width_mm: width,
+        height_mm: table_top - table_bottom,
+        stroke_width_mm: TABLE_STROKE_MM,
+        stroke: Color::BLACK,
+    }));
+    for ci in 1..ncols {
+        let x = x0 + col_w * ci as f64;
+        push_rule(x, table_bottom, x, table_top, layout);
+    }
+    for bottom in row_bottoms.iter().take(row_bottoms.len().saturating_sub(1)) {
+        push_rule(x0, *bottom, x0 + width, *bottom, layout);
+    }
+    layout.cursor_y = table_bottom - 2.0;
     Ok(())
+}
+
+fn push_rule(x1: f64, y1: f64, x2: f64, y2: f64, layout: &mut DocLayout) {
+    layout.shapes.push(Shape::Line(Line {
+        x1_mm: x1,
+        y1_mm: y1,
+        x2_mm: x2,
+        y2_mm: y2,
+        stroke: Color::BLACK,
+        width_mm: TABLE_STROKE_MM,
+    }));
 }
 
 fn push_figure(figure: &RuntimeValue, layout: &mut DocLayout) -> Result<(), GraphicsValueError> {
@@ -638,7 +679,8 @@ fn push_figure(figure: &RuntimeValue, layout: &mut DocLayout) -> Result<(), Grap
         let wrap_em = layout.wrap_em_at(FLOW_BODY_SIZE_MM, 3.0);
         emit_flow_text(&label, 0.0, wrap_em, &scene, layout)?;
     }
-    layout.cursor_y = y - 2.0;
+    // Caption ink sits above its baseline; leave a full em plus gap under the box.
+    layout.cursor_y = y - CAPTION_SIZE_MM - FIGURE_CAPTION_GAP_MM;
     if let Some(c) = caption {
         let s = atom_text(c)?;
         if !s.is_empty() {
@@ -1575,6 +1617,35 @@ mod tests {
                     .iter()
                     .any(|s| matches!(s, Shape::Frame(_) | Shape::Rect(_))),
                 "figure must emit a box"
+            );
+            assert!(
+                doc.pages[0]
+                    .shapes
+                    .iter()
+                    .any(|s| matches!(s, Shape::Line(_))),
+                "table must emit grid rules"
+            );
+            let rect = doc.pages[0]
+                .shapes
+                .iter()
+                .find_map(|s| match s {
+                    Shape::Rect(r) => Some(*r),
+                    _ => None,
+                })
+                .expect("figure fill");
+            let cap_y = doc.pages[0]
+                .shapes
+                .iter()
+                .filter_map(|s| {
+                    let y = s.text_y_mm()?;
+                    (y < rect.y_mm - 1e-6).then_some(y)
+                })
+                .max_by(|a, b| a.partial_cmp(b).unwrap())
+                .expect("text below figure box");
+            assert!(
+                cap_y + CAPTION_SIZE_MM <= rect.y_mm + 1e-6,
+                "caption y={cap_y} size={CAPTION_SIZE_MM} must sit below figure box bottom {}",
+                rect.y_mm
             );
             let left = 24.0;
             for shape in &doc.pages[0].shapes {

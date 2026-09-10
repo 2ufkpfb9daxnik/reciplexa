@@ -246,6 +246,34 @@ fn step14_slice3_flow_blocks_preview_and_export() {
             )),
             "figure placeholder box"
         );
+        assert!(
+            doc.pages[0]
+                .shapes
+                .iter()
+                .any(|s| matches!(s, reciplexa_scene::Shape::Line(_))),
+            "table grid rules"
+        );
+        let figure_bottom = doc.pages[0]
+            .shapes
+            .iter()
+            .find_map(|s| match s {
+                reciplexa_scene::Shape::Rect(r) => Some(r.y_mm),
+                _ => None,
+            })
+            .expect("figure fill");
+        let caption_y = doc.pages[0]
+            .shapes
+            .iter()
+            .filter_map(|s| {
+                let y = s.text_y_mm()?;
+                (y < figure_bottom - 1e-6).then_some(y)
+            })
+            .max_by(|a, b| a.partial_cmp(b).unwrap())
+            .expect("text below figure box");
+        assert!(
+            caption_y + 3.5 <= figure_bottom + 1e-6,
+            "caption y={caption_y} must sit below figure box bottom {figure_bottom}"
+        );
         let left = 24.0;
         let top = 28.0;
         for shape in &doc.pages[0].shapes {
